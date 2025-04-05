@@ -1,5 +1,5 @@
 
-import { AppData, User, Mission, Request } from "../types/types";
+import { AppData, User, Mission, Request, EmailCampaignRequest, LinkedInScrapingRequest, DatabaseRequest } from "../types/types";
 
 // Mock users
 const users: User[] = [
@@ -26,32 +26,7 @@ const users: User[] = [
   },
 ];
 
-// Mock missions
-const missions: Mission[] = [
-  {
-    id: "mission1",
-    name: "Acme Corp",
-    sdrId: "user2",
-    createdAt: new Date("2025-03-01"),
-    requests: ["request1", "request2"],
-  },
-  {
-    id: "mission2",
-    name: "TechStart",
-    sdrId: "user2",
-    createdAt: new Date("2025-03-15"),
-    requests: ["request3"],
-  },
-  {
-    id: "mission3",
-    name: "Global Finance",
-    sdrId: "user2",
-    createdAt: new Date("2025-03-20"),
-    requests: ["request4", "request5"],
-  },
-];
-
-// Mock requests
+// Mock requests first so we can reference them in missions
 const requests: Request[] = [
   {
     id: "request1",
@@ -80,7 +55,7 @@ const requests: Request[] = [
       clicked: 450,
       bounced: 50,
     },
-  },
+  } as EmailCampaignRequest,
   {
     id: "request2",
     type: "database",
@@ -100,7 +75,7 @@ const requests: Request[] = [
     blacklist: {
       accounts: { notes: "Exclude direct competitors" },
     },
-  },
+  } as DatabaseRequest,
   {
     id: "request3",
     type: "linkedin",
@@ -117,7 +92,7 @@ const requests: Request[] = [
       industries: ["SaaS", "Fintech", "Health Tech"],
       companySize: ["1-10", "11-50"],
     },
-  },
+  } as LinkedInScrapingRequest,
   {
     id: "request4",
     type: "email",
@@ -138,7 +113,7 @@ const requests: Request[] = [
       emails: { notes: "Exclude people who unsubscribed from previous campaigns" },
     },
     isLate: true,
-  },
+  } as EmailCampaignRequest,
   {
     id: "request5",
     type: "database",
@@ -156,7 +131,35 @@ const requests: Request[] = [
       companySize: ["500+"],
       otherCriteria: "Focus on companies with over €50M annual revenue",
     },
+    blacklist: {
+      accounts: { notes: "No specific exclusions" },
+    },
     contactsCreated: 357,
+  } as DatabaseRequest,
+];
+
+// Mock missions
+const missions: Mission[] = [
+  {
+    id: "mission1",
+    name: "Acme Corp",
+    sdrId: "user2",
+    createdAt: new Date("2025-03-01"),
+    requests: [requests[0], requests[1]],
+  },
+  {
+    id: "mission2",
+    name: "TechStart",
+    sdrId: "user2",
+    createdAt: new Date("2025-03-15"),
+    requests: [requests[2]],
+  },
+  {
+    id: "mission3",
+    name: "Global Finance",
+    sdrId: "user2",
+    createdAt: new Date("2025-03-20"),
+    requests: [requests[3], requests[4]],
   },
 ];
 

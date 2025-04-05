@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner"; // Updated import to use the sonner toast directly
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const LoginForm = () => {
@@ -22,23 +22,18 @@ export const LoginForm = () => {
     try {
       const success = await login(email, password);
       if (success) {
-        toast({
-          title: "Connexion réussie",
+        toast.success("Connexion réussie", {
           description: "Bienvenue sur Seventic Growth Flow",
         });
         navigate("/dashboard");
       } else {
-        toast({
-          title: "Erreur de connexion",
+        toast.error("Erreur de connexion", {
           description: "Email ou mot de passe incorrect",
-          variant: "destructive",
         });
       }
     } catch (error) {
-      toast({
-        title: "Erreur",
+      toast.error("Erreur", {
         description: "Une erreur est survenue lors de la connexion",
-        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
