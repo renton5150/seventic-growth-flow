@@ -1,5 +1,5 @@
 
-import { CalendarDays, Database, Mail, User, Home, FileSpreadsheet, Settings, LogOut } from "lucide-react";
+import { CalendarDays, Database, Mail, User, Home, FileSpreadsheet, Settings, LogOut, BarChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -24,6 +24,10 @@ export function AppSidebar() {
     logout();
     navigate("/login");
   };
+
+  const isGrowth = user?.role === "growth";
+  const isAdmin = user?.role === "admin";
+  const isSdr = user?.role === "sdr";
 
   return (
     <Sidebar>
@@ -57,6 +61,16 @@ export function AppSidebar() {
                   </button>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {(isGrowth || isAdmin) && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild onClick={() => navigate("/growth")}>
+                    <button>
+                      <BarChart size={20} />
+                      <span>Dashboard Growth</span>
+                    </button>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -65,30 +79,34 @@ export function AppSidebar() {
           <SidebarGroupLabel>Demandes</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/requests/email/new")}>
-                  <button>
-                    <Mail size={20} />
-                    <span>Campagnes Email</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/requests/database/new")}>
-                  <button>
-                    <Database size={20} />
-                    <span>Création de bases</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/requests/linkedin/new")}>
-                  <button>
-                    <User size={20} />
-                    <span>Scrapping LinkedIn</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {isSdr && (
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild onClick={() => navigate("/requests/email/new")}>
+                      <button>
+                        <Mail size={20} />
+                        <span>Campagnes Email</span>
+                      </button>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild onClick={() => navigate("/requests/database/new")}>
+                      <button>
+                        <Database size={20} />
+                        <span>Création de bases</span>
+                      </button>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild onClick={() => navigate("/requests/linkedin/new")}>
+                      <button>
+                        <User size={20} />
+                        <span>Scrapping LinkedIn</span>
+                      </button>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild onClick={() => navigate("/calendar")}>
                   <button>

@@ -23,6 +23,12 @@ export const addRequest = (request: Partial<Request>): Request => {
   return newRequest;
 };
 
+// Get a request by its ID
+export const getRequestById = (id: string): Request | null => {
+  const request = mockData.requests.find(req => req.id === id);
+  return request || null;
+};
+
 // Créer une demande d'email
 export const createEmailCampaignRequest = (data: any): EmailCampaignRequest => {
   const emailRequest: Partial<EmailCampaignRequest> = {
@@ -109,4 +115,27 @@ export const createLinkedInScrapingRequest = (data: any): LinkedInScrapingReques
 // Obtenir toutes les requêtes
 export const getAllRequests = (): Request[] => {
   return mockData.requests;
+};
+
+// Update request status (for Growth team)
+export const updateRequestStatus = (
+  id: string, 
+  status: 'pending' | 'inprogress' | 'completed', 
+  data?: any
+): Request | null => {
+  const requestIndex = mockData.requests.findIndex(req => req.id === id);
+  
+  if (requestIndex === -1) return null;
+  
+  const request = mockData.requests[requestIndex];
+  
+  // Update the request
+  mockData.requests[requestIndex] = {
+    ...request,
+    status,
+    lastUpdated: new Date(),
+    ...data
+  };
+  
+  return mockData.requests[requestIndex];
 };

@@ -5,7 +5,6 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { RequestsTable } from "@/components/dashboard/RequestsTable";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockData } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mail, Database, User, AlertCircle, CheckCircle, Clock, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -21,7 +20,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
   const navigate = useNavigate();
-  const [requests, setRequests] = useState([...mockData.requests]);
+  const [requests, setRequests] = useState([]);
 
   const isSDR = user?.role === "sdr";
   const isGrowth = user?.role === "growth";
@@ -42,7 +41,7 @@ const Dashboard = () => {
       : allRequests;
     
     setRequests(filteredRequests);
-  }, [user]);
+  }, [user, isSDR]);
 
   // Filter requests based on active tab
   const filteredRequests = requests.filter((request) => {

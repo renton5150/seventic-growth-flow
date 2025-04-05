@@ -14,6 +14,10 @@ import Unauthorized from "./pages/Unauthorized";
 import EmailCampaignRequest from "./pages/EmailCampaignRequest";
 import DatabaseCreationRequest from "./pages/DatabaseCreationRequest";
 import LinkedInScrapingRequest from "./pages/LinkedInScrapingRequest";
+import RequestDetails from "./pages/RequestDetails";
+import Calendar from "./pages/Calendar";
+import Missions from "./pages/Missions";
+import GrowthDashboard from "./pages/GrowthDashboard";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +61,38 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <LinkedInScrapingRequest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/:type/:id" 
+              element={
+                <ProtectedRoute>
+                  <RequestDetails />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/calendar" 
+              element={
+                <ProtectedRoute>
+                  <Calendar />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/missions" 
+              element={
+                <ProtectedRoute>
+                  <Missions />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/growth" 
+              element={
+                <ProtectedRoute>
+                  <GrowthDashboard />
                 </ProtectedRoute>
               } 
             />

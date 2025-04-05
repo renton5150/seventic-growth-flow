@@ -140,6 +140,11 @@ export const RequestsTable = ({ requests, missionView = false }: RequestsTablePr
     navigate(`/requests/${request.type}/${request.id}`);
   };
 
+  const editRequest = (request: Request) => {
+    // Redirect to edit page based on request type
+    navigate(`/requests/${request.type}/${request.id}/edit`);
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -190,7 +195,7 @@ export const RequestsTable = ({ requests, missionView = false }: RequestsTablePr
                   <div className="text-xs text-muted-foreground">{getTypeLabel(request.type)}</div>
                 </TableCell>
                 {!missionView && (
-                  <TableCell>Mission</TableCell>
+                  <TableCell>Mission {request.missionId}</TableCell>
                 )}
                 <TableCell>
                   {formatDate(request.dueDate)}
@@ -213,7 +218,7 @@ export const RequestsTable = ({ requests, missionView = false }: RequestsTablePr
                         <DropdownMenuItem onClick={() => viewRequest(request)}>
                           Voir les détails
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Modifier</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => editRequest(request)}>Modifier</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive">
                           Supprimer
                         </DropdownMenuItem>
