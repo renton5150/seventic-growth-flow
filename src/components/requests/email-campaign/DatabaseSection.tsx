@@ -57,37 +57,22 @@ export const DatabaseSection = ({
 
     try {
       setUploading(true);
+      
+      // Simuler un téléchargement (mode démo) - cela fonctionne même sans connexion Supabase
+      setTimeout(() => {
+        toast.success(`Fichier ${file.name} téléchargé avec succès (mode démo)`);
+        // En mode démo, on simule une URL
+        handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
+        
+        // Déclencher l'événement d'upload réussi
+        const event = new CustomEvent('database-uploaded');
+        window.dispatchEvent(event);
+        setUploading(false);
+      }, 1500);
 
-      if (user) {
-        // Si connecté à Supabase, tenter un vrai téléchargement
-        if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) {
-          const uploaded = await uploadDatabaseFile(file, user.id);
-          if (uploaded) {
-            toast.success(`Fichier ${file.name} téléchargé avec succès`);
-            // Utiliser une chaîne de caractères pour l'URL du fichier
-            handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
-          } else {
-            toast.error("Échec du téléchargement du fichier");
-          }
-        } else {
-          // Mode démo - simuler un téléchargement
-          setTimeout(() => {
-            toast.success(`Fichier ${file.name} téléchargé avec succès (mode démo)`);
-            // En mode démo, on simule une URL
-            handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
-            
-            // Déclencher l'événement d'upload réussi
-            const event = new CustomEvent('database-uploaded');
-            window.dispatchEvent(event);
-          }, 1500);
-        }
-      } else {
-        toast.error("Vous devez être connecté pour télécharger des fichiers");
-      }
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast.error("Erreur lors du téléchargement du fichier");
-    } finally {
       setUploading(false);
     }
   };

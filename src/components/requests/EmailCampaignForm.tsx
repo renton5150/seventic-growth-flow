@@ -83,16 +83,22 @@ export const EmailCampaignForm = () => {
   };
 
   const handleFileUpload = (field: string, files: FileList | null | string) => {
-    if (typeof files === 'string') {
-      // Si files est une chaîne (URL directe), l'affecter directement
-      form.setValue(field as any, files);
-    } else if (files && files.length > 0) {
-      const file = files[0];
-      const fakeUrl = `uploads/${file.name}`;
-      form.setValue(field as any, fakeUrl);
-    } else if (files === null) {
-      // Effacer le champ si null
-      form.setValue(field as any, "");
+    setFileUploading(true);
+    try {
+      if (typeof files === 'string') {
+        // Si files est une chaîne (URL directe), l'affecter directement
+        form.setValue(field as any, files);
+      } else if (files && files.length > 0) {
+        const file = files[0];
+        const fakeUrl = `uploads/${file.name}`;
+        form.setValue(field as any, fakeUrl);
+      } else if (files === null) {
+        // Effacer le champ si null
+        form.setValue(field as any, "");
+      }
+    } finally {
+      // Assurer que fileUploading est remis à false après le traitement
+      setTimeout(() => setFileUploading(false), 100);
     }
   };
 
