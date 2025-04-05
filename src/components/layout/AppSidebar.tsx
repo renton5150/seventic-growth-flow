@@ -1,187 +1,106 @@
 
-import { CalendarDays, Database, Mail, User, Home, FileSpreadsheet, Settings, LogOut, BarChart } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarNav, SidebarNavGroup, SidebarNavLink } from "@/components/ui/sidebar";
+import { CalendarDays, Database, Layers, LineChart, LogOut, Mail, PanelLeft, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarTrigger,
-  SidebarFooter
-} from "@/components/ui/sidebar";
+import { useMobile } from "@/hooks/use-mobile";
 
-export function AppSidebar() {
-  const navigate = useNavigate();
-  const { logout, user } = useAuth();
+export const AppSidebar = () => {
+  const { pathname } = useLocation();
+  const { logout, user, isAdmin, isGrowth, isSDR } = useAuth();
+  const { isMobile } = useMobile();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
-  const isGrowth = user?.role === "growth";
-  const isAdmin = user?.role === "admin";
-  const isSdr = user?.role === "sdr";
-
-  // Couleurs spécifiques au rôle pour le header
-  const getHeaderClass = () => {
-    switch (user?.role) {
-      case "admin":
-        return "bg-blue-700";
-      case "growth":
-        return "bg-green-700";
-      case "sdr":
-        return "bg-seventic-400";
-      default:
-        return "bg-gray-700";
-    }
-  };
-
-  // Couleurs spécifiques au rôle pour les boutons
-  const getButtonHoverClass = () => {
-    switch (user?.role) {
-      case "admin":
-        return "hover:bg-blue-600";
-      case "growth":
-        return "hover:bg-green-600";
-      case "sdr":
-        return "hover:bg-seventic-500";
-      default:
-        return "hover:bg-gray-600";
+  const getLinkClass = (path: string) => {
+    const isActive = pathname === path;
+    
+    // Couleur différente selon le rôle
+    if (isAdmin) {
+      return isActive ? "bg-blue-100 text-blue-700" : "hover:bg-blue-50 hover:text-blue-600";
+    } else if (isGrowth) {
+      return isActive ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600";
+    } else {
+      return isActive ? "bg-seventic-100 text-seventic-700" : "hover:bg-seventic-50 hover:text-seventic-600";
     }
   };
 
   return (
-    <Sidebar>
-      <SidebarHeader className={`py-6 ${getHeaderClass()}`}>
-        <div className="flex items-center px-3">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-full bg-white text-zinc-800 flex items-center justify-center font-bold text-xl">S</div>
-            <h1 className="text-xl font-semibold text-white">
-              {isAdmin ? "Admin" : isGrowth ? "Growth" : "SDR"} Flow
-            </h1>
-          </div>
-        </div>
+    <Sidebar
+      defaultCollapsed={isMobile}
+      collapsed={isMobile}
+      className={`border-r ${
+        isAdmin 
+          ? "border-blue-300" 
+          : isGrowth 
+            ? "border-green-300" 
+            : "border-seventic-300"
+      }`}
+    >
+      <SidebarHeader>
+        <h2 className="text-lg font-semibold flex items-center">
+          <PanelLeft className="mr-2 h-5 w-5" />
+          {isAdmin 
+            ? <span className="text-blue-700">Admin</span> 
+            : isGrowth 
+              ? <span className="text-green-700">Growth</span>
+              : <span className="text-seventic-700">SDR</span>
+          }
+        </h2>
       </SidebarHeader>
-      
-      <SidebarContent className={isAdmin ? "bg-blue-50" : isGrowth ? "bg-green-50" : "bg-seventic-50"}>
-        <SidebarGroup>
-          <SidebarGroupLabel className={isAdmin ? "text-blue-700" : isGrowth ? "text-green-700" : "text-seventic-700"}>
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/dashboard")} className={getButtonHoverClass()}>
-                  <button>
-                    <Home size={20} />
-                    <span>Tableau de bord</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/missions")} className={getButtonHoverClass()}>
-                  <button>
-                    <FileSpreadsheet size={20} />
-                    <span>Missions</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {(isGrowth || isAdmin) && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild onClick={() => navigate("/growth")} className={getButtonHoverClass()}>
-                    <button>
-                      <BarChart size={20} />
-                      <span>Dashboard Growth</span>
-                    </button>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        
-        <SidebarGroup className="mt-4">
-          <SidebarGroupLabel className={isAdmin ? "text-blue-700" : isGrowth ? "text-green-700" : "text-seventic-700"}>
-            Demandes
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {isSdr && (
-                <>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={() => navigate("/requests/email/new")} className={getButtonHoverClass()}>
-                      <button>
-                        <Mail size={20} />
-                        <span>Campagnes Email</span>
-                      </button>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={() => navigate("/requests/database/new")} className={getButtonHoverClass()}>
-                      <button>
-                        <Database size={20} />
-                        <span>Création de bases</span>
-                      </button>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={() => navigate("/requests/linkedin/new")} className={getButtonHoverClass()}>
-                      <button>
-                        <User size={20} />
-                        <span>Scrapping LinkedIn</span>
-                      </button>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </>
-              )}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/calendar")} className={getButtonHoverClass()}>
-                  <button>
-                    <CalendarDays size={20} />
-                    <span>Calendrier</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent>
+        <SidebarNav>
+          <SidebarNavGroup>
+            <SidebarNavLink asChild className={getLinkClass("/dashboard")}>
+              <Link to="/dashboard">
+                <Layers className="h-5 w-5 mr-3" />
+                Dashboard
+              </Link>
+            </SidebarNavLink>
+            <SidebarNavLink asChild className={getLinkClass("/missions")}>
+              <Link to="/missions">
+                <User className="h-5 w-5 mr-3" />
+                Missions
+              </Link>
+            </SidebarNavLink>
+            <SidebarNavLink asChild className={getLinkClass("/requests/email/new")}>
+              <Link to="/requests/email/new">
+                <Mail className="h-5 w-5 mr-3" />
+                Nouvelle demande email
+              </Link>
+            </SidebarNavLink>
+            <SidebarNavLink asChild className={getLinkClass("/calendar")}>
+              <Link to="/calendar">
+                <CalendarDays className="h-5 w-5 mr-3" />
+                Calendrier
+              </Link>
+            </SidebarNavLink>
+            <SidebarNavLink asChild className={getLinkClass("/databases")}>
+              <Link to="/databases">
+                <Database className="h-5 w-5 mr-3" />
+                Bases de données
+              </Link>
+            </SidebarNavLink>
+            {(isAdmin || isGrowth) && (
+              <SidebarNavLink asChild className={getLinkClass("/growth")}>
+                <Link to="/growth">
+                  <LineChart className="h-5 w-5 mr-3" />
+                  {isAdmin ? "Gestion Growth" : "Tableau de bord Growth"}
+                </Link>
+              </SidebarNavLink>
+            )}
+          </SidebarNavGroup>
+        </SidebarNav>
+        <div className="mt-auto p-4">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start"
+            onClick={() => logout()}
+          >
+            <LogOut className="mr-2 h-5 w-5" />
+            Déconnexion
+          </Button>
+        </div>
       </SidebarContent>
-      
-      <SidebarFooter className={isAdmin ? "bg-blue-50" : isGrowth ? "bg-green-50" : "bg-seventic-50"}>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/settings")} className={getButtonHoverClass()}>
-                  <button>
-                    <Settings size={20} />
-                    <span>Paramètres</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={handleLogout} className={getButtonHoverClass()}>
-                  <button>
-                    <LogOut size={20} />
-                    <span>Déconnexion</span>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarFooter>
-      
-      <div className="flex items-center justify-center p-2 mb-2">
-        <SidebarTrigger />
-      </div>
     </Sidebar>
   );
-}
+};

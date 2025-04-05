@@ -7,36 +7,27 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 export const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
 
     try {
       const success = await login(email, password);
       if (success) {
-        toast.success("Connexion réussie", {
-          description: "Bienvenue sur Seventic Growth Flow",
-        });
         navigate("/dashboard");
-      } else {
-        toast.error("Erreur de connexion", {
-          description: "Email ou mot de passe incorrect",
-        });
       }
     } catch (error) {
+      console.error("Erreur lors de la tentative de connexion:", error);
       toast.error("Erreur", {
         description: "Une erreur est survenue lors de la connexion",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -76,17 +67,23 @@ export const LoginForm = () => {
               required
             />
           </div>
-          <Button type="submit" className="w-full bg-seventic-500 hover:bg-seventic-600" disabled={isLoading}>
-            {isLoading ? "Connexion en cours..." : "Se connecter"}
+          <Button type="submit" className="w-full bg-seventic-500 hover:bg-seventic-600" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Connexion en cours...
+              </>
+            ) : (
+              "Se connecter"
+            )}
           </Button>
         </form>
       </CardContent>
       <CardFooter className="flex flex-col space-y-2">
         <div className="text-sm text-center text-muted-foreground">
           <p>
-            Demo credentials: <br />
+            Identifiants de démo: <br />
             Email: sdr@seventic.com <br />
-            Password: any password will work
+            Password: seventic123
           </p>
         </div>
       </CardFooter>

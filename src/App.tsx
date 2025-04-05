@@ -18,6 +18,7 @@ import RequestDetails from "./pages/RequestDetails";
 import Calendar from "./pages/Calendar";
 import Missions from "./pages/Missions";
 import GrowthDashboard from "./pages/GrowthDashboard";
+import Databases from "./pages/Databases";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <GrowthDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/databases" 
+              element={
+                <ProtectedRoute>
+                  <Databases />
                 </ProtectedRoute>
               } 
             />

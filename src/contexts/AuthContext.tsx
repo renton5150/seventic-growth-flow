@@ -1,7 +1,8 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { User, UserRole } from "../types/types";
-import { getCurrentUser } from "../data/users";
+import { supabase } from "../lib/supabase";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
@@ -11,54 +12,153 @@ interface AuthContextType {
   isAdmin: boolean;
   isSDR: boolean;
   isGrowth: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
+  // Vérifier la session actuelle au chargement
   useEffect(() => {
-    // Si l'utilisateur est déjà connecté (dans le localStorage par exemple)
-    const savedUser = localStorage.getItem("currentUser");
-    if (savedUser) {
+    const checkSession = async () => {
       try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error("Erreur lors de la récupération de l'utilisateur:", e);
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Erreur lors de la vérification de session:", error);
+          setLoading(false);
+          return;
+        }
+        
+        if (session) {
+          // Récupérer les informations utilisateur depuis la base de données
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (userError || !userData) {
+            console.error("Impossible de récupérer les données utilisateur:", userError);
+            setLoading(false);
+            return;
+          }
+          
+          // Adapter les données utilisateur au format attendu par l'application
+          const appUser: User = {
+            id: userData.id,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name.replace(' ', '+')}&background=7E69AB&color=fff`
+          };
+          
+          setUser(appUser);
+        }
+      } catch (error) {
+        console.error("Erreur inattendue:", error);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+    
+    checkSession();
+    
+    // Configurer l'écouteur de changement d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          // Récupérer les informations utilisateur depuis la base de données
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (userError || !userData) {
+            console.error("Impossible de récupérer les données utilisateur:", userError);
+            return;
+          }
+          
+          // Adapter les données utilisateur au format attendu par l'application
+          const appUser: User = {
+            id: userData.id,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name.replace(' ', '+')}&background=7E69AB&color=fff`
+          };
+          
+          setUser(appUser);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      }
+    );
+    
+    // Nettoyer l'écouteur lors du démontage
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Check if user has a specific role
+  // Vérifier si l'utilisateur a un rôle spécifique
   const hasRole = (role: UserRole) => user?.role === role;
 
+  // Fonction de connexion avec Supabase
   const login = async (email: string, password: string) => {
     try {
-      // In a real app, we would make an API call here
-      // For now, we'll use mock data
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      if (error) {
+        console.error("Erreur de connexion:", error.message);
+        toast.error("Erreur de connexion", {
+          description: error.message
+        });
+        return false;
+      }
       
-      // Simple validation for demo purposes
-      if (email && password) {
-        // Get mock user
-        const mockedUser = getCurrentUser();
-        setUser(mockedUser);
-        localStorage.setItem("currentUser", JSON.stringify(mockedUser));
+      if (data.session) {
+        // La session est déjà configurée par l'écouteur d'événement onAuthStateChange
+        toast.success("Connexion réussie", {
+          description: "Bienvenue sur Seventic Growth Flow",
+        });
         return true;
       }
+      
       return false;
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Erreur inattendue lors de la connexion:", error);
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("currentUser");
+  // Fonction de déconnexion avec Supabase
+  const logout = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Erreur de déconnexion:", error.message);
+        return;
+      }
+      
+      setUser(null);
+    } catch (error) {
+      console.error("Erreur inattendue lors de la déconnexion:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: hasRole("admin"),
         isSDR: hasRole("sdr"),
         isGrowth: hasRole("growth"),
+        loading
       }}
     >
       {children}

@@ -9,7 +9,16 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
+
+  // Afficher un indicateur de chargement pendant la vérification de l'authentification
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Chargement...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
