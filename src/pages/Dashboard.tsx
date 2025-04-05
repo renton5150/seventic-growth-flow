@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -9,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Mail, Database, User, AlertCircle, CheckCircle, Clock, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getAllRequests } from "@/services/requestService";
+import { mockData } from "@/data/mockData";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,11 +25,9 @@ const Dashboard = () => {
   const isSDR = user?.role === "sdr";
   const isGrowth = user?.role === "growth";
 
-  // Charger les requêtes à chaque fois que le composant est monté
   useEffect(() => {
     const allRequests = getAllRequests();
     
-    // Filter requests based on user role
     const filteredRequests = isSDR
       ? allRequests.filter(
           (request) =>
@@ -43,7 +41,6 @@ const Dashboard = () => {
     setRequests(filteredRequests);
   }, [user, isSDR]);
 
-  // Filter requests based on active tab
   const filteredRequests = requests.filter((request) => {
     if (activeTab === "all") return true;
     if (activeTab === "email") return request.type === "email";
@@ -54,13 +51,11 @@ const Dashboard = () => {
     return false;
   });
 
-  // Count stats for cards
   const totalRequests = requests.length;
   const pendingRequests = requests.filter((r) => r.status === "pending").length;
   const completedRequests = requests.filter((r) => r.status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
 
-  // Navigation vers la page de création de demande
   const handleCreateRequest = (type: string) => {
     switch (type) {
       case "email":

@@ -1,4 +1,3 @@
-
 import { AppData, User, Mission, Request, EmailCampaignRequest, LinkedInScrapingRequest, DatabaseRequest } from "../types/types";
 
 // Mock users
@@ -143,6 +142,7 @@ const missions: Mission[] = [
   {
     id: "mission1",
     name: "Acme Corp",
+    client: "Acme Corporation",
     sdrId: "user2",
     createdAt: new Date("2025-03-01"),
     requests: [requests[0], requests[1]],
@@ -150,6 +150,7 @@ const missions: Mission[] = [
   {
     id: "mission2",
     name: "TechStart",
+    client: "TechStart Inc",
     sdrId: "user2",
     createdAt: new Date("2025-03-15"),
     requests: [requests[2]],
@@ -157,6 +158,7 @@ const missions: Mission[] = [
   {
     id: "mission3",
     name: "Global Finance",
+    client: "Global Finance Ltd",
     sdrId: "user2",
     createdAt: new Date("2025-03-20"),
     requests: [requests[3], requests[4]],
