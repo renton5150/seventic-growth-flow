@@ -20,8 +20,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { createMission } from "@/services/missionService";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { getAllUsers } from "@/services/userService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User } from "@/types/types";
 
 // Schema for mission form
 const missionSchema = z.object({
@@ -32,6 +37,9 @@ const missionSchema = z.object({
     message: "Le nom du client doit avoir au moins 2 caractères.",
   }),
   description: z.string().optional(),
+  sdrId: z.string({
+    required_error: "Veuillez sélectionner un SDR."
+  }),
 });
 
 interface CreateMissionDialogProps {
@@ -47,12 +55,23 @@ export const CreateMissionDialog = ({
   onOpenChange,
   onSuccess,
 }: CreateMissionDialogProps) => {
+  // Récupérer la liste des SDRs
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: getAllUsers,
+    enabled: open,
+  });
+  
+  // Filtrer pour ne garder que les SDRs
+  const sdrUsers = users.filter((user: User) => user.role === 'sdr');
+  
   const form = useForm<z.infer<typeof missionSchema>>({
     resolver: zodResolver(missionSchema),
     defaultValues: {
       name: "",
       client: "",
       description: "",
+      sdrId: userId,
     },
   });
   
@@ -62,7 +81,7 @@ export const CreateMissionDialog = ({
         name: values.name,
         client: values.client, 
         description: values.description,
-        sdrId: userId
+        sdrId: values.sdrId
       });
       
       onSuccess();
@@ -114,12 +133,39 @@ export const CreateMissionDialog = ({
             />
             <FormField
               control={form.control}
+              name="sdrId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>SDR responsable</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez un SDR" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sdrUsers.map((user: User) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="description"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Description (optionnel)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Description de la mission" {...field} />
+                    <Textarea placeholder="Description de la mission" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
