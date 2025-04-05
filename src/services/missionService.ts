@@ -2,17 +2,19 @@
 import { v4 as uuidv4 } from 'uuid';
 import { mockData } from "@/data/mockData";
 import { Mission } from "@/types/types";
+import { getUserById } from "@/data/users";
+import { getRequestsByMissionId } from "@/data/requests";
 
 // Get all missions
 export const getAllMissions = (): Mission[] => {
   // Extract SDR names and add them to missions
   const missionsWithSdrNames = mockData.missions.map(mission => {
-    const sdr = mockData.users.find(user => user.id === mission.sdrId);
+    const sdr = getUserById(mission.sdrId);
     return {
       ...mission,
       sdrName: sdr?.name || "Inconnu",
       // Fetch associated requests
-      requests: mockData.requests.filter(request => request.missionId === mission.id)
+      requests: getRequestsByMissionId(mission.id)
     };
   });
   
@@ -26,9 +28,9 @@ export const getMissionsByUserId = (userId: string): Mission[] => {
   const missionsWithRequests = missions.map(mission => {
     return {
       ...mission,
-      sdrName: mockData.users.find(user => user.id === mission.sdrId)?.name || "Inconnu",
+      sdrName: getUserById(mission.sdrId)?.name || "Inconnu",
       // Fetch associated requests
-      requests: mockData.requests.filter(request => request.missionId === mission.id)
+      requests: getRequestsByMissionId(mission.id)
     };
   });
   
@@ -41,12 +43,12 @@ export const getMissionById = (missionId: string): Mission | undefined => {
   
   if (!mission) return undefined;
   
-  const sdr = mockData.users.find(user => user.id === mission.sdrId);
+  const sdr = getUserById(mission.sdrId);
   
   return {
     ...mission,
     sdrName: sdr?.name || "Inconnu",
-    requests: mockData.requests.filter(request => request.missionId === mission.id)
+    requests: getRequestsByMissionId(mission.id)
   };
 };
 
@@ -71,6 +73,6 @@ export const createMission = (data: {
   
   return {
     ...newMission,
-    sdrName: mockData.users.find(user => user.id === data.sdrId)?.name || "Inconnu"
+    sdrName: getUserById(data.sdrId)?.name || "Inconnu"
   };
 };
