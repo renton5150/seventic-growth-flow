@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Eye, MoreHorizontal } from "lucide-react";
+import { Eye, MoreHorizontal, Users } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
@@ -18,9 +18,10 @@ import { RequestStatusBadge } from "./RequestStatusBadge";
 interface RequestRowProps {
   request: Request;
   missionView?: boolean;
+  showSdr?: boolean;
 }
 
-export const RequestRow = ({ request, missionView = false }: RequestRowProps) => {
+export const RequestRow = ({ request, missionView = false, showSdr = false }: RequestRowProps) => {
   const navigate = useNavigate();
 
   const formatDate = (date: Date) => {
@@ -60,6 +61,14 @@ export const RequestRow = ({ request, missionView = false }: RequestRowProps) =>
       </TableCell>
       {!missionView && (
         <TableCell>Mission {request.missionId}</TableCell>
+      )}
+      {showSdr && (
+        <TableCell>
+          <div className="flex items-center">
+            <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+            {request.sdrName || "Non assigné"}
+          </div>
+        </TableCell>
       )}
       <TableCell>
         {formatDate(request.dueDate)}

@@ -7,9 +7,10 @@ interface DashboardTabsProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   filteredRequests: Request[];
+  isAdmin?: boolean;
 }
 
-export const DashboardTabs = ({ activeTab, setActiveTab, filteredRequests }: DashboardTabsProps) => {
+export const DashboardTabs = ({ activeTab, setActiveTab, filteredRequests, isAdmin = false }: DashboardTabsProps) => {
   return (
     <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
       <div className="flex justify-between items-center">
@@ -24,7 +25,7 @@ export const DashboardTabs = ({ activeTab, setActiveTab, filteredRequests }: Das
       </div>
 
       <TabsContent value={activeTab} className="mt-4">
-        <RequestsTable requests={filteredRequests} />
+        <RequestsTable requests={filteredRequests} showSdr={isAdmin} />
       </TabsContent>
     </Tabs>
   );

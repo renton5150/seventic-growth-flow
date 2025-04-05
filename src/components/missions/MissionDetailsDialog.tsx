@@ -4,7 +4,7 @@ import { fr } from "date-fns/locale";
 import { FileText, Plus, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Mission } from "@/types/types";
-import { RequestsTable } from "@/components/dashboard/RequestsTable";
+import { RequestsTable } from "@/components/dashboard/requests-table";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,7 +41,7 @@ export const MissionDetailsDialog = ({
         <DialogHeader>
           <DialogTitle>Détails de la mission: {mission.name}</DialogTitle>
           <DialogDescription>
-            Client: {mission.client}
+            SDR responsable: {mission.sdrName}
           </DialogDescription>
         </DialogHeader>
         

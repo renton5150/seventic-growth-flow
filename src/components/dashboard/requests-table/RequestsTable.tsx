@@ -8,9 +8,10 @@ import { Table } from "@/components/ui/table";
 interface RequestsTableProps {
   requests: Request[];
   missionView?: boolean;
+  showSdr?: boolean;
 }
 
-export const RequestsTable = ({ requests, missionView = false }: RequestsTableProps) => {
+export const RequestsTable = ({ requests, missionView = false, showSdr = false }: RequestsTableProps) => {
   const [sortColumn, setSortColumn] = useState<string>("dueDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -32,6 +33,10 @@ export const RequestsTable = ({ requests, missionView = false }: RequestsTablePr
         return sortDirection === "asc" 
           ? a.type.localeCompare(b.type)
           : b.type.localeCompare(a.type);
+      case "sdrName":
+        return sortDirection === "asc" 
+          ? (a.sdrName || "").localeCompare(b.sdrName || "")
+          : (b.sdrName || "").localeCompare(a.sdrName || "");
       default:
         return 0;
     }
@@ -51,11 +56,13 @@ export const RequestsTable = ({ requests, missionView = false }: RequestsTablePr
       <Table>
         <RequestsTableHeader 
           missionView={missionView} 
-          handleSort={handleSort} 
+          handleSort={handleSort}
+          showSdr={showSdr}
         />
         <RequestsTableBody 
           sortedRequests={sortedRequests} 
-          missionView={missionView} 
+          missionView={missionView}
+          showSdr={showSdr}
         />
       </Table>
     </div>

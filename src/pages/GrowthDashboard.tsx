@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllRequests, updateRequestStatus } from "@/services/requestService";
+import { getAllRequests, updateRequestStatus, updateRequest } from "@/services/requestService";
 import { Request, RequestStatus } from "@/types/types";
 import {
   Table,
@@ -47,9 +46,11 @@ import {
   CheckCircle,
   FileCheck,
   ArrowRightLeft,
+  Pencil,
 } from "lucide-react";
+import { mockData } from "@/data/mockData";
+import { getUserById } from "@/data/users";
 
-// Schema for completing email campaign
 const emailCompletionSchema = z.object({
   platform: z.enum(["Acelmail", "Bevo", "Postyman", "Direct IQ", "Mindbaz"]),
   sent: z.coerce.number().min(0),
@@ -58,12 +59,10 @@ const emailCompletionSchema = z.object({
   bounced: z.coerce.number().min(0),
 });
 
-// Schema for completing database request
 const databaseCompletionSchema = z.object({
   contactsCreated: z.coerce.number().min(0),
 });
 
-// Schema for completing linkedin request
 const linkedinCompletionSchema = z.object({
   profilesScraped: z.coerce.number().min(0),
   resultFileUrl: z.string().optional(),
@@ -75,6 +74,7 @@ const GrowthDashboard = () => {
   const [activeTab, setActiveTab] = useState<string>("pending");
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const emailForm = useForm<z.infer<typeof emailCompletionSchema>>({
     resolver: zodResolver(emailCompletionSchema),
@@ -102,14 +102,38 @@ const GrowthDashboard = () => {
     },
   });
   
-  // Load requests on component mount
+  const editForm = useForm<{
+    title: string;
+    dueDate: string;
+    status: RequestStatus;
+  }>({
+    defaultValues: {
+      title: "",
+      dueDate: "",
+      status: "pending"
+    },
+  });
+  
   useEffect(() => {
     if (user?.role === "growth" || user?.role === "admin") {
-      setRequests(getAllRequests());
+      const allRequests = getAllRequests();
+      
+      const requestsWithSdrNames = allRequests.map(request => {
+        const mission = mockData.missions.find(m => m.id === request.missionId);
+        if (mission) {
+          const sdr = getUserById(mission.sdrId);
+          return {
+            ...request,
+            sdrName: sdr?.name || "Inconnu"
+          };
+        }
+        return request;
+      });
+      
+      setRequests(requestsWithSdrNames);
     }
   }, [user]);
   
-  // Filter requests based on active tab
   const filteredRequests = requests.filter(request => {
     if (activeTab === "all") return true;
     if (activeTab === "pending") return request.status === "pending";
@@ -125,7 +149,7 @@ const GrowthDashboard = () => {
     try {
       const updatedRequest = updateRequestStatus(request.id, "inprogress");
       if (updatedRequest) {
-        setRequests(getAllRequests());
+        refreshRequests();
         toast.success("La demande a été mise en cours de traitement");
       }
     } catch (error) {
@@ -134,28 +158,59 @@ const GrowthDashboard = () => {
     }
   };
   
-  const handleOpenCompletionDialog = (request: Request) => {
-    setSelectedRequest(request);
-    setIsCompletionDialogOpen(true);
+  const refreshRequests = () => {
+    const allRequests = getAllRequests();
     
-    // Reset and pre-fill forms based on request type
-    if (request.type === "email") {
-      emailForm.reset({
-        platform: "Acelmail",
-        sent: 0,
-        opened: 0,
-        clicked: 0,
-        bounced: 0,
+    const requestsWithSdrNames = allRequests.map(request => {
+      const mission = mockData.missions.find(m => m.id === request.missionId);
+      if (mission) {
+        const sdr = getUserById(mission.sdrId);
+        return {
+          ...request,
+          sdrName: sdr?.name || "Inconnu"
+        };
+      }
+      return request;
+    });
+    
+    setRequests(requestsWithSdrNames);
+  };
+  
+  const handleOpenEditDialog = (request: Request) => {
+    setSelectedRequest(request);
+    setIsEditDialogOpen(true);
+    
+    const dueDate = new Date(request.dueDate);
+    const formattedDate = dueDate.toISOString().split('T')[0];
+    
+    editForm.reset({
+      title: request.title,
+      dueDate: formattedDate,
+      status: request.status
+    });
+  };
+  
+  const handleSaveEdit = (data: { title: string; dueDate: string; status: RequestStatus }) => {
+    if (!selectedRequest) return;
+    
+    try {
+      const newDueDate = new Date(data.dueDate);
+      
+      const updatedRequest = updateRequest(selectedRequest.id, {
+        title: data.title,
+        dueDate: newDueDate,
+        status: data.status
       });
-    } else if (request.type === "database") {
-      databaseForm.reset({
-        contactsCreated: 0,
-      });
-    } else if (request.type === "linkedin") {
-      linkedinForm.reset({
-        profilesScraped: 0,
-        resultFileUrl: "",
-      });
+      
+      if (updatedRequest) {
+        refreshRequests();
+        setIsEditDialogOpen(false);
+        setSelectedRequest(null);
+        toast.success("La demande a été modifiée avec succès");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la modification de la demande:", error);
+      toast.error("Erreur lors de la modification de la demande");
     }
   };
   
@@ -342,6 +397,7 @@ const GrowthDashboard = () => {
                 <TableHead className="w-[50px]">Type</TableHead>
                 <TableHead>Titre</TableHead>
                 <TableHead>Mission</TableHead>
+                <TableHead>SDR</TableHead>
                 <TableHead>Créée le</TableHead>
                 <TableHead>Date prévue</TableHead>
                 <TableHead>Statut</TableHead>
@@ -351,7 +407,7 @@ const GrowthDashboard = () => {
             <TableBody>
               {filteredRequests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                     Aucune demande à afficher
                   </TableCell>
                 </TableRow>
@@ -365,37 +421,53 @@ const GrowthDashboard = () => {
                       <div className="font-medium">{request.title}</div>
                     </TableCell>
                     <TableCell>Mission {request.missionId}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Users className="mr-1 h-4 w-4 text-muted-foreground" />
+                        {request.sdrName || "Non assigné"}
+                      </div>
+                    </TableCell>
                     <TableCell>{formatDate(request.createdAt)}</TableCell>
                     <TableCell>{formatDate(request.dueDate)}</TableCell>
                     <TableCell>{renderStatusBadge(request.status, request.isLate)}</TableCell>
                     <TableCell className="text-right">
-                      {request.status === "pending" && (
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleStartRequest(request)}
-                        >
-                          <ArrowRightLeft className="mr-2 h-4 w-4" /> Commencer
-                        </Button>
-                      )}
-                      {request.status === "inprogress" && (
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenCompletionDialog(request)}
-                        >
-                          <FileCheck className="mr-2 h-4 w-4" /> Terminer
-                        </Button>
-                      )}
-                      {request.status === "completed" && (
-                        <Button 
+                      <div className="flex justify-end space-x-2">
+                        <Button
                           variant="ghost"
                           size="sm"
-                          disabled
+                          onClick={() => handleOpenEditDialog(request)}
                         >
-                          <CheckCircle className="mr-2 h-4 w-4 text-status-completed" /> Terminée
+                          <Pencil size={14} className="mr-1" /> Éditer
                         </Button>
-                      )}
+                        
+                        {request.status === "pending" && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleStartRequest(request)}
+                          >
+                            <ArrowRightLeft className="mr-2 h-4 w-4" /> Commencer
+                          </Button>
+                        )}
+                        {request.status === "inprogress" && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenCompletionDialog(request)}
+                          >
+                            <FileCheck className="mr-2 h-4 w-4" /> Terminer
+                          </Button>
+                        )}
+                        {request.status === "completed" && (
+                          <Button 
+                            variant="ghost"
+                            size="sm"
+                            disabled
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4 text-status-completed" /> Terminée
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -405,7 +477,73 @@ const GrowthDashboard = () => {
         </div>
       </div>
       
-      {/* Completion Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Modifier la demande</DialogTitle>
+            <DialogDescription>
+              Modifiez les détails de cette demande.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleSaveEdit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titre</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date prévue</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Statut</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un statut" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pending">En attente</SelectItem>
+                        <SelectItem value="inprogress">En cours</SelectItem>
+                        <SelectItem value="completed">Terminé</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit">Enregistrer</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
       <Dialog open={isCompletionDialogOpen} onOpenChange={setIsCompletionDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>

@@ -1,4 +1,3 @@
-
 // User roles
 export type UserRole = "admin" | "sdr" | "growth";
 
@@ -25,6 +24,7 @@ export interface BaseRequest {
   dueDate: Date;
   lastUpdated: Date;
   isLate?: boolean;
+  sdrName?: string; // SDR responsable
 }
 
 // Email campaign request

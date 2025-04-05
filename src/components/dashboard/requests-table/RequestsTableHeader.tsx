@@ -4,9 +4,10 @@ import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 interface RequestsTableHeaderProps {
   missionView?: boolean;
   handleSort: (column: string) => void;
+  showSdr?: boolean;
 }
 
-export const RequestsTableHeader = ({ missionView = false, handleSort }: RequestsTableHeaderProps) => {
+export const RequestsTableHeader = ({ missionView = false, handleSort, showSdr = false }: RequestsTableHeaderProps) => {
   return (
     <TableHeader>
       <TableRow>
@@ -23,6 +24,11 @@ export const RequestsTableHeader = ({ missionView = false, handleSort }: Request
         </TableHead>
         {!missionView && (
           <TableHead>Mission</TableHead>
+        )}
+        {showSdr && (
+          <TableHead onClick={() => handleSort("sdrName")}>
+            SDR
+          </TableHead>
         )}
         <TableHead 
           onClick={() => handleSort("dueDate")}

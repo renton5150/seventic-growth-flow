@@ -35,8 +35,7 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTabl
           <TableHeader>
             <TableRow>
               <TableHead>Nom</TableHead>
-              <TableHead>Client</TableHead>
-              {isAdmin && <TableHead>SDR</TableHead>}
+              <TableHead>SDR responsable</TableHead>
               <TableHead>Créée le</TableHead>
               <TableHead>Demandes</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -46,15 +45,12 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTabl
             {missions.map((mission) => (
               <TableRow key={mission.id}>
                 <TableCell className="font-medium">{mission.name}</TableCell>
-                <TableCell>{mission.client}</TableCell>
-                {isAdmin && (
-                  <TableCell>
-                    <div className="flex items-center">
-                      <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                      {mission.sdrName}
-                    </div>
-                  </TableCell>
-                )}
+                <TableCell>
+                  <div className="flex items-center">
+                    <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {mission.sdrName}
+                  </div>
+                </TableCell>
                 <TableCell>{formatDate(mission.createdAt)}</TableCell>
                 <TableCell>{mission.requests.length}</TableCell>
                 <TableCell className="text-right">

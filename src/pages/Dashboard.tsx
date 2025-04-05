@@ -6,7 +6,7 @@ import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
 
 const Dashboard = () => {
-  const { filteredRequests, activeTab, setActiveTab, isSDR, requests } = useDashboardRequests();
+  const { filteredRequests, activeTab, setActiveTab, isSDR, isAdmin, requests } = useDashboardRequests();
 
   return (
     <AppLayout>
@@ -17,6 +17,7 @@ const Dashboard = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           filteredRequests={filteredRequests}
+          isAdmin={isAdmin}
         />
       </div>
     </AppLayout>

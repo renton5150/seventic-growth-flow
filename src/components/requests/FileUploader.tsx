@@ -59,29 +59,14 @@ export const FileUploader = ({
       return;
     }
     
-    // Validation de type (facultative)
-    if (accept && !validateFileType(file, accept)) {
-      toast.error("Type de fichier non supporté");
-      return;
-    }
+    // Nous supprimons la validation de type pour éviter les problèmes avec les fichiers XLS/CSV
+    // qui peuvent avoir des types MIME différents selon les navigateurs
     
     setFileName(file.name);
     onChange(files);
-  };
-
-  const validateFileType = (file: File, acceptedTypes: string): boolean => {
-    const types = acceptedTypes.split(",").map(type => type.trim());
-    const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
     
-    return types.some(type => {
-      if (type.startsWith(".")) {
-        // Compare with extension
-        return type.toLowerCase() === fileExtension;
-      } else {
-        // Compare with mime type
-        return file.type.match(type) !== null;
-      }
-    });
+    // Confirmation
+    toast.success(`Fichier "${file.name}" chargé avec succès`);
   };
 
   const clearFile = () => {

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
 import { mockData } from "@/data/mockData";
+import { getUserById } from "@/data/users";
 
 export const useDashboardRequests = () => {
   const { user } = useAuth();
@@ -12,19 +13,33 @@ export const useDashboardRequests = () => {
 
   const isSDR = user?.role === "sdr";
   const isGrowth = user?.role === "growth";
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     const allRequests = getAllRequests();
     
+    // Add SDR names to requests
+    const requestsWithSdrNames = allRequests.map(request => {
+      const mission = mockData.missions.find(m => m.id === request.missionId);
+      if (mission) {
+        const sdr = getUserById(mission.sdrId);
+        return {
+          ...request,
+          sdrName: sdr?.name || "Inconnu"
+        };
+      }
+      return request;
+    });
+    
     const filteredRequests = isSDR
-      ? allRequests.filter(
+      ? requestsWithSdrNames.filter(
           (request) =>
             mockData.missions
               .filter((mission) => mission.sdrId === user?.id)
               .map((mission) => mission.id)
               .includes(request.missionId)
         )
-      : allRequests;
+      : requestsWithSdrNames;
     
     setRequests(filteredRequests);
   }, [user, isSDR]);
@@ -45,6 +60,7 @@ export const useDashboardRequests = () => {
     activeTab,
     setActiveTab,
     isSDR,
-    isGrowth
+    isGrowth,
+    isAdmin
   };
 };
