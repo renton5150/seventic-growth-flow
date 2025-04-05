@@ -13,6 +13,7 @@ import { DatabaseSection } from "./email-campaign/DatabaseSection";
 import { BlacklistSection } from "./email-campaign/BlacklistSection";
 import { FormFooter } from "./email-campaign/FormFooter";
 import { formSchema, FormData, defaultValues } from "./email-campaign/schema";
+import { createEmailCampaignRequest } from "@/services/requestService";
 
 export const EmailCampaignForm = () => {
   const { user } = useAuth();
@@ -32,7 +33,18 @@ export const EmailCampaignForm = () => {
     try {
       console.log("Données soumises:", data);
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Créer une nouvelle demande d'email dans le mock data
+      const newRequest = createEmailCampaignRequest({
+        title: data.title,
+        missionId: data.missionId,
+        createdBy: user?.id,
+        template: data.template,
+        database: data.database,
+        blacklist: data.blacklist,
+        dueDate: data.dueDate
+      });
+      
+      console.log("Nouvelle demande créée:", newRequest);
       
       toast.success("Demande de campagne email créée avec succès");
       navigate("/dashboard");

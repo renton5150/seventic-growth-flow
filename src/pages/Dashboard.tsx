@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RequestsTable } from "@/components/dashboard/RequestsTable";
@@ -9,6 +9,7 @@ import { mockData } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mail, Database, User, AlertCircle, CheckCircle, Clock, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getAllRequests } from "@/services/requestService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,20 +21,28 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
   const navigate = useNavigate();
+  const [requests, setRequests] = useState([...mockData.requests]);
 
   const isSDR = user?.role === "sdr";
   const isGrowth = user?.role === "growth";
 
-  // Filter requests based on user role
-  const requests = isSDR
-    ? mockData.requests.filter(
-        (request) =>
-          mockData.missions
-            .filter((mission) => mission.sdrId === user?.id)
-            .map((mission) => mission.id)
-            .includes(request.missionId)
-      )
-    : mockData.requests;
+  // Charger les requêtes à chaque fois que le composant est monté
+  useEffect(() => {
+    const allRequests = getAllRequests();
+    
+    // Filter requests based on user role
+    const filteredRequests = isSDR
+      ? allRequests.filter(
+          (request) =>
+            mockData.missions
+              .filter((mission) => mission.sdrId === user?.id)
+              .map((mission) => mission.id)
+              .includes(request.missionId)
+        )
+      : allRequests;
+    
+    setRequests(filteredRequests);
+  }, [user]);
 
   // Filter requests based on active tab
   const filteredRequests = requests.filter((request) => {

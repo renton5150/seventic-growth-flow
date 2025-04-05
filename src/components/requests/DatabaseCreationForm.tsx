@@ -12,6 +12,7 @@ import { TargetingSection } from "./database-creation/TargetingSection";
 import { BlacklistSection } from "./database-creation/BlacklistSection";
 import { FormFooter } from "./database-creation/FormFooter";
 import { formSchema, FormData, defaultValues } from "./database-creation/schema";
+import { createDatabaseRequest } from "@/services/requestService";
 
 export const DatabaseCreationForm = () => {
   const { user } = useAuth();
@@ -31,7 +32,18 @@ export const DatabaseCreationForm = () => {
     try {
       console.log("Données soumises:", data);
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Créer une nouvelle demande de base dans le mock data
+      const newRequest = createDatabaseRequest({
+        title: data.title,
+        missionId: data.missionId,
+        createdBy: user?.id,
+        tool: data.tool,
+        targeting: data.targeting,
+        blacklist: data.blacklist,
+        dueDate: data.dueDate
+      });
+      
+      console.log("Nouvelle demande créée:", newRequest);
       
       toast.success("Demande de création de base créée avec succès");
       navigate("/dashboard");

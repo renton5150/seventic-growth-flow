@@ -11,6 +11,7 @@ import { FormHeader } from "./linkedin-scraping/FormHeader";
 import { TargetingSection } from "./linkedin-scraping/TargetingSection";
 import { FormFooter } from "./linkedin-scraping/FormFooter";
 import { formSchema, FormData, defaultValues } from "./linkedin-scraping/schema";
+import { createLinkedInScrapingRequest } from "@/services/requestService";
 
 export const LinkedInScrapingForm = () => {
   const { user } = useAuth();
@@ -28,7 +29,16 @@ export const LinkedInScrapingForm = () => {
     try {
       console.log("Données soumises:", data);
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Créer une nouvelle demande LinkedIn dans le mock data
+      const newRequest = createLinkedInScrapingRequest({
+        title: data.title,
+        missionId: data.missionId,
+        createdBy: user?.id,
+        targeting: data.targeting,
+        dueDate: data.dueDate
+      });
+      
+      console.log("Nouvelle demande créée:", newRequest);
       
       toast.success("Demande de scrapping LinkedIn créée avec succès");
       navigate("/dashboard");
