@@ -68,40 +68,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkSession();
     
     // Configurer l'écouteur de changement d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          // Récupérer les informations utilisateur depuis la base de données
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+    let subscription;
+    try {
+      const authListener = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            // Récupérer les informations utilisateur depuis la base de données
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+              
+            if (userError || !userData) {
+              console.error("Impossible de récupérer les données utilisateur:", userError);
+              return;
+            }
             
-          if (userError || !userData) {
-            console.error("Impossible de récupérer les données utilisateur:", userError);
-            return;
+            // Adapter les données utilisateur au format attendu par l'application
+            const appUser: User = {
+              id: userData.id,
+              email: userData.email,
+              name: userData.name,
+              role: userData.role,
+              avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name.replace(' ', '+')}&background=7E69AB&color=fff`
+            };
+            
+            setUser(appUser);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
           }
-          
-          // Adapter les données utilisateur au format attendu par l'application
-          const appUser: User = {
-            id: userData.id,
-            email: userData.email,
-            name: userData.name,
-            role: userData.role,
-            avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name.replace(' ', '+')}&background=7E69AB&color=fff`
-          };
-          
-          setUser(appUser);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
         }
-      }
-    );
+      );
+      
+      // Safely store the subscription for cleanup
+      subscription = authListener.data?.subscription;
+    } catch (error) {
+      console.error("Error setting up auth listener:", error);
+    }
     
     // Nettoyer l'écouteur lors du démontage
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, []);
 
