@@ -1,29 +1,19 @@
 
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
-import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 
 interface DatabaseSectionProps {
   control: Control<any>;
-  databaseTab: string;
-  setDatabaseTab: (tab: string) => void;
   handleFileUpload: (field: string, files: FileList | null) => void;
 }
 
 export const DatabaseSection = ({ 
   control, 
-  databaseTab, 
-  setDatabaseTab, 
   handleFileUpload 
 }: DatabaseSectionProps) => {
   return (
@@ -31,14 +21,9 @@ export const DatabaseSection = ({
       <CardContent className="pt-6">
         <h3 className="text-lg font-semibold mb-4">Base de données</h3>
         
-        <Tabs value={databaseTab} onValueChange={setDatabaseTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="file">Fichier</TabsTrigger>
-            <TabsTrigger value="link">Lien web</TabsTrigger>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="file" className="pt-4">
+        <div className="space-y-6">
+          <div>
+            <h4 className="font-medium text-sm mb-2">Fichier</h4>
             <FormField
               control={control}
               name="databaseFileUrl"
@@ -59,9 +44,10 @@ export const DatabaseSection = ({
                 </FormItem>
               )}
             />
-          </TabsContent>
-          
-          <TabsContent value="link" className="pt-4">
+          </div>
+
+          <div>
+            <h4 className="font-medium text-sm mb-2">Lien web</h4>
             <FormField
               control={control}
               name="databaseWebLink"
@@ -80,9 +66,10 @@ export const DatabaseSection = ({
                 </FormItem>
               )}
             />
-          </TabsContent>
-          
-          <TabsContent value="notes" className="pt-4">
+          </div>
+
+          <div>
+            <h4 className="font-medium text-sm mb-2">Notes</h4>
             <FormField
               control={control}
               name="databaseNotes"
@@ -99,8 +86,8 @@ export const DatabaseSection = ({
                 </FormItem>
               )}
             />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

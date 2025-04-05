@@ -18,7 +18,6 @@ export const EmailCampaignForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [databaseTab, setDatabaseTab] = useState("file");
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistEmailsTab, setBlacklistEmailsTab] = useState("file");
 
@@ -60,8 +59,6 @@ export const EmailCampaignForm = () => {
         <TemplateSection control={form.control} handleFileUpload={handleFileUpload} />
         <DatabaseSection 
           control={form.control} 
-          databaseTab={databaseTab}
-          setDatabaseTab={setDatabaseTab}
           handleFileUpload={handleFileUpload}
         />
         <BlacklistSection 
