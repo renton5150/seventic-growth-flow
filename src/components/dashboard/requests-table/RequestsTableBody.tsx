@@ -1,5 +1,5 @@
 
-import { TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { TableBody } from "@/components/ui/table";
 import { Request } from "@/types/types";
 import { RequestRow } from "./RequestRow";
 import { EmptyRequestsRow } from "./EmptyRequestsRow";
@@ -18,14 +18,16 @@ export const RequestsTableBody = ({
   return (
     <TableBody>
       {sortedRequests.length === 0 ? (
-        <EmptyRequestsRow colSpan={missionView ? 5 : (showSdr ? 7 : 6)} />
+        <EmptyRequestsRow 
+          colSpan={missionView ? 5 : (showSdr ? 7 : 6)} 
+          missionView={missionView} 
+        />
       ) : (
         sortedRequests.map((request) => (
           <RequestRow 
             key={request.id} 
             request={request} 
-            missionView={missionView}
-            showSdr={showSdr}
+            missionView={missionView} 
           />
         ))
       )}

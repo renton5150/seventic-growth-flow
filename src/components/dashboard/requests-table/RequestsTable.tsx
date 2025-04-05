@@ -1,17 +1,16 @@
 
 import { useState } from "react";
 import { Request } from "@/types/types";
+import { Table } from "@/components/ui/table";
 import { RequestsTableHeader } from "./RequestsTableHeader";
 import { RequestsTableBody } from "./RequestsTableBody";
-import { Table } from "@/components/ui/table";
 
 interface RequestsTableProps {
   requests: Request[];
   missionView?: boolean;
-  showSdr?: boolean;
 }
 
-export const RequestsTable = ({ requests, missionView = false, showSdr = false }: RequestsTableProps) => {
+export const RequestsTable = ({ requests, missionView = false }: RequestsTableProps) => {
   const [sortColumn, setSortColumn] = useState<string>("dueDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -33,10 +32,6 @@ export const RequestsTable = ({ requests, missionView = false, showSdr = false }
         return sortDirection === "asc" 
           ? a.type.localeCompare(b.type)
           : b.type.localeCompare(a.type);
-      case "sdrName":
-        return sortDirection === "asc" 
-          ? (a.sdrName || "").localeCompare(b.sdrName || "")
-          : (b.sdrName || "").localeCompare(a.sdrName || "");
       default:
         return 0;
     }
@@ -56,13 +51,11 @@ export const RequestsTable = ({ requests, missionView = false, showSdr = false }
       <Table>
         <RequestsTableHeader 
           missionView={missionView} 
-          handleSort={handleSort}
-          showSdr={showSdr}
+          handleSort={handleSort} 
         />
         <RequestsTableBody 
           sortedRequests={sortedRequests} 
           missionView={missionView}
-          showSdr={showSdr}
         />
       </Table>
     </div>

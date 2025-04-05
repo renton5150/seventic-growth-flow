@@ -7,7 +7,11 @@ interface RequestsTableHeaderProps {
   showSdr?: boolean;
 }
 
-export const RequestsTableHeader = ({ missionView = false, handleSort, showSdr = false }: RequestsTableHeaderProps) => {
+export const RequestsTableHeader = ({ 
+  missionView = false, 
+  handleSort, 
+  showSdr = false 
+}: RequestsTableHeaderProps) => {
   return (
     <TableHeader>
       <TableRow>
