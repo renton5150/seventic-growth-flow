@@ -1,0 +1,76 @@
+
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { FileText, Users } from "lucide-react";
+import { Mission } from "@/types/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
+
+interface MissionsTableProps {
+  missions: Mission[];
+  isAdmin: boolean;
+  onViewMission: (mission: Mission) => void;
+}
+
+export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTableProps) => {
+  const formatDate = (date: Date) => {
+    return format(new Date(date), "d MMM yyyy", { locale: fr });
+  };
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Liste des missions</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nom</TableHead>
+              <TableHead>Client</TableHead>
+              {isAdmin && <TableHead>SDR</TableHead>}
+              <TableHead>Créée le</TableHead>
+              <TableHead>Demandes</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {missions.map((mission) => (
+              <TableRow key={mission.id}>
+                <TableCell className="font-medium">{mission.name}</TableCell>
+                <TableCell>{mission.client}</TableCell>
+                {isAdmin && (
+                  <TableCell>
+                    <div className="flex items-center">
+                      <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {mission.sdrName}
+                    </div>
+                  </TableCell>
+                )}
+                <TableCell>{formatDate(mission.createdAt)}</TableCell>
+                <TableCell>{mission.requests.length}</TableCell>
+                <TableCell className="text-right">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onViewMission(mission)}
+                  >
+                    Voir
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+};
