@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
+import EmailCampaignRequest from "./pages/EmailCampaignRequest";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/email/new" 
+              element={
+                <ProtectedRoute>
+                  <EmailCampaignRequest />
                 </ProtectedRoute>
               } 
             />
