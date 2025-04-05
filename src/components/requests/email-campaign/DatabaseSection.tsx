@@ -64,7 +64,7 @@ export const DatabaseSection = ({
           const uploaded = await uploadDatabaseFile(file, user.id);
           if (uploaded) {
             toast.success(`Fichier ${file.name} téléchargé avec succès`);
-            // Passer l'URL comme une chaîne de caractères, ce qui est maintenant compatible
+            // Utiliser une chaîne de caractères pour l'URL du fichier
             handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
           } else {
             toast.error("Échec du téléchargement du fichier");
@@ -73,8 +73,8 @@ export const DatabaseSection = ({
           // Mode démo - simuler un téléchargement
           setTimeout(() => {
             toast.success(`Fichier ${file.name} téléchargé avec succès (mode démo)`);
-            // Passer la FileList directement, ce qui est compatible
-            handleFileUpload("databaseFileUrl", files);
+            // En mode démo, on simule une URL
+            handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
             
             // Déclencher l'événement d'upload réussi
             const event = new CustomEvent('database-uploaded');
