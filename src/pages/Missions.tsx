@@ -1,33 +1,42 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mission } from "@/types/types";
-import { getAllMissions } from "@/services/missionService";
+import { getAllMissions, getMissionsByUserId } from "@/services/missionService";
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
+import { useQuery } from "@tanstack/react-query";
 
 const Missions = () => {
   const { user } = useAuth();
-  const [missions, setMissions] = useState<Mission[]>(getAllMissions());
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   const isAdmin = user?.role === "admin";
   const isSdr = user?.role === "sdr";
-  
-  // Filter missions based on user role
-  const filteredMissions = isAdmin 
-    ? missions
-    : missions.filter(mission => mission.sdrId === user?.id);
+
+  // Utiliser react-query pour gérer les missions
+  const { data: missions = [], isLoading, refetch } = useQuery({
+    queryKey: ['missions', user?.id, isAdmin],
+    queryFn: async () => {
+      if (isAdmin) {
+        return await getAllMissions();
+      } else if (user?.id) {
+        return await getMissionsByUserId(user.id);
+      }
+      return [];
+    },
+    enabled: !!user
+  });
     
   // Handlers
   const handleRefreshMissions = () => {
-    setMissions(getAllMissions());
+    refetch();
   };
   
   const handleViewMission = (mission: Mission) => {
@@ -37,6 +46,16 @@ const Missions = () => {
   const handleCreateMissionClick = () => {
     setIsCreateModalOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <p>Chargement des missions...</p>
+        </div>
+      </AppLayout>
+    );
+  }
   
   return (
     <AppLayout>
@@ -50,14 +69,14 @@ const Missions = () => {
           )}
         </div>
         
-        {filteredMissions.length === 0 ? (
+        {missions.length === 0 ? (
           <EmptyMissionState 
             isSdr={isSdr} 
             onCreateMission={handleCreateMissionClick} 
           />
         ) : (
           <MissionsTable 
-            missions={filteredMissions} 
+            missions={missions} 
             isAdmin={isAdmin} 
             onViewMission={handleViewMission} 
           />

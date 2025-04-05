@@ -1,5 +1,4 @@
 
-import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 
 export interface DatabaseFile {
@@ -20,7 +19,7 @@ export const uploadDatabaseFile = async (
   try {
     // Générer un nom de fichier unique
     const fileExt = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExt}`;
+    const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     const filePath = `databases/${fileName}`;
 
     // Télécharger le fichier vers le stockage Supabase
@@ -83,7 +82,7 @@ export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
   try {
     const { data, error } = await supabase
       .from('databases')
-      .select('*')
+      .select('*, users:uploaded_by(name)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -96,6 +95,7 @@ export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
       name: db.name,
       fileUrl: db.file_url,
       uploadedBy: db.uploaded_by,
+      uploaderName: db.users?.name,
       createdAt: new Date(db.created_at),
       size: db.size,
       rowsCount: db.rows_count
@@ -111,7 +111,7 @@ export const getDatabaseById = async (id: string): Promise<DatabaseFile | null> 
   try {
     const { data, error } = await supabase
       .from('databases')
-      .select('*')
+      .select('*, users:uploaded_by(name)')
       .eq('id', id)
       .single();
 
@@ -125,6 +125,7 @@ export const getDatabaseById = async (id: string): Promise<DatabaseFile | null> 
       name: data.name,
       fileUrl: data.file_url,
       uploadedBy: data.uploaded_by,
+      uploaderName: data.users?.name,
       createdAt: new Date(data.created_at),
       size: data.size,
       rowsCount: data.rows_count
@@ -165,7 +166,7 @@ export const deleteDatabase = async (id: string): Promise<boolean> => {
 
     if (storageError) {
       console.error('Erreur lors de la suppression du fichier:', storageError);
-      throw storageError;
+      // Continuez malgré l'erreur pour supprimer l'entrée de base de données
     }
 
     // Supprimer l'enregistrement de la base de données

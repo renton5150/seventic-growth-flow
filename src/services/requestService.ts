@@ -1,138 +1,299 @@
 
-import { v4 as uuidv4 } from 'uuid';
-import { mockData } from "@/data/mockData";
 import { Request, RequestStatus, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
-import { getUserById } from "@/data/users";
+import { supabase } from "@/lib/supabase";
 
-// Get all requests
-export const getAllRequests = (): Request[] => {
-  return mockData.requests;
+// Obtenir toutes les requêtes
+export const getAllRequests = async (): Promise<Request[]> => {
+  try {
+    const { data: requests, error } = await supabase
+      .from('requests')
+      .select('*')
+      .order('createdAt', { ascending: false });
+
+    if (error) {
+      console.error("Erreur lors de la récupération des requêtes:", error);
+      return [];
+    }
+
+    // Adapter les données au format attendu par l'application
+    return requests.map(request => formatRequestFromDb(request));
+  } catch (error) {
+    console.error("Erreur inattendue lors de la récupération des requêtes:", error);
+    return [];
+  }
 };
 
-// Get request by ID
-export const getRequestById = (requestId: string): Request | undefined => {
-  return mockData.requests.find(request => request.id === requestId);
+// Obtenir une requête par ID
+export const getRequestById = async (requestId: string): Promise<Request | undefined> => {
+  try {
+    const { data: request, error } = await supabase
+      .from('requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+
+    if (error) {
+      console.error("Erreur lors de la récupération de la requête:", error);
+      return undefined;
+    }
+
+    return formatRequestFromDb(request);
+  } catch (error) {
+    console.error("Erreur inattendue lors de la récupération de la requête:", error);
+    return undefined;
+  }
 };
 
-// Get requests by mission ID
-export const getRequestsByMissionId = (missionId: string): Request[] => {
-  return mockData.requests.filter(request => request.missionId === missionId);
+// Obtenir les requêtes par mission
+export const getRequestsByMissionId = async (missionId: string): Promise<Request[]> => {
+  try {
+    const { data: requests, error } = await supabase
+      .from('requests')
+      .select('*')
+      .eq('missionId', missionId)
+      .order('createdAt', { ascending: false });
+
+    if (error) {
+      console.error(`Erreur lors de la récupération des requêtes pour la mission ${missionId}:`, error);
+      return [];
+    }
+
+    return requests.map(request => formatRequestFromDb(request));
+  } catch (error) {
+    console.error("Erreur inattendue lors de la récupération des requêtes par mission:", error);
+    return [];
+  }
 };
 
-// Update request status
-export const updateRequestStatus = (requestId: string, status: RequestStatus, additionalData = {}): Request | undefined => {
-  const requestIndex = mockData.requests.findIndex(request => request.id === requestId);
-  
-  if (requestIndex === -1) return undefined;
-  
-  const originalRequest = mockData.requests[requestIndex];
-  
-  // Create updated request while preserving the specific request type
-  const updatedRequest = {
-    ...originalRequest,
-    status,
-    lastUpdated: new Date(),
-    ...additionalData
-  } as Request; // Cast to Request to ensure type safety
-  
-  mockData.requests[requestIndex] = updatedRequest;
-  
-  return updatedRequest;
+// Mettre à jour le statut d'une requête
+export const updateRequestStatus = async (requestId: string, status: RequestStatus, additionalData = {}): Promise<Request | undefined> => {
+  try {
+    const { data: request, error: getError } = await supabase
+      .from('requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+
+    if (getError) {
+      console.error("Erreur lors de la récupération de la requête pour mise à jour:", getError);
+      return undefined;
+    }
+
+    const updateData = {
+      ...request,
+      ...additionalData,
+      status,
+      lastUpdated: new Date().toISOString()
+    };
+
+    const { data: updatedRequest, error: updateError } = await supabase
+      .from('requests')
+      .update(updateData)
+      .eq('id', requestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("Erreur lors de la mise à jour du statut de la requête:", updateError);
+      return undefined;
+    }
+
+    return formatRequestFromDb(updatedRequest);
+  } catch (error) {
+    console.error("Erreur inattendue lors de la mise à jour du statut de la requête:", error);
+    return undefined;
+  }
 };
 
-// Update request (for editing title, date, etc.)
-export const updateRequest = (requestId: string, updates: Partial<Request>): Request | undefined => {
-  const requestIndex = mockData.requests.findIndex(request => request.id === requestId);
-  
-  if (requestIndex === -1) return undefined;
-  
-  const originalRequest = mockData.requests[requestIndex];
-  
-  // Create updated request while preserving the specific request type
-  const updatedRequest = {
-    ...originalRequest,
-    ...updates,
-    lastUpdated: new Date()
-  } as Request; // Cast to Request to ensure type safety
-  
-  mockData.requests[requestIndex] = updatedRequest;
-  
-  return updatedRequest;
+// Mettre à jour une requête
+export const updateRequest = async (requestId: string, updates: Partial<Request>): Promise<Request | undefined> => {
+  try {
+    // Récupérer la requête actuelle
+    const { data: currentRequest, error: getError } = await supabase
+      .from('requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+
+    if (getError) {
+      console.error("Erreur lors de la récupération de la requête pour mise à jour:", getError);
+      return undefined;
+    }
+
+    // Préparer les données de mise à jour
+    const updateData = {
+      ...updates,
+      lastUpdated: new Date().toISOString()
+    };
+
+    // Mettre à jour la requête
+    const { data: updatedRequest, error: updateError } = await supabase
+      .from('requests')
+      .update(updateData)
+      .eq('id', requestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("Erreur lors de la mise à jour de la requête:", updateError);
+      return undefined;
+    }
+
+    return formatRequestFromDb(updatedRequest);
+  } catch (error) {
+    console.error("Erreur inattendue lors de la mise à jour de la requête:", error);
+    return undefined;
+  }
 };
 
-// Create a new request
-export const createRequest = (request: Omit<Request, 'id' | 'lastUpdated'>): Request => {
-  const newRequest = {
-    ...request,
-    id: uuidv4(),
-    lastUpdated: new Date()
-  } as Request; // Cast to Request to ensure type safety
-  
-  mockData.requests.push(newRequest);
-  
-  return newRequest;
+// Créer une requête de campagne email
+export const createEmailCampaignRequest = async (requestData: any): Promise<EmailCampaignRequest | undefined> => {
+  try {
+    const dbRequest = {
+      type: "email",
+      title: requestData.title,
+      missionId: requestData.missionId,
+      createdBy: requestData.createdBy,
+      createdAt: new Date().toISOString(),
+      status: "pending" as RequestStatus,
+      dueDate: requestData.dueDate.toISOString(),
+      lastUpdated: new Date().toISOString(),
+      template: requestData.template,
+      database: requestData.database,
+      blacklist: requestData.blacklist
+    };
+
+    const { data: newRequest, error } = await supabase
+      .from('requests')
+      .insert(dbRequest)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erreur lors de la création de la requête de campagne email:", error);
+      return undefined;
+    }
+
+    return formatRequestFromDb(newRequest) as EmailCampaignRequest;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la création de la requête de campagne email:", error);
+    return undefined;
+  }
 };
 
-// Create a new email campaign request
-export const createEmailCampaignRequest = (requestData: any): EmailCampaignRequest => {
-  const newRequest: EmailCampaignRequest = {
-    id: uuidv4(),
-    type: "email",
-    title: requestData.title,
-    missionId: requestData.missionId,
-    createdBy: requestData.createdBy,
-    createdAt: new Date(),
-    status: "pending" as RequestStatus,
-    dueDate: requestData.dueDate,
-    lastUpdated: new Date(),
-    template: requestData.template,
-    database: requestData.database,
-    blacklist: requestData.blacklist,
+// Créer une requête de base de données
+export const createDatabaseRequest = async (requestData: any): Promise<DatabaseRequest | undefined> => {
+  try {
+    const dbRequest = {
+      type: "database",
+      title: requestData.title,
+      missionId: requestData.missionId,
+      createdBy: requestData.createdBy,
+      createdAt: new Date().toISOString(),
+      status: "pending" as RequestStatus,
+      dueDate: requestData.dueDate.toISOString(),
+      lastUpdated: new Date().toISOString(),
+      tool: requestData.tool,
+      targeting: requestData.targeting,
+      blacklist: requestData.blacklist
+    };
+
+    const { data: newRequest, error } = await supabase
+      .from('requests')
+      .insert(dbRequest)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erreur lors de la création de la requête de base de données:", error);
+      return undefined;
+    }
+
+    return formatRequestFromDb(newRequest) as DatabaseRequest;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la création de la requête de base de données:", error);
+    return undefined;
+  }
+};
+
+// Créer une requête de scraping LinkedIn
+export const createLinkedInScrapingRequest = async (requestData: any): Promise<LinkedInScrapingRequest | undefined> => {
+  try {
+    const dbRequest = {
+      type: "linkedin",
+      title: requestData.title,
+      missionId: requestData.missionId,
+      createdBy: requestData.createdBy,
+      createdAt: new Date().toISOString(),
+      status: "pending" as RequestStatus,
+      dueDate: requestData.dueDate.toISOString(),
+      lastUpdated: new Date().toISOString(),
+      targeting: requestData.targeting
+    };
+
+    const { data: newRequest, error } = await supabase
+      .from('requests')
+      .insert(dbRequest)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erreur lors de la création de la requête de scraping LinkedIn:", error);
+      return undefined;
+    }
+
+    return formatRequestFromDb(newRequest) as LinkedInScrapingRequest;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la création de la requête de scraping LinkedIn:", error);
+    return undefined;
+  }
+};
+
+// Fonction utilitaire pour formater une requête depuis la base de données
+const formatRequestFromDb = (dbRequest: any): Request => {
+  const baseRequest = {
+    id: dbRequest.id,
+    title: dbRequest.title,
+    type: dbRequest.type,
+    missionId: dbRequest.missionId,
+    createdBy: dbRequest.createdBy,
+    createdAt: new Date(dbRequest.createdAt),
+    status: dbRequest.status as RequestStatus,
+    dueDate: new Date(dbRequest.dueDate),
+    lastUpdated: new Date(dbRequest.lastUpdated),
+    isLate: new Date(dbRequest.dueDate) < new Date() && dbRequest.status !== "completed",
+    sdrName: dbRequest.sdrName
   };
-  
-  mockData.requests.push(newRequest);
-  
-  return newRequest;
-};
 
-// Create a new database request
-export const createDatabaseRequest = (requestData: any): DatabaseRequest => {
-  const newRequest: DatabaseRequest = {
-    id: uuidv4(),
-    type: "database",
-    title: requestData.title,
-    missionId: requestData.missionId,
-    createdBy: requestData.createdBy,
-    createdAt: new Date(),
-    status: "pending" as RequestStatus,
-    dueDate: requestData.dueDate,
-    lastUpdated: new Date(),
-    tool: requestData.tool,
-    targeting: requestData.targeting,
-    blacklist: requestData.blacklist,
-  };
-  
-  mockData.requests.push(newRequest);
-  
-  return newRequest;
-};
-
-// Create a new LinkedIn scraping request
-export const createLinkedInScrapingRequest = (requestData: any): LinkedInScrapingRequest => {
-  const newRequest: LinkedInScrapingRequest = {
-    id: uuidv4(),
-    type: "linkedin",
-    title: requestData.title,
-    missionId: requestData.missionId,
-    createdBy: requestData.createdBy,
-    createdAt: new Date(),
-    status: "pending" as RequestStatus,
-    dueDate: requestData.dueDate,
-    lastUpdated: new Date(),
-    targeting: requestData.targeting,
-  };
-  
-  mockData.requests.push(newRequest);
-  
-  return newRequest;
+  switch (dbRequest.type) {
+    case "email":
+      return {
+        ...baseRequest,
+        type: "email",
+        template: dbRequest.template || {},
+        database: dbRequest.database || {},
+        blacklist: dbRequest.blacklist || {},
+        platform: dbRequest.platform,
+        statistics: dbRequest.statistics
+      } as EmailCampaignRequest;
+    case "database":
+      return {
+        ...baseRequest,
+        type: "database",
+        tool: dbRequest.tool,
+        targeting: dbRequest.targeting || {},
+        blacklist: dbRequest.blacklist || {},
+        contactsCreated: dbRequest.contactsCreated
+      } as DatabaseRequest;
+    case "linkedin":
+      return {
+        ...baseRequest,
+        type: "linkedin",
+        targeting: dbRequest.targeting || {},
+        profilesScraped: dbRequest.profilesScraped,
+        resultFileUrl: dbRequest.resultFileUrl
+      } as LinkedInScrapingRequest;
+    default:
+      return baseRequest as Request;
+  }
 };

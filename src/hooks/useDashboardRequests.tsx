@@ -3,46 +3,58 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
-import { mockData } from "@/data/mockData";
-import { getUserById } from "@/data/users";
+import { useQuery } from "@tanstack/react-query";
+import { getMissionsByUserId } from "@/services/missionService";
 
 export const useDashboardRequests = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
   const [requests, setRequests] = useState<Request[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const isSDR = user?.role === "sdr";
   const isGrowth = user?.role === "growth";
   const isAdmin = user?.role === "admin";
 
+  // Récupérer toutes les requêtes
+  const { data: allRequests = [], isLoading: isLoadingRequests, refetch: refetchRequests } = useQuery({
+    queryKey: ['requests'],
+    queryFn: getAllRequests,
+    enabled: !!user
+  });
+
+  // Récupérer les missions de l'utilisateur s'il est SDR
+  const { data: userMissions = [], isLoading: isLoadingMissions } = useQuery({
+    queryKey: ['missions', user?.id],
+    queryFn: async () => user?.id ? await getMissionsByUserId(user.id) : [],
+    enabled: !!user && isSDR
+  });
+
   useEffect(() => {
-    const allRequests = getAllRequests();
-    
-    // Add SDR names to requests
-    const requestsWithSdrNames = allRequests.map(request => {
-      const mission = mockData.missions.find(m => m.id === request.missionId);
-      if (mission) {
-        const sdr = getUserById(mission.sdrId);
-        return {
-          ...request,
-          sdrName: sdr?.name || "Inconnu"
-        };
-      }
-      return request;
-    });
-    
-    const filteredRequests = isSDR
-      ? requestsWithSdrNames.filter(
-          (request) =>
-            mockData.missions
-              .filter((mission) => mission.sdrId === user?.id)
-              .map((mission) => mission.id)
-              .includes(request.missionId)
-        )
-      : requestsWithSdrNames;
-    
-    setRequests(filteredRequests);
-  }, [user, isSDR]);
+    if (isLoadingRequests || isLoadingMissions) {
+      setLoading(true);
+      return;
+    }
+
+    setLoading(false);
+
+    if (!allRequests.length) {
+      setRequests([]);
+      return;
+    }
+
+    if (isSDR && userMissions.length) {
+      // Filtrer les requêtes pour un SDR selon ses missions
+      const missionIds = userMissions.map(mission => mission.id);
+      const filteredRequests = allRequests.filter(request => 
+        missionIds.includes(request.missionId)
+      );
+      setRequests(filteredRequests);
+    } else {
+      // Admin et Growth voient toutes les requêtes
+      setRequests(allRequests);
+    }
+  }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions]);
 
   const filteredRequests = requests.filter((request) => {
     if (activeTab === "all") return true;
@@ -61,6 +73,8 @@ export const useDashboardRequests = () => {
     setActiveTab,
     isSDR,
     isGrowth,
-    isAdmin
+    isAdmin,
+    loading,
+    refetch: refetchRequests
   };
 };

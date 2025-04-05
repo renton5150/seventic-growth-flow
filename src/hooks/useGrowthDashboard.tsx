@@ -3,40 +3,20 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
-import { mockData } from "@/data/mockData";
-import { getUserById } from "@/data/users";
+import { useQuery } from "@tanstack/react-query";
 
 export function useGrowthDashboard() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState<Request[]>([]);
   const [activeTab, setActiveTab] = useState<string>("pending");
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   
-  const loadRequests = () => {
-    if (user?.role === "growth" || user?.role === "admin") {
-      const allRequests = getAllRequests();
-      
-      const requestsWithSdrNames = allRequests.map(request => {
-        const mission = mockData.missions.find(m => m.id === request.missionId);
-        if (mission) {
-          const sdr = getUserById(mission.sdrId);
-          return {
-            ...request,
-            sdrName: sdr?.name || "Inconnu"
-          };
-        }
-        return request;
-      });
-      
-      setRequests(requestsWithSdrNames);
-    }
-  };
-  
-  useEffect(() => {
-    loadRequests();
-  }, [user]);
+  const { data: requests = [], isLoading, refetch } = useQuery({
+    queryKey: ['growth-requests'],
+    queryFn: getAllRequests,
+    enabled: !!(user?.role === "growth" || user?.role === "admin")
+  });
   
   const filteredRequests = requests.filter(request => {
     if (activeTab === "all") return true;
@@ -60,12 +40,13 @@ export function useGrowthDashboard() {
   };
   
   const handleRequestUpdated = () => {
-    loadRequests();
+    refetch();
   };
   
   return {
     requests,
     filteredRequests,
+    isLoading,
     activeTab,
     setActiveTab,
     selectedRequest,
