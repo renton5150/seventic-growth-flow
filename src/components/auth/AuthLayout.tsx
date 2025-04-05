@@ -8,7 +8,17 @@ interface AuthLayoutProps {
 }
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-seventic-100 to-seventic-200 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md space-y-8 text-center">
+          <p>Chargement...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;

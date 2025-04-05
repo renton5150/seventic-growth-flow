@@ -122,6 +122,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
+
+      // Si nous sommes en mode demo (sans Supabase configuré), simuler une connexion
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.log("Mode démo activé - simulation de connexion");
+        
+        // Simuler une connexion avec les données mockées
+        const demoUsers = [
+          { 
+            email: "admin@seventic.com", 
+            password: "seventic123", 
+            name: "Admin User", 
+            role: "admin", 
+            id: "demo-admin" 
+          },
+          { 
+            email: "sdr@seventic.com", 
+            password: "seventic123", 
+            name: "Sales Representative", 
+            role: "sdr", 
+            id: "demo-sdr" 
+          },
+          { 
+            email: "growth@seventic.com", 
+            password: "seventic123", 
+            name: "Growth Manager", 
+            role: "growth", 
+            id: "demo-growth" 
+          }
+        ];
+        
+        const demoUser = demoUsers.find(u => u.email === email && u.password === password);
+        
+        if (demoUser) {
+          const appUser: User = {
+            id: demoUser.id,
+            email: demoUser.email,
+            name: demoUser.name,
+            role: demoUser.role as UserRole,
+            avatar: `https://ui-avatars.com/api/?name=${demoUser.name.replace(' ', '+')}&background=7E69AB&color=fff`
+          };
+          
+          setUser(appUser);
+          
+          toast.success("Connexion réussie", {
+            description: "Bienvenue sur Seventic Growth Flow (Mode Démo)",
+          });
+          
+          return true;
+        } else {
+          toast.error("Erreur de connexion", {
+            description: "Email ou mot de passe incorrect"
+          });
+          return false;
+        }
+      }
+      
+      // Connexion réelle avec Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -156,6 +213,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       setLoading(true);
+      
+      // Si nous sommes en mode demo, simplement vider l'état utilisateur
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        setUser(null);
+        toast.success("Déconnexion réussie");
+        return;
+      }
+      
+      // Déconnexion réelle avec Supabase
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -164,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(null);
+      toast.success("Déconnexion réussie");
     } catch (error) {
       console.error("Erreur inattendue lors de la déconnexion:", error);
     } finally {

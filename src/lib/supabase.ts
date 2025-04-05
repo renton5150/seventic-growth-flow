@@ -9,7 +9,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 let supabase;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase credentials. Please check your environment variables.');
+  console.error('Missing Supabase credentials. Running in demo mode with mock client.');
   
   // Create a mock client that won't throw runtime errors but won't work with the backend
   supabase = {
@@ -17,7 +17,7 @@ if (!supabaseUrl || !supabaseKey) {
       getSession: () => Promise.resolve({ data: { session: null }, error: null }),
       signInWithPassword: () => Promise.resolve({ data: { session: null }, error: { message: 'Supabase not configured' } }),
       signOut: () => Promise.resolve({ error: null }),
-      onAuthStateChange: () => ({ unsubscribe: () => {} })
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
     },
     from: () => ({
       select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
