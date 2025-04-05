@@ -26,6 +26,14 @@ export const FileUploader = ({
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // Initialize fileName based on value prop
+  useState(() => {
+    if (value) {
+      const nameFromPath = value.split('/').pop();
+      if (nameFromPath) setFileName(nameFromPath);
+    }
+  });
+
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);

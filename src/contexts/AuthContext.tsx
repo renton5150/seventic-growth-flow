@@ -1,7 +1,7 @@
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { User, UserRole } from "../types/types";
-import { getCurrentUser } from "../data/mockData";
+import { getCurrentUser } from "../data/users";
 
 interface AuthContextType {
   user: User | null;
@@ -17,6 +17,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Si l'utilisateur est déjà connecté (dans le localStorage par exemple)
+    const savedUser = localStorage.getItem("currentUser");
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error("Erreur lors de la récupération de l'utilisateur:", e);
+      }
+    }
+  }, []);
 
   // Check if user has a specific role
   const hasRole = (role: UserRole) => user?.role === role;
@@ -34,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Get mock user
         const mockedUser = getCurrentUser();
         setUser(mockedUser);
+        localStorage.setItem("currentUser", JSON.stringify(mockedUser));
         return true;
       }
       return false;
@@ -45,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem("currentUser");
   };
 
   return (

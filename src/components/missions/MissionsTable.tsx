@@ -26,8 +26,8 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTabl
   };
   
   return (
-    <Card>
-      <CardHeader>
+    <Card className={`${isAdmin ? "border-blue-300" : "border-seventic-300"}`}>
+      <CardHeader className={`${isAdmin ? "bg-blue-50" : "bg-seventic-50"}`}>
         <CardTitle>Liste des missions</CardTitle>
       </CardHeader>
       <CardContent>
@@ -35,6 +35,7 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTabl
           <TableHeader>
             <TableRow>
               <TableHead>Nom</TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>SDR responsable</TableHead>
               <TableHead>Créée le</TableHead>
               <TableHead>Demandes</TableHead>
@@ -45,6 +46,7 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTabl
             {missions.map((mission) => (
               <TableRow key={mission.id}>
                 <TableCell className="font-medium">{mission.name}</TableCell>
+                <TableCell>{mission.client}</TableCell>
                 <TableCell>
                   <div className="flex items-center">
                     <Users className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -58,6 +60,7 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTabl
                     variant="outline" 
                     size="sm"
                     onClick={() => onViewMission(mission)}
+                    className={isAdmin ? "border-blue-500 hover:bg-blue-50" : ""}
                   >
                     Voir
                   </Button>

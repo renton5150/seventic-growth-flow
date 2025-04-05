@@ -14,6 +14,7 @@ import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RequestRowProps {
   request: Request;
@@ -23,6 +24,8 @@ interface RequestRowProps {
 
 export const RequestRow = ({ request, missionView = false, showSdr = false }: RequestRowProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const formatDate = (date: Date) => {
     return format(new Date(date), "d MMM yyyy", { locale: fr });
@@ -50,7 +53,7 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
   };
 
   return (
-    <TableRow>
+    <TableRow className={request.isLate ? "bg-red-50" : ""}>
       <TableCell className="text-center">
         <RequestTypeIcon type={request.type} />
       </TableCell>
@@ -64,7 +67,7 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
       {showSdr && (
         <TableCell>
           <div className="flex items-center">
-            <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+            <Users className={`mr-2 h-4 w-4 ${isAdmin ? "text-blue-500" : "text-muted-foreground"}`} />
             {request.sdrName || "Non assigné"}
           </div>
         </TableCell>
@@ -77,16 +80,25 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end">
-          <Button variant="ghost" size="icon" onClick={() => viewRequest(request)}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => viewRequest(request)}
+            className={isAdmin ? "hover:bg-blue-100" : ""}
+          >
             <Eye size={16} />
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className={isAdmin ? "hover:bg-blue-100" : ""}
+              >
                 <MoreHorizontal size={16} />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className={isAdmin ? "border-blue-200" : ""}>
               <DropdownMenuItem onClick={() => viewRequest(request)}>
                 Voir les détails
               </DropdownMenuItem>
