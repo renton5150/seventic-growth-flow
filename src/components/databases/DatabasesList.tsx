@@ -1,8 +1,7 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileDatabase, Trash2 } from "lucide-react";
+import { Database, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -61,7 +60,7 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
           </div>
         ) : databases.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-center">
-            <FileDatabase className="w-10 h-10 mb-2 text-gray-400" />
+            <Database className="w-10 h-10 mb-2 text-gray-400" />
             <p className="text-gray-500">Aucune base de données disponible</p>
             <p className="text-sm text-gray-400">
               Téléchargez une nouvelle base de données pour commencer

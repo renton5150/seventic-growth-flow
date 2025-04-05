@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DatabasesList } from "@/components/databases/DatabasesList";
 import { DatabaseUploader } from "@/components/databases/DatabaseUploader";
@@ -31,8 +31,8 @@ const Databases = () => {
   
   const isLoading = authLoading || databasesLoading || isRefreshing;
   
-  // Ajouter un useEffect pour écouter les événements personnalisés
-  React.useEffect(() => {
+  // Adding useEffect to listen for custom events
+  useEffect(() => {
     const handleUploadSuccess = () => {
       handleDatabaseUploaded();
     };
@@ -46,7 +46,7 @@ const Databases = () => {
     
     return () => {
       window.removeEventListener('database-uploaded', handleUploadSuccess);
-      window.addEventListener('database-deleted', handleDeleteSuccess);
+      window.removeEventListener('database-deleted', handleDeleteSuccess);
     };
   }, []);
   
