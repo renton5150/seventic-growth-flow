@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -72,12 +71,10 @@ export const EmailCampaignForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [templateTab, setTemplateTab] = useState("text");
   const [databaseTab, setDatabaseTab] = useState("file");
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistEmailsTab, setBlacklistEmailsTab] = useState("file");
 
-  // Initialisation du formulaire
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -96,7 +93,6 @@ export const EmailCampaignForm = () => {
     },
   });
 
-  // Filtre les missions de l'utilisateur courant
   const userMissions = mockData.missions.filter(
     mission => mission.sdrId === user?.id
   );
@@ -105,13 +101,10 @@ export const EmailCampaignForm = () => {
     setSubmitting(true);
     
     try {
-      // Simuler un envoi de données au backend
       console.log("Données soumises:", data);
       
-      // Dans une application réelle, vous appelleriez une API ici pour enregistrer les données
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Succès
       toast.success("Demande de campagne email créée avec succès");
       navigate("/dashboard");
     } catch (error) {
@@ -124,9 +117,8 @@ export const EmailCampaignForm = () => {
 
   const handleFileUpload = (field: string, files: FileList | null) => {
     if (files && files.length > 0) {
-      // Dans une application réelle, vous utiliseriez un service de stockage ici
       const file = files[0];
-      const fakeUrl = `uploads/${file.name}`; // URL fictive
+      const fakeUrl = `uploads/${file.name}`;
       form.setValue(field as any, fakeUrl);
     }
   };
@@ -219,19 +211,13 @@ export const EmailCampaignForm = () => {
           )}
         />
 
-        {/* Section Template */}
         <Card className="border-t-4 border-t-seventic-500">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-4">Template de l'emailing</h3>
             
-            <Tabs value={templateTab} onValueChange={setTemplateTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="text">Contenu</TabsTrigger>
-                <TabsTrigger value="file">Fichier</TabsTrigger>
-                <TabsTrigger value="link">Lien web</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="text" className="pt-4">
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-md font-medium mb-2">Contenu</h4>
                 <FormField
                   control={form.control}
                   name="templateContent"
@@ -248,9 +234,10 @@ export const EmailCampaignForm = () => {
                     </FormItem>
                   )}
                 />
-              </TabsContent>
+              </div>
               
-              <TabsContent value="file" className="pt-4">
+              <div>
+                <h4 className="text-md font-medium mb-2">Fichier</h4>
                 <FormField
                   control={form.control}
                   name="templateFileUrl"
@@ -271,9 +258,10 @@ export const EmailCampaignForm = () => {
                     </FormItem>
                   )}
                 />
-              </TabsContent>
+              </div>
               
-              <TabsContent value="link" className="pt-4">
+              <div>
+                <h4 className="text-md font-medium mb-2">Lien web</h4>
                 <FormField
                   control={form.control}
                   name="templateWebLink"
@@ -292,12 +280,11 @@ export const EmailCampaignForm = () => {
                     </FormItem>
                   )}
                 />
-              </TabsContent>
-            </Tabs>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Section Base de données */}
         <Card className="border-t-4 border-t-seventic-500">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-4">Base de données</h3>
@@ -375,13 +362,11 @@ export const EmailCampaignForm = () => {
           </CardContent>
         </Card>
 
-        {/* Section Black Liste */}
         <Card className="border-t-4 border-t-seventic-500">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-4">Black liste</h3>
 
             <div className="space-y-6">
-              {/* Black Liste - Comptes */}
               <div>
                 <h4 className="text-md font-medium mb-2">Comptes</h4>
                 <Tabs value={blacklistAccountsTab} onValueChange={setBlacklistAccountsTab} className="w-full">
@@ -434,7 +419,6 @@ export const EmailCampaignForm = () => {
                 </Tabs>
               </div>
 
-              {/* Black Liste - Emails */}
               <div>
                 <h4 className="text-md font-medium mb-2">Emails</h4>
                 <Tabs value={blacklistEmailsTab} onValueChange={setBlacklistEmailsTab} className="w-full">
