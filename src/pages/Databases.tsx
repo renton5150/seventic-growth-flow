@@ -31,6 +31,25 @@ const Databases = () => {
   
   const isLoading = authLoading || databasesLoading || isRefreshing;
   
+  // Ajouter un useEffect pour écouter les événements personnalisés
+  React.useEffect(() => {
+    const handleUploadSuccess = () => {
+      handleDatabaseUploaded();
+    };
+    
+    const handleDeleteSuccess = () => {
+      handleDatabaseDeleted();
+    };
+    
+    window.addEventListener('database-uploaded', handleUploadSuccess);
+    window.addEventListener('database-deleted', handleDeleteSuccess);
+    
+    return () => {
+      window.removeEventListener('database-uploaded', handleUploadSuccess);
+      window.addEventListener('database-deleted', handleDeleteSuccess);
+    };
+  }, []);
+  
   if (authLoading) {
     return (
       <AppLayout>
@@ -46,7 +65,7 @@ const Databases = () => {
       <h1 className="text-2xl font-bold mb-6">Gestion des bases de données</h1>
       <div className="space-y-6">
         <DatabaseUploader />
-        <DatabasesList />
+        <DatabasesList databases={databases} isLoading={isLoading} />
       </div>
     </AppLayout>
   );

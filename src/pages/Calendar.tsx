@@ -1,198 +1,136 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Mail, Database, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
-import { getMissionsByUserId } from "@/services/missionService";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
-import { format, isSameDay } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Calendar as CalendarIcon, Info } from "lucide-react";
+import { getAllMissions } from "@/services/missionService";
 import { Request } from "@/types/types";
+import { useQuery } from "@tanstack/react-query";
 
-const CalendarPage = () => {
+const Calendar = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [selectedDay, setSelectedDay] = useState<Date | undefined>(new Date());
-  const [requests, setRequests] = useState<Request[]>([]);
-  const [missions, setMissions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [requestsByDate, setRequestsByDate] = useState<Record<string, number>>({});
-  
-  // Load data on component mount
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [eventsForDate, setEventsForDate] = useState<any[]>([]);
+  const [datesWithEvents, setDatesWithEvents] = useState<Date[]>([]);
+
+  // Fetch requests and missions data
+  const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
+    queryKey: ['calendar-requests'],
+    queryFn: getAllRequests,
+    enabled: !!user
+  });
+
+  const { data: missions = [], isLoading: isLoadingMissions } = useQuery({
+    queryKey: ['calendar-missions'],
+    queryFn: getAllMissions,
+    enabled: !!user
+  });
+
+  // Calculate dates with events when data is loaded
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        // Load requests
-        const allRequests = await getAllRequests();
-        setRequests(allRequests);
-        
-        // Load missions if user is SDR
-        if (user?.role === "sdr" && user?.id) {
-          const userMissions = await getMissionsByUserId(user.id);
-          setMissions(userMissions);
-        }
-        
-        // Calculate requests by date
-        const dateMap = allRequests.reduce((acc, request) => {
-          const dateStr = format(new Date(request.dueDate), "yyyy-MM-dd");
-          
-          // Check if this user should see this request
-          const isUserRequest = user?.role === "sdr" 
-            ? missions.some(m => m.id === request.missionId)
-            : true; // Admin and Growth see all
-            
-          if (isUserRequest) {
-            acc[dateStr] = (acc[dateStr] || 0) + 1;
-          }
-          
-          return acc;
-        }, {} as Record<string, number>);
-        
-        setRequestsByDate(dateMap);
-      } catch (error) {
-        console.error("Error loading data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadData();
-  }, [user]);
-  
-  // Filter requests based on user role and selected day
-  const filteredRequests = selectedDay 
-    ? requests.filter(request => {
-        // First filter by user role
-        const isSdrRequest = user?.role === "sdr" && missions
-          .some(mission => mission.id === request.missionId);
-          
-        const isGrowthRequest = user?.role === "growth";
-        const isAdminRequest = user?.role === "admin";
-        
-        // Then filter by selected date
-        const isSameDate = isSameDay(new Date(request.dueDate), selectedDay);
-          
-        return isSameDate && (isSdrRequest || isGrowthRequest || isAdminRequest);
-      })
-    : [];
-  
-  const handleDaySelect = (day: Date | undefined) => {
-    setSelectedDay(day);
+    if (requests.length > 0) {
+      // Get all due dates from requests
+      const eventDates = requests.map(req => new Date(req.dueDate));
+      setDatesWithEvents(eventDates);
+    }
+  }, [requests]);
+
+  // Calculate events for selected date
+  useEffect(() => {
+    if (selectedDate && requests.length > 0) {
+      const selectedDateStr = selectedDate.toDateString();
+      
+      // Filter requests for selected date
+      const requestsForDate = requests.filter(req => {
+        return new Date(req.dueDate).toDateString() === selectedDateStr;
+      });
+      
+      setEventsForDate(requestsForDate);
+    }
+  }, [selectedDate, requests]);
+
+  const renderEventIcon = (type: string) => {
+    switch (type) {
+      case "email":
+        return <Mail size={16} className="mr-2" />;
+      case "database":
+        return <Database size={16} className="mr-2" />;
+      case "linkedin":
+        return <User size={16} className="mr-2" />;
+      default:
+        return null;
+    }
   };
-  
+
   return (
     <AppLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Calendrier des demandes</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-1">
-            <CardHeader>
-              <CardTitle>Calendrier</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Calendar
-                mode="single"
-                selected={selectedDay}
-                onSelect={handleDaySelect}
-                locale={fr}
-                className="pointer-events-auto"
-                modifiers={{
-                  highlighted: (date) => {
-                    const dateStr = format(date, "yyyy-MM-dd");
-                    return !!requestsByDate[dateStr];
-                  }
-                }}
-                modifiersClassNames={{
-                  highlighted: "bg-seventic-100 text-seventic-800 font-bold"
-                }}
-              />
-            </CardContent>
-          </Card>
-          
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                {selectedDay ? (
-                  <>
-                    <CalendarIcon className="mr-2 h-5 w-5" />
-                    Demandes du {format(selectedDay, "d MMMM yyyy", { locale: fr })}
-                  </>
+        <h1 className="text-2xl font-bold">Calendrier</h1>
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="lg:w-1/2">
+            <Card>
+              <CardContent className="pt-6">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  className="rounded-md border"
+                  modifiers={{
+                    // Highlight days with events
+                    hasEvents: (date) => 
+                      datesWithEvents.some(
+                        (eventDate) => eventDate.toDateString() === date.toDateString()
+                      ),
+                  }}
+                  modifiersClassNames={{
+                    hasEvents: "bg-seventic-50 font-bold",
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+          <div className="lg:w-1/2">
+            <Card>
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold mb-4">
+                  {selectedDate
+                    ? `Événements du ${selectedDate.toLocaleDateString("fr-FR")}`
+                    : "Sélectionnez une date"}
+                </h2>
+                {eventsForDate.length === 0 ? (
+                  <p className="text-muted-foreground">Aucun événement à cette date</p>
                 ) : (
-                  <>
-                    <Info className="mr-2 h-5 w-5" />
-                    Sélectionnez une date pour voir les demandes
-                  </>
+                  <ul className="space-y-3">
+                    {eventsForDate.map((event) => (
+                      <li
+                        key={event.id}
+                        className="flex items-center p-3 border rounded-md hover:bg-accent"
+                      >
+                        {renderEventIcon(event.type)}
+                        <div>
+                          <p className="font-medium">{event.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline">{event.status}</Badge>
+                            <p className="text-sm text-muted-foreground">
+                              Mission: {event.missionId}
+                            </p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center items-center p-8">
-                  <p>Chargement des données...</p>
-                </div>
-              ) : filteredRequests.length > 0 ? (
-                <div className="space-y-4">
-                  {filteredRequests.map((request) => (
-                    <div 
-                      key={request.id} 
-                      className="flex justify-between items-center p-3 border rounded-md hover:bg-muted cursor-pointer"
-                      onClick={() => navigate(`/requests/${request.type}/${request.id}`)}
-                    >
-                      <div>
-                        <h3 className="font-medium">{request.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {request.type === "email" ? "Campagne Email" : 
-                           request.type === "database" ? "Base de données" : 
-                           "Scraping LinkedIn"}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={request.status === "completed" ? "outline" : "default"}>
-                          {request.status === "pending" ? "En attente" : 
-                           request.status === "inprogress" ? "En cours" : 
-                           "Terminé"}
-                        </Badge>
-                        <Button variant="ghost" size="sm" onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/requests/${request.type}/${request.id}`);
-                        }}>
-                          Voir
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : selectedDay ? (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>Aucune demande</AlertTitle>
-                  <AlertDescription>
-                    Il n'y a pas de demandes prévues pour cette date.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>Sélectionnez une date</AlertTitle>
-                  <AlertDescription>
-                    Choisissez une date dans le calendrier pour voir les demandes correspondantes.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </AppLayout>
   );
 };
 
-export default CalendarPage;
+export default Calendar;

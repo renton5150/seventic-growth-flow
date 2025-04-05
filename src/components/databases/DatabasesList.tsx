@@ -1,89 +1,23 @@
 
-import { useState, useEffect } from "react";
-import { getAllDatabases, deleteDatabase, DatabaseFile } from "@/services/databaseService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Download, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { FileDatabase, Trash2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useAuth } from "@/contexts/AuthContext";
+import { deleteDatabaseFile } from "@/services/databaseService";
+import { toast } from "sonner";
+import { DatabaseFile } from "@/types/database.types";
 
-export const DatabasesList = () => {
-  const [databases, setDatabases] = useState<DatabaseFile[]>([]);
-  const [loading, setLoading] = useState(true);
+interface DatabasesListProps {
+  databases: DatabaseFile[];
+  isLoading: boolean;
+}
+
+export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
   const { user, isAdmin } = useAuth();
   
-  const loadDatabases = async () => {
-    try {
-      setLoading(true);
-      const data = await getAllDatabases();
-      setDatabases(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des bases de données:", error);
-      toast.error("Erreur", {
-        description: "Impossible de charger les bases de données",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    loadDatabases();
-    
-    // Écouter l'événement de téléchargement de base de données
-    const handleDatabaseUploaded = () => {
-      loadDatabases();
-    };
-    
-    window.addEventListener("database-uploaded", handleDatabaseUploaded);
-    
-    return () => {
-      window.removeEventListener("database-uploaded", handleDatabaseUploaded);
-    };
-  }, []);
-  
-  const handleDeleteDatabase = async (id: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette base de données?")) {
-      try {
-        const success = await deleteDatabase(id);
-        if (success) {
-          toast.success("Base de données supprimée");
-          loadDatabases();
-        } else {
-          toast.error("Erreur", {
-            description: "Impossible de supprimer la base de données",
-          });
-        }
-      } catch (error) {
-        console.error("Erreur lors de la suppression de la base de données:", error);
-        toast.error("Erreur", {
-          description: "Impossible de supprimer la base de données",
-        });
-      }
-    }
-  };
-  
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-  
-  const formatDate = (date: Date) => {
-    return format(date, "d MMM yyyy à HH:mm", { locale: fr });
-  };
-  
-  // Obtenez la couleur en fonction du rôle de l'utilisateur
   const getRoleColor = () => {
     if (isAdmin) return "border-blue-300";
     if (user?.role === "growth") return "border-green-300";
@@ -96,55 +30,67 @@ export const DatabasesList = () => {
     return "bg-seventic-50";
   };
   
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), "d MMMM yyyy, HH:mm", { locale: fr });
+  };
+  
+  const handleDeleteFile = async (id: string) => {
+    try {
+      const result = await deleteDatabaseFile(id);
+      if (result) {
+        toast.success("Base de données supprimée avec succès");
+        window.dispatchEvent(new CustomEvent("database-deleted"));
+      } else {
+        toast.error("Erreur lors de la suppression");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression de la base de données:", error);
+      toast.error("Erreur lors de la suppression");
+    }
+  };
+  
   return (
     <Card className={getRoleColor()}>
       <CardHeader className={getRoleBgColor()}>
-        <CardTitle>Bases de données</CardTitle>
+        <CardTitle>Bases de données disponibles</CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div className="flex justify-center py-10">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32">
             <p>Chargement des bases de données...</p>
           </div>
         ) : databases.length === 0 ? (
-          <div className="text-center py-10">
-            <p className="text-muted-foreground">Aucune base de données disponible</p>
+          <div className="flex flex-col items-center justify-center h-32 text-center">
+            <FileDatabase className="w-10 h-10 mb-2 text-gray-400" />
+            <p className="text-gray-500">Aucune base de données disponible</p>
+            <p className="text-sm text-gray-400">
+              Téléchargez une nouvelle base de données pour commencer
+            </p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Taille</TableHead>
+                <TableHead>Nom du fichier</TableHead>
                 <TableHead>Date d'ajout</TableHead>
+                <TableHead>Ajouté par</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {databases.map((db) => (
-                <TableRow key={db.id}>
-                  <TableCell className="font-medium">{db.name}</TableCell>
-                  <TableCell>{formatSize(db.size)}</TableCell>
-                  <TableCell>{formatDate(db.createdAt)}</TableCell>
+              {databases.map((file) => (
+                <TableRow key={file.id}>
+                  <TableCell className="font-medium">{file.name}</TableCell>
+                  <TableCell>{formatDate(file.createdAt)}</TableCell>
+                  <TableCell>{file.uploaderName || "Utilisateur"}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => window.open(db.fileUrl, "_blank")}
-                      >
-                        <Download className="h-4 w-4 mr-1" /> Télécharger
-                      </Button>
-                      {(isAdmin || user?.id === db.uploadedBy) && (
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDeleteDatabase(db.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteFile(file.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

@@ -1,80 +1,110 @@
 
-import { supabase } from '../lib/supabase';
-
-export interface DatabaseFile {
-  id: string;
-  name: string;
-  fileUrl: string;
-  uploadedBy: string;
-  uploaderName?: string; // Add this property to the interface
-  createdAt: Date;
-  size: number;
-  rowsCount?: number | null;
-}
+import { supabase } from "@/lib/supabase";
+import { DatabaseFile } from "@/types/database.types";
 
 // Télécharger un fichier de base de données
-export const uploadDatabaseFile = async (
-  file: File,
-  userId: string
-): Promise<DatabaseFile | null> => {
+export const uploadDatabaseFile = async (file: File, userId: string): Promise<boolean> => {
   try {
-    // Générer un nom de fichier unique
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-    const filePath = `databases/${fileName}`;
-
-    // Télécharger le fichier vers le stockage Supabase
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('databases')
-      .upload(filePath, file);
-
-    if (uploadError) {
-      console.error('Erreur lors du téléchargement du fichier:', uploadError);
-      throw uploadError;
+    // Générer un nom unique pour le fichier
+    const fileName = `${Date.now()}_${file.name}`;
+    
+    // Télécharger le fichier dans le bucket "databases"
+    const { data: fileData, error: fileError } = await supabase.storage
+      .from("databases")
+      .upload(fileName, file);
+      
+    if (fileError) {
+      console.error("Erreur lors du téléchargement du fichier:", fileError);
+      return false;
     }
-
+    
     // Obtenir l'URL publique du fichier
-    const { data: urlData } = await supabase.storage
-      .from('databases')
-      .getPublicUrl(filePath);
-
-    if (!urlData || !urlData.publicUrl) {
-      throw new Error("Impossible d'obtenir l'URL du fichier");
+    const { data: publicUrlData } = await supabase.storage
+      .from("databases")
+      .getPublicUrl(fileName);
+    
+    if (!publicUrlData.publicUrl) {
+      console.error("Impossible d'obtenir l'URL publique du fichier");
+      return false;
     }
-
-    // Créer un enregistrement dans la table des bases de données
-    const databaseRecord = {
-      name: file.name,
-      file_url: urlData.publicUrl,
-      uploaded_by: userId,
-      size: file.size,
-      rows_count: null // On pourrait calculer ça plus tard
-    };
-
-    const { data: dbData, error: dbError } = await supabase
-      .from('databases')
-      .insert(databaseRecord)
-      .select()
+    
+    // Obtenir les informations de l'utilisateur pour stocker le nom de l'uploader
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("name")
+      .eq("id", userId)
       .single();
-
-    if (dbError) {
-      console.error('Erreur lors de la création de l\'enregistrement de base de données:', dbError);
-      throw dbError;
+      
+    if (userError) {
+      console.error("Erreur lors de la récupération des informations de l'utilisateur:", userError);
     }
-
-    // Retourner les données formatées pour l'application
-    return {
-      id: dbData.id,
-      name: dbData.name,
-      fileUrl: dbData.file_url,
-      uploadedBy: dbData.uploaded_by,
-      createdAt: new Date(dbData.created_at),
-      size: dbData.size,
-      rowsCount: dbData.rows_count
-    };
+    
+    // Enregistrer les métadonnées du fichier dans la table "database_files"
+    const { error: metadataError } = await supabase
+      .from("database_files")
+      .insert({
+        name: file.name,
+        fileName: fileName,
+        fileUrl: publicUrlData.publicUrl,
+        fileType: file.type,
+        fileSize: file.size,
+        uploadedBy: userId,
+        uploaderName: userData?.name || "Utilisateur",
+        createdAt: new Date().toISOString()
+      });
+      
+    if (metadataError) {
+      console.error("Erreur lors de l'enregistrement des métadonnées du fichier:", metadataError);
+      return false;
+    }
+    
+    return true;
   } catch (error) {
-    console.error('Erreur lors du téléchargement de la base de données:', error);
-    return null;
+    console.error("Erreur inattendue lors du téléchargement de la base de données:", error);
+    return false;
+  }
+};
+
+// Supprimer un fichier de base de données
+export const deleteDatabaseFile = async (fileId: string): Promise<boolean> => {
+  try {
+    // Récupérer les métadonnées du fichier
+    const { data: fileData, error: fetchError } = await supabase
+      .from("database_files")
+      .select()
+      .eq("id", fileId)
+      .single();
+      
+    if (fetchError) {
+      console.error("Erreur lors de la récupération des métadonnées du fichier:", fetchError);
+      return false;
+    }
+    
+    // Supprimer le fichier du stockage
+    const { error: storageError } = await supabase.storage
+      .from("databases")
+      .remove([fileData.fileName]);
+      
+    if (storageError) {
+      console.error("Erreur lors de la suppression du fichier du stockage:", storageError);
+      // Continuer pour supprimer les métadonnées même si la suppression du fichier a échoué
+    }
+    
+    // Supprimer les métadonnées du fichier
+    const { error: deleteError } = await supabase
+      .from("database_files")
+      .delete()
+      .eq("id", fileId);
+      
+    if (deleteError) {
+      console.error("Erreur lors de la suppression des métadonnées du fichier:", deleteError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la suppression de la base de données:", error);
+    return false;
   }
 };
 
@@ -82,108 +112,39 @@ export const uploadDatabaseFile = async (
 export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
   try {
     const { data, error } = await supabase
-      .from('databases')
-      .select('*, users:uploaded_by(name)')
-      .order('created_at', { ascending: false });
-
+      .from("database_files")
+      .select()
+      .order("createdAt", { ascending: false });
+      
     if (error) {
-      console.error('Erreur lors de la récupération des bases de données:', error);
-      throw error;
+      console.error("Erreur lors de la récupération des bases de données:", error);
+      return [];
     }
-
-    return data.map(db => ({
-      id: db.id,
-      name: db.name,
-      fileUrl: db.file_url,
-      uploadedBy: db.uploaded_by,
-      uploaderName: db.users?.name,
-      createdAt: new Date(db.created_at),
-      size: db.size,
-      rowsCount: db.rows_count
-    }));
+    
+    return data as DatabaseFile[];
   } catch (error) {
-    console.error('Erreur lors de la récupération des bases de données:', error);
+    console.error("Erreur inattendue lors de la récupération des bases de données:", error);
     return [];
   }
 };
 
 // Obtenir une base de données par ID
-export const getDatabaseById = async (id: string): Promise<DatabaseFile | null> => {
+export const getDatabaseById = async (databaseId: string): Promise<DatabaseFile | null> => {
   try {
     const { data, error } = await supabase
-      .from('databases')
-      .select('*, users:uploaded_by(name)')
-      .eq('id', id)
+      .from("database_files")
+      .select()
+      .eq("id", databaseId)
       .single();
-
+      
     if (error) {
-      console.error('Erreur lors de la récupération de la base de données:', error);
-      throw error;
+      console.error("Erreur lors de la récupération de la base de données:", error);
+      return null;
     }
-
-    return {
-      id: data.id,
-      name: data.name,
-      fileUrl: data.file_url,
-      uploadedBy: data.uploaded_by,
-      uploaderName: data.users?.name,
-      createdAt: new Date(data.created_at),
-      size: data.size,
-      rowsCount: data.rows_count
-    };
+    
+    return data as DatabaseFile;
   } catch (error) {
-    console.error('Erreur lors de la récupération de la base de données:', error);
+    console.error("Erreur inattendue lors de la récupération de la base de données:", error);
     return null;
-  }
-};
-
-// Supprimer une base de données
-export const deleteDatabase = async (id: string): Promise<boolean> => {
-  try {
-    // Récupérer les informations de la base de données
-    const { data, error: fetchError } = await supabase
-      .from('databases')
-      .select('file_url')
-      .eq('id', id)
-      .single();
-
-    if (fetchError) {
-      console.error('Erreur lors de la récupération des informations de la base de données:', fetchError);
-      throw fetchError;
-    }
-
-    // Extraire le chemin du fichier à partir de l'URL
-    const fileUrl = data.file_url;
-    const filePath = fileUrl.split('/').pop();
-
-    if (!filePath) {
-      throw new Error('Chemin de fichier invalide');
-    }
-
-    // Supprimer le fichier du stockage
-    const { error: storageError } = await supabase.storage
-      .from('databases')
-      .remove([`databases/${filePath}`]);
-
-    if (storageError) {
-      console.error('Erreur lors de la suppression du fichier:', storageError);
-      // Continuez malgré l'erreur pour supprimer l'entrée de base de données
-    }
-
-    // Supprimer l'enregistrement de la base de données
-    const { error: dbError } = await supabase
-      .from('databases')
-      .delete()
-      .eq('id', id);
-
-    if (dbError) {
-      console.error('Erreur lors de la suppression de l\'enregistrement de la base de données:', dbError);
-      throw dbError;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Erreur lors de la suppression de la base de données:', error);
-    return false;
   }
 };
