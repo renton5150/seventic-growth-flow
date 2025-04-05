@@ -25,12 +25,15 @@ export const updateRequestStatus = (requestId: string, status: RequestStatus, ad
   
   if (requestIndex === -1) return undefined;
   
+  const originalRequest = mockData.requests[requestIndex];
+  
+  // Create updated request while preserving the specific request type
   const updatedRequest = {
-    ...mockData.requests[requestIndex],
+    ...originalRequest,
     status,
     lastUpdated: new Date(),
     ...additionalData
-  };
+  } as Request; // Cast to Request to ensure type safety
   
   mockData.requests[requestIndex] = updatedRequest;
   
@@ -43,11 +46,14 @@ export const updateRequest = (requestId: string, updates: Partial<Request>): Req
   
   if (requestIndex === -1) return undefined;
   
+  const originalRequest = mockData.requests[requestIndex];
+  
+  // Create updated request while preserving the specific request type
   const updatedRequest = {
-    ...mockData.requests[requestIndex],
+    ...originalRequest,
     ...updates,
     lastUpdated: new Date()
-  };
+  } as Request; // Cast to Request to ensure type safety
   
   mockData.requests[requestIndex] = updatedRequest;
   
@@ -60,11 +66,11 @@ export const createRequest = (request: Omit<Request, 'id' | 'lastUpdated'>): Req
     ...request,
     id: uuidv4(),
     lastUpdated: new Date()
-  };
+  } as Request; // Cast to Request to ensure type safety
   
-  mockData.requests.push(newRequest as Request);
+  mockData.requests.push(newRequest);
   
-  return newRequest as Request;
+  return newRequest;
 };
 
 // Create a new email campaign request
