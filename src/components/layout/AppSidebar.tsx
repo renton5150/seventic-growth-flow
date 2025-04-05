@@ -1,15 +1,15 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { Sidebar, SidebarContent, SidebarHeader, SidebarNav, SidebarNavGroup, SidebarNavLink } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import { CalendarDays, Database, Layers, LineChart, LogOut, Mail, PanelLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const AppSidebar = () => {
   const { pathname } = useLocation();
   const { logout, user, isAdmin, isGrowth, isSDR } = useAuth();
-  const { isMobile } = useMobile();
+  const isMobile = useIsMobile();
 
   const getLinkClass = (path: string) => {
     const isActive = pathname === path;
@@ -26,8 +26,6 @@ export const AppSidebar = () => {
 
   return (
     <Sidebar
-      defaultCollapsed={isMobile}
-      collapsed={isMobile}
       className={`border-r ${
         isAdmin 
           ? "border-blue-300" 
@@ -48,48 +46,58 @@ export const AppSidebar = () => {
         </h2>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarNav>
-          <SidebarNavGroup>
-            <SidebarNavLink asChild className={getLinkClass("/dashboard")}>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className={getLinkClass("/dashboard")}>
               <Link to="/dashboard">
                 <Layers className="h-5 w-5 mr-3" />
                 Dashboard
               </Link>
-            </SidebarNavLink>
-            <SidebarNavLink asChild className={getLinkClass("/missions")}>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className={getLinkClass("/missions")}>
               <Link to="/missions">
                 <User className="h-5 w-5 mr-3" />
                 Missions
               </Link>
-            </SidebarNavLink>
-            <SidebarNavLink asChild className={getLinkClass("/requests/email/new")}>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className={getLinkClass("/requests/email/new")}>
               <Link to="/requests/email/new">
                 <Mail className="h-5 w-5 mr-3" />
                 Nouvelle demande email
               </Link>
-            </SidebarNavLink>
-            <SidebarNavLink asChild className={getLinkClass("/calendar")}>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className={getLinkClass("/calendar")}>
               <Link to="/calendar">
                 <CalendarDays className="h-5 w-5 mr-3" />
                 Calendrier
               </Link>
-            </SidebarNavLink>
-            <SidebarNavLink asChild className={getLinkClass("/databases")}>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className={getLinkClass("/databases")}>
               <Link to="/databases">
                 <Database className="h-5 w-5 mr-3" />
                 Bases de données
               </Link>
-            </SidebarNavLink>
-            {(isAdmin || isGrowth) && (
-              <SidebarNavLink asChild className={getLinkClass("/growth")}>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          {(isAdmin || isGrowth) && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className={getLinkClass("/growth")}>
                 <Link to="/growth">
                   <LineChart className="h-5 w-5 mr-3" />
                   {isAdmin ? "Gestion Growth" : "Tableau de bord Growth"}
                 </Link>
-              </SidebarNavLink>
-            )}
-          </SidebarNavGroup>
-        </SidebarNav>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+        </SidebarMenu>
         <div className="mt-auto p-4">
           <Button 
             variant="ghost" 
