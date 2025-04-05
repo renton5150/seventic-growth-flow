@@ -1,18 +1,17 @@
 
-import { TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
 
 interface EmptyRequestsRowProps {
+  colSpan: number;
   missionView?: boolean;
 }
 
-export const EmptyRequestsRow = ({ missionView = false }: EmptyRequestsRowProps) => {
+export const EmptyRequestsRow = ({ colSpan, missionView = false }: EmptyRequestsRowProps) => {
   return (
-    <TableBody>
-      <TableRow>
-        <TableCell colSpan={missionView ? 5 : 6} className="text-center py-10 text-muted-foreground">
-          Aucune demande pour le moment
-        </TableCell>
-      </TableRow>
-    </TableBody>
+    <TableRow>
+      <TableCell colSpan={colSpan} className="text-center py-10 text-muted-foreground">
+        Aucune demande pour le moment
+      </TableCell>
+    </TableRow>
   );
 };

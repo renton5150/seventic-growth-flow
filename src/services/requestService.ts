@@ -1,7 +1,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { mockData } from "@/data/mockData";
-import { Request, RequestStatus } from "@/types/types";
+import { Request, RequestStatus, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { getUserById } from "@/data/users";
 
 // Get all requests
@@ -65,4 +65,68 @@ export const createRequest = (request: Omit<Request, 'id' | 'lastUpdated'>): Req
   mockData.requests.push(newRequest as Request);
   
   return newRequest as Request;
+};
+
+// Create a new email campaign request
+export const createEmailCampaignRequest = (requestData: any): EmailCampaignRequest => {
+  const newRequest: EmailCampaignRequest = {
+    id: uuidv4(),
+    type: "email",
+    title: requestData.title,
+    missionId: requestData.missionId,
+    createdBy: requestData.createdBy,
+    createdAt: new Date(),
+    status: "pending" as RequestStatus,
+    dueDate: requestData.dueDate,
+    lastUpdated: new Date(),
+    template: requestData.template,
+    database: requestData.database,
+    blacklist: requestData.blacklist,
+  };
+  
+  mockData.requests.push(newRequest);
+  
+  return newRequest;
+};
+
+// Create a new database request
+export const createDatabaseRequest = (requestData: any): DatabaseRequest => {
+  const newRequest: DatabaseRequest = {
+    id: uuidv4(),
+    type: "database",
+    title: requestData.title,
+    missionId: requestData.missionId,
+    createdBy: requestData.createdBy,
+    createdAt: new Date(),
+    status: "pending" as RequestStatus,
+    dueDate: requestData.dueDate,
+    lastUpdated: new Date(),
+    tool: requestData.tool,
+    targeting: requestData.targeting,
+    blacklist: requestData.blacklist,
+  };
+  
+  mockData.requests.push(newRequest);
+  
+  return newRequest;
+};
+
+// Create a new LinkedIn scraping request
+export const createLinkedInScrapingRequest = (requestData: any): LinkedInScrapingRequest => {
+  const newRequest: LinkedInScrapingRequest = {
+    id: uuidv4(),
+    type: "linkedin",
+    title: requestData.title,
+    missionId: requestData.missionId,
+    createdBy: requestData.createdBy,
+    createdAt: new Date(),
+    status: "pending" as RequestStatus,
+    dueDate: requestData.dueDate,
+    lastUpdated: new Date(),
+    targeting: requestData.targeting,
+  };
+  
+  mockData.requests.push(newRequest);
+  
+  return newRequest;
 };

@@ -41,6 +41,7 @@ import {
   Mail,
   Database as DatabaseIcon,
   User,
+  Users,
   Clock,
   AlertCircle,
   CheckCircle,
@@ -188,6 +189,30 @@ const GrowthDashboard = () => {
       dueDate: formattedDate,
       status: request.status
     });
+  };
+  
+  const handleOpenCompletionDialog = (request: Request) => {
+    setSelectedRequest(request);
+    setIsCompletionDialogOpen(true);
+    
+    if (request.type === "email") {
+      emailForm.reset({
+        platform: "Acelmail",
+        sent: 0,
+        opened: 0,
+        clicked: 0,
+        bounced: 0
+      });
+    } else if (request.type === "database") {
+      databaseForm.reset({
+        contactsCreated: 0
+      });
+    } else if (request.type === "linkedin") {
+      linkedinForm.reset({
+        profilesScraped: 0,
+        resultFileUrl: ""
+      });
+    }
   };
   
   const handleSaveEdit = (data: { title: string; dueDate: string; status: RequestStatus }) => {
