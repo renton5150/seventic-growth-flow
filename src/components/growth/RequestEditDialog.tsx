@@ -1,0 +1,144 @@
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Request, RequestStatus } from "@/types/types";
+import { updateRequest } from "@/services/requestService";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+
+interface RequestEditDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedRequest: Request | null;
+  onRequestUpdated: () => void;
+}
+
+export function RequestEditDialog({ 
+  open, 
+  onOpenChange, 
+  selectedRequest, 
+  onRequestUpdated 
+}: RequestEditDialogProps) {
+  const form = useForm<{
+    title: string;
+    dueDate: string;
+    status: RequestStatus;
+  }>({
+    defaultValues: {
+      title: selectedRequest?.title || "",
+      dueDate: selectedRequest?.dueDate 
+        ? new Date(selectedRequest.dueDate).toISOString().split('T')[0] 
+        : "",
+      status: selectedRequest?.status || "pending"
+    },
+  });
+
+  const handleSaveEdit = (data: { title: string; dueDate: string; status: RequestStatus }) => {
+    if (!selectedRequest) return;
+    
+    try {
+      const newDueDate = new Date(data.dueDate);
+      
+      const updatedRequest = updateRequest(selectedRequest.id, {
+        title: data.title,
+        dueDate: newDueDate,
+        status: data.status
+      });
+      
+      if (updatedRequest) {
+        onOpenChange(false);
+        onRequestUpdated();
+        toast.success("La demande a été modifiée avec succès");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la modification de la demande:", error);
+      toast.error("Erreur lors de la modification de la demande");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Modifier la demande</DialogTitle>
+          <DialogDescription>
+            Modifiez les détails de cette demande.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSaveEdit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titre</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date prévue</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Statut</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un statut" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="pending">En attente</SelectItem>
+                      <SelectItem value="inprogress">En cours</SelectItem>
+                      <SelectItem value="completed">Terminé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="submit">Enregistrer</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
