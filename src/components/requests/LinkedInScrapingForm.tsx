@@ -29,14 +29,23 @@ export const LinkedInScrapingForm = () => {
     try {
       console.log("Données soumises:", data);
       
-      // Créer une nouvelle demande LinkedIn dans le mock data
-      const newRequest = createLinkedInScrapingRequest({
+      // Format the data for the LinkedIn scraping request
+      const requestData = {
         title: data.title,
         missionId: data.missionId,
         createdBy: user?.id,
-        targeting: data.targeting,
+        targeting: {
+          jobTitles: data.jobTitles ? data.jobTitles.split('\n') : undefined,
+          locations: data.locations ? data.locations.split('\n') : undefined,
+          industries: data.industries ? data.industries.split('\n') : undefined,
+          companySize: data.companySize ? data.companySize.split('\n') : undefined,
+          otherCriteria: data.otherCriteria
+        },
         dueDate: data.dueDate
-      });
+      };
+      
+      // Créer une nouvelle demande LinkedIn dans le mock data
+      const newRequest = createLinkedInScrapingRequest(requestData);
       
       console.log("Nouvelle demande créée:", newRequest);
       

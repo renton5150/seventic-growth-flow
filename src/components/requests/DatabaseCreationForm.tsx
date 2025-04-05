@@ -32,16 +32,33 @@ export const DatabaseCreationForm = () => {
     try {
       console.log("Données soumises:", data);
       
-      // Créer une nouvelle demande de base dans le mock data
-      const newRequest = createDatabaseRequest({
+      // Format the data for the database request
+      const requestData = {
         title: data.title,
         missionId: data.missionId,
         createdBy: user?.id,
         tool: data.tool,
-        targeting: data.targeting,
-        blacklist: data.blacklist,
+        targeting: {
+          jobTitles: data.jobTitles ? data.jobTitles.split('\n') : undefined,
+          industries: data.industries ? data.industries.split('\n') : undefined,
+          companySize: data.companySize ? data.companySize.split('\n') : undefined,
+          otherCriteria: data.otherCriteria
+        },
+        blacklist: {
+          accounts: {
+            fileUrl: data.blacklistAccountsFileUrl,
+            notes: data.blacklistAccountsNotes
+          },
+          contacts: {
+            fileUrl: data.blacklistContactsFileUrl,
+            notes: data.blacklistContactsNotes
+          }
+        },
         dueDate: data.dueDate
-      });
+      };
+      
+      // Créer une nouvelle demande de base dans le mock data
+      const newRequest = createDatabaseRequest(requestData);
       
       console.log("Nouvelle demande créée:", newRequest);
       

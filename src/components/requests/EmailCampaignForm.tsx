@@ -33,16 +33,36 @@ export const EmailCampaignForm = () => {
     try {
       console.log("Données soumises:", data);
       
-      // Créer une nouvelle demande d'email dans le mock data
-      const newRequest = createEmailCampaignRequest({
+      // Format the data for the email request
+      const requestData = {
         title: data.title,
         missionId: data.missionId,
         createdBy: user?.id,
-        template: data.template,
-        database: data.database,
-        blacklist: data.blacklist,
+        template: {
+          content: data.templateContent,
+          fileUrl: data.templateFileUrl,
+          webLink: data.templateWebLink
+        },
+        database: {
+          fileUrl: data.databaseFileUrl,
+          webLink: data.databaseWebLink,
+          notes: data.databaseNotes
+        },
+        blacklist: {
+          accounts: {
+            fileUrl: data.blacklistAccountsFileUrl,
+            notes: data.blacklistAccountsNotes
+          },
+          emails: {
+            fileUrl: data.blacklistEmailsFileUrl,
+            notes: data.blacklistEmailsNotes
+          }
+        },
         dueDate: data.dueDate
-      });
+      };
+      
+      // Créer une nouvelle demande d'email dans le mock data
+      const newRequest = createEmailCampaignRequest(requestData);
       
       console.log("Nouvelle demande créée:", newRequest);
       
