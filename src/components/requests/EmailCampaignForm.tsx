@@ -82,8 +82,11 @@ export const EmailCampaignForm = () => {
     }
   };
 
-  const handleFileUpload = (field: string, files: FileList | null) => {
-    if (files && files.length > 0) {
+  const handleFileUpload = (field: string, files: FileList | null | string) => {
+    if (typeof files === 'string') {
+      // Si files est une chaîne (URL directe), l'affecter directement
+      form.setValue(field as any, files);
+    } else if (files && files.length > 0) {
       const file = files[0];
       const fakeUrl = `uploads/${file.name}`;
       form.setValue(field as any, fakeUrl);
