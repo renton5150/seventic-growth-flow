@@ -45,12 +45,8 @@ const Databases = () => {
     <AppLayout>
       <h1 className="text-2xl font-bold mb-6">Gestion des bases de données</h1>
       <div className="space-y-6">
-        <DatabaseUploader onSuccess={handleDatabaseUploaded} userId={user?.id || ''} />
-        <DatabasesList 
-          databases={databases}
-          isLoading={isLoading}
-          onDatabaseDeleted={handleDatabaseDeleted}
-        />
+        <DatabaseUploader />
+        <DatabasesList />
       </div>
     </AppLayout>
   );

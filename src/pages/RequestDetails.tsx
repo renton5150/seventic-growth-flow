@@ -33,11 +33,20 @@ const RequestDetails = () => {
   const { user } = useAuth();
   
   useEffect(() => {
-    if (id) {
-      const foundRequest = getRequestById(id);
-      setRequest(foundRequest);
-      setLoading(false);
-    }
+    const fetchRequestDetails = async () => {
+      if (id) {
+        try {
+          const foundRequest = await getRequestById(id);
+          setRequest(foundRequest);
+        } catch (error) {
+          console.error("Error fetching request details:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchRequestDetails();
   }, [id]);
 
   const renderStatusBadge = (status: RequestStatus, isLate?: boolean) => {

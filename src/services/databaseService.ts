@@ -6,6 +6,7 @@ export interface DatabaseFile {
   name: string;
   fileUrl: string;
   uploadedBy: string;
+  uploaderName?: string; // Add this property to the interface
   createdAt: Date;
   size: number;
   rowsCount?: number | null;

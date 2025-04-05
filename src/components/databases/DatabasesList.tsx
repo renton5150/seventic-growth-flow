@@ -39,6 +39,17 @@ export const DatabasesList = () => {
   
   useEffect(() => {
     loadDatabases();
+    
+    // Écouter l'événement de téléchargement de base de données
+    const handleDatabaseUploaded = () => {
+      loadDatabases();
+    };
+    
+    window.addEventListener("database-uploaded", handleDatabaseUploaded);
+    
+    return () => {
+      window.removeEventListener("database-uploaded", handleDatabaseUploaded);
+    };
   }, []);
   
   const handleDeleteDatabase = async (id: string) => {

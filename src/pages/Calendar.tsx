@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,48 +13,75 @@ import { format, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Calendar as CalendarIcon, Info } from "lucide-react";
+import { Request } from "@/types/types";
 
 const CalendarPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(new Date());
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [missions, setMissions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [requestsByDate, setRequestsByDate] = useState<Record<string, number>>({});
   
-  const requests = getAllRequests();
-  const missions = user ? getMissionsByUserId(user.id) : [];
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // Load requests
+        const allRequests = await getAllRequests();
+        setRequests(allRequests);
+        
+        // Load missions if user is SDR
+        if (user?.role === "sdr" && user?.id) {
+          const userMissions = await getMissionsByUserId(user.id);
+          setMissions(userMissions);
+        }
+        
+        // Calculate requests by date
+        const dateMap = allRequests.reduce((acc, request) => {
+          const dateStr = format(new Date(request.dueDate), "yyyy-MM-dd");
+          
+          // Check if this user should see this request
+          const isUserRequest = user?.role === "sdr" 
+            ? missions.some(m => m.id === request.missionId)
+            : true; // Admin and Growth see all
+            
+          if (isUserRequest) {
+            acc[dateStr] = (acc[dateStr] || 0) + 1;
+          }
+          
+          return acc;
+        }, {} as Record<string, number>);
+        
+        setRequestsByDate(dateMap);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [user]);
   
   // Filter requests based on user role and selected day
-  const filteredRequests = requests.filter(request => {
-    // First filter by user role
-    const isSdrRequest = user?.role === "sdr" && missions
-      .map(mission => mission.id)
-      .includes(request.missionId);
-      
-    const isGrowthRequest = user?.role === "growth";
-    const isAdminRequest = user?.role === "admin";
-    
-    // Then filter by selected date if we have one
-    const isSameDate = selectedDay 
-      ? isSameDay(new Date(request.dueDate), selectedDay)
-      : false;
-      
-    return isSameDate && (isSdrRequest || isGrowthRequest || isAdminRequest);
-  });
-  
-  // Count requests by day for highlighting calendar
-  const requestsByDate = requests.reduce((acc, request) => {
-    const dateStr = format(new Date(request.dueDate), "yyyy-MM-dd");
-    
-    // Check if this user should see this request
-    const isUserRequest = user?.role === "sdr" 
-      ? missions.map(m => m.id).includes(request.missionId)
-      : true; // Admin and Growth see all
-      
-    if (isUserRequest) {
-      acc[dateStr] = (acc[dateStr] || 0) + 1;
-    }
-    
-    return acc;
-  }, {} as Record<string, number>);
+  const filteredRequests = selectedDay 
+    ? requests.filter(request => {
+        // First filter by user role
+        const isSdrRequest = user?.role === "sdr" && missions
+          .some(mission => mission.id === request.missionId);
+          
+        const isGrowthRequest = user?.role === "growth";
+        const isAdminRequest = user?.role === "admin";
+        
+        // Then filter by selected date
+        const isSameDate = isSameDay(new Date(request.dueDate), selectedDay);
+          
+        return isSameDate && (isSdrRequest || isGrowthRequest || isAdminRequest);
+      })
+    : [];
   
   const handleDaySelect = (day: Date | undefined) => {
     setSelectedDay(day);
@@ -107,7 +134,11 @@ const CalendarPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {filteredRequests.length > 0 ? (
+              {isLoading ? (
+                <div className="flex justify-center items-center p-8">
+                  <p>Chargement des données...</p>
+                </div>
+              ) : filteredRequests.length > 0 ? (
                 <div className="space-y-4">
                   {filteredRequests.map((request) => (
                     <div 

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ export const DatabaseUploader = () => {
   const [uploading, setUploading] = useState(false);
   const { user, isAdmin } = useAuth();
   
-  // Obtenez la couleur en fonction du rôle de l'utilisateur
   const getRoleColor = () => {
     if (isAdmin) return "border-blue-300";
     if (user?.role === "growth") return "border-green-300";
@@ -29,7 +27,6 @@ export const DatabaseUploader = () => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       
-      // Vérifier le type de fichier (CSV ou XLSX)
       if (
         selectedFile.type !== "text/csv" &&
         selectedFile.type !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
@@ -42,7 +39,6 @@ export const DatabaseUploader = () => {
         return;
       }
       
-      // Vérifier la taille du fichier (max 10MB)
       if (selectedFile.size > 10 * 1024 * 1024) {
         toast.error("Fichier trop volumineux", {
           description: "La taille maximale autorisée est de 10MB",
@@ -65,8 +61,6 @@ export const DatabaseUploader = () => {
       if (result) {
         toast.success("Base de données téléchargée avec succès");
         setFile(null);
-        // Recharger la liste des bases de données (vous pouvez utiliser un état global ou un contexte)
-        // Ou vous pouvez émettre un événement personnalisé
         window.dispatchEvent(new CustomEvent("database-uploaded"));
       } else {
         toast.error("Erreur lors du téléchargement", {
