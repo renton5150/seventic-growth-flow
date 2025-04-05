@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 interface DatabaseSectionProps {
   control: Control<any>;
-  handleFileUpload: (field: string, files: FileList | null) => void;
+  handleFileUpload: (field: string, files: FileList | null | string) => void;
 }
 
 export const DatabaseSection = ({ 
@@ -64,7 +64,7 @@ export const DatabaseSection = ({
           const uploaded = await uploadDatabaseFile(file, user.id);
           if (uploaded) {
             toast.success(`Fichier ${file.name} téléchargé avec succès`);
-            // Correction ici: passer directement le nom du fichier, pas essayer de créer une FileList
+            // Passer l'URL comme une chaîne de caractères, ce qui est maintenant compatible
             handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
           } else {
             toast.error("Échec du téléchargement du fichier");
@@ -73,7 +73,7 @@ export const DatabaseSection = ({
           // Mode démo - simuler un téléchargement
           setTimeout(() => {
             toast.success(`Fichier ${file.name} téléchargé avec succès (mode démo)`);
-            // Ne pas modifier le handleFileUpload ici car files est bien une FileList
+            // Passer la FileList directement, ce qui est compatible
             handleFileUpload("databaseFileUrl", files);
             
             // Déclencher l'événement d'upload réussi

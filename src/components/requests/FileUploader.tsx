@@ -1,5 +1,5 @@
 
-import { useState, DragEvent, ChangeEvent, ReactNode } from "react";
+import { useState, DragEvent, ChangeEvent, ReactNode, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -28,13 +28,15 @@ export const FileUploader = ({
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  // Initialize fileName based on value prop
-  useState(() => {
+  // Update fileName when value changes
+  useEffect(() => {
     if (value) {
       const nameFromPath = typeof value === 'string' ? value.split('/').pop() : null;
       if (nameFromPath) setFileName(nameFromPath);
+    } else {
+      setFileName(null);
     }
-  });
+  }, [value]);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (disabled) return;
@@ -73,13 +75,8 @@ export const FileUploader = ({
       return;
     }
     
-    // Nous supprimons la validation de type pour éviter les problèmes avec les fichiers XLS/CSV
-    // qui peuvent avoir des types MIME différents selon les navigateurs
-    
     setFileName(file.name);
     onChange(files);
-    
-    // Confirmation visuelle - mais la notification est désormais gérée par le composant parent
   };
 
   const clearFile = () => {
