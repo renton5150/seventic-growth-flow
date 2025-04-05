@@ -21,6 +21,7 @@ export const EmailCampaignForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistEmailsTab, setBlacklistEmailsTab] = useState("file");
+  const [fileUploading, setFileUploading] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -28,6 +29,11 @@ export const EmailCampaignForm = () => {
   });
 
   const onSubmit = async (data: FormData) => {
+    if (fileUploading) {
+      toast.error("Veuillez attendre la fin du téléchargement des fichiers");
+      return;
+    }
+
     setSubmitting(true);
     
     try {
@@ -81,6 +87,9 @@ export const EmailCampaignForm = () => {
       const file = files[0];
       const fakeUrl = `uploads/${file.name}`;
       form.setValue(field as any, fakeUrl);
+    } else if (files === null) {
+      // Effacer le champ si null
+      form.setValue(field as any, "");
     }
   };
 
@@ -101,7 +110,7 @@ export const EmailCampaignForm = () => {
           setBlacklistEmailsTab={setBlacklistEmailsTab}
           handleFileUpload={handleFileUpload}
         />
-        <FormFooter submitting={submitting} />
+        <FormFooter submitting={submitting || fileUploading} />
       </form>
     </Form>
   );

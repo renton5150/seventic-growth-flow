@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -6,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
+import { uploadDatabaseFile } from "@/services/databaseService";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface DatabaseSectionProps {
   control: Control<any>;
@@ -16,6 +20,77 @@ export const DatabaseSection = ({
   control, 
   handleFileUpload 
 }: DatabaseSectionProps) => {
+  const { user } = useAuth();
+  const [uploading, setUploading] = useState(false);
+
+  const handleDatabaseFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      handleFileUpload("databaseFileUrl", null);
+      return;
+    }
+
+    const file = files[0];
+    
+    // Vérifier le type de fichier
+    const allowedTypes = [
+      "application/vnd.ms-excel", // .xls
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "text/csv", // .csv
+      "application/csv", // .csv (certains navigateurs)
+      "text/plain", // .csv parfois détecté comme text/plain
+    ];
+
+    // Vérification simple de l'extension car les types MIME peuvent être incohérents
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const isValidType = extension === 'xls' || extension === 'xlsx' || extension === 'csv';
+
+    if (!isValidType) {
+      toast.error("Format de fichier non pris en charge. Utilisez XLS, XLSX ou CSV.");
+      return;
+    }
+
+    // Vérifier la taille du fichier (max 50Mo)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Le fichier est trop volumineux (max 50Mo)");
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      if (user) {
+        // Si connecté à Supabase, tenter un vrai téléchargement
+        if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) {
+          const uploaded = await uploadDatabaseFile(file, user.id);
+          if (uploaded) {
+            toast.success(`Fichier ${file.name} téléchargé avec succès`);
+            // Simuler l'URL du fichier téléchargé (en production, on utiliserait l'URL réelle)
+            handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
+          } else {
+            toast.error("Échec du téléchargement du fichier");
+          }
+        } else {
+          // Mode démo - simuler un téléchargement
+          setTimeout(() => {
+            toast.success(`Fichier ${file.name} téléchargé avec succès (mode démo)`);
+            handleFileUpload("databaseFileUrl", files);
+            
+            // Déclencher l'événement d'upload réussi
+            const event = new CustomEvent('database-uploaded');
+            window.dispatchEvent(event);
+          }, 1500);
+        }
+      } else {
+        toast.error("Vous devez être connecté pour télécharger des fichiers");
+      }
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error);
+      toast.error("Erreur lors du téléchargement du fichier");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <Card className="border-t-4 border-t-seventic-500">
       <CardContent className="pt-6">
@@ -32,12 +107,13 @@ export const DatabaseSection = ({
                   <FormControl>
                     <FileUploader
                       icon={<Upload className="h-6 w-6 text-muted-foreground" />}
-                      title="Importer votre base de données"
+                      title={uploading ? "Téléchargement en cours..." : "Importer votre base de données"}
                       description="Formats acceptés : XLS, XLSX, CSV (Max 50 Mo)"
                       value={field.value}
-                      onChange={(files) => handleFileUpload("databaseFileUrl", files)}
+                      onChange={handleDatabaseFileUpload}
                       accept=".xls,.xlsx,.csv"
                       maxSize={50}
+                      disabled={uploading}
                     />
                   </FormControl>
                   <FormMessage />

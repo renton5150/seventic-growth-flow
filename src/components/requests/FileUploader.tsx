@@ -12,6 +12,7 @@ interface FileUploaderProps {
   onChange: (files: FileList | null) => void;
   accept?: string;
   maxSize?: number; // in MB
+  disabled?: boolean;
 }
 
 export const FileUploader = ({
@@ -22,6 +23,7 @@ export const FileUploader = ({
   onChange,
   accept,
   maxSize = 10,
+  disabled = false,
 }: FileUploaderProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -29,21 +31,24 @@ export const FileUploader = ({
   // Initialize fileName based on value prop
   useState(() => {
     if (value) {
-      const nameFromPath = value.split('/').pop();
+      const nameFromPath = typeof value === 'string' ? value.split('/').pop() : null;
       if (nameFromPath) setFileName(nameFromPath);
     }
   });
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (disabled) return;
     e.preventDefault();
     setIsDragging(true);
   };
 
   const handleDragLeave = () => {
+    if (disabled) return;
     setIsDragging(false);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    if (disabled) return;
     e.preventDefault();
     setIsDragging(false);
     
@@ -53,6 +58,7 @@ export const FileUploader = ({
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     if (e.target.files && e.target.files.length > 0) {
       validateAndProcessFiles(e.target.files);
     }
@@ -73,8 +79,7 @@ export const FileUploader = ({
     setFileName(file.name);
     onChange(files);
     
-    // Confirmation
-    toast.success(`Fichier "${file.name}" chargé avec succès`);
+    // Confirmation visuelle - mais la notification est désormais gérée par le composant parent
   };
 
   const clearFile = () => {
@@ -87,12 +92,16 @@ export const FileUploader = ({
       className={cn(
         "border-2 border-dashed rounded-md p-6 transition-colors",
         isDragging ? "border-seventic-500 bg-seventic-50" : "border-input",
-        "cursor-pointer hover:bg-muted/50"
+        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onClick={() => document.getElementById("file-input")?.click()}
+      onClick={() => {
+        if (!disabled) {
+          document.getElementById("file-input")?.click();
+        }
+      }}
     >
       <div className="flex flex-col items-center justify-center space-y-2 text-center">
         <div className="p-3 rounded-full bg-muted">
@@ -112,16 +121,19 @@ export const FileUploader = ({
               variant="ghost" 
               size="sm" 
               onClick={(e) => {
-                e.stopPropagation();
-                clearFile();
+                if (!disabled) {
+                  e.stopPropagation();
+                  clearFile();
+                }
               }}
+              disabled={disabled}
             >
               X
             </Button>
           </div>
         ) : (
           <div className="text-xs text-muted-foreground mt-2">
-            Glissez-déposez ou cliquez pour sélectionner
+            {disabled ? "Téléchargement en cours..." : "Glissez-déposez ou cliquez pour sélectionner"}
           </div>
         )}
         
@@ -131,6 +143,7 @@ export const FileUploader = ({
           className="hidden"
           accept={accept}
           onChange={handleFileChange}
+          disabled={disabled}
         />
       </div>
     </div>
