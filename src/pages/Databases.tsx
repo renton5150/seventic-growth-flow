@@ -69,7 +69,7 @@ const Databases = () => {
       <h1 className="text-2xl font-bold mb-6">Gestion des bases de données</h1>
       
       {noSupabaseConfig && (
-        <Alert variant="warning" className="mb-6">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Mode démo</AlertTitle>
           <AlertDescription>
