@@ -66,7 +66,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/requests/email")}>
+                <SidebarMenuButton asChild onClick={() => navigate("/requests/email/new")}>
                   <button>
                     <Mail size={20} />
                     <span>Campagnes Email</span>
@@ -74,7 +74,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/requests/database")}>
+                <SidebarMenuButton asChild onClick={() => navigate("/requests/database/new")}>
                   <button>
                     <Database size={20} />
                     <span>Création de bases</span>
@@ -82,7 +82,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild onClick={() => navigate("/requests/linkedin")}>
+                <SidebarMenuButton asChild onClick={() => navigate("/requests/linkedin/new")}>
                   <button>
                     <User size={20} />
                     <span>Scrapping LinkedIn</span>

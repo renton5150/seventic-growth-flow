@@ -12,6 +12,8 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import EmailCampaignRequest from "./pages/EmailCampaignRequest";
+import DatabaseCreationRequest from "./pages/DatabaseCreationRequest";
+import LinkedInScrapingRequest from "./pages/LinkedInScrapingRequest";
 
 const queryClient = new QueryClient();
 
@@ -42,7 +44,22 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
-            {/* Add more routes as needed */}
+            <Route 
+              path="/requests/database/new" 
+              element={
+                <ProtectedRoute>
+                  <DatabaseCreationRequest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/linkedin/new" 
+              element={
+                <ProtectedRoute>
+                  <LinkedInScrapingRequest />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

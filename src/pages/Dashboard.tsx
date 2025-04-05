@@ -59,12 +59,10 @@ const Dashboard = () => {
         navigate("/requests/email/new");
         break;
       case "database":
-        // Ajouter la route lorsque cette page sera implémentée
-        // navigate("/requests/database/new");
+        navigate("/requests/database/new");
         break;
       case "linkedin":
-        // Ajouter la route lorsque cette page sera implémentée
-        // navigate("/requests/linkedin/new");
+        navigate("/requests/linkedin/new");
         break;
       default:
         break;
