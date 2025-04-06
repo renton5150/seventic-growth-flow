@@ -53,14 +53,19 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
     }
     else {
       // Generic update for common fields only
+      const updateData: Record<string, any> = {};
+      
+      // Only include properties that actually exist in the updates object
+      if (updates.title !== undefined) updateData.title = updates.title;
+      if (updates.dueDate !== undefined) updateData.due_date = updates.dueDate.toISOString();
+      if (updates.status !== undefined) updateData.status = updates.status;
+      
+      // Always update the last_updated timestamp
+      updateData.last_updated = new Date().toISOString();
+
       const { data: updatedRequest, error } = await supabase
         .from('requests')
-        .update({
-          title: updates.title,
-          due_date: updates.dueDate?.toISOString(),
-          status: updates.status,
-          last_updated: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', requestId)
         .select()
         .single();
