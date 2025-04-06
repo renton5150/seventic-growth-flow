@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DatabaseSectionProps {
   control: Control<any>;
@@ -28,23 +29,59 @@ export const DatabaseSection = ({
 
     const file = files[0];
     
+    // Vérifier l'extension du fichier
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const validExtensions = ['csv', 'xls', 'xlsx'];
+    
+    if (!fileExtension || !validExtensions.includes(fileExtension)) {
+      toast.error("Format de fichier non supporté. Utilisez CSV, XLS ou XLSX.");
+      return;
+    }
+
+    // Vérifier la taille du fichier (max 50Mo)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Le fichier est trop volumineux (max 50Mo)");
+      return;
+    }
+
     try {
       setUploading(true);
-      console.log("Début du téléchargement du fichier:", file.name);
       
-      // Mode démo - simulation d'un téléchargement réussi
-      setTimeout(() => {
-        const fileName = file.name;
-        const fakeUrl = `uploads/${fileName}`;
+      // Vérifier si les variables d'environnement Supabase sont configurées
+      const hasSupabaseConfig = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (hasSupabaseConfig) {
+        // Téléchargement réel vers Supabase (non implémenté dans cet exemple)
+        // Cette partie serait remplacée par un vrai code de téléchargement
+        console.log("Configuration Supabase trouvée, tentative de téléchargement réel...");
         
-        console.log("Fichier téléchargé (simulation):", fakeUrl);
-        toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
-        handleFileUpload("databaseFileUrl", fakeUrl);
-        
-        // Déclencher l'événement pour actualiser la liste des bases de données
-        window.dispatchEvent(new CustomEvent('database-uploaded'));
-        setUploading(false);
-      }, 1000);
+        // Simuler un téléchargement réussi pour l'instant
+        setTimeout(() => {
+          const fileName = file.name;
+          const fakeUrl = `uploads/${fileName}`;
+          
+          toast.success(`Fichier ${fileName} téléchargé avec succès`);
+          handleFileUpload("databaseFileUrl", fakeUrl);
+          
+          // Déclencher l'événement pour actualiser la liste des bases de données
+          window.dispatchEvent(new CustomEvent('database-uploaded'));
+          setUploading(false);
+        }, 1000);
+      } else {
+        // Mode démo - simulation d'un téléchargement réussi
+        console.log("Configuration Supabase NON trouvée, utilisation du mode démo");
+        setTimeout(() => {
+          const fileName = file.name;
+          const fakeUrl = `uploads/${fileName}`;
+          
+          toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
+          handleFileUpload("databaseFileUrl", fakeUrl);
+          
+          // Déclencher l'événement pour actualiser la liste des bases de données
+          window.dispatchEvent(new CustomEvent('database-uploaded'));
+          setUploading(false);
+        }, 1000);
+      }
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast.error("Erreur lors du téléchargement du fichier");

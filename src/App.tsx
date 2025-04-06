@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import EmailCampaignRequest from "./pages/EmailCampaignRequest";
+import EmailCampaignEdit from "./pages/EmailCampaignEdit";
 import DatabaseCreationRequest from "./pages/DatabaseCreationRequest";
 import LinkedInScrapingRequest from "./pages/LinkedInScrapingRequest";
 import RequestDetails from "./pages/RequestDetails";
@@ -46,6 +47,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <EmailCampaignRequest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/email/:id/edit" 
+              element={
+                <ProtectedRoute>
+                  <EmailCampaignEdit />
                 </ProtectedRoute>
               } 
             />

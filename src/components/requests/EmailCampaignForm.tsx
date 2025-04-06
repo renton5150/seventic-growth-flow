@@ -13,10 +13,16 @@ import { DatabaseSection } from "./email-campaign/DatabaseSection";
 import { BlacklistSection } from "./email-campaign/BlacklistSection";
 import { FormFooter } from "./email-campaign/FormFooter";
 import { formSchema, FormData, defaultValues } from "./email-campaign/schema";
-import { createEmailCampaignRequest } from "@/services/requestService";
+import { createEmailCampaignRequest, updateRequest } from "@/services/requestService";
 import { supabase } from "@/integrations/supabase/client";
+import { EmailCampaignRequest } from "@/types/types";
 
-export const EmailCampaignForm = () => {
+interface EmailCampaignFormProps {
+  editMode?: boolean;
+  initialData?: EmailCampaignRequest;
+}
+
+export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampaignFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -24,10 +30,63 @@ export const EmailCampaignForm = () => {
   const [blacklistEmailsTab, setBlacklistEmailsTab] = useState("file");
   const [fileUploading, setFileUploading] = useState(false);
 
+  // Préparer les valeurs initiales en mode édition
+  const getInitialValues = () => {
+    if (editMode && initialData) {
+      const details = initialData.details || {};
+      const template = details.template || {};
+      const database = details.database || {};
+      const blacklist = details.blacklist || {};
+      const blacklistAccounts = blacklist.accounts || {};
+      const blacklistEmails = blacklist.emails || {};
+
+      // Adapter la date pour le format de l'input date
+      const dueDate = new Date(initialData.dueDate);
+      const formattedDueDate = dueDate.toISOString().split('T')[0];
+
+      return {
+        title: initialData.title,
+        missionId: initialData.missionId,
+        dueDate: formattedDueDate,
+        templateContent: template.content || "",
+        templateFileUrl: template.fileUrl || "",
+        templateWebLink: template.webLink || "",
+        databaseFileUrl: database.fileUrl || "",
+        databaseWebLink: database.webLink || "",
+        databaseNotes: database.notes || "",
+        blacklistAccountsFileUrl: blacklistAccounts.fileUrl || "",
+        blacklistAccountsNotes: blacklistAccounts.notes || "",
+        blacklistEmailsFileUrl: blacklistEmails.fileUrl || "",
+        blacklistEmailsNotes: blacklistEmails.notes || "",
+      };
+    }
+    return defaultValues;
+  };
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues
+    defaultValues: getInitialValues()
   });
+
+  // Initialiser les onglets actifs en fonction des données
+  useEffect(() => {
+    if (editMode && initialData) {
+      const details = initialData.details || {};
+      const blacklist = details.blacklist || {};
+      const accounts = blacklist.accounts || {};
+      const emails = blacklist.emails || {};
+
+      // Définir l'onglet actif pour les comptes blacklist
+      if (accounts.notes && !accounts.fileUrl) {
+        setBlacklistAccountsTab("notes");
+      }
+
+      // Définir l'onglet actif pour les emails blacklist
+      if (emails.notes && !emails.fileUrl) {
+        setBlacklistEmailsTab("notes");
+      }
+    }
+  }, [editMode, initialData]);
 
   // Vérifier que le client Supabase est correctement initialisé
   useEffect(() => {
@@ -64,7 +123,7 @@ export const EmailCampaignForm = () => {
     try {
       console.log("Données soumises:", data);
       
-      // Format the data for the email request
+      // Format the data for the request
       const requestData = {
         title: data.title,
         missionId: data.missionId,
@@ -89,26 +148,51 @@ export const EmailCampaignForm = () => {
             notes: data.blacklistEmailsNotes
           }
         },
-        dueDate: data.dueDate
+        dueDate: new Date(data.dueDate)
       };
       
-      console.log("Création de la demande avec:", requestData);
-      const newRequest = await createEmailCampaignRequest(requestData);
+      let result;
       
-      if (newRequest) {
-        console.log("Nouvelle demande créée:", newRequest);
-        toast.success("Demande de campagne email créée avec succès");
-        navigate("/dashboard");
+      if (editMode && initialData) {
+        // Mode édition - Mettre à jour la demande existante
+        console.log("Mise à jour de la demande avec:", requestData);
+        result = await updateRequest(initialData.id, {
+          title: data.title,
+          dueDate: new Date(data.dueDate),
+          details: {
+            template: requestData.template,
+            database: requestData.database,
+            blacklist: requestData.blacklist
+          }
+        });
+        
+        if (result) {
+          console.log("Demande mise à jour:", result);
+          toast.success("Demande de campagne email mise à jour avec succès");
+          navigate("/requests/email/" + initialData.id);
+        } else {
+          throw new Error("Erreur lors de la mise à jour de la demande");
+        }
       } else {
-        throw new Error("Erreur lors de la création de la demande");
+        // Mode création - Créer une nouvelle demande
+        console.log("Création de la demande avec:", requestData);
+        const newRequest = await createEmailCampaignRequest(requestData);
+        
+        if (newRequest) {
+          console.log("Nouvelle demande créée:", newRequest);
+          toast.success("Demande de campagne email créée avec succès");
+          navigate("/dashboard");
+        } else {
+          throw new Error("Erreur lors de la création de la demande");
+        }
       }
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
       // Afficher plus de détails sur l'erreur
       const errorMessage = error instanceof Error 
         ? error.message 
-        : "Erreur inconnue lors de la création de la demande";
-      toast.error(`Erreur lors de la création de la demande: ${errorMessage}`);
+        : "Erreur inconnue lors de la création/modification de la demande";
+      toast.error(`Erreur: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
@@ -146,7 +230,7 @@ export const EmailCampaignForm = () => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormHeader control={form.control} user={user} />
+        <FormHeader control={form.control} user={user} editMode={editMode} />
         <TemplateSection control={form.control} handleFileUpload={handleFileUpload} />
         <DatabaseSection 
           control={form.control} 
@@ -160,7 +244,7 @@ export const EmailCampaignForm = () => {
           setBlacklistEmailsTab={setBlacklistEmailsTab}
           handleFileUpload={handleFileUpload}
         />
-        <FormFooter submitting={submitting || fileUploading} />
+        <FormFooter submitting={submitting || fileUploading} editMode={editMode} />
       </form>
     </Form>
   );
