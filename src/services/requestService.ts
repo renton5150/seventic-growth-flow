@@ -122,42 +122,55 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
     if (updates.type === "email" || !updates.type) {
       const emailRequest = updates as Partial<EmailCampaignRequest>;
       if (emailRequest.template || emailRequest.database || emailRequest.blacklist) {
-        dbUpdates.details = {};
-        
-        // Ne mettre à jour que les champs fournis
+        // Récupérer les détails actuels pour les mettre à jour correctement
         const { data: currentRequest } = await supabase
           .from('requests')
           .select('details')
           .eq('id', requestId)
           .single();
           
-        // Conserver les détails existants et les mettre à jour
-        const currentDetails = currentRequest?.details || {};
+        // S'assurer que currentRequest.details est un objet et non une primitive
+        let currentDetails = {};
+        if (currentRequest && typeof currentRequest.details === 'object' && currentRequest.details !== null) {
+          currentDetails = currentRequest.details;
+        }
         
+        // Initialiser l'objet details s'il n'existe pas encore
+        dbUpdates.details = {};
+        
+        // Mettre à jour les propriétés du template
         if (emailRequest.template) {
           dbUpdates.details.template = {
-            ...currentDetails.template,
+            ...((typeof currentDetails === 'object' && currentDetails !== null && 'template' in currentDetails) 
+              ? currentDetails.template 
+              : {}),
             ...emailRequest.template
           };
-        } else if (currentDetails.template) {
+        } else if (typeof currentDetails === 'object' && currentDetails !== null && 'template' in currentDetails) {
           dbUpdates.details.template = currentDetails.template;
         }
         
+        // Mettre à jour les propriétés de la base de données
         if (emailRequest.database) {
           dbUpdates.details.database = {
-            ...currentDetails.database,
+            ...((typeof currentDetails === 'object' && currentDetails !== null && 'database' in currentDetails) 
+              ? currentDetails.database 
+              : {}),
             ...emailRequest.database
           };
-        } else if (currentDetails.database) {
+        } else if (typeof currentDetails === 'object' && currentDetails !== null && 'database' in currentDetails) {
           dbUpdates.details.database = currentDetails.database;
         }
         
+        // Mettre à jour les propriétés de la blacklist
         if (emailRequest.blacklist) {
           dbUpdates.details.blacklist = {
-            ...currentDetails.blacklist,
+            ...((typeof currentDetails === 'object' && currentDetails !== null && 'blacklist' in currentDetails) 
+              ? currentDetails.blacklist 
+              : {}),
             ...emailRequest.blacklist
           };
-        } else if (currentDetails.blacklist) {
+        } else if (typeof currentDetails === 'object' && currentDetails !== null && 'blacklist' in currentDetails) {
           dbUpdates.details.blacklist = currentDetails.blacklist;
         }
       }
