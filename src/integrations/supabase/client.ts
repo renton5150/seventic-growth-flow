@@ -26,5 +26,10 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Exporter les variables pour une utilisation dans d'autres fichiers
+export const SUPABASE_URL = supabaseUrl;
+export const SUPABASE_ANON_KEY = supabaseAnonKey;
+
 // Vérifier et afficher l'état de la connexion
 console.log("Supabase client initialisé avec l'URL:", supabaseUrl);
+console.log("Mode de fonctionnement:", supabaseUrl && supabaseAnonKey ? "Production" : "Démonstration");

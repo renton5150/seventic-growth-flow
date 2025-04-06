@@ -43,7 +43,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
 
     try {
       console.log("Envoi de l'invitation avec le rôle:", role);
-      // Le type est maintenant correctement assigné et vérifié
+      
       const result = await createUser(email, name, role);
       
       if (result.success) {
@@ -53,15 +53,18 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
         
         console.log("Utilisateur créé:", result.user);
         
-        // Réinitialiser les champs et fermer le dialogue
+        // Réinitialiser les champs
         resetForm();
         
-        // Attendre un petit délai pour s'assurer que les données sont mises à jour
+        // Fermer le dialogue et notifier le parent avec un délai pour s'assurer
+        // que les modifications sont bien prises en compte
         setTimeout(() => {
-          // Appeler la fonction de rappel pour actualiser la liste des utilisateurs
-          onUserInvited();
-          onOpenChange(false);
-        }, 500); // Augmenter le délai à 500ms
+          onUserInvited(); // Appeler d'abord pour s'assurer d'un refresh des données
+          setTimeout(() => {
+            onUserInvited(); // Appeler une seconde fois après un court délai
+            onOpenChange(false);
+          }, 500);
+        }, 300);
       } else {
         setErrorMessage(result.error || "Une erreur est survenue lors de l'envoi de l'invitation");
       }

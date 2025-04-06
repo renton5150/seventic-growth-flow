@@ -14,12 +14,14 @@ export const UserManagementTabs = () => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
 
-  // Utiliser useQuery pour gérer l'état des données et le rafraîchissement
+  // Utiliser useQuery avec un paramètre de cache spécifique pour forcer le rafraîchissement
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
     // Actualiser régulièrement les données (toutes les 10 secondes)
     refetchInterval: 10000,
+    // Désactiver la mise en cache pour toujours obtenir des données fraîches
+    staleTime: 0,
     // Réduire le délai de nouvelle tentative en cas d'échec
     retry: 1,
   });
@@ -43,9 +45,19 @@ export const UserManagementTabs = () => {
   const handleUserInvited = async () => {
     console.log("Actualisation de la liste des utilisateurs après invitation");
     
-    // Forcer plusieurs refetch avec un petit délai pour s'assurer que les données sont bien à jour
-    setTimeout(() => refetch(), 100); 
-    setTimeout(() => refetch(), 1000);
+    // Forcer plusieurs refetch avec un petit délai
+    await refetch();
+    
+    // Ajouter des rafraîchissements supplémentaires avec délai
+    setTimeout(async () => {
+      await refetch();
+      console.log("Premier rafraîchissement après délai");
+    }, 500);
+    
+    setTimeout(async () => {
+      await refetch();
+      console.log("Second rafraîchissement après délai plus long");
+    }, 1500);
     
     console.log("Nombre d'utilisateurs après refetch:", users.length);
   };

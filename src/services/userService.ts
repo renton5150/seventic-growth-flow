@@ -1,6 +1,6 @@
 
 import { User, UserRole } from "@/types/types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
 import { users as mockUsersImport } from "@/data/users";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
@@ -8,13 +8,14 @@ import { v4 as uuidv4 } from "uuid";
 // Créer une copie locale des utilisateurs fictifs pour les modifications en mode démo
 const mockUsers = [...mockUsersImport];
 
+// Vérifier la connexion Supabase
+const isSupabaseConnected = SUPABASE_URL !== "" && SUPABASE_ANON_KEY !== "";
+console.log("Supabase est connecté:", isSupabaseConnected ? "Oui" : "Non (mode démo)");
+
 // Récupérer tous les utilisateurs
 export const getAllUsers = async (): Promise<User[]> => {
   try {
     console.log("Tentative de récupération des utilisateurs...");
-    
-    // Vérifier la connexion Supabase
-    const isSupabaseConnected = supabaseUrl !== "" && supabaseAnonKey !== "";
     
     // Mode démo si pas de connexion Supabase
     if (!isSupabaseConnected) {
@@ -54,9 +55,6 @@ export const getAllUsers = async (): Promise<User[]> => {
 // Récupérer un utilisateur par ID
 export const getUserById = async (userId: string): Promise<User | undefined> => {
   try {
-    // Vérifier la connexion Supabase
-    const isSupabaseConnected = supabaseUrl !== "" && supabaseAnonKey !== "";
-    
     if (!isSupabaseConnected) {
       // Mode démo
       return mockUsers.find(user => user.id === userId);
@@ -106,9 +104,7 @@ export const createUser = async (
   }
   
   try {
-    // Vérifier la connexion Supabase
-    const isSupabaseConnected = supabaseUrl !== "" && supabaseAnonKey !== "";
-    console.log("Supabase est connecté:", isSupabaseConnected);
+    console.log("Supabase est connecté:", isSupabaseConnected ? "Oui" : "Non (mode démo)");
     
     // Mode démo si pas de connexion Supabase
     if (!isSupabaseConnected) {
@@ -128,6 +124,10 @@ export const createUser = async (
       
       console.log("Utilisateur créé en mode démo:", newUser);
       console.log("Nombre total d'utilisateurs en mode démo:", mockUsers.length);
+      
+      // Simuler un délai de réseau pour que l'UI ait le temps de se mettre à jour
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       return { success: true, user: newUser };
     }
 
@@ -137,58 +137,101 @@ export const createUser = async (
     // Générer un mot de passe temporaire
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "!1";
     
-    // Créer l'utilisateur dans Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { name },
-    });
+    console.log("Tentative de création d'utilisateur avec l'email:", email);
+    
+    try {
+      // Créer l'utilisateur dans Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { name },
+      });
 
-    if (authError) {
-      console.error("Erreur lors de la création de l'utilisateur dans Auth:", authError);
-      return { success: false, error: authError.message };
+      if (authError) {
+        console.error("Erreur lors de la création de l'utilisateur dans Auth:", authError);
+        toast.error(`Erreur: ${authError.message}`);
+        return { success: false, error: authError.message };
+      }
+
+      // Vérifier que l'utilisateur a bien été créé
+      if (!authData.user) {
+        console.error("Utilisateur non créé dans Auth");
+        toast.error("Erreur lors de la création de l'utilisateur");
+        return { success: false, error: "Erreur lors de la création de l'utilisateur" };
+      }
+
+      console.log("Utilisateur créé dans Auth:", authData.user.id);
+
+      // Mettre à jour le profil avec le rôle choisi
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ role: role })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        console.error("Erreur lors de la mise à jour du profil:", profileError);
+        // On ne renvoie pas d'erreur ici car l'utilisateur a bien été créé
+        // Le rôle par défaut sera appliqué (sdr)
+      }
+
+      // Créer l'objet utilisateur à retourner
+      const newUser: User = {
+        id: authData.user.id,
+        email: email,
+        name: name,
+        role: role,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
+      };
+
+      console.log("Utilisateur créé avec succès:", newUser);
+      toast.success("Utilisateur créé avec succès");
+      return { success: true, user: newUser };
+    } catch (supaError) {
+      console.error("Exception Supabase lors de la création de l'utilisateur:", supaError);
+      toast.error(`Erreur Supabase: ${supaError instanceof Error ? supaError.message : "Erreur inconnue"}`);
+      
+      // En cas d'erreur d'authentification, essayer de créer directement dans la table profiles
+      console.log("Tentative de création directe dans la table profiles...");
+      try {
+        const userId = uuidv4();
+        const { error } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email,
+            name: name,
+            role: role,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
+          });
+          
+        if (error) {
+          console.error("Erreur lors de la création directe dans profiles:", error);
+          toast.error(`Erreur: ${error.message}`);
+          return { success: false, error: error.message };
+        }
+        
+        const newUser: User = {
+          id: userId,
+          email: email,
+          name: name,
+          role: role,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
+        };
+        
+        console.log("Utilisateur créé avec succès dans profiles:", newUser);
+        toast.success("Utilisateur créé avec succès");
+        return { success: true, user: newUser };
+      } catch (directInsertError) {
+        console.error("Exception lors de la création directe:", directInsertError);
+        toast.error(`Erreur: ${directInsertError instanceof Error ? directInsertError.message : "Erreur inconnue"}`);
+        return { success: false, error: directInsertError instanceof Error ? directInsertError.message : "Erreur inconnue" };
+      }
     }
-
-    // Vérifier que l'utilisateur a bien été créé
-    if (!authData.user) {
-      console.error("Utilisateur non créé dans Auth");
-      return { success: false, error: "Erreur lors de la création de l'utilisateur" };
-    }
-
-    console.log("Utilisateur créé dans Auth:", authData.user.id);
-
-    // Mettre à jour le profil avec le rôle choisi
-    const roleValue: UserRole = role; // Ré-affirme explicitement le type
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ role: roleValue })
-      .eq('id', authData.user.id);
-
-    if (profileError) {
-      console.error("Erreur lors de la mise à jour du profil:", profileError);
-      // On ne renvoie pas d'erreur ici car l'utilisateur a bien été créé
-      // Le rôle par défaut sera appliqué (sdr)
-    }
-
-    // Créer l'objet utilisateur à retourner
-    const newUser: User = {
-      id: authData.user.id,
-      email: email,
-      name: name,
-      role: roleValue,
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
-    };
-
-    console.log("Utilisateur créé avec succès:", newUser);
-    return { success: true, user: newUser };
   } catch (error) {
-    console.error("Exception lors de la création de l'utilisateur:", error);
+    console.error("Exception générale lors de la création de l'utilisateur:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    toast.error(`Erreur: ${errorMessage}`);
     return { success: false, error: errorMessage };
   }
 };
-
-// Obtenir les variables Supabase pour les vérifications internes
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
