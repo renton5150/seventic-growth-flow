@@ -18,12 +18,27 @@ import {
 // Ré-exporter les fonctions mockées pour la compatibilité
 export { findMockMissionById, getMockMissionsBySdrId } from "./missions/mockMissions";
 
+// Vérifier si un utilisateur est connecté avec Supabase
+const isSupabaseAuthenticated = async (): Promise<boolean> => {
+  try {
+    // Importer dynamiquement pour éviter les problèmes de référence circulaire
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase.auth.getSession();
+    return !!data.session;
+  } catch (error) {
+    console.error("Erreur lors de la vérification de l'authentification Supabase:", error);
+    return false;
+  }
+};
+
 // Obtenir toutes les missions
 export const getAllMissions = async (): Promise<Mission[]> => {
   try {
+    const isAuthenticated = await isSupabaseAuthenticated();
     console.log("Récupération de toutes les missions, Supabase configuré:", isSupabaseConfigured);
+    console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
     
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation des données mockées pour toutes les missions");
       return getAllMockMissions();
     }
@@ -45,9 +60,11 @@ export const getAllMissions = async (): Promise<Mission[]> => {
 // Obtenir les missions par utilisateur
 export const getMissionsByUserId = async (userId: string): Promise<Mission[]> => {
   try {
+    const isAuthenticated = await isSupabaseAuthenticated();
     console.log("Récupération des missions d'utilisateur, Supabase configuré:", isSupabaseConfigured);
+    console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
     
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation des données mockées pour les missions d'utilisateur");
       return getMockMissionsByUserId(userId);
     }
@@ -69,9 +86,11 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
 // Obtenir une mission par ID
 export const getMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
+    const isAuthenticated = await isSupabaseAuthenticated();
     console.log("Récupération d'une mission par ID, Supabase configuré:", isSupabaseConfigured);
+    console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
     
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation des données mockées pour une mission");
       return getMockMissionById(missionId);
     }
@@ -98,9 +117,11 @@ export const createMission = async (data: {
   sdrId: string;
 }): Promise<Mission | undefined> => {
   try {
+    const isAuthenticated = await isSupabaseAuthenticated();
     console.log("Création d'une mission, Supabase configuré:", isSupabaseConfigured);
+    console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
     
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation du mock pour la création de mission");
       return createMockMission(data);
     }

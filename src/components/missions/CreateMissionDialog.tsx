@@ -28,6 +28,7 @@ import { getAllUsers } from "@/services/userService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User } from "@/types/types";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Schema for mission form
 const missionSchema = z.object({
@@ -57,6 +58,7 @@ export const CreateMissionDialog = ({
   onSuccess,
 }: CreateMissionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
   
   // Récupérer la liste des SDRs
   const { data: users = [] } = useQuery({
@@ -74,7 +76,7 @@ export const CreateMissionDialog = ({
       name: "",
       client: "",
       description: "",
-      sdrId: userId,
+      sdrId: user?.id || userId,
     },
   });
   
@@ -82,12 +84,13 @@ export const CreateMissionDialog = ({
     try {
       setIsSubmitting(true);
       console.log("Création de mission - données soumises:", values);
+      console.log("Utilisateur actuel:", user);
       
       const result = await createMission({
         name: values.name,
         client: values.client, 
         description: values.description,
-        sdrId: values.sdrId
+        sdrId: values.sdrId || user?.id || "",
       });
       
       if (result) {
@@ -153,7 +156,7 @@ export const CreateMissionDialog = ({
                   <FormLabel>SDR responsable</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
-                    defaultValue={field.value}
+                    defaultValue={field.value || user?.id}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -161,11 +164,19 @@ export const CreateMissionDialog = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {sdrUsers.map((user: User) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name}
-                        </SelectItem>
-                      ))}
+                      {sdrUsers.length > 0 ? (
+                        sdrUsers.map((sdrUser: User) => (
+                          <SelectItem key={sdrUser.id} value={sdrUser.id}>
+                            {sdrUser.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        user && (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name || user.email}
+                          </SelectItem>
+                        )
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

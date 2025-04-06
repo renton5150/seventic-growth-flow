@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -20,30 +20,41 @@ const Missions = () => {
   const isAdmin = user?.role === "admin";
   const isSdr = user?.role === "sdr";
 
+  console.log("Page Missions - utilisateur:", user);
+
   // Utiliser react-query pour gérer les missions
   const { data: missions = [], isLoading, refetch } = useQuery({
     queryKey: ['missions', user?.id, isAdmin],
     queryFn: async () => {
-      if (isAdmin) {
-        return await getAllMissions();
-      } else if (user?.id) {
-        return await getMissionsByUserId(user.id);
+      try {
+        console.log("Chargement des missions pour", isAdmin ? "admin" : "sdr", "avec ID:", user?.id);
+        if (isAdmin) {
+          return await getAllMissions();
+        } else if (user?.id) {
+          return await getMissionsByUserId(user.id);
+        }
+        return [];
+      } catch (error) {
+        console.error("Erreur lors du chargement des missions:", error);
+        return [];
       }
-      return [];
     },
     enabled: !!user
   });
     
   // Handlers
   const handleRefreshMissions = () => {
+    console.log("Rafraîchissement des missions");
     refetch();
   };
   
   const handleViewMission = (mission: Mission) => {
+    console.log("Affichage de la mission:", mission);
     setSelectedMission(mission);
   };
   
   const handleCreateMissionClick = () => {
+    console.log("Ouverture de la modal de création de mission");
     setIsCreateModalOpen(true);
   };
 
@@ -56,6 +67,8 @@ const Missions = () => {
       </AppLayout>
     );
   }
+  
+  console.log("Missions chargées:", missions);
   
   return (
     <AppLayout>

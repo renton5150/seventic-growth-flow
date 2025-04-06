@@ -147,18 +147,37 @@ export const createSupaMission = async (data: {
   sdrId: string;
 }): Promise<Mission | undefined> => {
   try {
-    console.log("Création d'une nouvelle mission dans Supabase:", data);
+    // Vérifier que l'utilisateur est authentifié
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      console.error("Erreur: Utilisateur non authentifié pour créer une mission");
+      return undefined;
+    }
     
-    // Générer un UUID valide si le sdrId n'en est pas un
-    const sdrId = isValidUUID(data.sdrId) ? data.sdrId : uuidv4();
-    console.log(`Utilisation du sdrId: ${sdrId} (original: ${data.sdrId})`);
+    console.log("Création d'une nouvelle mission dans Supabase:", data);
+    console.log("Session active:", !!session.session);
+    
+    // Vérifier et valider l'ID du SDR
+    let sdrId = data.sdrId;
+    if (!isValidUUID(sdrId)) {
+      // Si ce n'est pas un UUID valide, utilisez l'ID de l'utilisateur authentifié
+      sdrId = session.session?.user?.id || "";
+      console.log(`ID SDR non valide, utilisation de l'ID utilisateur actuel: ${sdrId}`);
+      
+      if (!isValidUUID(sdrId)) {
+        console.error("Impossible d'obtenir un UUID valide pour le SDR");
+        return undefined;
+      }
+    }
     
     const missionData = {
       name: data.name,
       client: data.client,
-      description: data.description,
+      description: data.description || null,
       sdr_id: sdrId
     };
+
+    console.log("Données de mission à insérer:", missionData);
 
     const { data: newMission, error } = await supabase
       .from('missions')
@@ -167,9 +186,9 @@ export const createSupaMission = async (data: {
         *,
         profiles!missions_sdr_id_fkey(name)
       `)
-      .maybeSingle();
+      .single();
 
-    if (error || !newMission) {
+    if (error) {
       console.error("Erreur lors de la création de la mission:", error);
       return undefined;
     }
