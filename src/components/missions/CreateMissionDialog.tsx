@@ -81,6 +81,7 @@ export const CreateMissionDialog = ({
   const onSubmit = async (values: z.infer<typeof missionSchema>) => {
     try {
       setIsSubmitting(true);
+      console.log("Création de mission - données soumises:", values);
       
       const result = await createMission({
         name: values.name,
@@ -90,11 +91,13 @@ export const CreateMissionDialog = ({
       });
       
       if (result) {
+        console.log("Mission créée avec succès:", result);
         onSuccess();
         onOpenChange(false);
         form.reset();
         toast.success("Mission créée avec succès");
       } else {
+        console.error("Échec de création de la mission - résultat undefined");
         toast.error("Erreur lors de la création de la mission");
       }
     } catch (error) {

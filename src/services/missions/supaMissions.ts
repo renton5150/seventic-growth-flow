@@ -6,6 +6,7 @@ import { getRequestsByMissionId } from "../requestService";
 // Obtenir toutes les missions depuis Supabase
 export const getAllSupaMissions = async (): Promise<Mission[]> => {
   try {
+    console.log("Récupération des missions depuis Supabase");
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -17,6 +18,8 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
       console.error("Erreur lors de la récupération des missions:", error);
       return [];
     }
+
+    console.log("Missions récupérées depuis Supabase:", missions);
 
     // Adapter les données au format attendu par l'application
     const formattedMissions = await Promise.all(missions.map(async (mission) => {
@@ -44,6 +47,7 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
 // Obtenir les missions par utilisateur depuis Supabase
 export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]> => {
   try {
+    console.log("Récupération des missions d'utilisateur depuis Supabase pour userId:", userId);
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -56,6 +60,8 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
       console.error("Erreur lors de la récupération des missions:", error);
       return [];
     }
+
+    console.log("Missions utilisateur récupérées depuis Supabase:", missions);
 
     // Adapter les données au format attendu par l'application
     const formattedMissions = await Promise.all(missions.map(async (mission) => {
@@ -83,6 +89,7 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
 // Obtenir une mission par ID depuis Supabase
 export const getSupaMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
+    console.log("Récupération d'une mission depuis Supabase par ID:", missionId);
     const { data: mission, error } = await supabase
       .from('missions')
       .select(`
@@ -96,6 +103,8 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
       console.error("Erreur lors de la récupération de la mission:", error);
       return undefined;
     }
+
+    console.log("Mission récupérée depuis Supabase:", mission);
 
     const requests = await getRequestsByMissionId(mission.id);
 
@@ -123,6 +132,8 @@ export const createSupaMission = async (data: {
   sdrId: string;
 }): Promise<Mission | undefined> => {
   try {
+    console.log("Création d'une nouvelle mission dans Supabase:", data);
+    
     const missionData = {
       name: data.name,
       client: data.client,
@@ -143,6 +154,8 @@ export const createSupaMission = async (data: {
       console.error("Erreur lors de la création de la mission:", error);
       return undefined;
     }
+
+    console.log("Nouvelle mission créée dans Supabase:", newMission);
 
     return {
       id: newMission.id,

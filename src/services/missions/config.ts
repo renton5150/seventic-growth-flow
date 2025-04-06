@@ -1,3 +1,4 @@
 
 // Configuration pour détecter si Supabase est configuré
-export const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Définir à true pour forcer l'utilisation de Supabase
+export const isSupabaseConfigured = true;
