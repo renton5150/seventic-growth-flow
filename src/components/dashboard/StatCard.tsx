@@ -8,6 +8,7 @@ interface StatCardProps {
   value: string | number;
   icon: ReactNode;
   description?: string;
+  details?: string;
   trend?: {
     value: number;
     isPositive: boolean;
@@ -15,7 +16,7 @@ interface StatCardProps {
   className?: string;
 }
 
-export const StatCard = ({ title, value, icon, description, trend, className }: StatCardProps) => {
+export const StatCard = ({ title, value, icon, description, details, trend, className }: StatCardProps) => {
   return (
     <Card className={cn("flex flex-col h-full", className)}>
       <CardContent className="pt-6">
@@ -25,6 +26,9 @@ export const StatCard = ({ title, value, icon, description, trend, className }: 
             <h3 className="text-2xl font-bold mt-1">{value}</h3>
             {description && (
               <p className="text-sm text-muted-foreground mt-1">{description}</p>
+            )}
+            {details && (
+              <p className="text-sm text-muted-foreground mt-1">{details}</p>
             )}
             {trend && (
               <div className="flex items-center mt-1">
