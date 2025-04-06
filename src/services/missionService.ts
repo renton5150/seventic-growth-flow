@@ -16,7 +16,7 @@ import {
 } from "./missions/supaMissions";
 
 // Ré-exporter les fonctions mockées pour la compatibilité
-export { getMockMissionById, getMockMissionsBySdrId } from "./missions/mockMissions";
+export { findMockMissionById, getMockMissionsBySdrId } from "./missions/mockMissions";
 
 // Obtenir toutes les missions
 export const getAllMissions = async (): Promise<Mission[]> => {
@@ -50,7 +50,7 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
 export const getMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
     if (!isSupabaseConfigured) {
-      return getMockMissionById(missionId);
+      return getMissionById(missionId);
     }
 
     return getSupaMissionById(missionId);

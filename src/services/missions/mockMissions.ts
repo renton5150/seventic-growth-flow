@@ -3,7 +3,7 @@ import { Mission, Request } from "@/types/types";
 import { getRequestsByMissionId } from "../requestService";
 import { mockData } from "@/data/mockData";
 
-// Fonctions pour les données mockées (version synchrone)
+// Fonction synchrone pour trouver une mission par ID
 export const findMockMissionById = (missionId: string): Mission | undefined => {
   const mission = mockData.missions.find((mission) => mission.id === missionId);
   if (!mission) return undefined;
