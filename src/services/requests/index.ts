@@ -42,13 +42,13 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
     console.log("Mise à jour de la requête:", requestId, "avec les données:", updates);
     
     // Determine the request type and call the appropriate update function
-    if ("type" in updates && updates.type === "email" || (!("type" in updates) && hasTemplate(updates))) {
+    if (("type" in updates && updates.type === "email") || (!("type" in updates) && hasTemplate(updates))) {
       return updateEmailRequest(requestId, updates as Partial<EmailCampaignRequest>);
     } 
-    else if ("type" in updates && updates.type === "database" || (!("type" in updates) && hasTool(updates))) {
+    else if (("type" in updates && updates.type === "database") || (!("type" in updates) && hasTool(updates))) {
       return updateDatabaseRequest(requestId, updates as Partial<DatabaseRequest>);
     }
-    else if ("type" in updates && updates.type === "linkedin" || (!("type" in updates) && hasTargetingWithoutTool(updates))) {
+    else if (("type" in updates && updates.type === "linkedin") || (!("type" in updates) && hasTargetingWithoutTool(updates))) {
       return updateLinkedInRequest(requestId, updates as Partial<LinkedInScrapingRequest>);
     }
     else {

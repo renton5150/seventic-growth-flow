@@ -1,5 +1,5 @@
 
-import { LoginForm } from "@/components/auth/LoginForm";
+import { LoginForm } from "@/components/auth/login/LoginForm";
 import AuthLayout from "@/components/auth/AuthLayout";
 
 const Login = () => {
