@@ -1,6 +1,6 @@
 
 import { Request, RequestStatus, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 // Obtenir toutes les requêtes
 export const getAllRequests = async (): Promise<Request[]> => {
@@ -149,6 +149,8 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
 // Créer une requête de campagne email
 export const createEmailCampaignRequest = async (requestData: any): Promise<EmailCampaignRequest | undefined> => {
   try {
+    console.log("Préparation des données pour la création de la requête:", requestData);
+    
     const dbRequest = {
       type: "email",
       title: requestData.title,
@@ -158,10 +160,14 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       status: "pending" as RequestStatus,
       dueDate: requestData.dueDate.toISOString(),
       lastUpdated: new Date().toISOString(),
-      template: requestData.template,
-      database: requestData.database,
-      blacklist: requestData.blacklist
+      details: {
+        template: requestData.template,
+        database: requestData.database,
+        blacklist: requestData.blacklist
+      }
     };
+    
+    console.log("Données formatées pour l'insertion:", dbRequest);
 
     const { data: newRequest, error } = await supabase
       .from('requests')
@@ -174,6 +180,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       return undefined;
     }
 
+    console.log("Nouvelle requête créée avec succès:", newRequest);
     return formatRequestFromDb(newRequest) as EmailCampaignRequest;
   } catch (error) {
     console.error("Erreur inattendue lors de la création de la requête de campagne email:", error);
@@ -265,33 +272,36 @@ const formatRequestFromDb = (dbRequest: any): Request => {
     sdrName: dbRequest.sdrName
   };
 
+  // Utiliser le champ details de la BD pour stocker les données spécifiques au type
+  const details = dbRequest.details || {};
+
   switch (dbRequest.type) {
     case "email":
       return {
         ...baseRequest,
         type: "email",
-        template: dbRequest.template || {},
-        database: dbRequest.database || {},
-        blacklist: dbRequest.blacklist || {},
-        platform: dbRequest.platform,
-        statistics: dbRequest.statistics
+        template: details.template || {},
+        database: details.database || {},
+        blacklist: details.blacklist || {},
+        platform: details.platform,
+        statistics: details.statistics
       } as EmailCampaignRequest;
     case "database":
       return {
         ...baseRequest,
         type: "database",
-        tool: dbRequest.tool,
-        targeting: dbRequest.targeting || {},
-        blacklist: dbRequest.blacklist || {},
-        contactsCreated: dbRequest.contactsCreated
+        tool: details.tool,
+        targeting: details.targeting || {},
+        blacklist: details.blacklist || {},
+        contactsCreated: details.contactsCreated
       } as DatabaseRequest;
     case "linkedin":
       return {
         ...baseRequest,
         type: "linkedin",
-        targeting: dbRequest.targeting || {},
-        profilesScraped: dbRequest.profilesScraped,
-        resultFileUrl: dbRequest.resultFileUrl
+        targeting: details.targeting || {},
+        profilesScraped: details.profilesScraped,
+        resultFileUrl: details.resultFileUrl
       } as LinkedInScrapingRequest;
     default:
       return baseRequest as Request;

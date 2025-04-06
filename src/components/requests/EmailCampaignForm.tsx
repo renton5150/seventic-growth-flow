@@ -104,7 +104,11 @@ export const EmailCampaignForm = () => {
       }
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
-      toast.error("Erreur lors de la création de la demande");
+      // Afficher plus de détails sur l'erreur
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Erreur inconnue lors de la création de la demande";
+      toast.error(`Erreur lors de la création de la demande: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
