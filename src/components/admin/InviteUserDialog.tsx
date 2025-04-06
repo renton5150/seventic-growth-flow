@@ -43,7 +43,9 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
 
     try {
       console.log("Envoi de l'invitation avec le rôle:", role);
-      const result = await createUser(email, name, role);
+      // S'assurer que role est bien un UserRole valide
+      const userRole: UserRole = role;
+      const result = await createUser(email, name, userRole);
       
       if (result.success) {
         toast.success("Invitation envoyée", {
@@ -117,7 +119,15 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             <Label htmlFor="role">Rôle</Label>
             <Select 
               value={role} 
-              onValueChange={(value: string) => setRole(value as UserRole)}
+              onValueChange={(value) => {
+                // Vérification explicite que value est bien un UserRole valide
+                if (value === "admin" || value === "growth" || value === "sdr") {
+                  setRole(value);
+                } else {
+                  console.error("Valeur de rôle invalide:", value);
+                  setRole("sdr"); // Valeur par défaut
+                }
+              }}
             >
               <SelectTrigger id="role">
                 <SelectValue placeholder="Sélectionner un rôle" />
