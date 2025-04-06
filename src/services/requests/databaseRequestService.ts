@@ -47,9 +47,81 @@ export const createDatabaseRequest = async (requestData: any): Promise<DatabaseR
  */
 export const updateDatabaseRequest = async (requestId: string, updates: Partial<DatabaseRequest>): Promise<DatabaseRequest | undefined> => {
   try {
-    // Implementation would be similar to updateEmailRequest but tailored for database requests
-    // This is a placeholder for future implementation if needed
-    return undefined;
+    // Préparation des données pour la mise à jour dans Supabase
+    const dbUpdates: any = {};
+    
+    if (updates.title) dbUpdates.title = updates.title;
+    if (updates.dueDate) dbUpdates.due_date = updates.dueDate.toISOString();
+    if (updates.status) dbUpdates.status = updates.status;
+
+    // Gérer les détails spécifiques au type database
+    if (updates.tool || updates.targeting || updates.blacklist) {
+      // Récupérer les détails actuels pour les mettre à jour correctement
+      const { data: currentRequest } = await supabase
+        .from('requests')
+        .select('details')
+        .eq('id', requestId)
+        .single();
+        
+      // S'assurer que currentRequest.details est un objet
+      let currentDetails: Record<string, any> = {};
+      if (currentRequest && typeof currentRequest.details === 'object' && currentRequest.details !== null) {
+        currentDetails = currentRequest.details as Record<string, any>;
+      }
+      
+      // Initialiser l'objet details
+      dbUpdates.details = {};
+      
+      // Mettre à jour l'outil
+      if (updates.tool) {
+        dbUpdates.details.tool = updates.tool;
+      } else if (currentDetails.tool) {
+        dbUpdates.details.tool = currentDetails.tool;
+      }
+      
+      // Mettre à jour le ciblage
+      if (updates.targeting) {
+        dbUpdates.details.targeting = {
+          ...(currentDetails.targeting || {}),
+          ...updates.targeting
+        };
+      } else if (currentDetails.targeting) {
+        dbUpdates.details.targeting = currentDetails.targeting;
+      }
+      
+      // Mettre à jour la blacklist
+      if (updates.blacklist) {
+        dbUpdates.details.blacklist = {
+          ...(currentDetails.blacklist || {}),
+          ...updates.blacklist
+        };
+      } else if (currentDetails.blacklist) {
+        dbUpdates.details.blacklist = currentDetails.blacklist;
+      }
+      
+      // Mettre à jour les contacts créés
+      if (updates.contactsCreated !== undefined) {
+        dbUpdates.details.contactsCreated = updates.contactsCreated;
+      } else if (currentDetails.contactsCreated !== undefined) {
+        dbUpdates.details.contactsCreated = currentDetails.contactsCreated;
+      }
+    }
+    
+    dbUpdates.last_updated = new Date().toISOString();
+
+    const { data: updatedRequest, error } = await supabase
+      .from('requests')
+      .update(dbUpdates)
+      .eq('id', requestId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erreur lors de la mise à jour de la requête de base de données:", error);
+      return undefined;
+    }
+
+    return formatRequestFromDb(updatedRequest) as DatabaseRequest;
   } catch (error) {
     console.error("Erreur inattendue lors de la mise à jour de la requête de base de données:", error);
     return undefined;

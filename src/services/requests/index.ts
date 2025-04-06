@@ -6,10 +6,12 @@ export * from './databaseRequestService';
 export * from './linkedinRequestService';
 export * from './utils';
 
-import { Request } from "@/types/types";
+import { Request, RequestStatus } from "@/types/types";
 import { updateEmailRequest } from "./emailRequestService";
 import { updateDatabaseRequest } from "./databaseRequestService";
 import { updateLinkedInRequest } from "./linkedinRequestService";
+import { supabase } from "@/integrations/supabase/client";
+import { formatRequestFromDb } from "./utils";
 
 /**
  * Generic request update function that delegates to the appropriate type-specific update function
@@ -54,7 +56,3 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
     return undefined;
   }
 };
-
-// Import supabase and formatRequestFromDb for the updateRequest function
-import { supabase } from "@/integrations/supabase/client";
-import { formatRequestFromDb } from "./utils";
