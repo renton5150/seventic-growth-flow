@@ -2,7 +2,6 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 
-// Make the component accept a prop to determine if it should be shown
 interface DemoAlertProps {
   showDemoMode?: boolean;
 }

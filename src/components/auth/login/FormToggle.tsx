@@ -1,8 +1,6 @@
 
-import { type AuthFormMode } from "./LoginForm";
-
 interface FormToggleProps {
-  formMode: AuthFormMode;
+  formMode: "login" | "signup";
   onToggle: () => void;
 }
 

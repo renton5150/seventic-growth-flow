@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RefreshCw } from "lucide-react";
 
-interface NetworkStatusProps {
+export interface NetworkStatusProps {
   status: "online" | "offline" | "checking";
   error: string | null;
   onRetry: () => void;

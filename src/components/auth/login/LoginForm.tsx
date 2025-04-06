@@ -8,10 +8,15 @@ import { DemoAlert } from "./DemoAlert";
 import { NetworkStatus } from "./NetworkStatus";
 import { useAuth } from "@/contexts/AuthContext";
 
-export const LoginForm = () => {
-  const [isLogin, setIsLogin] = useState(true);
+interface LoginFormProps {
+  showDemoMode?: boolean;
+}
+
+export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
+  const [formMode, setFormMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("online");
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
 
@@ -27,32 +32,65 @@ export const LoginForm = () => {
     return null;
   }
 
+  const handleRetry = () => {
+    setNetworkStatus("checking");
+    // Simulate checking the network
+    setTimeout(() => {
+      setNetworkStatus("online");
+      setError(null);
+    }, 1000);
+  };
+
   return (
     <div className="w-full max-w-md space-y-6">
       <div className="rounded-lg border bg-card p-8 shadow-sm">
         <div className="space-y-6">
-          <FormToggle isLogin={isLogin} onToggle={() => setIsLogin(!isLogin)} />
+          <FormToggle 
+            formMode={formMode} 
+            onToggle={() => setFormMode(formMode === "login" ? "signup" : "login")} 
+          />
           
-          {isLogin ? (
+          {formMode === "login" ? (
             <LoginFormContent 
-              loading={loading} 
-              setLoading={setLoading}
-              error={error}
-              setError={setError}
+              isOffline={networkStatus === "offline"}
+              onSubmit={async (email, password) => {
+                const { login } = useAuth();
+                setLoading(true);
+                try {
+                  const result = await login(email, password);
+                  return result;
+                } catch (err) {
+                  return false;
+                } finally {
+                  setLoading(false);
+                }
+              }}
             />
           ) : (
             <SignupFormContent 
-              loading={loading} 
-              setLoading={setLoading}
-              error={error}
-              setError={setError}
+              isOffline={networkStatus === "offline"}
+              onSubmit={async (email, password, name) => {
+                setLoading(true);
+                try {
+                  // Implement signup logic
+                  return true;
+                } catch (err) {
+                  return false;
+                } finally {
+                  setLoading(false);
+                }
+              }}
             />
           )}
         </div>
       </div>
       
-      <DemoAlert />
-      <NetworkStatus />
+      <DemoAlert showDemoMode={showDemoMode} />
+      <NetworkStatus 
+        status={networkStatus}
+        error={error}
+        onRetry={handleRetry}
+      />
     </div>
   );
 };

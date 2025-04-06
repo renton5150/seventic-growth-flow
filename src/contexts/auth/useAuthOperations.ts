@@ -11,7 +11,7 @@ export const useAuthOperations = (
   // État local pour suivre les erreurs d'authentification
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
       console.log("Tentative de connexion pour:", email);
       setLoading(true);
@@ -26,20 +26,20 @@ export const useAuthOperations = (
         console.error("Erreur de connexion:", error.message);
         toast.error("Échec de la connexion: " + error.message);
         setAuthError(error.message);
-        return { success: false, error: error.message };
+        return false;
       }
 
       console.log("Connexion réussie, redirection vers le tableau de bord");
       toast.success("Connexion réussie");
       
       // La session est automatiquement traitée par useAuthSession
-      return { success: true };
+      return true;
     } catch (error) {
       console.error("Exception lors de la connexion:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       toast.error("Exception: " + errorMessage);
       setAuthError(errorMessage);
-      return { success: false, error: errorMessage };
+      return false;
     } finally {
       setLoading(false);
     }

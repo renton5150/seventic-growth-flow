@@ -106,23 +106,25 @@ export const SignupFormContent = ({
       </div>
       
       {/* Option administrateur */}
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="admin"
-          checked={isAdminSignup}
-          onCheckedChange={onToggleAdminSignup}
-          disabled={isSubmitting || isOffline}
-        />
-        <div className="grid gap-1.5 leading-none">
-          <Label
-            htmlFor="admin"
-            className="flex items-center text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            <Shield className="h-3 w-3 mr-1 text-seventic-500" /> 
-            Créer un compte administrateur
-          </Label>
+      {onToggleAdminSignup && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="admin"
+            checked={isAdminSignup}
+            onCheckedChange={onToggleAdminSignup}
+            disabled={isSubmitting || isOffline}
+          />
+          <div className="grid gap-1.5 leading-none">
+            <Label
+              htmlFor="admin"
+              className="flex items-center text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              <Shield className="h-3 w-3 mr-1 text-seventic-500" /> 
+              Créer un compte administrateur
+            </Label>
+          </div>
         </div>
-      </div>
+      )}
       
       <Button 
         type="submit" 
