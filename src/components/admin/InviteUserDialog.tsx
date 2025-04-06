@@ -14,7 +14,7 @@ import { AlertCircle } from "lucide-react";
 interface InviteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultRole: UserRole; // S'assurer que c'est du type UserRole
+  defaultRole: UserRole;
   onUserInvited: () => void;
 }
 

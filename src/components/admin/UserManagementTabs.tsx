@@ -5,14 +5,14 @@ import { UsersTable } from "./UsersTable";
 import { InviteUserDialog } from "./InviteUserDialog";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
-import { User } from "@/types/types";
+import { User, UserRole } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/userService";
 
 export const UserManagementTabs = () => {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
-  const [inviteRole, setInviteRole] = useState<"sdr" | "growth" | "admin">("sdr");
+  const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
 
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
@@ -24,7 +24,7 @@ export const UserManagementTabs = () => {
     return user.role === activeTab;
   });
 
-  const handleInviteClick = (role: "sdr" | "growth" | "admin") => {
+  const handleInviteClick = (role: UserRole) => {
     setInviteRole(role);
     setIsInviteDialogOpen(true);
   };
