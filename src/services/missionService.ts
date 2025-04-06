@@ -50,7 +50,7 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
 export const getMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
     if (!isSupabaseConfigured) {
-      return getMissionById(missionId);
+      return getMockMissionById(missionId);
     }
 
     return getSupaMissionById(missionId);
