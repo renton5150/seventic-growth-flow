@@ -7,8 +7,15 @@ import { User } from "@/types/types";
 export const useAuthSession = (setUser: (user: User | null) => void, setLoading: (loading: boolean) => void) => {
   // Configurer la gestion de session
   useEffect(() => {
+    // Important: définir un délai maximum pour le chargement
+    const timeoutId = setTimeout(() => {
+      console.log("Délai maximum de chargement atteint, arrêt du chargement");
+      setLoading(false);
+    }, 5000); // 5 secondes maximum de chargement
+    
     const checkSession = async () => {
       try {
+        console.log("Vérification de session en cours...");
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -17,14 +24,18 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           return;
         }
         
+        console.log("Résultat de la session:", session ? "Session trouvée" : "Aucune session");
+        
         if (session) {
           const userProfile = await createUserProfile(session.user);
           setUser(userProfile);
         }
       } catch (error) {
-        console.error("Erreur inattendue:", error);
+        console.error("Erreur inattendue lors de la vérification de session:", error);
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
+        console.log("Chargement terminé");
       }
     };
     
@@ -47,6 +58,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
     
     // Nettoyer l'écouteur lors du démontage
     return () => {
+      clearTimeout(timeoutId);
       if (subscription) {
         subscription.unsubscribe();
       }

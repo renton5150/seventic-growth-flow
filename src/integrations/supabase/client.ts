@@ -14,8 +14,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false,
     storage: localStorage
   }
 });
 
-console.log("Supabase client configured with URL:", SUPABASE_URL);
+console.log("Supabase client configuré avec URL:", SUPABASE_URL);

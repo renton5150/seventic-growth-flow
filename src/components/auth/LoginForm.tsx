@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Mail, Lock, Eye, EyeOff, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const LoginForm = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,20 +18,26 @@ export const LoginForm = () => {
   const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     setIsSubmitting(true);
 
     try {
+      console.log("Tentative de connexion avec:", email);
       const success = await login(email, password);
       if (success) {
         navigate("/dashboard");
+      } else {
+        setError("Échec de la connexion. Vérifiez vos identifiants.");
       }
     } catch (error) {
       console.error("Erreur lors de la tentative de connexion:", error);
+      setError("Une erreur est survenue lors de la connexion. Veuillez réessayer.");
       toast.error("Erreur", {
         description: "Une erreur est survenue lors de la connexion",
       });
@@ -41,9 +48,11 @@ export const LoginForm = () => {
 
   const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     setIsSubmitting(true);
 
     try {
+      console.log("Tentative d'inscription avec:", email);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -56,6 +65,7 @@ export const LoginForm = () => {
 
       if (error) {
         console.error("Erreur lors de l'inscription:", error);
+        setError(error.message);
         toast.error("Erreur d'inscription", {
           description: error.message
         });
@@ -71,6 +81,7 @@ export const LoginForm = () => {
       }
     } catch (error) {
       console.error("Erreur lors de l'inscription:", error);
+      setError("Une erreur est survenue lors de l'inscription");
       toast.error("Erreur", {
         description: "Une erreur est survenue lors de l'inscription"
       });
@@ -88,6 +99,7 @@ export const LoginForm = () => {
     setEmail("");
     setPassword("");
     setName("");
+    setError(null);
   };
 
   return (
@@ -103,6 +115,12 @@ export const LoginForm = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={isLogin ? handleLoginSubmit : handleSignupSubmit} className="space-y-4">
           {!isLogin && (
             <div className="space-y-2">
@@ -206,6 +224,9 @@ export const LoginForm = () => {
               </button>
             </p>
           )}
+        </div>
+        <div className="text-xs text-center text-muted-foreground mt-4">
+          <p>Pour tester: créez un nouveau compte ou utilisez les identifiants de test.</p>
         </div>
       </CardFooter>
     </Card>
