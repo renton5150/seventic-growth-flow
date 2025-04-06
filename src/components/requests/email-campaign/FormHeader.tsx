@@ -1,5 +1,5 @@
 
-import { User } from "@supabase/supabase-js";
+import { User } from "@/types/types";
 import { Control } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
