@@ -56,10 +56,12 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
         // Réinitialiser les champs et fermer le dialogue
         resetForm();
         
-        // Appeler la fonction de rappel pour actualiser la liste des utilisateurs
-        onUserInvited();
-        
-        onOpenChange(false);
+        // Attendre un petit délai pour s'assurer que les données sont mises à jour
+        setTimeout(() => {
+          // Appeler la fonction de rappel pour actualiser la liste des utilisateurs
+          onUserInvited();
+          onOpenChange(false);
+        }, 100);
       } else {
         setErrorMessage(result.error || "Une erreur est survenue lors de l'envoi de l'invitation");
       }

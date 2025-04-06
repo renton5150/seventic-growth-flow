@@ -29,6 +29,12 @@ export const UserManagementTabs = () => {
     setIsInviteDialogOpen(true);
   };
 
+  const handleUserInvited = async () => {
+    console.log("Actualisation de la liste des utilisateurs après invitation");
+    // Force refetch pour récupérer les données les plus récentes
+    await refetch();
+  };
+
   return (
     <>
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
@@ -82,7 +88,7 @@ export const UserManagementTabs = () => {
         open={isInviteDialogOpen} 
         onOpenChange={setIsInviteDialogOpen} 
         defaultRole={inviteRole}
-        onUserInvited={() => refetch()}
+        onUserInvited={handleUserInvited}
       />
     </>
   );

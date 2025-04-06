@@ -1,4 +1,3 @@
-
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { users as mockUsers } from "@/data/users";
@@ -11,7 +10,9 @@ export const getAllUsers = async (): Promise<User[]> => {
     // Vérifier si les variables d'environnement Supabase sont définies
     if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
       console.log("Mode démo activé : utilisation des données simulées pour les utilisateurs");
-      return mockUsers;
+      
+      // Retourner une copie des utilisateurs fictifs pour éviter les problèmes de référence
+      return [...mockUsers];
     }
 
     const { data, error } = await supabase
@@ -21,7 +22,7 @@ export const getAllUsers = async (): Promise<User[]> => {
 
     if (error) {
       console.error("Erreur lors de la récupération des utilisateurs:", error);
-      return mockUsers;
+      return [...mockUsers];
     }
 
     return data.map((user: any) => ({
@@ -33,7 +34,7 @@ export const getAllUsers = async (): Promise<User[]> => {
     }));
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des utilisateurs:", error);
-    return mockUsers;
+    return [...mockUsers];
   }
 };
 
@@ -106,6 +107,7 @@ export const createUser = async (
       mockUsers.push(newUser);
       
       console.log("Utilisateur créé en mode démo:", newUser);
+      console.log("Nombre total d'utilisateurs en mode démo:", mockUsers.length);
       return { success: true, user: newUser };
     }
 
