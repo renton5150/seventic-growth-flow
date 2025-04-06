@@ -19,14 +19,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
-    // Définir un timeout de sécurité de 5 secondes
+    // Définir un timeout de sécurité plus court (3 secondes au lieu de 5)
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
           console.log("Timeout de chargement atteint, initialisation terminée");
           setAuthState(prev => ({ ...prev, loading: false }));
         }
-      }, 5000);
+      }, 3000);
     };
     
     // Lancer le timeout immédiatement
@@ -34,39 +34,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Configurer l'écouteur d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log(`Événement d'authentification: ${event}`);
         
         if (!mounted) return;
         
+        clearTimeout(timeoutId); // Annuler le timeout précédent
+        
         if (session) {
           try {
-            console.log("Session active trouvée, chargement du profil");
-            const userProfile = await createUserProfile(session.user);
-            
-            if (mounted) {
-              setAuthState({ 
-                user: userProfile, 
-                loading: false 
-              });
+            console.log("Session active trouvée");
+            // Utiliser setTimeout pour éviter les problèmes de timing avec Supabase
+            setTimeout(async () => {
+              if (!mounted) return;
               
-              // Annuler le timeout puisque nous avons terminé
-              clearTimeout(timeoutId);
-            }
+              try {
+                const userProfile = await createUserProfile(session.user);
+                
+                if (mounted) {
+                  setAuthState({ 
+                    user: userProfile, 
+                    loading: false 
+                  });
+                }
+              } catch (err) {
+                console.error("Erreur lors du chargement du profil:", err);
+                if (mounted) {
+                  setAuthState({ user: null, loading: false });
+                }
+              }
+            }, 0);
           } catch (err) {
-            console.error("Erreur lors du chargement du profil:", err);
+            console.error("Erreur lors du traitement de la session:", err);
             if (mounted) {
               setAuthState({ user: null, loading: false });
             }
-            toast.error("Erreur de chargement du profil");
-            clearTimeout(timeoutId);
           }
         } else {
           console.log("Pas de session active");
           if (mounted) {
             setAuthState({ user: null, loading: false });
           }
-          clearTimeout(timeoutId);
         }
       }
     );
@@ -108,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`Tentative de connexion: ${email}`);
       setAuthState(prev => ({ ...prev, loading: true }));
       
-      // Créer une promesse avec timeout
+      // Connexion avec un timeout plus court (5 secondes)
       const loginPromise = new Promise<boolean>(async (resolve, reject) => {
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
@@ -133,24 +141,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           
           console.log("Connexion réussie");
-          // onAuthStateChange mettra à jour l'état utilisateur
+          // La session sera gérée par onAuthStateChange
           resolve(true);
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : "Erreur inconnue";
           console.error("Exception lors de la connexion:", errMsg);
-          toast.error("Erreur", { description: errMsg });
           setAuthState(prev => ({ ...prev, loading: false }));
           reject(err);
         }
       });
       
-      // Créer un timeout de 8 secondes
+      // Timeout réduit à 5 secondes
       const timeoutPromise = new Promise<boolean>((resolve) => {
         setTimeout(() => {
           console.log("Timeout de connexion");
           setAuthState(prev => ({ ...prev, loading: false }));
+          toast.error("La connexion a pris trop de temps", { 
+            description: "Veuillez réessayer ou contacter l'assistance" 
+          });
           resolve(false);
-        }, 8000);
+        }, 5000);
       });
       
       // Utiliser Promise.race pour limiter le temps d'attente
