@@ -1,8 +1,9 @@
 
-import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { ReactNode, useEffect } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -10,12 +11,17 @@ interface AuthLayoutProps {
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
+  const navigate = useNavigate();
 
-  // Redirection automatique si l'utilisateur est déjà authentifié
-  if (isAuthenticated) {
-    const redirectPath = isAdmin ? "/admin/dashboard" : "/dashboard";
-    return <Navigate to={redirectPath} replace />;
-  }
+  // Effet pour redirection après authentification réussie
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("AuthLayout: Redirection après authentification, isAdmin:", isAdmin);
+      const redirectPath = isAdmin ? "/admin/dashboard" : "/dashboard";
+      navigate(redirectPath, { replace: true });
+      toast.success("Bienvenue");
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
 
   // Affichage pendant le chargement
   if (loading) {
@@ -36,7 +42,7 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
     );
   }
 
-  // Affichage de la page de connexion
+  // Affichage de la page de connexion (ne pas rediriger si l'utilisateur n'est pas authentifié)
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-seventic-100 to-seventic-200 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
