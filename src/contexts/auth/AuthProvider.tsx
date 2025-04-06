@@ -3,7 +3,7 @@ import { createContext, useContext, useState, ReactNode, useEffect } from "react
 import { AuthContextType, AuthState } from "./types";
 import { User } from "@/types/types";
 import { useAuthOperations } from "./useAuthOperations";
-import { useAuthSession } from "./useAuthSession";
+import { createAuthSessionHelpers } from "./useAuthSession";
 import { toast } from "sonner";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,14 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Lancer le timeout immédiatement
     safetyTimeout();
     
-    // Import and use session management from useAuthSession
-    const { checkSession, setupAuthListener } = useAuthSession(setUser, setLoading);
+    // Create auth session helpers (not using hooks directly)
+    const sessionHelpers = createAuthSessionHelpers(setUser, setLoading);
     
     // Setup auth listener first
-    const subscription = setupAuthListener();
+    const subscription = sessionHelpers.setupAuthListener();
     
     // Then check for existing session
-    checkSession();
+    sessionHelpers.checkSession();
     
     return () => {
       mounted = false;
