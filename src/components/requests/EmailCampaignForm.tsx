@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,6 +14,7 @@ import { BlacklistSection } from "./email-campaign/BlacklistSection";
 import { FormFooter } from "./email-campaign/FormFooter";
 import { formSchema, FormData, defaultValues } from "./email-campaign/schema";
 import { createEmailCampaignRequest } from "@/services/requestService";
+import { supabase } from "@/integrations/supabase/client";
 
 export const EmailCampaignForm = () => {
   const { user } = useAuth();
@@ -28,9 +29,33 @@ export const EmailCampaignForm = () => {
     defaultValues
   });
 
+  // Vérifier que le client Supabase est correctement initialisé
+  useEffect(() => {
+    const checkSupabaseConnection = async () => {
+      try {
+        console.log("Vérification de la connexion Supabase...");
+        const { data, error } = await supabase.from("missions").select("count").limit(1);
+        if (error) {
+          console.error("Erreur de connexion Supabase:", error);
+        } else {
+          console.log("Connexion Supabase OK");
+        }
+      } catch (err) {
+        console.error("Erreur lors de la vérification de la connexion Supabase:", err);
+      }
+    };
+    
+    checkSupabaseConnection();
+  }, []);
+
   const onSubmit = async (data: FormData) => {
     if (fileUploading) {
       toast.error("Veuillez attendre la fin du téléchargement des fichiers");
+      return;
+    }
+
+    if (!user) {
+      toast.error("Vous devez être connecté pour créer une requête");
       return;
     }
 
@@ -43,7 +68,7 @@ export const EmailCampaignForm = () => {
       const requestData = {
         title: data.title,
         missionId: data.missionId,
-        createdBy: user?.id,
+        createdBy: user.id,
         template: {
           content: data.templateContent,
           fileUrl: data.templateFileUrl,
@@ -67,13 +92,16 @@ export const EmailCampaignForm = () => {
         dueDate: data.dueDate
       };
       
-      // Créer une nouvelle demande d'email dans le mock data
-      const newRequest = createEmailCampaignRequest(requestData);
+      console.log("Création de la demande avec:", requestData);
+      const newRequest = await createEmailCampaignRequest(requestData);
       
-      console.log("Nouvelle demande créée:", newRequest);
-      
-      toast.success("Demande de campagne email créée avec succès");
-      navigate("/dashboard");
+      if (newRequest) {
+        console.log("Nouvelle demande créée:", newRequest);
+        toast.success("Demande de campagne email créée avec succès");
+        navigate("/dashboard");
+      } else {
+        throw new Error("Erreur lors de la création de la demande");
+      }
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
       toast.error("Erreur lors de la création de la demande");
@@ -84,9 +112,11 @@ export const EmailCampaignForm = () => {
 
   const handleFileUpload = (field: string, files: FileList | null | string) => {
     setFileUploading(true);
+    console.log("Téléchargement du fichier pour le champ:", field, files);
     try {
       // Cas où files est une chaîne (URL directe)
       if (typeof files === 'string') {
+        console.log("URL directe fournie:", files);
         form.setValue(field as any, files);
         return;
       }
@@ -94,12 +124,14 @@ export const EmailCampaignForm = () => {
       // Cas où files est une FileList
       if (files && files.length > 0) {
         const file = files[0];
+        console.log("Fichier sélectionné:", file.name);
         const fakeUrl = `uploads/${file.name}`;
         form.setValue(field as any, fakeUrl);
         return;
       }
       
       // Cas où files est null (effacement)
+      console.log("Effacement du fichier");
       form.setValue(field as any, "");
     } finally {
       // Toujours remettre fileUploading à false après traitement

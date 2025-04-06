@@ -2,7 +2,6 @@
 import { useState, DragEvent, ChangeEvent, ReactNode, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 interface FileUploaderProps {
   icon: ReactNode;
@@ -61,6 +60,7 @@ export const FileUploader = ({
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
+    console.log("Fichier sélectionné:", e.target.files);
     if (e.target.files && e.target.files.length > 0) {
       validateAndProcessFiles(e.target.files);
     }
@@ -68,23 +68,28 @@ export const FileUploader = ({
 
   const validateAndProcessFiles = (files: FileList) => {
     const file = files[0];
+    console.log("Validation du fichier:", file.name, file.type, file.size);
     
     // Validation d'extension
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    const validExtensions = ['csv', 'xls', 'xlsx'];
+    const acceptValues = accept.split(',').map(ext => ext.trim().replace('.', ''));
     
-    if (!fileExtension || !validExtensions.includes(fileExtension)) {
-      toast.error(`Format de fichier non supporté. Utilisez CSV, XLS ou XLSX.`);
+    console.log("Extensions acceptées:", acceptValues);
+    console.log("Extension du fichier:", fileExtension);
+    
+    if (!fileExtension || !acceptValues.includes(fileExtension)) {
+      console.error("Format de fichier non supporté");
       return;
     }
     
     // Validation de taille
     if (maxSize && file.size > maxSize * 1024 * 1024) {
-      toast.error(`Le fichier est trop volumineux. Limite: ${maxSize}MB`);
+      console.error("Fichier trop volumineux");
       return;
     }
     
     // Mise à jour du nom de fichier et appel au callback onChange
+    console.log("Fichier validé avec succès");
     setFileName(file.name);
     onChange(files);
   };
@@ -106,7 +111,8 @@ export const FileUploader = ({
       onDrop={handleDrop}
       onClick={() => {
         if (!disabled) {
-          document.getElementById("file-input")?.click();
+          const fileInput = document.getElementById(`file-input-${title.replace(/\s+/g, '-')}`);
+          if (fileInput) fileInput.click();
         }
       }}
     >
@@ -145,12 +151,13 @@ export const FileUploader = ({
         )}
         
         <input
-          id="file-input"
+          id={`file-input-${title.replace(/\s+/g, '-')}`}
           type="file"
           className="hidden"
           accept={accept}
           onChange={handleFileChange}
           disabled={disabled}
+          onClick={(e) => e.stopPropagation()}
         />
       </div>
     </div>

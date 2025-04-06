@@ -10,13 +10,33 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Vérifier que les variables sont correctement définies
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error("ERREUR: URL Supabase ou clé d'API manquante!");
+}
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
-    storage: localStorage
+    storage: typeof window !== 'undefined' ? localStorage : undefined
   }
 });
 
 console.log("Supabase client configuré avec URL:", SUPABASE_URL);
+
+// Test de connexion initial
+(async () => {
+  try {
+    console.log("Test de connexion Supabase...");
+    const { error } = await supabase.from("missions").select("id").limit(1);
+    if (error) {
+      console.error("Échec du test de connexion Supabase:", error);
+    } else {
+      console.log("Test de connexion Supabase réussi");
+    }
+  } catch (err) {
+    console.error("Erreur lors du test de connexion:", err);
+  }
+})();

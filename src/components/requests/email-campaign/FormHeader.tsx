@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { mockData } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/types";
+import { useState, useEffect } from "react";
+import { Mission } from "@/types/types";
+import { getMissionsByUserId } from "@/services/missionService";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -18,9 +20,27 @@ interface FormHeaderProps {
 }
 
 export const FormHeader = ({ control, user }: FormHeaderProps) => {
-  const userMissions = mockData.missions.filter(
-    mission => mission.sdrId === user?.id
-  );
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchMissions = async () => {
+      if (user) {
+        try {
+          console.log("Chargement des missions pour l'utilisateur:", user.id);
+          const userMissions = await getMissionsByUserId(user.id);
+          console.log("Missions récupérées:", userMissions);
+          setMissions(userMissions);
+        } catch (error) {
+          console.error("Erreur lors du chargement des missions:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchMissions();
+  }, [user]);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -50,11 +70,12 @@ export const FormHeader = ({ control, user }: FormHeaderProps) => {
                   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                 )}
                 {...field}
+                disabled={loading}
               >
                 <option value="" disabled>
-                  Sélectionnez une mission
+                  {loading ? "Chargement des missions..." : "Sélectionnez une mission"}
                 </option>
-                {userMissions.map((mission) => (
+                {missions.map((mission) => (
                   <option key={mission.id} value={mission.id}>
                     {mission.name}
                   </option>
