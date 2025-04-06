@@ -17,6 +17,13 @@ export const useAuthOperations = (
       setLoading(true);
       setAuthError(null);
 
+      // Vérification des entrées
+      if (!email || !password) {
+        console.error("Email ou mot de passe manquant");
+        setAuthError("Veuillez saisir un email et un mot de passe");
+        return false;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -24,15 +31,25 @@ export const useAuthOperations = (
 
       if (error) {
         console.error("Erreur de connexion:", error.message);
-        toast.error("Échec de la connexion: " + error.message);
+        toast.error("Échec de la connexion: " + (
+          error.message === "Invalid login credentials" 
+            ? "Identifiants invalides" 
+            : error.message
+        ));
         setAuthError(error.message);
+        return false;
+      }
+
+      if (!data.session) {
+        console.error("Pas de session après connexion réussie");
+        toast.error("Erreur: Impossible d'établir une session");
+        setAuthError("Impossible d'établir une session");
         return false;
       }
 
       console.log("Connexion réussie, données de la session:", data);
       toast.success("Connexion réussie");
       
-      // La session est automatiquement traitée par useAuthSession
       return true;
     } catch (error) {
       console.error("Exception lors de la connexion:", error);

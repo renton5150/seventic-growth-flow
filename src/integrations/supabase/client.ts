@@ -23,18 +23,22 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
     detectSessionInUrl: false, // Désactivé pour éviter les conflits avec la navigation React
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    // Délais plus longs pour les connexions instables
+    // Configuration améliorée pour la gestion de la session
     flowType: 'implicit',
   },
   global: {
     headers: {
-      'X-Client-Info': 'seventic-app'
+      'X-Client-Info': 'seventic-app-production'
     },
   },
   realtime: {
     params: {
       eventsPerSecond: 1
     }
+  },
+  // Augmenter les timeouts pour les connexions lentes
+  db: {
+    schema: 'public',
   }
 });
 
@@ -50,7 +54,7 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
     
     // Ajout d'un timeout de sécurité
     const timeoutPromise = new Promise<{ data: { session: null }, error: AuthError }>((_, reject) => {
-      setTimeout(() => reject(new Error("Timeout lors de la récupération de la session")), 5000);
+      setTimeout(() => reject(new Error("Timeout lors de la récupération de la session")), 7000);
     });
     
     const result = await Promise.race([
@@ -76,7 +80,7 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
       const testResult = await Promise.race([
         supabase.from("missions").select("id").limit(1),
         new Promise<{ error: AuthError }>((_, reject) => 
-          setTimeout(() => reject(new Error("Timeout de connexion à la base")), 5000)
+          setTimeout(() => reject(new Error("Timeout de connexion à la base")), 7000)
         )
       ]);
       

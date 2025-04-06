@@ -22,10 +22,18 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Validation simple
+    if (!email || !password) {
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
       await onSubmit(email, password);
+    } catch (error) {
+      console.error("Erreur lors de la soumission du formulaire:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -95,10 +103,7 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
             Connexion en cours...
           </>
         ) : isOffline ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-            Vérification de la connexion...
-          </>
+          "Serveur non disponible"
         ) : (
           "Se connecter"
         )}

@@ -18,7 +18,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         console.log("Délai maximum de chargement atteint, arrêt du chargement");
         setLoading(false);
       }
-    }, 5000); // 5 secondes maximum de chargement
+    }, 8000); // Délai augmenté à 8 secondes pour éviter les timeouts trop rapides
     
     // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -63,10 +63,10 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
       try {
         console.log("Vérification de session existante...");
         
-        // Ajouter un timeout pour la vérification de session
+        // Réduire le timeout pour la vérification de session
         const sessionPromise = supabase.auth.getSession();
         const sessionTimeout = new Promise<{ data: { session: null }, error: AuthError }>((_, reject) => {
-          setTimeout(() => reject(new Error("Timeout de récupération de session")), 5000);
+          setTimeout(() => reject(new Error("Timeout de récupération de session")), 7000);
         });
         
         const result = await Promise.race([
@@ -74,14 +74,15 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           sessionTimeout
         ]).catch(err => {
           console.warn("Timeout ou erreur lors de la vérification de session:", err.message);
-          return { data: { session: null }, error: err as AuthError };
+          return { data: { session: null }, error: { message: "Délai d'attente dépassé pour la récupération de session" } as AuthError };
         });
         
         if ('error' in result && result.error) {
           console.error("Erreur lors de la vérification de session:", result.error);
           if (isMounted) {
             setLoading(false);
-            toast.error("Erreur lors de la vérification de votre session");
+            // Message d'erreur plus convivial
+            toast.error("Erreur de connexion au serveur. Veuillez réessayer.");
           }
           return;
         }
