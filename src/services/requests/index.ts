@@ -22,13 +22,13 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
     
     // Determine the request type and call the appropriate update function
     if (updates.type === "email" || (!updates.type && "template" in updates)) {
-      return updateEmailRequest(requestId, updates as any);
+      return updateEmailRequest(requestId, updates);
     } 
     else if (updates.type === "database" || (!updates.type && "tool" in updates)) {
-      return updateDatabaseRequest(requestId, updates as any);
+      return updateDatabaseRequest(requestId, updates);
     }
     else if (updates.type === "linkedin" || (!updates.type && "targeting" in updates && !("tool" in updates))) {
-      return updateLinkedInRequest(requestId, updates as any);
+      return updateLinkedInRequest(requestId, updates);
     }
     else {
       // Generic update for common fields only
