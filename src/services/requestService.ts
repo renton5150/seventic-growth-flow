@@ -8,7 +8,7 @@ export const getAllRequests = async (): Promise<Request[]> => {
     const { data: requests, error } = await supabase
       .from('requests')
       .select('*')
-      .order('createdAt', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error("Erreur lors de la récupération des requêtes:", error);
@@ -50,8 +50,8 @@ export const getRequestsByMissionId = async (missionId: string): Promise<Request
     const { data: requests, error } = await supabase
       .from('requests')
       .select('*')
-      .eq('missionId', missionId)
-      .order('createdAt', { ascending: false });
+      .eq('mission_id', missionId)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error(`Erreur lors de la récupération des requêtes pour la mission ${missionId}:`, error);
@@ -83,7 +83,7 @@ export const updateRequestStatus = async (requestId: string, status: RequestStat
       ...request,
       ...additionalData,
       status,
-      lastUpdated: new Date().toISOString()
+      last_updated: new Date().toISOString()
     };
 
     const { data: updatedRequest, error: updateError } = await supabase
@@ -123,7 +123,7 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
     // Préparer les données de mise à jour
     const updateData = {
       ...updates,
-      lastUpdated: new Date().toISOString()
+      last_updated: new Date().toISOString()
     };
 
     // Mettre à jour la requête
@@ -154,12 +154,12 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
     const dbRequest = {
       type: "email",
       title: requestData.title,
-      missionId: requestData.missionId,
-      createdBy: requestData.createdBy,
-      createdAt: new Date().toISOString(),
+      mission_id: requestData.missionId,
+      created_by: requestData.createdBy,
+      created_at: new Date().toISOString(),
       status: "pending" as RequestStatus,
-      dueDate: requestData.dueDate.toISOString(),
-      lastUpdated: new Date().toISOString(),
+      due_date: requestData.dueDate.toISOString(),
+      last_updated: new Date().toISOString(),
       details: {
         template: requestData.template,
         database: requestData.database,
@@ -194,12 +194,12 @@ export const createDatabaseRequest = async (requestData: any): Promise<DatabaseR
     const dbRequest = {
       type: "database",
       title: requestData.title,
-      missionId: requestData.missionId,
-      createdBy: requestData.createdBy,
-      createdAt: new Date().toISOString(),
+      mission_id: requestData.missionId,
+      created_by: requestData.createdBy,
+      created_at: new Date().toISOString(),
       status: "pending" as RequestStatus,
-      dueDate: requestData.dueDate.toISOString(),
-      lastUpdated: new Date().toISOString(),
+      due_date: requestData.dueDate.toISOString(),
+      last_updated: new Date().toISOString(),
       details: {
         tool: requestData.tool,
         targeting: requestData.targeting,
@@ -231,12 +231,12 @@ export const createLinkedInScrapingRequest = async (requestData: any): Promise<L
     const dbRequest = {
       type: "linkedin",
       title: requestData.title,
-      missionId: requestData.missionId,
-      createdBy: requestData.createdBy,
-      createdAt: new Date().toISOString(),
+      mission_id: requestData.missionId,
+      created_by: requestData.createdBy,
+      created_at: new Date().toISOString(),
       status: "pending" as RequestStatus,
-      dueDate: requestData.dueDate.toISOString(),
-      lastUpdated: new Date().toISOString(),
+      due_date: requestData.dueDate.toISOString(),
+      last_updated: new Date().toISOString(),
       details: {
         targeting: requestData.targeting
       }
