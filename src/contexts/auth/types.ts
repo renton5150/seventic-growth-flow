@@ -5,7 +5,7 @@ import { User, UserRole } from "@/types/types";
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<boolean>;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSDR: boolean;
