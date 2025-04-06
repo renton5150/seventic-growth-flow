@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { User, UserRole } from "../types/types";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session) {
           // Récupérer les informations utilisateur depuis la base de données
           const { data: userData, error: userError } = await supabase
-            .from('users')
+            .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
@@ -50,12 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Adapter les données utilisateur au format attendu par l'application
           const appUser: User = {
             id: userData.id,
-            email: userData.email,
-            name: userData.name,
-            role: userData.role,
-            avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name.replace(' ', '+')}&background=7E69AB&color=fff`
+            email: userData.email || session.user.email || '',
+            name: userData.name || 'Utilisateur',
+            role: userData.role as UserRole || 'sdr',
+            avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name?.replace(' ', '+') || 'User'}&background=7E69AB&color=fff`
           };
           
+          console.log("Utilisateur authentifié chargé:", appUser);
           setUser(appUser);
         }
       } catch (error) {
@@ -68,44 +69,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkSession();
     
     // Configurer l'écouteur de changement d'authentification
-    let subscription;
-    try {
-      const authListener = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (event === 'SIGNED_IN' && session) {
-            // Récupérer les informations utilisateur depuis la base de données
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Événement d'authentification:", event, session ? "session active" : "pas de session");
+        
+        if (event === 'SIGNED_IN' && session) {
+          // Récupérer les informations utilisateur depuis la base de données
+          const { data: userData, error: userError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
               
-            if (userError || !userData) {
-              console.error("Impossible de récupérer les données utilisateur:", userError);
+          if (userError) {
+            console.error("Impossible de récupérer les données utilisateur:", userError);
+            return;
+          }
+          
+          if (!userData) {
+            // L'utilisateur n'a pas encore de profil, on en crée un
+            console.log("Création d'un nouveau profil utilisateur pour:", session.user.id);
+            
+            const newUser = {
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'Nouvel utilisateur',
+              role: 'sdr' as UserRole
+            };
+            
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert(newUser);
+              
+            if (insertError) {
+              console.error("Impossible de créer le profil utilisateur:", insertError);
               return;
             }
             
             // Adapter les données utilisateur au format attendu par l'application
             const appUser: User = {
-              id: userData.id,
-              email: userData.email,
-              name: userData.name,
-              role: userData.role,
-              avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name.replace(' ', '+')}&background=7E69AB&color=fff`
+              id: newUser.id,
+              email: newUser.email,
+              name: newUser.name,
+              role: newUser.role,
+              avatar: `https://ui-avatars.com/api/?name=${newUser.name.replace(' ', '+')}&background=7E69AB&color=fff`
             };
             
+            console.log("Nouveau profil utilisateur créé:", appUser);
             setUser(appUser);
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null);
+          } else {
+            // Adapter les données utilisateur au format attendu par l'application
+            const appUser: User = {
+              id: userData.id,
+              email: userData.email || session.user.email || '',
+              name: userData.name || 'Utilisateur',
+              role: userData.role as UserRole || 'sdr',
+              avatar: userData.avatar || `https://ui-avatars.com/api/?name=${userData.name?.replace(' ', '+') || 'User'}&background=7E69AB&color=fff`
+            };
+            
+            console.log("Utilisateur authentifié:", appUser);
+            setUser(appUser);
           }
+        } else if (event === 'SIGNED_OUT') {
+          console.log("Utilisateur déconnecté");
+          setUser(null);
         }
-      );
-      
-      // Safely store the subscription for cleanup
-      subscription = authListener.data?.subscription;
-    } catch (error) {
-      console.error("Error setting up auth listener:", error);
-    }
+      }
+    );
     
     // Nettoyer l'écouteur lors du démontage
     return () => {
@@ -122,63 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
-
-      // Si nous sommes en mode demo (sans Supabase configuré), simuler une connexion
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log("Mode démo activé - simulation de connexion");
-        
-        // Simuler une connexion avec les données mockées
-        const demoUsers = [
-          { 
-            email: "admin@seventic.com", 
-            password: "seventic123", 
-            name: "Admin User", 
-            role: "admin", 
-            id: "demo-admin" 
-          },
-          { 
-            email: "sdr@seventic.com", 
-            password: "seventic123", 
-            name: "Sales Representative", 
-            role: "sdr", 
-            id: "demo-sdr" 
-          },
-          { 
-            email: "growth@seventic.com", 
-            password: "seventic123", 
-            name: "Growth Manager", 
-            role: "growth", 
-            id: "demo-growth" 
-          }
-        ];
-        
-        const demoUser = demoUsers.find(u => u.email === email && u.password === password);
-        
-        if (demoUser) {
-          const appUser: User = {
-            id: demoUser.id,
-            email: demoUser.email,
-            name: demoUser.name,
-            role: demoUser.role as UserRole,
-            avatar: `https://ui-avatars.com/api/?name=${demoUser.name.replace(' ', '+')}&background=7E69AB&color=fff`
-          };
-          
-          setUser(appUser);
-          
-          toast.success("Connexion réussie", {
-            description: "Bienvenue sur Seventic Growth Flow (Mode Démo)",
-          });
-          
-          return true;
-        } else {
-          toast.error("Erreur de connexion", {
-            description: "Email ou mot de passe incorrect"
-          });
-          return false;
-        }
-      }
       
-      // Connexion réelle avec Supabase
+      // Connexion avec Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -214,14 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // Si nous sommes en mode demo, simplement vider l'état utilisateur
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        setUser(null);
-        toast.success("Déconnexion réussie");
-        return;
-      }
-      
-      // Déconnexion réelle avec Supabase
+      // Déconnexion avec Supabase
       const { error } = await supabase.auth.signOut();
       
       if (error) {
