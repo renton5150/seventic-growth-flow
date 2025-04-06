@@ -42,13 +42,13 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
     console.log("Mise à jour de la requête:", requestId, "avec les données:", updates);
     
     // Determine the request type and call the appropriate update function
-    if (updates.type === "email" || (!updates.type && hasTemplate(updates))) {
+    if ("type" in updates && updates.type === "email" || (!("type" in updates) && hasTemplate(updates))) {
       return updateEmailRequest(requestId, updates as Partial<EmailCampaignRequest>);
     } 
-    else if (updates.type === "database" || (!updates.type && hasTool(updates))) {
+    else if ("type" in updates && updates.type === "database" || (!("type" in updates) && hasTool(updates))) {
       return updateDatabaseRequest(requestId, updates as Partial<DatabaseRequest>);
     }
-    else if (updates.type === "linkedin" || (!updates.type && hasTargetingWithoutTool(updates))) {
+    else if ("type" in updates && updates.type === "linkedin" || (!("type" in updates) && hasTargetingWithoutTool(updates))) {
       return updateLinkedInRequest(requestId, updates as Partial<LinkedInScrapingRequest>);
     }
     else {
@@ -56,9 +56,9 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
       const updateData: Record<string, any> = {};
       
       // Only include properties that actually exist in the updates object
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.dueDate !== undefined) updateData.due_date = updates.dueDate.toISOString();
-      if (updates.status !== undefined) updateData.status = updates.status;
+      if ("title" in updates && updates.title !== undefined) updateData.title = updates.title;
+      if ("dueDate" in updates && updates.dueDate !== undefined) updateData.due_date = updates.dueDate.toISOString();
+      if ("status" in updates && updates.status !== undefined) updateData.status = updates.status;
       
       // Always update the last_updated timestamp
       updateData.last_updated = new Date().toISOString();
