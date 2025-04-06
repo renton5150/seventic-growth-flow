@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/types/types";
+import { createUser } from "@/services/userService";
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -20,42 +23,42 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>(defaultRole);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setName("");
+    setEmail("");
+    setRole(defaultRole);
+    setErrorMessage(null);
+  };
 
   const handleInvite = async () => {
     if (!name || !email) {
-      toast({
-        title: "Champs requis",
-        description: "Veuillez remplir tous les champs",
-        variant: "destructive",
-      });
+      setErrorMessage("Veuillez remplir tous les champs");
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
-      // Dans un vrai projet, nous aurions une fonction pour inviter un utilisateur
-      // Simulons juste une attente de 1s
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await createUser(email, name, role);
       
-      toast({
-        title: "Invitation envoyée",
-        description: `Une invitation a été envoyée à ${email}`,
-      });
-      
-      // Réinitialiser les champs et fermer le dialogue
-      setName("");
-      setEmail("");
-      setRole(defaultRole);
-      onUserInvited();
-      onOpenChange(false);
+      if (result.success) {
+        toast.success("Invitation envoyée", {
+          description: `Une invitation a été envoyée à ${email}`
+        });
+        
+        // Réinitialiser les champs et fermer le dialogue
+        resetForm();
+        onUserInvited();
+        onOpenChange(false);
+      } else {
+        setErrorMessage(result.error || "Une erreur est survenue lors de l'envoi de l'invitation");
+      }
     } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de l'envoi de l'invitation",
-        variant: "destructive",
-      });
+      console.error("Erreur lors de l'invitation:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Une erreur est survenue");
     } finally {
       setIsLoading(false);
     }
@@ -66,9 +69,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
       if (!isLoading) {
         onOpenChange(isOpen);
         if (!isOpen) {
-          setName("");
-          setEmail("");
-          setRole(defaultRole);
+          resetForm();
         } else {
           setRole(defaultRole);
         }
@@ -81,6 +82,13 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             Envoyer une invitation par email pour rejoindre l'application
           </DialogDescription>
         </DialogHeader>
+        
+        {errorMessage && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">
