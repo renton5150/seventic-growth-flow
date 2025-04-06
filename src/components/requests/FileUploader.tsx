@@ -75,6 +75,7 @@ export const FileUploader = ({
       return;
     }
     
+    // Mise à jour du nom de fichier et appel au callback onChange
     setFileName(file.name);
     onChange(files);
   };

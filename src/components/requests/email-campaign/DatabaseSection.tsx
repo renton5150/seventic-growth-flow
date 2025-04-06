@@ -58,18 +58,20 @@ export const DatabaseSection = ({
     try {
       setUploading(true);
       
-      // Simuler un téléchargement (mode démo) - cela fonctionne même sans connexion Supabase
+      // Mode démo - toujours utiliser ce mode car pas de connexion Supabase
       setTimeout(() => {
-        toast.success(`Fichier ${file.name} téléchargé avec succès (mode démo)`);
-        // En mode démo, on simule une URL
-        handleFileUpload("databaseFileUrl", `uploads/${file.name}`);
+        const fileName = file.name;
+        const fakeUrl = `uploads/${fileName}`;
         
-        // Déclencher l'événement d'upload réussi
+        toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
+        // Passer l'URL simulée à la fonction
+        handleFileUpload("databaseFileUrl", fakeUrl);
+        
+        // Déclencher l'événement pour actualiser la liste des bases de données
         const event = new CustomEvent('database-uploaded');
         window.dispatchEvent(event);
         setUploading(false);
-      }, 1500);
-
+      }, 1000);
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast.error("Erreur lors du téléchargement du fichier");
