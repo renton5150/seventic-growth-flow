@@ -19,7 +19,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     console.log("Initialisation de l'authentification...");
     
-    // Vérifier la session existante
+    // Configurer l'écouteur d'état d'authentification en premier
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Événement d'authentification:", event);
+      
+      if (!isMounted) return;
+      
+      if (event === 'SIGNED_IN' && session) {
+        try {
+          console.log("Connexion détectée, chargement du profil utilisateur");
+          const userProfile = await createUserProfile(session.user);
+          if (isMounted) setAuthState({ user: userProfile, loading: false });
+        } catch (err) {
+          console.error("Erreur lors du chargement du profil:", err);
+          if (isMounted) setAuthState({ user: null, loading: false });
+        }
+      } else if (event === 'SIGNED_OUT') {
+        console.log("Déconnexion détectée");
+        if (isMounted) setAuthState({ user: null, loading: false });
+      }
+    });
+
+    // Ensuite vérifier la session existante
     const checkSession = async () => {
       try {
         console.log("Vérification de session...");
@@ -53,26 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     
-    // Configurer l'écouteur d'état d'authentification
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Événement d'authentification:", event);
-      
-      if (!isMounted) return;
-      
-      if (event === 'SIGNED_IN' && session) {
-        try {
-          console.log("Connexion détectée, chargement du profil utilisateur");
-          const userProfile = await createUserProfile(session.user);
-          if (isMounted) setAuthState({ user: userProfile, loading: false });
-        } catch (err) {
-          console.error("Erreur lors du chargement du profil:", err);
-          if (isMounted) setAuthState({ user: null, loading: false });
-        }
-      } else if (event === 'SIGNED_OUT') {
-        console.log("Déconnexion détectée");
-        if (isMounted) setAuthState({ user: null, loading: false });
+    // Définir un délai maximum pour le chargement
+    const timeoutId = setTimeout(() => {
+      if (isMounted && authState.loading) {
+        console.log("Délai de chargement dépassé, forçage de l'état non chargé");
+        setAuthState(prev => ({ ...prev, loading: false }));
       }
-    });
+    }, 5000);
     
     // Vérifier la session au démarrage
     checkSession();
@@ -80,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Nettoyage
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
       authListener.subscription.unsubscribe();
       console.log("Nettoyage de l'authentification");
     };
