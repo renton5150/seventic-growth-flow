@@ -11,10 +11,13 @@ export const getAllMissions = async (): Promise<Mission[]> => {
   try {
     if (!isSupabaseConfigured) {
       console.log("Utilisation des données mockées pour les missions");
-      return mockData.missions.map(mission => ({
-        ...mission,
-        sdrName: mission.sdrId === "user2" ? "Sales Representative" : "Utilisateur inconnu",
-        requests: getRequestsByMissionId(mission.id)
+      return Promise.all(mockData.missions.map(async mission => {
+        const requests = await getRequestsByMissionId(mission.id);
+        return {
+          ...mission,
+          sdrName: mission.sdrId === "user2" ? "Sales Representative" : "Utilisateur inconnu",
+          requests
+        };
       }));
     }
 
@@ -55,9 +58,12 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
   try {
     if (!isSupabaseConfigured) {
       console.log("Utilisation des données mockées pour les missions d'un utilisateur");
-      return getMockMissionsBySdrId(userId).map(mission => ({
-        ...mission,
-        requests: getRequestsByMissionId(mission.id)
+      return Promise.all(getMockMissionsBySdrId(userId).map(async mission => {
+        const requests = await getRequestsByMissionId(mission.id);
+        return {
+          ...mission,
+          requests
+        };
       }));
     }
 
@@ -99,7 +105,14 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
   try {
     if (!isSupabaseConfigured) {
       console.log("Utilisation des données mockées pour une mission par ID");
-      return getMockMissionById(missionId);
+      const mission = getMockMissionById(missionId);
+      if (!mission) return undefined;
+      
+      const requests = await getRequestsByMissionId(mission.id);
+      return {
+        ...mission,
+        requests
+      };
     }
 
     const { data: mission, error } = await supabase
