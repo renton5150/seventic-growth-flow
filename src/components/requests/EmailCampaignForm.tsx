@@ -33,10 +33,10 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
     if (editMode && initialData) {
-      const details = initialData.details || {};
-      const template = details.template || {};
-      const database = details.database || {};
-      const blacklist = details.blacklist || {};
+      // Accéder directement aux propriétés de l'EmailCampaignRequest
+      const template = initialData.template || {};
+      const database = initialData.database || {};
+      const blacklist = initialData.blacklist || {};
       const blacklistAccounts = blacklist.accounts || {};
       const blacklistEmails = blacklist.emails || {};
 
@@ -71,8 +71,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   // Initialiser les onglets actifs en fonction des données
   useEffect(() => {
     if (editMode && initialData) {
-      const details = initialData.details || {};
-      const blacklist = details.blacklist || {};
+      const blacklist = initialData.blacklist || {};
       const accounts = blacklist.accounts || {};
       const emails = blacklist.emails || {};
 
@@ -123,6 +122,9 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
     try {
       console.log("Données soumises:", data);
       
+      // Convertir la date string en objet Date
+      const dueDate = new Date(data.dueDate);
+      
       // Format the data for the request
       const requestData = {
         title: data.title,
@@ -148,7 +150,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
             notes: data.blacklistEmailsNotes
           }
         },
-        dueDate: new Date(data.dueDate)
+        dueDate: dueDate
       };
       
       let result;
@@ -158,12 +160,11 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
         console.log("Mise à jour de la demande avec:", requestData);
         result = await updateRequest(initialData.id, {
           title: data.title,
-          dueDate: new Date(data.dueDate),
-          details: {
-            template: requestData.template,
-            database: requestData.database,
-            blacklist: requestData.blacklist
-          }
+          dueDate: dueDate,
+          // Mise à jour directe des propriétés au lieu d'utiliser details
+          template: requestData.template,
+          database: requestData.database,
+          blacklist: requestData.blacklist
         });
         
         if (result) {

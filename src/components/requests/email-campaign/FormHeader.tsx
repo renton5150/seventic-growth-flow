@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { Mission } from "@/types/types";
-import { getMissions } from "@/services/missionService";
+import { getAllMissions } from "@/services/missionService";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -22,7 +22,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
   useEffect(() => {
     const fetchMissions = async () => {
       try {
-        const data = await getMissions();
+        const data = await getAllMissions();
         setMissions(data || []);
       } catch (error) {
         console.error("Erreur lors de la récupération des missions:", error);
