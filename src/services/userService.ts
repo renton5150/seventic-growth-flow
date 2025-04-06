@@ -1,3 +1,4 @@
+
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { users as mockUsers } from "@/data/users";
@@ -68,7 +69,11 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
 };
 
 // Créer un nouvel utilisateur
-export const createUser = async (email: string, name: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
+export const createUser = async (
+  email: string, 
+  name: string, 
+  role: UserRole
+): Promise<{ success: boolean; error?: string }> => {
   console.log("Création d'un nouvel utilisateur:", { email, name, role });
   
   try {
@@ -105,7 +110,7 @@ export const createUser = async (email: string, name: string, role: UserRole): P
     // Mettre à jour le profil avec le rôle choisi
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role })
+      .update({ role: role as UserRole })
       .eq('id', authData.user.id);
 
     if (profileError) {

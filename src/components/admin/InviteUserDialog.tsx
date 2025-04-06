@@ -117,7 +117,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             <Label htmlFor="role">Rôle</Label>
             <Select 
               value={role} 
-              onValueChange={(value) => setRole(value as UserRole)}
+              onValueChange={(value: string) => setRole(value as UserRole)}
             >
               <SelectTrigger id="role">
                 <SelectValue placeholder="Sélectionner un rôle" />
