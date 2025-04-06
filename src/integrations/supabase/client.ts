@@ -54,7 +54,7 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
     
     // Ajout d'un timeout de sécurité
     const timeoutPromise = new Promise<{ data: { session: null }, error: AuthError }>((_, reject) => {
-      setTimeout(() => reject(new Error("Timeout lors de la récupération de la session")), 7000);
+      setTimeout(() => reject(new Error("Timeout lors de la récupération de la session")), 15000); // Timeout augmenté à 15 secondes
     });
     
     const result = await Promise.race([
@@ -80,7 +80,7 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
       const testResult = await Promise.race([
         supabase.from("missions").select("id").limit(1),
         new Promise<{ error: AuthError }>((_, reject) => 
-          setTimeout(() => reject(new Error("Timeout de connexion à la base")), 7000)
+          setTimeout(() => reject(new Error("Timeout de connexion à la base")), 15000) // Timeout augmenté à 15 secondes
         )
       ]);
       

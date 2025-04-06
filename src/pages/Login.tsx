@@ -14,7 +14,7 @@ const Login = () => {
   
   useEffect(() => {
     if (isAuthenticated) {
-      console.log("User is authenticated, redirecting from Login page");
+      console.log("Login: User is authenticated, redirecting from Login page");
       if (isAdmin) {
         navigate("/admin/dashboard", { replace: true });
       } else {

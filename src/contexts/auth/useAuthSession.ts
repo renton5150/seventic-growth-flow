@@ -18,7 +18,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         console.log("Délai maximum de chargement atteint, arrêt du chargement");
         setLoading(false);
       }
-    }, 10000); // Délai augmenté à 10 secondes pour laisser plus de temps à la session
+    }, 20000); // Délai augmenté à 20 secondes pour laisser plus de temps à la session
     
     // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -29,6 +29,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         
         if (event === 'SIGNED_IN' && session) {
           try {
+            console.log("Authentification réussie, récupération du profil utilisateur");
             const userProfile = await createUserProfile(session.user);
             if (isMounted) {
               setUser(userProfile);
@@ -45,7 +46,10 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
             toast.error("Erreur lors du chargement de votre profil");
           } finally {
             // Terminer le chargement après le traitement de l'événement
-            if (isMounted) setLoading(false);
+            if (isMounted) {
+              console.log("Authentification terminée, chargement désactivé");
+              setLoading(false);
+            }
           }
         } else if (event === 'SIGNED_OUT') {
           console.log("Utilisateur déconnecté");
@@ -79,7 +83,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         // Réduire le timeout pour la vérification de session
         const sessionPromise = supabase.auth.getSession();
         const sessionTimeout = new Promise<{ data: { session: null }, error: AuthError }>((_, reject) => {
-          setTimeout(() => reject(new Error("Timeout de récupération de session")), 8000);
+          setTimeout(() => reject(new Error("Timeout de récupération de session")), 15000); // Timeout augmenté à 15 secondes
         });
         
         const result = await Promise.race([
@@ -95,7 +99,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           if (isMounted) {
             setLoading(false);
             // Message d'erreur plus convivial
-            toast.error("Erreur de connexion au serveur. Veuillez réessayer.");
+            toast.error("Erreur de connexion au serveur. Veuillez actualiser la page et réessayer.");
           }
           return;
         }

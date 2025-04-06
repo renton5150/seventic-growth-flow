@@ -18,11 +18,13 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
       // Small delay to allow session to fully establish
       setTimeout(() => {
         if (isAdmin) {
+          console.log("Redirection admin vers /admin/dashboard");
           navigate("/admin/dashboard", { replace: true });
         } else {
+          console.log("Redirection utilisateur vers /dashboard");
           navigate("/dashboard", { replace: true });
         }
-      }, 100);
+      }, 300); // Increased delay to ensure redirection works
     }
   }, [isAuthenticated, isAdmin, navigate]);
 
