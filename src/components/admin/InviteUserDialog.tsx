@@ -42,13 +42,13 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
     setErrorMessage(null);
 
     try {
-      console.log("Envoi de l'invitation avec le rôle:", role);
+      console.log(`Envoi de l'invitation pour ${email} avec le rôle ${role}`);
       
       const result = await createUser(email, name, role);
       
       if (result.success) {
-        toast.success("Invitation envoyée", {
-          description: `Une invitation a été envoyée à ${email}`
+        toast.success("Utilisateur ajouté avec succès", {
+          description: `${name} (${email}) a été ajouté en tant que ${role}`
         });
         
         console.log("Utilisateur créé:", result.user);
@@ -56,21 +56,27 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
         // Réinitialiser les champs
         resetForm();
         
-        // Fermer le dialogue et notifier le parent avec un délai pour s'assurer
-        // que les modifications sont bien prises en compte
+        // Fermer le dialogue et notifier le parent avec un délai
         setTimeout(() => {
-          onUserInvited(); // Appeler d'abord pour s'assurer d'un refresh des données
+          // Déclencher plusieurs actualisations des données
+          onUserInvited();
+          
           setTimeout(() => {
-            onUserInvited(); // Appeler une seconde fois après un court délai
+            onUserInvited();
             onOpenChange(false);
           }, 500);
         }, 300);
       } else {
-        setErrorMessage(result.error || "Une erreur est survenue lors de l'envoi de l'invitation");
+        const errorMsg = result.error || "Une erreur est survenue lors de l'ajout de l'utilisateur";
+        console.error("Erreur lors de l'invitation:", errorMsg);
+        setErrorMessage(errorMsg);
+        toast.error("Échec de l'ajout", { description: errorMsg });
       }
     } catch (error) {
-      console.error("Erreur lors de l'invitation:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Une erreur est survenue");
+      console.error("Exception lors de l'invitation:", error);
+      const errorMsg = error instanceof Error ? error.message : "Une erreur inattendue est survenue";
+      setErrorMessage(errorMsg);
+      toast.error("Erreur", { description: errorMsg });
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +97,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
         <DialogHeader>
           <DialogTitle>Inviter un utilisateur</DialogTitle>
           <DialogDescription>
-            Envoyer une invitation par email pour rejoindre l'application
+            Ajouter un nouvel utilisateur à l'application
           </DialogDescription>
         </DialogHeader>
         
@@ -155,7 +161,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             Annuler
           </Button>
           <Button onClick={handleInvite} disabled={isLoading}>
-            {isLoading ? "Envoi en cours..." : "Envoyer l'invitation"}
+            {isLoading ? "Ajout en cours..." : "Ajouter l'utilisateur"}
           </Button>
         </DialogFooter>
       </DialogContent>

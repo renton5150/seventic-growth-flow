@@ -14,22 +14,37 @@ export const UserManagementTabs = () => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
 
-  // Utiliser useQuery avec un paramètre de cache spécifique pour forcer le rafraîchissement
+  // Utiliser useQuery avec invalidation renforcée
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
-    // Actualiser régulièrement les données (toutes les 10 secondes)
-    refetchInterval: 10000,
-    // Désactiver la mise en cache pour toujours obtenir des données fraîches
+    // Désactiver complètement le cache pour ce composant
     staleTime: 0,
+    cacheTime: 0,
+    // Actualiser régulièrement les données 
+    refetchInterval: 5000,
     // Réduire le délai de nouvelle tentative en cas d'échec
-    retry: 1,
+    retry: 2,
   });
 
   // Force refetch when the component mounts to ensure we have fresh data
   useEffect(() => {
-    refetch();
     console.log("UserManagementTabs monté - actualisation des données");
+    // Forcer plusieurs refetch avec délais croissants
+    const fetchData = async () => {
+      await refetch();
+      setTimeout(() => refetch(), 300);
+      setTimeout(() => refetch(), 1000);
+    };
+    
+    fetchData();
+    
+    // Définir un intervalle pour refetch fréquent pendant que le composant est monté
+    const interval = setInterval(() => {
+      refetch();
+    }, 3000);
+    
+    return () => clearInterval(interval);
   }, [refetch]);
 
   const filteredUsers = users.filter(user => {
@@ -45,21 +60,17 @@ export const UserManagementTabs = () => {
   const handleUserInvited = async () => {
     console.log("Actualisation de la liste des utilisateurs après invitation");
     
-    // Forcer plusieurs refetch avec un petit délai
+    // Séquence d'actualisations multiples avec délais progressifs
     await refetch();
     
-    // Ajouter des rafraîchissements supplémentaires avec délai
-    setTimeout(async () => {
-      await refetch();
-      console.log("Premier rafraîchissement après délai");
-    }, 500);
+    for (let i = 1; i <= 5; i++) {
+      setTimeout(async () => {
+        console.log(`Rafraîchissement #${i} après invitation`);
+        await refetch();
+      }, i * 500);
+    }
     
-    setTimeout(async () => {
-      await refetch();
-      console.log("Second rafraîchissement après délai plus long");
-    }, 1500);
-    
-    console.log("Nombre d'utilisateurs après refetch:", users.length);
+    console.log("Nombre d'utilisateurs après invitation:", users.length);
   };
 
   console.log("Rendu de UserManagementTabs - Nombre d'utilisateurs:", users.length);

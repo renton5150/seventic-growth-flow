@@ -89,7 +89,7 @@ const isValidUserRole = (role: any): role is UserRole => {
   return role === "admin" || role === "growth" || role === "sdr";
 };
 
-// Créer un nouvel utilisateur
+// Créer un nouvel utilisateur - APPROCHE MODIFIÉE SANS UTILISER L'API D'ADMIN
 export const createUser = async (
   email: string, 
   name: string, 
@@ -131,103 +131,48 @@ export const createUser = async (
       return { success: true, user: newUser };
     }
 
-    // Mode production avec Supabase
-    console.log("Mode production: création d'utilisateur dans Supabase");
+    // Mode production avec Supabase - NOUVELLE APPROCHE DIRECTE
+    console.log("Mode production: création directe de profil dans Supabase (sans auth)");
     
-    // Générer un mot de passe temporaire
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "!1";
+    // Générer un UUID pour le nouvel utilisateur
+    const userId = uuidv4();
+    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`;
     
-    console.log("Tentative de création d'utilisateur avec l'email:", email);
+    console.log("Tentative de création d'un profil pour:", email, "avec ID:", userId);
     
-    try {
-      // Créer l'utilisateur dans Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: { name },
-      });
-
-      if (authError) {
-        console.error("Erreur lors de la création de l'utilisateur dans Auth:", authError);
-        toast.error(`Erreur: ${authError.message}`);
-        return { success: false, error: authError.message };
-      }
-
-      // Vérifier que l'utilisateur a bien été créé
-      if (!authData.user) {
-        console.error("Utilisateur non créé dans Auth");
-        toast.error("Erreur lors de la création de l'utilisateur");
-        return { success: false, error: "Erreur lors de la création de l'utilisateur" };
-      }
-
-      console.log("Utilisateur créé dans Auth:", authData.user.id);
-
-      // Mettre à jour le profil avec le rôle choisi
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ role: role })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        console.error("Erreur lors de la mise à jour du profil:", profileError);
-        // On ne renvoie pas d'erreur ici car l'utilisateur a bien été créé
-        // Le rôle par défaut sera appliqué (sdr)
-      }
-
-      // Créer l'objet utilisateur à retourner
-      const newUser: User = {
-        id: authData.user.id,
+    // Insérer directement dans la table profiles
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({
+        id: userId,
         email: email,
         name: name,
         role: role,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
-      };
-
-      console.log("Utilisateur créé avec succès:", newUser);
-      toast.success("Utilisateur créé avec succès");
-      return { success: true, user: newUser };
-    } catch (supaError) {
-      console.error("Exception Supabase lors de la création de l'utilisateur:", supaError);
-      toast.error(`Erreur Supabase: ${supaError instanceof Error ? supaError.message : "Erreur inconnue"}`);
-      
-      // En cas d'erreur d'authentification, essayer de créer directement dans la table profiles
-      console.log("Tentative de création directe dans la table profiles...");
-      try {
-        const userId = uuidv4();
-        const { error } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            email: email,
-            name: name,
-            role: role,
-            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
-          });
-          
-        if (error) {
-          console.error("Erreur lors de la création directe dans profiles:", error);
-          toast.error(`Erreur: ${error.message}`);
-          return { success: false, error: error.message };
-        }
-        
-        const newUser: User = {
-          id: userId,
-          email: email,
-          name: name,
-          role: role,
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
-        };
-        
-        console.log("Utilisateur créé avec succès dans profiles:", newUser);
-        toast.success("Utilisateur créé avec succès");
-        return { success: true, user: newUser };
-      } catch (directInsertError) {
-        console.error("Exception lors de la création directe:", directInsertError);
-        toast.error(`Erreur: ${directInsertError instanceof Error ? directInsertError.message : "Erreur inconnue"}`);
-        return { success: false, error: directInsertError instanceof Error ? directInsertError.message : "Erreur inconnue" };
-      }
+        avatar: avatarUrl,
+        created_at: new Date().toISOString()
+      })
+      .select();
+    
+    if (error) {
+      console.error("Erreur lors de la création du profil:", error);
+      return { success: false, error: error.message };
     }
+    
+    console.log("Profil créé avec succès. Données retournées:", data);
+    
+    // Créer l'objet utilisateur à retourner
+    const newUser: User = {
+      id: userId,
+      email: email,
+      name: name,
+      role: role,
+      avatar: avatarUrl
+    };
+    
+    console.log("Utilisateur créé avec succès:", newUser);
+    toast.success("Utilisateur ajouté avec succès");
+    
+    return { success: true, user: newUser };
   } catch (error) {
     console.error("Exception générale lors de la création de l'utilisateur:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
