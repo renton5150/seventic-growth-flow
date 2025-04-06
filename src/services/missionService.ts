@@ -21,42 +21,72 @@ export { findMockMissionById, getMockMissionsBySdrId } from "./missions/mockMiss
 // Obtenir toutes les missions
 export const getAllMissions = async (): Promise<Mission[]> => {
   try {
+    console.log("Récupération de toutes les missions, Supabase configuré:", isSupabaseConfigured);
+    
     if (!isSupabaseConfigured) {
+      console.log("Utilisation des données mockées pour toutes les missions");
       return getAllMockMissions();
     }
 
-    return getAllSupaMissions();
+    const missions = await getAllSupaMissions();
+    if (missions.length === 0) {
+      console.log("Aucune mission trouvée dans Supabase, fallback vers les données mockées");
+      return getAllMockMissions();
+    }
+    
+    return missions;
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des missions:", error);
-    return [];
+    console.log("Fallback vers les données mockées");
+    return getAllMockMissions();
   }
 };
 
 // Obtenir les missions par utilisateur
 export const getMissionsByUserId = async (userId: string): Promise<Mission[]> => {
   try {
+    console.log("Récupération des missions d'utilisateur, Supabase configuré:", isSupabaseConfigured);
+    
     if (!isSupabaseConfigured) {
+      console.log("Utilisation des données mockées pour les missions d'utilisateur");
       return getMockMissionsByUserId(userId);
     }
 
-    return getSupaMissionsByUserId(userId);
+    const missions = await getSupaMissionsByUserId(userId);
+    if (missions.length === 0) {
+      console.log("Aucune mission trouvée dans Supabase pour cet utilisateur, fallback vers les données mockées");
+      return getMockMissionsByUserId(userId);
+    }
+    
+    return missions;
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des missions:", error);
-    return [];
+    console.log("Fallback vers les données mockées");
+    return getMockMissionsByUserId(userId);
   }
 };
 
 // Obtenir une mission par ID
 export const getMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
+    console.log("Récupération d'une mission par ID, Supabase configuré:", isSupabaseConfigured);
+    
     if (!isSupabaseConfigured) {
+      console.log("Utilisation des données mockées pour une mission");
       return getMockMissionById(missionId);
     }
 
-    return getSupaMissionById(missionId);
+    const mission = await getSupaMissionById(missionId);
+    if (!mission) {
+      console.log("Aucune mission trouvée dans Supabase avec cet ID, fallback vers les données mockées");
+      return getMockMissionById(missionId);
+    }
+    
+    return mission;
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération de la mission:", error);
-    return undefined;
+    console.log("Fallback vers les données mockées");
+    return getMockMissionById(missionId);
   }
 };
 
@@ -68,13 +98,23 @@ export const createMission = async (data: {
   sdrId: string;
 }): Promise<Mission | undefined> => {
   try {
+    console.log("Création d'une mission, Supabase configuré:", isSupabaseConfigured);
+    
     if (!isSupabaseConfigured) {
+      console.log("Utilisation du mock pour la création de mission");
       return createMockMission(data);
     }
 
-    return createSupaMission(data);
+    const mission = await createSupaMission(data);
+    if (!mission) {
+      console.log("Échec de création dans Supabase, fallback vers les données mockées");
+      return createMockMission(data);
+    }
+    
+    return mission;
   } catch (error) {
     console.error("Erreur inattendue lors de la création de la mission:", error);
-    return undefined;
+    console.log("Fallback vers les données mockées");
+    return createMockMission(data);
   }
 };

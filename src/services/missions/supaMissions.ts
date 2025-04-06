@@ -2,6 +2,7 @@
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getRequestsByMissionId } from "../requestService";
+import { v4 as uuidv4 } from "uuid";
 
 // Obtenir toutes les missions depuis Supabase
 export const getAllSupaMissions = async (): Promise<Mission[]> => {
@@ -48,6 +49,13 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
 export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]> => {
   try {
     console.log("Récupération des missions d'utilisateur depuis Supabase pour userId:", userId);
+    
+    // Si l'identifiant n'est pas un UUID valide, retourner un tableau vide
+    if (!isValidUUID(userId)) {
+      console.warn("ID utilisateur non valide pour Supabase:", userId);
+      return [];
+    }
+    
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -90,6 +98,13 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
 export const getSupaMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
     console.log("Récupération d'une mission depuis Supabase par ID:", missionId);
+    
+    // Si l'identifiant n'est pas un UUID valide, retourner undefined
+    if (!isValidUUID(missionId)) {
+      console.warn("ID mission non valide pour Supabase:", missionId);
+      return undefined;
+    }
+    
     const { data: mission, error } = await supabase
       .from('missions')
       .select(`
@@ -134,11 +149,15 @@ export const createSupaMission = async (data: {
   try {
     console.log("Création d'une nouvelle mission dans Supabase:", data);
     
+    // Générer un UUID valide si le sdrId n'en est pas un
+    const sdrId = isValidUUID(data.sdrId) ? data.sdrId : uuidv4();
+    console.log(`Utilisation du sdrId: ${sdrId} (original: ${data.sdrId})`);
+    
     const missionData = {
       name: data.name,
       client: data.client,
       description: data.description,
-      sdr_id: data.sdrId
+      sdr_id: sdrId
     };
 
     const { data: newMission, error } = await supabase
@@ -171,4 +190,10 @@ export const createSupaMission = async (data: {
     console.error("Erreur inattendue lors de la création de la mission:", error);
     return undefined;
   }
+};
+
+// Fonction pour vérifier si une chaîne est un UUID valide
+const isValidUUID = (str: string): boolean => {
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(str);
 };
