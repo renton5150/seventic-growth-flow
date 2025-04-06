@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
 // Vérifier si l'utilisateur a un rôle spécifique
-export const hasRole = (user: User | null, role: UserRole): boolean => 
-  user?.role === role;
+export const hasRole = (user: User | null, role: UserRole): boolean => {
+  console.log("Vérification du rôle:", role, "pour l'utilisateur:", user);
+  return user?.role === role;
+}
 
 // Créer un profil utilisateur à partir des données Supabase
 export const createUserProfile = async (user: SupabaseUser): Promise<User | null> => {

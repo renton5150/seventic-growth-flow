@@ -4,22 +4,32 @@ import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  useEffect(() => {
+    console.log("AppLayout - État utilisateur:", 
+      user ? `${user.name} (${user.role})` : "non connecté",
+      "isAdmin:", isAdmin,
+      "Chemin actuel:", location.pathname
+    );
+  }, [user, isAdmin, location.pathname]);
   
   // Rediriger les administrateurs vers le tableau de bord admin s'ils accèdent au tableau de bord standard
   useEffect(() => {
-    if (isAdmin && window.location.pathname === "/dashboard") {
+    if (isAdmin && location.pathname === "/dashboard") {
+      console.log("Redirection vers le tableau de bord administrateur");
       navigate("/admin/dashboard", { replace: true });
     }
-  }, [isAdmin, navigate]);
+  }, [isAdmin, navigate, location.pathname]);
 
   return (
     <SidebarProvider>

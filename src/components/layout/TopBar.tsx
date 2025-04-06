@@ -82,7 +82,7 @@ export const TopBar = () => {
             <Avatar className={`h-8 w-8 ${getRoleColor()} text-white`}>
               <AvatarImage src={user?.avatar} alt={user?.name} />
               <AvatarFallback className={getRoleColor()}>
-                {user?.name.substring(0, 2).toUpperCase() || "U"}
+                {user?.name?.substring(0, 2).toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
             <div className="hidden md:block">

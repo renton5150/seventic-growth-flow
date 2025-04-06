@@ -29,7 +29,7 @@ export const useAuthOperations = (
         return false;
       }
 
-      console.log("Connexion réussie, redirection vers le tableau de bord");
+      console.log("Connexion réussie, données de la session:", data);
       toast.success("Connexion réussie");
       
       // La session est automatiquement traitée par useAuthSession
@@ -61,10 +61,9 @@ export const useAuthOperations = (
       console.log("Déconnexion réussie");
       toast.success("Déconnexion réussie");
       
-      // Effacer les données utilisateur (redondant avec l'événement onAuthStateChange mais garantit la cohérence)
+      // Effacer les données utilisateur
       setUser(null);
       
-      // Rediriger vers la page de connexion sera géré par le composant ProtectedRoute
       return true;
     } catch (error) {
       console.error("Exception lors de la déconnexion:", error);

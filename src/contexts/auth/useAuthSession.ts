@@ -22,35 +22,38 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
     
     // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log("Événement d'authentification:", event, session ? `session active: ${session.user.id}` : "pas de session");
         
         if (!isMounted) return;
         
         if (event === 'SIGNED_IN' && session) {
-          // Utiliser setTimeout pour éviter les deadlocks avec les événements Supabase
-          setTimeout(async () => {
-            if (!isMounted) return;
-            
-            try {
-              const userProfile = await createUserProfile(session.user);
+          try {
+            const userProfile = await createUserProfile(session.user);
+            if (isMounted) {
               setUser(userProfile);
               console.log("Profil utilisateur défini après connexion:", userProfile);
-            } catch (error) {
-              console.error("Erreur lors de la création du profil utilisateur:", error);
-              toast.error("Erreur lors du chargement de votre profil");
-            } finally {
-              // Terminer le chargement après le traitement de l'événement
-              setLoading(false);
+              
+              // Ajouter plus de logs pour déboguer le rôle
+              if (userProfile) {
+                console.log("Rôle de l'utilisateur:", userProfile.role);
+                console.log("Est admin:", userProfile.role === "admin");
+              }
             }
-          }, 0);
+          } catch (error) {
+            console.error("Erreur lors de la création du profil utilisateur:", error);
+            toast.error("Erreur lors du chargement de votre profil");
+          } finally {
+            // Terminer le chargement après le traitement de l'événement
+            if (isMounted) setLoading(false);
+          }
         } else if (event === 'SIGNED_OUT') {
           console.log("Utilisateur déconnecté");
           setUser(null);
-          setLoading(false);
+          if (isMounted) setLoading(false);
         } else {
           // Pour les autres événements, assurez-vous également de terminer le chargement
-          setLoading(false);
+          if (isMounted) setLoading(false);
         }
       }
     );
@@ -91,6 +94,12 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
             if (isMounted) {
               setUser(userProfile);
               console.log("Profil utilisateur défini à partir d'une session existante:", userProfile);
+              
+              // Ajouter plus de logs pour déboguer le rôle
+              if (userProfile) {
+                console.log("Rôle de l'utilisateur:", userProfile.role);
+                console.log("Est admin:", userProfile.role === "admin");
+              }
             }
           } catch (profileError) {
             console.error("Erreur lors de la création du profil utilisateur:", profileError);

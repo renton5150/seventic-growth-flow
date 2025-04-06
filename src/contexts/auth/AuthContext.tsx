@@ -43,7 +43,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated 
         ? `connecté (Admin: ${isAdmin}, SDR: ${isSDR}, Growth: ${isGrowth})` 
         : "déconnecté");
-  }, [isAuthenticated, isAdmin, isSDR, isGrowth]);
+    
+    if (authState.user) {
+      console.log("Informations utilisateur:", {
+        id: authState.user.id,
+        name: authState.user.name,
+        email: authState.user.email,
+        role: authState.user.role
+      });
+    }
+  }, [isAuthenticated, isAdmin, isSDR, isGrowth, authState.user]);
 
   return (
     <AuthContext.Provider
