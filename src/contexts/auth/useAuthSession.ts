@@ -18,8 +18,31 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         console.log("Délai maximum de chargement atteint, arrêt du chargement");
         setLoading(false);
       }
-    }, 20000); // Délai augmenté à 20 secondes pour laisser plus de temps à la session
+    }, 30000); // Délai augmenté à 30 secondes pour éviter les problèmes sur les connexions lentes
     
+    // Fonction pour récupérer et définir le profil utilisateur
+    const setUserProfile = async (user, session) => {
+      try {
+        console.log("Récupération du profil pour l'utilisateur:", user.id);
+        const userProfile = await createUserProfile(user);
+        
+        if (!isMounted) return null;
+        
+        if (userProfile) {
+          console.log("Profil chargé avec succès:", userProfile.name, "Rôle:", userProfile.role);
+          setUser(userProfile);
+          return userProfile;
+        } else {
+          console.error("Impossible de charger le profil utilisateur");
+          return null;
+        }
+      } catch (error) {
+        console.error("Erreur lors de la création du profil utilisateur:", error);
+        if (isMounted) toast.error("Erreur lors du chargement de votre profil");
+        return null;
+      }
+    };
+
     // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -30,26 +53,31 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         if (event === 'SIGNED_IN' && session) {
           try {
             console.log("Authentification réussie, récupération du profil utilisateur");
-            const userProfile = await createUserProfile(session.user);
-            if (isMounted) {
-              setUser(userProfile);
+            const userProfile = await setUserProfile(session.user, session);
+            
+            // Si le profil a été chargé avec succès
+            if (userProfile) {
               console.log("Profil utilisateur défini après connexion:", userProfile);
               
               // Ajouter plus de logs pour déboguer le rôle
-              if (userProfile) {
-                console.log("Rôle de l'utilisateur:", userProfile.role);
-                console.log("Est admin:", userProfile.role === "admin");
-              }
+              console.log("Rôle de l'utilisateur:", userProfile.role);
+              console.log("Est admin:", userProfile.role === "admin");
+              
+              // Attendre un peu avant de désactiver le chargement pour permettre la redirection
+              setTimeout(() => {
+                if (isMounted) {
+                  console.log("Authentification terminée, chargement désactivé");
+                  setLoading(false);
+                }
+              }, 1000);
+            } else {
+              // Terminer le chargement même en cas d'échec
+              if (isMounted) setLoading(false);
             }
           } catch (error) {
             console.error("Erreur lors de la création du profil utilisateur:", error);
             toast.error("Erreur lors du chargement de votre profil");
-          } finally {
-            // Terminer le chargement après le traitement de l'événement
-            if (isMounted) {
-              console.log("Authentification terminée, chargement désactivé");
-              setLoading(false);
-            }
+            if (isMounted) setLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
           console.log("Utilisateur déconnecté");
@@ -60,8 +88,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           // Rafraîchir le profil utilisateur
           if (session) {
             try {
-              const userProfile = await createUserProfile(session.user);
-              if (isMounted) setUser(userProfile);
+              await setUserProfile(session.user, session);
             } catch (error) {
               console.error("Erreur lors de la mise à jour du profil:", error);
             } finally {
@@ -83,7 +110,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         // Réduire le timeout pour la vérification de session
         const sessionPromise = supabase.auth.getSession();
         const sessionTimeout = new Promise<{ data: { session: null }, error: AuthError }>((_, reject) => {
-          setTimeout(() => reject(new Error("Timeout de récupération de session")), 15000); // Timeout augmenté à 15 secondes
+          setTimeout(() => reject(new Error("Timeout de récupération de session")), 20000);
         });
         
         const result = await Promise.race([
@@ -98,7 +125,6 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           console.error("Erreur lors de la vérification de session:", result.error);
           if (isMounted) {
             setLoading(false);
-            // Message d'erreur plus convivial
             toast.error("Erreur de connexion au serveur. Veuillez actualiser la page et réessayer.");
           }
           return;
@@ -108,29 +134,21 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         
         if (result.data?.session && isMounted) {
           try {
-            const userProfile = await createUserProfile(result.data.session.user);
-            if (isMounted) {
-              setUser(userProfile);
-              console.log("Profil utilisateur défini à partir d'une session existante:", userProfile);
-              
-              // Ajouter plus de logs pour déboguer le rôle
-              if (userProfile) {
-                console.log("Rôle de l'utilisateur:", userProfile.role);
-                console.log("Est admin:", userProfile.role === "admin");
-              }
-            }
+            await setUserProfile(result.data.session.user, result.data.session);
           } catch (profileError) {
             console.error("Erreur lors de la création du profil utilisateur:", profileError);
+          } finally {
+            // Attendre un peu avant de désactiver le chargement pour permettre la redirection
+            setTimeout(() => {
+              if (isMounted) setLoading(false);
+            }, 1000);
           }
+        } else {
+          if (isMounted) setLoading(false);
         }
       } catch (error) {
         console.error("Erreur inattendue lors de la vérification de session:", error);
-      } finally {
-        clearTimeout(timeoutId);
-        if (isMounted) {
-          setLoading(false);
-          console.log("Chargement terminé après vérification de session");
-        }
+        if (isMounted) setLoading(false);
       }
     };
     

@@ -21,9 +21,11 @@ export const useAuthOperations = (
       if (!email || !password) {
         console.error("Email ou mot de passe manquant");
         setAuthError("Veuillez saisir un email et un mot de passe");
+        setLoading(false);
         return false;
       }
 
+      console.log("Envoi des identifiants à Supabase");
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -37,6 +39,7 @@ export const useAuthOperations = (
             : error.message
         ));
         setAuthError(error.message);
+        setLoading(false);
         return false;
       }
 
@@ -44,11 +47,15 @@ export const useAuthOperations = (
         console.error("Pas de session après connexion réussie");
         toast.error("Erreur: Impossible d'établir une session");
         setAuthError("Impossible d'établir une session");
+        setLoading(false);
         return false;
       }
 
-      console.log("Connexion réussie, données de la session:", data);
+      console.log("Connexion réussie, données de la session:", data.session.user.id);
       toast.success("Connexion réussie", { duration: 2000 });
+      
+      // Laisser l'écouteur d'authentification gérer le reste du processus
+      // La session est maintenant active, l'écouteur dans useAuthSession va prendre le relai
       
       return true;
     } catch (error) {
@@ -56,9 +63,8 @@ export const useAuthOperations = (
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       toast.error("Exception: " + errorMessage);
       setAuthError(errorMessage);
-      return false;
-    } finally {
       setLoading(false);
+      return false;
     }
   };
 
@@ -72,6 +78,7 @@ export const useAuthOperations = (
       if (error) {
         console.error("Erreur de déconnexion:", error.message);
         toast.error("Échec de la déconnexion: " + error.message);
+        setLoading(false);
         return false;
       }
 
@@ -80,15 +87,15 @@ export const useAuthOperations = (
       
       // Effacer les données utilisateur
       setUser(null);
+      setLoading(false);
       
       return true;
     } catch (error) {
       console.error("Exception lors de la déconnexion:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       toast.error("Exception: " + errorMessage);
-      return false;
-    } finally {
       setLoading(false);
+      return false;
     }
   };
 

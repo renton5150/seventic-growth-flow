@@ -14,8 +14,9 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
   useEffect(() => {
     if (isAuthenticated) {
       console.log("AuthLayout: User is authenticated, redirecting");
+      console.log("isAdmin:", isAdmin);
       
-      // Small delay to allow session to fully establish
+      // Augmenter le délai pour permettre la récupération complète du rôle
       setTimeout(() => {
         if (isAdmin) {
           console.log("Redirection admin vers /admin/dashboard");
@@ -24,7 +25,7 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
           console.log("Redirection utilisateur vers /dashboard");
           navigate("/dashboard", { replace: true });
         }
-      }, 300); // Increased delay to ensure redirection works
+      }, 800); // Délai augmenté pour garantir que le rôle soit correctement détecté
     }
   }, [isAuthenticated, isAdmin, navigate]);
 
@@ -33,6 +34,9 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-seventic-100 to-seventic-200 py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-md space-y-8 text-center">
           <p>Chargement...</p>
+          <div className="mt-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-seventic-500 mx-auto"></div>
+          </div>
         </div>
       </div>
     );
