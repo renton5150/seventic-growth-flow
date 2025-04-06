@@ -3,6 +3,7 @@ import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { users as mockUsers } from "@/data/users";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 
 // Récupérer tous les utilisateurs
 export const getAllUsers = async (): Promise<User[]> => {
@@ -78,7 +79,7 @@ export const createUser = async (
   email: string, 
   name: string, 
   role: UserRole
-): Promise<{ success: boolean; error?: string }> => {
+): Promise<{ success: boolean; error?: string; user?: User }> => {
   console.log("Création d'un nouvel utilisateur:", { email, name, role });
   
   // Vérification supplémentaire pour s'assurer que le rôle est valide
@@ -91,7 +92,21 @@ export const createUser = async (
     // Vérifier si on est en mode démo
     if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
       console.log("Mode démo: simulation de création d'utilisateur");
-      return { success: true };
+      
+      // Créer un nouvel utilisateur fictif avec ID unique
+      const newUser: User = {
+        id: uuidv4(),
+        email,
+        name,
+        role,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
+      };
+      
+      // Ajouter l'utilisateur aux données simulées
+      mockUsers.push(newUser);
+      
+      console.log("Utilisateur créé en mode démo:", newUser);
+      return { success: true, user: newUser };
     }
 
     // Générer un mot de passe temporaire
@@ -131,12 +146,17 @@ export const createUser = async (
       // Le rôle par défaut sera appliqué (sdr)
     }
 
-    // Envoyer un email d'invitation avec le mot de passe temporaire
-    // Note: Dans un vrai projet, on utiliserait Supabase Auth pour envoyer un lien magique
-    // ou une invitation par email, mais pour cet exemple on simule juste l'envoi
+    // Créer l'objet utilisateur à retourner
+    const newUser: User = {
+      id: authData.user.id,
+      email: email,
+      name: name,
+      role: roleValue,
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
+    };
 
-    console.log("Utilisateur créé avec succès:", { id: authData.user.id, email, name, role });
-    return { success: true };
+    console.log("Utilisateur créé avec succès:", newUser);
+    return { success: true, user: newUser };
   } catch (error) {
     console.error("Exception lors de la création de l'utilisateur:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";

@@ -51,9 +51,14 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
           description: `Une invitation a été envoyée à ${email}`
         });
         
+        console.log("Utilisateur créé:", result.user);
+        
         // Réinitialiser les champs et fermer le dialogue
         resetForm();
+        
+        // Appeler la fonction de rappel pour actualiser la liste des utilisateurs
         onUserInvited();
+        
         onOpenChange(false);
       } else {
         setErrorMessage(result.error || "Une erreur est survenue lors de l'envoi de l'invitation");
