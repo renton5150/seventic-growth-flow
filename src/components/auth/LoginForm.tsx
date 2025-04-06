@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, Mail, Lock, Eye, EyeOff, UserPlus, RefreshCw } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff, UserPlus, RefreshCw, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export const LoginForm = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -140,7 +140,8 @@ export const LoginForm = () => {
         password,
         options: {
           data: {
-            name: name || email.split('@')[0]
+            name: name || email.split('@')[0],
+            role: "sdr"  // Attribut par défaut le rôle SDR aux nouveaux utilisateurs
           }
         }
       });
@@ -235,6 +236,15 @@ export const LoginForm = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Notification de mode test avec comptes affichés */}
+        <Alert className="mb-4 bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-700">Mode démonstration</AlertTitle>
+          <AlertDescription className="text-blue-600">
+            Pour tester l'application, créez un compte avec votre propre email et mot de passe.
+          </AlertDescription>
+        </Alert>
+        
         {networkStatus === "offline" && (
           <Alert variant="destructive" className="mb-4 flex justify-between items-center">
             <AlertDescription>Problème de connexion au serveur</AlertDescription>

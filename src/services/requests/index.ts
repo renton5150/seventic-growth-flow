@@ -56,9 +56,17 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
       const updateData: Record<string, any> = {};
       
       // Only include properties that actually exist in the updates object
-      if ("title" in updates && updates.title !== undefined) updateData.title = updates.title;
-      if ("dueDate" in updates && updates.dueDate !== undefined) updateData.due_date = updates.dueDate.toISOString();
-      if ("status" in updates && updates.status !== undefined) updateData.status = updates.status;
+      if ("title" in updates && updates.title !== undefined) {
+        updateData.title = updates.title;
+      }
+      
+      if ("dueDate" in updates && updates.dueDate !== undefined) {
+        updateData.due_date = updates.dueDate.toISOString();
+      }
+      
+      if ("status" in updates && updates.status !== undefined) {
+        updateData.status = updates.status;
+      }
       
       // Always update the last_updated timestamp
       updateData.last_updated = new Date().toISOString();
