@@ -43,7 +43,6 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
 
     try {
       console.log("Envoi de l'invitation avec le rôle:", role);
-      // The role is already typed as UserRole, no need for explicit casting
       const result = await createUser(email, name, role);
       
       if (result.success) {
