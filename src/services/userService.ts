@@ -1,4 +1,3 @@
-
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { users as mockUsers } from "@/data/users";
@@ -103,13 +102,10 @@ export const createUser = async (email: string, name: string, role: UserRole): P
 
     console.log("Utilisateur créé dans Auth:", authData.user.id);
 
-    // Ensure role is a valid UserRole type before updating the profile
-    const validRole: UserRole = role as UserRole;
-
     // Mettre à jour le profil avec le rôle choisi
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role: validRole })
+      .update({ role })
       .eq('id', authData.user.id);
 
     if (profileError) {
@@ -122,7 +118,7 @@ export const createUser = async (email: string, name: string, role: UserRole): P
     // Note: Dans un vrai projet, on utiliserait Supabase Auth pour envoyer un lien magique
     // ou une invitation par email, mais pour cet exemple on simule juste l'envoi
 
-    console.log("Utilisateur créé avec succès:", { id: authData.user.id, email, name, role: validRole });
+    console.log("Utilisateur créé avec succès:", { id: authData.user.id, email, name, role });
     return { success: true };
   } catch (error) {
     console.error("Exception lors de la création de l'utilisateur:", error);
