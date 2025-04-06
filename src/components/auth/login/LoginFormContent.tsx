@@ -35,24 +35,11 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
     try {
       console.log("Tentative de connexion:", email);
       
-      // Prévoir un timeout pour éviter de bloquer indéfiniment
-      const loginPromise = onSubmit(email, password);
+      const result = await onSubmit(email, password);
       
-      // Créer une promesse qui se résout après 15 secondes
-      const timeoutPromise = new Promise<boolean>((resolve) => {
-        setTimeout(() => {
-          resolve(false);
-        }, 15000);
-      });
-      
-      // Course entre la connexion et le timeout
-      const result = await Promise.race([loginPromise, timeoutPromise]);
-      
-      if (result === false) {
-        console.error("La connexion a pris trop de temps");
-        toast.error("La connexion a pris trop de temps", {
-          description: "Veuillez réessayer ou actualiser la page"
-        });
+      if (!result) {
+        console.log("Échec de la connexion");
+        // Toast déjà affiché par la fonction login
       }
     } catch (error) {
       console.error("Erreur lors de la soumission du formulaire:", error);
@@ -136,12 +123,12 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
 
       {isSubmitting && (
         <div className="text-sm text-center text-muted-foreground mt-2">
-          <p>Si la connexion prend trop de temps, vous pouvez 
+          <p>La connexion prend du temps?{" "} 
             <button 
               type="button" 
               onClick={() => window.location.reload()} 
               className="text-seventic-500 hover:underline ml-1">
-              actualiser la page
+              Actualiser la page
             </button>
           </p>
         </div>
