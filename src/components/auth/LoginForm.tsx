@@ -52,22 +52,40 @@ export const LoginForm = () => {
     setIsSubmitting(true);
 
     try {
+      if (!email || !password) {
+        setError("Veuillez remplir tous les champs obligatoires.");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (password.length < 6) {
+        setError("Le mot de passe doit contenir au moins 6 caractères.");
+        setIsSubmitting(false);
+        return;
+      }
+
       console.log("Tentative d'inscription avec:", email);
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            name
+            name: name || email.split('@')[0]
           }
         }
       });
 
-      if (error) {
-        console.error("Erreur lors de l'inscription:", error);
-        setError(error.message);
+      if (signUpError) {
+        console.error("Erreur lors de l'inscription:", signUpError);
+        
+        if (signUpError.message.includes("already registered")) {
+          setError("Cette adresse email est déjà utilisée. Veuillez vous connecter.");
+        } else {
+          setError(signUpError.message);
+        }
+        
         toast.error("Erreur d'inscription", {
-          description: error.message
+          description: signUpError.message
         });
         return;
       }
@@ -78,6 +96,10 @@ export const LoginForm = () => {
         });
         setIsLogin(true);
         setPassword("");
+      } else {
+        toast.info("Vérification requise", {
+          description: "Veuillez vérifier votre email pour confirmer votre compte."
+        });
       }
     } catch (error) {
       console.error("Erreur lors de l'inscription:", error);
@@ -172,6 +194,7 @@ export const LoginForm = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="pl-10"
+                minLength={6}
               />
               <Button 
                 type="button"
@@ -227,6 +250,7 @@ export const LoginForm = () => {
         </div>
         <div className="text-xs text-center text-muted-foreground mt-4">
           <p>Pour tester: créez un nouveau compte ou utilisez les identifiants de test.</p>
+          <p className="mt-1 text-seventic-500">Compte de test: contact@seventic.com / password123</p>
         </div>
       </CardFooter>
     </Card>

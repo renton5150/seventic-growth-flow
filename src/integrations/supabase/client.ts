@@ -20,7 +20,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
-    storage: typeof window !== 'undefined' ? localStorage : undefined
+    storage: typeof window !== 'undefined' ? localStorage : undefined,
+    flowType: 'implicit' // Ajout du type de flux d'authentification explicite
   }
 });
 
@@ -30,6 +31,17 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
 (async () => {
   try {
     console.log("Test de connexion Supabase...");
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error("Erreur lors de la récupération de la session:", sessionError);
+    } else if (sessionData.session) {
+      console.log("Session Supabase active trouvée");
+    } else {
+      console.log("Aucune session Supabase active");
+    }
+    
+    // Test simple de connexion à la base
     const { error } = await supabase.from("missions").select("id").limit(1);
     if (error) {
       console.error("Échec du test de connexion Supabase:", error);

@@ -12,6 +12,14 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
       setLoading(true);
       console.log("Tentative de connexion à Supabase avec:", email);
       
+      if (!email || !password) {
+        console.error("Email ou mot de passe manquant");
+        toast.error("Erreur de connexion", {
+          description: "Veuillez fournir un email et un mot de passe"
+        });
+        return false;
+      }
+      
       // Connexion avec Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -20,14 +28,22 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
       
       if (error) {
         console.error("Erreur de connexion:", error.message);
-        toast.error("Erreur de connexion", {
-          description: error.message
-        });
+        
+        // Messages d'erreur plus spécifiques
+        if (error.message.includes("Invalid login credentials")) {
+          toast.error("Identifiants invalides", {
+            description: "Email ou mot de passe incorrect"
+          });
+        } else {
+          toast.error("Erreur de connexion", {
+            description: error.message
+          });
+        }
         return false;
       }
       
       if (data.session) {
-        console.log("Connexion réussie, session créée");
+        console.log("Connexion réussie, session créée:", data.session.user.id);
         // La session est déjà configurée par l'écouteur d'événement onAuthStateChange
         toast.success("Connexion réussie", {
           description: "Bienvenue sur Seventic Growth Flow",
