@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createUserProfile } from "./authUtils";
 import { User } from "@/types/types";
 import { toast } from "sonner";
+import { AuthError } from "@supabase/supabase-js";
 
 export const useAuthSession = (setUser: (user: User | null) => void, setLoading: (loading: boolean) => void) => {
   // Configurer la gestion de session
@@ -61,20 +62,20 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         
         // Ajouter un timeout pour la vérification de session
         const sessionPromise = supabase.auth.getSession();
-        const sessionTimeout = new Promise((_, reject) => {
+        const sessionTimeout = new Promise<{ data: { session: null }, error: AuthError }>((_, reject) => {
           setTimeout(() => reject(new Error("Timeout de récupération de session")), 5000);
         });
         
-        const { data: { session }, error } = await Promise.race([
+        const result = await Promise.race([
           sessionPromise, 
           sessionTimeout
         ]).catch(err => {
           console.warn("Timeout ou erreur lors de la vérification de session:", err.message);
-          return { data: { session: null }, error: err };
+          return { data: { session: null }, error: err as AuthError };
         });
         
-        if (error) {
-          console.error("Erreur lors de la vérification de session:", error);
+        if ('error' in result && result.error) {
+          console.error("Erreur lors de la vérification de session:", result.error);
           if (isMounted) {
             setLoading(false);
             toast.error("Erreur lors de la vérification de votre session");
@@ -82,11 +83,11 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           return;
         }
         
-        console.log("Résultat de la session:", session ? `Session trouvée: ${session.user.id}` : "Aucune session");
+        console.log("Résultat de la session:", result.data?.session ? `Session trouvée: ${result.data.session.user.id}` : "Aucune session");
         
-        if (session && isMounted) {
+        if (result.data?.session && isMounted) {
           try {
-            const userProfile = await createUserProfile(session.user);
+            const userProfile = await createUserProfile(result.data.session.user);
             if (isMounted) {
               setUser(userProfile);
               console.log("Profil utilisateur défini à partir d'une session existante:", userProfile);

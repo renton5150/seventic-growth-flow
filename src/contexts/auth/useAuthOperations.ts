@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { createUserProfile } from "./authUtils";
 import { User } from "@/types/types";
+import { AuthError } from "@supabase/supabase-js";
 
 export const useAuthOperations = (setUser: (user: User | null) => void, setLoading: (loading: boolean) => void) => {
   // Fonction de connexion avec Supabase
@@ -27,43 +28,43 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
         password
       });
       
-      const timeoutPromise = new Promise((_, reject) => {
+      const timeoutPromise = new Promise<{ data: null, error: AuthError }>((_, reject) => {
         setTimeout(() => reject(new Error("Délai de connexion dépassé")), 10000);
       });
       
-      const { data, error } = await Promise.race([loginPromise, timeoutPromise])
+      const result = await Promise.race([loginPromise, timeoutPromise])
         .catch(err => {
           console.error("Erreur de connexion (timeout):", err.message);
-          return { data: null, error: { message: "Délai de connexion dépassé. Veuillez réessayer." } };
+          return { data: null, error: { message: "Délai de connexion dépassé. Veuillez réessayer." } as AuthError };
         });
       
-      if (error) {
-        console.error("Erreur de connexion:", error.message);
+      if ('error' in result && result.error) {
+        console.error("Erreur de connexion:", result.error.message);
         
         // Messages d'erreur plus spécifiques
-        if (error.message.includes("Invalid login credentials")) {
+        if (result.error.message.includes("Invalid login credentials")) {
           toast.error("Identifiants invalides", {
             description: "Email ou mot de passe incorrect"
           });
-        } else if (error.message.includes("Délai de connexion dépassé")) {
+        } else if (result.error.message.includes("Délai de connexion dépassé")) {
           toast.error("Erreur réseau", {
             description: "La connexion a pris trop de temps. Vérifiez votre connexion internet et réessayez."
           });
         } else {
           toast.error("Erreur de connexion", {
-            description: error.message
+            description: result.error.message
           });
         }
         setLoading(false);
         return false;
       }
       
-      if (data?.session) {
-        console.log("Connexion réussie, utilisateur:", data.session.user.id);
+      if (result.data?.session) {
+        console.log("Connexion réussie, utilisateur:", result.data.session.user.id);
         
         try {
           // Récupérer le profil utilisateur
-          const userProfile = await createUserProfile(data.session.user);
+          const userProfile = await createUserProfile(result.data.session.user);
           setUser(userProfile);
           
           toast.success("Connexion réussie", {
@@ -104,11 +105,11 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
       
       // Déconnexion avec Supabase avec timeout
       const logoutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) => {
+      const timeoutPromise = new Promise<{ error: AuthError }>((_, reject) => {
         setTimeout(() => reject(new Error("Délai de déconnexion dépassé")), 5000);
       });
       
-      const { error } = await Promise.race([logoutPromise, timeoutPromise])
+      const result = await Promise.race([logoutPromise, timeoutPromise])
         .catch(err => {
           console.warn("Erreur de déconnexion (timeout):", err.message);
           // Même en cas de timeout, on considère l'utilisateur déconnecté localement
@@ -116,10 +117,10 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
           return { error: null };
         });
       
-      if (error) {
-        console.error("Erreur de déconnexion:", error.message);
+      if ('error' in result && result.error) {
+        console.error("Erreur de déconnexion:", result.error.message);
         toast.error("Erreur de déconnexion", {
-          description: error.message
+          description: result.error.message
         });
         return;
       }

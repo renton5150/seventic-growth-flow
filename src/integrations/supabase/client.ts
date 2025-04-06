@@ -48,41 +48,44 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
     const sessionPromise = supabase.auth.getSession();
     
     // Ajout d'un timeout de sécurité
-    const timeoutPromise = new Promise((_, reject) => {
+    const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((_, reject) => {
       setTimeout(() => reject(new Error("Timeout lors de la récupération de la session")), 5000);
     });
     
-    const { data: sessionData, error: sessionError } = await Promise.race([
+    const result = await Promise.race([
       sessionPromise,
       timeoutPromise
     ]).catch(error => {
       console.warn("Échec de récupération de la session avec timeout:", error.message);
       // Retour d'une valeur par défaut en cas d'erreur
-      return { data: { session: null }, error: error };
+      return { data: { session: null }, error: error as Error };
     });
     
-    if (sessionError) {
-      console.error("Erreur lors de la récupération de la session:", sessionError);
-    } else if (sessionData.session) {
-      console.log("Session Supabase active trouvée:", sessionData.session.user.id);
+    if (result.error) {
+      console.error("Erreur lors de la récupération de la session:", result.error);
+    } else if (result.data?.session) {
+      console.log("Session Supabase active trouvée:", result.data.session.user.id);
     } else {
       console.log("Aucune session Supabase active");
     }
     
     // Test simple de connexion à la base avec timeout de sécurité
     try {
-      const { error } = await Promise.race([
+      // Explicitly type the result of Promise.race
+      const result = await Promise.race([
         supabase.from("missions").select("id").limit(1),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout de connexion à la base")), 5000))
+        new Promise<{ error: Error }>((_, reject) => 
+          setTimeout(() => reject(new Error("Timeout de connexion à la base")), 5000)
+        )
       ]);
       
-      if (error) {
-        console.error("Échec du test de connexion Supabase:", error);
+      if ('error' in result && result.error) {
+        console.error("Échec du test de connexion Supabase:", result.error);
       } else {
         console.log("Test de connexion Supabase réussi");
       }
     } catch (connError) {
-      console.warn("Test de connexion à la base interrompu:", connError.message);
+      console.warn("Test de connexion à la base interrompu:", (connError as Error).message);
     }
   } catch (err) {
     console.error("Erreur lors du test de connexion:", err);
