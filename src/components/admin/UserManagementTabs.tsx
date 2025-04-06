@@ -20,7 +20,7 @@ export const UserManagementTabs = () => {
     queryFn: getAllUsers,
     // Désactiver complètement le cache pour ce composant
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0, // Renamed from cacheTime to gcTime in React Query v5
     // Actualiser régulièrement les données 
     refetchInterval: 5000,
     // Réduire le délai de nouvelle tentative en cas d'échec
