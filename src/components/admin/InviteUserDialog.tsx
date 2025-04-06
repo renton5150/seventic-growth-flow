@@ -43,8 +43,8 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
 
     try {
       console.log("Envoi de l'invitation avec le rôle:", role);
-      // Ensure role is passed as UserRole, not string
-      const result = await createUser(email, name, role as UserRole);
+      // The role is already typed as UserRole, no need for explicit casting
+      const result = await createUser(email, name, role);
       
       if (result.success) {
         toast.success("Invitation envoyée", {
@@ -118,7 +118,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             <Label htmlFor="role">Rôle</Label>
             <Select 
               value={role} 
-              onValueChange={(value: string) => setRole(value as UserRole)}
+              onValueChange={(value) => setRole(value as UserRole)}
             >
               <SelectTrigger id="role">
                 <SelectValue placeholder="Sélectionner un rôle" />
