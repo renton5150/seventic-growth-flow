@@ -15,22 +15,51 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   console.error("ERREUR: URL Supabase ou clé d'API manquante!");
 }
 
+// Configuration optimisée du client Supabase
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storage: typeof window !== 'undefined' ? localStorage : undefined
+    detectSessionInUrl: false, // Désactivé pour éviter les conflits avec la navigation React
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    // Délais plus longs pour les connexions instables
+    flowType: 'implicit',
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'seventic-app'
+    },
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 1
+    }
   }
 });
 
 console.log("Supabase client configuré avec URL:", SUPABASE_URL);
 
-// Test de connexion initial
+// Test de connexion initial avec gestion d'erreurs robuste
 (async () => {
   try {
     console.log("Test de connexion Supabase...");
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    // Vérification de session avec timeout
+    const sessionPromise = supabase.auth.getSession();
+    
+    // Ajout d'un timeout de sécurité
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout lors de la récupération de la session")), 5000);
+    });
+    
+    const { data: sessionData, error: sessionError } = await Promise.race([
+      sessionPromise,
+      timeoutPromise
+    ]).catch(error => {
+      console.warn("Échec de récupération de la session avec timeout:", error.message);
+      // Retour d'une valeur par défaut en cas d'erreur
+      return { data: { session: null }, error: error };
+    });
     
     if (sessionError) {
       console.error("Erreur lors de la récupération de la session:", sessionError);
@@ -40,12 +69,20 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
       console.log("Aucune session Supabase active");
     }
     
-    // Test simple de connexion à la base
-    const { error } = await supabase.from("missions").select("id").limit(1);
-    if (error) {
-      console.error("Échec du test de connexion Supabase:", error);
-    } else {
-      console.log("Test de connexion Supabase réussi");
+    // Test simple de connexion à la base avec timeout de sécurité
+    try {
+      const { error } = await Promise.race([
+        supabase.from("missions").select("id").limit(1),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout de connexion à la base")), 5000))
+      ]);
+      
+      if (error) {
+        console.error("Échec du test de connexion Supabase:", error);
+      } else {
+        console.log("Test de connexion Supabase réussi");
+      }
+    } catch (connError) {
+      console.warn("Test de connexion à la base interrompu:", connError.message);
     }
   } catch (err) {
     console.error("Erreur lors du test de connexion:", err);

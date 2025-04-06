@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { createUserProfile } from "./authUtils";
@@ -12,19 +11,31 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
       setLoading(true);
       console.log("Tentative de connexion à Supabase avec:", email);
       
+      // Validation des entrées
       if (!email || !password) {
         console.error("Email ou mot de passe manquant");
         toast.error("Erreur de connexion", {
           description: "Veuillez fournir un email et un mot de passe"
         });
+        setLoading(false);
         return false;
       }
       
-      // Connexion avec Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Connexion avec Supabase avec un timeout de sécurité
+      const loginPromise = supabase.auth.signInWithPassword({
         email,
         password
       });
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Délai de connexion dépassé")), 10000);
+      });
+      
+      const { data, error } = await Promise.race([loginPromise, timeoutPromise])
+        .catch(err => {
+          console.error("Erreur de connexion (timeout):", err.message);
+          return { data: null, error: { message: "Délai de connexion dépassé. Veuillez réessayer." } };
+        });
       
       if (error) {
         console.error("Erreur de connexion:", error.message);
@@ -33,6 +44,10 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
         if (error.message.includes("Invalid login credentials")) {
           toast.error("Identifiants invalides", {
             description: "Email ou mot de passe incorrect"
+          });
+        } else if (error.message.includes("Délai de connexion dépassé")) {
+          toast.error("Erreur réseau", {
+            description: "La connexion a pris trop de temps. Vérifiez votre connexion internet et réessayez."
           });
         } else {
           toast.error("Erreur de connexion", {
@@ -43,7 +58,7 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
         return false;
       }
       
-      if (data.session) {
+      if (data?.session) {
         console.log("Connexion réussie, utilisateur:", data.session.user.id);
         
         try {
@@ -87,8 +102,19 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
       setLoading(true);
       console.log("Tentative de déconnexion...");
       
-      // Déconnexion avec Supabase
-      const { error } = await supabase.auth.signOut();
+      // Déconnexion avec Supabase avec timeout
+      const logoutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Délai de déconnexion dépassé")), 5000);
+      });
+      
+      const { error } = await Promise.race([logoutPromise, timeoutPromise])
+        .catch(err => {
+          console.warn("Erreur de déconnexion (timeout):", err.message);
+          // Même en cas de timeout, on considère l'utilisateur déconnecté localement
+          setUser(null);
+          return { error: null };
+        });
       
       if (error) {
         console.error("Erreur de déconnexion:", error.message);
@@ -106,6 +132,8 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
       toast.error("Erreur", {
         description: "Une erreur est survenue lors de la déconnexion"
       });
+      // Même en cas d'erreur, on déconnecte l'utilisateur localement
+      setUser(null);
     } finally {
       setLoading(false);
     }
