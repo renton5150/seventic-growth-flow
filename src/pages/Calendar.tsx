@@ -104,9 +104,6 @@ const Calendar = () => {
                         (eventDate) => eventDate.toDateString() === date.toDateString()
                       ),
                   }}
-                  modifiersClassNames={{
-                    hasEvents: "bg-seventic-100 font-bold text-seventic-700 ring-2 ring-seventic-500",
-                  }}
                   modifiersStyles={{
                     hasEvents: { 
                       fontWeight: "bold" 

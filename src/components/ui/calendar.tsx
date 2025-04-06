@@ -50,12 +50,14 @@ function Calendar({
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
-        day_has_events: "font-bold ring-1 ring-primary ring-offset-1", // Added for highlighting dates with events
         ...classNames,
       }}
       components={{
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+      }}
+      modifiersClassNames={{
+        hasEvents: "font-bold ring-1 ring-primary ring-offset-1",
       }}
       {...props}
     />

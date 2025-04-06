@@ -130,9 +130,9 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
           .single();
           
         // S'assurer que currentRequest.details est un objet et non une primitive
-        let currentDetails = {};
+        let currentDetails: Record<string, any> = {};
         if (currentRequest && typeof currentRequest.details === 'object' && currentRequest.details !== null) {
-          currentDetails = currentRequest.details;
+          currentDetails = currentRequest.details as Record<string, any>;
         }
         
         // Initialiser l'objet details s'il n'existe pas encore
@@ -140,37 +140,43 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
         
         // Mettre à jour les propriétés du template
         if (emailRequest.template) {
+          const currentTemplate = (currentDetails.template && typeof currentDetails.template === 'object') 
+            ? currentDetails.template as Record<string, any>
+            : {};
+            
           dbUpdates.details.template = {
-            ...((typeof currentDetails === 'object' && currentDetails !== null && 'template' in currentDetails) 
-              ? currentDetails.template 
-              : {}),
+            ...currentTemplate,
             ...emailRequest.template
           };
-        } else if (typeof currentDetails === 'object' && currentDetails !== null && 'template' in currentDetails) {
+        } else if (currentDetails.template && typeof currentDetails.template === 'object') {
           dbUpdates.details.template = currentDetails.template;
         }
         
         // Mettre à jour les propriétés de la base de données
         if (emailRequest.database) {
+          const currentDatabase = (currentDetails.database && typeof currentDetails.database === 'object') 
+            ? currentDetails.database as Record<string, any>
+            : {};
+            
           dbUpdates.details.database = {
-            ...((typeof currentDetails === 'object' && currentDetails !== null && 'database' in currentDetails) 
-              ? currentDetails.database 
-              : {}),
+            ...currentDatabase,
             ...emailRequest.database
           };
-        } else if (typeof currentDetails === 'object' && currentDetails !== null && 'database' in currentDetails) {
+        } else if (currentDetails.database && typeof currentDetails.database === 'object') {
           dbUpdates.details.database = currentDetails.database;
         }
         
         // Mettre à jour les propriétés de la blacklist
         if (emailRequest.blacklist) {
+          const currentBlacklist = (currentDetails.blacklist && typeof currentDetails.blacklist === 'object') 
+            ? currentDetails.blacklist as Record<string, any>
+            : {};
+            
           dbUpdates.details.blacklist = {
-            ...((typeof currentDetails === 'object' && currentDetails !== null && 'blacklist' in currentDetails) 
-              ? currentDetails.blacklist 
-              : {}),
+            ...currentBlacklist,
             ...emailRequest.blacklist
           };
-        } else if (typeof currentDetails === 'object' && currentDetails !== null && 'blacklist' in currentDetails) {
+        } else if (currentDetails.blacklist && typeof currentDetails.blacklist === 'object') {
           dbUpdates.details.blacklist = currentDetails.blacklist;
         }
       }
