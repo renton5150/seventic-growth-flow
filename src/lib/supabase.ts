@@ -20,14 +20,35 @@ if (!supabaseUrl || !supabaseKey) {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
     },
     from: () => ({
-      select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
+      select: () => ({ 
+        eq: () => ({ 
+          single: () => Promise.resolve({ data: null, error: null }),
+          order: () => ({
+            data: [],
+            error: null
+          })
+        }),
+        order: () => ({
+          data: [],
+          error: null
+        }),
+        data: [],
+        error: null
+      }),
       insert: () => Promise.resolve({ data: null, error: null }),
-      delete: () => Promise.resolve({ data: null, error: null }),
-      order: () => Promise.resolve({ data: null, error: null }),
+      update: () => ({
+        eq: () => ({ select: () => Promise.resolve({ data: null, error: null }) }),
+        select: () => Promise.resolve({ data: null, error: null })
+      }),
+      delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+      order: () => ({
+        data: [],
+        error: null
+      }),
     }),
     storage: {
       from: () => ({
-        upload: () => Promise.resolve({ data: null, error: null }),
+        upload: () => Promise.resolve({ data: { path: 'mock-path' }, error: null }),
         getPublicUrl: () => ({ data: { publicUrl: '' } }),
         remove: () => Promise.resolve({ error: null })
       })

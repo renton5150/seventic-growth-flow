@@ -21,7 +21,7 @@ export const FileUploader = ({
   description,
   value,
   onChange,
-  accept,
+  accept = ".csv,.xls,.xlsx",
   maxSize = 10,
   disabled = false,
 }: FileUploaderProps) => {
@@ -68,6 +68,15 @@ export const FileUploader = ({
 
   const validateAndProcessFiles = (files: FileList) => {
     const file = files[0];
+    
+    // Validation d'extension
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const validExtensions = ['csv', 'xls', 'xlsx'];
+    
+    if (!fileExtension || !validExtensions.includes(fileExtension)) {
+      toast.error(`Format de fichier non supporté. Utilisez CSV, XLS ou XLSX.`);
+      return;
+    }
     
     // Validation de taille
     if (maxSize && file.size > maxSize * 1024 * 1024) {

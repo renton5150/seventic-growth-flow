@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
-import { uploadDatabaseFile } from "@/services/databaseService";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 interface DatabaseSectionProps {
@@ -20,7 +18,6 @@ export const DatabaseSection = ({
   control, 
   handleFileUpload 
 }: DatabaseSectionProps) => {
-  const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
 
   const handleDatabaseFileUpload = async (files: FileList | null) => {
@@ -31,21 +28,12 @@ export const DatabaseSection = ({
 
     const file = files[0];
     
-    // Vérifier le type de fichier
-    const allowedTypes = [
-      "application/vnd.ms-excel", // .xls
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-      "text/csv", // .csv
-      "application/csv", // .csv (certains navigateurs)
-      "text/plain", // .csv parfois détecté comme text/plain
-    ];
-
-    // Vérification simple de l'extension car les types MIME peuvent être incohérents
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    const isValidType = extension === 'xls' || extension === 'xlsx' || extension === 'csv';
-
-    if (!isValidType) {
-      toast.error("Format de fichier non pris en charge. Utilisez XLS, XLSX ou CSV.");
+    // Vérifier l'extension du fichier
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const validExtensions = ['csv', 'xls', 'xlsx'];
+    
+    if (!fileExtension || !validExtensions.includes(fileExtension)) {
+      toast.error("Format de fichier non supporté. Utilisez CSV, XLS ou XLSX.");
       return;
     }
 
@@ -58,18 +46,16 @@ export const DatabaseSection = ({
     try {
       setUploading(true);
       
-      // Mode démo - toujours utiliser ce mode car pas de connexion Supabase
+      // Mode démo - simulation d'un téléchargement réussi
       setTimeout(() => {
         const fileName = file.name;
         const fakeUrl = `uploads/${fileName}`;
         
         toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
-        // Passer l'URL simulée à la fonction
         handleFileUpload("databaseFileUrl", fakeUrl);
         
         // Déclencher l'événement pour actualiser la liste des bases de données
-        const event = new CustomEvent('database-uploaded');
-        window.dispatchEvent(event);
+        window.dispatchEvent(new CustomEvent('database-uploaded'));
         setUploading(false);
       }, 1000);
     } catch (error) {

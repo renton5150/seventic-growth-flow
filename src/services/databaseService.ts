@@ -2,11 +2,36 @@
 import { supabase } from "@/lib/supabase";
 import { DatabaseFile } from "@/types/database.types";
 
+// Stockage local pour les bases de données en mode démo
+const demoDatabases: DatabaseFile[] = [];
+
+const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 // Télécharger un fichier de base de données
 export const uploadDatabaseFile = async (file: File, userId: string): Promise<boolean> => {
   try {
     // Générer un nom unique pour le fichier
     const fileName = `${Date.now()}_${file.name}`;
+    
+    if (!isSupabaseConfigured) {
+      console.log("Mode démo: simulation de téléchargement de fichier");
+      
+      // En mode démo, on simule la réussite et on ajoute aux données locales
+      const newFile: DatabaseFile = {
+        id: `db_${Date.now()}`,
+        name: file.name,
+        fileName: fileName,
+        fileUrl: `uploads/${fileName}`,
+        fileType: file.type,
+        fileSize: file.size,
+        uploadedBy: userId,
+        uploaderName: "Utilisateur (démo)",
+        createdAt: new Date().toISOString()
+      };
+      
+      demoDatabases.push(newFile);
+      return true;
+    }
     
     // Télécharger le fichier dans le bucket "databases"
     const { data: fileData, error: fileError } = await supabase.storage
@@ -68,6 +93,18 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
 // Supprimer un fichier de base de données
 export const deleteDatabaseFile = async (fileId: string): Promise<boolean> => {
   try {
+    if (!isSupabaseConfigured) {
+      console.log("Mode démo: simulation de suppression de fichier");
+      
+      // En mode démo, on retire simplement de la liste locale
+      const index = demoDatabases.findIndex(db => db.id === fileId);
+      if (index !== -1) {
+        demoDatabases.splice(index, 1);
+      }
+      
+      return true;
+    }
+    
     // Récupérer les métadonnées du fichier
     const { data: fileData, error: fetchError } = await supabase
       .from("database_files")
@@ -111,10 +148,14 @@ export const deleteDatabaseFile = async (fileId: string): Promise<boolean> => {
 // Obtenir toutes les bases de données
 export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
   try {
+    if (!isSupabaseConfigured) {
+      console.log("Mode démo: retour des bases de données locales");
+      return demoDatabases;
+    }
+    
     const { data, error } = await supabase
       .from("database_files")
-      .select()
-      .order("createdAt", { ascending: false });
+      .select();
       
     if (error) {
       console.error("Erreur lors de la récupération des bases de données:", error);
@@ -131,6 +172,11 @@ export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
 // Obtenir une base de données par ID
 export const getDatabaseById = async (databaseId: string): Promise<DatabaseFile | null> => {
   try {
+    if (!isSupabaseConfigured) {
+      console.log("Mode démo: recherche d'une base de données locale");
+      return demoDatabases.find(db => db.id === databaseId) || null;
+    }
+    
     const { data, error } = await supabase
       .from("database_files")
       .select()

@@ -2,14 +2,25 @@
 import { Mission, Request } from "@/types/types";
 import { supabase } from "@/lib/supabase";
 import { getRequestsByMissionId } from "./requestService";
+import { mockData, getMissionById as getMockMissionById, getMissionsBySdrId as getMockMissionsBySdrId } from "@/data/mockData";
+
+const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Obtenir toutes les missions
 export const getAllMissions = async (): Promise<Mission[]> => {
   try {
+    if (!isSupabaseConfigured) {
+      console.log("Utilisation des données mockées pour les missions");
+      return mockData.missions.map(mission => ({
+        ...mission,
+        sdrName: mission.sdrId === "user2" ? "Sales Representative" : "Utilisateur inconnu",
+        requests: getRequestsByMissionId(mission.id)
+      }));
+    }
+
     const { data: missions, error } = await supabase
       .from('missions')
-      .select('*, users:sdrId(name)')
-      .order('createdAt', { ascending: false });
+      .select('*, users:sdrId(name)');
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -42,11 +53,18 @@ export const getAllMissions = async (): Promise<Mission[]> => {
 // Obtenir les missions par utilisateur
 export const getMissionsByUserId = async (userId: string): Promise<Mission[]> => {
   try {
+    if (!isSupabaseConfigured) {
+      console.log("Utilisation des données mockées pour les missions d'un utilisateur");
+      return getMockMissionsBySdrId(userId).map(mission => ({
+        ...mission,
+        requests: getRequestsByMissionId(mission.id)
+      }));
+    }
+
     const { data: missions, error } = await supabase
       .from('missions')
       .select('*, users:sdrId(name)')
-      .eq('sdrId', userId)
-      .order('createdAt', { ascending: false });
+      .eq('sdrId', userId);
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -79,6 +97,11 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
 // Obtenir une mission par ID
 export const getMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
+    if (!isSupabaseConfigured) {
+      console.log("Utilisation des données mockées pour une mission par ID");
+      return getMockMissionById(missionId);
+    }
+
     const { data: mission, error } = await supabase
       .from('missions')
       .select('*, users:sdrId(name)')
@@ -117,12 +140,33 @@ export const createMission = async (data: {
 }): Promise<Mission | undefined> => {
   try {
     const missionData = {
+      id: `mission${Date.now()}`, // Générer un ID unique pour le mode démo
       name: data.name,
       client: data.client,
       description: data.description,
       sdrId: data.sdrId,
       createdAt: new Date().toISOString()
     };
+
+    if (!isSupabaseConfigured) {
+      console.log("Mode démo: simulation de création de mission");
+      // En mode démo, on ajoute simplement à la liste en mémoire
+      const newMission = {
+        id: missionData.id,
+        name: missionData.name,
+        client: missionData.client,
+        description: missionData.description,
+        sdrId: missionData.sdrId,
+        sdrName: "Sales Representative",
+        createdAt: new Date(),
+        requests: []
+      };
+      
+      // Ajouter à la liste de mock data
+      mockData.missions.push(newMission);
+      
+      return newMission;
+    }
 
     const { data: newMission, error } = await supabase
       .from('missions')
