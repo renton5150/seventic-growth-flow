@@ -14,7 +14,7 @@ import { AlertCircle } from "lucide-react";
 interface InviteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultRole: "sdr" | "growth" | "admin";
+  defaultRole: UserRole; // S'assurer que c'est du type UserRole
   onUserInvited: () => void;
 }
 
@@ -42,6 +42,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
     setErrorMessage(null);
 
     try {
+      console.log("Envoi de l'invitation avec le rôle:", role);
       const result = await createUser(email, name, role);
       
       if (result.success) {

@@ -104,9 +104,10 @@ export const createUser = async (email: string, name: string, role: UserRole): P
     console.log("Utilisateur créé dans Auth:", authData.user.id);
 
     // Mettre à jour le profil avec le rôle choisi
+    // Important: role est déjà du type UserRole, pas besoin de conversion
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role: role })
+      .update({ role }) // role est déjà typé comme UserRole
       .eq('id', authData.user.id);
 
     if (profileError) {
