@@ -66,7 +66,7 @@ export const getRequestsByMissionId = async (missionId: string): Promise<Request
 };
 
 // Mettre à jour le statut d'une requête
-export const updateRequestStatus = async (requestId: string, status: RequestStatus, additionalData = {}): Promise<Request | undefined> => {
+export const updateRequestStatus = async (requestId: string, status: RequestStatus, additionalData: Record<string, any> = {}): Promise<Request | undefined> => {
   try {
     const { data: request, error: getError } = await supabase
       .from('requests')
@@ -200,9 +200,11 @@ export const createDatabaseRequest = async (requestData: any): Promise<DatabaseR
       status: "pending" as RequestStatus,
       dueDate: requestData.dueDate.toISOString(),
       lastUpdated: new Date().toISOString(),
-      tool: requestData.tool,
-      targeting: requestData.targeting,
-      blacklist: requestData.blacklist
+      details: {
+        tool: requestData.tool,
+        targeting: requestData.targeting,
+        blacklist: requestData.blacklist
+      }
     };
 
     const { data: newRequest, error } = await supabase
@@ -235,7 +237,9 @@ export const createLinkedInScrapingRequest = async (requestData: any): Promise<L
       status: "pending" as RequestStatus,
       dueDate: requestData.dueDate.toISOString(),
       lastUpdated: new Date().toISOString(),
-      targeting: requestData.targeting
+      details: {
+        targeting: requestData.targeting
+      }
     };
 
     const { data: newRequest, error } = await supabase
@@ -262,14 +266,14 @@ const formatRequestFromDb = (dbRequest: any): Request => {
     id: dbRequest.id,
     title: dbRequest.title,
     type: dbRequest.type,
-    missionId: dbRequest.missionId,
-    createdBy: dbRequest.createdBy,
-    createdAt: new Date(dbRequest.createdAt),
+    missionId: dbRequest.mission_id,
+    createdBy: dbRequest.created_by,
+    createdAt: new Date(dbRequest.created_at),
     status: dbRequest.status as RequestStatus,
-    dueDate: new Date(dbRequest.dueDate),
-    lastUpdated: new Date(dbRequest.lastUpdated),
-    isLate: new Date(dbRequest.dueDate) < new Date() && dbRequest.status !== "completed",
-    sdrName: dbRequest.sdrName
+    dueDate: new Date(dbRequest.due_date),
+    lastUpdated: new Date(dbRequest.last_updated),
+    isLate: new Date(dbRequest.due_date) < new Date() && dbRequest.status !== "completed",
+    sdrName: dbRequest.sdr_name
   };
 
   // Utiliser le champ details de la BD pour stocker les données spécifiques au type
