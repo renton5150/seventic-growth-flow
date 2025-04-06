@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabase";
 import { DatabaseFile } from "@/types/database.types";
 
@@ -55,10 +54,10 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
     
     // Obtenir les informations de l'utilisateur pour stocker le nom de l'uploader
     const { data: userData, error: userError } = await supabase
-      .from("users")
+      .from("profiles")
       .select("name")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
       
     if (userError) {
       console.error("Erreur lors de la récupération des informations de l'utilisateur:", userError);
@@ -69,13 +68,13 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
       .from("database_files")
       .insert({
         name: file.name,
-        fileName: fileName,
-        fileUrl: publicUrlData.publicUrl,
-        fileType: file.type,
-        fileSize: file.size,
-        uploadedBy: userId,
-        uploaderName: userData?.name || "Utilisateur",
-        createdAt: new Date().toISOString()
+        file_name: fileName,
+        file_url: publicUrlData.publicUrl,
+        file_type: file.type,
+        file_size: file.size,
+        uploaded_by: userId,
+        uploader_name: userData?.name || "Utilisateur",
+        created_at: new Date().toISOString()
       });
       
     if (metadataError) {

@@ -57,6 +57,16 @@ export const DatabaseUploader = () => {
     try {
       setUploading(true);
       
+      // Vérifier que le user.id existe avant de l'utiliser
+      if (!user.id) {
+        toast.error("Utilisateur non identifié", {
+          description: "Veuillez vous reconnecter et réessayer",
+        });
+        setUploading(false);
+        return;
+      }
+      
+      console.log("Téléchargement du fichier:", file.name, "par utilisateur:", user.id);
       const result = await uploadDatabaseFile(file, user.id);
       
       if (result) {
