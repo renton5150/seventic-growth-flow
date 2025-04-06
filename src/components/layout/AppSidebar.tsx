@@ -1,7 +1,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { CalendarDays, Database, Layers, LineChart, LogOut, Mail, PanelLeft, User } from "lucide-react";
+import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -64,26 +64,10 @@ export const AppSidebar = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className={getLinkClass("/requests/email/new")}>
-              <Link to="/requests/email/new">
-                <Mail className="h-5 w-5 mr-3" />
-                Nouvelle demande email
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
             <SidebarMenuButton asChild className={getLinkClass("/calendar")}>
               <Link to="/calendar">
                 <CalendarDays className="h-5 w-5 mr-3" />
                 Calendrier
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className={getLinkClass("/databases")}>
-              <Link to="/databases">
-                <Database className="h-5 w-5 mr-3" />
-                Bases de données
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

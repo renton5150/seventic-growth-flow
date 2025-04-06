@@ -108,28 +108,68 @@ export const updateRequestStatus = async (requestId: string, status: RequestStat
 // Mettre à jour une requête
 export const updateRequest = async (requestId: string, updates: Partial<Request>): Promise<Request | undefined> => {
   try {
-    // Récupérer la requête actuelle
-    const { data: currentRequest, error: getError } = await supabase
-      .from('requests')
-      .select('*')
-      .eq('id', requestId)
-      .single();
+    console.log("Mise à jour de la requête:", requestId, "avec les données:", updates);
+    
+    // Préparation des données pour la mise à jour dans Supabase
+    // Convertir le format de l'application vers le format de la base de données
+    const dbUpdates: any = {};
+    
+    if (updates.title) dbUpdates.title = updates.title;
+    if (updates.dueDate) dbUpdates.due_date = updates.dueDate.toISOString();
+    if (updates.status) dbUpdates.status = updates.status;
 
-    if (getError) {
-      console.error("Erreur lors de la récupération de la requête pour mise à jour:", getError);
-      return undefined;
+    // Gérer les détails spécifiques au type
+    if (updates.type === "email" || !updates.type) {
+      const emailRequest = updates as Partial<EmailCampaignRequest>;
+      if (emailRequest.template || emailRequest.database || emailRequest.blacklist) {
+        dbUpdates.details = {};
+        
+        // Ne mettre à jour que les champs fournis
+        const { data: currentRequest } = await supabase
+          .from('requests')
+          .select('details')
+          .eq('id', requestId)
+          .single();
+          
+        // Conserver les détails existants et les mettre à jour
+        const currentDetails = currentRequest?.details || {};
+        
+        if (emailRequest.template) {
+          dbUpdates.details.template = {
+            ...currentDetails.template,
+            ...emailRequest.template
+          };
+        } else if (currentDetails.template) {
+          dbUpdates.details.template = currentDetails.template;
+        }
+        
+        if (emailRequest.database) {
+          dbUpdates.details.database = {
+            ...currentDetails.database,
+            ...emailRequest.database
+          };
+        } else if (currentDetails.database) {
+          dbUpdates.details.database = currentDetails.database;
+        }
+        
+        if (emailRequest.blacklist) {
+          dbUpdates.details.blacklist = {
+            ...currentDetails.blacklist,
+            ...emailRequest.blacklist
+          };
+        } else if (currentDetails.blacklist) {
+          dbUpdates.details.blacklist = currentDetails.blacklist;
+        }
+      }
     }
+    
+    dbUpdates.last_updated = new Date().toISOString();
 
-    // Préparer les données de mise à jour
-    const updateData = {
-      ...updates,
-      last_updated: new Date().toISOString()
-    };
+    console.log("Données formatées pour Supabase:", dbUpdates);
 
-    // Mettre à jour la requête
     const { data: updatedRequest, error: updateError } = await supabase
       .from('requests')
-      .update(updateData)
+      .update(dbUpdates)
       .eq('id', requestId)
       .select()
       .single();
@@ -139,6 +179,7 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
       return undefined;
     }
 
+    console.log("Requête mise à jour avec succès:", updatedRequest);
     return formatRequestFromDb(updatedRequest);
   } catch (error) {
     console.error("Erreur inattendue lors de la mise à jour de la requête:", error);

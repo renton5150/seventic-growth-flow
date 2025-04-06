@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,12 @@ const Calendar = () => {
     }
   }, [selectedDate, requests]);
 
+  // Trouve une mission par ID pour afficher son nom dans les événements
+  const findMissionName = (missionId: string) => {
+    const mission = missions.find(m => m.id === missionId);
+    return mission ? mission.name : missionId;
+  };
+
   const renderEventIcon = (type: string) => {
     switch (type) {
       case "email":
@@ -63,6 +70,17 @@ const Calendar = () => {
         return <User size={16} className="mr-2" />;
       default:
         return null;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "inprogress":
+        return "bg-blue-100 text-blue-800 border-blue-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
 
@@ -78,7 +96,7 @@ const Calendar = () => {
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
-                  className="rounded-md border"
+                  className="rounded-md border pointer-events-auto"
                   modifiers={{
                     // Highlight days with events
                     hasEvents: (date) => 
@@ -87,7 +105,12 @@ const Calendar = () => {
                       ),
                   }}
                   modifiersClassNames={{
-                    hasEvents: "bg-seventic-50 font-bold",
+                    hasEvents: "bg-seventic-100 font-bold text-seventic-700 ring-2 ring-seventic-500",
+                  }}
+                  modifiersStyles={{
+                    hasEvents: { 
+                      fontWeight: "bold" 
+                    }
                   }}
                 />
               </CardContent>
@@ -101,7 +124,9 @@ const Calendar = () => {
                     ? `Événements du ${selectedDate.toLocaleDateString("fr-FR")}`
                     : "Sélectionnez une date"}
                 </h2>
-                {eventsForDate.length === 0 ? (
+                {isLoadingRequests ? (
+                  <p className="text-muted-foreground">Chargement des événements...</p>
+                ) : eventsForDate.length === 0 ? (
                   <p className="text-muted-foreground">Aucun événement à cette date</p>
                 ) : (
                   <ul className="space-y-3">
@@ -111,15 +136,27 @@ const Calendar = () => {
                         className="flex items-center p-3 border rounded-md hover:bg-accent"
                       >
                         {renderEventIcon(event.type)}
-                        <div>
+                        <div className="flex-grow">
                           <p className="font-medium">{event.title}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline">{event.status}</Badge>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <Badge variant="outline" className={getStatusColor(event.status)}>
+                              {event.status === "completed" 
+                                ? "Terminé" 
+                                : event.status === "inprogress" 
+                                  ? "En cours" 
+                                  : "En attente"}
+                            </Badge>
                             <p className="text-sm text-muted-foreground">
-                              Mission: {event.missionId}
+                              Mission: {findMissionName(event.missionId)}
                             </p>
                           </div>
                         </div>
+                        <Link 
+                          to={`/requests/${event.type}/${event.id}`} 
+                          className="ml-2 text-blue-600 hover:underline text-sm whitespace-nowrap"
+                        >
+                          Voir
+                        </Link>
                       </li>
                     ))}
                   </ul>
