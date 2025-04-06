@@ -1,6 +1,6 @@
 
 import { Mission, Request } from "@/types/types";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { getRequestsByMissionId } from "./requestService";
 import { mockData, getMissionById as getMockMissionById, getMissionsBySdrId as getMockMissionsBySdrId } from "@/data/mockData";
 
@@ -23,7 +23,7 @@ export const getAllMissions = async (): Promise<Mission[]> => {
 
     const { data: missions, error } = await supabase
       .from('missions')
-      .select('*, users:sdrId(name)');
+      .select('*, profiles:sdr_id(name)');
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -39,9 +39,9 @@ export const getAllMissions = async (): Promise<Mission[]> => {
         name: mission.name,
         client: mission.client,
         description: mission.description || undefined,
-        sdrId: mission.sdrId,
-        sdrName: mission.users?.name || "Inconnu",
-        createdAt: new Date(mission.createdAt),
+        sdrId: mission.sdr_id,
+        sdrName: mission.profiles?.name || "Inconnu",
+        createdAt: new Date(mission.created_at),
         requests
       };
     }));
@@ -69,8 +69,8 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
 
     const { data: missions, error } = await supabase
       .from('missions')
-      .select('*, users:sdrId(name)')
-      .eq('sdrId', userId);
+      .select('*, profiles:sdr_id(name)')
+      .eq('sdr_id', userId);
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -86,9 +86,9 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
         name: mission.name,
         client: mission.client,
         description: mission.description || undefined,
-        sdrId: mission.sdrId,
-        sdrName: mission.users?.name || "Inconnu",
-        createdAt: new Date(mission.createdAt),
+        sdrId: mission.sdr_id,
+        sdrName: mission.profiles?.name || "Inconnu",
+        createdAt: new Date(mission.created_at),
         requests
       };
     }));
@@ -117,7 +117,7 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
 
     const { data: mission, error } = await supabase
       .from('missions')
-      .select('*, users:sdrId(name)')
+      .select('*, profiles:sdr_id(name)')
       .eq('id', missionId)
       .single();
 
@@ -133,9 +133,9 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
       name: mission.name,
       client: mission.client,
       description: mission.description || undefined,
-      sdrId: mission.sdrId,
-      sdrName: mission.users?.name || "Inconnu",
-      createdAt: new Date(mission.createdAt),
+      sdrId: mission.sdr_id,
+      sdrName: mission.profiles?.name || "Inconnu",
+      createdAt: new Date(mission.created_at),
       requests
     };
   } catch (error) {
@@ -153,23 +153,21 @@ export const createMission = async (data: {
 }): Promise<Mission | undefined> => {
   try {
     const missionData = {
-      id: `mission${Date.now()}`, // Générer un ID unique pour le mode démo
       name: data.name,
       client: data.client,
       description: data.description,
-      sdrId: data.sdrId,
-      createdAt: new Date().toISOString()
+      sdr_id: data.sdrId
     };
 
     if (!isSupabaseConfigured) {
       console.log("Mode démo: simulation de création de mission");
       // En mode démo, on ajoute simplement à la liste en mémoire
       const newMission = {
-        id: missionData.id,
-        name: missionData.name,
-        client: missionData.client,
-        description: missionData.description,
-        sdrId: missionData.sdrId,
+        id: `mission${Date.now()}`, // Générer un ID unique pour le mode démo
+        name: data.name,
+        client: data.client,
+        description: data.description,
+        sdrId: data.sdrId,
         sdrName: "Sales Representative",
         createdAt: new Date(),
         requests: []
@@ -184,7 +182,7 @@ export const createMission = async (data: {
     const { data: newMission, error } = await supabase
       .from('missions')
       .insert(missionData)
-      .select('*, users:sdrId(name)')
+      .select('*, profiles:sdr_id(name)')
       .single();
 
     if (error) {
@@ -197,9 +195,9 @@ export const createMission = async (data: {
       name: newMission.name,
       client: newMission.client,
       description: newMission.description || undefined,
-      sdrId: newMission.sdrId,
-      sdrName: newMission.users?.name || "Inconnu",
-      createdAt: new Date(newMission.createdAt),
+      sdrId: newMission.sdr_id,
+      sdrName: newMission.profiles?.name || "Inconnu",
+      createdAt: new Date(newMission.created_at),
       requests: []
     };
   } catch (error) {
