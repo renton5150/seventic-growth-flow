@@ -48,7 +48,7 @@ export const useAuthOperations = (
       }
 
       console.log("Connexion réussie, données de la session:", data);
-      toast.success("Connexion réussie");
+      toast.success("Connexion réussie", { duration: 2000 });
       
       return true;
     } catch (error) {

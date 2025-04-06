@@ -7,6 +7,6 @@ interface DemoAlertProps {
 }
 
 export const DemoAlert = ({ showDemoMode = false }: DemoAlertProps) => {
-  // Ne rien afficher - mode démonstration désactivé
+  // Always return null to ensure demo mode is never displayed
   return null;
 };

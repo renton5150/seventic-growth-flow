@@ -1,6 +1,6 @@
 
-import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { ReactNode, useEffect } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AuthLayoutProps {
@@ -8,7 +8,23 @@ interface AuthLayoutProps {
 }
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("AuthLayout: User is authenticated, redirecting");
+      
+      // Small delay to allow session to fully establish
+      setTimeout(() => {
+        if (isAdmin) {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      }, 100);
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
 
   if (loading) {
     return (
@@ -18,10 +34,6 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
         </div>
       </div>
     );
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
   }
 
   return (

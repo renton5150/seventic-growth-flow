@@ -18,7 +18,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         console.log("Délai maximum de chargement atteint, arrêt du chargement");
         setLoading(false);
       }
-    }, 8000); // Délai augmenté à 8 secondes pour éviter les timeouts trop rapides
+    }, 10000); // Délai augmenté à 10 secondes pour laisser plus de temps à la session
     
     // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -51,6 +51,19 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           console.log("Utilisateur déconnecté");
           setUser(null);
           if (isMounted) setLoading(false);
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log("Token rafraîchi, mise à jour du profil utilisateur");
+          // Rafraîchir le profil utilisateur
+          if (session) {
+            try {
+              const userProfile = await createUserProfile(session.user);
+              if (isMounted) setUser(userProfile);
+            } catch (error) {
+              console.error("Erreur lors de la mise à jour du profil:", error);
+            } finally {
+              if (isMounted) setLoading(false);
+            }
+          }
         } else {
           // Pour les autres événements, assurez-vous également de terminer le chargement
           if (isMounted) setLoading(false);
@@ -66,7 +79,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         // Réduire le timeout pour la vérification de session
         const sessionPromise = supabase.auth.getSession();
         const sessionTimeout = new Promise<{ data: { session: null }, error: AuthError }>((_, reject) => {
-          setTimeout(() => reject(new Error("Timeout de récupération de session")), 7000);
+          setTimeout(() => reject(new Error("Timeout de récupération de session")), 8000);
         });
         
         const result = await Promise.race([
