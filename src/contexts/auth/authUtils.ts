@@ -36,12 +36,26 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
     if (!userData) {
       console.log("Profil non trouvé, création d'un nouveau profil");
       
-      // Création du profil avec rôle par défaut 'sdr'
+      // Determine role based on email
+      let role: UserRole = 'sdr'; // Default role
+      const email = user.email?.toLowerCase() || '';
+      
+      if (email === "gironde@seventic.com") {
+        role = 'admin';
+      } else if (email.includes('growth') || email === "growth@seventic.com") {
+        role = 'growth';
+      } else {
+        // All other emails get SDR role
+        role = 'sdr';
+      }
+      
+      console.log(`Création d'un profil avec le rôle: ${role} pour l'email: ${email}`);
+      
       const newUser = {
         id: user.id,
         email: user.email || '',
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'Nouvel utilisateur',
-        role: user.email === "gironde@seventic.com" ? "admin" : "sdr" as UserRole
+        role
       };
       
       const { error: insertError } = await supabase
