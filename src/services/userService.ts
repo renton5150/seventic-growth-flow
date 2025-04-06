@@ -1,4 +1,3 @@
-
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { users as mockUsers } from "@/data/users";
@@ -107,11 +106,10 @@ export const createUser = async (
 
     console.log("Utilisateur créé dans Auth:", authData.user.id);
 
-    // Mettre à jour le profil avec le rôle choisi - Correction importante ici
-    const roleValue: UserRole = role; // Force le type à UserRole
+    // Mettre à jour le profil avec le rôle choisi
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role: roleValue })
+      .update({ role: role })
       .eq('id', authData.user.id);
 
     if (profileError) {
