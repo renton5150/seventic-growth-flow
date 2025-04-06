@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
 import { InviteUserDialog } from "./InviteUserDialog";
@@ -14,10 +14,21 @@ export const UserManagementTabs = () => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
 
+  // Utiliser useQuery pour gérer l'état des données et le rafraîchissement
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
-    queryFn: getAllUsers
+    queryFn: getAllUsers,
+    // Actualiser régulièrement les données (toutes les 10 secondes)
+    refetchInterval: 10000,
+    // Réduire le délai de nouvelle tentative en cas d'échec
+    retry: 1,
   });
+
+  // Force refetch when the component mounts to ensure we have fresh data
+  useEffect(() => {
+    refetch();
+    console.log("UserManagementTabs monté - actualisation des données");
+  }, [refetch]);
 
   const filteredUsers = users.filter(user => {
     if (activeTab === "all") return true;
@@ -31,9 +42,15 @@ export const UserManagementTabs = () => {
 
   const handleUserInvited = async () => {
     console.log("Actualisation de la liste des utilisateurs après invitation");
-    // Force refetch pour récupérer les données les plus récentes
-    await refetch();
+    
+    // Forcer plusieurs refetch avec un petit délai pour s'assurer que les données sont bien à jour
+    setTimeout(() => refetch(), 100); 
+    setTimeout(() => refetch(), 1000);
+    
+    console.log("Nombre d'utilisateurs après refetch:", users.length);
   };
+
+  console.log("Rendu de UserManagementTabs - Nombre d'utilisateurs:", users.length);
 
   return (
     <>

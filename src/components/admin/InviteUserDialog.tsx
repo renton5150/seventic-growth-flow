@@ -61,7 +61,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
           // Appeler la fonction de rappel pour actualiser la liste des utilisateurs
           onUserInvited();
           onOpenChange(false);
-        }, 100);
+        }, 500); // Augmenter le délai à 500ms
       } else {
         setErrorMessage(result.error || "Une erreur est survenue lors de l'envoi de l'invitation");
       }

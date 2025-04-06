@@ -1,20 +1,31 @@
+
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
-import { users as mockUsers } from "@/data/users";
+import { users as mockUsersImport } from "@/data/users";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
+
+// Créer une copie locale des utilisateurs fictifs pour les modifications en mode démo
+const mockUsers = [...mockUsersImport];
 
 // Récupérer tous les utilisateurs
 export const getAllUsers = async (): Promise<User[]> => {
   try {
-    // Vérifier si les variables d'environnement Supabase sont définies
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    console.log("Tentative de récupération des utilisateurs...");
+    
+    // Vérifier la connexion Supabase
+    const isSupabaseConnected = supabaseUrl !== "" && supabaseAnonKey !== "";
+    
+    // Mode démo si pas de connexion Supabase
+    if (!isSupabaseConnected) {
       console.log("Mode démo activé : utilisation des données simulées pour les utilisateurs");
-      
+      console.log(`Nombre total d'utilisateurs dans mockUsers: ${mockUsers.length}`);
       // Retourner une copie des utilisateurs fictifs pour éviter les problèmes de référence
       return [...mockUsers];
     }
 
+    // Mode production avec Supabase
+    console.log("Mode production: récupération des utilisateurs depuis Supabase");
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -22,9 +33,11 @@ export const getAllUsers = async (): Promise<User[]> => {
 
     if (error) {
       console.error("Erreur lors de la récupération des utilisateurs:", error);
+      toast.error("Erreur lors de la récupération des utilisateurs");
       return [...mockUsers];
     }
 
+    console.log(`${data.length} utilisateurs récupérés depuis Supabase`);
     return data.map((user: any) => ({
       id: user.id,
       email: user.email,
@@ -41,7 +54,10 @@ export const getAllUsers = async (): Promise<User[]> => {
 // Récupérer un utilisateur par ID
 export const getUserById = async (userId: string): Promise<User | undefined> => {
   try {
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    // Vérifier la connexion Supabase
+    const isSupabaseConnected = supabaseUrl !== "" && supabaseAnonKey !== "";
+    
+    if (!isSupabaseConnected) {
       // Mode démo
       return mockUsers.find(user => user.id === userId);
     }
@@ -90,8 +106,12 @@ export const createUser = async (
   }
   
   try {
-    // Vérifier si on est en mode démo
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    // Vérifier la connexion Supabase
+    const isSupabaseConnected = supabaseUrl !== "" && supabaseAnonKey !== "";
+    console.log("Supabase est connecté:", isSupabaseConnected);
+    
+    // Mode démo si pas de connexion Supabase
+    if (!isSupabaseConnected) {
       console.log("Mode démo: simulation de création d'utilisateur");
       
       // Créer un nouvel utilisateur fictif avec ID unique
@@ -111,6 +131,9 @@ export const createUser = async (
       return { success: true, user: newUser };
     }
 
+    // Mode production avec Supabase
+    console.log("Mode production: création d'utilisateur dans Supabase");
+    
     // Générer un mot de passe temporaire
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "!1";
     
@@ -165,3 +188,7 @@ export const createUser = async (
     return { success: false, error: errorMessage };
   }
 };
+
+// Obtenir les variables Supabase pour les vérifications internes
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
