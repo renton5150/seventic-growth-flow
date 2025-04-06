@@ -10,14 +10,14 @@ export const hasRole = (user: User | null, role: UserRole): boolean => {
     return false;
   }
   
-  console.log(`Vérification si l'utilisateur ${user.email} a le rôle ${role}. Rôle actuel: ${user.role}`);
+  console.log(`Vérification du rôle ${role}. Rôle actuel: ${user.role}`);
   return user.role === role;
 }
 
 // Créer un profil utilisateur à partir des données Supabase
 export const createUserProfile = async (user: SupabaseUser): Promise<User | null> => {
   try {
-    console.log("Récupération du profil pour l'utilisateur:", user.id);
+    console.log("Récupération du profil pour:", user.id);
     
     // Vérifier si l'utilisateur a déjà un profil
     const { data: userData, error: userError } = await supabase
@@ -25,21 +25,20 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
-      
+    
     if (userError) {
-      console.error("Impossible de récupérer les données utilisateur:", userError);
+      console.error("Erreur lors de la récupération du profil:", userError);
       return null;
     }
     
     if (!userData) {
-      // L'utilisateur n'a pas encore de profil, on en crée un
-      console.log("Création d'un nouveau profil utilisateur pour:", user.id);
+      console.log("Création d'un nouveau profil utilisateur");
       
       // Création du profil avec rôle par défaut 'sdr'
       const newUser = {
         id: user.id,
         email: user.email || '',
-        name: user.user_metadata.name || user.email?.split('@')[0] || 'Nouvel utilisateur',
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Nouvel utilisateur',
         role: 'sdr' as UserRole
       };
       
@@ -48,11 +47,11 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
         .insert(newUser);
         
       if (insertError) {
-        console.error("Impossible de créer le profil utilisateur:", insertError);
+        console.error("Erreur lors de la création du profil:", insertError);
         return null;
       }
       
-      // Adapter les données utilisateur au format attendu par l'application
+      // Retourner le nouvel utilisateur
       const appUser: User = {
         id: newUser.id,
         email: newUser.email,
@@ -61,10 +60,10 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newUser.name)}&background=7E69AB&color=fff`
       };
       
-      console.log("Nouveau profil utilisateur créé:", appUser);
+      console.log("Nouveau profil créé:", appUser);
       return appUser;
     } else {
-      // Adapter les données utilisateur au format attendu par l'application
+      // Utiliser les données existantes
       const appUser: User = {
         id: userData.id,
         email: userData.email || user.email || '',
@@ -73,12 +72,12 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
         avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=7E69AB&color=fff`
       };
       
-      console.log("Profil utilisateur existant chargé:", appUser);
+      console.log("Profil existant chargé:", appUser);
       console.log("Rôle de l'utilisateur:", appUser.role);
       return appUser;
     }
   } catch (error) {
-    console.error("Erreur lors du traitement du profil:", error);
+    console.error("Exception lors du traitement du profil:", error);
     return null;
   }
 };

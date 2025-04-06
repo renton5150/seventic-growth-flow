@@ -13,55 +13,51 @@ export const useAuthOperations = (
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log("Tentative de connexion pour:", email);
       setLoading(true);
       setAuthError(null);
 
       // Vérification des entrées
       if (!email || !password) {
-        console.error("Email ou mot de passe manquant");
         setAuthError("Veuillez saisir un email et un mot de passe");
         setLoading(false);
         return false;
       }
 
-      console.log("Envoi des identifiants à Supabase");
+      console.log("Tentative de connexion pour:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        console.error("Erreur de connexion:", error.message);
-        toast.error("Échec de la connexion: " + (
-          error.message === "Invalid login credentials" 
-            ? "Identifiants invalides" 
-            : error.message
-        ));
-        setAuthError(error.message);
+        const errorMessage = error.message === "Invalid login credentials" 
+          ? "Identifiants invalides" 
+          : error.message;
+        
+        console.error("Erreur de connexion:", errorMessage);
+        toast.error("Échec de la connexion", { description: errorMessage });
+        setAuthError(errorMessage);
         setLoading(false);
         return false;
       }
 
       if (!data.session) {
-        console.error("Pas de session après connexion réussie");
-        toast.error("Erreur: Impossible d'établir une session");
+        console.error("Session non créée");
+        toast.error("Erreur: Session non créée");
         setAuthError("Impossible d'établir une session");
         setLoading(false);
         return false;
       }
 
-      console.log("Connexion réussie, données de la session:", data.session.user.id);
-      toast.success("Connexion réussie", { duration: 2000 });
+      console.log("Connexion réussie:", data.session.user.id);
+      toast.success("Connexion réussie");
       
-      // Laisser l'écouteur d'authentification gérer le reste du processus
-      // La session est maintenant active, l'écouteur dans useAuthSession va prendre le relai
-      
+      // L'écouteur d'authentification se charge du reste
       return true;
     } catch (error) {
       console.error("Exception lors de la connexion:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-      toast.error("Exception: " + errorMessage);
+      toast.error("Erreur de connexion", { description: errorMessage });
       setAuthError(errorMessage);
       setLoading(false);
       return false;
@@ -70,14 +66,13 @@ export const useAuthOperations = (
 
   const logout = async () => {
     try {
-      console.log("Tentative de déconnexion");
       setLoading(true);
 
       const { error } = await supabase.auth.signOut();
 
       if (error) {
         console.error("Erreur de déconnexion:", error.message);
-        toast.error("Échec de la déconnexion: " + error.message);
+        toast.error("Échec de la déconnexion");
         setLoading(false);
         return false;
       }
@@ -85,15 +80,12 @@ export const useAuthOperations = (
       console.log("Déconnexion réussie");
       toast.success("Déconnexion réussie");
       
-      // Effacer les données utilisateur
+      // Réinitialiser l'état
       setUser(null);
       setLoading(false);
-      
       return true;
     } catch (error) {
       console.error("Exception lors de la déconnexion:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-      toast.error("Exception: " + errorMessage);
       setLoading(false);
       return false;
     }
