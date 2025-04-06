@@ -23,7 +23,10 @@ export const getAllMissions = async (): Promise<Mission[]> => {
 
     const { data: missions, error } = await supabase
       .from('missions')
-      .select('*, profiles:sdr_id(name)');
+      .select(`
+        *,
+        profiles!missions_sdr_id_fkey(name)
+      `);
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -39,7 +42,7 @@ export const getAllMissions = async (): Promise<Mission[]> => {
         name: mission.name,
         client: mission.client,
         description: mission.description || undefined,
-        sdrId: mission.sdr_id,
+        sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
         createdAt: new Date(mission.created_at),
         requests
@@ -69,7 +72,10 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
 
     const { data: missions, error } = await supabase
       .from('missions')
-      .select('*, profiles:sdr_id(name)')
+      .select(`
+        *,
+        profiles!missions_sdr_id_fkey(name)
+      `)
       .eq('sdr_id', userId);
 
     if (error) {
@@ -86,7 +92,7 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
         name: mission.name,
         client: mission.client,
         description: mission.description || undefined,
-        sdrId: mission.sdr_id,
+        sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
         createdAt: new Date(mission.created_at),
         requests
@@ -117,11 +123,14 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
 
     const { data: mission, error } = await supabase
       .from('missions')
-      .select('*, profiles:sdr_id(name)')
+      .select(`
+        *,
+        profiles!missions_sdr_id_fkey(name)
+      `)
       .eq('id', missionId)
-      .single();
+      .maybeSingle();
 
-    if (error) {
+    if (error || !mission) {
       console.error("Erreur lors de la récupération de la mission:", error);
       return undefined;
     }
@@ -133,7 +142,7 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
       name: mission.name,
       client: mission.client,
       description: mission.description || undefined,
-      sdrId: mission.sdr_id,
+      sdrId: mission.sdr_id || "",
       sdrName: mission.profiles?.name || "Inconnu",
       createdAt: new Date(mission.created_at),
       requests
@@ -182,10 +191,13 @@ export const createMission = async (data: {
     const { data: newMission, error } = await supabase
       .from('missions')
       .insert(missionData)
-      .select('*, profiles:sdr_id(name)')
-      .single();
+      .select(`
+        *,
+        profiles!missions_sdr_id_fkey(name)
+      `)
+      .maybeSingle();
 
-    if (error) {
+    if (error || !newMission) {
       console.error("Erreur lors de la création de la mission:", error);
       return undefined;
     }
@@ -195,7 +207,7 @@ export const createMission = async (data: {
       name: newMission.name,
       client: newMission.client,
       description: newMission.description || undefined,
-      sdrId: newMission.sdr_id,
+      sdrId: newMission.sdr_id || "",
       sdrName: newMission.profiles?.name || "Inconnu",
       createdAt: new Date(newMission.created_at),
       requests: []
