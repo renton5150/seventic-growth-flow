@@ -20,6 +20,8 @@ import Calendar from "./pages/Calendar";
 import Missions from "./pages/Missions";
 import GrowthDashboard from "./pages/GrowthDashboard";
 import Databases from "./pages/Databases";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
 
 const queryClient = new QueryClient();
 
@@ -111,6 +113,23 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Databases />
+                </ProtectedRoute>
+              } 
+            />
+            {/* Nouvelles routes pour l'administration */}
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/users" 
+              element={
+                <ProtectedRoute>
+                  <AdminUsers />
                 </ProtectedRoute>
               } 
             />

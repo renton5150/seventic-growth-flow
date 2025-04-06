@@ -1,7 +1,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User } from "lucide-react";
+import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User, Users, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -80,6 +80,28 @@ export const AppSidebar = () => {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+          )}
+          
+          {/* Nouveaux éléments pour l'administrateur */}
+          {isAdmin && (
+            <>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className={getLinkClass("/admin/dashboard")}>
+                  <Link to="/admin/dashboard">
+                    <BarChart3 className="h-5 w-5 mr-3" />
+                    Statistiques
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className={getLinkClass("/admin/users")}>
+                  <Link to="/admin/users">
+                    <Users className="h-5 w-5 mr-3" />
+                    Utilisateurs
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
           )}
         </SidebarMenu>
         <div className="mt-auto p-4">
