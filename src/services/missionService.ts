@@ -5,7 +5,8 @@ import {
   getAllMockMissions,
   getMockMissionsByUserId,
   getMockMissionById,
-  createMockMission
+  createMockMission,
+  findMockMissionById
 } from "./missions/mockMissions";
 import {
   getAllSupaMissions,

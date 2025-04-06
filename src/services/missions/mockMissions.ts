@@ -3,8 +3,8 @@ import { Mission, Request } from "@/types/types";
 import { getRequestsByMissionId } from "../requestService";
 import { mockData } from "@/data/mockData";
 
-// Fonctions pour les données mockées
-export const getMockMissionById = (missionId: string): Mission | undefined => {
+// Fonctions pour les données mockées (version synchrone)
+export const findMockMissionById = (missionId: string): Mission | undefined => {
   const mission = mockData.missions.find((mission) => mission.id === missionId);
   if (!mission) return undefined;
   
@@ -48,10 +48,10 @@ export const getMockMissionsByUserId = async (userId: string): Promise<Mission[]
   }));
 };
 
-// Obtenir une mission mockée par ID
+// Obtenir une mission mockée par ID (version asynchrone)
 export const getMockMissionById = async (missionId: string): Promise<Mission | undefined> => {
   console.log("Utilisation des données mockées pour une mission par ID");
-  const mission = getMockMissionById(missionId);
+  const mission = findMockMissionById(missionId);
   if (!mission) return undefined;
   
   const requests = await getRequestsByMissionId(mission.id);
