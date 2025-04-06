@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormToggle } from "./FormToggle";
 import { LoginFormContent } from "./LoginFormContent";
@@ -22,38 +22,71 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
   const { login, isAdmin } = useAuth();
 
   // Vérifier la connexion à Supabase au chargement
-  useState(() => {
+  useEffect(() => {
     const checkConnection = async () => {
       try {
         console.log("Vérification de la connexion...");
+        setNetworkStatus("checking");
+        
+        // Vérifier la connexion internet
+        if (!navigator.onLine) {
+          console.log("Navigateur hors ligne");
+          setNetworkStatus("offline");
+          setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
+          return;
+        }
+        
+        // Simple vérification de la connexion Supabase
         const start = Date.now();
         const { error } = await supabase.from("profiles").select("id").limit(1);
         const elapsed = Date.now() - start;
         
         if (error) {
-          console.error("Échec du test de connexion à Supabase:", error);
+          console.error("Erreur de connexion à Supabase:", error);
           setNetworkStatus("offline");
-          setError(`Problème de connexion au serveur: ${error.message}`);
+          setError("Problème de connexion au serveur. Veuillez actualiser la page et réessayer.");
         } else {
-          console.log(`Connexion à Supabase OK (${elapsed}ms)`);
+          console.log(`Connexion à Supabase réussie (${elapsed}ms)`);
           setNetworkStatus("online");
           setError(null);
         }
       } catch (err) {
         console.error("Erreur lors du test de connexion:", err);
         setNetworkStatus("offline");
-        setError("Impossible de se connecter au serveur. Veuillez réessayer plus tard.");
+        setError("Impossible de communiquer avec le serveur. Veuillez actualiser la page.");
       }
     };
     
     checkConnection();
-  });
+    
+    // Vérifier à nouveau toutes les 30 secondes
+    const intervalId = setInterval(checkConnection, 30000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   const handleRetry = () => {
     setNetworkStatus("checking");
-    setTimeout(() => {
-      setNetworkStatus("online");
-      setError(null);
+    setError(null);
+    
+    setTimeout(async () => {
+      try {
+        const { error } = await supabase.from("profiles").select("id").limit(1);
+        
+        if (error) {
+          setNetworkStatus("offline");
+          setError("Problème de connexion au serveur. Veuillez actualiser la page et réessayer.");
+        } else {
+          setNetworkStatus("online");
+          setError(null);
+          toast.success("Connexion au serveur rétablie");
+        }
+      } catch (err) {
+        setNetworkStatus("offline");
+        setError("Impossible de communiquer avec le serveur.");
+      }
     }, 1000);
   };
 
@@ -65,13 +98,15 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
     }
     
     try {
-      console.log("Traitement de la connexion pour:", email);
+      console.log("Lancement de la connexion pour:", email);
+      
       const success = await login(email, password);
       
       if (success) {
         console.log("Connexion réussie, redirection...");
         toast.success("Connexion réussie");
-        navigate(isAdmin ? "/admin/dashboard" : "/dashboard", { replace: true });
+        
+        // La redirection sera gérée par le composant de la page Login
         return true;
       } else {
         setError("Échec de la connexion. Vérifiez vos identifiants.");
@@ -80,6 +115,7 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue";
       setError(errorMessage);
+      console.error("Erreur non gérée:", errorMessage);
       toast.error("Erreur de connexion", {
         description: errorMessage
       });
@@ -89,7 +125,7 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
 
   const handleSignup = async (email: string, password: string, name: string) => {
     try {
-      // Logique d'inscription
+      // Affiche simplement une notification pour cette démonstration
       toast.info("Inscription en cours de développement");
       return true;
     } catch (err) {
@@ -105,7 +141,10 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
         <div className="space-y-6">
           <FormToggle 
             formMode={formMode} 
-            onToggle={() => setFormMode(formMode === "login" ? "signup" : "login")} 
+            onToggle={() => {
+              setFormMode(formMode === "login" ? "signup" : "login");
+              setError(null);
+            }} 
           />
           
           {formMode === "login" ? (
@@ -122,7 +161,8 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
         </div>
       </div>
       
-      <DemoAlert showDemoMode={showDemoMode} />
+      {showDemoMode && <DemoAlert showDemoMode={true} />}
+      
       <NetworkStatus 
         status={networkStatus}
         error={error}

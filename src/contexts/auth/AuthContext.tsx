@@ -14,91 +14,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true
   });
   
-  // Vérification de session et configuration de l'écouteur d'état
   useEffect(() => {
-    let isMounted = true;
-    console.log("Initialisation de l'authentification...");
+    console.log("Initialisation de l'authentification simplifiée");
+    let mounted = true;
     
-    // Configurer l'écouteur d'état d'authentification en premier
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Événement d'authentification:", event);
+    // Configurer l'écouteur d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`Événement d'authentification: ${event}`);
       
-      if (!isMounted) return;
+      if (!mounted) return;
       
-      if (event === 'SIGNED_IN' && session) {
+      if (session) {
         try {
-          console.log("Connexion détectée, chargement du profil utilisateur");
+          console.log("Session trouvée, chargement du profil utilisateur");
           const userProfile = await createUserProfile(session.user);
-          if (isMounted) setAuthState({ user: userProfile, loading: false });
+          if (mounted) setAuthState({ user: userProfile, loading: false });
         } catch (err) {
           console.error("Erreur lors du chargement du profil:", err);
-          if (isMounted) setAuthState({ user: null, loading: false });
+          if (mounted) setAuthState({ user: null, loading: false });
+          toast.error("Erreur de chargement du profil utilisateur");
         }
-      } else if (event === 'SIGNED_OUT') {
-        console.log("Déconnexion détectée");
-        if (isMounted) setAuthState({ user: null, loading: false });
+      } else {
+        console.log("Pas de session active");
+        if (mounted) setAuthState({ user: null, loading: false });
       }
     });
 
-    // Ensuite vérifier la session existante
+    // Vérifier la session existante
     const checkSession = async () => {
       try {
-        console.log("Vérification de session...");
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         
-        if (sessionError) {
-          console.error("Erreur de session:", sessionError);
-          if (isMounted) setAuthState({ user: null, loading: false });
+        if (error) {
+          console.error("Erreur de récupération de session:", error.message);
+          if (mounted) setAuthState({ user: null, loading: false });
           return;
         }
         
-        if (sessionData?.session) {
-          console.log("Session trouvée, chargement du profil...");
-          try {
-            const userProfile = await createUserProfile(sessionData.session.user);
-            if (isMounted) {
-              console.log("Profil chargé:", userProfile);
-              setAuthState({ user: userProfile, loading: false });
-            }
-          } catch (err) {
-            console.error("Erreur de chargement de profil:", err);
-            if (isMounted) setAuthState({ user: null, loading: false });
-          }
+        if (data?.session) {
+          console.log("Session existante trouvée");
+          // La fonction onAuthStateChange s'occupera du chargement du profil
         } else {
-          console.log("Pas de session active");
-          if (isMounted) setAuthState({ user: null, loading: false });
+          console.log("Pas de session existante");
+          if (mounted) setAuthState({ user: null, loading: false });
         }
       } catch (err) {
-        console.error("Exception lors de la vérification:", err);
-        if (isMounted) setAuthState({ user: null, loading: false });
+        console.error("Exception lors de la vérification de session:", err);
+        if (mounted) setAuthState({ user: null, loading: false });
       }
     };
     
-    // Définir un délai maximum pour le chargement
-    const timeoutId = setTimeout(() => {
-      if (isMounted && authState.loading) {
-        console.log("Délai de chargement dépassé, forçage de l'état non chargé");
-        setAuthState(prev => ({ ...prev, loading: false }));
-      }
-    }, 5000);
-    
-    // Vérifier la session au démarrage
+    // Vérifier immédiatement la session
     checkSession();
     
-    // Nettoyage
+    // Définir un timeout de sécurité pour garantir que loading ne reste pas bloqué
+    const timeoutId = setTimeout(() => {
+      if (mounted && authState.loading) {
+        console.log("Délai de chargement dépassé, réinitialisation");
+        setAuthState(prev => ({ ...prev, loading: false }));
+      }
+    }, 3000);
+    
     return () => {
-      isMounted = false;
+      mounted = false;
       clearTimeout(timeoutId);
-      authListener.subscription.unsubscribe();
-      console.log("Nettoyage de l'authentification");
+      subscription.unsubscribe();
     };
   }, []);
 
-  // Fonction de connexion
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log(`Tentative de connexion: ${email}`);
       setAuthState(prev => ({ ...prev, loading: true }));
-      console.log("Tentative de connexion pour:", email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -107,12 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (error) {
         console.error("Erreur de connexion:", error.message);
-        toast.error("Échec de la connexion", { description: error.message });
+        toast.error("Échec de connexion", { description: error.message });
         setAuthState(prev => ({ ...prev, loading: false }));
         return false;
       }
       
       console.log("Connexion réussie");
+      // onAuthStateChange mettra à jour l'état utilisateur
       return true;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "Erreur inconnue";
@@ -123,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Fonction de déconnexion
   const logout = async (): Promise<boolean> => {
     try {
       setAuthState(prev => ({ ...prev, loading: true }));

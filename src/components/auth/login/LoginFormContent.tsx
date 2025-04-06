@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface LoginFormContentProps {
   onSubmit: (email: string, password: string) => Promise<boolean>;
@@ -25,15 +26,39 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
     
     // Validation simple
     if (!email || !password) {
+      toast.error("Veuillez remplir tous les champs");
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      await onSubmit(email, password);
+      console.log("Tentative de connexion:", email);
+      
+      // Prévoir un timeout pour éviter de bloquer indéfiniment
+      const loginPromise = onSubmit(email, password);
+      
+      // Créer une promesse qui se résout après 15 secondes
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          resolve(false);
+        }, 15000);
+      });
+      
+      // Course entre la connexion et le timeout
+      const result = await Promise.race([loginPromise, timeoutPromise]);
+      
+      if (result === false) {
+        console.error("La connexion a pris trop de temps");
+        toast.error("La connexion a pris trop de temps", {
+          description: "Veuillez réessayer ou actualiser la page"
+        });
+      }
     } catch (error) {
       console.error("Erreur lors de la soumission du formulaire:", error);
+      toast.error("Erreur inattendue", {
+        description: "Veuillez réessayer ou actualiser la page"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -108,6 +133,19 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
           "Se connecter"
         )}
       </Button>
+
+      {isSubmitting && (
+        <div className="text-sm text-center text-muted-foreground mt-2">
+          <p>Si la connexion prend trop de temps, vous pouvez 
+            <button 
+              type="button" 
+              onClick={() => window.location.reload()} 
+              className="text-seventic-500 hover:underline ml-1">
+              actualiser la page
+            </button>
+          </p>
+        </div>
+      )}
     </form>
   );
 };
