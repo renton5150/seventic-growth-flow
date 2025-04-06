@@ -17,33 +17,29 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
         console.log("Délai maximum de chargement atteint, arrêt du chargement");
         setLoading(false);
       }
-    }, 3000); // Réduire à 3 secondes maximum de chargement
+    }, 3000); // 3 secondes maximum de chargement
     
     // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Événement d'authentification:", event, session ? "session active" : "pas de session");
+        console.log("Événement d'authentification:", event, session ? `session active: ${session.user.id}` : "pas de session");
         
-        if (event === 'SIGNED_IN' && session) {
-          try {
-            const userProfile = await createUserProfile(session.user);
-            if (isMounted) {
+        if (isMounted) {
+          if (event === 'SIGNED_IN' && session) {
+            try {
+              const userProfile = await createUserProfile(session.user);
               setUser(userProfile);
               console.log("Profil utilisateur défini après connexion:", userProfile);
+            } catch (error) {
+              console.error("Erreur lors de la création du profil utilisateur:", error);
+              toast.error("Erreur lors du chargement de votre profil");
             }
-          } catch (error) {
-            console.error("Erreur lors de la création du profil utilisateur:", error);
-            toast.error("Erreur lors du chargement de votre profil");
-          }
-        } else if (event === 'SIGNED_OUT') {
-          console.log("Utilisateur déconnecté");
-          if (isMounted) {
+          } else if (event === 'SIGNED_OUT') {
+            console.log("Utilisateur déconnecté");
             setUser(null);
           }
-        }
-        
-        // Terminer le chargement après le traitement de l'événement d'authentification
-        if (isMounted) {
+          
+          // Terminer le chargement après le traitement de l'événement d'authentification
           setLoading(false);
           console.log("Chargement terminé après événement d'authentification");
         }
@@ -65,7 +61,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
           return;
         }
         
-        console.log("Résultat de la session:", session ? "Session trouvée" : "Aucune session");
+        console.log("Résultat de la session:", session ? `Session trouvée: ${session.user.id}` : "Aucune session");
         
         if (session) {
           try {
@@ -89,6 +85,7 @@ export const useAuthSession = (setUser: (user: User | null) => void, setLoading:
       }
     };
     
+    // Exécuter la vérification de session
     checkSession();
     
     // Nettoyer l'écouteur lors du démontage

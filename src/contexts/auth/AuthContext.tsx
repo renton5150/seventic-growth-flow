@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { User, UserRole } from "@/types/types";
 import { AuthContextType, AuthState } from "./types";
 import { useAuthOperations } from "./useAuthOperations";
@@ -15,8 +15,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   
   // Setter functions for user and loading state
-  const setUser = (user: User | null) => setAuthState(prev => ({ ...prev, user }));
-  const setLoading = (loading: boolean) => setAuthState(prev => ({ ...prev, loading }));
+  const setUser = (user: User | null) => {
+    console.log("État utilisateur mis à jour:", user ? user.id : "déconnecté");
+    setAuthState(prev => ({ ...prev, user }));
+  };
+  
+  const setLoading = (loading: boolean) => {
+    console.log("État de chargement mis à jour:", loading ? "chargement" : "terminé");
+    setAuthState(prev => ({ ...prev, loading }));
+  };
   
   // Auth operations (login, logout)
   const { login, logout } = useAuthOperations(setUser, setLoading);
@@ -29,6 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = authState.user ? hasRole(authState.user, "admin") : false;
   const isSDR = authState.user ? hasRole(authState.user, "sdr") : false;
   const isGrowth = authState.user ? hasRole(authState.user, "growth") : false;
+  
+  // Log l'état d'authentification lors des changements
+  useEffect(() => {
+    console.log("État d'authentification mis à jour:", isAuthenticated ? "connecté" : "déconnecté");
+  }, [isAuthenticated]);
 
   return (
     <AuthContext.Provider

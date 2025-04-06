@@ -39,16 +39,30 @@ export const useAuthOperations = (setUser: (user: User | null) => void, setLoadi
             description: error.message
           });
         }
+        setLoading(false);
         return false;
       }
       
       if (data.session) {
-        console.log("Connexion réussie, session créée:", data.session.user.id);
-        // La session est déjà configurée par l'écouteur d'événement onAuthStateChange
-        toast.success("Connexion réussie", {
-          description: "Bienvenue sur Seventic Growth Flow",
-        });
-        return true;
+        console.log("Connexion réussie, utilisateur:", data.session.user.id);
+        
+        try {
+          // Récupérer le profil utilisateur
+          const userProfile = await createUserProfile(data.session.user);
+          setUser(userProfile);
+          
+          toast.success("Connexion réussie", {
+            description: "Bienvenue sur Seventic Growth Flow"
+          });
+          
+          return true;
+        } catch (profileError) {
+          console.error("Erreur lors de la création du profil utilisateur:", profileError);
+          toast.error("Erreur de profil", {
+            description: "Impossible de charger votre profil"
+          });
+          return false;
+        }
       } else {
         console.error("Connexion échouée: session non créée");
         toast.error("Erreur de connexion", {

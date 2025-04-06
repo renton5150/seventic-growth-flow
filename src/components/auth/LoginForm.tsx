@@ -248,10 +248,6 @@ export const LoginForm = () => {
             </p>
           )}
         </div>
-        <div className="text-xs text-center text-muted-foreground mt-4">
-          <p>Pour tester: créez un nouveau compte ou utilisez les identifiants de test.</p>
-          <p className="mt-1 text-seventic-500">Compte de test: contact@seventic.com / password123</p>
-        </div>
       </CardFooter>
     </Card>
   );

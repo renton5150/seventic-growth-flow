@@ -19,9 +19,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
-    storage: typeof window !== 'undefined' ? localStorage : undefined,
-    flowType: 'implicit' // Ajout du type de flux d'authentification explicite
+    detectSessionInUrl: true,
+    storage: typeof window !== 'undefined' ? localStorage : undefined
   }
 });
 
@@ -36,7 +35,7 @@ console.log("Supabase client configuré avec URL:", SUPABASE_URL);
     if (sessionError) {
       console.error("Erreur lors de la récupération de la session:", sessionError);
     } else if (sessionData.session) {
-      console.log("Session Supabase active trouvée");
+      console.log("Session Supabase active trouvée:", sessionData.session.user.id);
     } else {
       console.log("Aucune session Supabase active");
     }
