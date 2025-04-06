@@ -1,3 +1,4 @@
+
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { users as mockUsers } from "@/data/users";
@@ -58,7 +59,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
       id: data.id,
       email: data.email,
       name: data.name,
-      role: data.role,
+      role: data.role as UserRole,
       avatar: data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=7E69AB&color=fff`
     };
   } catch (error) {
@@ -118,9 +119,10 @@ export const createUser = async (
     console.log("Utilisateur créé dans Auth:", authData.user.id);
 
     // Mettre à jour le profil avec le rôle choisi
+    const roleValue: UserRole = role; // Ré-affirme explicitement le type
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role })
+      .update({ role: roleValue })
       .eq('id', authData.user.id);
 
     if (profileError) {
