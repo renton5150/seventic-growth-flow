@@ -33,7 +33,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Rediriger la racine vers /dashboard (ou /admin/dashboard pour les administrateurs) */}
+            <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route 
@@ -103,7 +104,7 @@ const App = () => (
             <Route 
               path="/growth" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin", "growth"]}>
                   <GrowthDashboard />
                 </ProtectedRoute>
               } 

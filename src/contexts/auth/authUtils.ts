@@ -10,6 +10,8 @@ export const hasRole = (user: User | null, role: UserRole): boolean =>
 // Créer un profil utilisateur à partir des données Supabase
 export const createUserProfile = async (user: SupabaseUser): Promise<User | null> => {
   try {
+    console.log("Récupération du profil pour l'utilisateur:", user.id);
+    
     // Vérifier si l'utilisateur a déjà un profil
     const { data: userData, error: userError } = await supabase
       .from('profiles')
@@ -26,6 +28,7 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
       // L'utilisateur n'a pas encore de profil, on en crée un
       console.log("Création d'un nouveau profil utilisateur pour:", user.id);
       
+      // Création du profil avec rôle par défaut 'sdr'
       const newUser = {
         id: user.id,
         email: user.email || '',
@@ -64,6 +67,7 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
       };
       
       console.log("Profil utilisateur existant chargé:", appUser);
+      console.log("Rôle de l'utilisateur:", appUser.role);
       return appUser;
     }
   } catch (error) {

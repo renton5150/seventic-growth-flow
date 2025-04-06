@@ -5,11 +5,21 @@ import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User, Users, 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useEffect } from "react";
 
 export const AppSidebar = () => {
   const { pathname } = useLocation();
   const { logout, user, isAdmin, isGrowth, isSDR } = useAuth();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    console.log("Sidebar - État utilisateur:", 
+      user ? `${user.name} (${user.role})` : "non connecté",
+      "isAdmin:", isAdmin,
+      "isGrowth:", isGrowth,
+      "isSDR:", isSDR
+    );
+  }, [user, isAdmin, isGrowth, isSDR]);
 
   const getLinkClass = (path: string) => {
     const isActive = pathname === path;
@@ -47,30 +57,40 @@ export const AppSidebar = () => {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
+          {/* Montrer le tableau de bord approprié selon le rôle */}
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className={getLinkClass("/dashboard")}>
-              <Link to="/dashboard">
+            <SidebarMenuButton asChild className={getLinkClass(isAdmin ? "/admin/dashboard" : "/dashboard")}>
+              <Link to={isAdmin ? "/admin/dashboard" : "/dashboard"}>
                 <Layers className="h-5 w-5 mr-3" />
-                Dashboard
+                {isAdmin ? "Dashboard Admin" : "Dashboard"}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className={getLinkClass("/missions")}>
-              <Link to="/missions">
-                <User className="h-5 w-5 mr-3" />
-                Missions
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className={getLinkClass("/calendar")}>
-              <Link to="/calendar">
-                <CalendarDays className="h-5 w-5 mr-3" />
-                Calendrier
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          
+          {/* Éléments communs pour tous les utilisateurs */}
+          {!isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className={getLinkClass("/missions")}>
+                <Link to="/missions">
+                  <User className="h-5 w-5 mr-3" />
+                  Missions
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          
+          {!isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className={getLinkClass("/calendar")}>
+                <Link to="/calendar">
+                  <CalendarDays className="h-5 w-5 mr-3" />
+                  Calendrier
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          
+          {/* Liens pour Growth et Admin */}
           {(isAdmin || isGrowth) && (
             <SidebarMenuItem>
               <SidebarMenuButton asChild className={getLinkClass("/growth")}>
