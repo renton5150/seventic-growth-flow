@@ -1,3 +1,4 @@
+
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { users as mockUsers } from "@/data/users";
@@ -105,7 +106,7 @@ export const createUser = async (email: string, name: string, role: UserRole): P
     // Mettre à jour le profil avec le rôle choisi
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role })
+      .update({ role: role })
       .eq('id', authData.user.id);
 
     if (profileError) {
