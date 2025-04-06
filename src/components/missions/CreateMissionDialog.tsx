@@ -27,6 +27,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/userService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User } from "@/types/types";
+import { useState } from "react";
 
 // Schema for mission form
 const missionSchema = z.object({
@@ -55,6 +56,8 @@ export const CreateMissionDialog = ({
   onOpenChange,
   onSuccess,
 }: CreateMissionDialogProps) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   // Récupérer la liste des SDRs
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
@@ -75,22 +78,30 @@ export const CreateMissionDialog = ({
     },
   });
   
-  const onSubmit = (values: z.infer<typeof missionSchema>) => {
+  const onSubmit = async (values: z.infer<typeof missionSchema>) => {
     try {
-      createMission({
+      setIsSubmitting(true);
+      
+      const result = await createMission({
         name: values.name,
         client: values.client, 
         description: values.description,
         sdrId: values.sdrId
       });
       
-      onSuccess();
-      onOpenChange(false);
-      form.reset();
-      toast.success("Mission créée avec succès");
+      if (result) {
+        onSuccess();
+        onOpenChange(false);
+        form.reset();
+        toast.success("Mission créée avec succès");
+      } else {
+        toast.error("Erreur lors de la création de la mission");
+      }
     } catch (error) {
       console.error("Erreur lors de la création de la mission:", error);
       toast.error("Erreur lors de la création de la mission");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -172,7 +183,9 @@ export const CreateMissionDialog = ({
               )}
             />
             <DialogFooter>
-              <Button type="submit">Créer</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Création en cours..." : "Créer"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

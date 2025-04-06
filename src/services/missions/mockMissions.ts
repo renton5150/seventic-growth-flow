@@ -1,5 +1,5 @@
 
-import { Mission, Request } from "@/types/types";
+import { Mission } from "@/types/types";
 import { getRequestsByMissionId } from "../requestService";
 import { mockData } from "@/data/mockData";
 
