@@ -35,7 +35,7 @@ export const AppSidebar = () => {
       }`}
     >
       <SidebarHeader>
-        <h2 className="text-lg font-semibold flex items-center">
+        <h2 className="text-xl font-semibold flex items-center">
           <PanelLeft className="mr-2 h-5 w-5" />
           {isAdmin 
             ? <span className="text-blue-700">Admin</span> 
@@ -82,14 +82,14 @@ export const AppSidebar = () => {
             </SidebarMenuItem>
           )}
           
-          {/* Nouveaux éléments pour l'administrateur */}
+          {/* Liens pour l'administrateur */}
           {isAdmin && (
             <>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild className={getLinkClass("/admin/dashboard")}>
                   <Link to="/admin/dashboard">
                     <BarChart3 className="h-5 w-5 mr-3" />
-                    Statistiques
+                    Tableau Admin
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -97,7 +97,7 @@ export const AppSidebar = () => {
                 <SidebarMenuButton asChild className={getLinkClass("/admin/users")}>
                   <Link to="/admin/users">
                     <Users className="h-5 w-5 mr-3" />
-                    Utilisateurs
+                    Gestion Utilisateurs
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

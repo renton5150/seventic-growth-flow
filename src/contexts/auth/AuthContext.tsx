@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   // Setter functions for user and loading state
   const setUser = (user: User | null) => {
-    console.log("État utilisateur mis à jour:", user ? user.id : "déconnecté");
+    console.log("État utilisateur mis à jour:", user ? `${user.id} (rôle: ${user.role})` : "déconnecté");
     setAuthState(prev => ({ ...prev, user }));
   };
   
@@ -39,8 +39,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   // Log l'état d'authentification lors des changements
   useEffect(() => {
-    console.log("État d'authentification mis à jour:", isAuthenticated ? "connecté" : "déconnecté");
-  }, [isAuthenticated]);
+    console.log("État d'authentification mis à jour:", 
+      isAuthenticated 
+        ? `connecté (Admin: ${isAdmin}, SDR: ${isSDR}, Growth: ${isGrowth})` 
+        : "déconnecté");
+  }, [isAuthenticated, isAdmin, isSDR, isGrowth]);
 
   return (
     <AuthContext.Provider
