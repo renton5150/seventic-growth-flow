@@ -1,32 +1,19 @@
 
 import { User, UserRole } from "@/types/types";
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
-import { users as mockUsersImport } from "@/data/users";
-import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
+import { toast } from "sonner";
 
-// Créer une copie locale des utilisateurs fictifs pour les modifications en mode démo
-const mockUsers = [...mockUsersImport];
-
-// Vérifier la connexion Supabase
-const isSupabaseConnected = SUPABASE_URL !== "" && SUPABASE_ANON_KEY !== "";
-console.log("Supabase est connecté:", isSupabaseConnected ? "Oui" : "Non (mode démo)");
+// Fonction pour vérifier si une valeur est un UserRole valide
+const isValidUserRole = (role: any): role is UserRole => {
+  return role === "admin" || role === "growth" || role === "sdr";
+};
 
 // Récupérer tous les utilisateurs
 export const getAllUsers = async (): Promise<User[]> => {
   try {
-    console.log("Tentative de récupération des utilisateurs...");
+    console.log("Récupération des utilisateurs depuis Supabase");
     
-    // Mode démo si pas de connexion Supabase
-    if (!isSupabaseConnected) {
-      console.log("Mode démo activé : utilisation des données simulées pour les utilisateurs");
-      console.log(`Nombre total d'utilisateurs dans mockUsers: ${mockUsers.length}`);
-      // Retourner une copie des utilisateurs fictifs pour éviter les problèmes de référence
-      return [...mockUsers];
-    }
-
-    // Mode production avec Supabase
-    console.log("Mode production: récupération des utilisateurs depuis Supabase");
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -35,7 +22,7 @@ export const getAllUsers = async (): Promise<User[]> => {
     if (error) {
       console.error("Erreur lors de la récupération des utilisateurs:", error);
       toast.error("Erreur lors de la récupération des utilisateurs");
-      return [...mockUsers];
+      return [];
     }
 
     console.log(`${data.length} utilisateurs récupérés depuis Supabase`);
@@ -48,18 +35,13 @@ export const getAllUsers = async (): Promise<User[]> => {
     }));
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des utilisateurs:", error);
-    return [...mockUsers];
+    return [];
   }
 };
 
 // Récupérer un utilisateur par ID
 export const getUserById = async (userId: string): Promise<User | undefined> => {
   try {
-    if (!isSupabaseConnected) {
-      // Mode démo
-      return mockUsers.find(user => user.id === userId);
-    }
-
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -68,7 +50,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
 
     if (error) {
       console.error("Erreur lors de la récupération de l'utilisateur:", error);
-      return mockUsers.find(user => user.id === userId);
+      return undefined;
     }
 
     return {
@@ -80,16 +62,11 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
     };
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération de l'utilisateur:", error);
-    return mockUsers.find(user => user.id === userId);
+    return undefined;
   }
 };
 
-// Fonction pour vérifier si une valeur est un UserRole valide
-const isValidUserRole = (role: any): role is UserRole => {
-  return role === "admin" || role === "growth" || role === "sdr";
-};
-
-// Créer un nouvel utilisateur - APPROCHE MODIFIÉE SANS UTILISER L'API D'ADMIN
+// Créer un nouvel utilisateur - Approche directe sans utiliser l'API d'admin
 export const createUser = async (
   email: string, 
   name: string, 
@@ -104,35 +81,7 @@ export const createUser = async (
   }
   
   try {
-    console.log("Supabase est connecté:", isSupabaseConnected ? "Oui" : "Non (mode démo)");
-    
-    // Mode démo si pas de connexion Supabase
-    if (!isSupabaseConnected) {
-      console.log("Mode démo: simulation de création d'utilisateur");
-      
-      // Créer un nouvel utilisateur fictif avec ID unique
-      const newUser: User = {
-        id: uuidv4(),
-        email,
-        name,
-        role,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`
-      };
-      
-      // Ajouter l'utilisateur aux données simulées
-      mockUsers.push(newUser);
-      
-      console.log("Utilisateur créé en mode démo:", newUser);
-      console.log("Nombre total d'utilisateurs en mode démo:", mockUsers.length);
-      
-      // Simuler un délai de réseau pour que l'UI ait le temps de se mettre à jour
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      return { success: true, user: newUser };
-    }
-
-    // Mode production avec Supabase - NOUVELLE APPROCHE DIRECTE
-    console.log("Mode production: création directe de profil dans Supabase (sans auth)");
+    console.log("Mode production: création directe de profil dans Supabase");
     
     // Générer un UUID pour le nouvel utilisateur
     const userId = uuidv4();
