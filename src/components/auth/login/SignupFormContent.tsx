@@ -3,14 +3,22 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Mail, Lock, Eye, EyeOff, UserPlus, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Mail, Lock, Eye, EyeOff, UserPlus, Loader2, Shield } from "lucide-react";
 
 interface SignupFormContentProps {
   onSubmit: (email: string, password: string, name: string) => Promise<boolean>;
   isOffline: boolean;
+  isAdminSignup?: boolean;
+  onToggleAdminSignup?: () => void;
 }
 
-export const SignupFormContent = ({ onSubmit, isOffline }: SignupFormContentProps) => {
+export const SignupFormContent = ({ 
+  onSubmit, 
+  isOffline, 
+  isAdminSignup = false,
+  onToggleAdminSignup
+}: SignupFormContentProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -97,6 +105,25 @@ export const SignupFormContent = ({ onSubmit, isOffline }: SignupFormContentProp
         </div>
       </div>
       
+      {/* Option administrateur */}
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="admin"
+          checked={isAdminSignup}
+          onCheckedChange={onToggleAdminSignup}
+          disabled={isSubmitting || isOffline}
+        />
+        <div className="grid gap-1.5 leading-none">
+          <Label
+            htmlFor="admin"
+            className="flex items-center text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            <Shield className="h-3 w-3 mr-1 text-seventic-500" /> 
+            Créer un compte administrateur
+          </Label>
+        </div>
+      </div>
+      
       <Button 
         type="submit" 
         className="w-full bg-seventic-500 hover:bg-seventic-600" 
@@ -113,7 +140,7 @@ export const SignupFormContent = ({ onSubmit, isOffline }: SignupFormContentProp
             Vérification de la connexion...
           </>
         ) : (
-          "S'inscrire"
+          isAdminSignup ? "S'inscrire en tant qu'admin" : "S'inscrire"
         )}
       </Button>
     </form>

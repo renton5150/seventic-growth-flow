@@ -12,16 +12,18 @@ import { FormToggle } from "./FormToggle";
 import { DemoAlert } from "./DemoAlert";
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export type AuthFormMode = "login" | "signup";
 
-export const LoginForm = () => {
+interface LoginFormProps {
+  showDemoMode?: boolean;
+}
+
+export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
   const [formMode, setFormMode] = useState<AuthFormMode>("login");
   const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("checking");
   const [error, setError] = useState<string | null>(null);
+  const [isAdminSignup, setIsAdminSignup] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -130,13 +132,17 @@ export const LoginForm = () => {
       }
 
       console.log("Tentative d'inscription avec:", email);
+      
+      // Utiliser le rôle admin si l'option est sélectionnée
+      const userRole = isAdminSignup ? "admin" : "sdr";
+      
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             name: name || email.split('@')[0],
-            role: "sdr"  // Attribut par défaut le rôle SDR aux nouveaux utilisateurs
+            role: userRole  // Utiliser le rôle défini
           }
         }
       });
@@ -158,7 +164,9 @@ export const LoginForm = () => {
 
       if (data.user) {
         toast.success("Inscription réussie", {
-          description: "Votre compte a été créé. Vous pouvez maintenant vous connecter."
+          description: isAdminSignup 
+            ? "Votre compte administrateur a été créé. Vous pouvez maintenant vous connecter."
+            : "Votre compte a été créé. Vous pouvez maintenant vous connecter."
         });
         setFormMode("login");
         return true;
@@ -181,6 +189,12 @@ export const LoginForm = () => {
   const toggleForm = () => {
     setFormMode(formMode === "login" ? "signup" : "login");
     setError(null);
+    // Reset admin signup when toggling form
+    setIsAdminSignup(false);
+  };
+
+  const toggleAdminSignup = () => {
+    setIsAdminSignup(!isAdminSignup);
   };
 
   const retryConnection = () => {
@@ -224,27 +238,14 @@ export const LoginForm = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <DemoAlert />
+        {/* N'afficher l'alerte que si showDemoMode est vrai */}
+        <DemoAlert showDemoMode={showDemoMode} />
         
-        {networkStatus === "offline" && (
-          <Alert variant="destructive" className="mb-4 flex justify-between items-center">
-            <AlertDescription>Problème de connexion au serveur</AlertDescription>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={retryConnection} 
-              className="ml-2"
-            >
-              <RefreshCw className="h-4 w-4 mr-1" /> Réessayer
-            </Button>
-          </Alert>
-        )}
-        
-        {error && networkStatus !== "offline" && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        <NetworkStatus 
+          status={networkStatus} 
+          error={error} 
+          onRetry={retryConnection} 
+        />
         
         {formMode === "login" ? (
           <LoginFormContent 
@@ -255,6 +256,8 @@ export const LoginForm = () => {
           <SignupFormContent
             onSubmit={handleSignupSubmit}
             isOffline={networkStatus === "offline" || networkStatus === "checking"}
+            isAdminSignup={isAdminSignup}
+            onToggleAdminSignup={toggleAdminSignup}
           />
         )}
       </CardContent>
@@ -264,4 +267,3 @@ export const LoginForm = () => {
     </Card>
   );
 };
-
