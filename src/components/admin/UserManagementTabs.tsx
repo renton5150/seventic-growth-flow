@@ -51,21 +51,21 @@ export const UserManagementTabs = () => {
           <div className="flex space-x-2">
             <Button 
               variant="outline" 
-              onClick={() => handleInviteClick("sdr" as UserRole)}
+              onClick={() => handleInviteClick("sdr")}
               className="border-seventic-300 hover:bg-seventic-50 text-seventic-700"
             >
               <PlusCircle className="mr-2 h-4 w-4" /> Inviter un SDR
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => handleInviteClick("growth" as UserRole)}
+              onClick={() => handleInviteClick("growth")}
               className="border-green-300 hover:bg-green-50 text-green-700"
             >
               <PlusCircle className="mr-2 h-4 w-4" /> Inviter un Growth
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => handleInviteClick("admin" as UserRole)}
+              onClick={() => handleInviteClick("admin")}
               className="border-blue-300 hover:bg-blue-50 text-blue-700"
             >
               <PlusCircle className="mr-2 h-4 w-4" /> Inviter un Admin
