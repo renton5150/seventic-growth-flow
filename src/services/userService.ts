@@ -67,6 +67,11 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
   }
 };
 
+// Fonction pour vérifier si une valeur est un UserRole valide
+const isValidUserRole = (role: any): role is UserRole => {
+  return role === "admin" || role === "growth" || role === "sdr";
+};
+
 // Créer un nouvel utilisateur
 export const createUser = async (
   email: string, 
@@ -74,6 +79,12 @@ export const createUser = async (
   role: UserRole
 ): Promise<{ success: boolean; error?: string }> => {
   console.log("Création d'un nouvel utilisateur:", { email, name, role });
+  
+  // Vérification supplémentaire pour s'assurer que le rôle est valide
+  if (!isValidUserRole(role)) {
+    console.error("Rôle invalide fourni:", role);
+    return { success: false, error: "Rôle invalide" };
+  }
   
   try {
     // Vérifier si on est en mode démo
@@ -109,7 +120,7 @@ export const createUser = async (
     // Mettre à jour le profil avec le rôle choisi
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ role: role })
+      .update({ role })
       .eq('id', authData.user.id);
 
     if (profileError) {

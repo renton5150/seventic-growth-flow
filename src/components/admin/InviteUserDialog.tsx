@@ -43,6 +43,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
 
     try {
       console.log("Envoi de l'invitation avec le rôle:", role);
+      // Le type est maintenant correctement assigné et vérifié
       const result = await createUser(email, name, role);
       
       if (result.success) {
@@ -118,8 +119,9 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             <Select 
               value={role} 
               onValueChange={(value) => {
+                // Restriction explicite à des valeurs de type UserRole
                 if (value === "admin" || value === "growth" || value === "sdr") {
-                  setRole(value);
+                  setRole(value as UserRole);
                 } else {
                   console.error("Valeur de rôle invalide:", value);
                   setRole("sdr"); // Valeur par défaut
