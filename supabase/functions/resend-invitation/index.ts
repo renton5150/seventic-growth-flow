@@ -45,61 +45,25 @@ serve(async (req) => {
     const redirectTo = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection configurée:", redirectTo);
 
-    // Vérifier si l'utilisateur existe
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .single();
-
-    if (userError && userError.code !== "PGRST116") { // PGRST116 = not found
-      console.error("Erreur lors de la vérification de l'utilisateur:", userError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Erreur lors de la vérification de l'utilisateur" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Si on ne trouve pas l'utilisateur dans les profils, vérifier dans auth.users
-    if (!userData) {
-      console.log("Utilisateur non trouvé dans les profils, vérification dans auth.users");
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
-        filter: { email: email }
-      });
-
-      if (authError) {
-        console.error("Erreur lors de la vérification dans auth.users:", authError);
-        return new Response(
-          JSON.stringify({ success: false, error: "Utilisateur introuvable" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (!authUsers || authUsers.users.length === 0) {
-        console.error("Utilisateur non trouvé dans auth.users");
-        return new Response(
-          JSON.stringify({ success: false, error: "Utilisateur introuvable" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    // Utiliser resetPasswordForEmail qui est plus simple
+    // Utiliser resetPasswordForEmail qui est plus fiable
     console.log("Envoi de l'email de réinitialisation à:", email);
-    const { data, error } = await supabaseAdmin.auth.resetPasswordForEmail(
-      email,
-      { redirectTo }
-    );
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: email,
+      options: {
+        redirectTo
+      }
+    });
 
     if (error) {
-      console.error("Erreur lors de l'envoi de l'email:", error);
+      console.error("Erreur lors de la génération du lien:", error);
       return new Response(
         JSON.stringify({ success: false, error: error.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Email de réinitialisation envoyé avec succès");
+    console.log("Lien de réinitialisation généré avec succès:", data);
     
     return new Response(
       JSON.stringify({ 
