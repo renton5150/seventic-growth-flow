@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
@@ -7,30 +6,24 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { User, UserRole } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
-import { getAllUsers } from "@/services/userService";
+import { getAllUsers } from "@/services/user";
 
 export const UserManagementTabs = () => {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
 
-  // Utiliser useQuery avec invalidation renforcée
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
-    // Désactiver complètement le cache pour ce composant
     staleTime: 0,
-    gcTime: 0, // Renamed from cacheTime to gcTime in React Query v5
-    // Actualiser régulièrement les données 
+    gcTime: 0,
     refetchInterval: 5000,
-    // Réduire le délai de nouvelle tentative en cas d'échec
     retry: 2,
   });
 
-  // Force refetch when the component mounts to ensure we have fresh data
   useEffect(() => {
     console.log("UserManagementTabs monté - actualisation des données");
-    // Forcer plusieurs refetch avec délais croissants
     const fetchData = async () => {
       await refetch();
       setTimeout(() => refetch(), 300);
@@ -39,7 +32,6 @@ export const UserManagementTabs = () => {
     
     fetchData();
     
-    // Définir un intervalle pour refetch fréquent pendant que le composant est monté
     const interval = setInterval(() => {
       refetch();
     }, 3000);
@@ -60,7 +52,6 @@ export const UserManagementTabs = () => {
   const handleUserInvited = async () => {
     console.log("Actualisation de la liste des utilisateurs après invitation");
     
-    // Séquence d'actualisations multiples avec délais progressifs
     await refetch();
     
     for (let i = 1; i <= 5; i++) {

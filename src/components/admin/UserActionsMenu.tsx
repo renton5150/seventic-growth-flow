@@ -1,4 +1,3 @@
-
 import { 
   DropdownMenu, 
   DropdownMenuTrigger, 
@@ -12,7 +11,7 @@ import { User } from "@/types/types";
 import { useState } from "react";
 import { ChangeRoleDialog } from "./ChangeRoleDialog";
 import { toast } from "sonner";
-import { deleteUser, resendInvitation } from "@/services/userService";
+import { deleteUser, resendInvitation } from "@/services/user";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface UserActionsMenuProps {
