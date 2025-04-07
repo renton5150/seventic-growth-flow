@@ -27,17 +27,28 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleResendInvite = async () => {
+    if (isSendingInvite) return;
+    
     try {
       setIsSendingInvite(true);
-      toast.loading(`Envoi de l'invitation à ${user.email}...`);
+      
+      // Afficher un toast de chargement
+      const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
       const { success, error } = await resendInvitation(user.email);
+      
+      // Fermer le toast de chargement
+      toast.dismiss(toastId);
       
       if (success) {
         toast.success(`Invitation renvoyée à ${user.email}`);
         onActionComplete();
       } else {
-        toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
+        if (error?.includes("expiré")) {
+          toast.error(`L'opération prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée.`);
+        } else {
+          toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
+        }
       }
     } catch (error) {
       console.error("Erreur lors du renvoi de l'invitation:", error);

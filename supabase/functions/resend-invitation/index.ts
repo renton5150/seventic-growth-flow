@@ -112,22 +112,6 @@ serve(async (req) => {
     const redirectUrl = `${origin}/reset-password?type=signup`;
     console.log("URL de redirection configurée:", redirectUrl);
 
-    // Utiliser resetPasswordForEmail au lieu de generateLink pour envoyer un email de réinitialisation
-    // Cela garantit que l'email sera envoyé immédiatement
-    const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.createEmailTemplate({
-      type: 'recovery',
-      template: 'signup',
-      subject: 'Finaliser votre inscription',
-      content: {
-        action_link: `{{ .ActionURL }}` 
-      }
-    });
-
-    if (resetError) {
-      console.error("Erreur lors de la création du template:", resetError);
-      // Continuer même s'il y a une erreur avec le template
-    }
-
     // Envoyer l'email de réinitialisation
     const { data: emailData, error: emailError } = await supabaseAdmin.auth.admin.resetPasswordForEmail(
       email,

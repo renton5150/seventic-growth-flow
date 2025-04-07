@@ -32,25 +32,43 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
-    // Appeler la fonction Edge avec un timeout
-    const { data, error } = await supabase.functions.invoke('resend-invitation', {
-      body: { email }
+    // Ajout d'un timeout plus long pour les opérations d'invitation
+    const timeoutPromise = new Promise<ActionResponse>((_, reject) => {
+      setTimeout(() => reject(new Error("L'opération a expiré après 20 secondes")), 20000);
     });
     
-    if (error) {
-      console.error("Erreur lors du renvoi de l'invitation:", error);
-      return { success: false, error: error.message };
-    }
+    const invocationPromise = new Promise<ActionResponse>(async (resolve) => {
+      try {
+        // Appeler la fonction Edge
+        const { data, error } = await supabase.functions.invoke('resend-invitation', {
+          body: { email }
+        });
+        
+        if (error) {
+          console.error("Erreur lors du renvoi de l'invitation:", error);
+          resolve({ success: false, error: error.message });
+          return;
+        }
+        
+        console.log("Réponse de la fonction resend-invitation:", data);
+        
+        if (data && data.success === false) {
+          console.error("Erreur serveur:", data.error);
+          resolve({ success: false, error: data.error || "Erreur serveur inconnue" });
+          return;
+        }
+        
+        console.log("Invitation renvoyée avec succès à:", email);
+        resolve({ success: true });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Erreur inconnue";
+        console.error("Exception dans invocationPromise:", err);
+        resolve({ success: false, error: errorMessage });
+      }
+    });
     
-    console.log("Réponse de la fonction resend-invitation:", data);
-    
-    if (data && data.success === false) {
-      console.error("Erreur serveur:", data.error);
-      return { success: false, error: data.error || "Erreur serveur inconnue" };
-    }
-    
-    console.log("Invitation renvoyée avec succès à:", email);
-    return { success: true };
+    // Utiliser Promise.race pour gérer le timeout
+    return await Promise.race([invocationPromise, timeoutPromise]);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Exception lors du renvoi de l'invitation:", error);
