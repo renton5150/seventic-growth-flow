@@ -66,7 +66,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
   }
 };
 
-// Créer un nouvel utilisateur - avec contournement de RLS en utilisant le service REST
+// Créer un nouvel utilisateur - avec la fonction sécurisée pour contourner RLS
 export const createUser = async (
   email: string, 
   name: string, 
@@ -85,59 +85,31 @@ export const createUser = async (
     const userId = uuidv4();
     const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`;
     
-    console.log("Tentative de création d'un profil pour:", email, "avec ID:", userId);
+    console.log("Utilisation de la fonction sécurisée pour créer le profil avec l'ID:", userId);
     
-    // Méthode alternative avec fetch sans utiliser l'endpoint RLS
-    const url = `${SUPABASE_URL}/rest/v1/profiles`;
-    
-    console.log("URL de l'API REST:", url);
-    console.log("Utilisation de l'API REST avec contournement complet de RLS");
-    
-    // Utiliser la clé anon avec le header de préférence pour le retour des données
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify({
-        id: userId,
-        email: email,
-        name: name,
-        role: role,
-        avatar: avatarUrl,
-        created_at: new Date().toISOString()
-      })
+    // Appeler la fonction sécurisée pour créer le profil
+    const { data, error } = await supabase.rpc('create_user_profile', {
+      user_id: userId,
+      user_email: email,
+      user_name: name,
+      user_role: role,
+      user_avatar: avatarUrl
     });
 
-    // Capturer le texte brut de la réponse pour le debugging
-    const responseText = await response.text();
-    console.log("Réponse brute de l'API:", responseText);
-    
-    // Vérifier si la réponse est valide
-    if (!response.ok) {
-      console.error("Erreur d'API lors de la création du profil. Status:", response.status);
-      console.error("Détails:", responseText);
-      toast.error(`Erreur: ${response.statusText}`);
-      return { 
-        success: false, 
-        error: `${response.statusText} (${response.status}): ${responseText}`
-      };
+    if (error) {
+      console.error("Erreur lors de l'appel de la fonction sécurisée:", error);
+      toast.error("Erreur: " + error.message);
+      return { success: false, error: error.message };
     }
+
+    console.log("Résultat de la fonction sécurisée:", data);
     
-    let data;
-    try {
-      // Tenter de parser la réponse JSON s'il y en a une
-      data = responseText ? JSON.parse(responseText) : null;
-      console.log("Données de réponse parsées:", data);
-    } catch (parseError) {
-      console.log("La réponse n'est pas au format JSON:", responseText);
-      // Si ce n'est pas du JSON mais que la requête a réussi, on continue
+    // Vérifier si le résultat contient une erreur
+    if (data.error) {
+      console.error("Erreur retournée par la fonction:", data.error);
+      toast.error(`Erreur de création: ${data.error}`);
+      return { success: false, error: data.error };
     }
-    
-    console.log("Profil créé avec succès via l'API REST");
     
     // Créer l'objet utilisateur à retourner
     const newUser: User = {
