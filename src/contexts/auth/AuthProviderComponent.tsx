@@ -1,12 +1,10 @@
 
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { useState, ReactNode, useEffect } from "react";
 import { User } from "@/types/types";
-import { AuthContextType, AuthState } from "./types";
+import { AuthState } from "./types";
 import { useAuthOperations } from "./useAuthOperations";
 import { createAuthSessionHelpers } from "./useAuthSession";
-
-// Create the auth context
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import AuthContext from "./AuthContext";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -78,13 +76,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-// Hook to use the auth context
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
 }
