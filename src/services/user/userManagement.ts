@@ -63,15 +63,15 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     if ('error' in response && response.error) {
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       
-      // Inclure les détails d'erreur complets pour le débogage
-      const details = response.details || response.error;
+      // Extraire les détails d'erreur si présents
+      const errorDetails = 'data' in response ? response.data : undefined;
       
       // Message spécifique pour utilisateur introuvable
       if (response.error.message?.includes('introuvable')) {
         return { 
           success: false, 
           error: "Cet email n'est pas associé à un compte existant.",
-          details 
+          details: errorDetails 
         };
       }
 
@@ -80,7 +80,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
         return {
           success: false,
           error: "Problème avec le serveur d'envoi d'emails. Vérifiez la configuration SMTP dans Supabase.",
-          details
+          details: errorDetails
         };
       }
       
@@ -89,14 +89,14 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
         return {
           success: false,
           error: response.error.message,
-          details
+          details: errorDetails
         };
       }
       
       return { 
         success: false, 
         error: response.error.message,
-        details
+        details: errorDetails
       };
     }
     
