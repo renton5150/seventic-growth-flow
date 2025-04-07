@@ -37,6 +37,20 @@ serve(async (req) => {
       );
     }
 
+    // Vérifier si l'utilisateur existe
+    const { data: userExists, error: userError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+    
+    if (userError || !userExists) {
+      console.error("Utilisateur non trouvé:", userError?.message || "Email introuvable");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: userError?.message || "L'adresse e-mail fournie n'est pas associée à un compte existant." 
+        }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Récupérer l'origine de la requête pour utiliser comme URL de redirection
     const origin = req.headers.get("origin") || "https://seventic-growth-flow.lovable.app";
     console.log("URL d'origine pour redirection:", origin);
@@ -45,7 +59,7 @@ serve(async (req) => {
     const redirectTo = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection configurée:", redirectTo);
 
-    // Utiliser resetPasswordForEmail qui est plus fiable
+    // Utiliser generateLink avec le type recovery
     console.log("Envoi de l'email de réinitialisation à:", email);
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",

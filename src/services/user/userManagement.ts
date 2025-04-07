@@ -32,38 +32,24 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
-    // Créer un timeout manuellement pour éviter les attentes trop longues
-    const timeoutPromise = new Promise<{ error: { message: string } }>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          error: { 
-            message: "L'opération a expiré après 30 secondes. L'email a peut-être été envoyé, veuillez vérifier." 
-          }
-        });
-      }, 30000); // 30 secondes
+    // Log détaillé pour le débogage
+    console.log(`Appel à l'Edge Function resend-invitation avec l'email: ${email}`);
+    
+    // Appeler la fonction Edge avec un timeout explicite
+    const response = await supabase.functions.invoke('resend-invitation', { 
+      body: { email },
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
     
-    // Appeler la fonction Edge avec une course contre la montre
-    const response = await Promise.race([
-      supabase.functions.invoke('resend-invitation', { body: { email } }),
-      timeoutPromise
-    ]);
+    console.log("Réponse de l'Edge Function:", response);
     
-    // Vérifier si c'est un timeout
-    if ('error' in response && response.error?.message?.includes('expiré')) {
-      console.warn("Timeout lors de l'envoi de l'invitation:", email);
-      return { 
-        success: true, 
-        warning: response.error.message 
-      };
-    }
-    
-    // Vérifier les erreurs normales
-    if ('error' in response && response.error) {
-      console.error("Erreur lors du renvoi de l'invitation:", response.error);
+    // Vérifier si nous avons une erreur
+    if (response.error) {
+      console.error("Erreur renvoyée par l'Edge Function:", response.error);
       
-      // Message spécifique pour utilisateur introuvable
-      if (response.error.message?.includes('introuvable') || response.error.message?.includes('not found')) {
+      if (response.error.message?.includes('not found') || response.error.message?.includes('introuvable')) {
         return { 
           success: false, 
           error: "Cet email n'est pas associé à un compte existant." 
@@ -71,6 +57,12 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       }
       
       return { success: false, error: response.error.message };
+    }
+    
+    // Vérifier si la réponse contient un message d'erreur dans data
+    if (response.data && response.data.error) {
+      console.error("Message d'erreur dans data:", response.data.error);
+      return { success: false, error: response.data.error };
     }
     
     console.log("Invitation renvoyée avec succès à:", email);
