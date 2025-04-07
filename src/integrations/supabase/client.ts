@@ -11,7 +11,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true, // Important pour capturer les redirections OAuth
+    detectSessionInUrl: true,
     storage: localStorage
   },
   global: {
@@ -19,13 +19,25 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       'Content-Type': 'application/json',
     },
     fetch: (url, options) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const fetchOptions = {
         ...options,
-        signal: AbortSignal.timeout(15000), // Augmenter à 15 secondes pour donner plus de temps
+        signal: controller.signal,
         credentials: 'same-origin' as RequestCredentials
       };
-      console.log(`Appel Supabase: ${url}`);
-      return fetch(url, fetchOptions);
+      
+      return fetch(url, fetchOptions)
+        .then(response => {
+          clearTimeout(timeoutId);
+          return response;
+        })
+        .catch(error => {
+          clearTimeout(timeoutId);
+          console.error(`Erreur Supabase pour ${url}:`, error);
+          throw error;
+        });
     }
   },
   realtime: {
