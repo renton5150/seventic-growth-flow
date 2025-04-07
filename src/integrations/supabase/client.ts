@@ -2,11 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Configuration Supabase explicite et cohérente
+// Configuration explicite pour une connexion fiable
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://dupguifqyjchlmzbadav.supabase.co";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1cGd1aWZxeWpjaGxtemJhZGF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4ODI2NDgsImV4cCI6MjA1OTQ1ODY0OH0.wbRuEEYI0bK9CvYRGYi4zZ64xY1L3fgU2PPshCJbsL4";
 
-// Client Supabase avec configuration explicite et timeout augmenté
+// Client Supabase avec configuration explicite pour stabilité et performance
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -20,7 +20,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     },
     fetch: (url, options) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      // Augmenté à 15 secondes pour réduire les timeouts sur réseaux lents
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       
       const fetchOptions = {
         ...options,
