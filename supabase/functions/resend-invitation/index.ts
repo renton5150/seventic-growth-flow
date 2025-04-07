@@ -17,7 +17,7 @@ serve(async (req) => {
   try {
     console.log("Fonction resend-invitation appelée");
     
-    // Créer un client Supabase avec la clé secrète pour avoir des permissions admin
+    // Créer un client Supabase avec la clé secrète
     const supabaseAdmin = createClient(
       // @ts-ignore - Deno.env is available in Supabase Edge Functions
       Deno.env.get("SUPABASE_URL"),
@@ -37,29 +37,6 @@ serve(async (req) => {
       );
     }
 
-    // Vérifier si l'utilisateur existe avant de tenter de renvoyer l'invitation
-    const { data: user, error: userCheckError } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (userCheckError) {
-      console.error("Erreur lors de la vérification de l'utilisateur:", userCheckError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Erreur lors de la vérification de l'utilisateur" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!user) {
-      console.error("Utilisateur non trouvé:", email);
-      return new Response(
-        JSON.stringify({ success: false, error: "Utilisateur non trouvé" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Récupérer l'origine de la requête pour utiliser comme URL de redirection
     const origin = req.headers.get("origin") || "https://seventic-growth-flow.lovable.app";
     console.log("URL d'origine pour redirection:", origin);
@@ -68,36 +45,36 @@ serve(async (req) => {
     const redirectTo = `${origin}/reset-password?type=signup`;
     console.log("URL de redirection configurée:", redirectTo);
 
-    // Méthode la plus stable pour le cas d'utilisation avec SMTP configuré
-    const { data: emailData, error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+    // Utiliser resetPasswordForEmail qui est plus simple et fonctionne avec SMTP
+    console.log("Envoi de l'email de réinitialisation à:", email);
+    const { data, error } = await supabaseAdmin.auth.resetPasswordForEmail(
       email,
       { redirectTo }
     );
 
-    if (emailError) {
-      console.error("Erreur lors de l'envoi de l'invitation par email:", emailError);
+    if (error) {
+      console.error("Erreur lors de l'envoi de l'email:", error);
       return new Response(
-        JSON.stringify({ success: false, error: emailError.message }),
+        JSON.stringify({ success: false, error: error.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Invitation renvoyée avec succès à ${email}`);
-    console.log("Réponse du serveur:", emailData);
+    console.log("Email de réinitialisation envoyé avec succès");
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Invitation renvoyée avec succès",
+        message: "Email de réinitialisation envoyé",
         data: { email } 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Erreur inattendue lors du renvoi de l'invitation:", error);
+    console.error("Erreur inattendue:", error);
     
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

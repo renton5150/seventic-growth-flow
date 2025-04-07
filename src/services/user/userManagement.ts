@@ -32,53 +32,41 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
-    // Créer un timeout manuellement au lieu d'utiliser AbortController
-    let isTimedOut = false;
-    const timeoutId = setTimeout(() => {
-      isTimedOut = true;
-    }, 30000); // 30 secondes
-    
-    // Appeler la fonction Edge sans signal d'annulation
-    const response = await Promise.race([
-      supabase.functions.invoke('resend-invitation', {
-        body: { email }
-      }),
-      new Promise<any>((resolve) => {
-        setTimeout(() => {
-          if (isTimedOut) {
-            resolve({
-              error: {
-                message: "L'opération a expiré après 30 secondes. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée."
-              }
-            });
+    // Créer un timeout manuellement
+    const timeoutPromise = new Promise<{ error: { message: string } }>((resolve) => {
+      setTimeout(() => {
+        resolve({
+          error: { 
+            message: "L'opération a expiré après 30 secondes. L'email a peut-être été envoyé, veuillez vérifier." 
           }
-        }, 30000);
-      })
+        });
+      }, 30000); // 30 secondes
+    });
+    
+    // Appeler la fonction Edge avec une course contre la montre
+    const response = await Promise.race([
+      supabase.functions.invoke('resend-invitation', { body: { email } }),
+      timeoutPromise
     ]);
     
-    // Nettoyer le timeout
-    clearTimeout(timeoutId);
+    // Vérifier si c'est un timeout
+    if ('error' in response && response.error?.message?.includes('expiré')) {
+      console.warn("Timeout lors de l'envoi de l'invitation:", email);
+      return { 
+        success: false, 
+        error: response.error.message 
+      };
+    }
     
-    // Vérifier les erreurs
-    if (response.error) {
+    // Vérifier les erreurs normales
+    if ('error' in response && response.error) {
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       return { success: false, error: response.error.message };
-    }
-    
-    // Vérifier les réponses de l'API
-    if (!response.data) {
-      return { success: false, error: "Réponse vide de l'API" };
-    }
-    
-    if (response.data.success === false) {
-      console.error("Erreur serveur:", response.data.error);
-      return { success: false, error: response.data.error || "Erreur serveur inconnue" };
     }
     
     console.log("Invitation renvoyée avec succès à:", email);
     return { success: true };
   } catch (error) {
-    // Autres erreurs
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Exception lors du renvoi de l'invitation:", error);
     return { success: false, error: errorMessage };
