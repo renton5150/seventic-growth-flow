@@ -1,4 +1,3 @@
-
 import { useState, ReactNode, useEffect } from "react";
 import { User } from "@/types/types";
 import { AuthState } from "./types";
@@ -6,6 +5,7 @@ import { useAuthOperations } from "./useAuthOperations";
 import { createAuthSessionHelpers } from "./useAuthSession";
 import AuthContext from "./AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -13,26 +13,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true
   });
   
-  // Setter functions to update the auth state
   const setUser = (user: User | null) => setAuthState(prev => ({ ...prev, user }));
   const setLoading = (loading: boolean) => setAuthState(prev => ({ ...prev, loading }));
   
-  // Custom hooks for auth operations and session management
   const { login, logout } = useAuthOperations(setUser, setLoading);
   
-  // Intercepter les redirections d'authentification et vérifier les paramètres URL
   useEffect(() => {
-    const handleAuthRedirect = () => {
+    const handleAuthRedirect = async () => {
       try {
-        // Vérifier s'il y a des fragments de type hash dans l'URL (typique des redirections auth)
-        if (window.location.hash && window.location.hash.includes("access_token")) {
+        if (window.location.hash && (window.location.hash.includes("access_token") || window.location.hash.includes("error"))) {
           console.log("Détection d'une redirection d'authentification avec hash");
+          
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get("access_token");
+          
+          if (accessToken) {
+            console.log("Access token trouvé dans l'URL, tentative de définir une session");
+            const refreshToken = hashParams.get("refresh_token") || '';
+            
+            try {
+              const { error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+              
+              if (error) {
+                console.error("Erreur lors de la configuration de la session:", error);
+              } else {
+                console.log("Session définie avec succès à partir de l'URL");
+              }
+            } catch (err) {
+              console.error("Erreur lors de la définition de la session:", err);
+            }
+          }
         }
 
-        // Vérifier s'il y a des paramètres d'erreur dans l'URL
         const params = new URLSearchParams(window.location.search);
         if (params.get('error')) {
           console.error("Erreur d'authentification détectée dans l'URL:", params.get('error_description'));
+          toast.error(params.get('error_description') || "Erreur d'authentification");
         }
       } catch (err) {
         console.error("Erreur lors du traitement des paramètres d'authentification:", err);
@@ -42,13 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     handleAuthRedirect();
   }, []);
   
-  // Initialize auth session
   useEffect(() => {
     console.log("Initialisation de l'authentification");
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
-    // Réduire le timeout à 10 secondes (au lieu de 5) pour éviter de bloquer trop longtemps
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
@@ -59,20 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 10000);
     };
     
-    // Start timeout immediately
     safetyTimeout();
     
-    // Create auth session helpers
     const sessionHelpers = createAuthSessionHelpers(setUser, setLoading);
     
-    // Setup auth listener first
     const subscription = sessionHelpers.setupAuthListener();
     
-    // Then check for existing session
     sessionHelpers.checkSession()
       .catch(error => {
         console.error("Erreur lors de la vérification de session:", error);
-        // Assurer que l'état de chargement est terminé même en cas d'erreur
         if (mounted) {
           setLoading(false);
           toast.error("Erreur lors de la vérification de session");
@@ -86,7 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Derived properties
   const isAuthenticated = !!authState.user;
   const isAdmin = authState.user?.role === "admin";
   const isSDR = authState.user?.role === "sdr";

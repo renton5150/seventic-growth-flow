@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, KeyRound, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
+import { ErrorMessage } from "@/components/auth/login/ErrorMessage";
 
 // Schéma de validation pour le formulaire
 const passwordSchema = z.object({
@@ -45,22 +46,64 @@ const ResetPassword = () => {
     },
   });
 
-  // Récupérer les paramètres de l'URL
+  // Récupérer les paramètres de l'URL et configurer la session
   useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const actionType = queryParams.get("type");
-    
-    if (actionType === "signup") {
-      setMode("setup");
-    } else {
-      setMode("reset");
-    }
-    
-    // Vérifier si l'URL contient des erreurs (depuis Supabase)
-    if (queryParams.get("error")) {
-      const errorDesc = queryParams.get("error_description") || "Lien expiré ou invalide";
-      setError(decodeURIComponent(errorDesc));
-    }
+    const setupSession = async () => {
+      try {
+        // Essayer d'abord de récupérer les tokens depuis l'URL
+        let queryParams = new URLSearchParams(location.search);
+        let accessToken = queryParams.get("access_token");
+        let refreshToken = queryParams.get("refresh_token");
+        let type = queryParams.get("type");
+
+        // Si pas de tokens dans les query params, essayer depuis le hash
+        if (!accessToken) {
+          const hashParams = new URLSearchParams(location.hash.substring(1));
+          accessToken = hashParams.get("access_token");
+          refreshToken = hashParams.get("refresh_token");
+          type = hashParams.get("type");
+        }
+
+        // Vérifier si on a un token de vérification d'email
+        if (location.hash && location.hash.includes("type=signup")) {
+          setMode("setup");
+        } else if (type === "signup") {
+          setMode("setup");
+        }
+
+        // Si on a un token, configurer la session
+        if (accessToken) {
+          console.log("Access token trouvé, configuration de la session");
+          
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || "",
+          });
+
+          if (error) {
+            console.error("Erreur lors de la configuration de la session:", error);
+            setError(`Erreur d'authentification: ${error.message}`);
+          }
+        } else {
+          // Vérifier s'il y a un code d'erreur dans l'URL
+          const errorCode = queryParams.get("error");
+          const errorDescription = queryParams.get("error_description");
+          
+          if (errorCode) {
+            console.error("Erreur dans les paramètres URL:", errorCode, errorDescription);
+            setError(`Erreur: ${errorDescription || errorCode}`);
+          } else if (!location.hash && !queryParams.toString()) {
+            // Si aucun paramètre et aucun hash, probablement accès direct à la page
+            setError("Lien invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.");
+          }
+        }
+      } catch (err) {
+        console.error("Erreur lors de l'analyse des paramètres URL:", err);
+        setError("Une erreur s'est produite lors du traitement du lien. Veuillez réessayer ou demander un nouveau lien.");
+      }
+    };
+
+    setupSession();
   }, [location]);
 
   const handleSubmit = async (values: PasswordFormValues) => {
@@ -68,29 +111,7 @@ const ResetPassword = () => {
     setError(null);
 
     try {
-      // Récupérer le token de l'URL
-      const queryParams = new URLSearchParams(location.search);
-      const accessToken = queryParams.get("access_token");
-      const refreshToken = queryParams.get("refresh_token");
-      
-      if (!accessToken && !refreshToken) {
-        // Si pas de token, tenter de récupérer depuis un hash après # (format alternatif)
-        const hashParams = new URLSearchParams(location.hash.substring(1));
-        const hashAccessToken = hashParams.get("access_token");
-        
-        if (hashAccessToken) {
-          // Stocker le token de session et rediriger vers cette même page mais avec le token en query param
-          const redirectURL = `/reset-password?access_token=${hashAccessToken}`;
-          navigate(redirectURL, { replace: true });
-          return;
-        }
-        
-        setError("Impossible de récupérer les informations d'authentification. Veuillez réessayer avec un nouveau lien.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Si nous avons un token, mettre à jour le mot de passe
+      // Mettre à jour le mot de passe
       const { error } = await supabase.auth.updateUser({
         password: values.password,
       });
@@ -134,12 +155,7 @@ const ResetPassword = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          <ErrorMessage error={error} />
           
           {isSuccess ? (
             <div className="text-center py-4">

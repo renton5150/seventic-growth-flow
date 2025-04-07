@@ -103,7 +103,9 @@ export const createUser = async (
         data: {
           name,
           role
-        }
+        },
+        // Ajouter l'URL de redirection pour la confirmation d'email
+        emailRedirectTo: `${window.location.origin}/reset-password?type=signup`,
       }
     });
 
