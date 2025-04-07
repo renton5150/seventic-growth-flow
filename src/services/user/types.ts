@@ -12,6 +12,7 @@ export interface CreateUserResponse {
 export interface ActionResponse {
   success: boolean; 
   error?: string;
+  warning?: string; // Added warning property for timeout situations
 }
 
 // Helper type guard for user roles
