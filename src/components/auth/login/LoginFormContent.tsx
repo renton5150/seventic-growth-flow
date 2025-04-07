@@ -1,10 +1,21 @@
 
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Loader2, Mail, Lock } from "lucide-react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form } from "@/components/ui/form";
+import { FormField } from "./FormField";
 import { toast } from "sonner";
+
+// Login form schema with validation
+const loginSchema = z.object({
+  email: z.string().email("Email invalide").min(1, "L'email est requis"),
+  password: z.string().min(1, "Le mot de passe est requis"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 interface LoginFormContentProps {
   onSubmit: (email: string, password: string) => Promise<boolean>;
@@ -12,30 +23,28 @@ interface LoginFormContentProps {
 }
 
 export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
   
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
   };
   
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    // Validation simple
-    if (!email || !password) {
-      toast.error("Veuillez remplir tous les champs");
-      return;
-    }
-    
+  const handleSubmit = async (values: LoginFormValues) => {
     setIsSubmitting(true);
     
     try {
-      console.log("Tentative de connexion:", email);
+      console.log("Tentative de connexion:", values.email);
       
-      const result = await onSubmit(email, password);
+      const result = await onSubmit(values.email, values.password);
       
       if (!result) {
         console.log("Échec de la connexion");
@@ -52,87 +61,61 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
   };
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            id="email"
-            type="email"
-            placeholder="email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="pl-10"
-            disabled={isSubmitting || isOffline}
-          />
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password">Mot de passe</Label>
-          <a href="#" className="text-sm text-seventic-500 hover:text-seventic-600">
-            Mot de passe oublié?
-          </a>
-        </div>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="pl-10"
-            disabled={isSubmitting || isOffline}
-          />
-          <Button 
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute right-0 top-0 h-full px-3"
-            onClick={toggleShowPassword}
-            disabled={isSubmitting || isOffline}
-          >
-            {showPassword ? 
-              <EyeOff className="h-4 w-4 text-gray-500" /> : 
-              <Eye className="h-4 w-4 text-gray-500" />
-            }
-          </Button>
-        </div>
-      </div>
-      
-      <Button 
-        type="submit" 
-        className="w-full bg-seventic-500 hover:bg-seventic-600" 
-        disabled={isSubmitting || isOffline}
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-            Connexion en cours...
-          </>
-        ) : isOffline ? (
-          "Serveur non disponible"
-        ) : (
-          "Se connecter"
-        )}
-      </Button>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="email"
+          label="Email"
+          placeholder="email@example.com"
+          type="email"
+          icon={<Mail className="h-4 w-4" />}
+          disabled={isSubmitting || isOffline}
+          autoComplete="email"
+        />
+        
+        <FormField
+          control={form.control}
+          name="password"
+          label="Mot de passe"
+          isPassword
+          showPassword={showPassword}
+          onTogglePassword={toggleShowPassword}
+          icon={<Lock className="h-4 w-4" />}
+          disabled={isSubmitting || isOffline}
+          autoComplete="current-password"
+        />
+        
+        <Button 
+          type="submit" 
+          className="w-full bg-seventic-500 hover:bg-seventic-600" 
+          disabled={isSubmitting || isOffline}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+              Connexion en cours...
+            </>
+          ) : isOffline ? (
+            "Serveur non disponible"
+          ) : (
+            "Se connecter"
+          )}
+        </Button>
 
-      {isSubmitting && (
-        <div className="text-sm text-center text-muted-foreground mt-2">
-          <p>La connexion prend du temps?{" "} 
-            <button 
-              type="button" 
-              onClick={() => window.location.reload()} 
-              className="text-seventic-500 hover:underline ml-1">
-              Actualiser la page
-            </button>
-          </p>
-        </div>
-      )}
-    </form>
+        {isSubmitting && (
+          <div className="text-sm text-center text-muted-foreground mt-2">
+            <p>La connexion prend du temps?{" "} 
+              <button 
+                type="button" 
+                onClick={() => window.location.reload()} 
+                className="text-seventic-500 hover:underline ml-1">
+                Actualiser la page
+              </button>
+            </p>
+          </div>
+        )}
+      </form>
+    </Form>
   );
 };

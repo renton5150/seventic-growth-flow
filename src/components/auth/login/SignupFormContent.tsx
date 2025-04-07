@@ -1,10 +1,23 @@
 
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, Lock, Eye, EyeOff, UserPlus, Loader2, Shield } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Mail, Lock, UserPlus, Loader2, Shield } from "lucide-react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form } from "@/components/ui/form";
+import { FormField } from "./FormField";
+
+// Signup form schema with validation
+const signupSchema = z.object({
+  name: z.string().min(1, "Le nom est requis"),
+  email: z.string().email("Email invalide").min(1, "L'email est requis"),
+  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+});
+
+type SignupFormValues = z.infer<typeof signupSchema>;
 
 interface SignupFormContentProps {
   onSubmit: (email: string, password: string, name: string) => Promise<boolean>;
@@ -21,22 +34,27 @@ export const SignupFormContent = ({
   onToggleAdminSignup,
   isSubmitting = false
 }: SignupFormContentProps) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [internalSubmitting, setInternalSubmitting] = useState(false);
+  
+  const form = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+    },
+  });
   
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
   };
   
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (values: SignupFormValues) => {
     setInternalSubmitting(true);
     
     try {
-      await onSubmit(email, password, name);
+      await onSubmit(values.email, values.password, values.name);
     } finally {
       setInternalSubmitting(false);
     }
@@ -45,110 +63,82 @@ export const SignupFormContent = ({
   const effectiveIsSubmitting = isSubmitting || internalSubmitting;
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Nom</Label>
-        <div className="relative">
-          <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            id="name"
-            type="text"
-            placeholder="Votre nom"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="pl-10"
-            disabled={effectiveIsSubmitting || isOffline}
-          />
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            id="email"
-            type="email"
-            placeholder="email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="pl-10"
-            disabled={effectiveIsSubmitting || isOffline}
-          />
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="password">Mot de passe</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="pl-10"
-            minLength={6}
-            disabled={effectiveIsSubmitting || isOffline}
-          />
-          <Button 
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute right-0 top-0 h-full px-3"
-            onClick={toggleShowPassword}
-            disabled={effectiveIsSubmitting || isOffline}
-          >
-            {showPassword ? 
-              <EyeOff className="h-4 w-4 text-gray-500" /> : 
-              <Eye className="h-4 w-4 text-gray-500" />
-            }
-          </Button>
-        </div>
-      </div>
-      
-      {/* Option administrateur */}
-      {onToggleAdminSignup && (
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="admin"
-            checked={isAdminSignup}
-            onCheckedChange={onToggleAdminSignup}
-            disabled={effectiveIsSubmitting || isOffline}
-          />
-          <div className="grid gap-1.5 leading-none">
-            <Label
-              htmlFor="admin"
-              className="flex items-center text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              <Shield className="h-3 w-3 mr-1 text-seventic-500" /> 
-              Créer un compte administrateur
-            </Label>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          label="Nom"
+          placeholder="Votre nom"
+          icon={<UserPlus className="h-4 w-4" />}
+          disabled={effectiveIsSubmitting || isOffline}
+          autoComplete="name"
+        />
+        
+        <FormField
+          control={form.control}
+          name="email"
+          label="Email"
+          placeholder="email@example.com"
+          type="email"
+          icon={<Mail className="h-4 w-4" />}
+          disabled={effectiveIsSubmitting || isOffline}
+          autoComplete="email"
+        />
+        
+        <FormField
+          control={form.control}
+          name="password"
+          label="Mot de passe"
+          isPassword
+          showPassword={showPassword}
+          onTogglePassword={toggleShowPassword}
+          icon={<Lock className="h-4 w-4" />}
+          disabled={effectiveIsSubmitting || isOffline}
+          autoComplete="new-password"
+        />
+        
+        {/* Option administrateur */}
+        {onToggleAdminSignup && (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="admin"
+              checked={isAdminSignup}
+              onCheckedChange={onToggleAdminSignup}
+              disabled={effectiveIsSubmitting || isOffline}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="admin"
+                className="flex items-center text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                <Shield className="h-3 w-3 mr-1 text-seventic-500" /> 
+                Créer un compte administrateur
+              </Label>
+            </div>
           </div>
-        </div>
-      )}
-      
-      <Button 
-        type="submit" 
-        className="w-full bg-seventic-500 hover:bg-seventic-600" 
-        disabled={effectiveIsSubmitting || isOffline}
-      >
-        {effectiveIsSubmitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-            Inscription en cours...
-          </>
-        ) : isOffline ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-            Vérification de la connexion...
-          </>
-        ) : (
-          isAdminSignup ? "S'inscrire en tant qu'admin" : "S'inscrire"
         )}
-      </Button>
-    </form>
+        
+        <Button 
+          type="submit" 
+          className="w-full bg-seventic-500 hover:bg-seventic-600" 
+          disabled={effectiveIsSubmitting || isOffline}
+        >
+          {effectiveIsSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+              Inscription en cours...
+            </>
+          ) : isOffline ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+              Vérification de la connexion...
+            </>
+          ) : (
+            isAdminSignup ? "S'inscrire en tant qu'admin" : "S'inscrire"
+          )}
+        </Button>
+      </form>
+    </Form>
   );
 };
