@@ -33,7 +33,7 @@ serve(async (req) => {
       console.error("Email manquant dans la requête");
       return new Response(
         JSON.stringify({ success: false, error: "Email requis" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -57,7 +57,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: "Erreur lors de la vérification de l'utilisateur",
-          details: authError 
+          data: authError 
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -71,70 +71,81 @@ serve(async (req) => {
       );
     }
 
-    // Utiliser la méthode plus fiable pour envoyer une invitation/réinitialisation
-    console.log("Envoi d'une invitation à:", email);
-    
-    try {
-      // Utilisation de l'API directe de Supabase Auth pour plus de fiabilité
-      const inviteResponse = await fetch(
-        `${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users/${authUsers.users[0].id}/invite`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
-            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({
-            email: email,
-            redirect_to: redirectTo,
-          }),
-        }
-      );
+    // Récupérer l'ID de l'utilisateur
+    const userId = authUsers.users[0].id;
+    console.log("ID utilisateur trouvé:", userId);
 
-      if (!inviteResponse.ok) {
-        const errorData = await inviteResponse.json();
-        console.error("Erreur lors de l'invitation:", errorData);
+    try {
+      // MÉTHODE 1: Utiliser admin.inviteUserByEmail qui est la méthode officielle recommandée
+      console.log("Envoi d'invitation via admin.inviteUserByEmail");
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: redirectTo,
+        data: {
+          invited_at: new Date().toISOString()
+        }
+      });
+
+      if (inviteError) {
+        console.error("Erreur lors de l'envoi de l'invitation via inviteUserByEmail:", inviteError);
         
-        // Vérifier si c'est une erreur liée à SMTP
-        if (errorData.message?.includes("SMTP") || 
-            errorData.message?.includes("email") || 
-            errorData.message?.includes("mail") ||
-            errorData.error?.includes("SMTP") || 
-            errorData.error?.includes("email") || 
-            errorData.error?.includes("mail")) {
+        // Essayer la méthode alternative si la première échoue
+        console.log("Tentative avec méthode alternative...");
+        
+        // MÉTHODE 2: Appel direct à l'API Auth de Supabase (méthode alternative)
+        const inviteResponse = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users/${userId}/invite`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              email: email,
+              redirect_to: redirectTo,
+            }),
+          }
+        );
+
+        if (!inviteResponse.ok) {
+          const errorData = await inviteResponse.json();
+          console.error("Erreur avec méthode alternative:", errorData);
           
           return new Response(
             JSON.stringify({ 
               success: false, 
-              error: "Problème avec la configuration SMTP",
-              details: errorData,
-              message: "Vérifiez vos paramètres d'email dans Supabase Authentication > SMTP settings." 
+              error: "Échec de l'envoi d'invitation",
+              data: errorData
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+
+        const responseData = await inviteResponse.json();
+        console.log("Réponse de la méthode alternative:", responseData);
         
         return new Response(
           JSON.stringify({ 
-            success: false, 
-            error: "Erreur lors de l'envoi de l'invitation",
-            details: errorData 
+            success: true, 
+            message: "Email d'invitation envoyé par méthode alternative",
+            data: { email, method: "direct-api" } 
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      console.log("Invitation envoyée avec succès à:", email);
+      
+      console.log("Invitation envoyée avec succès via inviteUserByEmail:", inviteData);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: "Email d'invitation envoyé",
-          data: { email } 
+          data: { email, method: "official-api" } 
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+      
     } catch (inviteError) {
       console.error("Exception lors de l'envoi de l'invitation:", inviteError);
       
@@ -142,7 +153,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: "Erreur serveur lors de l'envoi de l'invitation",
-          details: inviteError instanceof Error ? inviteError.message : String(inviteError)
+          data: inviteError instanceof Error ? inviteError.message : String(inviteError)
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -154,7 +165,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false, 
         error: "Erreur serveur",
-        details: error instanceof Error ? error.message : String(error)
+        data: error instanceof Error ? error.message : String(error)
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

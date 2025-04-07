@@ -41,18 +41,24 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       toast.dismiss(toastId);
       
       if (success) {
-        toast.success(`Invitation renvoyée à ${user.email}`);
+        toast.success(`Invitation renvoyée à ${user.email}`, {
+          description: "Un email avec un lien de réinitialisation de mot de passe a été envoyé. Vérifiez également dans les spams/indésirables."
+        });
         onActionComplete();
       } else if (warning) {
         // Afficher un toast d'avertissement si l'opération a pris du temps mais peut avoir réussi
-        toast.warning(warning);
+        toast.warning(warning, {
+          description: "Vérifiez votre boîte de réception et vos spams, l'email a peut-être bien été envoyé."
+        });
       } else {
         // Afficher des informations de débogage dans la console
         console.error("Erreur détaillée du renvoi d'invitation:", details || error);
         
-        if (error?.includes("SMTP") || details?.message?.includes("SMTP") || details?.error?.includes("SMTP")) {
+        if (error?.includes("SMTP") || 
+           (details && typeof details === 'object' && 'message' in details && (details.message as string)?.includes("SMTP")) || 
+           (details && typeof details === 'object' && 'error' in details && (details.error as string)?.includes("SMTP"))) {
           toast.error(`Configuration SMTP incorrecte`, {
-            description: "Veuillez configurer vos paramètres SMTP dans Supabase - Authentication > SMTP settings",
+            description: "Vérifiez vos paramètres SMTP dans Supabase - Authentication > Email Templates & SMTP settings",
             action: {
               label: "Guide",
               onClick: () => {
