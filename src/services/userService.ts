@@ -1,3 +1,4 @@
+
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
@@ -174,25 +175,22 @@ export const deleteUser = async (userId: string): Promise<{ success: boolean; er
   console.log("Tentative de suppression de l'utilisateur:", userId);
   
   try {
-    // 1. Supprimer l'utilisateur de l'authentification Supabase
+    // Ajouter un timeout pour éviter que la requête ne reste bloquée indéfiniment
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
+    
+    // 1. Supprimer l'utilisateur de l'authentification Supabase via la fonction Edge
     const { error: authError } = await supabase.functions.invoke('delete-user', {
       body: { userId },
+      signal: controller.signal
     });
+    
+    // Nettoyer le timeout
+    clearTimeout(timeoutId);
     
     if (authError) {
       console.error("Erreur lors de la suppression de l'utilisateur de auth.users:", authError);
       return { success: false, error: authError.message };
-    }
-    
-    // 2. Supprimer le profil utilisateur
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
-      
-    if (profileError) {
-      console.error("Erreur lors de la suppression du profil utilisateur:", profileError);
-      return { success: false, error: profileError.message };
     }
     
     console.log("Utilisateur supprimé avec succès:", userId);
@@ -201,6 +199,12 @@ export const deleteUser = async (userId: string): Promise<{ success: boolean; er
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Exception lors de la suppression de l'utilisateur:", error);
+    
+    // Vérifier si l'erreur est due à un timeout
+    if (errorMessage.includes("aborted") || errorMessage.includes("timeout")) {
+      return { success: false, error: "La requête a pris trop de temps. Veuillez rafraîchir la page pour vérifier si l'utilisateur a été supprimé." };
+    }
+    
     return { success: false, error: errorMessage };
   }
 };
@@ -210,9 +214,18 @@ export const resendInvitation = async (email: string): Promise<{ success: boolea
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
+    // Ajouter un timeout pour éviter que la requête ne reste bloquée indéfiniment
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
+    
+    // Appeler la fonction Edge avec le contrôleur d'abort
     const { error } = await supabase.functions.invoke('resend-invitation', {
       body: { email },
+      signal: controller.signal
     });
+    
+    // Nettoyer le timeout
+    clearTimeout(timeoutId);
     
     if (error) {
       console.error("Erreur lors du renvoi de l'invitation:", error);
@@ -225,6 +238,12 @@ export const resendInvitation = async (email: string): Promise<{ success: boolea
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Exception lors du renvoi de l'invitation:", error);
+    
+    // Vérifier si l'erreur est due à un timeout
+    if (errorMessage.includes("aborted") || errorMessage.includes("timeout")) {
+      return { success: false, error: "La requête a pris trop de temps. Veuillez rafraîchir la page pour vérifier votre boîte mail." };
+    }
+    
     return { success: false, error: errorMessage };
   }
 };

@@ -7,13 +7,13 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, UserCog, Mail, Trash2 } from "lucide-react";
+import { MoreHorizontal, UserCog, Mail, Trash2, Loader2 } from "lucide-react";
 import { User } from "@/types/types";
 import { useState } from "react";
 import { ChangeRoleDialog } from "./ChangeRoleDialog";
 import { toast } from "sonner";
 import { deleteUser, resendInvitation } from "@/services/userService";
-import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface UserActionsMenuProps {
   user: User;
@@ -24,12 +24,26 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // Timeout control
+  const [actionTimeout, setActionTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const handleResendInvite = async () => {
     try {
       setIsSendingInvite(true);
       
+      // Set a timeout to show an error message if the operation takes too long
+      const timeout = setTimeout(() => {
+        toast.error("L'opération prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée.");
+        setIsSendingInvite(false);
+      }, 15000);
+      
+      setActionTimeout(timeout);
+      
       const { success, error } = await resendInvitation(user.email);
+      
+      if (actionTimeout) clearTimeout(actionTimeout);
       
       if (success) {
         toast.success(`Invitation renvoyée à ${user.email}`);
@@ -41,6 +55,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       console.error("Erreur lors du renvoi de l'invitation:", error);
       toast.error("Impossible de renvoyer l'invitation");
     } finally {
+      if (actionTimeout) clearTimeout(actionTimeout);
       setIsSendingInvite(false);
     }
   };
@@ -49,13 +64,18 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
     try {
       setIsDeleting(true);
       
-      // Confirmation avant suppression
-      if (!confirm(`Êtes-vous sûr de vouloir supprimer ${user.name} (${user.email}) ? Cette action est irréversible.`)) {
+      // Set a timeout to show an error message if the operation takes too long
+      const timeout = setTimeout(() => {
+        toast.error("La suppression prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'utilisateur a été supprimé.");
         setIsDeleting(false);
-        return;
-      }
+        setIsDeleteDialogOpen(false);
+      }, 15000);
+      
+      setActionTimeout(timeout);
       
       const { success, error } = await deleteUser(user.id);
+      
+      if (actionTimeout) clearTimeout(actionTimeout);
       
       if (success) {
         toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
@@ -67,7 +87,9 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
       toast.error("Une erreur est survenue lors de la suppression de l'utilisateur");
     } finally {
+      if (actionTimeout) clearTimeout(actionTimeout);
       setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -86,13 +108,21 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
             <span>Changer de rôle</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleResendInvite} disabled={isDeleting || isSendingInvite}>
-            <Mail className="mr-2 h-4 w-4" />
+            {isSendingInvite ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Mail className="mr-2 h-4 w-4" />
+            )}
             <span>{isSendingInvite ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDeleteUser} className="text-red-600" disabled={isDeleting || isSendingInvite}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            <span>{isDeleting ? "Suppression en cours..." : "Supprimer"}</span>
+          <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-red-600" disabled={isDeleting || isSendingInvite}>
+            {isDeleting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            <span>Supprimer</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -103,6 +133,37 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
         user={user} 
         onRoleChanged={onActionComplete} 
       />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer l'utilisateur {user.name} ({user.email}) ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteUser();
+              }}
+              disabled={isDeleting}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                  Suppression en cours...
+                </>
+              ) : (
+                'Supprimer'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

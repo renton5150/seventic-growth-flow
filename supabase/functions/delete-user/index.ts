@@ -15,6 +15,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Fonction delete-user appelée");
+    
     // Créer un client Supabase avec la clé secrète pour avoir des permissions admin
     const supabaseClient = createClient(
       // @ts-ignore - Deno.env is available in Supabase Edge Functions
@@ -26,6 +28,7 @@ serve(async (req) => {
     // Vérifier l'authentification de la requête
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.error("Erreur d'authentification: token manquant ou invalide");
       return new Response(
         JSON.stringify({ error: "Non autorisé" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -36,6 +39,7 @@ serve(async (req) => {
     const token = authHeader.split(" ")[1];
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     if (authError || !user) {
+      console.error("Erreur d'authentification:", authError);
       return new Response(
         JSON.stringify({ error: "Non autorisé" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -43,13 +47,22 @@ serve(async (req) => {
     }
 
     // Vérifier que l'utilisateur est un admin
-    const { data: profile } = await supabaseClient
+    const { data: profile, error: profileError } = await supabaseClient
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
+    if (profileError) {
+      console.error("Erreur lors de la récupération du profil:", profileError);
+      return new Response(
+        JSON.stringify({ error: "Impossible de vérifier les permissions" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!profile || profile.role !== "admin") {
+      console.error("Accès non autorisé pour l'utilisateur:", user.id);
       return new Response(
         JSON.stringify({ error: "Autorisé uniquement pour les administrateurs" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -59,24 +72,58 @@ serve(async (req) => {
     // Récupérer les données de la requête
     const { userId } = await req.json();
     if (!userId) {
+      console.error("ID utilisateur manquant dans la requête");
       return new Response(
         JSON.stringify({ error: "ID utilisateur requis" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Supprimer l'utilisateur de auth.users (ce qui déclenchera la suppression en cascade du profil)
-    const { error: deleteError } = await supabaseClient.auth.admin.deleteUser(userId);
-    if (deleteError) {
-      throw deleteError;
+    console.log(`Tentative de suppression de l'utilisateur avec l'ID: ${userId}`);
+
+    // Vérifier si l'utilisateur existe avant de tenter de le supprimer
+    const { data: userExists, error: userCheckError } = await supabaseClient
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .single();
+
+    if (userCheckError || !userExists) {
+      console.error("Utilisateur non trouvé:", userId);
+      return new Response(
+        JSON.stringify({ error: "Utilisateur non trouvé" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
+    // Utiliser Promise.race pour définir un timeout
+    const deletePromise = supabaseClient.auth.admin.deleteUser(userId);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Délai d'attente dépassé")), 10000);
+    });
+
+    // Supprimer l'utilisateur avec un timeout
+    const { error: deleteError } = await Promise.race([deletePromise, timeoutPromise])
+      .catch(error => {
+        console.error("Erreur lors de la suppression:", error.message);
+        return { error };
+      });
+
+    if (deleteError) {
+      console.error("Erreur lors de la suppression de l'utilisateur:", deleteError);
+      return new Response(
+        JSON.stringify({ success: false, error: deleteError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Utilisateur ${userId} supprimé avec succès`);
     return new Response(
       JSON.stringify({ success: true, message: "Utilisateur supprimé avec succès" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Erreur lors de la suppression de l'utilisateur:", error);
+    console.error("Erreur inattendue lors de la suppression de l'utilisateur:", error);
     
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
