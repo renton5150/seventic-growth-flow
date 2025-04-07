@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import { Control } from "react-hook-form";
+import { Link } from "react-router-dom";
 
 interface FormFieldProps {
   control: Control<any>;
@@ -42,9 +43,9 @@ export const FormField = ({
           <div className="flex items-center justify-between">
             <FormLabel htmlFor={name}>{label}</FormLabel>
             {name === "password" && (
-              <a href="#" className="text-sm text-seventic-500 hover:text-seventic-600">
+              <Link to="/forgot-password" className="text-sm text-seventic-500 hover:text-seventic-600">
                 Mot de passe oublié?
-              </a>
+              </Link>
             )}
           </div>
           <div className="relative">

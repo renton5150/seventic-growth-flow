@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { FormField } from "./FormField";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 // Login form schema with validation
 const loginSchema = z.object({

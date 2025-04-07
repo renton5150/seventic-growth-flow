@@ -20,6 +20,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Custom hooks for auth operations and session management
   const { login, logout } = useAuthOperations(setUser, setLoading);
   
+  // Intercepter les redirections d'authentification et vérifier les paramètres URL
+  useEffect(() => {
+    const handleAuthRedirect = () => {
+      try {
+        // Vérifier s'il y a des fragments de type hash dans l'URL (typique des redirections auth)
+        if (window.location.hash && window.location.hash.includes("access_token")) {
+          console.log("Détection d'une redirection d'authentification avec hash");
+        }
+
+        // Vérifier s'il y a des paramètres d'erreur dans l'URL
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('error')) {
+          console.error("Erreur d'authentification détectée dans l'URL:", params.get('error_description'));
+        }
+      } catch (err) {
+        console.error("Erreur lors du traitement des paramètres d'authentification:", err);
+      }
+    };
+
+    handleAuthRedirect();
+  }, []);
+  
   // Initialize auth session
   useEffect(() => {
     console.log("Initialisation de l'authentification");
