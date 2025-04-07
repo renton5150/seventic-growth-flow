@@ -11,15 +11,13 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true, // Important pour capturer les redirections OAuth
     storage: localStorage
   },
   global: {
-    // Augmenter le timeout pour éviter "La connexion a pris trop de temps"
     fetch: (url, options) => {
       const fetchOptions = {
         ...options,
-        // 30 secondes au lieu de 10 secondes par défaut
         signal: AbortSignal.timeout(30000)
       };
       console.log(`Appel Supabase: ${url}`);

@@ -1,5 +1,6 @@
+
 import { User, UserRole } from "@/types/types";
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 
@@ -21,6 +22,10 @@ export const getAllUsers = async (): Promise<User[]> => {
     if (error) {
       console.error("Erreur lors de la récupération des utilisateurs:", error);
       toast.error("Erreur lors de la récupération des utilisateurs");
+      return [];
+    }
+
+    if (!data) {
       return [];
     }
 
@@ -49,6 +54,10 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
 
     if (error) {
       console.error("Erreur lors de la récupération de l'utilisateur:", error);
+      return undefined;
+    }
+
+    if (!data) {
       return undefined;
     }
 
@@ -85,66 +94,62 @@ export const createUser = async (
     
     console.log("Création de l'utilisateur dans Supabase Auth...");
     
-    // 1. Créer l'utilisateur dans auth.users en premier
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
+    // Utiliser signUp pour créer un nouvel utilisateur
+    // C'est la méthode recommandée car elle fonctionne avec les clés anon
+    const { data, error } = await supabase.auth.signUp({
+      email,
       password: tempPassword,
-      email_confirm: true, // Auto-confirmer l'email
-      user_metadata: {
-        name: name,
-        role: role
+      options: {
+        data: {
+          name,
+          role
+        }
       }
     });
 
-    if (authError) {
-      console.error("Erreur lors de la création de l'utilisateur:", authError);
-      toast.error("Erreur: " + authError.message);
-      return { success: false, error: authError.message };
+    if (error) {
+      console.error("Erreur lors de la création de l'utilisateur:", error);
+      let errorMsg = error.message;
+      
+      if (error.message.includes("not allowed")) {
+        errorMsg = "Domaine email non autorisé ou configuration Supabase incorrecte";
+      }
+      
+      toast.error("Erreur: " + errorMsg);
+      return { success: false, error: errorMsg };
     }
 
-    if (!authData.user) {
+    if (!data.user) {
       console.error("Utilisateur non créé");
       return { success: false, error: "Échec de la création de l'utilisateur" };
     }
 
-    console.log("Utilisateur créé avec succès dans auth.users:", authData.user.id);
+    console.log("Utilisateur créé avec succès dans auth.users:", data.user.id);
     
-    // 2. Attendre un court instant pour s'assurer que le trigger a eu le temps de s'exécuter
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Attendre un court instant pour s'assurer que le trigger a eu le temps de s'exécuter
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // 3. Vérifier si le profil a été créé automatiquement par le trigger
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
-    
-    if (profileError) {
-      console.error("Erreur lors de la vérification du profil:", profileError);
-      // On continue car on va mettre à jour ou créer le profil
-    }
-    
-    // 4. Mettre à jour ou créer le profil avec les informations complètes
+    // Créer ou mettre à jour manuellement le profil avec les informations complètes
     const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`;
     
-    const { data: updatedProfile, error: updateError } = await supabase
+    const { error: profileError } = await supabase
       .from('profiles')
       .upsert({
-        id: authData.user.id,
+        id: data.user.id,
         email: email,
         name: name,
         role: role,
         avatar: avatarUrl
       }, { onConflict: 'id' });
     
-    if (updateError) {
-      console.error("Erreur lors de la mise à jour du profil:", updateError);
+    if (profileError) {
+      console.error("Erreur lors de la mise à jour du profil:", profileError);
       toast.error("Profil créé mais erreur lors de la mise à jour des détails");
     }
     
     // Créer l'objet utilisateur à retourner
     const newUser: User = {
-      id: authData.user.id,
+      id: data.user.id,
       email: email,
       name: name,
       role: role,

@@ -30,9 +30,14 @@ export const useAuthOperations = (
       });
 
       if (error) {
-        const errorMessage = error.message === "Invalid login credentials" 
-          ? "Identifiants invalides" 
-          : error.message;
+        let errorMessage = "";
+        if (error.message === "Invalid login credentials") {
+          errorMessage = "Identifiants invalides";
+        } else if (error.message.includes("Email not confirmed")) {
+          errorMessage = "Veuillez confirmer votre email avant de vous connecter";
+        } else {
+          errorMessage = error.message;
+        }
         
         console.error("Erreur de connexion:", errorMessage);
         toast.error("Échec de la connexion", { description: errorMessage });
@@ -61,6 +66,11 @@ export const useAuthOperations = (
       setAuthError(errorMessage);
       setLoading(false);
       return false;
+    } finally {
+      // S'assurer que loading est mis à false après une tentative
+      setTimeout(() => {
+        setLoading(false);
+      }, 1000);
     }
   };
 

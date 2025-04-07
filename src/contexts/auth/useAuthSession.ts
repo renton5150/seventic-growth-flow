@@ -32,10 +32,13 @@ export const createAuthSessionHelpers = (
             setUser(userProfile);
           } else {
             console.error("Impossible de charger le profil utilisateur");
+            toast.error("Impossible de charger votre profil utilisateur");
           }
         } catch (error) {
           console.error("Erreur lors du chargement du profil:", error);
+          toast.error("Erreur lors du chargement de votre profil");
         } finally {
+          // Toujours terminer le chargement
           setLoading(false);
         }
       } else {
@@ -57,6 +60,13 @@ export const createAuthSessionHelpers = (
       async (event, session) => {
         console.log("Événement d'authentification:", event);
         
+        // Toujours définir l'état de chargement sur false à la fin, quelle que soit l'issue
+        const finalizeAuthProcess = () => {
+          setTimeout(() => {
+            setLoading(false);
+          }, 0);
+        };
+        
         if (event === 'SIGNED_IN' && session) {
           console.log("Authentification détectée, utilisateur:", session.user.id);
           try {
@@ -67,22 +77,21 @@ export const createAuthSessionHelpers = (
               setUser(userProfile);
             } else {
               console.error("Profil utilisateur non chargé");
-              setLoading(false);
+              toast.error("Impossible de charger votre profil");
             }
           } catch (error) {
             console.error("Erreur lors du chargement du profil:", error);
             toast.error("Erreur lors du chargement de votre profil");
-            setLoading(false);
           } finally {
-            setLoading(false);
+            finalizeAuthProcess();
           }
         } else if (event === 'SIGNED_OUT') {
           console.log("Déconnexion détectée");
           setUser(null);
-          setLoading(false);
+          finalizeAuthProcess();
         } else {
           // Pour les autres événements
-          setLoading(false);
+          finalizeAuthProcess();
         }
       }
     );

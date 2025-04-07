@@ -5,6 +5,7 @@ import { AuthState } from "./types";
 import { useAuthOperations } from "./useAuthOperations";
 import { createAuthSessionHelpers } from "./useAuthSession";
 import AuthContext from "./AuthContext";
+import { toast } from "sonner";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -25,14 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
-    // Safety timeout (3 seconds)
+    // Safety timeout (5 seconds maximum pour l'initialisation)
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
           console.log("Timeout de chargement atteint, initialisation terminée");
           setLoading(false);
+          toast.error("L'initialisation de l'authentification a pris trop de temps");
         }
-      }, 3000);
+      }, 5000);
     };
     
     // Start timeout immediately

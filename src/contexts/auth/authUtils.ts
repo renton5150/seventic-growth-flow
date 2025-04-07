@@ -62,11 +62,17 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
       // Utilisation de upsert au lieu de insert pour éviter les doublons
       const { error: insertError } = await supabase
         .from('profiles')
-        .upsert(newUser);
+        .upsert(newUser, { onConflict: 'id' });
         
       if (insertError) {
         console.error("Erreur lors de la création du profil:", insertError);
         toast.error("Erreur de création de profil");
+        
+        if (insertError.message.includes("foreign key constraint")) {
+          console.error("Erreur de clé étrangère - l'utilisateur n'existe pas dans auth.users");
+          toast.error("Erreur d'authentification: utilisateur non trouvé dans le système");
+        }
+        
         return null;
       }
       
