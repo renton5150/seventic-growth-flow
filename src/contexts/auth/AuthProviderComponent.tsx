@@ -1,3 +1,4 @@
+
 import { useState, ReactNode, useEffect } from "react";
 import { User } from "@/types/types";
 import { AuthState } from "./types";
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
+    // Shorter safety timeout (5 seconds instead of 10)
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
@@ -73,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
           toast.error("L'initialisation de l'authentification a pris trop de temps");
         }
-      }, 10000);
+      }, 5000);
     };
     
     safetyTimeout();
@@ -82,14 +84,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const subscription = sessionHelpers.setupAuthListener();
     
-    sessionHelpers.checkSession()
-      .catch(error => {
-        console.error("Erreur lors de la vérification de session:", error);
-        if (mounted) {
-          setLoading(false);
-          toast.error("Erreur lors de la vérification de session");
-        }
-      });
+    // Introduce small delay before checking session to avoid race conditions
+    setTimeout(() => {
+      if (mounted) {
+        sessionHelpers.checkSession()
+          .catch(error => {
+            console.error("Erreur lors de la vérification de session:", error);
+            if (mounted) {
+              setLoading(false);
+              toast.error("Erreur lors de la vérification de session");
+            }
+          });
+      }
+    }, 100);
     
     return () => {
       mounted = false;

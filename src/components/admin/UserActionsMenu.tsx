@@ -1,3 +1,4 @@
+
 import { 
   DropdownMenu, 
   DropdownMenuTrigger, 
@@ -32,11 +33,11 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
     try {
       setIsSendingInvite(true);
       
-      // Set a timeout to show an error message if the operation takes too long
+      // Set a more aggressive timeout (10s instead of 15s)
       const timeout = setTimeout(() => {
         toast.error("L'opération prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée.");
         setIsSendingInvite(false);
-      }, 15000);
+      }, 10000);
       
       setActionTimeout(timeout);
       
@@ -63,12 +64,12 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
     try {
       setIsDeleting(true);
       
-      // Set a timeout to show an error message if the operation takes too long
+      // Set a more aggressive timeout (10s instead of 15s)
       const timeout = setTimeout(() => {
         toast.error("La suppression prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'utilisateur a été supprimé.");
         setIsDeleting(false);
         setIsDeleteDialogOpen(false);
-      }, 15000);
+      }, 10000);
       
       setActionTimeout(timeout);
       

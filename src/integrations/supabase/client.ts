@@ -14,36 +14,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     storage: localStorage
   },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    fetch: (url, options) => {
-      const controller = new AbortController();
-      // Augmenté à 15 secondes pour réduire les timeouts sur réseaux lents
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      
-      const fetchOptions = {
-        ...options,
-        signal: controller.signal,
-        credentials: 'same-origin' as RequestCredentials
-      };
-      
-      return fetch(url, fetchOptions)
-        .then(response => {
-          clearTimeout(timeoutId);
-          return response;
-        })
-        .catch(error => {
-          clearTimeout(timeoutId);
-          console.error(`Erreur Supabase pour ${url}:`, error);
-          throw error;
-        });
-    }
-  },
   realtime: {
     params: {
-      eventsPerSecond: 5
+      eventsPerSecond: 3 // Reduced from 5 to avoid rate limiting
     }
   }
 });

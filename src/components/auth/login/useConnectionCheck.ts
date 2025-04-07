@@ -11,48 +11,51 @@ export const useConnectionCheck = () => {
   const checkServerConnection = useCallback(async () => {
     try {
       setNetworkStatus("checking");
-      const startTime = Date.now();
-      // Add a timeout to avoid blocking too long
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      try {
-        const { error } = await supabase.from("profiles")
-          .select("count")
-          .limit(1)
-          .abortSignal(controller.signal);
-        
-        clearTimeout(timeoutId);
-        const endTime = Date.now();
-        console.log(`Temps de réponse du serveur: ${endTime - startTime}ms`);
-        
-        if (error) {
-          console.error("Erreur de connexion:", error);
-          setNetworkStatus("offline");
-          setError(`Erreur de connexion au serveur: ${error.message}`);
-          return false;
-        }
-        
-        setNetworkStatus("online");
-        setError(null);
-        return true;
-      } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-          console.error("Requête annulée par délai d'attente");
-          setNetworkStatus("offline");
-          setError("Le serveur met trop de temps à répondre");
-        } else {
-          console.error("Erreur lors de la requête:", err);
-          setNetworkStatus("offline");
-          setError("Erreur lors de la connexion au serveur");
-        }
+      // Check if browser is online first
+      if (!navigator.onLine) {
+        setNetworkStatus("offline");
+        setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
         return false;
       }
+      
+      // Use Promise.race for timeout handling instead of AbortController
+      const checkPromise = supabase.from("profiles")
+        .select("count")
+        .limit(1);
+      
+      const timeoutPromise = new Promise<{error: {message: string}}>((_, reject) => {
+        setTimeout(() => {
+          reject({ error: { message: "Le serveur met trop de temps à répondre" } });
+        }, 3000); // Reduced from 5000ms to 3000ms
+      });
+      
+      const startTime = Date.now();
+      const result = await Promise.race([checkPromise, timeoutPromise]);
+      const endTime = Date.now();
+      console.log(`Temps de réponse du serveur: ${endTime - startTime}ms`);
+      
+      if (result.error) {
+        console.error("Erreur de connexion:", result.error);
+        setNetworkStatus("offline");
+        setError(`Erreur de connexion au serveur: ${result.error.message}`);
+        return false;
+      }
+      
+      setNetworkStatus("online");
+      setError(null);
+      return true;
     } catch (err) {
       console.error("Exception lors de la vérification de la connexion:", err);
-      setNetworkStatus("offline");
-      setError("Impossible de se connecter au serveur Supabase");
+      
+      if (err.message && err.message.includes("trop de temps")) {
+        setNetworkStatus("offline");
+        setError("Le serveur met trop de temps à répondre");
+      } else {
+        setNetworkStatus("offline");
+        setError("Impossible de se connecter au serveur Supabase");
+      }
+      
       return false;
     }
   }, []);
@@ -68,8 +71,19 @@ export const useConnectionCheck = () => {
       checkServerConnection();
     };
     
+    const handleOffline = () => {
+      console.log("Connexion internet perdue");
+      setNetworkStatus("offline");
+      setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
+    };
+    
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [checkServerConnection]);
 
   return {

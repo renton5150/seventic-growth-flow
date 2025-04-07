@@ -24,10 +24,20 @@ export const useAuthOperations = (
       }
 
       console.log("Tentative de connexion pour:", email);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      
+      // Use Promise.race for timeout handling
+      const loginPromise = supabase.auth.signInWithPassword({
         email,
         password,
       });
+      
+      const timeoutPromise = new Promise<{data: null, error: Error}>((_resolve, reject) => {
+        setTimeout(() => {
+          reject(new Error("La connexion prend trop de temps, veuillez réessayer"));
+        }, 8000); // 8 second timeout
+      });
+      
+      const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as any;
 
       if (error) {
         let errorMessage = "";
@@ -46,7 +56,7 @@ export const useAuthOperations = (
         return false;
       }
 
-      if (!data.session) {
+      if (!data?.session) {
         console.error("Session non créée");
         toast.error("Erreur: Session non créée");
         setAuthError("Impossible d'établir une session");
@@ -70,7 +80,7 @@ export const useAuthOperations = (
       // S'assurer que loading est mis à false après une tentative
       setTimeout(() => {
         setLoading(false);
-      }, 1000);
+      }, 500); // Reduced from 1000ms to 500ms
     }
   };
 
@@ -78,7 +88,16 @@ export const useAuthOperations = (
     try {
       setLoading(true);
 
-      const { error } = await supabase.auth.signOut();
+      // Use Promise.race for timeout handling
+      const logoutPromise = supabase.auth.signOut();
+      
+      const timeoutPromise = new Promise<{error: Error}>((_resolve, reject) => {
+        setTimeout(() => {
+          reject(new Error("La déconnexion prend trop de temps"));
+        }, 5000); // 5 second timeout
+      });
+      
+      const { error } = await Promise.race([logoutPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error("Erreur de déconnexion:", error.message);
@@ -90,7 +109,7 @@ export const useAuthOperations = (
       console.log("Déconnexion réussie");
       toast.success("Déconnexion réussie");
       
-      // Réinitialiser l'état
+      // Réinitialiser l'état immédiatement pour une meilleure expérience utilisateur
       setUser(null);
       setLoading(false);
       return true;

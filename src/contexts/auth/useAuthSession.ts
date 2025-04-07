@@ -14,12 +14,18 @@ export const createAuthSessionHelpers = (
     try {
       console.log("Vérification de session existante...");
       
-      const { data, error } = await Promise.race([
-        supabase.auth.getSession(),
-        new Promise<{data: null, error: Error}>((_, reject) => 
-          setTimeout(() => reject(new Error("Délai d'attente dépassé pour la vérification de session")), 5000)
-        )
-      ]) as any;
+      // Use a hard timeout to prevent hanging
+      const sessionPromise = supabase.auth.getSession();
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise<{data: {session: null}, error: Error}>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Délai d'attente dépassé pour la vérification de session"));
+        }, 3000); // Reduced from 5000ms to 3000ms
+      });
+      
+      // Race the session promise against the timeout
+      const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
       
       if (error) {
         console.error("Erreur lors de la vérification de session:", error);
@@ -28,7 +34,7 @@ export const createAuthSessionHelpers = (
         return;
       }
       
-      if (data.session) {
+      if (data?.session) {
         console.log("Session existante trouvée:", data.session.user.id);
         try {
           const userProfile = await createUserProfile(data.session.user);
@@ -62,49 +68,49 @@ export const createAuthSessionHelpers = (
     console.log("Configuration de l'écouteur d'authentification");
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log("Événement d'authentification:", event);
         
-        // Toujours définir l'état de chargement sur false à la fin, quelle que soit l'issue
-        const finalizeAuthProcess = () => {
-          setTimeout(() => {
-            setLoading(false);
-          }, 0);
-        };
+        // Immediately set loading to false for certain events
+        if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+          console.log(`Événement ${event} détecté, mise à jour immédiate de l'état`);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
         
+        // For sign in and other events that need profile loading
         if (event === 'SIGNED_IN' && session) {
           console.log("Authentification détectée, utilisateur:", session.user.id);
-          try {
-            const userProfile = await createUserProfile(session.user);
-            
-            if (userProfile) {
-              console.log("Profil utilisateur chargé:", userProfile.role);
-              setUser(userProfile);
-            } else {
-              console.error("Profil utilisateur non chargé");
-              toast.error("Impossible de charger votre profil");
+          
+          // Use setTimeout to avoid potential deadlocks with Supabase client
+          setTimeout(async () => {
+            try {
+              const userProfile = await createUserProfile(session.user);
+              
+              if (userProfile) {
+                console.log("Profil utilisateur chargé:", userProfile.role);
+                setUser(userProfile);
+              } else {
+                console.error("Profil utilisateur non chargé");
+                toast.error("Impossible de charger votre profil");
+                setUser(null);
+              }
+            } catch (error) {
+              console.error("Erreur lors du chargement du profil:", error);
+              toast.error("Erreur lors du chargement de votre profil");
               setUser(null);
+            } finally {
+              setLoading(false);
             }
-          } catch (error) {
-            console.error("Erreur lors du chargement du profil:", error);
-            toast.error("Erreur lors du chargement de votre profil");
-            setUser(null);
-          } finally {
-            finalizeAuthProcess();
-          }
-        } else if (event === 'SIGNED_OUT') {
-          console.log("Déconnexion détectée");
-          setUser(null);
-          finalizeAuthProcess();
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log("Token rafraîchi");
-          finalizeAuthProcess();
-        } else if (event === 'USER_UPDATED') {
-          console.log("Utilisateur mis à jour");
-          finalizeAuthProcess();
+          }, 0);
+        } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          console.log(`Événement ${event} détecté`);
+          setLoading(false);
         } else {
-          // Pour les autres événements
-          finalizeAuthProcess();
+          // Fallback for any other events
+          console.log(`Autre événement d'authentification: ${event}`);
+          setLoading(false);
         }
       }
     );
