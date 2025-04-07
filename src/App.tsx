@@ -1,10 +1,9 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/auth";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -33,7 +32,6 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Rediriger la racine vers /dashboard (ou /admin/dashboard pour les administrateurs) */}
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
@@ -117,7 +115,6 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
-            {/* Routes pour l'administration */}
             <Route 
               path="/admin/dashboard" 
               element={

@@ -1,11 +1,11 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { AuthContextType, AuthState } from "./types";
 import { User } from "@/types/types";
+import { AuthContextType, AuthState } from "./types";
 import { useAuthOperations } from "./useAuthOperations";
 import { createAuthSessionHelpers } from "./useAuthSession";
-import { toast } from "sonner";
 
+// Create the auth context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
-    // Définir un timeout de sécurité plus court (3 secondes au lieu de 5)
+    // Safety timeout (3 seconds)
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
@@ -37,10 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 3000);
     };
     
-    // Lancer le timeout immédiatement
+    // Start timeout immediately
     safetyTimeout();
     
-    // Create auth session helpers (not using hooks directly)
+    // Create auth session helpers
     const sessionHelpers = createAuthSessionHelpers(setUser, setLoading);
     
     // Setup auth listener first
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Propriétés dérivées
+  // Derived properties
   const isAuthenticated = !!authState.user;
   const isAdmin = authState.user?.role === "admin";
   const isSDR = authState.user?.role === "sdr";
@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Hook to use the auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
