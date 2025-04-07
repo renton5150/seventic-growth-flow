@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
-    // Safety timeout (5 seconds maximum pour l'initialisation)
+    // Réduire le timeout à 10 secondes (au lieu de 5) pour éviter de bloquer trop longtemps
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
           toast.error("L'initialisation de l'authentification a pris trop de temps");
         }
-      }, 5000);
+      }, 10000);
     };
     
     // Start timeout immediately
@@ -47,7 +47,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const subscription = sessionHelpers.setupAuthListener();
     
     // Then check for existing session
-    sessionHelpers.checkSession();
+    sessionHelpers.checkSession()
+      .catch(error => {
+        console.error("Erreur lors de la vérification de session:", error);
+        // Assurer que l'état de chargement est terminé même en cas d'erreur
+        if (mounted) {
+          setLoading(false);
+          toast.error("Erreur lors de la vérification de session");
+        }
+      });
     
     return () => {
       mounted = false;

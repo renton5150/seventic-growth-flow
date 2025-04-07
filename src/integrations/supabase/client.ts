@@ -15,13 +15,22 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: localStorage
   },
   global: {
+    headers: {
+      'Content-Type': 'application/json',
+    },
     fetch: (url, options) => {
       const fetchOptions = {
         ...options,
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(15000), // Augmenter à 15 secondes pour donner plus de temps
+        credentials: 'same-origin' as RequestCredentials
       };
       console.log(`Appel Supabase: ${url}`);
       return fetch(url, fetchOptions);
+    }
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 5
     }
   }
 });

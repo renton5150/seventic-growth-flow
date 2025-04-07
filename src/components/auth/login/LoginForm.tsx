@@ -17,16 +17,28 @@ interface LoginFormProps {
 
 export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
   const [formMode, setFormMode] = useState<"login" | "signup">("login");
-  const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("online");
+  const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("checking");
   const [error, setError] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const { login } = useAuth();
 
   // Vérification initiale de la connexion au serveur
+  useState(() => {
+    checkServerConnection();
+  });
+
   const checkServerConnection = async () => {
     try {
+      setNetworkStatus("checking");
       const startTime = Date.now();
-      const { error } = await supabase.from("profiles").select("count").limit(1);
+      // Ajouter un timeout pour éviter que cela ne bloque trop longtemps
+      const { error } = await Promise.race([
+        supabase.from("profiles").select("count").limit(1),
+        new Promise<{error: Error}>((_, reject) => 
+          setTimeout(() => reject(new Error("Délai d'attente dépassé")), 5000)
+        )
+      ]) as any;
+      
       const endTime = Date.now();
       
       console.log(`Temps de réponse du serveur: ${endTime - startTime}ms`);
@@ -39,6 +51,7 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
       }
       
       setNetworkStatus("online");
+      setError(null);
       return true;
     } catch (err) {
       console.error("Exception lors de la vérification de la connexion:", err);
@@ -60,7 +73,13 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
     try {
       console.log("Lancement de la connexion pour:", email);
       
-      const success = await login(email, password);
+      // Appliquer un timeout à la connexion pour éviter les attentes infinies
+      const loginPromise = login(email, password);
+      const timeoutPromise = new Promise<boolean>((_, reject) => 
+        setTimeout(() => reject(new Error("La connexion prend trop de temps, veuillez réessayer.")), 15000)
+      );
+      
+      const success = await Promise.race([loginPromise, timeoutPromise]);
       
       if (success) {
         console.log("Connexion réussie");
@@ -125,7 +144,7 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
         if (signUpError.message.includes("already registered")) {
           setError("Cette adresse email est déjà utilisée");
         } else if (signUpError.message.includes("not allowed")) {
-          setError("Domaine email non autorisé ou configuration Supabase incorrecte");
+          setError("Domaine email non autorisé - utilisez une adresse email valide");
         } else {
           setError(signUpError.message);
         }
