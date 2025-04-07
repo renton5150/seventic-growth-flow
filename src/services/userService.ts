@@ -105,10 +105,10 @@ export const createUser = async (
     console.log("Résultat de la fonction sécurisée:", data);
     
     // Vérifier si le résultat contient une erreur
-    if (data.error) {
+    if (data && typeof data === 'object' && 'error' in data) {
       console.error("Erreur retournée par la fonction:", data.error);
       toast.error(`Erreur de création: ${data.error}`);
-      return { success: false, error: data.error };
+      return { success: false, error: data.error as string };
     }
     
     // Créer l'objet utilisateur à retourner
