@@ -68,14 +68,11 @@ serve(async (req) => {
     const redirectTo = `${origin}/reset-password?type=signup`;
     console.log("URL de redirection configurée:", redirectTo);
 
-    // Version simplifiée de l'envoi d'email de réinitialisation
-    const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email: email,
-      options: {
-        redirectTo: redirectTo
-      }
-    });
+    // Utiliser l'API resetPasswordForEmail qui est plus stable pour ce cas d'utilisation
+    const { error: emailError } = await supabaseAdmin.auth.resetPasswordForEmail(
+      email,
+      { redirectTo }
+    );
 
     if (emailError) {
       console.error("Erreur lors de l'envoi du email:", emailError);
