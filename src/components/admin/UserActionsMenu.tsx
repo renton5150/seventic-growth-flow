@@ -42,22 +42,39 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       
       if (success) {
         toast.success(`Invitation renvoyée à ${user.email}`);
+        toast.info("Vérifiez que les paramètres SMTP sont bien configurés dans Supabase si vous ne recevez pas l'email");
         onActionComplete();
       } else if (warning) {
         // Afficher un toast d'avertissement si l'opération a pris du temps mais peut avoir réussi
         toast.warning(warning);
       } else {
-        if (error?.includes("serveur d'envoi") || error?.includes("SMTP")) {
-          toast.error(`Erreur de configuration du serveur d'email. Vérifiez les paramètres SMTP dans Supabase.`);
+        if (error?.includes("configuration SMTP")) {
+          toast.error(`${error}`, {
+            description: "Allez dans Authentication > SMTP settings dans Supabase pour configurer l'envoi d'emails",
+            action: {
+              label: "Guide",
+              onClick: () => {
+                window.open("https://supabase.com/docs/guides/auth/auth-smtp", "_blank");
+              },
+            },
+          });
+        } else if (error?.includes("serveur d'envoi") || error?.includes("SMTP")) {
+          toast.error(`Erreur de configuration du serveur d'email`, {
+            description: "Vérifiez les paramètres SMTP dans Authentication > SMTP settings",
+          });
         } else if (error?.includes("expiré")) {
-          toast.error(`L'opération prend plus de temps que prévu. L'invitation a peut-être été envoyée. Veuillez vérifier la boîte de réception du destinataire.`);
+          toast.error(`L'opération prend plus de temps que prévu`, {
+            description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire."
+          });
         } else {
           toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
         }
       }
     } catch (error) {
       console.error("Erreur lors du renvoi de l'invitation:", error);
-      toast.error("Impossible de renvoyer l'invitation");
+      toast.error("Impossible de renvoyer l'invitation", {
+        description: "Une erreur inattendue s'est produite"
+      });
     } finally {
       setIsSendingInvite(false);
     }

@@ -79,6 +79,14 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
         };
       }
       
+      // Message pour problème de configuration SMTP
+      if (response.error.message?.includes('configuration SMTP')) {
+        return {
+          success: false,
+          error: response.error.message
+        };
+      }
+      
       return { success: false, error: response.error.message };
     }
     

@@ -84,43 +84,64 @@ serve(async (req) => {
       }
     }
 
-    // Utiliser generateLink au lieu de resetPasswordForEmail pour un contrôle plus précis
-    console.log("Génération du lien d'invitation avec la méthode generateLink");
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: email,
-      options: {
-        redirectTo
-      }
+    // Vérifier la configuration SMTP
+    console.log("Vérification de la configuration SMTP...");
+    const { data: smtpData, error: smtpError } = await supabaseAdmin.functions.invoke('check-smtp-config', {});
+
+    if (smtpError) {
+      console.error("Erreur lors de la vérification de la configuration SMTP:", smtpError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Impossible de vérifier la configuration SMTP" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (smtpData && !smtpData.smtpEnabled) {
+      console.error("La configuration SMTP n'est pas activée");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "La configuration SMTP n'est pas activée. Veuillez configurer SMTP dans les paramètres d'authentification de Supabase." 
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Utiliser directement signInWithOtp pour envoyer un email magiclink (plus fiable)
+    console.log("Envoi d'un magic link d'invitation avec signInWithOtp");
+    const { error: otpError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo
     });
 
-    if (linkError) {
-      console.error("Erreur lors de la génération du lien:", linkError);
+    if (otpError) {
+      console.error("Erreur lors de l'envoi du magic link:", otpError);
+      
+      // Message d'erreur spécifique pour les problèmes SMTP courants
+      if (otpError.message?.includes("SMTP") || 
+          otpError.message?.includes("email") || 
+          otpError.message?.includes("mail")) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Problème avec la configuration SMTP. Vérifiez vos paramètres d'email dans Supabase." 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ success: false, error: linkError.message }),
+        JSON.stringify({ success: false, error: otpError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!linkData) {
-      console.error("Aucune donnée retournée lors de la génération du lien");
-      return new Response(
-        JSON.stringify({ success: false, error: "Échec de la génération du lien d'invitation" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log("Lien généré avec succès, email devrait être envoyé automatiquement");
+    console.log("Magic link d'invitation envoyé avec succès");
     
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: "Email d'invitation envoyé",
-        data: { 
-          email,
-          // Ne pas inclure l'URL complète pour des raisons de sécurité
-          linkCreated: true
-        } 
+        data: { email } 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
