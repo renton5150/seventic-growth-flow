@@ -30,7 +30,7 @@ serve(async (req) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.error("Erreur d'authentification: token manquant ou invalide");
       return new Response(
-        JSON.stringify({ error: "Non autorisé" }),
+        JSON.stringify({ success: false, error: "Non autorisé" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -41,7 +41,7 @@ serve(async (req) => {
     if (authError || !user) {
       console.error("Erreur d'authentification:", authError);
       return new Response(
-        JSON.stringify({ error: "Non autorisé" }),
+        JSON.stringify({ success: false, error: "Non autorisé" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -56,7 +56,7 @@ serve(async (req) => {
     if (profileError) {
       console.error("Erreur lors de la récupération du profil:", profileError);
       return new Response(
-        JSON.stringify({ error: "Impossible de vérifier les permissions" }),
+        JSON.stringify({ success: false, error: "Impossible de vérifier les permissions" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -64,7 +64,7 @@ serve(async (req) => {
     if (!profile || profile.role !== "admin") {
       console.error("Accès non autorisé pour l'utilisateur:", user.id);
       return new Response(
-        JSON.stringify({ error: "Autorisé uniquement pour les administrateurs" }),
+        JSON.stringify({ success: false, error: "Autorisé uniquement pour les administrateurs" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -74,7 +74,7 @@ serve(async (req) => {
     if (!email) {
       console.error("Email manquant dans la requête");
       return new Response(
-        JSON.stringify({ error: "Email requis" }),
+        JSON.stringify({ success: false, error: "Email requis" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -91,7 +91,7 @@ serve(async (req) => {
     if (userCheckError) {
       console.error("Erreur lors de la vérification de l'utilisateur:", userCheckError);
       return new Response(
-        JSON.stringify({ error: "Erreur lors de la vérification de l'utilisateur" }),
+        JSON.stringify({ success: false, error: "Erreur lors de la vérification de l'utilisateur" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -99,7 +99,7 @@ serve(async (req) => {
     if (!userExists) {
       console.error("Utilisateur non trouvé:", email);
       return new Response(
-        JSON.stringify({ error: "Utilisateur non trouvé" }),
+        JSON.stringify({ success: false, error: "Utilisateur non trouvé" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -109,14 +109,14 @@ serve(async (req) => {
     console.log("URL d'origine pour redirection:", origin);
     
     // URL explicite de redirection
-    const redirectUrl = `${origin}/reset-password?type=signup`;
-    console.log("URL de redirection configurée:", redirectUrl);
+    const redirectTo = `${origin}/reset-password?type=signup`;
+    console.log("URL de redirection configurée:", redirectTo);
 
     // Envoyer l'email de réinitialisation
     const { data: emailData, error: emailError } = await supabaseAdmin.auth.admin.resetPasswordForEmail(
       email,
       { 
-        redirectTo: redirectUrl 
+        redirectTo: redirectTo
       }
     );
 

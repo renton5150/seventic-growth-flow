@@ -32,7 +32,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
     try {
       setIsSendingInvite(true);
       
-      // Afficher un toast de chargement
+      // Afficher un toast de chargement persistant
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
       const { success, error } = await resendInvitation(user.email);
@@ -45,7 +45,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
         onActionComplete();
       } else {
         if (error?.includes("expiré")) {
-          toast.error(`L'opération prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée.`);
+          toast.error(`L'opération prend plus de temps que prévu. L'invitation a peut-être été envoyée. Veuillez vérifier la boîte de réception du destinataire.`);
         } else {
           toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
         }
