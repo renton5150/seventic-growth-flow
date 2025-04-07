@@ -38,7 +38,7 @@ serve(async (req) => {
     }
 
     // Vérifier si l'utilisateur existe avant de tenter de renvoyer l'invitation
-    const { data: userExists, error: userCheckError } = await supabaseAdmin
+    const { data: user, error: userCheckError } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("email", email)
@@ -52,7 +52,7 @@ serve(async (req) => {
       );
     }
 
-    if (!userExists) {
+    if (!user) {
       console.error("Utilisateur non trouvé:", email);
       return new Response(
         JSON.stringify({ success: false, error: "Utilisateur non trouvé" }),
@@ -68,14 +68,14 @@ serve(async (req) => {
     const redirectTo = `${origin}/reset-password?type=signup`;
     console.log("URL de redirection configurée:", redirectTo);
 
-    // Utiliser l'API resetPasswordForEmail qui est plus stable pour ce cas d'utilisation
-    const { error: emailError } = await supabaseAdmin.auth.resetPasswordForEmail(
+    // Méthode la plus stable pour le cas d'utilisation avec SMTP configuré
+    const { data: emailData, error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
       { redirectTo }
     );
 
     if (emailError) {
-      console.error("Erreur lors de l'envoi du email:", emailError);
+      console.error("Erreur lors de l'envoi de l'invitation par email:", emailError);
       return new Response(
         JSON.stringify({ success: false, error: emailError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -83,6 +83,7 @@ serve(async (req) => {
     }
 
     console.log(`Invitation renvoyée avec succès à ${email}`);
+    console.log("Réponse du serveur:", emailData);
     
     return new Response(
       JSON.stringify({ 
