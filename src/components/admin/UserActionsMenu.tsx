@@ -33,31 +33,26 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       setIsSendingInvite(true);
       
       // Afficher un toast de chargement persistant
-      const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`, {
-        duration: 10000 // Plus long pour éviter la disparition prématurée
-      });
+      const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
-      console.log(`Tentative d'envoi d'invitation à ${user.email}`);
-      
-      const { success, error, warning } = await resendInvitation(user.email);
+      const { success, error } = await resendInvitation(user.email);
       
       // Fermer le toast de chargement
       toast.dismiss(toastId);
       
       if (success) {
-        if (warning) {
-          toast.warning(warning);
-        } else {
-          toast.success(`Invitation renvoyée à ${user.email}`);
-        }
+        toast.success(`Invitation renvoyée à ${user.email}`);
         onActionComplete();
       } else {
-        console.error("Erreur lors du renvoi de l'invitation:", error);
-        toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
+        if (error?.includes("expiré")) {
+          toast.error(`L'opération prend plus de temps que prévu. L'invitation a peut-être été envoyée. Veuillez vérifier la boîte de réception du destinataire.`);
+        } else {
+          toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
+        }
       }
     } catch (error) {
-      console.error("Exception lors du renvoi de l'invitation:", error);
-      toast.error("Une erreur inattendue s'est produite lors de l'envoi de l'invitation");
+      console.error("Erreur lors du renvoi de l'invitation:", error);
+      toast.error("Impossible de renvoyer l'invitation");
     } finally {
       setIsSendingInvite(false);
     }

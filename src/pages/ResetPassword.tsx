@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { PasswordForm } from "@/components/auth/reset-password/PasswordForm";
 import { SuccessMessage } from "@/components/auth/reset-password/SuccessMessage";
 import { useResetSession } from "@/components/auth/reset-password/useResetSession";
+import { ErrorMessage } from "@/components/auth/login/ErrorMessage";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { toast } from "sonner";
 
 const ResetPassword = () => {
   const [isSuccess, setIsSuccess] = useState(false);
@@ -19,13 +20,7 @@ const ResetPassword = () => {
 
   // Affichage des paramètres d'URL pour le débogage
   useEffect(() => {
-    const hashParams = location.hash 
-      ? Object.fromEntries(new URLSearchParams(location.hash.substring(1))) 
-      : {};
-    
-    const searchParams = Object.fromEntries(new URLSearchParams(location.search));
-    
-    setUrlDebug(`Hash params: ${JSON.stringify(hashParams)}, Search params: ${JSON.stringify(searchParams)}`);
+    setUrlDebug(`Hash: ${location.hash}, Search: ${location.search}`);
   }, [location]);
 
   // Après un succès, rediriger vers la page de connexion après un délai
@@ -81,7 +76,7 @@ const ResetPassword = () => {
           </CardTitle>
           <CardDescription className="text-center">
             {mode === "setup" 
-              ? "Veuillez définir un mot de passe pour votre compte" 
+              ? "Veuillez définir un mot de passe pour votre nouveau compte" 
               : "Veuillez entrer votre nouveau mot de passe"}
           </CardDescription>
         </CardHeader>
@@ -105,7 +100,7 @@ const ResetPassword = () => {
           
           {import.meta.env.DEV && urlDebug && (
             <div className="mt-4 p-2 bg-gray-100 text-xs text-gray-600 rounded">
-              <p className="font-mono break-all">Debug: {urlDebug}</p>
+              <p className="font-mono">Debug: {urlDebug}</p>
             </div>
           )}
         </CardContent>
