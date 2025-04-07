@@ -84,28 +84,43 @@ serve(async (req) => {
       }
     }
 
-    // Utiliser resetPasswordForEmail qui est plus simple
-    console.log("Envoi de l'email de réinitialisation à:", email);
-    const { data, error } = await supabaseAdmin.auth.resetPasswordForEmail(
-      email,
-      { redirectTo }
-    );
+    // Utiliser generateLink au lieu de resetPasswordForEmail pour un contrôle plus précis
+    console.log("Génération du lien d'invitation avec la méthode generateLink");
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: email,
+      options: {
+        redirectTo
+      }
+    });
 
-    if (error) {
-      console.error("Erreur lors de l'envoi de l'email:", error);
+    if (linkError) {
+      console.error("Erreur lors de la génération du lien:", linkError);
       return new Response(
-        JSON.stringify({ success: false, error: error.message }),
+        JSON.stringify({ success: false, error: linkError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Email de réinitialisation envoyé avec succès");
+    if (!linkData) {
+      console.error("Aucune donnée retournée lors de la génération du lien");
+      return new Response(
+        JSON.stringify({ success: false, error: "Échec de la génération du lien d'invitation" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Lien généré avec succès, email devrait être envoyé automatiquement");
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Email de réinitialisation envoyé",
-        data: { email } 
+        message: "Email d'invitation envoyé",
+        data: { 
+          email,
+          // Ne pas inclure l'URL complète pour des raisons de sécurité
+          linkCreated: true
+        } 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

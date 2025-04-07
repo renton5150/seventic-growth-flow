@@ -54,7 +54,8 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       console.warn("Timeout lors de l'envoi de l'invitation:", email);
       return { 
         success: false, 
-        error: response.error.message 
+        error: response.error.message,
+        warning: "L'opération a pris plus de temps que prévu mais l'email a peut-être été envoyé. Veuillez vérifier la boîte de réception."
       };
     }
     
@@ -67,6 +68,14 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
         return { 
           success: false, 
           error: "Cet email n'est pas associé à un compte existant." 
+        };
+      }
+
+      // Message pour problème d'envoi d'email SMTP
+      if (response.error.message?.includes('email') || response.error.message?.includes('mail') || response.error.message?.includes('SMTP')) {
+        return {
+          success: false,
+          error: "Problème avec le serveur d'envoi d'emails. Vérifiez la configuration SMTP dans Supabase."
         };
       }
       

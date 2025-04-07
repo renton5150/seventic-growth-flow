@@ -35,7 +35,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       // Afficher un toast de chargement persistant
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
-      const { success, error } = await resendInvitation(user.email);
+      const { success, error, warning } = await resendInvitation(user.email);
       
       // Fermer le toast de chargement
       toast.dismiss(toastId);
@@ -43,8 +43,13 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       if (success) {
         toast.success(`Invitation renvoyée à ${user.email}`);
         onActionComplete();
+      } else if (warning) {
+        // Afficher un toast d'avertissement si l'opération a pris du temps mais peut avoir réussi
+        toast.warning(warning);
       } else {
-        if (error?.includes("expiré")) {
+        if (error?.includes("serveur d'envoi") || error?.includes("SMTP")) {
+          toast.error(`Erreur de configuration du serveur d'email. Vérifiez les paramètres SMTP dans Supabase.`);
+        } else if (error?.includes("expiré")) {
           toast.error(`L'opération prend plus de temps que prévu. L'invitation a peut-être été envoyée. Veuillez vérifier la boîte de réception du destinataire.`);
         } else {
           toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
