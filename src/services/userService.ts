@@ -1,6 +1,6 @@
 
 import { User, UserRole } from "@/types/types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 
@@ -88,8 +88,8 @@ export const createUser = async (
     console.log("Tentative de création d'un profil pour:", email, "avec ID:", userId);
     
     // Utiliser le service REST avec apikey pour contourner les restrictions RLS
-    const url = `${supabase.supabaseUrl}/rest/v1/profiles`;
-    const anonKey = supabase.supabaseKey;
+    const url = `${SUPABASE_URL}/rest/v1/profiles`;
+    const anonKey = SUPABASE_ANON_KEY;
 
     console.log("Utilisation de l'API REST pour insérer le profil");
     
