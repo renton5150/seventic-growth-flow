@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, UserCog, Mail, Trash2, Loader2 } from "lucide-react";
+import { MoreHorizontal, UserCog, Mail, Trash2, Loader2, ExternalLink } from "lucide-react";
 import { User } from "@/types/types";
 import { useState } from "react";
 import { ChangeRoleDialog } from "./ChangeRoleDialog";
@@ -33,7 +33,9 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       setIsSendingInvite(true);
       
       // Afficher un toast de chargement persistant
-      const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
+      const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`, {
+        description: "Cela peut prendre quelques instants, veuillez patienter."
+      });
       
       const { success, error, warning, details } = await resendInvitation(user.email);
       
@@ -42,49 +44,55 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       
       if (success) {
         toast.success(`Invitation renvoyée à ${user.email}`, {
-          description: "Un email avec un lien de réinitialisation de mot de passe a été envoyé. Vérifiez également dans les spams/indésirables."
+          description: "Un email avec un lien d'invitation a été envoyé. Vérifiez également dans les spams/indésirables.",
+          action: {
+            label: "Supabase Logs",
+            onClick: () => {
+              window.open("https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/functions/resend-invitation/logs", "_blank");
+            },
+          },
         });
         onActionComplete();
       } else if (warning) {
         // Afficher un toast d'avertissement si l'opération a pris du temps mais peut avoir réussi
         toast.warning(warning, {
-          description: "Vérifiez votre boîte de réception et vos spams, l'email a peut-être bien été envoyé."
+          description: "Vérifiez votre boîte de réception et vos spams, l'email a peut-être bien été envoyé. Si vous ne recevez rien, il peut y avoir un problème avec votre configuration SMTP.",
+          action: {
+            label: "Config SMTP",
+            onClick: () => {
+              window.open("https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/auth/templates", "_blank");
+            },
+          },
         });
       } else {
         // Afficher des informations de débogage dans la console
         console.error("Erreur détaillée du renvoi d'invitation:", details || error);
         
-        if (error?.includes("SMTP") || 
-           (details && typeof details === 'object' && 'message' in details && (details.message as string)?.includes("SMTP")) || 
-           (details && typeof details === 'object' && 'error' in details && (details.error as string)?.includes("SMTP"))) {
-          toast.error(`Configuration SMTP incorrecte`, {
-            description: "Vérifiez vos paramètres SMTP dans Supabase - Authentication > Email Templates & SMTP settings",
+        // Message générique complet avec plus de détails
+        toast.error(`Erreur d'envoi`, {
+          description: "Une erreur est survenue lors de l'envoi de l'invitation. Vérifiez les logs de la fonction et les paramètres SMTP.",
+          duration: 8000,
+          action: {
+            label: "Logs & SMTP",
+            onClick: () => {
+              window.open("https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/functions/resend-invitation/logs", "_blank");
+            },
+          },
+        });
+        
+        // Toast d'aide supplémentaire avec lien vers la doc
+        setTimeout(() => {
+          toast.info("Configuration SMTP requise", {
+            description: "Assurez-vous d'avoir correctement configuré un serveur SMTP dans Supabase",
+            duration: 10000,
             action: {
-              label: "Guide",
+              label: "Config",
               onClick: () => {
-                window.open("https://supabase.com/docs/guides/auth/auth-smtp", "_blank");
+                window.open("https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/auth/templates", "_blank");
               },
             },
           });
-        } else if (error?.includes("introuvable")) {
-          toast.error(`Utilisateur introuvable`, {
-            description: "Cet email n'est pas associé à un compte existant"
-          });
-        } else if (error?.includes("expiré")) {
-          toast.error(`L'opération a expiré`, {
-            description: "Vérifiez les logs de la fonction Edge pour plus d'informations"
-          });
-        } else {
-          toast.error(`Erreur d'envoi`, {
-            description: error || "Une erreur s'est produite lors de l'envoi de l'invitation",
-            action: {
-              label: "Logs",
-              onClick: () => {
-                window.open("https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/functions/resend-invitation/logs", "_blank");
-              },
-            },
-          });
-        }
+        }, 1000);
       }
     } catch (error) {
       console.error("Exception lors du renvoi de l'invitation:", error);
@@ -139,6 +147,14 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
               <Mail className="mr-2 h-4 w-4" />
             )}
             <span>{isSendingInvite ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            onClick={() => window.open("https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/auth/templates", "_blank")}
+            className="text-blue-600"
+          >
+            <ExternalLink className="mr-2 h-4 w-4" />
+            <span>Config Email SMTP</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-red-600" disabled={isDeleting || isSendingInvite}>

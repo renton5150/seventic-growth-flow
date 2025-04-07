@@ -42,6 +42,7 @@ serve(async (req) => {
     console.log("URL d'origine pour redirection:", origin);
     
     // URL explicite de redirection avec type=invite pour signaler que c'est une invitation
+    // Utilisation d'une URL absolue et complète
     const redirectTo = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection configurée:", redirectTo);
 
@@ -75,97 +76,74 @@ serve(async (req) => {
     const userId = authUsers.users[0].id;
     console.log("ID utilisateur trouvé:", userId);
 
+    // MÉTHODE DIRECTE: Utiliser l'API REST native de Supabase Auth
+    console.log("Envoi d'invitation via API REST directe");
+
+    // Construction de l'URL complète de l'API
+    const authApiUrl = `${Deno.env.get("SUPABASE_URL")}/auth/v1/invite`;
+    console.log("URL de l'API Auth utilisée:", authApiUrl);
+        
+    const inviteResponse = await fetch(authApiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
+        email: email,
+        data: { invited_at: new Date().toISOString() }
+      }),
+    });
+
+    const responseBody = await inviteResponse.text();
+    console.log(`Réponse de l'API (status ${inviteResponse.status}):`, responseBody);
+    
+    let jsonResponse;
     try {
-      // MÉTHODE 1: Utiliser admin.inviteUserByEmail qui est la méthode officielle recommandée
-      console.log("Envoi d'invitation via admin.inviteUserByEmail");
-      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: redirectTo,
-        data: {
-          invited_at: new Date().toISOString()
-        }
-      });
+      jsonResponse = JSON.parse(responseBody);
+    } catch (e) {
+      jsonResponse = { raw: responseBody };
+    }
 
-      if (inviteError) {
-        console.error("Erreur lors de l'envoi de l'invitation via inviteUserByEmail:", inviteError);
-        
-        // Essayer la méthode alternative si la première échoue
-        console.log("Tentative avec méthode alternative...");
-        
-        // MÉTHODE 2: Appel direct à l'API Auth de Supabase (méthode alternative)
-        const inviteResponse = await fetch(
-          `${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users/${userId}/invite`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
-              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            },
-            body: JSON.stringify({
-              email: email,
-              redirect_to: redirectTo,
-            }),
-          }
-        );
-
-        if (!inviteResponse.ok) {
-          const errorData = await inviteResponse.json();
-          console.error("Erreur avec méthode alternative:", errorData);
-          
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              error: "Échec de l'envoi d'invitation",
-              data: errorData
-            }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        const responseData = await inviteResponse.json();
-        console.log("Réponse de la méthode alternative:", responseData);
-        
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: "Email d'invitation envoyé par méthode alternative",
-            data: { email, method: "direct-api" } 
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      console.log("Invitation envoyée avec succès via inviteUserByEmail:", inviteData);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "Email d'invitation envoyé",
-          data: { email, method: "official-api" } 
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-      
-    } catch (inviteError) {
-      console.error("Exception lors de l'envoi de l'invitation:", inviteError);
+    if (!inviteResponse.ok) {
+      console.error("Erreur avec l'API d'invitation:", jsonResponse);
       
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Erreur serveur lors de l'envoi de l'invitation",
-          data: inviteError instanceof Error ? inviteError.message : String(inviteError)
+          error: "Échec de l'envoi d'invitation",
+          details: jsonResponse,
+          status: inviteResponse.status,
+          statusText: inviteResponse.statusText
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("Invitation envoyée avec succès via API REST:", jsonResponse);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: "Email d'invitation envoyé",
+        data: { email, method: "rest-api" } 
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+      
   } catch (error) {
     console.error("Erreur inattendue:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     
     return new Response(
       JSON.stringify({ 
         success: false, 
         error: "Erreur serveur",
-        data: error instanceof Error ? error.message : String(error)
+        message: errorMessage,
+        stack: errorStack
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

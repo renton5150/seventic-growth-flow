@@ -63,7 +63,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     if ('error' in response && response.error) {
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       
-      // Extraire les détails d'erreur si présents
+      // Récupérer les détails d'erreur s'ils sont disponibles dans data
       const errorDetails = 'data' in response ? response.data : undefined;
       
       // Message spécifique pour utilisateur introuvable
@@ -80,15 +80,6 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
         return {
           success: false,
           error: "Problème avec le serveur d'envoi d'emails. Vérifiez la configuration SMTP dans Supabase.",
-          details: errorDetails
-        };
-      }
-      
-      // Message pour problème de configuration SMTP
-      if (response.error.message?.includes('configuration SMTP')) {
-        return {
-          success: false,
-          error: response.error.message,
           details: errorDetails
         };
       }
