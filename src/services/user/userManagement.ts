@@ -44,7 +44,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     });
     
     // Appeler la fonction Edge avec une course contre la montre
-    const response = await Promise.race([
+    const response: any = await Promise.race([
       supabase.functions.invoke('resend-invitation', { body: { email } }),
       timeoutPromise
     ]);
@@ -64,7 +64,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       
       // Récupérer les détails d'erreur s'ils sont disponibles
-      const errorDetails = response.data;
+      const errorDetails = response.data || {};
       
       // Message spécifique pour utilisateur introuvable
       if (response.error.message?.includes('introuvable')) {
