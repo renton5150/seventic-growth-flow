@@ -1,4 +1,3 @@
-
 import { User, UserRole } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
@@ -166,6 +165,66 @@ export const createUser = async (
     console.error("Exception générale lors de la création de l'utilisateur:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     toast.error(`Erreur: ${errorMessage}`);
+    return { success: false, error: errorMessage };
+  }
+};
+
+// Supprimer un utilisateur
+export const deleteUser = async (userId: string): Promise<{ success: boolean; error?: string }> => {
+  console.log("Tentative de suppression de l'utilisateur:", userId);
+  
+  try {
+    // 1. Supprimer l'utilisateur de l'authentification Supabase
+    const { error: authError } = await supabase.functions.invoke('delete-user', {
+      body: { userId },
+    });
+    
+    if (authError) {
+      console.error("Erreur lors de la suppression de l'utilisateur de auth.users:", authError);
+      return { success: false, error: authError.message };
+    }
+    
+    // 2. Supprimer le profil utilisateur
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+      
+    if (profileError) {
+      console.error("Erreur lors de la suppression du profil utilisateur:", profileError);
+      return { success: false, error: profileError.message };
+    }
+    
+    console.log("Utilisateur supprimé avec succès:", userId);
+    return { success: true };
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error("Exception lors de la suppression de l'utilisateur:", error);
+    return { success: false, error: errorMessage };
+  }
+};
+
+// Renvoyer une invitation
+export const resendInvitation = async (email: string): Promise<{ success: boolean; error?: string }> => {
+  console.log("Tentative de renvoi d'invitation à:", email);
+  
+  try {
+    const { error } = await supabase.functions.invoke('resend-invitation', {
+      body: { email },
+    });
+    
+    if (error) {
+      console.error("Erreur lors du renvoi de l'invitation:", error);
+      return { success: false, error: error.message };
+    }
+    
+    console.log("Invitation renvoyée avec succès à:", email);
+    return { success: true };
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error("Exception lors du renvoi de l'invitation:", error);
     return { success: false, error: errorMessage };
   }
 };

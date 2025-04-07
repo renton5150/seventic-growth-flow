@@ -1,0 +1,9 @@
+
+{
+  "deployment": {
+    "maxMB": 10,
+    "nodeVersion": "20.x",
+    "maxDuration": 60,
+    "regions": ["eu-central-1"]
+  }
+}
