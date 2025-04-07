@@ -38,8 +38,8 @@ export const useResetSession = () => {
           errorDescription = hashParams.get("error_description");
           
           // Vérifier le mode d'après le hash
-          if (hashParams.get("type") === "signup") {
-            console.log("Mode signup détecté dans le hash");
+          if (hashParams.get("type") === "signup" || hashParams.get("type") === "invite") {
+            console.log("Mode signup/invite détecté dans le hash");
             setMode("setup");
           }
         }
@@ -56,8 +56,8 @@ export const useResetSession = () => {
           errorDescription = errorDescription || queryParams.get("error_description");
           
           // Vérifier le mode d'après les query params
-          if (queryParams.get("type") === "signup") {
-            console.log("Mode signup détecté dans les query params");
+          if (queryParams.get("type") === "signup" || queryParams.get("type") === "invite") {
+            console.log("Mode signup/invite détecté dans les query params");
             setMode("setup");
           }
         }
@@ -81,7 +81,8 @@ export const useResetSession = () => {
               toast.success("Authentification réussie");
               
               // Si mode setup et pas d'autres paramètres, forcer le mode setup
-              if (typeParam === "signup" || location.hash.includes("type=signup")) {
+              if (typeParam === "signup" || typeParam === "invite" || 
+                  location.hash.includes("type=signup") || location.hash.includes("type=invite")) {
                 console.log("Configuration du mode setup confirmée");
                 setMode("setup");
               }

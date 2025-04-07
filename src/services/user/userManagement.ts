@@ -61,6 +61,15 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     // Vérifier les erreurs normales
     if ('error' in response && response.error) {
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
+      
+      // Message spécifique pour utilisateur introuvable
+      if (response.error.message?.includes('introuvable')) {
+        return { 
+          success: false, 
+          error: "Cet email n'est pas associé à un compte existant." 
+        };
+      }
+      
       return { success: false, error: response.error.message };
     }
     

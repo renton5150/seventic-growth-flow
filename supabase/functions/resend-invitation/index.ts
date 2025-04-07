@@ -41,11 +41,50 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "https://seventic-growth-flow.lovable.app";
     console.log("URL d'origine pour redirection:", origin);
     
-    // URL explicite de redirection
-    const redirectTo = `${origin}/reset-password?type=signup`;
+    // URL explicite de redirection avec type=invite pour signaler que c'est une invitation
+    const redirectTo = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection configurée:", redirectTo);
 
-    // Utiliser resetPasswordForEmail qui est plus simple et fonctionne avec SMTP
+    // Vérifier si l'utilisateur existe
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .single();
+
+    if (userError && userError.code !== "PGRST116") { // PGRST116 = not found
+      console.error("Erreur lors de la vérification de l'utilisateur:", userError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Erreur lors de la vérification de l'utilisateur" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Si on ne trouve pas l'utilisateur dans les profils, vérifier dans auth.users
+    if (!userData) {
+      console.log("Utilisateur non trouvé dans les profils, vérification dans auth.users");
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
+        filter: { email: email }
+      });
+
+      if (authError) {
+        console.error("Erreur lors de la vérification dans auth.users:", authError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Utilisateur introuvable" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!authUsers || authUsers.users.length === 0) {
+        console.error("Utilisateur non trouvé dans auth.users");
+        return new Response(
+          JSON.stringify({ success: false, error: "Utilisateur introuvable" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Utiliser resetPasswordForEmail qui est plus simple
     console.log("Envoi de l'email de réinitialisation à:", email);
     const { data, error } = await supabaseAdmin.auth.resetPasswordForEmail(
       email,
