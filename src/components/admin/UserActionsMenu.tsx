@@ -24,23 +24,42 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const { toast } = useToast();
 
   const handleResendInvite = async () => {
-    // Dans un vrai projet, nous aurions une fonction pour renvoyer l'invitation
-    toast({
-      title: "Invitation renvoyée",
-      description: `Une nouvelle invitation a été envoyée à ${user.email}`,
-    });
+    try {
+      // Dans un vrai projet, nous aurions une fonction pour renvoyer l'invitation
+      toast({
+        title: "Invitation renvoyée",
+        description: `Une nouvelle invitation a été envoyée à ${user.email}`,
+      });
+    } catch (error) {
+      console.error("Erreur lors du renvoi de l'invitation:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de renvoyer l'invitation",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteUser = async () => {
     try {
-      // Ici, nous simulons la suppression d'un utilisateur
-      // Dans un vrai projet, nous utiliserions Supabase Admin pour le faire
+      // Suppression du profil utilisateur
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", user.id);
+
+      if (error) {
+        throw error;
+      }
+
       toast({
         title: "Utilisateur supprimé",
         description: `${user.name} a été supprimé avec succès`,
       });
+      
       onActionComplete();
     } catch (error) {
+      console.error("Erreur lors de la suppression de l'utilisateur:", error);
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors de la suppression de l'utilisateur",

@@ -19,6 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { User, UserRole } from "@/types/types";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChangeRoleDialogProps {
   open: boolean;
@@ -46,9 +47,15 @@ export const ChangeRoleDialog = ({
     setIsLoading(true);
 
     try {
-      // Dans un vrai projet, nous aurions une fonction pour mettre à jour le rôle
-      // Simulons juste une attente de 500ms
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Mettre à jour le rôle de l'utilisateur dans Supabase
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: selectedRole })
+        .eq("id", user.id);
+
+      if (error) {
+        throw error;
+      }
       
       toast({
         title: "Rôle mis à jour",
@@ -58,6 +65,7 @@ export const ChangeRoleDialog = ({
       onRoleChanged();
       onOpenChange(false);
     } catch (error) {
+      console.error("Erreur lors de la mise à jour du rôle:", error);
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors du changement de rôle",
@@ -98,7 +106,7 @@ export const ChangeRoleDialog = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Annuler
           </Button>
           <Button onClick={handleSave} disabled={isLoading}>
