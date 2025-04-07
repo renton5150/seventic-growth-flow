@@ -30,7 +30,11 @@ export const createAuthSessionHelpers = (
           
           if (userProfile) {
             setUser(userProfile);
+          } else {
+            console.error("Impossible de charger le profil utilisateur");
           }
+        } catch (error) {
+          console.error("Erreur lors du chargement du profil:", error);
         } finally {
           setLoading(false);
         }
@@ -61,10 +65,14 @@ export const createAuthSessionHelpers = (
             if (userProfile) {
               console.log("Profil utilisateur chargé:", userProfile.role);
               setUser(userProfile);
+            } else {
+              console.error("Profil utilisateur non chargé");
+              setLoading(false);
             }
           } catch (error) {
             console.error("Erreur lors du chargement du profil:", error);
             toast.error("Erreur lors du chargement de votre profil");
+            setLoading(false);
           } finally {
             setLoading(false);
           }

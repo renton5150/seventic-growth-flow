@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
           console.log("Timeout de chargement atteint, initialisation terminée");
-          setAuthState(prev => ({ ...prev, loading: false }));
+          setLoading(false);
         }
       }, 3000);
     };
