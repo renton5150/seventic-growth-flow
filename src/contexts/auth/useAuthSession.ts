@@ -72,7 +72,7 @@ export const createAuthSessionHelpers = (
         console.log("Événement d'authentification:", event);
         
         // Immediately set loading to false for certain events
-        if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        if (event === 'SIGNED_OUT') {
           console.log(`Événement ${event} détecté, mise à jour immédiate de l'état`);
           setUser(null);
           setLoading(false);
