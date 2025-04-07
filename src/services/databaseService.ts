@@ -7,6 +7,21 @@ const demoDatabases: DatabaseFile[] = [];
 
 const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Map de données Supabase (snake_case) vers l'interface DatabaseFile (camelCase)
+const mapToDatabaseFile = (data: any): DatabaseFile => {
+  return {
+    id: data.id,
+    name: data.name,
+    fileName: data.file_name,
+    fileUrl: data.file_url,
+    fileType: data.file_type,
+    fileSize: data.file_size,
+    uploadedBy: data.uploaded_by,
+    uploaderName: data.uploader_name,
+    createdAt: data.created_at
+  };
+};
+
 // Télécharger un fichier de base de données
 export const uploadDatabaseFile = async (file: File, userId: string): Promise<boolean> => {
   try {
@@ -162,7 +177,8 @@ export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
       return [];
     }
     
-    return data as DatabaseFile[];
+    // Convertir les données du format snake_case au format camelCase
+    return data.map(mapToDatabaseFile);
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des bases de données:", error);
     return [];
@@ -188,7 +204,8 @@ export const getDatabaseById = async (databaseId: string): Promise<DatabaseFile 
       return null;
     }
     
-    return data as DatabaseFile;
+    // Convertir les données du format snake_case au format camelCase
+    return mapToDatabaseFile(data);
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération de la base de données:", error);
     return null;
