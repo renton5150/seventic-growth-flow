@@ -7,6 +7,7 @@ import { DemoAlert } from "./DemoAlert";
 import { NetworkStatus } from "./NetworkStatus";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LoginFormProps {
   showDemoMode?: boolean;
@@ -16,6 +17,7 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
   const [formMode, setFormMode] = useState<"login" | "signup">("login");
   const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("online");
   const [error, setError] = useState<string | null>(null);
+  const [isSigningUp, setIsSigningUp] = useState(false);
   const { login } = useAuth();
 
   const handleLogin = async (email: string, password: string) => {
@@ -46,13 +48,68 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
   };
 
   const handleSignup = async (email: string, password: string, name: string) => {
+    setError(null);
+    setIsSigningUp(true);
+    
     try {
-      toast.info("Inscription en cours de développement");
-      return true;
+      if (!email || !password || !name) {
+        setError("Veuillez remplir tous les champs");
+        return false;
+      }
+      
+      if (password.length < 6) {
+        setError("Le mot de passe doit contenir au moins 6 caractères");
+        return false;
+      }
+      
+      console.log("Tentative d'inscription avec:", email);
+      
+      // Créer un nouveau compte
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            role: "sdr"  // Rôle par défaut
+          }
+        }
+      });
+      
+      if (signUpError) {
+        console.error("Erreur lors de l'inscription:", signUpError);
+        
+        if (signUpError.message.includes("already registered")) {
+          setError("Cette adresse email est déjà utilisée");
+        } else {
+          setError(signUpError.message);
+        }
+        
+        return false;
+      }
+      
+      if (data.user) {
+        toast.success("Inscription réussie", {
+          description: "Votre compte a été créé. Vous pouvez maintenant vous connecter."
+        });
+        setFormMode("login");
+        return true;
+      } else {
+        toast.info("Vérification requise", {
+          description: "Veuillez vérifier votre email pour confirmer votre compte."
+        });
+        return true;
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue";
       setError(errorMessage);
+      console.error("Erreur lors de l'inscription:", errorMessage);
+      toast.error("Erreur d'inscription", {
+        description: errorMessage
+      });
       return false;
+    } finally {
+      setIsSigningUp(false);
     }
   };
 
@@ -82,6 +139,7 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
             <SignupFormContent 
               isOffline={networkStatus === "offline"}
               onSubmit={handleSignup}
+              isSubmitting={isSigningUp}
             />
           )}
         </div>

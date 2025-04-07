@@ -1,4 +1,3 @@
-
 import { User, UserRole } from "@/types/types";
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
@@ -66,7 +65,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
   }
 };
 
-// Créer un nouvel utilisateur - avec la fonction sécurisée pour contourner RLS
+// Créer un nouvel utilisateur avec email et rôle seulement
 export const createUser = async (
   email: string, 
   name: string, 
@@ -81,39 +80,71 @@ export const createUser = async (
   }
   
   try {
-    // Générer un UUID pour le nouvel utilisateur
-    const userId = uuidv4();
-    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`;
+    // Générer un mot de passe aléatoire temporaire pour l'utilisateur
+    const tempPassword = uuidv4().substring(0, 12) + "!Aa1";
     
-    console.log("Utilisation de la fonction sécurisée pour créer le profil avec l'ID:", userId);
+    console.log("Création de l'utilisateur dans Supabase Auth...");
     
-    // Appeler la fonction sécurisée pour créer le profil
-    const { data, error } = await supabase.rpc('create_user_profile', {
-      user_id: userId,
-      user_email: email,
-      user_name: name,
-      user_role: role,
-      user_avatar: avatarUrl
+    // 1. Créer l'utilisateur dans auth.users en premier
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: tempPassword,
+      email_confirm: true, // Auto-confirmer l'email
+      user_metadata: {
+        name: name,
+        role: role
+      }
     });
 
-    if (error) {
-      console.error("Erreur lors de l'appel de la fonction sécurisée:", error);
-      toast.error("Erreur: " + error.message);
-      return { success: false, error: error.message };
+    if (authError) {
+      console.error("Erreur lors de la création de l'utilisateur:", authError);
+      toast.error("Erreur: " + authError.message);
+      return { success: false, error: authError.message };
     }
 
-    console.log("Résultat de la fonction sécurisée:", data);
+    if (!authData.user) {
+      console.error("Utilisateur non créé");
+      return { success: false, error: "Échec de la création de l'utilisateur" };
+    }
+
+    console.log("Utilisateur créé avec succès dans auth.users:", authData.user.id);
     
-    // Vérifier si le résultat contient une erreur
-    if (data && typeof data === 'object' && 'error' in data) {
-      console.error("Erreur retournée par la fonction:", data.error);
-      toast.error(`Erreur de création: ${data.error}`);
-      return { success: false, error: data.error as string };
+    // 2. Attendre un court instant pour s'assurer que le trigger a eu le temps de s'exécuter
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // 3. Vérifier si le profil a été créé automatiquement par le trigger
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+    
+    if (profileError) {
+      console.error("Erreur lors de la vérification du profil:", profileError);
+      // On continue car on va mettre à jour ou créer le profil
+    }
+    
+    // 4. Mettre à jour ou créer le profil avec les informations complètes
+    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`;
+    
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: authData.user.id,
+        email: email,
+        name: name,
+        role: role,
+        avatar: avatarUrl
+      }, { onConflict: 'id' });
+    
+    if (updateError) {
+      console.error("Erreur lors de la mise à jour du profil:", updateError);
+      toast.error("Profil créé mais erreur lors de la mise à jour des détails");
     }
     
     // Créer l'objet utilisateur à retourner
     const newUser: User = {
-      id: userId,
+      id: authData.user.id,
       email: email,
       name: name,
       role: role,

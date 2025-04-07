@@ -11,19 +11,21 @@ interface SignupFormContentProps {
   isOffline: boolean;
   isAdminSignup?: boolean;
   onToggleAdminSignup?: () => void;
+  isSubmitting?: boolean;
 }
 
 export const SignupFormContent = ({ 
   onSubmit, 
   isOffline, 
   isAdminSignup = false,
-  onToggleAdminSignup
+  onToggleAdminSignup,
+  isSubmitting = false
 }: SignupFormContentProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [internalSubmitting, setInternalSubmitting] = useState(false);
   
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
@@ -31,14 +33,16 @@ export const SignupFormContent = ({
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setInternalSubmitting(true);
     
     try {
       await onSubmit(email, password, name);
     } finally {
-      setIsSubmitting(false);
+      setInternalSubmitting(false);
     }
   };
+  
+  const effectiveIsSubmitting = isSubmitting || internalSubmitting;
   
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -53,7 +57,7 @@ export const SignupFormContent = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="pl-10"
-            disabled={isSubmitting || isOffline}
+            disabled={effectiveIsSubmitting || isOffline}
           />
         </div>
       </div>
@@ -70,7 +74,7 @@ export const SignupFormContent = ({
             onChange={(e) => setEmail(e.target.value)}
             required
             className="pl-10"
-            disabled={isSubmitting || isOffline}
+            disabled={effectiveIsSubmitting || isOffline}
           />
         </div>
       </div>
@@ -87,7 +91,7 @@ export const SignupFormContent = ({
             required
             className="pl-10"
             minLength={6}
-            disabled={isSubmitting || isOffline}
+            disabled={effectiveIsSubmitting || isOffline}
           />
           <Button 
             type="button"
@@ -95,7 +99,7 @@ export const SignupFormContent = ({
             size="icon"
             className="absolute right-0 top-0 h-full px-3"
             onClick={toggleShowPassword}
-            disabled={isSubmitting || isOffline}
+            disabled={effectiveIsSubmitting || isOffline}
           >
             {showPassword ? 
               <EyeOff className="h-4 w-4 text-gray-500" /> : 
@@ -112,7 +116,7 @@ export const SignupFormContent = ({
             id="admin"
             checked={isAdminSignup}
             onCheckedChange={onToggleAdminSignup}
-            disabled={isSubmitting || isOffline}
+            disabled={effectiveIsSubmitting || isOffline}
           />
           <div className="grid gap-1.5 leading-none">
             <Label
@@ -129,9 +133,9 @@ export const SignupFormContent = ({
       <Button 
         type="submit" 
         className="w-full bg-seventic-500 hover:bg-seventic-600" 
-        disabled={isSubmitting || isOffline}
+        disabled={effectiveIsSubmitting || isOffline}
       >
-        {isSubmitting ? (
+        {effectiveIsSubmitting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
             Inscription en cours...

@@ -9,7 +9,7 @@ import { UserRole } from "@/types/types";
 import { createUser } from "@/services/userService";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -161,7 +161,14 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             Annuler
           </Button>
           <Button onClick={handleInvite} disabled={isLoading}>
-            {isLoading ? "Ajout en cours..." : "Ajouter l'utilisateur"}
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Ajout en cours...
+              </>
+            ) : (
+              "Ajouter l'utilisateur"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

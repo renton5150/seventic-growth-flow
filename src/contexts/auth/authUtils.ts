@@ -55,12 +55,14 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
         id: user.id,
         email: user.email || '',
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'Nouvel utilisateur',
-        role
+        role,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_metadata?.name || 'User')}&background=7E69AB&color=fff`
       };
       
+      // Utilisation de upsert au lieu de insert pour éviter les doublons
       const { error: insertError } = await supabase
         .from('profiles')
-        .insert(newUser);
+        .upsert(newUser);
         
       if (insertError) {
         console.error("Erreur lors de la création du profil:", insertError);
@@ -74,7 +76,7 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
         email: newUser.email,
         name: newUser.name,
         role: newUser.role,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newUser.name)}&background=7E69AB&color=fff`
+        avatar: newUser.avatar
       };
       
       console.log("Nouveau profil créé:", appUser);
