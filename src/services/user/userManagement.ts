@@ -32,15 +32,29 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
-    // Appeler la fonction Edge avec un délai d'expiration plus long (30 secondes)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes
+    // Créer un timeout manuellement au lieu d'utiliser AbortController
+    let isTimedOut = false;
+    const timeoutId = setTimeout(() => {
+      isTimedOut = true;
+    }, 30000); // 30 secondes
     
-    // Appeler la fonction Edge avec signal d'annulation
-    const response = await supabase.functions.invoke('resend-invitation', {
-      body: { email },
-      signal: controller.signal
-    });
+    // Appeler la fonction Edge sans signal d'annulation
+    const response = await Promise.race([
+      supabase.functions.invoke('resend-invitation', {
+        body: { email }
+      }),
+      new Promise<any>((resolve) => {
+        setTimeout(() => {
+          if (isTimedOut) {
+            resolve({
+              error: {
+                message: "L'opération a expiré après 30 secondes. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée."
+              }
+            });
+          }
+        }, 30000);
+      })
+    ]);
     
     // Nettoyer le timeout
     clearTimeout(timeoutId);
@@ -64,15 +78,6 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     console.log("Invitation renvoyée avec succès à:", email);
     return { success: true };
   } catch (error) {
-    // Gestion spécifique pour les erreurs d'expiration
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error("Délai d'attente dépassé lors du renvoi de l'invitation");
-      return { 
-        success: false, 
-        error: "L'opération a expiré après 30 secondes. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée." 
-      };
-    }
-    
     // Autres erreurs
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Exception lors du renvoi de l'invitation:", error);
