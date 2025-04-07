@@ -32,7 +32,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
-    // Créer un timeout manuellement
+    // Créer un timeout manuellement pour éviter les attentes trop longues
     const timeoutPromise = new Promise<{ error: { message: string } }>((resolve) => {
       setTimeout(() => {
         resolve({
@@ -53,8 +53,8 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     if ('error' in response && response.error?.message?.includes('expiré')) {
       console.warn("Timeout lors de l'envoi de l'invitation:", email);
       return { 
-        success: false, 
-        error: response.error.message 
+        success: true, 
+        warning: response.error.message 
       };
     }
     
@@ -63,7 +63,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       
       // Message spécifique pour utilisateur introuvable
-      if (response.error.message?.includes('introuvable')) {
+      if (response.error.message?.includes('introuvable') || response.error.message?.includes('not found')) {
         return { 
           success: false, 
           error: "Cet email n'est pas associé à un compte existant." 
