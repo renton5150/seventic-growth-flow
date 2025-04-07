@@ -26,8 +26,12 @@ export const createUser = async (
     
     console.log("Création de l'utilisateur dans Supabase Auth...");
     
+    // Récupérer l'origine pour l'URL de redirection
+    const origin = window.location.origin;
+    const redirectTo = `${origin}/reset-password?type=signup`;
+    console.log("URL de redirection pour la confirmation:", redirectTo);
+    
     // Utiliser signUp pour créer un nouvel utilisateur
-    // C'est la méthode recommandée car elle fonctionne avec les clés anon
     const { data, error } = await supabase.auth.signUp({
       email,
       password: tempPassword,
@@ -36,8 +40,7 @@ export const createUser = async (
           name,
           role
         },
-        // Ajouter l'URL de redirection pour la confirmation d'email
-        emailRedirectTo: `${window.location.origin}/reset-password?type=signup`,
+        emailRedirectTo: redirectTo,
       }
     });
 

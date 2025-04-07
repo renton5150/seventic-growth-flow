@@ -97,10 +97,10 @@ serve(async (req) => {
     }
 
     // Récupérer l'origine de la requête pour utiliser comme URL de redirection
-    const origin = req.headers.get("origin") || "https://seventic.com";
+    const origin = req.headers.get("origin") || "https://seventic-growth-flow.lovable.app";
     console.log("URL d'origine pour redirection:", origin);
 
-    // Générer un lien d'invitation
+    // Générer un lien d'invitation avec le type signup explicitement défini
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: email,
@@ -120,11 +120,21 @@ serve(async (req) => {
     console.log(`Invitation renvoyée avec succès à ${email}`);
     console.log("URL générée:", inviteData?.properties?.action_link || "URL non disponible");
     
+    // Vérifier que le lien contient bien l'URL de redirection et le paramètre type=signup
+    const actionLink = inviteData?.properties?.action_link || "";
+    if (!actionLink.includes("type=signup") && !actionLink.includes("reset-password")) {
+      console.warn("Attention: Le lien généré ne contient pas les paramètres attendus");
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: "Invitation renvoyée avec succès",
-        data: { email } 
+        data: { 
+          email,
+          // Inclure le lien généré dans la réponse pour débogage
+          link: actionLink
+        } 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

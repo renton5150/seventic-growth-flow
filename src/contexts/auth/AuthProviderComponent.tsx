@@ -22,9 +22,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleAuthRedirect = async () => {
       try {
-        if (window.location.hash && (window.location.hash.includes("access_token") || window.location.hash.includes("error"))) {
+        // Vérifier si la page actuelle contient un hash avec des tokens
+        if (window.location.hash && (
+          window.location.hash.includes("access_token") || 
+          window.location.hash.includes("error")
+        )) {
           console.log("Détection d'une redirection d'authentification avec hash");
           
+          // Si c'est une authentification de type signup, rediriger vers la page reset-password
+          if (window.location.hash.includes("type=signup")) {
+            console.log("Redirection de type signup détectée, redirection vers reset-password");
+            
+            // Conserver le hash lors de la redirection
+            if (window.location.pathname !== "/reset-password") {
+              const fullHash = window.location.hash;
+              console.log("Redirection vers /reset-password avec hash");
+              // Rediriger sans perdre le hash
+              window.location.href = `/reset-password${fullHash}`;
+              return; // Arrêter l'exécution ici pour éviter de traiter le hash deux fois
+            }
+          }
+          
+          // Pour les autres types d'authentification, traiter le token
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const accessToken = hashParams.get("access_token");
           
@@ -40,20 +59,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               if (error) {
                 console.error("Erreur lors de la configuration de la session:", error);
+                toast.error(`Erreur d'authentification: ${error.message}`);
               } else {
                 console.log("Session définie avec succès à partir de l'URL");
+                toast.success("Authentification réussie");
               }
             } catch (err) {
               console.error("Erreur lors de la définition de la session:", err);
+              toast.error("Erreur lors de l'authentification");
             }
           }
         }
 
+        // Vérifier les paramètres dans la query string pour les erreurs
         const params = new URLSearchParams(window.location.search);
         if (params.get('error')) {
           console.error("Erreur d'authentification détectée dans l'URL:", params.get('error_description'));
           toast.error(params.get('error_description') || "Erreur d'authentification");
         }
+        
+        // Traitement spécial pour les redirections de type signup dans la query string
+        if (params.get('type') === 'signup' && window.location.pathname !== "/reset-password") {
+          console.log("Redirection de type signup détectée dans les query params");
+          // Rediriger vers la page de réinitialisation
+          window.location.href = `/reset-password${window.location.search}`;
+          return;
+        }
+        
       } catch (err) {
         console.error("Erreur lors du traitement des paramètres d'authentification:", err);
       }
@@ -67,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
-    // Shorter safety timeout (5 seconds instead of 10)
+    // Timeout plus court pour une meilleure expérience utilisateur
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
@@ -84,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const subscription = sessionHelpers.setupAuthListener();
     
-    // Introduce small delay before checking session to avoid race conditions
+    // Petit délai avant de vérifier la session pour éviter les conditions de concurrence
     setTimeout(() => {
       if (mounted) {
         sessionHelpers.checkSession()

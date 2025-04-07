@@ -1,13 +1,15 @@
 
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const useResetSession = () => {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"reset" | "setup">("reset");
+  const [isProcessingToken, setIsProcessingToken] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Récupérer les paramètres de l'URL et configurer la session
   useEffect(() => {
@@ -17,67 +19,98 @@ export const useResetSession = () => {
         console.log("URL hash:", location.hash);
         console.log("URL search:", location.search);
         
-        // Essayer d'abord de récupérer les tokens depuis l'URL
-        let queryParams = new URLSearchParams(location.search);
-        let accessToken = queryParams.get("access_token");
-        let refreshToken = queryParams.get("refresh_token");
-        let type = queryParams.get("type");
-
-        // Si pas de tokens dans les query params, essayer depuis le hash
-        if (!accessToken && location.hash) {
-          console.log("Recherche de tokens dans le hash URL");
+        // Variables pour stocker les tokens et les paramètres
+        let accessToken: string | null = null;
+        let refreshToken: string | null = null;
+        let typeParam: string | null = null;
+        let errorCode: string | null = null;
+        let errorDescription: string | null = null;
+        
+        // Vérifier d'abord le hash (prioritaire car contient souvent les tokens)
+        if (location.hash) {
+          console.log("Analyse du hash URL");
           const hashParams = new URLSearchParams(location.hash.substring(1));
+          
           accessToken = hashParams.get("access_token");
           refreshToken = hashParams.get("refresh_token");
-          type = hashParams.get("type");
+          typeParam = hashParams.get("type");
+          errorCode = hashParams.get("error");
+          errorDescription = hashParams.get("error_description");
+          
+          // Vérifier le mode d'après le hash
+          if (hashParams.get("type") === "signup") {
+            console.log("Mode signup détecté dans le hash");
+            setMode("setup");
+          }
         }
-
-        // Vérifier si on a un token de vérification d'email
-        if (location.hash && location.hash.includes("type=signup")) {
-          console.log("Détection du mode configuration (signup)");
-          setMode("setup");
-        } else if (type === "signup") {
-          console.log("Détection du mode configuration via query parameter");
-          setMode("setup");
+        
+        // Si on n'a pas trouvé de tokens dans le hash, vérifier les query params
+        if (!accessToken) {
+          console.log("Recherche dans les query params");
+          const queryParams = new URLSearchParams(location.search);
+          
+          accessToken = accessToken || queryParams.get("access_token");
+          refreshToken = refreshToken || queryParams.get("refresh_token");
+          typeParam = typeParam || queryParams.get("type");
+          errorCode = errorCode || queryParams.get("error");
+          errorDescription = errorDescription || queryParams.get("error_description");
+          
+          // Vérifier le mode d'après les query params
+          if (queryParams.get("type") === "signup") {
+            console.log("Mode signup détecté dans les query params");
+            setMode("setup");
+          }
         }
 
         // Si on a un token, configurer la session
         if (accessToken) {
           console.log("Access token trouvé, configuration de la session");
           
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || "",
-          });
+          try {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || "",
+            });
 
-          if (error) {
-            console.error("Erreur lors de la configuration de la session:", error);
-            setError(`Erreur d'authentification: ${error.message}`);
-          } else {
-            console.log("Session configurée avec succès");
+            if (sessionError) {
+              console.error("Erreur lors de la configuration de la session:", sessionError);
+              setError(`Erreur d'authentification: ${sessionError.message}`);
+              toast.error(`Erreur d'authentification: ${sessionError.message}`);
+            } else {
+              console.log("Session configurée avec succès");
+              toast.success("Authentification réussie");
+              
+              // Si mode setup et pas d'autres paramètres, forcer le mode setup
+              if (typeParam === "signup" || location.hash.includes("type=signup")) {
+                console.log("Configuration du mode setup confirmée");
+                setMode("setup");
+              }
+            }
+          } catch (sessionErr) {
+            console.error("Exception lors de la configuration de session:", sessionErr);
+            setError("Une erreur s'est produite lors de l'authentification. Veuillez réessayer.");
           }
-        } else {
-          // Vérifier s'il y a un code d'erreur dans l'URL
-          const errorCode = queryParams.get("error");
-          const errorDescription = queryParams.get("error_description");
-          
-          if (errorCode) {
-            console.error("Erreur dans les paramètres URL:", errorCode, errorDescription);
-            setError(`Erreur: ${errorDescription || errorCode}`);
-          } else if (!location.hash && !queryParams.toString()) {
-            // Si aucun paramètre et aucun hash, probablement accès direct à la page
-            console.error("Accès direct à la page sans paramètres");
-            setError("Lien invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.");
-          }
+        } else if (errorCode) {
+          // Si pas de token mais un code d'erreur, afficher l'erreur
+          console.error("Erreur dans les paramètres URL:", errorCode, errorDescription);
+          setError(`Erreur: ${errorDescription || errorCode}`);
+        } else if (!location.hash && !location.search) {
+          // Si aucun paramètre et aucun hash, probablement accès direct à la page
+          console.error("Accès direct à la page sans paramètres");
+          setError("Lien invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.");
         }
+
       } catch (err) {
         console.error("Erreur lors de l'analyse des paramètres URL:", err);
-        setError("Une erreur s'est produite lors du traitement du lien. Veuillez réessayer ou demander un nouveau lien.");
+        setError("Une erreur s'est produite lors du traitement du lien. Veuillez réessayer.");
+      } finally {
+        // Toujours terminer le traitement du token
+        setIsProcessingToken(false);
       }
     };
 
     setupSession();
-  }, [location]);
+  }, [location, navigate]);
 
-  return { error, setError, mode };
+  return { error, setError, mode, isProcessingToken };
 };
