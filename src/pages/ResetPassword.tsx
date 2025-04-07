@@ -50,6 +50,10 @@ const ResetPassword = () => {
   useEffect(() => {
     const setupSession = async () => {
       try {
+        console.log("Initialisation de la page ResetPassword");
+        console.log("URL hash:", location.hash);
+        console.log("URL search:", location.search);
+        
         // Essayer d'abord de récupérer les tokens depuis l'URL
         let queryParams = new URLSearchParams(location.search);
         let accessToken = queryParams.get("access_token");
@@ -57,7 +61,8 @@ const ResetPassword = () => {
         let type = queryParams.get("type");
 
         // Si pas de tokens dans les query params, essayer depuis le hash
-        if (!accessToken) {
+        if (!accessToken && location.hash) {
+          console.log("Recherche de tokens dans le hash URL");
           const hashParams = new URLSearchParams(location.hash.substring(1));
           accessToken = hashParams.get("access_token");
           refreshToken = hashParams.get("refresh_token");
@@ -66,8 +71,10 @@ const ResetPassword = () => {
 
         // Vérifier si on a un token de vérification d'email
         if (location.hash && location.hash.includes("type=signup")) {
+          console.log("Détection du mode configuration (signup)");
           setMode("setup");
         } else if (type === "signup") {
+          console.log("Détection du mode configuration via query parameter");
           setMode("setup");
         }
 
@@ -83,6 +90,8 @@ const ResetPassword = () => {
           if (error) {
             console.error("Erreur lors de la configuration de la session:", error);
             setError(`Erreur d'authentification: ${error.message}`);
+          } else {
+            console.log("Session configurée avec succès");
           }
         } else {
           // Vérifier s'il y a un code d'erreur dans l'URL
@@ -94,6 +103,7 @@ const ResetPassword = () => {
             setError(`Erreur: ${errorDescription || errorCode}`);
           } else if (!location.hash && !queryParams.toString()) {
             // Si aucun paramètre et aucun hash, probablement accès direct à la page
+            console.error("Accès direct à la page sans paramètres");
             setError("Lien invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.");
           }
         }
@@ -111,6 +121,8 @@ const ResetPassword = () => {
     setError(null);
 
     try {
+      console.log(`Tentative de ${mode === 'setup' ? 'configuration' : 'réinitialisation'} du mot de passe`);
+      
       // Mettre à jour le mot de passe
       const { error } = await supabase.auth.updateUser({
         password: values.password,
@@ -124,6 +136,7 @@ const ResetPassword = () => {
       }
 
       // Succès
+      console.log("Mot de passe mis à jour avec succès");
       setIsSuccess(true);
       toast.success(mode === "setup" ? 
         "Mot de passe défini avec succès" : 

@@ -18,7 +18,7 @@ serve(async (req) => {
     console.log("Fonction resend-invitation appelée");
     
     // Créer un client Supabase avec la clé secrète pour avoir des permissions admin
-    const supabaseClient = createClient(
+    const supabaseAdmin = createClient(
       // @ts-ignore - Deno.env is available in Supabase Edge Functions
       Deno.env.get("SUPABASE_URL"),
       // @ts-ignore
@@ -37,7 +37,7 @@ serve(async (req) => {
 
     // Vérifier que l'utilisateur est autorisé (admin uniquement)
     const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
       console.error("Erreur d'authentification:", authError);
       return new Response(
@@ -47,7 +47,7 @@ serve(async (req) => {
     }
 
     // Vérifier que l'utilisateur est un admin
-    const { data: profile, error: profileError } = await supabaseClient
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", user.id)
@@ -82,7 +82,7 @@ serve(async (req) => {
     console.log(`Tentative de renvoi d'invitation à: ${email}`);
 
     // Vérifier si l'utilisateur existe avant de tenter de renvoyer l'invitation
-    const { data: userExists, error: userCheckError } = await supabaseClient
+    const { data: userExists, error: userCheckError } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("email", email)
@@ -96,25 +96,18 @@ serve(async (req) => {
       );
     }
 
-    // Utiliser Promise.race pour définir un timeout
-    const invitePromise = supabaseClient.auth.admin.generateLink({
+    // Récupérer l'origine de la requête pour utiliser comme URL de redirection
+    const origin = req.headers.get("origin") || "https://seventic.com";
+    console.log("URL d'origine pour redirection:", origin);
+
+    // Générer un lien d'invitation
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: email,
       options: {
-        redirectTo: `${req.headers.get("origin") || "https://seventic.com"}/reset-password?type=signup`
+        redirectTo: `${origin}/reset-password?type=signup`
       }
     });
-    
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Délai d'attente dépassé")), 10000);
-    });
-
-    // Générer un lien de réinitialisation de mot de passe avec un timeout
-    const { data: inviteData, error: inviteError } = await Promise.race([invitePromise, timeoutPromise])
-      .catch(error => {
-        console.error("Erreur lors de l'envoi d'invitation:", error.message);
-        return { data: null, error };
-      });
 
     if (inviteError) {
       console.error("Erreur lors du renvoi de l'invitation:", inviteError);
@@ -125,6 +118,8 @@ serve(async (req) => {
     }
 
     console.log(`Invitation renvoyée avec succès à ${email}`);
+    console.log("URL générée:", inviteData?.properties?.action_link || "URL non disponible");
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
