@@ -1,6 +1,10 @@
 
-import { User as SupabaseUser } from "@supabase/supabase-js";
-import { User, UserRole } from "@/types/types";
+import { User } from "@/types/types";
+
+export interface AuthState {
+  user: User | null;
+  loading: boolean;
+}
 
 export interface AuthContextType {
   user: User | null;
@@ -10,10 +14,5 @@ export interface AuthContextType {
   isAdmin: boolean;
   isSDR: boolean;
   isGrowth: boolean;
-  loading: boolean;
-}
-
-export interface AuthState {
-  user: User | null;
   loading: boolean;
 }

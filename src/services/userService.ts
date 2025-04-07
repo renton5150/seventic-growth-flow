@@ -66,13 +66,13 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
   }
 };
 
-// Créer un nouvel utilisateur - Approche directe sans utiliser l'API d'admin
+// Créer un nouvel utilisateur - avec meilleure gestion des erreurs et logs supplémentaires
 export const createUser = async (
   email: string, 
   name: string, 
   role: UserRole
 ): Promise<{ success: boolean; error?: string; user?: User }> => {
-  console.log("Création d'un nouvel utilisateur:", { email, name, role });
+  console.log("Début de la création d'un nouvel utilisateur:", { email, name, role });
   
   // Vérification supplémentaire pour s'assurer que le rôle est valide
   if (!isValidUserRole(role)) {
@@ -89,7 +89,15 @@ export const createUser = async (
     
     console.log("Tentative de création d'un profil pour:", email, "avec ID:", userId);
     
-    // Insérer directement dans la table profiles
+    // Insérer directement dans la table profiles avec plus de logs
+    console.log("Insertion dans la table profiles avec les données:", {
+      id: userId,
+      email: email,
+      name: name,
+      role: role,
+      avatar: avatarUrl
+    });
+    
     const { data, error } = await supabase
       .from('profiles')
       .insert({
@@ -103,11 +111,12 @@ export const createUser = async (
       .select();
     
     if (error) {
-      console.error("Erreur lors de la création du profil:", error);
+      console.error("Erreur de Supabase lors de la création du profil:", error);
+      toast.error(`Erreur: ${error.message}`);
       return { success: false, error: error.message };
     }
     
-    console.log("Profil créé avec succès. Données retournées:", data);
+    console.log("Profil créé avec succès. Données retournées par Supabase:", data);
     
     // Créer l'objet utilisateur à retourner
     const newUser: User = {
