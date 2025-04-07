@@ -22,11 +22,7 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const { login } = useAuth();
 
-  // Vérification initiale de la connexion au serveur
-  useState(() => {
-    checkServerConnection();
-  });
-
+  // Define the checkServerConnection function first before using it
   const checkServerConnection = async () => {
     try {
       setNetworkStatus("checking");
@@ -60,6 +56,11 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
       return false;
     }
   };
+
+  // Now use checkServerConnection after it's been defined
+  useState(() => {
+    checkServerConnection();
+  });
 
   const handleLogin = async (email: string, password: string) => {
     setError(null);
