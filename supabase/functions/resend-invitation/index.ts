@@ -76,14 +76,100 @@ serve(async (req) => {
     const userId = authUsers.users[0].id;
     console.log("ID utilisateur trouvé:", userId);
 
-    // MÉTHODE DIRECTE: Utiliser l'API REST native de Supabase Auth
-    console.log("Envoi d'invitation via API REST directe");
+    // MÉTHODE 1: Envoi d'invitation via l'API directe de Supabase Auth
+    try {
+      console.log("Envoi d'invitation via admin.inviteUserByEmail");
+      
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: redirectTo,
+        data: { 
+          invited_at: new Date().toISOString(),
+          is_invitation: true
+        }
+      });
 
-    // Construction de l'URL complète de l'API
-    const authApiUrl = `${Deno.env.get("SUPABASE_URL")}/auth/v1/invite`;
+      if (inviteError) {
+        console.error("Erreur lors de l'envoi de l'invitation via inviteUserByEmail:", inviteError);
+        
+        // Si l'utilisateur existe déjà, essayer une approche alternative
+        if (inviteError.message && inviteError.message.includes("already been registered")) {
+          console.log("Utilisateur déjà enregistré, tentative avec méthode alternative...");
+        } else {
+          // C'est une autre erreur, retourner l'erreur
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: `Erreur lors de l'envoi de l'invitation: ${inviteError.message}`,
+              details: inviteError
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        // Succès avec cette méthode
+        console.log("Invitation envoyée avec succès via admin.inviteUserByEmail:", inviteData);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: "Email d'invitation envoyé via admin.inviteUserByEmail",
+            data: inviteData
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } catch (error) {
+      console.error("Exception lors de l'envoi de l'invitation via inviteUserByEmail:", error);
+      // Continuer avec la méthode alternative
+    }
+
+    // MÉTHODE 2: Réinitialisation de mot de passe en tant qu'alternative
+    console.log("Tentative avec méthode alternative: réinitialisation de mot de passe");
+    try {
+      const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "recovery",
+        email: email,
+        options: {
+          redirectTo: redirectTo
+        }
+      });
+
+      if (resetError) {
+        console.error("Erreur lors de la tentative de réinitialisation de mot de passe:", resetError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Erreur lors de la génération du lien de réinitialisation: ${resetError.message}`,
+            details: resetError
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("Lien de réinitialisation généré avec succès:", resetData);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "Email de réinitialisation envoyé comme alternative à l'invitation",
+          data: { 
+            email,
+            method: "password-reset",
+            user_id: userId
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (error) {
+      console.error("Exception lors de la génération du lien de réinitialisation:", error);
+    }
+
+    // MÉTHODE 3: Dernière méthode - appel direct à l'API REST
+    console.log("Tentative avec API REST directe");
+
+    // Construction de l'URL de l'API
+    const authApiUrl = `${Deno.env.get("SUPABASE_URL")}/auth/v1/recover`;
     console.log("URL de l'API Auth utilisée:", authApiUrl);
         
-    const inviteResponse = await fetch(authApiUrl, {
+    const recoverResponse = await fetch(authApiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -92,12 +178,12 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         email: email,
-        data: { invited_at: new Date().toISOString() }
+        redirect_to: redirectTo,
       }),
     });
 
-    const responseBody = await inviteResponse.text();
-    console.log(`Réponse de l'API (status ${inviteResponse.status}):`, responseBody);
+    const responseBody = await recoverResponse.text();
+    console.log(`Réponse de l'API de récupération (status ${recoverResponse.status}):`, responseBody);
     
     let jsonResponse;
     try {
@@ -106,32 +192,31 @@ serve(async (req) => {
       jsonResponse = { raw: responseBody };
     }
 
-    if (!inviteResponse.ok) {
-      console.error("Erreur avec l'API d'invitation:", jsonResponse);
+    if (!recoverResponse.ok) {
+      console.error("Erreur avec l'API de récupération:", jsonResponse);
       
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Échec de l'envoi d'invitation",
+          error: "Échec des trois méthodes d'envoi d'invitation",
           details: jsonResponse,
-          status: inviteResponse.status,
-          statusText: inviteResponse.statusText
+          status: recoverResponse.status,
+          statusText: recoverResponse.statusText
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    console.log("Invitation envoyée avec succès via API REST:", jsonResponse);
+    console.log("Email de récupération envoyé avec succès via API REST:", jsonResponse);
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Email d'invitation envoyé",
-        data: { email, method: "rest-api" } 
+        message: "Email de récupération envoyé comme alternative",
+        data: { email, method: "rest-api-recover" } 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-      
   } catch (error) {
     console.error("Erreur inattendue:", error);
     

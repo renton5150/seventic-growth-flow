@@ -55,7 +55,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       return { 
         success: false, 
         error: response.error.message,
-        warning: "L'opération a pris plus de temps que prévu mais l'email a peut-être été envoyé. Veuillez vérifier la boîte de réception."
+        warning: "L'opération a pris plus de temps que prévu mais l'email a peut-être été envoyé. Veuillez vérifier la boîte de réception et les spams."
       };
     }
     
@@ -63,8 +63,8 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     if ('error' in response && response.error) {
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       
-      // Récupérer les détails d'erreur s'ils sont disponibles dans data
-      const errorDetails = 'data' in response ? response.data : undefined;
+      // Récupérer les détails d'erreur s'ils sont disponibles
+      const errorDetails = response.data;
       
       // Message spécifique pour utilisateur introuvable
       if (response.error.message?.includes('introuvable')) {
@@ -80,6 +80,15 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
         return {
           success: false,
           error: "Problème avec le serveur d'envoi d'emails. Vérifiez la configuration SMTP dans Supabase.",
+          details: errorDetails
+        };
+      }
+      
+      // Message pour utilisateur déjà enregistré (cas courant)
+      if (response.error.message?.includes('already been registered')) {
+        return {
+          success: false,
+          error: "Cet utilisateur est déjà enregistré. Un email de réinitialisation a été envoyé à la place.",
           details: errorDetails
         };
       }
