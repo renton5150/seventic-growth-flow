@@ -25,52 +25,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     );
 
-    // Vérifier l'authentification de la requête
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.error("Erreur d'authentification: token manquant ou invalide");
-      return new Response(
-        JSON.stringify({ success: false, error: "Non autorisé" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Vérifier que l'utilisateur est autorisé (admin uniquement)
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
-      console.error("Erreur d'authentification:", authError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Non autorisé" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Vérifier que l'utilisateur est un admin
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError) {
-      console.error("Erreur lors de la récupération du profil:", profileError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Impossible de vérifier les permissions" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!profile || profile.role !== "admin") {
-      console.error("Accès non autorisé pour l'utilisateur:", user.id);
-      return new Response(
-        JSON.stringify({ success: false, error: "Autorisé uniquement pour les administrateurs" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Récupérer les données de la requête
     const { email } = await req.json();
+    console.log(`Tentative de renvoi d'invitation à: ${email}`);
+
     if (!email) {
       console.error("Email manquant dans la requête");
       return new Response(
@@ -78,8 +36,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    console.log(`Tentative de renvoi d'invitation à: ${email}`);
 
     // Vérifier si l'utilisateur existe avant de tenter de renvoyer l'invitation
     const { data: userExists, error: userCheckError } = await supabaseAdmin
@@ -112,13 +68,14 @@ serve(async (req) => {
     const redirectTo = `${origin}/reset-password?type=signup`;
     console.log("URL de redirection configurée:", redirectTo);
 
-    // Envoyer l'email de réinitialisation
-    const { data: emailData, error: emailError } = await supabaseAdmin.auth.admin.resetPasswordForEmail(
-      email,
-      { 
+    // Version simplifiée de l'envoi d'email de réinitialisation
+    const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: email,
+      options: {
         redirectTo: redirectTo
       }
-    );
+    });
 
     if (emailError) {
       console.error("Erreur lors de l'envoi du email:", emailError);
