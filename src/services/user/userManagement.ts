@@ -44,7 +44,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     });
     
     // Appeler la fonction Edge avec une course contre la montre
-    const response: any = await Promise.race([
+    const response = await Promise.race([
       supabase.functions.invoke('resend-invitation', { body: { email } }),
       timeoutPromise
     ]);
@@ -54,8 +54,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       console.warn("Timeout lors de l'envoi de l'invitation:", email);
       return { 
         success: false, 
-        error: response.error.message,
-        warning: "L'opération a pris plus de temps que prévu mais l'email a peut-être été envoyé. Veuillez vérifier la boîte de réception et les spams."
+        error: response.error.message 
       };
     }
     
@@ -63,41 +62,15 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     if ('error' in response && response.error) {
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       
-      // Récupérer les détails d'erreur s'ils sont disponibles
-      const errorDetails = response.data || {};
-      
       // Message spécifique pour utilisateur introuvable
       if (response.error.message?.includes('introuvable')) {
         return { 
           success: false, 
-          error: "Cet email n'est pas associé à un compte existant.",
-          details: errorDetails 
-        };
-      }
-
-      // Message pour problème d'envoi d'email SMTP
-      if (response.error.message?.includes('email') || response.error.message?.includes('mail') || response.error.message?.includes('SMTP')) {
-        return {
-          success: false,
-          error: "Problème avec le serveur d'envoi d'emails. Vérifiez la configuration SMTP dans Supabase.",
-          details: errorDetails
+          error: "Cet email n'est pas associé à un compte existant." 
         };
       }
       
-      // Message pour utilisateur déjà enregistré (cas courant)
-      if (response.error.message?.includes('already been registered')) {
-        return {
-          success: false,
-          error: "Cet utilisateur est déjà enregistré. Un email de réinitialisation a été envoyé à la place.",
-          details: errorDetails
-        };
-      }
-      
-      return { 
-        success: false, 
-        error: response.error.message,
-        details: errorDetails
-      };
+      return { success: false, error: response.error.message };
     }
     
     console.log("Invitation renvoyée avec succès à:", email);
@@ -105,10 +78,6 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Exception lors du renvoi de l'invitation:", error);
-    return { 
-      success: false, 
-      error: errorMessage,
-      details: error
-    };
+    return { success: false, error: errorMessage };
   }
 };
