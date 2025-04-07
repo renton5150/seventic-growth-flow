@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabase";
+
+import { supabase } from "@/integrations/supabase/client";
 import { DatabaseFile } from "@/types/database.types";
 
 // Stockage local pour les bases de données en mode démo
@@ -119,7 +120,7 @@ export const deleteDatabaseFile = async (fileId: string): Promise<boolean> => {
     // Supprimer le fichier du stockage
     const { error: storageError } = await supabase.storage
       .from("databases")
-      .remove([fileData.fileName]);
+      .remove([fileData.file_name]);
       
     if (storageError) {
       console.error("Erreur lors de la suppression du fichier du stockage:", storageError);

@@ -12,7 +12,7 @@ import { User } from "@/types/types";
 import { useState } from "react";
 import { ChangeRoleDialog } from "./ChangeRoleDialog";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserActionsMenuProps {
   user: User;
