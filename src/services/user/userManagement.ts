@@ -63,11 +63,15 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     if ('error' in response && response.error) {
       console.error("Erreur lors du renvoi de l'invitation:", response.error);
       
+      // Inclure les détails d'erreur complets pour le débogage
+      const details = response.details || response.error;
+      
       // Message spécifique pour utilisateur introuvable
       if (response.error.message?.includes('introuvable')) {
         return { 
           success: false, 
-          error: "Cet email n'est pas associé à un compte existant." 
+          error: "Cet email n'est pas associé à un compte existant.",
+          details 
         };
       }
 
@@ -75,7 +79,8 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       if (response.error.message?.includes('email') || response.error.message?.includes('mail') || response.error.message?.includes('SMTP')) {
         return {
           success: false,
-          error: "Problème avec le serveur d'envoi d'emails. Vérifiez la configuration SMTP dans Supabase."
+          error: "Problème avec le serveur d'envoi d'emails. Vérifiez la configuration SMTP dans Supabase.",
+          details
         };
       }
       
@@ -83,11 +88,16 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       if (response.error.message?.includes('configuration SMTP')) {
         return {
           success: false,
-          error: response.error.message
+          error: response.error.message,
+          details
         };
       }
       
-      return { success: false, error: response.error.message };
+      return { 
+        success: false, 
+        error: response.error.message,
+        details
+      };
     }
     
     console.log("Invitation renvoyée avec succès à:", email);
@@ -95,6 +105,10 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Exception lors du renvoi de l'invitation:", error);
-    return { success: false, error: errorMessage };
+    return { 
+      success: false, 
+      error: errorMessage,
+      details: error
+    };
   }
 };

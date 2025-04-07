@@ -13,6 +13,7 @@ export interface ActionResponse {
   success: boolean; 
   error?: string;
   warning?: string;
+  details?: any;
 }
 
 // Helper type guard for user roles

@@ -46,111 +46,117 @@ serve(async (req) => {
     console.log("URL de redirection configurée:", redirectTo);
 
     // Vérifier si l'utilisateur existe
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .single();
+    console.log("Vérification de l'existence de l'utilisateur:", email);
+    const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
+      filter: { email: email }
+    });
 
-    if (userError && userError.code !== "PGRST116") { // PGRST116 = not found
-      console.error("Erreur lors de la vérification de l'utilisateur:", userError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Erreur lors de la vérification de l'utilisateur" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Si on ne trouve pas l'utilisateur dans les profils, vérifier dans auth.users
-    if (!userData) {
-      console.log("Utilisateur non trouvé dans les profils, vérification dans auth.users");
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
-        filter: { email: email }
-      });
-
-      if (authError) {
-        console.error("Erreur lors de la vérification dans auth.users:", authError);
-        return new Response(
-          JSON.stringify({ success: false, error: "Utilisateur introuvable" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (!authUsers || authUsers.users.length === 0) {
-        console.error("Utilisateur non trouvé dans auth.users");
-        return new Response(
-          JSON.stringify({ success: false, error: "Utilisateur introuvable" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    // Vérifier la configuration SMTP
-    console.log("Vérification de la configuration SMTP...");
-    const { data: smtpData, error: smtpError } = await supabaseAdmin.functions.invoke('check-smtp-config', {});
-
-    if (smtpError) {
-      console.error("Erreur lors de la vérification de la configuration SMTP:", smtpError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Impossible de vérifier la configuration SMTP" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (smtpData && !smtpData.smtpEnabled) {
-      console.error("La configuration SMTP n'est pas activée");
+    if (authError) {
+      console.error("Erreur lors de la vérification dans auth.users:", authError);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "La configuration SMTP n'est pas activée. Veuillez configurer SMTP dans les paramètres d'authentification de Supabase." 
+          error: "Erreur lors de la vérification de l'utilisateur",
+          details: authError 
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Utiliser directement signInWithOtp pour envoyer un email magiclink (plus fiable)
-    console.log("Envoi d'un magic link d'invitation avec signInWithOtp");
-    const { error: otpError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo
-    });
+    if (!authUsers || authUsers.users.length === 0) {
+      console.error("Utilisateur non trouvé dans auth.users");
+      return new Response(
+        JSON.stringify({ success: false, error: "Utilisateur introuvable" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    if (otpError) {
-      console.error("Erreur lors de l'envoi du magic link:", otpError);
-      
-      // Message d'erreur spécifique pour les problèmes SMTP courants
-      if (otpError.message?.includes("SMTP") || 
-          otpError.message?.includes("email") || 
-          otpError.message?.includes("mail")) {
+    // Utiliser la méthode plus fiable pour envoyer une invitation/réinitialisation
+    console.log("Envoi d'une invitation à:", email);
+    
+    try {
+      // Utilisation de l'API directe de Supabase Auth pour plus de fiabilité
+      const inviteResponse = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users/${authUsers.users[0].id}/invite`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            email: email,
+            redirect_to: redirectTo,
+          }),
+        }
+      );
+
+      if (!inviteResponse.ok) {
+        const errorData = await inviteResponse.json();
+        console.error("Erreur lors de l'invitation:", errorData);
+        
+        // Vérifier si c'est une erreur liée à SMTP
+        if (errorData.message?.includes("SMTP") || 
+            errorData.message?.includes("email") || 
+            errorData.message?.includes("mail") ||
+            errorData.error?.includes("SMTP") || 
+            errorData.error?.includes("email") || 
+            errorData.error?.includes("mail")) {
+          
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Problème avec la configuration SMTP",
+              details: errorData,
+              message: "Vérifiez vos paramètres d'email dans Supabase Authentication > SMTP settings." 
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
         return new Response(
           JSON.stringify({ 
             success: false, 
-            error: "Problème avec la configuration SMTP. Vérifiez vos paramètres d'email dans Supabase." 
+            error: "Erreur lors de l'envoi de l'invitation",
+            details: errorData 
           }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      console.log("Invitation envoyée avec succès à:", email);
       
       return new Response(
-        JSON.stringify({ success: false, error: otpError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          success: true, 
+          message: "Email d'invitation envoyé",
+          data: { email } 
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (inviteError) {
+      console.error("Exception lors de l'envoi de l'invitation:", inviteError);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Erreur serveur lors de l'envoi de l'invitation",
+          details: inviteError instanceof Error ? inviteError.message : String(inviteError)
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    console.log("Magic link d'invitation envoyé avec succès");
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Email d'invitation envoyé",
-        data: { email } 
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   } catch (error) {
     console.error("Erreur inattendue:", error);
     
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ 
+        success: false, 
+        error: "Erreur serveur",
+        details: error instanceof Error ? error.message : String(error)
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

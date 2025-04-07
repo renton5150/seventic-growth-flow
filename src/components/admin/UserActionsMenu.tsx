@@ -35,22 +35,24 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       // Afficher un toast de chargement persistant
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
-      const { success, error, warning } = await resendInvitation(user.email);
+      const { success, error, warning, details } = await resendInvitation(user.email);
       
       // Fermer le toast de chargement
       toast.dismiss(toastId);
       
       if (success) {
         toast.success(`Invitation renvoyée à ${user.email}`);
-        toast.info("Vérifiez que les paramètres SMTP sont bien configurés dans Supabase si vous ne recevez pas l'email");
         onActionComplete();
       } else if (warning) {
         // Afficher un toast d'avertissement si l'opération a pris du temps mais peut avoir réussi
         toast.warning(warning);
       } else {
-        if (error?.includes("configuration SMTP")) {
-          toast.error(`${error}`, {
-            description: "Allez dans Authentication > SMTP settings dans Supabase pour configurer l'envoi d'emails",
+        // Afficher des informations de débogage dans la console
+        console.error("Erreur détaillée du renvoi d'invitation:", details || error);
+        
+        if (error?.includes("SMTP") || details?.message?.includes("SMTP") || details?.error?.includes("SMTP")) {
+          toast.error(`Configuration SMTP incorrecte`, {
+            description: "Veuillez configurer vos paramètres SMTP dans Supabase - Authentication > SMTP settings",
             action: {
               label: "Guide",
               onClick: () => {
@@ -58,22 +60,30 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
               },
             },
           });
-        } else if (error?.includes("serveur d'envoi") || error?.includes("SMTP")) {
-          toast.error(`Erreur de configuration du serveur d'email`, {
-            description: "Vérifiez les paramètres SMTP dans Authentication > SMTP settings",
+        } else if (error?.includes("introuvable")) {
+          toast.error(`Utilisateur introuvable`, {
+            description: "Cet email n'est pas associé à un compte existant"
           });
         } else if (error?.includes("expiré")) {
-          toast.error(`L'opération prend plus de temps que prévu`, {
-            description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire."
+          toast.error(`L'opération a expiré`, {
+            description: "Vérifiez les logs de la fonction Edge pour plus d'informations"
           });
         } else {
-          toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
+          toast.error(`Erreur d'envoi`, {
+            description: error || "Une erreur s'est produite lors de l'envoi de l'invitation",
+            action: {
+              label: "Logs",
+              onClick: () => {
+                window.open("https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/functions/resend-invitation/logs", "_blank");
+              },
+            },
+          });
         }
       }
     } catch (error) {
-      console.error("Erreur lors du renvoi de l'invitation:", error);
-      toast.error("Impossible de renvoyer l'invitation", {
-        description: "Une erreur inattendue s'est produite"
+      console.error("Exception lors du renvoi de l'invitation:", error);
+      toast.error("Erreur de communication", {
+        description: "Impossible de contacter la fonction Edge. Vérifiez votre connexion internet."
       });
     } finally {
       setIsSendingInvite(false);

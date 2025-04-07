@@ -25,28 +25,75 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     );
 
-    // La fonction réelle devrait vérifier la configuration SMTP
-    // Mais l'API Supabase ne permet pas actuellement d'accéder à ces paramètres
-    // On retourne donc une réponse générique indiquant que nous ne pouvons pas vérifier
-    // Pour une vraie vérification, il faudrait un test d'email
+    // Test SMTP configuration via a simple API call qui n'affectera pas l'utilisateur
+    // On utilise un appel à l'API Auth Settings qui devrait échouer si SMTP n'est pas configuré
+    try {
+      // On tente de récupérer l'état actuel de la configuration SMTP
+      const smtpTest = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/auth/v1/settings`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+        }
+      );
 
-    // On peut seulement suggérer à l'utilisateur de vérifier manuellement
-    const smtpEnabled = true; // On suppose que c'est activé
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        smtpEnabled,
-        message: "La configuration SMTP ne peut pas être vérifiée automatiquement. Veuillez vérifier les paramètres dans l'interface Supabase." 
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      const smtpStatus = await smtpTest.json();
+      console.log("Statut SMTP récupéré:", smtpStatus);
+      
+      // Vérifier si SMTP est configuré en analysant la réponse
+      const smtpEnabled = smtpStatus?.smtp?.enabled === true;
+      const smtpConfigured = !!smtpStatus?.smtp?.host && 
+                            !!smtpStatus?.smtp?.port && 
+                            !!smtpStatus?.smtp?.sender_email;
+
+      if (smtpEnabled && smtpConfigured) {
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            smtpEnabled: true,
+            smtpConfigured: true,
+            message: "La configuration SMTP semble correcte." 
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } else {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            smtpEnabled: smtpEnabled,
+            smtpConfigured: smtpConfigured,
+            message: "La configuration SMTP n'est pas complète dans Supabase. Veuillez vérifier les paramètres SMTP dans Authentication > SMTP." 
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+    } catch (smtpError) {
+      console.error("Erreur lors du test SMTP:", smtpError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          smtpEnabled: false,
+          error: "Impossible de vérifier la configuration SMTP: " + (smtpError instanceof Error ? smtpError.message : String(smtpError)),
+          message: "Veuillez configurer SMTP dans les paramètres d'authentification de Supabase."
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   } catch (error) {
     console.error("Erreur inattendue:", error);
     
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error),
+        message: "Une erreur s'est produite lors de la vérification SMTP."
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
