@@ -70,6 +70,15 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
         };
       }
       
+      // Ajouter les détails supplémentaires s'ils existent
+      const errorDetails = (response.error as any).details;
+      if (errorDetails) {
+        return {
+          success: false,
+          error: `${response.error.message}. ${errorDetails}`
+        };
+      }
+      
       return { success: false, error: response.error.message };
     }
     
