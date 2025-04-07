@@ -25,25 +25,13 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  
-  // Timeout control
-  const [actionTimeout, setActionTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const handleResendInvite = async () => {
     try {
       setIsSendingInvite(true);
-      
-      // Set a more aggressive timeout (10s instead of 15s)
-      const timeout = setTimeout(() => {
-        toast.error("L'opération prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'invitation a été envoyée.");
-        setIsSendingInvite(false);
-      }, 10000);
-      
-      setActionTimeout(timeout);
+      toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
       const { success, error } = await resendInvitation(user.email);
-      
-      if (actionTimeout) clearTimeout(actionTimeout);
       
       if (success) {
         toast.success(`Invitation renvoyée à ${user.email}`);
@@ -55,7 +43,6 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       console.error("Erreur lors du renvoi de l'invitation:", error);
       toast.error("Impossible de renvoyer l'invitation");
     } finally {
-      if (actionTimeout) clearTimeout(actionTimeout);
       setIsSendingInvite(false);
     }
   };
@@ -63,19 +50,9 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const handleDeleteUser = async () => {
     try {
       setIsDeleting(true);
-      
-      // Set a more aggressive timeout (10s instead of 15s)
-      const timeout = setTimeout(() => {
-        toast.error("La suppression prend plus de temps que prévu. Veuillez rafraîchir la page pour vérifier si l'utilisateur a été supprimé.");
-        setIsDeleting(false);
-        setIsDeleteDialogOpen(false);
-      }, 10000);
-      
-      setActionTimeout(timeout);
+      toast.loading(`Suppression de l'utilisateur ${user.name}...`);
       
       const { success, error } = await deleteUser(user.id);
-      
-      if (actionTimeout) clearTimeout(actionTimeout);
       
       if (success) {
         toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
@@ -87,7 +64,6 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
       toast.error("Une erreur est survenue lors de la suppression de l'utilisateur");
     } finally {
-      if (actionTimeout) clearTimeout(actionTimeout);
       setIsDeleting(false);
       setIsDeleteDialogOpen(false);
     }

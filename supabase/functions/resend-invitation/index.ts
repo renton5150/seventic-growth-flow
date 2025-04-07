@@ -86,9 +86,17 @@ serve(async (req) => {
       .from("profiles")
       .select("id")
       .eq("email", email)
-      .single();
+      .maybeSingle();
 
-    if (userCheckError || !userExists) {
+    if (userCheckError) {
+      console.error("Erreur lors de la vérification de l'utilisateur:", userCheckError);
+      return new Response(
+        JSON.stringify({ error: "Erreur lors de la vérification de l'utilisateur" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!userExists) {
       console.error("Utilisateur non trouvé:", email);
       return new Response(
         JSON.stringify({ error: "Utilisateur non trouvé" }),
@@ -99,42 +107,50 @@ serve(async (req) => {
     // Récupérer l'origine de la requête pour utiliser comme URL de redirection
     const origin = req.headers.get("origin") || "https://seventic-growth-flow.lovable.app";
     console.log("URL d'origine pour redirection:", origin);
+    
+    // URL explicite de redirection
+    const redirectUrl = `${origin}/reset-password?type=signup`;
+    console.log("URL de redirection configurée:", redirectUrl);
 
-    // Générer un lien d'invitation avec le type signup explicitement défini
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: email,
-      options: {
-        redirectTo: `${origin}/reset-password?type=signup`
+    // Utiliser resetPasswordForEmail au lieu de generateLink pour envoyer un email de réinitialisation
+    // Cela garantit que l'email sera envoyé immédiatement
+    const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.createEmailTemplate({
+      type: 'recovery',
+      template: 'signup',
+      subject: 'Finaliser votre inscription',
+      content: {
+        action_link: `{{ .ActionURL }}` 
       }
     });
 
-    if (inviteError) {
-      console.error("Erreur lors du renvoi de l'invitation:", inviteError);
+    if (resetError) {
+      console.error("Erreur lors de la création du template:", resetError);
+      // Continuer même s'il y a une erreur avec le template
+    }
+
+    // Envoyer l'email de réinitialisation
+    const { data: emailData, error: emailError } = await supabaseAdmin.auth.admin.resetPasswordForEmail(
+      email,
+      { 
+        redirectTo: redirectUrl 
+      }
+    );
+
+    if (emailError) {
+      console.error("Erreur lors de l'envoi du email:", emailError);
       return new Response(
-        JSON.stringify({ success: false, error: inviteError.message }),
+        JSON.stringify({ success: false, error: emailError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log(`Invitation renvoyée avec succès à ${email}`);
-    console.log("URL générée:", inviteData?.properties?.action_link || "URL non disponible");
-    
-    // Vérifier que le lien contient bien l'URL de redirection et le paramètre type=signup
-    const actionLink = inviteData?.properties?.action_link || "";
-    if (!actionLink.includes("type=signup") && !actionLink.includes("reset-password")) {
-      console.warn("Attention: Le lien généré ne contient pas les paramètres attendus");
-    }
     
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: "Invitation renvoyée avec succès",
-        data: { 
-          email,
-          // Inclure le lien généré dans la réponse pour débogage
-          link: actionLink
-        } 
+        data: { email } 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
