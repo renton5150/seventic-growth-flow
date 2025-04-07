@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Database, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { deleteDatabaseFile } from "@/services/databaseService";
+import { deleteDatabaseFile } from "@/services/database";
 import { toast } from "sonner";
 import { DatabaseFile } from "@/types/database.types";
 

@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { uploadDatabaseFile } from "@/services/databaseService";
+import { uploadDatabaseFile } from "@/services/database";
 
 export const DatabaseUploader = () => {
   const [file, setFile] = useState<File | null>(null);
