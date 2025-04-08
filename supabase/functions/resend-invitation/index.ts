@@ -46,6 +46,9 @@ serve(async (req) => {
     try {
       console.log("Envoi de l'invitation par email");
       
+      // Utiliser une URL de redirection plus propre si disponible
+      // L'URL complète sera par exemple: https://app.example.com/reset-password?type=invite
+      // au lieu de l'URL technique du preview
       const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo: redirectUrl
       });
