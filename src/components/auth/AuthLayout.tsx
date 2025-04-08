@@ -1,6 +1,6 @@
 
 import { ReactNode, useEffect } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -11,17 +11,21 @@ interface AuthLayoutProps {
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
+  const location = useLocation();
 
   // Effet pour redirection après authentification réussie
   useEffect(() => {
     if (isAuthenticated) {
       console.log("AuthLayout: Redirection après authentification, isAdmin:", isAdmin);
       const redirectPath = isAdmin ? "/admin/dashboard" : "/dashboard";
-      navigate(redirectPath, { replace: true });
-      toast.success("Bienvenue");
+      
+      // Utiliser window.location.href au lieu de useNavigate
+      if (location.pathname !== redirectPath) {
+        window.location.href = redirectPath;
+        toast.success("Bienvenue");
+      }
     }
-  }, [isAuthenticated, isAdmin, navigate]);
+  }, [isAuthenticated, isAdmin, location.pathname]);
 
   // Affichage pendant le chargement
   if (loading) {

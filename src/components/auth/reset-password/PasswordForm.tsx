@@ -9,7 +9,6 @@ import { KeyRound, Loader2 } from "lucide-react";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 
 // Schéma de validation pour le formulaire
 const passwordSchema = z.object({
@@ -35,7 +34,6 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [hasValidSession, setHasValidSession] = useState(false);
-  const navigate = useNavigate();
 
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -110,7 +108,7 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
       
       // Rediriger vers la page de connexion après quelques secondes
       setTimeout(() => {
-        navigate("/login");
+        window.location.href = "/login";
       }, 3000);
     } catch (error) {
       console.error("Erreur inattendue:", error);

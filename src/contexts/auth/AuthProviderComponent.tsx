@@ -7,7 +7,6 @@ import { createAuthSessionHelpers } from "./useAuthSession";
 import AuthContext from "./AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -15,7 +14,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true
   });
   
-  const navigate = useNavigate();
   const setUser = (user: User | null) => setAuthState(prev => ({ ...prev, user }));
   const setLoading = (loading: boolean) => setAuthState(prev => ({ ...prev, loading }));
   
@@ -56,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           
           console.log("Redirection vers:", redirectUrl);
-          navigate(redirectUrl, { replace: true });
+          window.location.href = redirectUrl;
           return;
         }
         
@@ -99,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     handleAuthRedirect();
-  }, [navigate]);
+  }, []);
   
   // Initialiser l'authentification
   useEffect(() => {
