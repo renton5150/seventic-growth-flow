@@ -34,7 +34,9 @@ export const UserActionMenuItems = ({
       // Afficher un toast de chargement persistant
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
+      console.log("Envoi d'une invitation à:", user.email);
       const { success, error, warning } = await resendInvitation(user.email);
+      console.log("Résultat de l'envoi d'invitation:", { success, error, warning });
       
       // Fermer le toast de chargement
       toast.dismiss(toastId);
@@ -47,20 +49,22 @@ export const UserActionMenuItems = ({
           });
         } else {
           toast.success(`Invitation renvoyée à ${user.email}`, {
-            description: "L'utilisateur devrait recevoir un email sous peu."
+            description: "L'utilisateur devrait recevoir un email sous peu.",
+            duration: 5000
           });
         }
         onActionComplete();
       } else {
         toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`, {
-          description: "Vérifiez les logs de la fonction Edge.",
+          description: "Vérifiez les logs de la fonction Edge pour plus de détails.",
           duration: 8000
         });
       }
     } catch (error) {
       console.error("Erreur lors du renvoi de l'invitation:", error);
       toast.error("Impossible de renvoyer l'invitation", {
-        description: "Une erreur inattendue s'est produite. Consultez la console pour plus de détails."
+        description: "Une erreur inattendue s'est produite. Consultez la console pour plus de détails.",
+        duration: 8000
       });
     } finally {
       setIsSendingInvite(false);

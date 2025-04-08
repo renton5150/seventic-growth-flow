@@ -80,6 +80,8 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       }, 8000);
     });
     
+    // Appel à la fonction Edge
+    console.log("Appel à la fonction Edge resend-invitation avec:", { email, redirectUrl });
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
         email, 
@@ -103,6 +105,11 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     if (error) {
       console.error("Erreur lors du renvoi de l'invitation:", error);
       return { success: false, error: error.message };
+    }
+
+    if (!data || !data.success) {
+      console.error("Réponse négative lors du renvoi de l'invitation:", data);
+      return { success: false, error: data?.error || "Échec de l'envoi de l'invitation" };
     }
     
     console.log("Invitation renvoyée avec succès à:", email);

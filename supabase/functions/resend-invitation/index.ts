@@ -42,29 +42,25 @@ serve(async (req) => {
       });
     }
 
-    // Utiliser generateLink directement pour créer un lien d'invitation
+    // Utiliser inviteUserByEmail pour renvoyer une invitation
     try {
-      console.log("Génération du lien de réinitialisation");
+      console.log("Envoi de l'invitation par email");
       
-      const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-        type: "recovery",
-        email: email,
-        options: {
-          redirectTo: redirectUrl
-        }
+      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: redirectUrl
       });
       
       if (error) {
-        console.error("Erreur lors de la génération du lien:", error);
+        console.error("Erreur lors de l'envoi de l'invitation:", error);
         return new Response(JSON.stringify({ 
-          error: `Erreur lors de la génération du lien: ${error.message}` 
+          error: `Erreur lors de l'envoi de l'invitation: ${error.message}` 
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
       
-      console.log("Lien de réinitialisation généré avec succès");
+      console.log("Invitation envoyée avec succès:", data);
       return new Response(JSON.stringify({ 
         success: true,
         message: "Invitation renvoyée avec succès"
@@ -73,9 +69,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     } catch (err) {
-      console.error("Erreur lors de l'envoi du lien:", err);
+      console.error("Erreur lors de l'envoi de l'invitation:", err);
       return new Response(JSON.stringify({ 
-        error: `Erreur lors de l'envoi du lien: ${err instanceof Error ? err.message : String(err)}` 
+        error: `Erreur lors de l'envoi de l'invitation: ${err instanceof Error ? err.message : String(err)}` 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
