@@ -34,7 +34,7 @@ export const createUser = async (
     const redirectTo = `${origin}/reset-password?type=signup`;
     console.log("URL de redirection pour la confirmation:", redirectTo);
     
-    // Utiliser signUp pour créer un nouvel utilisateur
+    // Utiliser signUp pour créer un nouvel utilisateur avec le rôle spécifié dans les métadonnées
     const { data, error } = await supabase.auth.signUp({
       email,
       password: tempPassword,

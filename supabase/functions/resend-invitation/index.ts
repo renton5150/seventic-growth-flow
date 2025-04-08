@@ -42,15 +42,29 @@ serve(async (req) => {
       });
     }
 
+    // Récupérer le profil pour obtenir le rôle actuel
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('email', email)
+      .maybeSingle();
+    
+    if (profileError) {
+      console.error("Erreur lors de la récupération du profil:", profileError);
+    }
+    
+    const role = profile?.role || 'sdr';
+    console.log("Rôle utilisateur trouvé:", role);
+    
     // Utiliser inviteUserByEmail pour renvoyer une invitation
     try {
       console.log("Envoi de l'invitation par email");
       
-      // Utiliser une URL de redirection plus propre si disponible
-      // L'URL complète sera par exemple: https://app.example.com/reset-password?type=invite
-      // au lieu de l'URL technique du preview
       const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: redirectUrl
+        redirectTo: redirectUrl,
+        data: {
+          role: role // Inclure le rôle dans les métadonnées utilisateur
+        }
       });
       
       if (error) {
