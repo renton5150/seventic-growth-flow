@@ -5,9 +5,10 @@ import AuthLayout from "@/components/auth/AuthLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordForm } from "@/components/auth/reset-password/PasswordForm";
 import { SuccessMessage } from "@/components/auth/reset-password/SuccessMessage";
+import { ProcessingState } from "@/components/auth/reset-password/components/ProcessingState";
+import { ErrorDisplay } from "@/components/auth/reset-password/components/ErrorDisplay";
+import { DebugInfo } from "@/components/auth/reset-password/components/DebugInfo";
 import { useResetSession } from "@/components/auth/reset-password/useResetSession";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const ResetPassword = () => {
@@ -52,22 +53,7 @@ const ResetPassword = () => {
   if (isProcessingToken) {
     return (
       <AuthLayout>
-        <Card className="w-full max-w-md shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">
-              Traitement en cours...
-            </CardTitle>
-            <CardDescription className="text-center">
-              Nous vérifions votre lien d'authentification
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-seventic-500 mb-4"></div>
-            <p className="text-center text-gray-600">
-              Authentification en cours, veuillez patienter...
-            </p>
-          </CardContent>
-        </Card>
+        <ProcessingState />
       </AuthLayout>
     );
   }
@@ -86,12 +72,7 @@ const ResetPassword = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          <ErrorDisplay error={error} />
           
           {isSuccess ? (
             <SuccessMessage mode={mode} />
@@ -103,11 +84,7 @@ const ResetPassword = () => {
             />
           )}
           
-          {import.meta.env.DEV && urlDebug && (
-            <div className="mt-4 p-2 bg-gray-100 text-xs text-gray-600 rounded">
-              <p className="font-mono break-all">Debug: {urlDebug}</p>
-            </div>
-          )}
+          <DebugInfo debugInfo={urlDebug} />
         </CardContent>
         <CardFooter className="flex justify-center">
           <div className="text-sm text-center text-muted-foreground">
