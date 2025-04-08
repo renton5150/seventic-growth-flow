@@ -34,6 +34,8 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [hasValidSession, setHasValidSession] = useState(false);
+  const [isRequestingNewLink, setIsRequestingNewLink] = useState(false);
+  const [email, setEmail] = useState("");
 
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -52,6 +54,10 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
         
         console.log("Vérification de session pour le formulaire de mot de passe:", hasSession ? "Session valide" : "Pas de session");
         setHasValidSession(hasSession);
+        
+        if (hasSession && sessionData.session?.user?.email) {
+          setEmail(sessionData.session.user.email);
+        }
         
         if (!hasSession) {
           onError("Aucune session active trouvée. Veuillez utiliser un lien valide ou demander un nouveau lien.");
@@ -135,6 +141,44 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
     }
   };
 
+  const handleRequestNewLink = async () => {
+    if (isRequestingNewLink) return;
+    
+    // Si nous n'avons pas d'email à utiliser
+    if (!email) {
+      toast.error("Impossible de demander un nouveau lien", {
+        description: "Aucune adresse email connue. Veuillez utiliser la page de réinitialisation de mot de passe."
+      });
+      window.location.href = "/forgot-password";
+      return;
+    }
+    
+    setIsRequestingNewLink(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password?type=${mode === "setup" ? "invite" : "recovery"}`,
+      });
+      
+      if (error) {
+        toast.error("Erreur", {
+          description: `Impossible d'envoyer un nouveau lien: ${error.message}`
+        });
+      } else {
+        toast.success("Email envoyé", {
+          description: "Un nouveau lien a été envoyé à votre adresse email"
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors de la demande d'un nouveau lien:", error);
+      toast.error("Erreur", {
+        description: "Une erreur inattendue s'est produite"
+      });
+    } finally {
+      setIsRequestingNewLink(false);
+    }
+  };
+
   // Afficher un indicateur de chargement pendant la vérification de session
   if (!sessionChecked) {
     return (
@@ -188,14 +232,35 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
         </Button>
 
         {!hasValidSession && (
+          <div className="mt-4 text-center">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => window.location.href = "/forgot-password"}
+              className="w-full"
+            >
+              Demander un nouveau lien de réinitialisation
+            </Button>
+          </div>
+        )}
+
+        {hasValidSession && (
           <div className="mt-2 text-center">
             <Button
               type="button"
               variant="link"
-              onClick={() => window.location.href = "/forgot-password"}
+              onClick={handleRequestNewLink}
+              disabled={isRequestingNewLink || !email}
               className="text-seventic-500"
             >
-              Demander un nouveau lien
+              {isRequestingNewLink ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" /> 
+                  Envoi en cours...
+                </>
+              ) : (
+                "Demander un nouveau lien"
+              )}
             </Button>
           </div>
         )}

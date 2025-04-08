@@ -37,6 +37,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     console.log("URL de base pour redirection:", origin);
     
     // URL de redirection pour la page de réinitialisation de mot de passe
+    // Assurons-nous d'avoir ?type=invite pour une meilleure détection du mode
     const redirectUrl = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection complète:", redirectUrl);
     

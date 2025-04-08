@@ -36,7 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           window.location.hash.includes("type=")
         )) || (window.location.search && (
           window.location.search.includes("type=") || 
-          window.location.search.includes("error=")
+          window.location.search.includes("error=") ||
+          window.location.search.includes("access_token=")
         ));
         
         // Si nous avons des paramètres d'authentification mais ne sommes pas sur la page reset-password
@@ -68,17 +69,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         
         // Pour les autres pages avec des tokens d'authentification, traiter comme d'habitude
-        if (window.location.hash && window.location.hash.includes("access_token")) {
-          console.log("Token d'accès trouvé dans le hash URL");
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const accessToken = hashParams.get("access_token");
-          const refreshToken = hashParams.get("refresh_token") || '';
+        if ((window.location.hash && window.location.hash.includes("access_token")) || 
+            (window.location.search && window.location.search.includes("access_token"))) {
+          console.log("Token d'accès trouvé dans l'URL");
+          
+          // Récupérer les tokens du hash OU des paramètres de recherche
+          let accessToken = null;
+          let refreshToken = null;
+          
+          if (window.location.hash && window.location.hash.includes("access_token")) {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            accessToken = hashParams.get("access_token");
+            refreshToken = hashParams.get("refresh_token") || '';
+          } else if (window.location.search && window.location.search.includes("access_token")) {
+            const searchParams = new URLSearchParams(window.location.search);
+            accessToken = searchParams.get("access_token");
+            refreshToken = searchParams.get("refresh_token") || '';
+          }
           
           if (accessToken) {
             try {
               const { error } = await supabase.auth.setSession({
                 access_token: accessToken,
-                refresh_token: refreshToken,
+                refresh_token: refreshToken || "",
               });
               
               if (error) {

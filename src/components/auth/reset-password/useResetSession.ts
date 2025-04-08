@@ -95,6 +95,29 @@ export const useResetSession = () => {
           }
         }
 
+        // Cas spécial: si on a un type="signup" ou "invite" ou "recovery" mais pas d'access_token
+        // C'est probablement une tentative d'inscription ou d'invitation avec un lien malformé
+        if (!accessToken && typeParam && (typeParam === "signup" || typeParam === "invite" || typeParam === "recovery")) {
+          console.log(`Type '${typeParam}' détecté sans token - probablement un lien incomplet`);
+          setMode("setup"); // On présume que c'est une configuration de compte
+          
+          // Vérifier si l'utilisateur a une session existante
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session) {
+            console.log("Session existante trouvée - continuons avec cette session");
+            // On peut continuer avec la session existante
+            setIsProcessingToken(false);
+            return;
+          } else {
+            // Si pas de session et pas de token, on ne peut pas continuer
+            console.error("Pas de session existante et pas de token");
+            setError("Lien d'authentification incomplet. Veuillez utiliser le lien complet envoyé par email.");
+            toast.error("Lien incomplet", { description: "Le lien ne contient pas les informations nécessaires" });
+            setIsProcessingToken(false);
+            return;
+          }
+        }
+
         // Si on a un token, configurer la session
         if (accessToken) {
           console.log("Access token trouvé, configuration de la session");
@@ -142,6 +165,15 @@ export const useResetSession = () => {
           console.error("Accès direct à la page sans paramètres");
           setError("Lien invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.");
         } else {
+          // Vérifier si l'utilisateur a déjà une session active
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session) {
+            console.log("Session existante détectée - permettre la définition du mot de passe");
+            // On a une session, on peut continuer
+            setIsProcessingToken(false);
+            return;
+          }
+          
           // Fallback pour tout autre cas où nous n'avons pas de token valide
           console.error("Impossible de trouver un token valide dans l'URL");
           setError("Lien d'authentification invalide ou expiré. Veuillez demander un nouveau lien.");
