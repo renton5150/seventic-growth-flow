@@ -25,6 +25,7 @@ export const createUser = async (
     const tempPassword = uuidv4().substring(0, 12) + "!Aa1";
     
     console.log("Création de l'utilisateur dans Supabase Auth...");
+    console.log("Rôle spécifié pour le nouvel utilisateur:", role);
     
     // Récupérer l'origine pour l'URL de redirection
     const origin = window.location.origin;
@@ -40,7 +41,7 @@ export const createUser = async (
       options: {
         data: {
           name,
-          role, // S'assurer que le rôle est correctement défini ici
+          role // S'assurer que le rôle est correctement défini ici
         },
         emailRedirectTo: redirectTo,
       }
@@ -71,13 +72,15 @@ export const createUser = async (
     // Créer ou mettre à jour manuellement le profil avec les informations complètes
     const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`;
     
+    console.log("Mise à jour du profil avec le rôle:", role);
+    
     const { error: profileError } = await supabase
       .from('profiles')
       .upsert({
         id: data.user.id,
         email: email,
         name: name,
-        role: role, // S'assurer que le rôle est correctement défini ici aussi
+        role: role,
         avatar: avatarUrl
       }, { onConflict: 'id' });
     
@@ -86,12 +89,21 @@ export const createUser = async (
       toast.error("Profil créé mais erreur lors de la mise à jour des détails");
     }
     
+    // Vérifier que le profil a bien été créé avec le bon rôle
+    const { data: profileCheck } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
+      
+    console.log("Vérification du rôle après création:", profileCheck?.role);
+    
     // Créer l'objet utilisateur à retourner
     const newUser: User = {
       id: data.user.id,
       email: email,
       name: name,
-      role: role, // S'assurer que le rôle est correctement défini ici aussi
+      role: role,
       avatar: avatarUrl
     };
     

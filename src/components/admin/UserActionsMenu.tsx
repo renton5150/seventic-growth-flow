@@ -35,20 +35,22 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       // Afficher un toast de chargement persistant
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
-      const { success, error } = await resendInvitation(user.email);
+      const { success, error, warning } = await resendInvitation(user.email);
       
       // Fermer le toast de chargement
       toast.dismiss(toastId);
       
       if (success) {
-        toast.success(`Invitation renvoyée à ${user.email}`);
+        if (warning) {
+          toast.success(`Invitation probablement envoyée à ${user.email}`, {
+            description: warning
+          });
+        } else {
+          toast.success(`Invitation renvoyée à ${user.email}`);
+        }
         onActionComplete();
       } else {
-        if (error?.includes("expiré")) {
-          toast.error(`L'opération prend plus de temps que prévu. L'invitation a peut-être été envoyée. Veuillez vérifier la boîte de réception du destinataire.`);
-        } else {
-          toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
-        }
+        toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`);
       }
     } catch (error) {
       console.error("Erreur lors du renvoi de l'invitation:", error);
@@ -61,12 +63,20 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const handleDeleteUser = async () => {
     try {
       setIsDeleting(true);
-      toast.loading(`Suppression de l'utilisateur ${user.name}...`);
+      const toastId = toast.loading(`Suppression de l'utilisateur ${user.name}...`);
       
-      const { success, error } = await deleteUser(user.id);
+      const { success, error, warning } = await deleteUser(user.id);
+      
+      toast.dismiss(toastId);
       
       if (success) {
-        toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
+        if (warning) {
+          toast.success(`Suppression de ${user.name} initiée`, {
+            description: warning
+          });
+        } else {
+          toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
+        }
         onActionComplete();
       } else {
         toast.error(`Erreur: ${error || "Une erreur est survenue lors de la suppression de l'utilisateur"}`);

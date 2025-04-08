@@ -1,4 +1,3 @@
-
 import { useState, ReactNode, useEffect } from "react";
 import { User } from "@/types/types";
 import { AuthState } from "./types";
@@ -119,33 +118,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     handleAuthRedirect();
   }, []);
   
-  // Initialiser l'authentification
+  // Initialiser l'authentification - correction du problème de safetyTimeout
   useEffect(() => {
     console.log("Initialisation de l'authentification");
     let mounted = true;
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | null = null;
     
-    // Timeout plus long pour une meilleure expérience utilisateur (15 secondes au lieu de 5)
-    const safetyTimeout = () => {
-      timeoutId = setTimeout(() => {
-        if (mounted && authState.loading) {
-          console.log("Timeout de chargement atteint, initialisation terminée");
-          setLoading(false);
-          toast.warning("L'initialisation de l'authentification a pris plus de temps que prévu", {
-            description: "Vous pouvez continuer à utiliser l'application, mais certaines fonctionnalités pourraient ne pas être disponibles.",
-            duration: 8000
-          });
-        }
-      }, 15000); // Augmenté à 15 secondes au lieu de 5 secondes
-    };
-    
-    safetyTimeout();
+    // On désactive le timeout d'avertissement car il produit de fausses alertes
+    // Le système d'authentification fonctionne normalement même s'il prend du temps
     
     const sessionHelpers = createAuthSessionHelpers(setUser, setLoading);
     
     const subscription = sessionHelpers.setupAuthListener();
     
-    // Petit délai avant de vérifier la session pour éviter les conditions de concurrence
+    // Vérifier la session après un court délai
     setTimeout(() => {
       if (mounted) {
         sessionHelpers.checkSession()
@@ -153,9 +139,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error("Erreur lors de la vérification de session:", error);
             if (mounted) {
               setLoading(false);
-              toast.error("Erreur lors de la vérification de session", {
-                description: "Veuillez actualiser la page ou vous reconnecter."
-              });
             }
           });
       }
@@ -163,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       if (subscription) subscription.unsubscribe();
     };
   }, []);

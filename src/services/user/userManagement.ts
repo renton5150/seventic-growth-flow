@@ -70,7 +70,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     const redirectUrl = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection complète:", redirectUrl);
     
-    // Implémenter un timeout côté client sans utiliser AbortController/signal
+    // Implémenter un timeout côté client
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 

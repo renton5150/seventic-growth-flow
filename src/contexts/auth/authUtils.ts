@@ -36,17 +36,17 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
     if (!userData) {
       console.log("Profil non trouvé, création d'un nouveau profil");
       
-      // Determine role based on user metadata first, then fallback to email
-      let role: UserRole = 'sdr'; // Default role
+      // Déterminer le rôle basé sur les métadonnées utilisateur d'abord, puis sur l'email
+      let role: UserRole = 'sdr'; // Rôle par défaut
       
-      // Check if role is in user metadata
+      // Vérifier si le rôle est dans les métadonnées utilisateur
       if (user.user_metadata?.role && typeof user.user_metadata.role === 'string') {
         if (['admin', 'growth', 'sdr'].includes(user.user_metadata.role)) {
           role = user.user_metadata.role as UserRole;
           console.log(`Rôle trouvé dans les métadonnées: ${role}`);
         }
       } else {
-        // Fallback to email-based role determination
+        // Fallback sur la détermination du rôle basée sur l'email
         const email = user.email?.toLowerCase() || '';
         
         if (email === "gironde@seventic.com") {
@@ -54,7 +54,7 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
         } else if (email.includes('growth') || email === "growth@seventic.com") {
           role = 'growth';
         } else {
-          // All other emails get SDR role
+          // Tous les autres emails obtiennent le rôle SDR
           role = 'sdr';
         }
         console.log(`Aucun rôle trouvé dans les métadonnées, utilisé le rôle basé sur l'email: ${role}`);
@@ -100,12 +100,16 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
       return appUser;
     }
     
+    // S'assurer que le rôle est bien défini et correct
+    const userRole = userData.role as UserRole || 'sdr';
+    console.log("Rôle récupéré de la base de données:", userRole);
+    
     // Utiliser les données existantes
     const appUser: User = {
       id: userData.id,
       email: userData.email || user.email || '',
       name: userData.name || 'Utilisateur',
-      role: userData.role as UserRole || 'sdr',
+      role: userRole,
       avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=7E69AB&color=fff`
     };
     
