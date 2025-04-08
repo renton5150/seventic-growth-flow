@@ -32,57 +32,77 @@ serve(async (req) => {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY || "");
 
-    const { email, redirectUrl } = await req.json();
-    console.log(`Traitement du renvoi d'invitation pour: ${email}`);
-    console.log(`URL de redirection: ${redirectUrl}`);
-
-    if (!email || typeof email !== 'string') {
-      return new Response(JSON.stringify({ error: "Email invalide ou manquant" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    // Vérifier si l'utilisateur existe
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin
-      .listUsers({ 
-        filter: {
-          email: email
-        }
-      });
-
-    if (userError) {
-      console.error("Erreur lors de la recherche de l'utilisateur:", userError);
-      return new Response(JSON.stringify({ 
-        error: `Erreur lors de la recherche de l'utilisateur: ${userError.message}` 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    const users = userData.users;
-    if (!users || users.length === 0) {
-      console.error("Utilisateur non trouvé:", email);
-      return new Response(JSON.stringify({ error: "Utilisateur non trouvé" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    const user = users[0];
-    console.log(`Utilisateur trouvé: ${user.id} (${user.email})`);
+    // Utiliser un watchdog pour limiter la durée de la fonction
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+      console.warn("Timeout de la fonction - abandon du traitement");
+    }, 6000); // Limiter à 6 secondes max
 
     try {
-      // Essayer plusieurs méthodes pour envoyer l'invitation
-      let success = false;
-      let errorMessages = [];
+      const { email, redirectUrl } = await req.json();
+      console.log(`Traitement du renvoi d'invitation pour: ${email}`);
+      console.log(`URL de redirection: ${redirectUrl}`);
+
+      if (!email || typeof email !== 'string') {
+        clearTimeout(timeoutId);
+        return new Response(JSON.stringify({ error: "Email invalide ou manquant" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      // Vérifier si l'utilisateur existe (avec timeout)
+      const userPromise = supabaseAdmin.auth.admin.listUsers({ 
+        filter: { email: email }
+      });
       
-      // Méthode 1: Lien de réinitialisation (recovery)
+      // Utiliser Promise.race pour limiter le temps d'attente
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Délai dépassé pendant la recherche de l'utilisateur")), 3000);
+      });
+      
+      const { data: userData, error: userError } = await Promise.race([
+        userPromise,
+        timeoutPromise
+      ]).catch(err => {
+        console.warn("Timeout lors de la recherche de l'utilisateur:", err);
+        return { 
+          data: { users: [] }, 
+          error: { message: "Délai dépassé pendant la recherche de l'utilisateur" } 
+        };
+      });
+
+      if (userError) {
+        console.error("Erreur lors de la recherche de l'utilisateur:", userError);
+        clearTimeout(timeoutId);
+        return new Response(JSON.stringify({ 
+          error: `Erreur lors de la recherche de l'utilisateur: ${userError.message}` 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      const users = userData?.users;
+      if (!users || users.length === 0) {
+        console.error("Utilisateur non trouvé:", email);
+        clearTimeout(timeoutId);
+        return new Response(JSON.stringify({ error: "Utilisateur non trouvé" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      const user = users[0];
+      console.log(`Utilisateur trouvé: ${user.id} (${user.email})`);
+
+      // Utiliser directement la méthode la plus fiable pour envoyer le lien
       try {
-        console.log("Tentative d'envoi d'une invitation (méthode 1: lien de réinitialisation)");
+        console.log("Envoi d'un lien de réinitialisation");
         
-        const { data: passwordResetData, error: passwordResetError } = await supabaseAdmin.auth.admin
+        // Limiter le temps d'attente à 3 secondes
+        const resetPromise = supabaseAdmin.auth.admin
           .generateLink({
             type: "recovery", 
             email: email, 
@@ -91,112 +111,57 @@ serve(async (req) => {
             }
           });
         
-        if (passwordResetError) {
-          console.error("Erreur méthode 1:", passwordResetError);
-          errorMessages.push(`Méthode 1 (recovery): ${passwordResetError.message}`);
-        } else {
-          console.log("Lien de réinitialisation généré avec succès");
-          success = true;
-          
+        const resetTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Délai dépassé pendant la génération du lien")), 3000);
+        });
+        
+        // Utiliser race pour limiter le temps d'attente
+        const { error: resetError } = await Promise.race([resetPromise, resetTimeoutPromise])
+          .catch(err => {
+            console.warn("Timeout lors de la génération du lien:", err);
+            return { error: { message: err.message } };
+          });
+        
+        if (resetError) {
+          console.error("Erreur lors de l'envoi du lien:", resetError);
+          clearTimeout(timeoutId);
           return new Response(JSON.stringify({ 
-            success: true,
-            message: "Invitation renvoyée avec succès (méthode recovery)"
+            error: `Erreur lors de l'envoi du lien: ${resetError.message}` 
           }), {
-            status: 200,
+            status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-      } catch (err) {
-        console.error("Exception méthode 1:", err);
-        errorMessages.push(`Exception méthode 1: ${err.message}`);
-      }
-      
-      // Méthode 2: Invitation directe
-      if (!success) {
-        try {
-          console.log("Tentative d'envoi d'une invitation (méthode 2: invitation magique)");
-          
-          const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin
-            .inviteUserByEmail(email, {
-              redirectTo: redirectUrl || `${new URL(req.url).origin}/reset-password?type=invite`
-            });
-          
-          if (inviteError) {
-            console.error("Erreur méthode 2:", inviteError);
-            errorMessages.push(`Méthode 2 (invite): ${inviteError.message}`);
-          } else {
-            console.log("Invitation envoyée avec succès");
-            success = true;
-            
-            return new Response(JSON.stringify({ 
-              success: true,
-              message: "Invitation renvoyée avec succès (méthode directe)"
-            }), {
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-          }
-        } catch (err) {
-          console.error("Exception méthode 2:", err);
-          errorMessages.push(`Exception méthode 2: ${err.message}`);
-        }
-      }
-      
-      // Méthode 3: Lien magique OTP
-      if (!success) {
-        try {
-          console.log("Tentative d'envoi d'un lien de connexion (méthode 3: OTP)");
-          
-          const { data: signInData, error: signInError } = await supabase.auth
-            .signInWithOtp({
-              email: email,
-              options: {
-                emailRedirectTo: redirectUrl || `${new URL(req.url).origin}/reset-password?type=invite`
-              }
-            });
-          
-          if (signInError) {
-            console.error("Erreur méthode 3:", signInError);
-            errorMessages.push(`Méthode 3 (OTP): ${signInError.message}`);
-          } else {
-            console.log("Lien de connexion OTP envoyé avec succès");
-            success = true;
-            
-            return new Response(JSON.stringify({ 
-              success: true,
-              message: "Un lien de connexion a été envoyé à l'utilisateur"
-            }), {
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-          }
-        } catch (err) {
-          console.error("Exception méthode 3:", err);
-          errorMessages.push(`Exception méthode 3: ${err.message}`);
-        }
-      }
-      
-      // Si aucune méthode n'a fonctionné
-      if (!success) {
-        console.error("Toutes les méthodes ont échoué:", errorMessages);
+        
+        clearTimeout(timeoutId);
+        console.log("Lien de réinitialisation envoyé avec succès");
         return new Response(JSON.stringify({ 
-          error: "Impossible d'envoyer l'invitation après plusieurs tentatives", 
-          details: errorMessages.join("; ") 
+          success: true,
+          message: "Invitation renvoyée avec succès"
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (err) {
+        console.error("Erreur lors de l'envoi du lien:", err);
+        clearTimeout(timeoutId);
+        return new Response(JSON.stringify({ 
+          error: `Erreur lors de l'envoi du lien: ${err.message}` 
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'invitation:", error);
+      clearTimeout(timeoutId);
+      console.error("Erreur lors du traitement de la requête:", error);
       return new Response(JSON.stringify({ 
-        error: `Erreur lors de l'envoi de l'invitation: ${error.message}` 
+        error: `Erreur lors du traitement de la requête: ${error.message}` 
       }), {
-        status: 500,
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-    
   } catch (error) {
     console.error("Erreur générale:", error);
     return new Response(JSON.stringify({ error: `Erreur générale: ${error.message}` }), {

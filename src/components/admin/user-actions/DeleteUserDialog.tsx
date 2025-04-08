@@ -26,12 +26,26 @@ export const DeleteUserDialog = ({
   const handleDeleteUser = async () => {
     try {
       setIsDeleting(true);
-      toast.loading(`Suppression de l'utilisateur ${user.name}...`);
       
-      const { success, error } = await deleteUser(user.id);
+      // Afficher un toast de chargement persistant avec ID
+      const toastId = toast.loading(`Suppression de l'utilisateur ${user.name}...`);
+      
+      const { success, error, warning } = await deleteUser(user.id);
+      
+      // Fermer le toast de chargement
+      toast.dismiss(toastId);
       
       if (success) {
-        toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
+        if (warning) {
+          // Afficher un avertissement si la suppression a des problèmes mineurs
+          toast.success(`L'utilisateur ${user.name} a été marqué pour suppression`, {
+            description: warning,
+            duration: 5000
+          });
+        } else {
+          toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
+        }
+        // Dans tous les cas, considérer l'opération comme réussie pour l'interface
         onUserDeleted();
       } else {
         toast.error(`Erreur: ${error || "Une erreur est survenue lors de la suppression de l'utilisateur"}`);

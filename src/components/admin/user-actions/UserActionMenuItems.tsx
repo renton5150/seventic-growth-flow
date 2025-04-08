@@ -42,7 +42,7 @@ export const UserActionMenuItems = ({
       if (success) {
         if (warning) {
           toast.warning(warning, {
-            description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire ou les logs Supabase.",
+            description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire.",
             duration: 8000
           });
         } else {
@@ -53,12 +53,8 @@ export const UserActionMenuItems = ({
         onActionComplete();
       } else {
         toast.error(`Erreur: ${error || "Impossible de renvoyer l'invitation"}`, {
-          description: "Vérifiez la configuration SMTP dans Supabase et les logs de la fonction Edge.",
-          duration: 8000,
-          action: {
-            label: 'Consulter les logs',
-            onClick: () => window.open('https://supabase.com/dashboard/project/dupguifqyjchlmzbadav/functions/resend-invitation/logs', '_blank')
-          }
+          description: "Vérifiez les logs de la fonction Edge.",
+          duration: 8000
         });
       }
     } catch (error) {
