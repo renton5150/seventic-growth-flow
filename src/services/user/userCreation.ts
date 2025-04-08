@@ -28,6 +28,8 @@ export const createUser = async (
     
     // Récupérer l'origine pour l'URL de redirection
     const origin = window.location.origin;
+    
+    // S'assurer qu'on redirige explicitement vers la page reset-password
     const redirectTo = `${origin}/reset-password?type=signup`;
     console.log("URL de redirection pour la confirmation:", redirectTo);
     

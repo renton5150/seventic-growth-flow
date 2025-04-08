@@ -40,6 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           window.location.search.includes("access_token=")
         ));
         
+        console.log("Paramètres d'authentification détectés:", hasAuthParams);
+        console.log("Page reset-password détectée:", isOnResetPasswordPage);
+        
         // Si nous avons des paramètres d'authentification mais ne sommes pas sur la page reset-password
         if (hasAuthParams && !isOnResetPasswordPage) {
           console.log("Paramètres d'authentification détectés - redirection vers reset-password");
@@ -54,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           // Ajouter le hash s'il y en a
           if (window.location.hash) {
+            // Conserver le hash tel quel pour préserver tous les tokens d'accès
             redirectUrl += window.location.hash;
           }
           
