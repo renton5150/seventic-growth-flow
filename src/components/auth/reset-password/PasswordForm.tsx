@@ -45,9 +45,20 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
 
   const handleSubmit = async (values: PasswordFormValues) => {
     setIsSubmitting(true);
-
+    
     try {
       console.log(`Tentative de ${mode === 'setup' ? 'configuration' : 'réinitialisation'} du mot de passe`);
+      
+      // Vérifier si nous avons une session active
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log("État de la session avant mise à jour:", sessionData.session ? "Active" : "Inactive");
+      
+      if (!sessionData.session) {
+        console.error("Pas de session active pour mettre à jour le mot de passe");
+        onError("Aucune session active trouvée. Veuillez réessayer avec un lien valide.");
+        setIsSubmitting(false);
+        return;
+      }
       
       // Mettre à jour le mot de passe
       const { error } = await supabase.auth.updateUser({

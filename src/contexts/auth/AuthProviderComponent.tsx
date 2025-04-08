@@ -22,21 +22,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleAuthRedirect = async () => {
       try {
+        const currentUrl = window.location.toString();
+        console.log("Vérification des redirections d'authentification. URL actuelle:", currentUrl);
+        
         // Vérifier si la page actuelle contient un hash avec des tokens
         if (window.location.hash && (
           window.location.hash.includes("access_token") || 
-          window.location.hash.includes("error")
+          window.location.hash.includes("error") ||
+          window.location.hash.includes("type=signup") ||
+          window.location.hash.includes("type=recovery")
         )) {
           console.log("Détection d'une redirection d'authentification avec hash");
           
           // Si c'est une authentification de type signup, rediriger vers la page reset-password
-          if (window.location.hash.includes("type=signup")) {
-            console.log("Redirection de type signup détectée, redirection vers reset-password");
+          if (window.location.hash.includes("type=signup") || 
+              window.location.hash.includes("type=recovery") || 
+              window.location.hash.includes("type=invite")) {
+            
+            console.log("Redirection de type signup/recovery/invite détectée");
             
             // Conserver le hash lors de la redirection
             if (window.location.pathname !== "/reset-password") {
               const fullHash = window.location.hash;
-              console.log("Redirection vers /reset-password avec hash");
+              console.log("Redirection vers /reset-password avec hash:", fullHash);
+              
               // Rediriger sans perdre le hash
               window.location.href = `/reset-password${fullHash}`;
               return; // Arrêter l'exécution ici pour éviter de traiter le hash deux fois

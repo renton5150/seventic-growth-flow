@@ -16,6 +16,7 @@ export const useResetSession = () => {
     const setupSession = async () => {
       try {
         console.log("Initialisation de la page ResetPassword");
+        console.log("URL path:", location.pathname);
         console.log("URL hash:", location.hash);
         console.log("URL search:", location.search);
         
@@ -37,6 +38,13 @@ export const useResetSession = () => {
           errorCode = hashParams.get("error");
           errorDescription = hashParams.get("error_description");
           
+          console.log("Hash params trouvés:", { 
+            hasAccessToken: !!accessToken, 
+            hasRefreshToken: !!refreshToken, 
+            type: typeParam,
+            hasError: !!errorCode
+          });
+          
           // Vérifier le mode d'après le hash
           if (hashParams.get("type") === "signup" || 
               hashParams.get("type") === "invite" || 
@@ -56,6 +64,13 @@ export const useResetSession = () => {
           typeParam = typeParam || queryParams.get("type");
           errorCode = errorCode || queryParams.get("error");
           errorDescription = errorDescription || queryParams.get("error_description");
+          
+          console.log("Query params trouvés:", { 
+            hasAccessToken: !!accessToken, 
+            hasRefreshToken: !!refreshToken, 
+            type: typeParam,
+            hasError: !!errorCode
+          });
           
           // Vérifier le mode d'après les query params
           if (queryParams.get("type") === "signup" || 

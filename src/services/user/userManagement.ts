@@ -32,6 +32,10 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
+    // Afficher l'origine pour le débogage
+    const origin = window.location.origin;
+    console.log("Origine pour redirection:", origin);
+    
     // Créer un timeout manuellement pour éviter les attentes trop longues
     const timeoutPromise = new Promise<{ error: { message: string } }>((resolve) => {
       setTimeout(() => {
@@ -45,7 +49,12 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     
     // Appeler la fonction Edge avec une course contre la montre
     const response = await Promise.race([
-      supabase.functions.invoke('resend-invitation', { body: { email } }),
+      supabase.functions.invoke('resend-invitation', { 
+        body: { 
+          email, 
+          redirectUrl: `${origin}/reset-password?type=invite` 
+        }
+      }),
       timeoutPromise
     ]);
     
