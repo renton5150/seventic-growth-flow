@@ -36,20 +36,31 @@ export const createUserProfile = async (user: SupabaseUser): Promise<User | null
     if (!userData) {
       console.log("Profil non trouvé, création d'un nouveau profil");
       
-      // Determine role based on email
+      // Determine role based on user metadata first, then fallback to email
       let role: UserRole = 'sdr'; // Default role
-      const email = user.email?.toLowerCase() || '';
       
-      if (email === "gironde@seventic.com") {
-        role = 'admin';
-      } else if (email.includes('growth') || email === "growth@seventic.com") {
-        role = 'growth';
+      // Check if role is in user metadata
+      if (user.user_metadata?.role && typeof user.user_metadata.role === 'string') {
+        if (['admin', 'growth', 'sdr'].includes(user.user_metadata.role)) {
+          role = user.user_metadata.role as UserRole;
+          console.log(`Rôle trouvé dans les métadonnées: ${role}`);
+        }
       } else {
-        // All other emails get SDR role
-        role = 'sdr';
+        // Fallback to email-based role determination
+        const email = user.email?.toLowerCase() || '';
+        
+        if (email === "gironde@seventic.com") {
+          role = 'admin';
+        } else if (email.includes('growth') || email === "growth@seventic.com") {
+          role = 'growth';
+        } else {
+          // All other emails get SDR role
+          role = 'sdr';
+        }
+        console.log(`Aucun rôle trouvé dans les métadonnées, utilisé le rôle basé sur l'email: ${role}`);
       }
       
-      console.log(`Création d'un profil avec le rôle: ${role} pour l'email: ${email}`);
+      console.log(`Création d'un profil avec le rôle: ${role} pour l'email: ${user.email}`);
       
       const newUser = {
         id: user.id,

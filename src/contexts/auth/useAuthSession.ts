@@ -14,18 +14,8 @@ export const createAuthSessionHelpers = (
     try {
       console.log("Vérification de session existante...");
       
-      // Use a hard timeout to prevent hanging
-      const sessionPromise = supabase.auth.getSession();
-      
-      // Create a timeout promise
-      const timeoutPromise = new Promise<{data: {session: null}, error: Error}>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error("Délai d'attente dépassé pour la vérification de session"));
-        }, 3000); // Reduced from 5000ms to 3000ms
-      });
-      
-      // Race the session promise against the timeout
-      const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+      // Utiliser une promesse simple pour éviter les problèmes de timing
+      const { data, error } = await supabase.auth.getSession();
       
       if (error) {
         console.error("Erreur lors de la vérification de session:", error);
@@ -80,8 +70,8 @@ export const createAuthSessionHelpers = (
         }
         
         // For sign in and other events that need profile loading
-        if (event === 'SIGNED_IN' && session) {
-          console.log("Authentification détectée, utilisateur:", session.user.id);
+        if (session) {
+          console.log("Session d'authentification détectée, utilisateur:", session.user.id);
           
           // Use setTimeout to avoid potential deadlocks with Supabase client
           setTimeout(async () => {
@@ -104,9 +94,6 @@ export const createAuthSessionHelpers = (
               setLoading(false);
             }
           }, 0);
-        } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          console.log(`Événement ${event} détecté`);
-          setLoading(false);
         } else {
           // Fallback for any other events
           console.log(`Autre événement d'authentification: ${event}`);

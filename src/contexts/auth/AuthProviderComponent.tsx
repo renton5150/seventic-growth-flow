@@ -125,15 +125,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
-    // Timeout plus court pour une meilleure expérience utilisateur
+    // Timeout plus long pour une meilleure expérience utilisateur (15 secondes au lieu de 5)
     const safetyTimeout = () => {
       timeoutId = setTimeout(() => {
         if (mounted && authState.loading) {
           console.log("Timeout de chargement atteint, initialisation terminée");
           setLoading(false);
-          toast.error("L'initialisation de l'authentification a pris trop de temps");
+          toast.warning("L'initialisation de l'authentification a pris plus de temps que prévu", {
+            description: "Vous pouvez continuer à utiliser l'application, mais certaines fonctionnalités pourraient ne pas être disponibles.",
+            duration: 8000
+          });
         }
-      }, 5000);
+      }, 15000); // Augmenté à 15 secondes au lieu de 5 secondes
     };
     
     safetyTimeout();
@@ -150,7 +153,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error("Erreur lors de la vérification de session:", error);
             if (mounted) {
               setLoading(false);
-              toast.error("Erreur lors de la vérification de session");
+              toast.error("Erreur lors de la vérification de session", {
+                description: "Veuillez actualiser la page ou vous reconnecter."
+              });
             }
           });
       }

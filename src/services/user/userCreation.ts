@@ -40,7 +40,7 @@ export const createUser = async (
       options: {
         data: {
           name,
-          role
+          role, // S'assurer que le rôle est correctement défini ici
         },
         emailRedirectTo: redirectTo,
       }
@@ -77,7 +77,7 @@ export const createUser = async (
         id: data.user.id,
         email: email,
         name: name,
-        role: role,
+        role: role, // S'assurer que le rôle est correctement défini ici aussi
         avatar: avatarUrl
       }, { onConflict: 'id' });
     
@@ -91,7 +91,7 @@ export const createUser = async (
       id: data.user.id,
       email: email,
       name: name,
-      role: role,
+      role: role, // S'assurer que le rôle est correctement défini ici aussi
       avatar: avatarUrl
     };
     
