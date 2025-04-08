@@ -7,28 +7,33 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
   console.log("Tentative de suppression de l'utilisateur:", userId);
   
   try {
-    // Appeler la fonction Edge avec un timeout de 10 secondes côté client
-    // pour éviter d'attendre indéfiniment
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const { data, error } = await supabase.functions.invoke('delete-user', {
-      body: { userId },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (error) {
-      // Si l'erreur est due à un timeout
-      if (error.message && error.message.includes("aborted")) {
-        console.warn("Délai dépassé, mais l'opération continue en arrière-plan");
-        return { 
+    // Implémenter un timeout côté client sans utiliser AbortController/signal
+    const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
+      setTimeout(() => {
+        resolve({ 
           success: true, 
           warning: "L'opération prend plus de temps que prévu. La suppression continue en arrière-plan."
-        };
-      }
-      
+        });
+      }, 10000);
+    });
+    
+    const deletePromise = supabase.functions.invoke('delete-user', {
+      body: { userId }
+    });
+    
+    // Race entre le timeout et l'appel à la fonction
+    const result = await Promise.race([deletePromise, timeoutPromise]);
+    
+    // Si c'est le timeout qui a gagné
+    if ('warning' in result) {
+      console.warn("Délai dépassé, mais l'opération continue en arrière-plan");
+      return result;
+    }
+    
+    // Sinon c'est la réponse de la fonction
+    const { data, error } = result;
+    
+    if (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
       return { success: false, error: error.message };
     }
@@ -45,15 +50,6 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-    
-    // Si c'est une erreur de timeout
-    if (errorMessage.includes("abort") || errorMessage.includes("timeout")) {
-      console.warn("Timeout lors de la suppression, mais l'opération continue");
-      return { 
-        success: true, 
-        warning: "L'opération prend plus de temps que prévu. La suppression continue en arrière-plan."
-      };
-    }
     
     console.error("Exception lors de la suppression de l'utilisateur:", error);
     return { success: false, error: errorMessage };
@@ -74,34 +70,38 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     const redirectUrl = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection complète:", redirectUrl);
     
-    // Créer un timeout manuellement pour éviter les attentes trop longues
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    // Implémenter un timeout côté client sans utiliser AbortController/signal
+    const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
+      setTimeout(() => {
+        resolve({ 
+          success: true, 
+          warning: "L'opération a pris plus de 8 secondes. L'invitation a peut-être été envoyée, veuillez vérifier."
+        });
+      }, 8000);
+    });
     
-    // Appeler la fonction Edge avec un signal d'annulation
-    const { data, error } = await supabase.functions.invoke('resend-invitation', { 
+    const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
         email, 
         redirectUrl
-      },
-      signal: controller.signal
+      }
     });
     
-    clearTimeout(timeoutId);
+    // Race entre le timeout et l'appel à la fonction
+    const result = await Promise.race([invitePromise, timeoutPromise]);
+    
+    // Si c'est le timeout qui a gagné
+    if ('warning' in result) {
+      console.warn("Délai dépassé, mais l'invitation a peut-être été envoyée");
+      return result;
+    }
+    
+    // Sinon c'est la réponse de la fonction
+    const { data, error } = result;
     
     // Vérifier les erreurs
     if (error) {
-      // Si l'erreur est due à un timeout
-      if (error.message && error.message.includes("aborted")) {
-        console.warn("Délai dépassé, mais l'invitation a peut-être été envoyée");
-        return { 
-          success: true, 
-          warning: "L'opération a pris plus de 8 secondes. L'invitation a peut-être été envoyée, veuillez vérifier."
-        };
-      }
-      
       console.error("Erreur lors du renvoi de l'invitation:", error);
-      
       return { success: false, error: error.message };
     }
     
@@ -109,14 +109,6 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-    
-    // Si c'est une erreur de timeout
-    if (errorMessage.includes("abort") || errorMessage.includes("timeout")) {
-      return { 
-        success: true, 
-        warning: "L'opération a pris plus de temps que prévu. L'invitation a peut-être été envoyée."
-      };
-    }
     
     console.error("Exception lors du renvoi de l'invitation:", error);
     return { success: false, error: errorMessage };
