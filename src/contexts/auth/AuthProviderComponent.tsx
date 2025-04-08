@@ -7,6 +7,7 @@ import { createAuthSessionHelpers } from "./useAuthSession";
 import AuthContext from "./AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -14,52 +15,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true
   });
   
+  const navigate = useNavigate();
   const setUser = (user: User | null) => setAuthState(prev => ({ ...prev, user }));
   const setLoading = (loading: boolean) => setAuthState(prev => ({ ...prev, loading }));
   
   const { login, logout } = useAuthOperations(setUser, setLoading);
   
+  // Gérer les redirections d'authentification
   useEffect(() => {
     const handleAuthRedirect = async () => {
       try {
         const currentUrl = window.location.toString();
         console.log("Vérification des redirections d'authentification. URL actuelle:", currentUrl);
         
-        // Vérifier si la page actuelle contient un hash avec des tokens
-        if (window.location.hash && (
+        // Vérifier si nous sommes déjà sur la page reset-password
+        const isOnResetPasswordPage = window.location.pathname === '/reset-password';
+        
+        // Vérifier les paramètres d'authentification dans le hash ou l'URL
+        const hasAuthParams = (window.location.hash && (
           window.location.hash.includes("access_token") || 
           window.location.hash.includes("error") ||
-          window.location.hash.includes("type=signup") ||
-          window.location.hash.includes("type=recovery")
-        )) {
-          console.log("Détection d'une redirection d'authentification avec hash");
+          window.location.hash.includes("type=")
+        )) || (window.location.search && window.location.search.includes("type="));
+        
+        // Si nous avons des paramètres d'authentification mais ne sommes pas sur la page reset-password
+        if (hasAuthParams && !isOnResetPasswordPage) {
+          console.log("Paramètres d'authentification détectés - redirection vers reset-password");
           
-          // Si c'est une authentification de type signup, rediriger vers la page reset-password
-          if (window.location.hash.includes("type=signup") || 
-              window.location.hash.includes("type=recovery") || 
-              window.location.hash.includes("type=invite")) {
-            
-            console.log("Redirection de type signup/recovery/invite détectée");
-            
-            // Conserver le hash lors de la redirection
-            if (window.location.pathname !== "/reset-password") {
-              const fullHash = window.location.hash;
-              console.log("Redirection vers /reset-password avec hash:", fullHash);
-              
-              // Rediriger sans perdre le hash
-              window.location.href = `/reset-password${fullHash}`;
-              return; // Arrêter l'exécution ici pour éviter de traiter le hash deux fois
-            }
+          // Construire l'URL de redirection en préservant le hash et les paramètres
+          let redirectUrl = '/reset-password';
+          
+          // Ajouter les paramètres de recherche s'il y en a
+          if (window.location.search) {
+            redirectUrl += window.location.search;
           }
           
-          // Pour les autres types d'authentification, traiter le token
+          // Ajouter le hash s'il y en a
+          if (window.location.hash) {
+            redirectUrl += window.location.hash;
+          }
+          
+          console.log("Redirection vers:", redirectUrl);
+          navigate(redirectUrl, { replace: true });
+          return;
+        }
+        
+        // Si nous sommes sur la page reset-password, laisser le composant ResetPassword gérer le reste
+        if (isOnResetPasswordPage) {
+          console.log("Déjà sur la page reset-password - laissons le composant gérer les paramètres d'auth");
+          return;
+        }
+        
+        // Pour les autres pages avec des tokens d'authentification, traiter comme d'habitude
+        if (window.location.hash && window.location.hash.includes("access_token")) {
+          console.log("Token d'accès trouvé dans le hash URL");
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const accessToken = hashParams.get("access_token");
+          const refreshToken = hashParams.get("refresh_token") || '';
           
           if (accessToken) {
-            console.log("Access token trouvé dans l'URL, tentative de définir une session");
-            const refreshToken = hashParams.get("refresh_token") || '';
-            
             try {
               const { error } = await supabase.auth.setSession({
                 access_token: accessToken,
@@ -79,30 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         }
-
-        // Vérifier les paramètres dans la query string pour les erreurs
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('error')) {
-          console.error("Erreur d'authentification détectée dans l'URL:", params.get('error_description'));
-          toast.error(params.get('error_description') || "Erreur d'authentification");
-        }
-        
-        // Traitement spécial pour les redirections de type signup dans la query string
-        if (params.get('type') === 'signup' && window.location.pathname !== "/reset-password") {
-          console.log("Redirection de type signup détectée dans les query params");
-          // Rediriger vers la page de réinitialisation
-          window.location.href = `/reset-password${window.location.search}`;
-          return;
-        }
-        
       } catch (err) {
         console.error("Erreur lors du traitement des paramètres d'authentification:", err);
       }
     };
 
     handleAuthRedirect();
-  }, []);
+  }, [navigate]);
   
+  // Initialiser l'authentification
   useEffect(() => {
     console.log("Initialisation de l'authentification");
     let mounted = true;

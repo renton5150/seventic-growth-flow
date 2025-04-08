@@ -32,9 +32,13 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
-    // Afficher l'origine pour le débogage
+    // Obtenir l'URL de base actuelle de l'application (fonctionne en dev et prod)
     const origin = window.location.origin;
-    console.log("Origine pour redirection:", origin);
+    console.log("URL de base pour redirection:", origin);
+    
+    // URL de redirection pour la page de réinitialisation de mot de passe
+    const redirectUrl = `${origin}/reset-password?type=invite`;
+    console.log("URL de redirection complète:", redirectUrl);
     
     // Créer un timeout manuellement pour éviter les attentes trop longues
     const timeoutPromise = new Promise<{ error: { message: string } }>((resolve) => {
@@ -52,7 +56,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       supabase.functions.invoke('resend-invitation', { 
         body: { 
           email, 
-          redirectUrl: `${origin}/reset-password?type=invite` 
+          redirectUrl
         }
       }),
       timeoutPromise

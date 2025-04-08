@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +33,8 @@ interface PasswordFormProps {
 
 export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [hasValidSession, setHasValidSession] = useState(false);
   const navigate = useNavigate();
 
   const form = useForm<PasswordFormValues>({
@@ -43,7 +45,35 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
     },
   });
 
+  // Vérifier la session au chargement pour s'assurer que l'utilisateur est authentifié
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const hasSession = !!sessionData.session;
+        
+        console.log("Vérification de session pour le formulaire de mot de passe:", hasSession ? "Session valide" : "Pas de session");
+        setHasValidSession(hasSession);
+        
+        if (!hasSession) {
+          onError("Aucune session active trouvée. Veuillez utiliser un lien valide ou demander un nouveau lien.");
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification de la session:", error);
+      } finally {
+        setSessionChecked(true);
+      }
+    };
+
+    checkSession();
+  }, [onError]);
+
   const handleSubmit = async (values: PasswordFormValues) => {
+    if (!hasValidSession) {
+      onError("Aucune session active trouvée. Veuillez utiliser un lien valide ou demander un nouveau lien.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -56,7 +86,6 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
       if (!sessionData.session) {
         console.error("Pas de session active pour mettre à jour le mot de passe");
         onError("Aucune session active trouvée. Veuillez réessayer avec un lien valide.");
-        setIsSubmitting(false);
         return;
       }
       
@@ -91,6 +120,16 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
     }
   };
 
+  // Afficher un indicateur de chargement pendant la vérification de session
+  if (!sessionChecked) {
+    return (
+      <div className="flex flex-col items-center justify-center py-4">
+        <Loader2 className="h-8 w-8 animate-spin text-seventic-500 mb-2" />
+        <p className="text-sm text-gray-600">Vérification de votre session...</p>
+      </div>
+    );
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -102,7 +141,7 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
           showPassword={false}
           onTogglePassword={() => {}}
           icon={<KeyRound className="h-4 w-4" />}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !hasValidSession}
           autoComplete="new-password"
         />
         
@@ -114,14 +153,14 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
           showPassword={false}
           onTogglePassword={() => {}}
           icon={<KeyRound className="h-4 w-4" />}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !hasValidSession}
           autoComplete="new-password"
         />
         
         <Button 
           type="submit" 
           className="w-full bg-seventic-500 hover:bg-seventic-600" 
-          disabled={isSubmitting}
+          disabled={isSubmitting || !hasValidSession}
         >
           {isSubmitting ? (
             <>
