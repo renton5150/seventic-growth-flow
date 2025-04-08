@@ -15,7 +15,10 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
 
   // Effet pour redirection après authentification réussie
   useEffect(() => {
-    if (isAuthenticated) {
+    // Ne pas rediriger si l'utilisateur est sur la page de réinitialisation de mot de passe
+    const isResetPasswordPage = location.pathname === '/reset-password';
+    
+    if (isAuthenticated && !isResetPasswordPage) {
       console.log("AuthLayout: Redirection après authentification, isAdmin:", isAdmin);
       const redirectPath = isAdmin ? "/admin/dashboard" : "/dashboard";
       
