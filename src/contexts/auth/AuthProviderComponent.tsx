@@ -34,7 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           window.location.hash.includes("access_token") || 
           window.location.hash.includes("error") ||
           window.location.hash.includes("type=")
-        )) || (window.location.search && window.location.search.includes("type="));
+        )) || (window.location.search && (
+          window.location.search.includes("type=") || 
+          window.location.search.includes("error=")
+        ));
         
         // Si nous avons des paramètres d'authentification mais ne sommes pas sur la page reset-password
         if (hasAuthParams && !isOnResetPasswordPage) {

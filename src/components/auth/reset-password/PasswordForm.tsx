@@ -55,9 +55,14 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
         
         if (!hasSession) {
           onError("Aucune session active trouvée. Veuillez utiliser un lien valide ou demander un nouveau lien.");
+          // Ajouter un toast pour une meilleure visibilité
+          toast.error("Session invalide", {
+            description: "Veuillez utiliser un lien valide ou demander un nouveau lien"
+          });
         }
       } catch (error) {
         console.error("Erreur lors de la vérification de la session:", error);
+        onError("Erreur lors de la vérification de la session. Veuillez réessayer.");
       } finally {
         setSessionChecked(true);
       }
@@ -69,6 +74,9 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
   const handleSubmit = async (values: PasswordFormValues) => {
     if (!hasValidSession) {
       onError("Aucune session active trouvée. Veuillez utiliser un lien valide ou demander un nouveau lien.");
+      toast.error("Session invalide", {
+        description: "Impossible de mettre à jour le mot de passe sans session valide"
+      });
       return;
     }
 
@@ -84,6 +92,9 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
       if (!sessionData.session) {
         console.error("Pas de session active pour mettre à jour le mot de passe");
         onError("Aucune session active trouvée. Veuillez réessayer avec un lien valide.");
+        toast.error("Session expirée", {
+          description: "Veuillez demander un nouveau lien d'invitation ou de réinitialisation"
+        });
         return;
       }
       
@@ -95,6 +106,9 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
       if (error) {
         console.error("Erreur lors de la mise à jour du mot de passe:", error);
         onError(error.message);
+        toast.error("Erreur de mise à jour", {
+          description: error.message
+        });
         return;
       }
 
@@ -113,6 +127,9 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
     } catch (error) {
       console.error("Erreur inattendue:", error);
       onError("Une erreur inattendue s'est produite. Veuillez réessayer.");
+      toast.error("Erreur", {
+        description: "Une erreur s'est produite lors de la mise à jour du mot de passe"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -169,6 +186,19 @@ export const PasswordForm = ({ mode, onSuccess, onError }: PasswordFormProps) =>
             mode === "setup" ? "Configurer le mot de passe" : "Réinitialiser le mot de passe"
           )}
         </Button>
+
+        {!hasValidSession && (
+          <div className="mt-2 text-center">
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => window.location.href = "/forgot-password"}
+              className="text-seventic-500"
+            >
+              Demander un nouveau lien
+            </Button>
+          </div>
+        )}
       </form>
     </Form>
   );

@@ -52,6 +52,20 @@ export const useResetSession = () => {
             console.log(`Mode ${hashParams.get("type")} détecté dans le hash`);
             setMode("setup");
           }
+          
+          // Gérer spécifiquement les erreurs dans le hash
+          if (errorCode) {
+            // Erreur OTP expirée ou invalide
+            if (errorCode === "access_denied" && hashParams.get("error_code") === "otp_expired") {
+              console.error("Lien OTP expiré ou invalide");
+              setError("Ce lien a expiré ou n'est plus valide. Veuillez demander un nouveau lien.");
+              toast.error("Lien expiré", { 
+                description: "Veuillez demander un nouveau lien d'invitation ou de réinitialisation" 
+              });
+              setIsProcessingToken(false);
+              return;
+            }
+          }
         }
         
         // Si on n'a pas trouvé de tokens dans le hash, vérifier les query params
@@ -114,11 +128,23 @@ export const useResetSession = () => {
         } else if (errorCode) {
           // Si pas de token mais un code d'erreur, afficher l'erreur
           console.error("Erreur dans les paramètres URL:", errorCode, errorDescription);
-          setError(`Erreur: ${errorDescription || errorCode}`);
+          
+          // Message d'erreur personnalisé pour le cas OTP expiré
+          if (errorCode === "access_denied" && location.search.includes("error_code=otp_expired")) {
+            setError("Ce lien a expiré ou n'est plus valide. Veuillez demander un nouveau lien.");
+            toast.error("Lien expiré", { description: "Veuillez demander un nouveau lien" });
+          } else {
+            setError(`Erreur: ${errorDescription || errorCode}`);
+            toast.error("Erreur d'authentification");
+          }
         } else if (!location.hash && !location.search) {
           // Si aucun paramètre et aucun hash, probablement accès direct à la page
           console.error("Accès direct à la page sans paramètres");
           setError("Lien invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.");
+        } else {
+          // Fallback pour tout autre cas où nous n'avons pas de token valide
+          console.error("Impossible de trouver un token valide dans l'URL");
+          setError("Lien d'authentification invalide ou expiré. Veuillez demander un nouveau lien.");
         }
 
       } catch (err) {
