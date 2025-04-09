@@ -1,4 +1,3 @@
-
 import { Mission, Request } from "@/types/types";
 import { v4 as uuidv4 } from "uuid";
 import { missions as mockMissions } from "@/data/missions";
@@ -62,9 +61,9 @@ export const findMockMissionById = (id: string): Mission | undefined => {
 // Créer une nouvelle mission mockée
 export const createMockMission = async (data: {
   name: string;
-  client: string;
   description?: string;
   sdrId: string;
+  startDate: Date;
 }): Promise<Mission> => {
   const now = new Date();
   const id = uuidv4();
@@ -72,10 +71,11 @@ export const createMockMission = async (data: {
   const newMission: Mission = {
     id,
     name: data.name,
-    client: data.client,
+    client: "Default Client",
     description: data.description,
     sdrId: data.sdrId,
     createdAt: now,
+    startDate: data.startDate || now,
     requests: []
   };
   

@@ -30,6 +30,7 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
       return {
         id: mission.id,
         name: mission.name,
+        client: mission.client || "Default Client",
         description: mission.description || undefined,
         sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
@@ -81,6 +82,7 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
       return {
         id: mission.id,
         name: mission.name,
+        client: mission.client || "Default Client",
         description: mission.description || undefined,
         sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
@@ -131,6 +133,7 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
     return {
       id: mission.id,
       name: mission.name,
+      client: mission.client || "Default Client",
       description: mission.description || undefined,
       sdrId: mission.sdr_id || "",
       sdrName: mission.profiles?.name || "Inconnu",

@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidUUID } from "./utils";
@@ -39,7 +40,8 @@ export const createSupaMission = async (data: {
       name: data.name,
       description: data.description || null,
       sdr_id: sdrId,
-      start_date: data.startDate.toISOString()
+      start_date: data.startDate.toISOString(),
+      client: "Default Client" // Adding a default client name
     };
 
     console.log("Données de mission à insérer:", missionData);
@@ -63,6 +65,7 @@ export const createSupaMission = async (data: {
     return {
       id: newMission.id,
       name: newMission.name,
+      client: newMission.client,
       description: newMission.description || undefined,
       sdrId: newMission.sdr_id || "",
       sdrName: newMission.profiles?.name || "Inconnu",

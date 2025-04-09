@@ -11,6 +11,7 @@ export const missions: Mission[] = [
     client: "Acme Corporation",
     sdrId: "user2",
     createdAt: new Date("2025-03-01"),
+    startDate: new Date("2025-03-15"),
     requests: getRequestsByMissionId("mission1"),
   },
   {
@@ -19,6 +20,7 @@ export const missions: Mission[] = [
     client: "TechStart Inc",
     sdrId: "user2",
     createdAt: new Date("2025-03-15"),
+    startDate: new Date("2025-04-01"),
     requests: getRequestsByMissionId("mission2"),
   },
   {
@@ -27,6 +29,7 @@ export const missions: Mission[] = [
     client: "Global Finance Ltd",
     sdrId: "user2",
     createdAt: new Date("2025-03-20"),
+    startDate: new Date("2025-04-05"),
     requests: getRequestsByMissionId("mission3"),
   },
 ];
