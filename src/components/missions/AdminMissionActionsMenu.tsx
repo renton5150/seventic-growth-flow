@@ -34,6 +34,7 @@ export const AdminMissionActionsMenu = ({
   const handleMissionDeleted = () => {
     console.log("Mission supprimée avec succès, notification au parent");
     if (onSuccess) {
+      // Garantir que le callback est exécuté
       onSuccess();
     }
   };

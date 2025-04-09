@@ -48,6 +48,7 @@ const Missions = () => {
   // Handlers
   const handleRefreshMissions = () => {
     console.log("Rafraîchissement des missions");
+    // Force React Query to refetch data
     refetch();
   };
   
@@ -112,7 +113,7 @@ const Missions = () => {
           userId={user?.id || ''} 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
-          onSuccess={handleMissionUpdated} 
+          onSuccess={handleRefreshMissions} 
           isAdmin={isAdmin}
         />
         
@@ -122,7 +123,7 @@ const Missions = () => {
           onOpenChange={(open) => !open && setSelectedMission(null)} 
           isAdmin={isAdmin}
           isSdr={isSdr}
-          onMissionUpdated={handleMissionUpdated}
+          onMissionUpdated={handleRefreshMissions}
         />
       </div>
     </AppLayout>
