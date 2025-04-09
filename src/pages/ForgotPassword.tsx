@@ -42,8 +42,10 @@ const ForgotPassword = () => {
     try {
       // Obtenir l'URL complète pour être sûr d'avoir le bon domaine
       const origin = window.location.origin;
-      const redirectUrl = `${origin}/reset-password`;
-
+      
+      // Utiliser l'URL complète sans hash ou search params
+      const redirectUrl = `${origin}/reset-password?type=recovery`;
+      
       console.log("Envoi d'un lien de réinitialisation à:", values.email);
       console.log("URL de redirection:", redirectUrl);
 

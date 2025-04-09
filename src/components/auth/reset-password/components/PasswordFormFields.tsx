@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { FormField } from "@/components/auth/login/FormField";
 import { Button } from "@/components/ui/button";
 import { Loader2, KeyRound } from "lucide-react";
@@ -30,6 +30,17 @@ export const PasswordFormFields: React.FC<PasswordFormFieldsProps> = ({
   onSubmit,
   onRequestNewLink
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(prev => !prev);
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -38,8 +49,8 @@ export const PasswordFormFields: React.FC<PasswordFormFieldsProps> = ({
           name="password"
           label="Nouveau mot de passe"
           isPassword
-          showPassword={false}
-          onTogglePassword={() => {}}
+          showPassword={showPassword}
+          onTogglePassword={togglePasswordVisibility}
           icon={<KeyRound className="h-4 w-4" />}
           disabled={isSubmitting || !hasValidSession}
           autoComplete="new-password"
@@ -50,8 +61,8 @@ export const PasswordFormFields: React.FC<PasswordFormFieldsProps> = ({
           name="confirmPassword"
           label="Confirmer le mot de passe"
           isPassword
-          showPassword={false}
-          onTogglePassword={() => {}}
+          showPassword={showConfirmPassword}
+          onTogglePassword={toggleConfirmPasswordVisibility}
           icon={<KeyRound className="h-4 w-4" />}
           disabled={isSubmitting || !hasValidSession}
           autoComplete="new-password"

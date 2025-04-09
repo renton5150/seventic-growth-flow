@@ -18,7 +18,12 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
     // Ne pas rediriger si l'utilisateur est sur la page de réinitialisation de mot de passe
     const isResetPasswordPage = location.pathname === '/reset-password';
     
-    if (isAuthenticated && !isResetPasswordPage) {
+    // Ne pas rediriger si la page contient un token d'accès (cas de reset de mot de passe)
+    const hasAuthToken = (location.hash && location.hash.includes('access_token')) || 
+                         (location.search && location.search.includes('access_token'));
+    
+    // Rediriger uniquement si l'utilisateur est authentifié et n'est pas sur la page de réinitialisation
+    if (isAuthenticated && !isResetPasswordPage && !hasAuthToken) {
       console.log("AuthLayout: Redirection après authentification, isAdmin:", isAdmin);
       const redirectPath = isAdmin ? "/admin/dashboard" : "/dashboard";
       
@@ -28,7 +33,7 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
         toast.success("Bienvenue");
       }
     }
-  }, [isAuthenticated, isAdmin, location.pathname]);
+  }, [isAuthenticated, isAdmin, location.pathname, location.hash, location.search]);
 
   // Affichage pendant le chargement
   if (loading) {

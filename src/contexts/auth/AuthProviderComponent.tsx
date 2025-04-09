@@ -49,17 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (hasAuthParams && !isOnResetPasswordPage) {
           console.log("Paramètres d'authentification détectés - redirection vers reset-password");
           
-          // Construire l'URL de redirection en préservant le hash et les paramètres
+          // Construire l'URL de redirection en préservant tous les paramètres
           let redirectUrl = '/reset-password';
           
-          // Ajouter les paramètres de recherche s'il y en a
+          // Préserver tous les paramètres de recherche
           if (window.location.search) {
             redirectUrl += window.location.search;
           }
           
-          // Ajouter le hash s'il y en a
+          // Préserver le fragment (hash)
           if (window.location.hash) {
-            // Conserver le hash tel quel pour préserver tous les tokens d'accès
             redirectUrl += window.location.hash;
           }
           
@@ -87,14 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
             accessToken = hashParams.get("access_token");
             refreshToken = hashParams.get("refresh_token") || '';
+            console.log("Access token trouvé dans le hash:", !!accessToken);
           } else if (window.location.search && window.location.search.includes("access_token")) {
             const searchParams = new URLSearchParams(window.location.search);
             accessToken = searchParams.get("access_token");
             refreshToken = searchParams.get("refresh_token") || '';
+            console.log("Access token trouvé dans les query params:", !!accessToken);
           }
           
           if (accessToken) {
             try {
+              console.log("Configuration de la session avec le token d'accès");
               const { error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken || "",
@@ -121,14 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     handleAuthRedirect();
   }, []);
   
-  // Initialiser l'authentification - correction du problème de safetyTimeout
+  // Initialiser l'authentification
   useEffect(() => {
     console.log("Initialisation de l'authentification");
     let mounted = true;
-    let timeoutId: NodeJS.Timeout | null = null;
-    
-    // On désactive le timeout d'avertissement car il produit de fausses alertes
-    // Le système d'authentification fonctionne normalement même s'il prend du temps
     
     const sessionHelpers = createAuthSessionHelpers(setUser, setLoading);
     
@@ -149,7 +147,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     return () => {
       mounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
       if (subscription) subscription.unsubscribe();
     };
   }, []);
