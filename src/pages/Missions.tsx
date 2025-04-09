@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -46,7 +45,7 @@ const Missions = () => {
     },
     enabled: !!user,
     staleTime: 0, // Consider data stale immediately
-    cacheTime: 0  // Disable caching
+    gcTime: 0    // Renamed from cacheTime to gcTime in TanStack Query v5+
   });
     
   // Handlers
