@@ -25,11 +25,17 @@ export async function sendResetLink(
     console.log("Informations pour le lien de réinitialisation:", JSON.stringify(emailSettings));
     
     // Log détaillé de la configuration email pour debugging
-    console.log("Configuration SMTP actuelle:", {
+    if (emailConfig.smtpConfigured) {
+      console.log("✓ Configuration SMTP validée avec laura.decoster@7tic.fr comme expéditeur");
+    } else {
+      console.error("⚠️ ALERTE: Envoi via Supabase par défaut car le SMTP n'est pas correctement configuré avec laura.decoster@7tic.fr");
+    }
+    
+    console.log("Configuration email complète:", {
       provider: emailConfig.emailProvider,
       configured: emailConfig.smtpConfigured,
       details: emailConfig.smtpDetails || "Non disponible",
-      senderEmailRecommended: "laura.decoster@7tic.fr"
+      exigence: "laura.decoster@7tic.fr DOIT être l'expéditeur"
     });
     
     const resetResult = await supabaseAdmin.auth.admin.generateLink({
@@ -45,9 +51,11 @@ export async function sendResetLink(
     });
     
     if (resetResult.error) {
-      console.error("Erreur lors de l'envoi du lien de réinitialisation:", resetResult.error);
+      console.error("ERREUR lors de l'envoi du lien de réinitialisation:", resetResult.error);
+      console.error("Détails de l'erreur:", typeof resetResult.error === 'object' ? JSON.stringify(resetResult.error) : resetResult.error);
       return new Response(JSON.stringify({ 
-        error: `Erreur lors de l'envoi du lien de réinitialisation: ${resetResult.error.message}`
+        error: `Erreur lors de l'envoi du lien de réinitialisation: ${resetResult.error.message}`,
+        details: resetResult.error
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -78,7 +86,8 @@ export async function sendResetLink(
   } catch (error) {
     console.error("Exception lors de l'envoi du lien de réinitialisation:", error);
     return new Response(JSON.stringify({ 
-      error: `Exception lors de l'envoi du lien de réinitialisation: ${error instanceof Error ? error.message : String(error)}`
+      error: `Exception lors de l'envoi du lien de réinitialisation: ${error instanceof Error ? error.message : String(error)}`,
+      details: error instanceof Error ? error.stack : null
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -111,11 +120,17 @@ export async function sendInvitationLink(
     console.log("Informations pour l'invitation:", JSON.stringify(emailSettings));
     
     // Log détaillé de la configuration email pour debugging
-    console.log("Configuration SMTP actuelle:", {
+    if (emailConfig.smtpConfigured) {
+      console.log("✓ Configuration SMTP validée avec laura.decoster@7tic.fr comme expéditeur");
+    } else {
+      console.error("⚠️ ALERTE: Envoi via Supabase par défaut car le SMTP n'est pas correctement configuré avec laura.decoster@7tic.fr");
+    }
+    
+    console.log("Configuration email complète:", {
       provider: emailConfig.emailProvider,
       configured: emailConfig.smtpConfigured,
       details: emailConfig.smtpDetails || "Non disponible",
-      senderEmailRecommended: "laura.decoster@7tic.fr"
+      exigence: "laura.decoster@7tic.fr DOIT être l'expéditeur"
     });
     
     const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
@@ -127,9 +142,11 @@ export async function sendInvitationLink(
     });
     
     if (inviteResult.error) {
-      console.error("Erreur lors de l'envoi de l'invitation:", inviteResult.error);
+      console.error("ERREUR lors de l'envoi de l'invitation:", inviteResult.error);
+      console.error("Détails de l'erreur:", typeof inviteResult.error === 'object' ? JSON.stringify(inviteResult.error) : inviteResult.error);
       return new Response(JSON.stringify({ 
-        error: `Erreur lors de l'envoi de l'invitation: ${inviteResult.error.message}`
+        error: `Erreur lors de l'envoi de l'invitation: ${inviteResult.error.message}`,
+        details: inviteResult.error
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -160,7 +177,8 @@ export async function sendInvitationLink(
   } catch (error) {
     console.error("Exception lors de l'envoi de l'invitation:", error);
     return new Response(JSON.stringify({ 
-      error: `Exception lors de l'envoi de l'invitation: ${error instanceof Error ? error.message : String(error)}`
+      error: `Exception lors de l'envoi de l'invitation: ${error instanceof Error ? error.message : String(error)}`,
+      details: error instanceof Error ? error.stack : null
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }

@@ -42,19 +42,24 @@ export const UserActionMenuItems = ({
       toast.dismiss(toastId);
       
       if (success) {
-        // Message clair sur le service d'email utilisé avec correction du sender
-        const emailServiceMsg = smtpConfigured 
-          ? `Email envoyé via votre serveur SMTP personnalisé (laura.decoster@7tic.fr)` 
-          : `⚠️ Email envoyé via le service Supabase par défaut. Configurez votre SMTP pour utiliser laura.decoster@7tic.fr`;
+        // Message adapté selon que le SMTP est configuré ou non
+        if (!smtpConfigured) {
+          toast.warning(`Email envoyé via le service Supabase par défaut`, {
+            description: `⚠️ Votre serveur SMTP n'est pas correctement configuré. Pour utiliser l'adresse laura.decoster@7tic.fr comme expéditeur, veuillez configurer votre serveur SMTP dans les paramètres Supabase.`,
+            duration: 8000
+          });
+        }
         
         if (warning) {
           toast.warning(`Opération longue`, {
-            description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire.",
+            description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception et les dossiers spam du destinataire.",
             duration: 8000
           });
         } else if (userExists) {
           toast.success(`Email de réinitialisation envoyé à ${user.email}`, {
-            description: `${emailServiceMsg}. L'utilisateur devrait recevoir un email pour réinitialiser son mot de passe.`,
+            description: smtpConfigured ? 
+              `Email envoyé via votre serveur SMTP configuré avec laura.decoster@7tic.fr comme expéditeur.` :
+              `⚠️ Email envoyé via le service Supabase par défaut. Veuillez configurer votre serveur SMTP pour utiliser laura.decoster@7tic.fr.`,
             duration: 5000
           });
           
@@ -62,7 +67,7 @@ export const UserActionMenuItems = ({
             console.log("URL d'action générée:", actionUrl);
             // Option pour copier le lien
             toast.message("Lien de réinitialisation généré", {
-              description: "Vous pouvez copier ce lien et l'envoyer manuellement si nécessaire.",
+              description: "Si l'email n'arrive pas, vous pouvez copier ce lien et l'envoyer manuellement.",
               action: {
                 label: "Copier",
                 onClick: () => {
@@ -75,7 +80,9 @@ export const UserActionMenuItems = ({
           }
         } else {
           toast.success(`Invitation envoyée à ${user.email}`, {
-            description: `${emailServiceMsg}. L'utilisateur devrait recevoir un email sous peu pour configurer son compte.`,
+            description: smtpConfigured ? 
+              `Email envoyé via votre serveur SMTP configuré avec laura.decoster@7tic.fr comme expéditeur.` :
+              `⚠️ Email envoyé via le service Supabase par défaut. Veuillez configurer votre serveur SMTP pour utiliser laura.decoster@7tic.fr.`,
             duration: 5000
           });
           
@@ -83,7 +90,7 @@ export const UserActionMenuItems = ({
             console.log("URL d'invitation générée:", actionUrl);
             // Option pour copier le lien
             toast.message("Lien d'invitation généré", {
-              description: "Vous pouvez copier ce lien et l'envoyer manuellement si nécessaire.",
+              description: "Si l'email n'arrive pas, vous pouvez copier ce lien et l'envoyer manuellement.",
               action: {
                 label: "Copier",
                 onClick: () => {
@@ -98,7 +105,7 @@ export const UserActionMenuItems = ({
         onActionComplete();
       } else {
         toast.error(`Erreur: ${error || "Impossible d'envoyer l'email"}`, {
-          description: "Vérifiez les logs de la fonction Edge pour plus de détails.",
+          description: "Vérifiez la configuration SMTP et les logs de la fonction Edge pour plus de détails.",
           duration: 8000
         });
       }
