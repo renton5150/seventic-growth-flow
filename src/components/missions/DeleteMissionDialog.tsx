@@ -54,13 +54,14 @@ export const DeleteMissionDialog = ({
         // Notification de succès
         toast.success(`La mission ${mission.name} a été supprimée avec succès`);
         
-        // Exécuter le callback de succès immédiatement après la fermeture de la boîte de dialogue
+        // Exécuter le callback de succès avec un délai significatif 
+        // pour garantir que l'interface a le temps de se mettre à jour
         if (onSuccess) {
-          console.log("Exécution du callback onSuccess après suppression");
-          // Augmentons le délai pour donner du temps à l'interface de se mettre à jour
+          console.log("Préparation à exécuter le callback onSuccess après suppression");
           setTimeout(() => {
+            console.log("Exécution effective du callback onSuccess après délai");
             onSuccess();
-          }, 200);
+          }, 500);
         }
       } else {
         console.error(`Échec de la suppression de la mission: ${mission.id}`);

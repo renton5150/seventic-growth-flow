@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -46,7 +46,7 @@ const Missions = () => {
   });
     
   // Handlers
-  const handleRefreshMissions = () => {
+  const handleRefreshMissions = useCallback(() => {
     console.log("Missions: Rafraîchissement des missions");
     // Force React Query to refetch data
     refetch()
@@ -58,7 +58,7 @@ const Missions = () => {
         console.error("Erreur lors du rafraîchissement des missions:", error);
         toast.error("Erreur lors de l'actualisation des missions");
       });
-  };
+  }, [refetch]);
   
   const handleViewMission = (mission: Mission) => {
     console.log("Affichage de la mission:", mission);
@@ -70,14 +70,17 @@ const Missions = () => {
     setIsCreateModalOpen(true);
   };
 
-  const handleMissionUpdated = () => {
+  const handleMissionUpdated = useCallback(() => {
     console.log("Mission mise à jour, rafraîchissement de la liste");
     setSelectedMission(null);
-    refetch().then(() => {
-      console.log("Missions: Données rechargées après mise à jour de mission");
-      toast.success("Liste des missions actualisée");
-    });
-  };
+    // Utiliser un délai pour laisser le temps à l'UI de se mettre à jour
+    setTimeout(() => {
+      refetch().then(() => {
+        console.log("Missions: Données rechargées après mise à jour de mission");
+        toast.success("Liste des missions actualisée");
+      });
+    }, 300);
+  }, [refetch]);
 
   if (isLoading) {
     return (

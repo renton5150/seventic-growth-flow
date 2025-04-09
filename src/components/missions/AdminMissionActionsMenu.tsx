@@ -35,7 +35,10 @@ export const AdminMissionActionsMenu = ({
     console.log("Mission supprimée avec succès, notification au parent");
     if (onSuccess) {
       console.log("Exécution du callback onSuccess dans AdminMissionActionsMenu");
-      onSuccess();
+      // Utiliser un délai également ici pour éviter les problèmes de timing
+      setTimeout(() => {
+        onSuccess();
+      }, 100);
     }
   };
 
