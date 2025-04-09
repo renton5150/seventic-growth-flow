@@ -1,4 +1,3 @@
-
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidUUID } from "./utils";
@@ -116,13 +115,12 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     console.log("User ID:", session.session?.user?.id);
     console.log("Tentative de suppression pour la mission:", missionId);
     
-    // Essayer de supprimer la mission
+    // Modifier cette requête pour ne pas utiliser select('count')
     console.log(`Exécution de la requête DELETE sur la table 'missions' avec id=${missionId}...`);
-    const { error, count } = await supabase
+    const { error } = await supabase
       .from('missions')
       .delete()
-      .eq('id', missionId)
-      .select('count');  // Pour compter les lignes affectées
+      .eq('id', missionId);
 
     // Vérifier s'il y a eu une erreur
     if (error) {
@@ -132,9 +130,6 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       console.error("Détails:", error.details);
       return false;
     }
-
-    // Vérifier si des lignes ont été affectées
-    console.log(`Nombre de lignes supprimées: ${count || 'inconnu'}`);
     
     // Essayons de vérifier si la mission existe encore après suppression
     const { data: checkMission, error: checkError } = await supabase

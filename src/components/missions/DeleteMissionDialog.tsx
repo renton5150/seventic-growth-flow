@@ -51,9 +51,7 @@ export const DeleteMissionDialog = ({
         // Exécuter le callback de succès IMMÉDIATEMENT après la confirmation de suppression
         if (onSuccess) {
           console.log("Exécution du callback onSuccess après suppression");
-          console.log("Type de onSuccess:", typeof onSuccess);
           onSuccess();
-          console.log("Callback onSuccess exécuté avec succès");
         } else {
           console.warn("Aucun callback onSuccess fourni à DeleteMissionDialog");
         }
