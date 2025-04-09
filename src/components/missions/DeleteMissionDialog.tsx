@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DeleteMissionDialogProps {
   mission: Mission;
@@ -29,6 +30,7 @@ export const DeleteMissionDialog = ({
   onSuccess,
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleDelete = async () => {
     if (!mission?.id) {
@@ -48,20 +50,23 @@ export const DeleteMissionDialog = ({
       if (success) {
         console.log(`Mission supprimée avec succès: ${mission.id}`);
         
+        // Invalider immédiatement le cache de requêtes
+        queryClient.invalidateQueries({queryKey: ['missions']});
+        
         // Fermer d'abord la boîte de dialogue
         onOpenChange(false);
         
         // Notification de succès
         toast.success(`La mission ${mission.name} a été supprimée avec succès`);
         
-        // Exécuter le callback de succès avec un délai significatif 
+        // Exécuter le callback de succès avec un délai plus long
         // pour garantir que l'interface a le temps de se mettre à jour
         if (onSuccess) {
           console.log("Préparation à exécuter le callback onSuccess après suppression");
           setTimeout(() => {
             console.log("Exécution effective du callback onSuccess après délai");
             onSuccess();
-          }, 500);
+          }, 800);
         }
       } else {
         console.error(`Échec de la suppression de la mission: ${mission.id}`);

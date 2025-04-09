@@ -10,13 +10,14 @@ import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const Missions = () => {
   const { user } = useAuth();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const queryClient = useQueryClient();
   
   const isAdmin = user?.role === "admin";
   const isGrowth = user?.role === "growth";
@@ -25,8 +26,9 @@ const Missions = () => {
   console.log("Page Missions - utilisateur:", user);
 
   // Utiliser react-query pour gérer les missions
+  const missionsQueryKey = ['missions', user?.id, isAdmin];
   const { data: missions = [], isLoading, refetch } = useQuery({
-    queryKey: ['missions', user?.id, isAdmin],
+    queryKey: missionsQueryKey,
     queryFn: async () => {
       try {
         console.log("Chargement des missions pour", isAdmin ? "admin" : "sdr", "avec ID:", user?.id);
@@ -42,12 +44,17 @@ const Missions = () => {
         return [];
       }
     },
-    enabled: !!user
+    enabled: !!user,
+    staleTime: 0, // Consider data stale immediately
+    cacheTime: 0  // Disable caching
   });
     
   // Handlers
   const handleRefreshMissions = useCallback(() => {
     console.log("Missions: Rafraîchissement des missions");
+    // Invalider le cache avant de recharger
+    queryClient.invalidateQueries({queryKey: missionsQueryKey});
+    
     // Force React Query to refetch data
     refetch()
       .then(() => {
@@ -58,7 +65,7 @@ const Missions = () => {
         console.error("Erreur lors du rafraîchissement des missions:", error);
         toast.error("Erreur lors de l'actualisation des missions");
       });
-  }, [refetch]);
+  }, [refetch, queryClient, missionsQueryKey]);
   
   const handleViewMission = (mission: Mission) => {
     console.log("Affichage de la mission:", mission);
@@ -73,6 +80,10 @@ const Missions = () => {
   const handleMissionUpdated = useCallback(() => {
     console.log("Mission mise à jour, rafraîchissement de la liste");
     setSelectedMission(null);
+    
+    // Invalider le cache immédiatement
+    queryClient.invalidateQueries({queryKey: missionsQueryKey});
+    
     // Utiliser un délai pour laisser le temps à l'UI de se mettre à jour
     setTimeout(() => {
       refetch().then(() => {
@@ -80,7 +91,7 @@ const Missions = () => {
         toast.success("Liste des missions actualisée");
       });
     }, 300);
-  }, [refetch]);
+  }, [refetch, queryClient, missionsQueryKey]);
 
   if (isLoading) {
     return (

@@ -21,7 +21,8 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
         created_at, 
         start_date,
         profiles!missions_sdr_id_fkey(name)
-      `);
+      `)
+      .order('created_at', { ascending: false }); // Ajouté pour garantir un ordre cohérent
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);

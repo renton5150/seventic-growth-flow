@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { AssignSDRDialog } from "./AssignSDRDialog";
 import { DeleteMissionDialog } from "./DeleteMissionDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AdminMissionActionsMenuProps {
   mission: Mission;
@@ -25,6 +26,7 @@ export const AdminMissionActionsMenu = ({
 }: AdminMissionActionsMenuProps) => {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleDeleteClick = () => {
     console.log("Ouverture de la boîte de dialogue de suppression pour la mission:", mission.id);
@@ -33,12 +35,16 @@ export const AdminMissionActionsMenu = ({
   
   const handleMissionDeleted = () => {
     console.log("Mission supprimée avec succès, notification au parent");
+    
+    // Invalider le cache avant d'appeler le callback
+    queryClient.invalidateQueries({queryKey: ['missions']});
+    
     if (onSuccess) {
       console.log("Exécution du callback onSuccess dans AdminMissionActionsMenu");
       // Utiliser un délai également ici pour éviter les problèmes de timing
       setTimeout(() => {
         onSuccess();
-      }, 100);
+      }, 300);
     }
   };
 
@@ -77,6 +83,7 @@ export const AdminMissionActionsMenu = ({
         open={isAssignDialogOpen}
         onOpenChange={setIsAssignDialogOpen}
         onSuccess={() => {
+          queryClient.invalidateQueries({queryKey: ['missions']});
           onSuccess?.();
           toast.success(`SDR assigné à la mission ${mission.name}`);
         }}
