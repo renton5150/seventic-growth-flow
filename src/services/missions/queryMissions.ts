@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getRequestsByMissionId } from "../requestService";
@@ -35,7 +36,7 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
         sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
         createdAt: new Date(mission.created_at),
-        startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
+        startDate: new Date(mission.start_date || mission.created_at),
         requests
       };
     }));
@@ -87,7 +88,7 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
         sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
         createdAt: new Date(mission.created_at),
-        startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
+        startDate: new Date(mission.start_date || mission.created_at),
         requests
       };
     }));
@@ -138,7 +139,7 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
       sdrId: mission.sdr_id || "",
       sdrName: mission.profiles?.name || "Inconnu",
       createdAt: new Date(mission.created_at),
-      startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
+      startDate: new Date(mission.start_date || mission.created_at),
       requests
     };
   } catch (error) {

@@ -70,7 +70,7 @@ export const createSupaMission = async (data: {
       sdrId: newMission.sdr_id || "",
       sdrName: newMission.profiles?.name || "Inconnu",
       createdAt: new Date(newMission.created_at),
-      startDate: new Date(newMission.start_date),
+      startDate: new Date(newMission.start_date || newMission.created_at),
       requests: []
     };
   } catch (error) {
