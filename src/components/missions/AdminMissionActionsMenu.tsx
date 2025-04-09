@@ -70,7 +70,10 @@ export const AdminMissionActionsMenu = ({
         mission={mission}
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onSuccess={onSuccess}
+        onSuccess={() => {
+          console.log("Mission deletion success callback triggered");
+          onSuccess?.();
+        }}
       />
     </>
   );
