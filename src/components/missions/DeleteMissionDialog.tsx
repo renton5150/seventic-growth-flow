@@ -44,13 +44,11 @@ export const DeleteMissionDialog = ({
         // Fermer d'abord la boîte de dialogue
         onOpenChange(false);
         
-        // Attendre une fraction de seconde pour que l'UI se mette à jour correctement
-        setTimeout(() => {
-          if (onSuccess) {
-            console.log("Exécution du callback onSuccess après suppression");
-            onSuccess();
-          }
-        }, 300);
+        // Exécuter le callback de succès IMMÉDIATEMENT après la confirmation de suppression
+        if (onSuccess) {
+          console.log("Exécution du callback onSuccess après suppression");
+          onSuccess();
+        }
       } else {
         console.error(`Échec de la suppression de la mission: ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);

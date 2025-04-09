@@ -37,6 +37,7 @@ export const MissionsTable = ({
   const handleRefresh = () => {
     console.log("MissionsTable: Demande de rafraîchissement");
     if (onRefresh) {
+      console.log("MissionsTable: Exécution du callback onRefresh");
       onRefresh();
     }
   };

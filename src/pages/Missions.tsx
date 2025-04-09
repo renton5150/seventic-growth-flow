@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -47,9 +46,13 @@ const Missions = () => {
     
   // Handlers
   const handleRefreshMissions = () => {
-    console.log("Rafraîchissement des missions");
+    console.log("Missions: Rafraîchissement des missions");
     // Force React Query to refetch data
-    refetch();
+    refetch().then(() => {
+      console.log("Missions: Données rechargées après rafraîchissement");
+    }).catch(error => {
+      console.error("Erreur lors du rafraîchissement des missions:", error);
+    });
   };
   
   const handleViewMission = (mission: Mission) => {
@@ -65,8 +68,10 @@ const Missions = () => {
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour, rafraîchissement de la liste");
     setSelectedMission(null);
-    refetch();
-    toast.success("Liste des missions actualisée");
+    refetch().then(() => {
+      console.log("Missions: Données rechargées après mise à jour de mission");
+      toast.success("Liste des missions actualisée");
+    });
   };
 
   if (isLoading) {
