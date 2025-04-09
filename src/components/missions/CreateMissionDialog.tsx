@@ -37,9 +37,9 @@ export const CreateMissionDialog = ({
       
       const result = await createMission({
         name: values.name,
-        client: values.client, 
         description: values.description,
         sdrId: values.sdrId || userId,
+        startDate: values.startDate,
       });
       
       if (result) {

@@ -115,9 +115,9 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
 // Créer une nouvelle mission
 export const createMission = async (data: {
   name: string;
-  client: string;
   description?: string;
   sdrId: string;
+  startDate: Date;
 }): Promise<Mission | undefined> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();

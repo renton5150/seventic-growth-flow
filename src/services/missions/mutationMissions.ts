@@ -1,4 +1,3 @@
-
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidUUID } from "./utils";
@@ -8,9 +7,9 @@ import { isValidUUID } from "./utils";
  */
 export const createSupaMission = async (data: {
   name: string;
-  client: string;
   description?: string;
   sdrId: string;
+  startDate: Date;
 }): Promise<Mission | undefined> => {
   try {
     // Vérifier que l'utilisateur est authentifié
@@ -38,9 +37,9 @@ export const createSupaMission = async (data: {
     
     const missionData = {
       name: data.name,
-      client: data.client,
       description: data.description || null,
-      sdr_id: sdrId
+      sdr_id: sdrId,
+      start_date: data.startDate.toISOString()
     };
 
     console.log("Données de mission à insérer:", missionData);
@@ -64,11 +63,11 @@ export const createSupaMission = async (data: {
     return {
       id: newMission.id,
       name: newMission.name,
-      client: newMission.client,
       description: newMission.description || undefined,
       sdrId: newMission.sdr_id || "",
       sdrName: newMission.profiles?.name || "Inconnu",
       createdAt: new Date(newMission.created_at),
+      startDate: new Date(newMission.start_date),
       requests: []
     };
   } catch (error) {
