@@ -42,10 +42,10 @@ export const UserActionMenuItems = ({
       toast.dismiss(toastId);
       
       if (success) {
-        // Message clair sur le service d'email utilisé
+        // Message clair sur le service d'email utilisé avec correction du sender
         const emailServiceMsg = smtpConfigured 
-          ? `Email envoyé via votre serveur SMTP personnalisé` 
-          : `Email envoyé via le service email intégré de Supabase`;
+          ? `Email envoyé via votre serveur SMTP personnalisé (laura.decoster@7tic.fr)` 
+          : `⚠️ Email envoyé via le service Supabase par défaut. Configurez votre SMTP pour utiliser laura.decoster@7tic.fr`;
         
         if (warning) {
           toast.warning(`Opération longue`, {

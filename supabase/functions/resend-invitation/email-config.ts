@@ -7,6 +7,7 @@ export async function checkSmtpConfiguration(supabaseAdmin: any) {
   
   try {
     console.log("Tentative de vérification de la configuration SMTP");
+    console.log("IMPORTANT: L'email d'expéditeur recommandé est laura.decoster@7tic.fr");
     
     // Essayer de faire une requête directe à la table de configuration de l'auth
     try {
@@ -20,6 +21,20 @@ export async function checkSmtpConfiguration(supabaseAdmin: any) {
         smtpConfigured = authSettings.smtp?.enabled || false;
         smtpDetails = authSettings.smtp;
         emailProvider = smtpConfigured ? "SMTP personnalisé (auth.config)" : "Supabase default";
+        
+        if (smtpConfigured && smtpDetails) {
+          console.log("Configuration SMTP détectée:", {
+            ...smtpDetails,
+            senderRecommended: "laura.decoster@7tic.fr"
+          });
+          
+          // Vérifier si l'adresse email de l'expéditeur est celle recommandée
+          const senderEmail = smtpDetails.sender || "";
+          if (senderEmail !== "laura.decoster@7tic.fr") {
+            console.warn("⚠️ L'email d'expéditeur configuré n'est pas celui recommandé:", 
+              senderEmail, "Il est recommandé d'utiliser laura.decoster@7tic.fr");
+          }
+        }
       } else if (authError) {
         console.log("Erreur lors de l'accès direct à auth.config:", authError.message);
       }
@@ -42,6 +57,20 @@ export async function checkSmtpConfiguration(supabaseAdmin: any) {
           smtpConfigured = emailSettings.config?.smtp?.enabled || false;
           smtpDetails = emailSettings.config?.smtp;
           emailProvider = smtpConfigured ? "SMTP personnalisé (supabase_functions)" : "Supabase default";
+          
+          if (smtpConfigured && smtpDetails) {
+            console.log("Configuration SMTP détectée dans supabase_functions:", {
+              ...smtpDetails,
+              senderRecommended: "laura.decoster@7tic.fr"
+            });
+            
+            // Vérifier si l'adresse email de l'expéditeur est celle recommandée
+            const senderEmail = smtpDetails.sender || "";
+            if (senderEmail !== "laura.decoster@7tic.fr") {
+              console.warn("⚠️ L'email d'expéditeur configuré n'est pas celui recommandé:", 
+                senderEmail, "Il est recommandé d'utiliser laura.decoster@7tic.fr");
+            }
+          }
         } else if (emailError) {
           console.error("Erreur supabase_functions:", emailError.message);
         }
@@ -66,9 +95,24 @@ export async function checkSmtpConfiguration(supabaseAdmin: any) {
             host: settings.smtp_host,
             port: settings.smtp_port,
             user: settings.smtp_user,
-            secure: settings.smtp_secure
+            secure: settings.smtp_secure,
+            sender: settings.smtp_sender || ""
           };
           emailProvider = smtpConfigured ? "SMTP personnalisé (settings)" : "Supabase default";
+          
+          if (smtpConfigured) {
+            console.log("Configuration SMTP détectée dans settings:", {
+              ...smtpDetails,
+              senderRecommended: "laura.decoster@7tic.fr"
+            });
+            
+            // Vérifier si l'adresse email de l'expéditeur est celle recommandée
+            const senderEmail = smtpDetails.sender || "";
+            if (senderEmail !== "laura.decoster@7tic.fr") {
+              console.warn("⚠️ L'email d'expéditeur configuré n'est pas celui recommandé:", 
+                senderEmail, "Il est recommandé d'utiliser laura.decoster@7tic.fr");
+            }
+          }
         } else if (settingsError) {
           console.log("Erreur lors de l'accès à settings:", settingsError.message);
         }
@@ -77,12 +121,18 @@ export async function checkSmtpConfiguration(supabaseAdmin: any) {
       }
     }
     
+    if (!smtpConfigured) {
+      console.warn("⚠️ AUCUNE CONFIGURATION SMTP DÉTECTÉE. Les emails seront envoyés par le service par défaut de Supabase.");
+      console.warn("⚠️ Il est fortement recommandé de configurer un serveur SMTP personnalisé avec laura.decoster@7tic.fr comme expéditeur.");
+    }
+    
     console.log("Résultat final de la vérification SMTP:", { 
       smtpConfigured, 
       emailProvider,
       smtpDetails: smtpDetails ? 
-        { host: smtpDetails.host, port: smtpDetails.port, user: smtpDetails.user, secure: !!smtpDetails.secure } : 
-        null 
+        { ...smtpDetails, senderRecommended: "laura.decoster@7tic.fr" } : 
+        "Non disponible",
+      recommendation: "Configurer SMTP avec laura.decoster@7tic.fr comme expéditeur"
     });
   } catch (err) {
     console.log("Exception globale lors de la récupération de la configuration SMTP:", err);

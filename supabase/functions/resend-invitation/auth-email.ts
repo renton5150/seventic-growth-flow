@@ -28,7 +28,8 @@ export async function sendResetLink(
     console.log("Configuration SMTP actuelle:", {
       provider: emailConfig.emailProvider,
       configured: emailConfig.smtpConfigured,
-      details: emailConfig.smtpDetails || "Non disponible"
+      details: emailConfig.smtpDetails || "Non disponible",
+      senderEmailRecommended: "laura.decoster@7tic.fr"
     });
     
     const resetResult = await supabaseAdmin.auth.admin.generateLink({
@@ -64,6 +65,7 @@ export async function sendResetLink(
       actionUrl: resetResult.data?.properties?.action_link || null,
       emailProvider: emailConfig.emailProvider,
       smtpConfigured: emailConfig.smtpConfigured,
+      recommendedSenderEmail: "laura.decoster@7tic.fr",
       debug: {
         emailSettings,
         responseData: resetResult.data,
@@ -112,7 +114,8 @@ export async function sendInvitationLink(
     console.log("Configuration SMTP actuelle:", {
       provider: emailConfig.emailProvider,
       configured: emailConfig.smtpConfigured,
-      details: emailConfig.smtpDetails || "Non disponible"
+      details: emailConfig.smtpDetails || "Non disponible",
+      senderEmailRecommended: "laura.decoster@7tic.fr"
     });
     
     const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
@@ -144,6 +147,7 @@ export async function sendInvitationLink(
       actionUrl: inviteResult.data?.properties?.action_link || null,
       emailProvider: emailConfig.emailProvider,
       smtpConfigured: emailConfig.smtpConfigured,
+      recommendedSenderEmail: "laura.decoster@7tic.fr",
       debug: {
         emailSettings,
         responseData: inviteResult.data,
