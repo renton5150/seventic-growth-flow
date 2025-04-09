@@ -35,6 +35,9 @@ export const DeleteMissionDialog = ({
       setIsDeleting(true);
       console.log("*** DeleteMissionDialog.handleDelete: Début de la fonction");
       console.log(`Tentative de suppression de la mission ID: ${mission.id}`);
+      console.log("Type de l'ID:", typeof mission.id);
+      console.log("Longueur de l'ID:", mission.id.length);
+      console.log("Données complètes de la mission:", JSON.stringify(mission, null, 2));
       
       const success = await deleteMission(mission.id);
       
@@ -48,7 +51,9 @@ export const DeleteMissionDialog = ({
         // Exécuter le callback de succès IMMÉDIATEMENT après la confirmation de suppression
         if (onSuccess) {
           console.log("Exécution du callback onSuccess après suppression");
+          console.log("Type de onSuccess:", typeof onSuccess);
           onSuccess();
+          console.log("Callback onSuccess exécuté avec succès");
         } else {
           console.warn("Aucun callback onSuccess fourni à DeleteMissionDialog");
         }
@@ -60,6 +65,7 @@ export const DeleteMissionDialog = ({
       console.log("*** DeleteMissionDialog.handleDelete: Fin de la fonction");
     } catch (error) {
       console.error("Erreur lors de la suppression de la mission:", error);
+      console.error("Détails de l'erreur:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
       toast.error("Une erreur est survenue lors de la suppression de la mission");
     } finally {
       setIsDeleting(false);

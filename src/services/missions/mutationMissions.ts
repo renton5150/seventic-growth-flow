@@ -92,6 +92,8 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   try {
     console.log("*** deleteSupaMission: Début de la fonction");
     console.log("Suppression d'une mission dans Supabase avec ID:", missionId);
+    console.log("Type de l'ID:", typeof missionId);
+    console.log("Longueur de l'ID:", missionId.length);
     
     // Si l'identifiant n'est pas un UUID valide, retourner false
     if (!isValidUUID(missionId)) {
@@ -115,7 +117,7 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     console.log("Tentative de suppression pour la mission:", missionId);
     
     // Essayer de supprimer la mission
-    console.log("Exécution de la requête DELETE sur la table 'missions'...");
+    console.log(`Exécution de la requête DELETE sur la table 'missions' avec id=${missionId}...`);
     const { error, count } = await supabase
       .from('missions')
       .delete()
@@ -134,12 +136,30 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     // Vérifier si des lignes ont été affectées
     console.log(`Nombre de lignes supprimées: ${count || 'inconnu'}`);
     
+    // Essayons de vérifier si la mission existe encore après suppression
+    const { data: checkMission, error: checkError } = await supabase
+      .from('missions')
+      .select('id')
+      .eq('id', missionId)
+      .single();
+      
+    if (checkError && checkError.code === 'PGRST116') {
+      console.log(`Vérification confirmée: Mission ${missionId} n'existe plus dans la base de données`);
+    } else if (checkMission) {
+      console.error(`Échec de la suppression: Mission ${missionId} existe encore dans la base de données`);
+      return false;
+    }
+    
     // Si pas d'erreur, la suppression a réussi
     console.log(`Mission ${missionId} supprimée avec succès dans Supabase`);
     console.log("*** deleteSupaMission: Fin de la fonction avec succès");
     return true;
   } catch (error) {
     console.error("Exception lors de la suppression de la mission:", error);
+    if (error instanceof Error) {
+      console.error("Message d'erreur:", error.message);
+      console.error("Stack trace:", error.stack);
+    }
     return false;
   }
 };
