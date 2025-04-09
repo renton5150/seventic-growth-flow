@@ -42,10 +42,10 @@ export const UserActionMenuItems = ({
       toast.dismiss(toastId);
       
       if (success) {
-        // Informations sur la configuration SMTP pour aider au débogage
-        const emailDetails = emailProvider 
-          ? `Email envoyé via ${emailProvider}${smtpConfigured ? ' (SMTP personnalisé)' : ''}`
-          : "Email envoyé";
+        // Message clair sur le service d'email utilisé
+        const emailServiceMsg = smtpConfigured 
+          ? `Email envoyé via votre serveur SMTP personnalisé` 
+          : `Email envoyé via le service email intégré de Supabase`;
         
         if (warning) {
           toast.warning(`Opération longue`, {
@@ -54,7 +54,7 @@ export const UserActionMenuItems = ({
           });
         } else if (userExists) {
           toast.success(`Email de réinitialisation envoyé à ${user.email}`, {
-            description: `${emailDetails}. L'utilisateur devrait recevoir un email pour réinitialiser son mot de passe.`,
+            description: `${emailServiceMsg}. L'utilisateur devrait recevoir un email pour réinitialiser son mot de passe.`,
             duration: 5000
           });
           
@@ -75,7 +75,7 @@ export const UserActionMenuItems = ({
           }
         } else {
           toast.success(`Invitation envoyée à ${user.email}`, {
-            description: `${emailDetails}. L'utilisateur devrait recevoir un email sous peu pour configurer son compte.`,
+            description: `${emailServiceMsg}. L'utilisateur devrait recevoir un email sous peu pour configurer son compte.`,
             duration: 5000
           });
           
