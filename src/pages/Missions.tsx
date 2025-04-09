@@ -49,7 +49,6 @@ const Missions = () => {
   const handleRefreshMissions = () => {
     console.log("Rafraîchissement des missions");
     refetch();
-    toast.success("Liste des missions actualisée");
   };
   
   const handleViewMission = (mission: Mission) => {
@@ -60,6 +59,12 @@ const Missions = () => {
   const handleCreateMissionClick = () => {
     console.log("Ouverture de la modal de création de mission");
     setIsCreateModalOpen(true);
+  };
+
+  const handleMissionUpdated = () => {
+    console.log("Mission mise à jour, rafraîchissement de la liste");
+    refetch();
+    toast.success("Liste des missions actualisée");
   };
 
   if (isLoading) {
@@ -97,7 +102,7 @@ const Missions = () => {
             isAdmin={isAdmin} 
             onViewMission={handleViewMission}
             showAdminActions={isAdmin}
-            onRefresh={handleRefreshMissions}
+            onRefresh={handleMissionUpdated}
           />
         )}
         
@@ -106,7 +111,7 @@ const Missions = () => {
           userId={user?.id || ''} 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
-          onSuccess={handleRefreshMissions} 
+          onSuccess={handleMissionUpdated} 
           isAdmin={isAdmin}
         />
         
@@ -116,7 +121,7 @@ const Missions = () => {
           onOpenChange={(open) => !open && setSelectedMission(null)} 
           isAdmin={isAdmin}
           isSdr={isSdr}
-          onMissionUpdated={handleRefreshMissions}
+          onMissionUpdated={handleMissionUpdated}
         />
       </div>
     </AppLayout>

@@ -150,6 +150,7 @@ export const deleteMission = async (missionId: string): Promise<boolean> => {
     const isAuthenticated = await isSupabaseAuthenticated();
     console.log("Suppression d'une mission, Supabase configuré:", isSupabaseConfigured);
     console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
+    console.log("ID de mission à supprimer:", missionId);
     
     if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation du mock pour la suppression de mission");
@@ -158,6 +159,8 @@ export const deleteMission = async (missionId: string): Promise<boolean> => {
 
     console.log("Tentative de suppression de mission dans Supabase avec ID:", missionId);
     const success = await deleteSupaMission(missionId);
+    console.log("Résultat de la suppression Supabase:", success);
+    
     if (!success) {
       console.log("Échec de suppression dans Supabase, fallback vers les données mockées");
       return deleteMockMission(missionId);

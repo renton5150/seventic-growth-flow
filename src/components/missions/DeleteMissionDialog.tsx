@@ -30,18 +30,31 @@ export const DeleteMissionDialog = ({
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDelete = async (event: React.MouseEvent) => {
+    event.preventDefault(); // Empêcher le comportement par défaut
+    
     try {
       setIsDeleting(true);
-      console.log("Suppression de la mission:", mission.id);
+      console.log(`Tentative de suppression de la mission ID: ${mission.id}`);
       
       const success = await deleteMission(mission.id);
       
       if (success) {
+        console.log(`Mission supprimée avec succès: ${mission.id}`);
         toast.success(`La mission ${mission.name} a été supprimée avec succès`);
-        onSuccess?.();
+        
+        // Fermer d'abord la boîte de dialogue
         onOpenChange(false);
+        
+        // Puis appeler le callback de succès après une courte pause
+        setTimeout(() => {
+          if (onSuccess) {
+            console.log("Exécution du callback onSuccess après suppression");
+            onSuccess();
+          }
+        }, 100);
       } else {
+        console.error(`Échec de la suppression de la mission: ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
       }
     } catch (error) {
@@ -63,13 +76,13 @@ export const DeleteMissionDialog = ({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-          <AlertDialogAction 
+          <Button 
             onClick={handleDelete}
             disabled={isDeleting}
-            className="bg-red-600 hover:bg-red-700"
+            variant="destructive"
           >
             {isDeleting ? "Suppression en cours..." : "Supprimer"}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

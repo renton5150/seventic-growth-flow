@@ -90,11 +90,11 @@ export const createSupaMission = async (data: {
  */
 export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
   try {
-    console.log("Suppression d'une mission dans Supabase:", missionId);
+    console.log("Suppression d'une mission dans Supabase avec ID:", missionId);
     
     // Si l'identifiant n'est pas un UUID valide, retourner false
     if (!isValidUUID(missionId)) {
-      console.warn("ID mission non valide pour Supabase:", missionId);
+      console.warn(`ID mission non valide pour Supabase: ${missionId}`);
       return false;
     }
     
@@ -105,22 +105,27 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       return false;
     }
     
-    console.log("Session active pour suppression:", !!session.session, "User ID:", session.session?.user?.id);
+    console.log("Session active pour suppression:", !!session.session);
+    console.log("User ID:", session.session?.user?.id);
+    console.log("Tentative de suppression pour la mission:", missionId);
     
+    // Essayer de supprimer la mission
     const { error } = await supabase
       .from('missions')
       .delete()
       .eq('id', missionId);
 
+    // Vérifier s'il y a eu une erreur
     if (error) {
-      console.error("Erreur lors de la suppression de la mission:", error);
+      console.error("Erreur Supabase lors de la suppression de la mission:", error);
       return false;
     }
 
-    console.log("Mission supprimée avec succès dans Supabase");
+    // Si pas d'erreur, la suppression a réussi
+    console.log(`Mission ${missionId} supprimée avec succès dans Supabase`);
     return true;
   } catch (error) {
-    console.error("Erreur inattendue lors de la suppression de la mission:", error);
+    console.error("Exception lors de la suppression de la mission:", error);
     return false;
   }
 };

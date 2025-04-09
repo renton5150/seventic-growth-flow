@@ -34,6 +34,13 @@ export const MissionsTable = ({
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
   
+  const handleRefresh = () => {
+    console.log("MissionsTable: Demande de rafraîchissement");
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
+  
   return (
     <Card className={`${isAdmin ? "border-blue-300" : "border-seventic-300"}`}>
       <CardHeader className={`${isAdmin ? "bg-blue-50" : "bg-seventic-50"}`}>
@@ -77,7 +84,7 @@ export const MissionsTable = ({
                   {showAdminActions && (
                     <AdminMissionActionsMenu 
                       mission={mission}
-                      onSuccess={onRefresh}
+                      onSuccess={handleRefresh}
                     />
                   )}
                 </TableCell>

@@ -26,6 +26,18 @@ export const AdminMissionActionsMenu = ({
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
+  const handleDeleteClick = () => {
+    console.log("Ouverture de la boîte de dialogue de suppression pour la mission:", mission.id);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleMissionDeleted = () => {
+    console.log("Mission supprimée avec succès, rafraîchissement des données");
+    if (onSuccess) {
+      onSuccess();
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -47,7 +59,7 @@ export const AdminMissionActionsMenu = ({
           <DropdownMenuSeparator />
           
           <DropdownMenuItem
-            onClick={() => setIsDeleteDialogOpen(true)}
+            onClick={handleDeleteClick}
             className="text-red-600 cursor-pointer focus:text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />
@@ -70,10 +82,7 @@ export const AdminMissionActionsMenu = ({
         mission={mission}
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onSuccess={() => {
-          console.log("Mission deletion success callback triggered");
-          onSuccess?.();
-        }}
+        onSuccess={handleMissionDeleted}
       />
     </>
   );
