@@ -75,7 +75,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
       setTimeout(() => {
         resolve({ 
           success: true, 
-          warning: "L'opération a pris plus de 8 secondes. L'invitation a peut-être été envoyée, veuillez vérifier."
+          warning: "L'opération a pris plus de 8 secondes. L'email a peut-être été envoyé, veuillez vérifier."
         });
       }, 8000);
     });
@@ -94,7 +94,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     
     // Si c'est le timeout qui a gagné
     if ('warning' in result) {
-      console.warn("Délai dépassé, mais l'invitation a peut-être été envoyée");
+      console.warn("Délai dépassé, mais l'email a peut-être été envoyé");
       return result;
     }
     
@@ -103,21 +103,21 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     
     // Vérifier les erreurs
     if (error) {
-      console.error("Erreur lors du renvoi de l'invitation:", error);
+      console.error("Erreur lors de l'envoi de l'email:", error);
       return { success: false, error: error.message };
     }
 
     if (!data || !data.success) {
-      console.error("Réponse négative lors du renvoi de l'invitation:", data);
-      return { success: false, error: data?.error || "Échec de l'envoi de l'invitation" };
+      console.error("Réponse négative lors de l'envoi de l'email:", data);
+      return { success: false, error: data?.error || "Échec de l'envoi de l'email" };
     }
     
-    console.log("Invitation renvoyée avec succès à:", email);
+    console.log("Email envoyé avec succès à:", email);
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     
-    console.error("Exception lors du renvoi de l'invitation:", error);
+    console.error("Exception lors de l'envoi de l'email:", error);
     return { success: false, error: errorMessage };
   }
 };

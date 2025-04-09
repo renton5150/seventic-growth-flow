@@ -93,44 +93,66 @@ serve(async (req) => {
     console.log("Rôle utilisateur trouvé:", role);
     console.log("Nom utilisateur trouvé:", name);
     
-    // Utiliser inviteUserByEmail pour renvoyer une invitation
     try {
-      console.log("Envoi de l'invitation par email avec les données:", {
-        email,
-        redirectUrl,
-        role
-      });
+      // Vérifier d'abord si l'utilisateur existe
+      const { data: userExists, error: userCheckError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
       
-      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: redirectUrl,
-        data: {
-          role: role,
-          name: name
-        }
-      });
-      
-      if (error) {
-        console.error("Erreur lors de l'envoi de l'invitation:", error);
-        return new Response(JSON.stringify({ 
-          error: `Erreur lors de l'envoi de l'invitation: ${error.message}` 
+      if (userCheckError) {
+        console.error("Erreur lors de la vérification de l'utilisateur:", userCheckError);
+        return new Response(JSON.stringify({
+          error: `Erreur lors de la vérification de l'utilisateur: ${userCheckError.message}`
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
       
-      console.log("Invitation envoyée avec succès:", data);
+      let result;
+      
+      if (userExists) {
+        // Si l'utilisateur existe déjà, on utilise resetPasswordForEmail
+        console.log("Utilisateur existant détecté, envoi d'un email de réinitialisation du mot de passe");
+        result = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+      } else {
+        // Sinon on utilise inviteUserByEmail
+        console.log("Nouvel utilisateur, envoi d'une invitation par email");
+        result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: redirectUrl,
+          data: {
+            role: role,
+            name: name
+          }
+        });
+      }
+      
+      if (result.error) {
+        console.error("Erreur lors de l'envoi du lien:", result.error);
+        return new Response(JSON.stringify({ 
+          error: `Erreur lors de l'envoi du lien: ${result.error.message}` 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      
+      console.log("Email envoyé avec succès");
       return new Response(JSON.stringify({ 
         success: true,
-        message: "Invitation renvoyée avec succès"
+        message: "Email envoyé avec succès"
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     } catch (err) {
-      console.error("Exception lors de l'envoi de l'invitation:", err);
+      console.error("Exception lors de l'envoi de l'email:", err);
       return new Response(JSON.stringify({ 
-        error: `Erreur lors de l'envoi de l'invitation: ${err instanceof Error ? err.message : String(err)}` 
+        error: `Erreur lors de l'envoi de l'email: ${err instanceof Error ? err.message : String(err)}` 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
