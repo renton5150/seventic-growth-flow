@@ -40,8 +40,15 @@ const ForgotPassword = () => {
     setError(null);
 
     try {
+      // Obtenir l'URL complète pour être sûr d'avoir le bon domaine
+      const origin = window.location.origin;
+      const redirectUrl = `${origin}/reset-password`;
+
+      console.log("Envoi d'un lien de réinitialisation à:", values.email);
+      console.log("URL de redirection:", redirectUrl);
+
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: window.location.origin + "/reset-password",
+        redirectTo: redirectUrl,
       });
 
       if (error) {

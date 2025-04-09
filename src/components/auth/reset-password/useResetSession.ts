@@ -50,7 +50,7 @@ export const useResetSession = () => {
               hashParams.get("type") === "invite" || 
               hashParams.get("type") === "recovery") {
             console.log(`Mode ${hashParams.get("type")} détecté dans le hash`);
-            setMode("setup");
+            setMode(hashParams.get("type") === "recovery" ? "reset" : "setup");
           }
           
           // Gérer spécifiquement les erreurs dans le hash
@@ -91,7 +91,7 @@ export const useResetSession = () => {
               queryParams.get("type") === "invite" || 
               queryParams.get("type") === "recovery") {
             console.log(`Mode ${queryParams.get("type")} détecté dans les query params`);
-            setMode("setup");
+            setMode(queryParams.get("type") === "recovery" ? "reset" : "setup");
           }
         }
 
@@ -99,7 +99,7 @@ export const useResetSession = () => {
         // C'est probablement une tentative d'inscription ou d'invitation avec un lien malformé
         if (!accessToken && typeParam && (typeParam === "signup" || typeParam === "invite" || typeParam === "recovery")) {
           console.log(`Type '${typeParam}' détecté sans token - probablement un lien incomplet`);
-          setMode("setup"); // On présume que c'est une configuration de compte
+          setMode(typeParam === "recovery" ? "reset" : "setup"); 
           
           // Vérifier si l'utilisateur a une session existante
           const { data: sessionData } = await supabase.auth.getSession();
@@ -134,19 +134,36 @@ export const useResetSession = () => {
               toast.error(`Erreur d'authentification: ${sessionError.message}`);
             } else {
               console.log("Session configurée avec succès");
-              toast.success("Authentification réussie");
               
-              // Si mode setup et pas d'autres paramètres, forcer le mode setup
-              if (typeParam === "signup" || typeParam === "invite" || typeParam === "recovery" || 
-                  location.hash.includes("type=signup") || location.hash.includes("type=invite") || 
-                  location.hash.includes("type=recovery")) {
-                console.log("Configuration du mode setup confirmée");
+              // Déterminer le mode basé sur le type dans l'URL ou par défaut "reset"
+              if (typeParam === "signup" || typeParam === "invite") {
+                console.log("Mode setup détecté par le type:", typeParam);
                 setMode("setup");
+              } else if (typeParam === "recovery") {
+                console.log("Mode reset détecté par le type:", typeParam);
+                setMode("reset");
+              } else if (location.hash.includes("type=signup") || location.hash.includes("type=invite")) {
+                console.log("Mode setup détecté dans le hash");
+                setMode("setup");
+              } else if (location.hash.includes("type=recovery")) {
+                console.log("Mode reset détecté dans le hash");
+                setMode("reset");
+              } else {
+                // Si le token semble être pour une réinitialisation de mot de passe
+                console.log("Type non spécifié, détection par contenu URL");
+                if (location.hash.includes("refresh_token") || location.hash.includes("recovery") || 
+                    location.search.includes("refresh_token") || location.search.includes("recovery")) {
+                  console.log("Mode reset détecté par le contenu de l'URL");
+                  setMode("reset");
+                }
               }
+              console.log("Mode final déterminé:", mode);
             }
           } catch (sessionErr) {
             console.error("Exception lors de la configuration de session:", sessionErr);
             setError("Une erreur s'est produite lors de l'authentification. Veuillez réessayer.");
+          } finally {
+            setIsProcessingToken(false);
           }
         } else if (errorCode) {
           // Si pas de token mais un code d'erreur, afficher l'erreur
@@ -160,10 +177,12 @@ export const useResetSession = () => {
             setError(`Erreur: ${errorDescription || errorCode}`);
             toast.error("Erreur d'authentification");
           }
+          setIsProcessingToken(false);
         } else if (!location.hash && !location.search) {
           // Si aucun paramètre et aucun hash, probablement accès direct à la page
           console.error("Accès direct à la page sans paramètres");
           setError("Lien invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.");
+          setIsProcessingToken(false);
         } else {
           // Vérifier si l'utilisateur a déjà une session active
           const { data: sessionData } = await supabase.auth.getSession();
@@ -171,19 +190,17 @@ export const useResetSession = () => {
             console.log("Session existante détectée - permettre la définition du mot de passe");
             // On a une session, on peut continuer
             setIsProcessingToken(false);
-            return;
+          } else {
+            // Fallback pour tout autre cas où nous n'avons pas de token valide
+            console.error("Impossible de trouver un token valide dans l'URL");
+            setError("Lien d'authentification invalide ou expiré. Veuillez demander un nouveau lien.");
+            setIsProcessingToken(false);
           }
-          
-          // Fallback pour tout autre cas où nous n'avons pas de token valide
-          console.error("Impossible de trouver un token valide dans l'URL");
-          setError("Lien d'authentification invalide ou expiré. Veuillez demander un nouveau lien.");
         }
 
       } catch (err) {
         console.error("Erreur lors de l'analyse des paramètres URL:", err);
         setError("Une erreur s'est produite lors du traitement du lien. Veuillez réessayer.");
-      } finally {
-        // Toujours terminer le traitement du token
         setIsProcessingToken(false);
       }
     };

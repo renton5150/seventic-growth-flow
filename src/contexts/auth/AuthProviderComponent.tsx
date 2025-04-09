@@ -1,3 +1,4 @@
+
 import { useState, ReactNode, useEffect } from "react";
 import { User } from "@/types/types";
 import { AuthState } from "./types";
@@ -32,7 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const hasAuthParams = (window.location.hash && (
           window.location.hash.includes("access_token") || 
           window.location.hash.includes("error") ||
-          window.location.hash.includes("type=")
+          window.location.hash.includes("type=recovery") ||
+          window.location.hash.includes("type=invite") ||
+          window.location.hash.includes("type=signup")
         )) || (window.location.search && (
           window.location.search.includes("type=") || 
           window.location.search.includes("error=") ||
