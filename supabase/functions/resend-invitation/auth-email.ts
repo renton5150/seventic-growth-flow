@@ -5,7 +5,7 @@ export async function sendResetLink(
   email: string, 
   redirectUrl: string, 
   profile: { role: string, name: string },
-  emailConfig: { smtpConfigured: boolean, emailProvider: string },
+  emailConfig: { smtpConfigured: boolean, emailProvider: string, smtpDetails?: any },
   corsHeaders: Record<string, string>
 ) {
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
@@ -23,6 +23,13 @@ export async function sendResetLink(
     };
     
     console.log("Informations pour le lien de réinitialisation:", JSON.stringify(emailSettings));
+    
+    // Log détaillé de la configuration email pour debugging
+    console.log("Configuration SMTP actuelle:", {
+      provider: emailConfig.emailProvider,
+      configured: emailConfig.smtpConfigured,
+      details: emailConfig.smtpDetails || "Non disponible"
+    });
     
     const resetResult = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
@@ -59,7 +66,8 @@ export async function sendResetLink(
       smtpConfigured: emailConfig.smtpConfigured,
       debug: {
         emailSettings,
-        responseData: resetResult.data
+        responseData: resetResult.data,
+        smtpDetails: emailConfig.smtpDetails || "Non disponible"
       }
     }), {
       status: 200,
@@ -81,7 +89,7 @@ export async function sendInvitationLink(
   email: string, 
   redirectUrl: string, 
   profile: { role: string, name: string },
-  emailConfig: { smtpConfigured: boolean, emailProvider: string },
+  emailConfig: { smtpConfigured: boolean, emailProvider: string, smtpDetails?: any },
   corsHeaders: Record<string, string>
 ) {
   console.log("Nouvel utilisateur, envoi d'une invitation");
@@ -99,6 +107,13 @@ export async function sendInvitationLink(
     };
     
     console.log("Informations pour l'invitation:", JSON.stringify(emailSettings));
+    
+    // Log détaillé de la configuration email pour debugging
+    console.log("Configuration SMTP actuelle:", {
+      provider: emailConfig.emailProvider,
+      configured: emailConfig.smtpConfigured,
+      details: emailConfig.smtpDetails || "Non disponible"
+    });
     
     const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectUrl,
@@ -131,7 +146,8 @@ export async function sendInvitationLink(
       smtpConfigured: emailConfig.smtpConfigured,
       debug: {
         emailSettings,
-        responseData: inviteResult.data
+        responseData: inviteResult.data,
+        smtpDetails: emailConfig.smtpDetails || "Non disponible"
       }
     }), {
       status: 200,

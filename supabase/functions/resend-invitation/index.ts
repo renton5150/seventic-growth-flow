@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "./cors.ts";
 import { validateRequest } from "./validation.ts";
 import { getSupabaseAdmin } from "./supabase.ts";
@@ -28,9 +27,10 @@ serve(async (req) => {
       });
     }
     
-    const { email, redirectUrl, checkSmtpConfig = false } = requestBody;
+    const { email, redirectUrl, checkSmtpConfig = false, debug = false } = requestBody;
     console.log(`Tentative d'envoi d'invitation à: ${email}`);
     console.log(`URL de redirection: ${redirectUrl}`);
+    console.log(`Mode debug: ${debug ? "activé" : "désactivé"}`);
     
     // Get Supabase admin client
     const supabaseAdmin = await getSupabaseAdmin();

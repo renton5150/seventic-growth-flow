@@ -26,13 +26,23 @@ export const resendInvitation = async (email: string): Promise<ActionResponse & 
       }, 8000);
     });
     
+    // Ajout de logging détaillé pour le débogage
+    console.log("Appel à la fonction Edge resend-invitation avec plus de détails:", { 
+      email, 
+      redirectUrl,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      windowLocation: window.location.href,
+      checkSmtpConfig: true 
+    });
+    
     // Appel à la fonction Edge avec plus de détails pour le débogage
-    console.log("Appel à la fonction Edge resend-invitation avec:", { email, redirectUrl });
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
         email, 
         redirectUrl,
-        checkSmtpConfig: true // Demande de vérifier la configuration SMTP
+        checkSmtpConfig: true, // Demande de vérifier la configuration SMTP
+        debug: true // Activer le mode debug
       }
     });
     
@@ -41,16 +51,23 @@ export const resendInvitation = async (email: string): Promise<ActionResponse & 
     
     // Si c'est le timeout qui a gagné
     if ('warning' in result) {
-      console.warn("Délai dépassé, mais l'email a peut-être été envoyé");
+      console.warn("Délai dépassé lors de l'envoi de l'email:", {
+        email,
+        redirectUrl,
+        timestamp: new Date().toISOString()
+      });
       return result;
     }
     
     // Sinon c'est la réponse de la fonction
     const { data, error } = result;
     
+    // Journaliser la réponse complète
+    console.log("Réponse complète de la fonction Edge:", JSON.stringify(result, null, 2));
+    
     // Vérifier les erreurs
     if (error) {
-      console.error("Erreur lors de l'envoi de l'email:", error);
+      console.error("Erreur lors de l'envoi de l'email:", error, "Corps de l'erreur:", error.message);
       return { success: false, error: error.message };
     }
 
