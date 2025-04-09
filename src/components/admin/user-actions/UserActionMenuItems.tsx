@@ -43,7 +43,7 @@ export const UserActionMenuItems = ({
       
       if (success) {
         if (warning) {
-          toast.warning(warning, {
+          toast.warning(`Opération longue`, {
             description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire.",
             duration: 8000
           });

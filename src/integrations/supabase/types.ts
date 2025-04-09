@@ -190,6 +190,14 @@ export type Database = {
         }
         Returns: Json
       }
+      user_has_growth_role: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      user_is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
