@@ -33,7 +33,12 @@ serve(async (req) => {
     }
 
     // Create Supabase client with admin privileges
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     // Validate request body
     const requestBody = await req.json();
@@ -113,16 +118,34 @@ serve(async (req) => {
       const userExists = authUsers && authUsers.users && authUsers.users.length > 0;
       console.log("Utilisateur existant:", userExists ? "Oui" : "Non");
       
+      // Force direct SMTP mode for debug
+      const emailSettings = {
+        email,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            role: role,
+            name: name
+          }
+        }
+      };
+
       // Send appropriate email based on whether user exists
       if (userExists) {
         console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
         
         try {
+          console.log("Informations pour le lien de réinitialisation:", JSON.stringify(emailSettings));
+          
           const resetResult = await supabaseAdmin.auth.admin.generateLink({
             type: 'recovery',
             email,
             options: {
-              redirectTo: redirectUrl
+              redirectTo: redirectUrl,
+              data: {
+                role: role,
+                name: name
+              }
             }
           });
           
@@ -136,11 +159,14 @@ serve(async (req) => {
             });
           }
           
+          console.log("Réponse complète de l'API de réinitialisation:", JSON.stringify(resetResult));
           console.log("Email de réinitialisation envoyé avec succès");
+          
           return new Response(JSON.stringify({ 
             success: true,
             message: "Lien de réinitialisation envoyé avec succès",
-            userExists: true
+            userExists: true,
+            actionUrl: resetResult.data?.properties?.action_link || null
           }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -158,6 +184,8 @@ serve(async (req) => {
         console.log("Nouvel utilisateur, envoi d'une invitation");
         
         try {
+          console.log("Informations pour l'invitation:", JSON.stringify(emailSettings));
+          
           const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
             redirectTo: redirectUrl,
             data: {
@@ -176,11 +204,14 @@ serve(async (req) => {
             });
           }
           
+          console.log("Réponse complète de l'API d'invitation:", JSON.stringify(inviteResult));
           console.log("Invitation envoyée avec succès");
+          
           return new Response(JSON.stringify({ 
             success: true,
             message: "Invitation envoyée avec succès",
-            userExists: false
+            userExists: false,
+            actionUrl: inviteResult.data?.properties?.action_link || null
           }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" }
