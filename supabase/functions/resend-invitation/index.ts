@@ -90,27 +90,50 @@ serve(async (req) => {
     
     const role = profile?.role || 'sdr';
     const name = profile?.name || '';
-    console.log("Rôle utilisateur trouvé:", role);
     console.log("Nom utilisateur trouvé:", name);
+    console.log("Rôle utilisateur trouvé:", role);
     
     try {
-      // Vérifier d'abord si l'utilisateur existe
-      const { data: userExists, error: userCheckError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+      // Vérifier d'abord si l'utilisateur existe dans la table auth.users
+      const { data: users, error: usersError } = await supabaseAdmin
+        .from('auth.users')
+        .select('id')
+        .eq('email', email)
+        .limit(1);
       
-      if (userCheckError) {
-        console.error("Erreur lors de la vérification de l'utilisateur:", userCheckError);
-        return new Response(JSON.stringify({
-          error: `Erreur lors de la vérification de l'utilisateur: ${userCheckError.message}`
+      if (usersError) {
+        console.error("Erreur lors de la vérification de l'utilisateur:", usersError);
+        // On continue avec l'invitation car l'erreur peut être une restriction d'accès à auth.users
+      }
+      
+      // Alternative: vérifier si l'email existe déjà via la méthode signInWithOtp
+      const { data: otpCheck, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+          redirectTo: redirectUrl
+        }
+      });
+      
+      if (otpError && !otpError.message.includes('User not found')) {
+        console.error("Erreur lors de la vérification via OTP:", otpError);
+        return new Response(JSON.stringify({ 
+          error: `Erreur lors de la vérification de l'utilisateur: ${otpError.message}` 
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
       
+      // Si le lien a été généré avec succès, l'utilisateur existe
+      const userExists = !!otpCheck;
+      
+      console.log(`Utilisateur existant: ${userExists ? 'Oui' : 'Non'}`);
+      
       let result;
       
       if (userExists) {
-        // Si l'utilisateur existe déjà, on utilise resetPasswordForEmail
+        // Si l'utilisateur existe déjà, on utilise resetPasswordForEmail (via generateLink)
         console.log("Utilisateur existant détecté, envoi d'un email de réinitialisation du mot de passe");
         result = await supabaseAdmin.auth.admin.generateLink({
           type: 'recovery',

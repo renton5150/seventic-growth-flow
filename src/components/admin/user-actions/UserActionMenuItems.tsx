@@ -56,7 +56,7 @@ export const UserActionMenuItems = ({
         onActionComplete();
       } else {
         // Message d'erreur spécial pour l'erreur d'utilisateur déjà enregistré
-        if (error && error.includes("already been registered")) {
+        if (error && typeof error === 'string' && error.includes("already been registered")) {
           toast.error(`Erreur: Utilisateur déjà enregistré`, {
             description: "Un email de réinitialisation de mot de passe a été envoyé à la place.",
             duration: 8000
