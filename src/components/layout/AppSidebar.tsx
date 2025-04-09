@@ -1,7 +1,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User, Users, BarChart3 } from "lucide-react";
+import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User, Users, BarChart3, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -67,17 +67,15 @@ export const AppSidebar = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
           
-          {/* Éléments communs pour tous les utilisateurs */}
-          {!isAdmin && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild className={getLinkClass("/missions")}>
-                <Link to="/missions">
-                  <User className="h-5 w-5 mr-3" />
-                  Missions
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+          {/* Missions - accessible par tous les types d'utilisateurs */}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className={getLinkClass("/missions")}>
+              <Link to="/missions">
+                <Briefcase className="h-5 w-5 mr-3" />
+                Missions
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           
           {!isAdmin && (
             <SidebarMenuItem>
