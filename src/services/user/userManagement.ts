@@ -57,7 +57,7 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
 };
 
 // Renvoyer une invitation
-export const resendInvitation = async (email: string): Promise<ActionResponse> => {
+export const resendInvitation = async (email: string): Promise<ActionResponse & { userExists?: boolean }> => {
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
@@ -113,7 +113,10 @@ export const resendInvitation = async (email: string): Promise<ActionResponse> =
     }
     
     console.log("Email envoyé avec succès à:", email);
-    return { success: true };
+    return { 
+      success: true,
+      userExists: data.userExists || false
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     

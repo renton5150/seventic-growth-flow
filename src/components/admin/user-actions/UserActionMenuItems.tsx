@@ -35,8 +35,8 @@ export const UserActionMenuItems = ({
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
       console.log("Envoi d'une invitation à:", user.email);
-      const { success, error, warning } = await resendInvitation(user.email);
-      console.log("Résultat de l'envoi d'invitation:", { success, error, warning });
+      const { success, error, warning, userExists } = await resendInvitation(user.email);
+      console.log("Résultat de l'envoi d'invitation:", { success, error, warning, userExists });
       
       // Fermer le toast de chargement
       toast.dismiss(toastId);
@@ -46,6 +46,11 @@ export const UserActionMenuItems = ({
           toast.warning(`Opération longue`, {
             description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire.",
             duration: 8000
+          });
+        } else if (userExists) {
+          toast.success(`Email de réinitialisation envoyé à ${user.email}`, {
+            description: "L'utilisateur devrait recevoir un email pour réinitialiser son mot de passe.",
+            duration: 5000
           });
         } else {
           toast.success(`Email envoyé à ${user.email}`, {

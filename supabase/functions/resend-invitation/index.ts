@@ -94,80 +94,68 @@ serve(async (req) => {
     console.log("Rôle utilisateur trouvé:", role);
     
     try {
-      // Vérifier d'abord si l'utilisateur existe dans la table auth.users
-      const { data: users, error: usersError } = await supabaseAdmin
-        .from('auth.users')
-        .select('id')
-        .eq('email', email)
-        .limit(1);
+      // Pour simplifier, on va toujours utiliser inviteUserByEmail
+      // Cette méthode va soit inviter un nouvel utilisateur, soit envoyer un lien de "magic link"
+      // à un utilisateur existant
+      console.log("Envoi d'une invitation/magic link à:", email);
       
-      if (usersError) {
-        console.error("Erreur lors de la vérification de l'utilisateur:", usersError);
-        // On continue avec l'invitation car l'erreur peut être une restriction d'accès à auth.users
-      }
-      
-      // Alternative: vérifier si l'email existe déjà via la méthode signInWithOtp
-      const { data: otpCheck, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'recovery',
-        email,
-        options: {
-          redirectTo: redirectUrl
+      const result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: redirectUrl,
+        data: {
+          role: role,
+          name: name
         }
       });
       
-      if (otpError && !otpError.message.includes('User not found')) {
-        console.error("Erreur lors de la vérification via OTP:", otpError);
-        return new Response(JSON.stringify({ 
-          error: `Erreur lors de la vérification de l'utilisateur: ${otpError.message}` 
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      
-      // Si le lien a été généré avec succès, l'utilisateur existe
-      const userExists = !!otpCheck;
-      
-      console.log(`Utilisateur existant: ${userExists ? 'Oui' : 'Non'}`);
-      
-      let result;
-      
-      if (userExists) {
-        // Si l'utilisateur existe déjà, on utilise resetPasswordForEmail (via generateLink)
-        console.log("Utilisateur existant détecté, envoi d'un email de réinitialisation du mot de passe");
-        result = await supabaseAdmin.auth.admin.generateLink({
-          type: 'recovery',
-          email,
-          options: {
-            redirectTo: redirectUrl
-          }
-        });
-      } else {
-        // Sinon on utilise inviteUserByEmail
-        console.log("Nouvel utilisateur, envoi d'une invitation par email");
-        result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: redirectUrl,
-          data: {
-            role: role,
-            name: name
-          }
-        });
-      }
-      
       if (result.error) {
-        console.error("Erreur lors de l'envoi du lien:", result.error);
+        console.error("Erreur lors de l'envoi de l'invitation:", result.error);
+        
+        // Si l'erreur indique que l'utilisateur existe déjà, on essaie avec un lien de réinitialisation
+        if (result.error.message?.includes("already been registered")) {
+          console.log("Utilisateur déjà enregistré, envoi d'un lien de réinitialisation");
+          
+          const resetResult = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: {
+              redirectTo: redirectUrl
+            }
+          });
+          
+          if (resetResult.error) {
+            console.error("Erreur lors de l'envoi du lien de réinitialisation:", resetResult.error);
+            return new Response(JSON.stringify({ 
+              error: `Erreur lors de l'envoi du lien de réinitialisation: ${resetResult.error.message}`,
+              userExists: true
+            }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+          }
+          
+          console.log("Lien de réinitialisation envoyé avec succès à l'utilisateur existant");
+          return new Response(JSON.stringify({ 
+            success: true,
+            message: "Lien de réinitialisation envoyé avec succès",
+            userExists: true
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
         return new Response(JSON.stringify({ 
-          error: `Erreur lors de l'envoi du lien: ${result.error.message}` 
+          error: `Erreur lors de l'envoi de l'invitation: ${result.error.message}` 
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
       
-      console.log("Email envoyé avec succès");
+      console.log("Invitation envoyée avec succès à:", email);
       return new Response(JSON.stringify({ 
         success: true,
-        message: "Email envoyé avec succès"
+        message: "Invitation envoyée avec succès"
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
