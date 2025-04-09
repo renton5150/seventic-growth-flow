@@ -63,6 +63,7 @@ const Missions = () => {
 
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour, rafraîchissement de la liste");
+    setSelectedMission(null);
     refetch();
     toast.success("Liste des missions actualisée");
   };
@@ -102,7 +103,7 @@ const Missions = () => {
             isAdmin={isAdmin} 
             onViewMission={handleViewMission}
             showAdminActions={isAdmin}
-            onRefresh={handleMissionUpdated}
+            onRefresh={handleRefreshMissions}
           />
         )}
         

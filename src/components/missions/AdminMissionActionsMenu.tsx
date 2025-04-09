@@ -32,7 +32,7 @@ export const AdminMissionActionsMenu = ({
   };
   
   const handleMissionDeleted = () => {
-    console.log("Mission supprimée avec succès, rafraîchissement des données");
+    console.log("Mission supprimée avec succès, notification au parent");
     if (onSuccess) {
       onSuccess();
     }

@@ -30,9 +30,7 @@ export const DeleteMissionDialog = ({
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async (event: React.MouseEvent) => {
-    event.preventDefault(); // Empêcher le comportement par défaut
-    
+  const handleDelete = async () => {
     try {
       setIsDeleting(true);
       console.log(`Tentative de suppression de la mission ID: ${mission.id}`);
@@ -46,13 +44,11 @@ export const DeleteMissionDialog = ({
         // Fermer d'abord la boîte de dialogue
         onOpenChange(false);
         
-        // Puis appeler le callback de succès après une courte pause
-        setTimeout(() => {
-          if (onSuccess) {
-            console.log("Exécution du callback onSuccess après suppression");
-            onSuccess();
-          }
-        }, 100);
+        // Puis appeler le callback de succès
+        if (onSuccess) {
+          console.log("Exécution du callback onSuccess après suppression");
+          onSuccess();
+        }
       } else {
         console.error(`Échec de la suppression de la mission: ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
