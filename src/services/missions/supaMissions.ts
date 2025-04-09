@@ -1,4 +1,3 @@
-
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getRequestsByMissionId } from "../requestService";
@@ -208,6 +207,64 @@ export const createSupaMission = async (data: {
   } catch (error) {
     console.error("Erreur inattendue lors de la création de la mission:", error);
     return undefined;
+  }
+};
+
+// Supprimer une mission dans Supabase
+export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
+  try {
+    console.log("Suppression d'une mission dans Supabase:", missionId);
+    
+    // Si l'identifiant n'est pas un UUID valide, retourner false
+    if (!isValidUUID(missionId)) {
+      console.warn("ID mission non valide pour Supabase:", missionId);
+      return false;
+    }
+    
+    const { error } = await supabase
+      .from('missions')
+      .delete()
+      .eq('id', missionId);
+
+    if (error) {
+      console.error("Erreur lors de la suppression de la mission:", error);
+      return false;
+    }
+
+    console.log("Mission supprimée avec succès dans Supabase");
+    return true;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la suppression de la mission:", error);
+    return false;
+  }
+};
+
+// Assigner un SDR à une mission dans Supabase
+export const assignSDRToSupaMission = async (missionId: string, sdrId: string): Promise<boolean> => {
+  try {
+    console.log("Assignation d'un SDR à une mission dans Supabase:", missionId, sdrId);
+    
+    // Si l'identifiant n'est pas un UUID valide, retourner false
+    if (!isValidUUID(missionId) || !isValidUUID(sdrId)) {
+      console.warn("ID mission ou SDR non valide pour Supabase:", { missionId, sdrId });
+      return false;
+    }
+    
+    const { error } = await supabase
+      .from('missions')
+      .update({ sdr_id: sdrId })
+      .eq('id', missionId);
+
+    if (error) {
+      console.error("Erreur lors de l'assignation du SDR:", error);
+      return false;
+    }
+
+    console.log("SDR assigné avec succès dans Supabase");
+    return true;
+  } catch (error) {
+    console.error("Erreur inattendue lors de l'assignation du SDR:", error);
+    return false;
   }
 };
 
