@@ -2,16 +2,16 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, UserPlus, UserMinus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Mission, User } from "@/types/types";
+import { Mission } from "@/types/types";
 import { getAllMissions, getMissionsByUserId } from "@/services/missionService";
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { useQuery } from "@tanstack/react-query";
-import { AdminMissionActionsMenu } from "@/components/missions/AdminMissionActionsMenu";
+import { toast } from "sonner";
 
 const Missions = () => {
   const { user } = useAuth();
@@ -38,6 +38,7 @@ const Missions = () => {
         return [];
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
+        toast.error("Erreur lors du chargement des missions");
         return [];
       }
     },
@@ -48,6 +49,7 @@ const Missions = () => {
   const handleRefreshMissions = () => {
     console.log("Rafraîchissement des missions");
     refetch();
+    toast.success("Liste des missions actualisée");
   };
   
   const handleViewMission = (mission: Mission) => {

@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface DeleteMissionDialogProps {
   mission: Mission;
@@ -34,12 +35,18 @@ export const DeleteMissionDialog = ({
       setIsDeleting(true);
       console.log("Suppression de la mission:", mission.id);
       
-      await deleteMission(mission.id);
+      const success = await deleteMission(mission.id);
       
-      onSuccess?.();
-      onOpenChange(false);
+      if (success) {
+        toast.success(`La mission ${mission.name} a été supprimée avec succès`);
+        onSuccess?.();
+        onOpenChange(false);
+      } else {
+        toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
+      }
     } catch (error) {
       console.error("Erreur lors de la suppression de la mission:", error);
+      toast.error("Une erreur est survenue lors de la suppression de la mission");
     } finally {
       setIsDeleting(false);
     }
@@ -55,7 +62,7 @@ export const DeleteMissionDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleDelete}
             disabled={isDeleting}

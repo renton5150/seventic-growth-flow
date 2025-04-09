@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { isSupabaseConfigured } from "./missions/config";
 import {
@@ -155,6 +156,7 @@ export const deleteMission = async (missionId: string): Promise<boolean> => {
       return deleteMockMission(missionId);
     }
 
+    console.log("Tentative de suppression de mission dans Supabase avec ID:", missionId);
     const success = await deleteSupaMission(missionId);
     if (!success) {
       console.log("Échec de suppression dans Supabase, fallback vers les données mockées");

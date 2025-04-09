@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Mission } from "@/types/types";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Trash2, UserPlus, UserMinus } from "lucide-react";
+import { MoreHorizontal, Trash2, UserPlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,10 +70,7 @@ export const AdminMissionActionsMenu = ({
         mission={mission}
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onSuccess={() => {
-          onSuccess?.();
-          toast.success(`Mission ${mission.name} supprimée`);
-        }}
+        onSuccess={onSuccess}
       />
     </>
   );

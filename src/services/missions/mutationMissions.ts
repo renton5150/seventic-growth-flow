@@ -98,6 +98,15 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       return false;
     }
     
+    // Vérifier l'authentification actuelle
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      console.error("Erreur: Utilisateur non authentifié pour supprimer une mission");
+      return false;
+    }
+    
+    console.log("Session active pour suppression:", !!session.session, "User ID:", session.session?.user?.id);
+    
     const { error } = await supabase
       .from('missions')
       .delete()
