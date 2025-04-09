@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    // Utiliser les secrets que vous avez configurés
+    // Get environment variables
     const SUPABASE_URL = Deno.env.get("APPLICATION_INTERNE_SEVENTIC");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
 
@@ -32,16 +32,16 @@ serve(async (req) => {
       });
     }
 
-    // Créer un client Supabase avec le rôle de service
+    // Create Supabase client with admin privileges
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Récupérer et valider le corps de la requête
+    // Validate request body
     const requestBody = await req.json();
     console.log("Corps de la requête reçu:", JSON.stringify(requestBody));
     
     const { email, redirectUrl } = requestBody;
     
-    console.log(`Traitement du renvoi d'invitation pour: ${email}`);
+    console.log(`Tentative d'envoi d'invitation à: ${email}`);
     console.log(`URL de redirection: ${redirectUrl}`);
 
     if (!email || typeof email !== 'string') {
@@ -61,7 +61,7 @@ serve(async (req) => {
     }
 
     try {
-      // Récupérer le profil pour obtenir le rôle actuel
+      // Get user profile for role information
       console.log("Recherche du profil pour l'email:", email);
       const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -93,86 +93,107 @@ serve(async (req) => {
       const name = profile.name || '';
       console.log("Nom utilisateur trouvé:", name);
       console.log("Rôle utilisateur trouvé:", role);
-      
-      // Vérifier si l'utilisateur existe déjà dans auth
+
+      // Check if user exists in auth
       console.log("Vérification si l'utilisateur existe déjà dans auth");
-      
-      // Au lieu d'utiliser getUserByEmail (qui n'existe pas), utilisons une autre méthode
-      // pour vérifier si l'utilisateur existe dans auth
-      const { data: authUser, error: authUserError } = await supabaseAdmin.auth.admin.listUsers({
-        email: email
+      const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({
+        filter: `email.eq.${email}`
       });
       
-      let userExists = false;
-      if (authUserError) {
-        console.error("Erreur lors de la vérification de l'existence de l'utilisateur:", authUserError);
-      } else {
-        userExists = authUser && authUser.users && authUser.users.length > 0;
-        console.log("Utilisateur existant:", userExists ? "Oui" : "Non");
+      if (authUsersError) {
+        console.error("Erreur lors de la vérification de l'existence de l'utilisateur:", authUsersError);
+        return new Response(JSON.stringify({ 
+          error: `Erreur lors de la vérification de l'utilisateur: ${authUsersError.message}` 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
       
+      const userExists = authUsers && authUsers.users && authUsers.users.length > 0;
+      console.log("Utilisateur existant:", userExists ? "Oui" : "Non");
+      
+      // Send appropriate email based on whether user exists
       if (userExists) {
         console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
         
-        // Envoyer un lien de réinitialisation de mot de passe
-        const resetResult = await supabaseAdmin.auth.admin.generateLink({
-          type: 'recovery',
-          email,
-          options: {
-            redirectTo: redirectUrl
+        try {
+          const resetResult = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: {
+              redirectTo: redirectUrl
+            }
+          });
+          
+          if (resetResult.error) {
+            console.error("Erreur lors de l'envoi du lien de réinitialisation:", resetResult.error);
+            return new Response(JSON.stringify({ 
+              error: `Erreur lors de l'envoi du lien de réinitialisation: ${resetResult.error.message}`
+            }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
           }
-        });
-        
-        if (resetResult.error) {
-          console.error("Erreur lors de l'envoi du lien de réinitialisation:", resetResult.error);
+          
+          console.log("Email de réinitialisation envoyé avec succès");
           return new Response(JSON.stringify({ 
-            error: `Erreur lors de l'envoi du lien de réinitialisation: ${resetResult.error.message}`
+            success: true,
+            message: "Lien de réinitialisation envoyé avec succès",
+            userExists: true
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (error) {
+          console.error("Exception lors de l'envoi du lien de réinitialisation:", error);
+          return new Response(JSON.stringify({ 
+            error: `Exception lors de l'envoi du lien de réinitialisation: ${error instanceof Error ? error.message : String(error)}`
           }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-        
-        console.log("Email envoyé avec succès");
-        return new Response(JSON.stringify({ 
-          success: true,
-          message: "Lien de réinitialisation envoyé avec succès",
-          userExists: true
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
       } else {
         console.log("Nouvel utilisateur, envoi d'une invitation");
         
-        // Envoyer une invitation pour un nouvel utilisateur
-        const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: redirectUrl,
-          data: {
-            role: role,
-            name: name
+        try {
+          const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+            redirectTo: redirectUrl,
+            data: {
+              role: role,
+              name: name
+            }
+          });
+          
+          if (inviteResult.error) {
+            console.error("Erreur lors de l'envoi de l'invitation:", inviteResult.error);
+            return new Response(JSON.stringify({ 
+              error: `Erreur lors de l'envoi de l'invitation: ${inviteResult.error.message}`
+            }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
           }
-        });
-        
-        if (inviteResult.error) {
-          console.error("Erreur lors de l'envoi de l'invitation:", inviteResult.error);
+          
+          console.log("Invitation envoyée avec succès");
           return new Response(JSON.stringify({ 
-            error: `Erreur lors de l'envoi de l'invitation: ${inviteResult.error.message}`
+            success: true,
+            message: "Invitation envoyée avec succès",
+            userExists: false
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (error) {
+          console.error("Exception lors de l'envoi de l'invitation:", error);
+          return new Response(JSON.stringify({ 
+            error: `Exception lors de l'envoi de l'invitation: ${error instanceof Error ? error.message : String(error)}`
           }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-        
-        console.log("Email envoyé avec succès");
-        return new Response(JSON.stringify({ 
-          success: true,
-          message: "Invitation envoyée avec succès",
-          userExists: false
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
       }
     } catch (err) {
       console.error("Exception lors de l'envoi de l'email:", err);
