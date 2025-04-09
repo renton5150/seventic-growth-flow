@@ -49,11 +49,15 @@ const Missions = () => {
   const handleRefreshMissions = () => {
     console.log("Missions: Rafraîchissement des missions");
     // Force React Query to refetch data
-    refetch().then(() => {
-      console.log("Missions: Données rechargées après rafraîchissement");
-    }).catch(error => {
-      console.error("Erreur lors du rafraîchissement des missions:", error);
-    });
+    refetch()
+      .then(() => {
+        console.log("Missions: Données rechargées après rafraîchissement");
+        toast.success("Liste des missions actualisée");
+      })
+      .catch(error => {
+        console.error("Erreur lors du rafraîchissement des missions:", error);
+        toast.error("Erreur lors de l'actualisation des missions");
+      });
   };
   
   const handleViewMission = (mission: Mission) => {
