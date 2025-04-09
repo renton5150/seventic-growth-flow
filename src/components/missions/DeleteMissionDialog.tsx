@@ -31,30 +31,36 @@ export const DeleteMissionDialog = ({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
+    if (!mission?.id) {
+      console.error("Tentative de suppression d'une mission sans ID valide");
+      toast.error("Impossible de supprimer cette mission : ID invalide");
+      return;
+    }
+    
     try {
       setIsDeleting(true);
       console.log("*** DeleteMissionDialog.handleDelete: Début de la fonction");
       console.log(`Tentative de suppression de la mission ID: ${mission.id}`);
-      console.log("Type de l'ID:", typeof mission.id);
-      console.log("Longueur de l'ID:", mission.id.length);
       console.log("Données complètes de la mission:", JSON.stringify(mission, null, 2));
       
       const success = await deleteMission(mission.id);
       
       if (success) {
         console.log(`Mission supprimée avec succès: ${mission.id}`);
-        toast.success(`La mission ${mission.name} a été supprimée avec succès`);
         
         // Fermer d'abord la boîte de dialogue
         onOpenChange(false);
         
-        // Exécuter le callback de succès IMMÉDIATEMENT après la confirmation de suppression
-        if (onSuccess) {
-          console.log("Exécution du callback onSuccess après suppression");
-          onSuccess();
-        } else {
-          console.warn("Aucun callback onSuccess fourni à DeleteMissionDialog");
-        }
+        // Notification de succès
+        toast.success(`La mission ${mission.name} a été supprimée avec succès`);
+        
+        // Exécuter le callback de succès avec un petit délai pour éviter les problèmes de timing
+        setTimeout(() => {
+          if (onSuccess) {
+            console.log("Exécution du callback onSuccess après suppression");
+            onSuccess();
+          }
+        }, 100);
       } else {
         console.error(`Échec de la suppression de la mission: ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);

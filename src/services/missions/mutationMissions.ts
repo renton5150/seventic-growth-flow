@@ -91,8 +91,6 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   try {
     console.log("*** deleteSupaMission: Début de la fonction");
     console.log("Suppression d'une mission dans Supabase avec ID:", missionId);
-    console.log("Type de l'ID:", typeof missionId);
-    console.log("Longueur de l'ID:", missionId.length);
     
     // Si l'identifiant n'est pas un UUID valide, retourner false
     if (!isValidUUID(missionId)) {
@@ -111,18 +109,30 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       console.log(`Utilisateur authentifié avec ID: ${session.session.user.id} pour supprimer la mission ${missionId}`);
     }
     
-    console.log("Session active pour suppression:", !!session.session);
-    console.log("User ID:", session.session?.user?.id);
-    console.log("Tentative de suppression pour la mission:", missionId);
-    
-    // Modifier cette requête pour ne pas utiliser select('count')
     console.log(`Exécution de la requête DELETE sur la table 'missions' avec id=${missionId}...`);
+    
+    // Première étape : supprimer tous les requests liés à cette mission pour éviter les erreurs de clé étrangère
+    const { error: requestsError } = await supabase
+      .from('requests')
+      .delete()
+      .eq('mission_id', missionId);
+      
+    if (requestsError) {
+      console.error("Erreur lors de la suppression des demandes liées à la mission:", requestsError);
+      console.error("Code d'erreur:", requestsError.code);
+      console.error("Message d'erreur:", requestsError.message);
+      console.error("Détails:", requestsError.details);
+      // On continue quand même avec la suppression de la mission
+    } else {
+      console.log(`Demandes liées à la mission ${missionId} supprimées avec succès`);
+    }
+    
+    // Deuxième étape : supprimer la mission elle-même
     const { error } = await supabase
       .from('missions')
       .delete()
       .eq('id', missionId);
 
-    // Vérifier s'il y a eu une erreur
     if (error) {
       console.error("Erreur Supabase lors de la suppression de la mission:", error);
       console.error("Code d'erreur:", error.code);
@@ -131,21 +141,6 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       return false;
     }
     
-    // Essayons de vérifier si la mission existe encore après suppression
-    const { data: checkMission, error: checkError } = await supabase
-      .from('missions')
-      .select('id')
-      .eq('id', missionId)
-      .single();
-      
-    if (checkError && checkError.code === 'PGRST116') {
-      console.log(`Vérification confirmée: Mission ${missionId} n'existe plus dans la base de données`);
-    } else if (checkMission) {
-      console.error(`Échec de la suppression: Mission ${missionId} existe encore dans la base de données`);
-      return false;
-    }
-    
-    // Si pas d'erreur, la suppression a réussi
     console.log(`Mission ${missionId} supprimée avec succès dans Supabase`);
     console.log("*** deleteSupaMission: Fin de la fonction avec succès");
     return true;
