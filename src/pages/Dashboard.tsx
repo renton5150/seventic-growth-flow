@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 const Dashboard = () => {
   const [statFilter, setStatFilter] = useState<StatFilter>("all");
-  const { requests, filteredRequests, activeTab, setActiveTab, isAdmin } = useDashboardRequests();
+  const { requests, filteredRequests, activeTab, setActiveTab, isAdmin, isSDR } = useDashboardRequests();
 
   const handleFilterChange = (filter: StatFilter) => {
     setStatFilter(filter);
@@ -39,7 +39,7 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <DashboardHeader />
+        <DashboardHeader isSDR={isSDR} />
         <DashboardStats 
           requests={requests}
           onFilterChange={handleFilterChange}
