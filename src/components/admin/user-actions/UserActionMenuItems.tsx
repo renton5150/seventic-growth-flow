@@ -53,26 +53,17 @@ export const UserActionMenuItems = ({
             duration: 5000
           });
         } else {
-          toast.success(`Email envoyé à ${user.email}`, {
+          toast.success(`Invitation envoyée à ${user.email}`, {
             description: "L'utilisateur devrait recevoir un email sous peu pour configurer son compte.",
             duration: 5000
           });
         }
         onActionComplete();
       } else {
-        // Message d'erreur spécial pour l'erreur d'utilisateur déjà enregistré
-        if (error && typeof error === 'string' && error.includes("already been registered")) {
-          toast.error(`Erreur: Utilisateur déjà enregistré`, {
-            description: "Un email de réinitialisation de mot de passe a été envoyé à la place.",
-            duration: 8000
-          });
-          onActionComplete();
-        } else {
-          toast.error(`Erreur: ${error || "Impossible d'envoyer l'email"}`, {
-            description: "Vérifiez les logs de la fonction Edge pour plus de détails.",
-            duration: 8000
-          });
-        }
+        toast.error(`Erreur: ${error || "Impossible d'envoyer l'email"}`, {
+          description: "Vérifiez les logs de la fonction Edge pour plus de détails.",
+          duration: 8000
+        });
       }
     } catch (error) {
       console.error("Erreur lors de l'envoi de l'email:", error);

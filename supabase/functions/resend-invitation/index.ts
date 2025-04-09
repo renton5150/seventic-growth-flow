@@ -60,106 +60,120 @@ serve(async (req) => {
       });
     }
 
-    // Récupérer le profil pour obtenir le rôle actuel
-    console.log("Recherche du profil pour l'email:", email);
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role, name')
-      .eq('email', email)
-      .maybeSingle();
-    
-    if (profileError) {
-      console.error("Erreur lors de la récupération du profil:", profileError);
-      return new Response(JSON.stringify({
-        error: `Erreur lors de la récupération du profil: ${profileError.message}`
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-    
-    if (!profile) {
-      console.error("Aucun profil trouvé pour cet email:", email);
-      return new Response(JSON.stringify({ 
-        error: `Aucun profil trouvé pour l'email: ${email}` 
-      }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-    
-    const role = profile?.role || 'sdr';
-    const name = profile?.name || '';
-    console.log("Nom utilisateur trouvé:", name);
-    console.log("Rôle utilisateur trouvé:", role);
-    
     try {
-      // Pour simplifier, on va toujours utiliser inviteUserByEmail
-      // Cette méthode va soit inviter un nouvel utilisateur, soit envoyer un lien de "magic link"
-      // à un utilisateur existant
-      console.log("Envoi d'une invitation/magic link à:", email);
+      // Récupérer le profil pour obtenir le rôle actuel
+      console.log("Recherche du profil pour l'email:", email);
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('role, name')
+        .eq('email', email)
+        .maybeSingle();
       
-      const result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: redirectUrl,
-        data: {
-          role: role,
-          name: name
-        }
-      });
-      
-      if (result.error) {
-        console.error("Erreur lors de l'envoi de l'invitation:", result.error);
-        
-        // Si l'erreur indique que l'utilisateur existe déjà, on essaie avec un lien de réinitialisation
-        if (result.error.message?.includes("already been registered")) {
-          console.log("Utilisateur déjà enregistré, envoi d'un lien de réinitialisation");
-          
-          const resetResult = await supabaseAdmin.auth.admin.generateLink({
-            type: 'recovery',
-            email,
-            options: {
-              redirectTo: redirectUrl
-            }
-          });
-          
-          if (resetResult.error) {
-            console.error("Erreur lors de l'envoi du lien de réinitialisation:", resetResult.error);
-            return new Response(JSON.stringify({ 
-              error: `Erreur lors de l'envoi du lien de réinitialisation: ${resetResult.error.message}`,
-              userExists: true
-            }), {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-          }
-          
-          console.log("Lien de réinitialisation envoyé avec succès à l'utilisateur existant");
-          return new Response(JSON.stringify({ 
-            success: true,
-            message: "Lien de réinitialisation envoyé avec succès",
-            userExists: true
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
-        
-        return new Response(JSON.stringify({ 
-          error: `Erreur lors de l'envoi de l'invitation: ${result.error.message}` 
+      if (profileError) {
+        console.error("Erreur lors de la récupération du profil:", profileError);
+        return new Response(JSON.stringify({
+          error: `Erreur lors de la récupération du profil: ${profileError.message}`
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
       
-      console.log("Invitation envoyée avec succès à:", email);
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: "Invitation envoyée avec succès"
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      if (!profile) {
+        console.error("Aucun profil trouvé pour cet email:", email);
+        return new Response(JSON.stringify({ 
+          error: `Aucun profil trouvé pour l'email: ${email}` 
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      
+      const role = profile.role || 'sdr';
+      const name = profile.name || '';
+      console.log("Nom utilisateur trouvé:", name);
+      console.log("Rôle utilisateur trouvé:", role);
+      
+      // Vérifier si l'utilisateur existe déjà dans auth
+      console.log("Vérification si l'utilisateur existe déjà dans auth");
+      
+      // Au lieu d'utiliser getUserByEmail (qui n'existe pas), utilisons une autre méthode
+      // pour vérifier si l'utilisateur existe dans auth
+      const { data: authUser, error: authUserError } = await supabaseAdmin.auth.admin.listUsers({
+        email: email
       });
+      
+      let userExists = false;
+      if (authUserError) {
+        console.error("Erreur lors de la vérification de l'existence de l'utilisateur:", authUserError);
+      } else {
+        userExists = authUser && authUser.users && authUser.users.length > 0;
+        console.log("Utilisateur existant:", userExists ? "Oui" : "Non");
+      }
+      
+      if (userExists) {
+        console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
+        
+        // Envoyer un lien de réinitialisation de mot de passe
+        const resetResult = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+        
+        if (resetResult.error) {
+          console.error("Erreur lors de l'envoi du lien de réinitialisation:", resetResult.error);
+          return new Response(JSON.stringify({ 
+            error: `Erreur lors de l'envoi du lien de réinitialisation: ${resetResult.error.message}`
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        console.log("Email envoyé avec succès");
+        return new Response(JSON.stringify({ 
+          success: true,
+          message: "Lien de réinitialisation envoyé avec succès",
+          userExists: true
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } else {
+        console.log("Nouvel utilisateur, envoi d'une invitation");
+        
+        // Envoyer une invitation pour un nouvel utilisateur
+        const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: redirectUrl,
+          data: {
+            role: role,
+            name: name
+          }
+        });
+        
+        if (inviteResult.error) {
+          console.error("Erreur lors de l'envoi de l'invitation:", inviteResult.error);
+          return new Response(JSON.stringify({ 
+            error: `Erreur lors de l'envoi de l'invitation: ${inviteResult.error.message}`
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        console.log("Email envoyé avec succès");
+        return new Response(JSON.stringify({ 
+          success: true,
+          message: "Invitation envoyée avec succès",
+          userExists: false
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
     } catch (err) {
       console.error("Exception lors de l'envoi de l'email:", err);
       return new Response(JSON.stringify({ 
