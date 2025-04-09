@@ -14,11 +14,15 @@ interface StatCardProps {
     isPositive: boolean;
   };
   className?: string;
+  onClick?: () => void;
 }
 
-export const StatCard = ({ title, value, icon, description, details, trend, className }: StatCardProps) => {
+export const StatCard = ({ title, value, icon, description, details, trend, className, onClick }: StatCardProps) => {
   return (
-    <Card className={cn("flex flex-col h-full", className)}>
+    <Card 
+      className={cn("flex flex-col h-full", onClick ? "cursor-pointer hover:shadow-md transition-all" : "", className)}
+      onClick={onClick}
+    >
       <CardContent className="pt-6">
         <div className="flex justify-between items-start">
           <div>

@@ -5,10 +5,11 @@ import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 import { getMissionsByUserId } from "@/services/missionService";
+import { StatFilter } from "@/components/admin/AdminStatsSummary";
 
 export const useDashboardRequests = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -62,6 +63,7 @@ export const useDashboardRequests = () => {
     if (activeTab === "database") return request.type === "database";
     if (activeTab === "linkedin") return request.type === "linkedin";
     if (activeTab === "pending") return request.status === "pending";
+    if (activeTab === "completed") return request.status === "completed";
     if (activeTab === "late") return request.isLate;
     return false;
   });
