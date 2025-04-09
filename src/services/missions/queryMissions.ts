@@ -13,7 +13,13 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
-        *,
+        id, 
+        name, 
+        client, 
+        description, 
+        sdr_id, 
+        created_at, 
+        start_date,
         profiles!missions_sdr_id_fkey(name)
       `);
 
@@ -64,7 +70,13 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
-        *,
+        id, 
+        name, 
+        client, 
+        description, 
+        sdr_id, 
+        created_at, 
+        start_date,
         profiles!missions_sdr_id_fkey(name)
       `)
       .eq('sdr_id', userId);
@@ -116,7 +128,13 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
     const { data: mission, error } = await supabase
       .from('missions')
       .select(`
-        *,
+        id, 
+        name, 
+        client, 
+        description, 
+        sdr_id, 
+        created_at, 
+        start_date,
         profiles!missions_sdr_id_fkey(name)
       `)
       .eq('id', missionId)

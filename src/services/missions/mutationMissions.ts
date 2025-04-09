@@ -50,8 +50,14 @@ export const createSupaMission = async (data: {
       .from('missions')
       .insert(missionData)
       .select(`
-        *,
-        profiles!missions_sdr_id_fkey(name)
+        id, 
+        name, 
+        client, 
+        description, 
+        sdr_id, 
+        created_at, 
+        start_date,
+        profiles(name)
       `)
       .single();
 
