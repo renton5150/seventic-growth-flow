@@ -57,7 +57,7 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
 };
 
 // Renvoyer une invitation
-export const resendInvitation = async (email: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string }> => {
+export const resendInvitation = async (email: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
   console.log("Tentative de renvoi d'invitation à:", email);
   
   try {
@@ -80,12 +80,13 @@ export const resendInvitation = async (email: string): Promise<ActionResponse & 
       }, 8000);
     });
     
-    // Appel à la fonction Edge
+    // Appel à la fonction Edge avec plus de détails pour le débogage
     console.log("Appel à la fonction Edge resend-invitation avec:", { email, redirectUrl });
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
         email, 
-        redirectUrl
+        redirectUrl,
+        checkSmtpConfig: true // Demande de vérifier la configuration SMTP
       }
     });
     
@@ -116,7 +117,9 @@ export const resendInvitation = async (email: string): Promise<ActionResponse & 
     return { 
       success: true,
       userExists: data.userExists || false,
-      actionUrl: data.actionUrl || undefined
+      actionUrl: data.actionUrl || undefined,
+      emailProvider: data.emailProvider || undefined,
+      smtpConfigured: data.smtpConfigured || false
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";

@@ -44,7 +44,7 @@ serve(async (req) => {
     const requestBody = await req.json();
     console.log("Corps de la requête reçu:", JSON.stringify(requestBody));
     
-    const { email, redirectUrl } = requestBody;
+    const { email, redirectUrl, checkSmtpConfig = false } = requestBody;
     
     console.log(`Tentative d'envoi d'invitation à: ${email}`);
     console.log(`URL de redirection: ${redirectUrl}`);
@@ -63,6 +63,33 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
+    }
+
+    // Vérification de la configuration SMTP si demandé
+    let smtpConfigured = false;
+    let emailProvider = "Supabase default";
+    
+    if (checkSmtpConfig) {
+      try {
+        // Obtenir les configurations d'email - nécessite des droits admin
+        const { data: emailSettings, error: emailError } = await supabaseAdmin
+          .from('supabase_functions')
+          .select('*')
+          .eq('name', 'email')
+          .maybeSingle();
+        
+        console.log("Configuration email récupérée:", emailSettings ? "Oui" : "Non");
+        
+        if (emailSettings && !emailError) {
+          smtpConfigured = emailSettings.config?.smtp?.enabled || false;
+          emailProvider = smtpConfigured ? "SMTP personnalisé" : "Supabase default";
+          console.log("SMTP configuré:", smtpConfigured);
+        } else if (emailError) {
+          console.error("Erreur lors de la récupération de la configuration email:", emailError);
+        }
+      } catch (err) {
+        console.log("Impossible de récupérer la configuration SMTP:", err);
+      }
     }
 
     try {
@@ -117,6 +144,7 @@ serve(async (req) => {
       
       const userExists = authUsers && authUsers.users && authUsers.users.length > 0;
       console.log("Utilisateur existant:", userExists ? "Oui" : "Non");
+      console.log("Configuration email:", emailProvider, smtpConfigured ? "(SMTP configuré)" : "(SMTP non configuré)");
       
       // Force direct SMTP mode for debug
       const emailSettings = {
@@ -159,6 +187,7 @@ serve(async (req) => {
             });
           }
           
+          // Journaliser la réponse complète pour le débogage
           console.log("Réponse complète de l'API de réinitialisation:", JSON.stringify(resetResult));
           console.log("Email de réinitialisation envoyé avec succès");
           
@@ -166,7 +195,13 @@ serve(async (req) => {
             success: true,
             message: "Lien de réinitialisation envoyé avec succès",
             userExists: true,
-            actionUrl: resetResult.data?.properties?.action_link || null
+            actionUrl: resetResult.data?.properties?.action_link || null,
+            emailProvider,
+            smtpConfigured,
+            debug: {
+              emailSettings,
+              responseData: resetResult.data
+            }
           }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -204,6 +239,7 @@ serve(async (req) => {
             });
           }
           
+          // Journaliser la réponse complète pour le débogage
           console.log("Réponse complète de l'API d'invitation:", JSON.stringify(inviteResult));
           console.log("Invitation envoyée avec succès");
           
@@ -211,7 +247,13 @@ serve(async (req) => {
             success: true,
             message: "Invitation envoyée avec succès",
             userExists: false,
-            actionUrl: inviteResult.data?.properties?.action_link || null
+            actionUrl: inviteResult.data?.properties?.action_link || null,
+            emailProvider,
+            smtpConfigured,
+            debug: {
+              emailSettings,
+              responseData: inviteResult.data
+            }
           }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" }

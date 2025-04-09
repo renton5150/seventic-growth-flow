@@ -35,13 +35,18 @@ export const UserActionMenuItems = ({
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
       console.log("Envoi d'une invitation à:", user.email);
-      const { success, error, warning, userExists, actionUrl } = await resendInvitation(user.email);
-      console.log("Résultat de l'envoi d'invitation:", { success, error, warning, userExists, actionUrl });
+      const { success, error, warning, userExists, actionUrl, emailProvider, smtpConfigured } = await resendInvitation(user.email);
+      console.log("Résultat de l'envoi d'invitation:", { success, error, warning, userExists, actionUrl, emailProvider, smtpConfigured });
       
       // Fermer le toast de chargement
       toast.dismiss(toastId);
       
       if (success) {
+        // Informations sur la configuration SMTP pour aider au débogage
+        const emailDetails = emailProvider 
+          ? `Email envoyé via ${emailProvider}${smtpConfigured ? ' (SMTP personnalisé)' : ''}`
+          : "Email envoyé";
+        
         if (warning) {
           toast.warning(`Opération longue`, {
             description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception du destinataire.",
@@ -49,7 +54,7 @@ export const UserActionMenuItems = ({
           });
         } else if (userExists) {
           toast.success(`Email de réinitialisation envoyé à ${user.email}`, {
-            description: "L'utilisateur devrait recevoir un email pour réinitialiser son mot de passe.",
+            description: `${emailDetails}. L'utilisateur devrait recevoir un email pour réinitialiser son mot de passe.`,
             duration: 5000
           });
           
@@ -70,7 +75,7 @@ export const UserActionMenuItems = ({
           }
         } else {
           toast.success(`Invitation envoyée à ${user.email}`, {
-            description: "L'utilisateur devrait recevoir un email sous peu pour configurer son compte.",
+            description: `${emailDetails}. L'utilisateur devrait recevoir un email sous peu pour configurer son compte.`,
             duration: 5000
           });
           
