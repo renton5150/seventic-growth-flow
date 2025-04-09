@@ -147,6 +147,9 @@ export const createMission = async (data: {
 // Supprimer une mission
 export const deleteMission = async (missionId: string): Promise<boolean> => {
   try {
+    console.log("*** deleteMission: Début de la fonction");
+    console.log(`missionService: Tentative de suppression de la mission ID: ${missionId}`);
+    
     const isAuthenticated = await isSupabaseAuthenticated();
     console.log("Suppression d'une mission, Supabase configuré:", isSupabaseConfigured);
     console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
@@ -166,6 +169,7 @@ export const deleteMission = async (missionId: string): Promise<boolean> => {
       return deleteMockMission(missionId);
     }
     
+    console.log("*** deleteMission: Fin de la fonction avec succès:", success);
     return success;
   } catch (error) {
     console.error("Erreur inattendue lors de la suppression de la mission:", error);

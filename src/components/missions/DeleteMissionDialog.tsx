@@ -33,6 +33,7 @@ export const DeleteMissionDialog = ({
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
+      console.log("*** DeleteMissionDialog.handleDelete: Début de la fonction");
       console.log(`Tentative de suppression de la mission ID: ${mission.id}`);
       
       const success = await deleteMission(mission.id);
@@ -48,11 +49,15 @@ export const DeleteMissionDialog = ({
         if (onSuccess) {
           console.log("Exécution du callback onSuccess après suppression");
           onSuccess();
+        } else {
+          console.warn("Aucun callback onSuccess fourni à DeleteMissionDialog");
         }
       } else {
         console.error(`Échec de la suppression de la mission: ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
       }
+      
+      console.log("*** DeleteMissionDialog.handleDelete: Fin de la fonction");
     } catch (error) {
       console.error("Erreur lors de la suppression de la mission:", error);
       toast.error("Une erreur est survenue lors de la suppression de la mission");

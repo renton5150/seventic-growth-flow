@@ -90,12 +90,15 @@ export const createSupaMission = async (data: {
  */
 export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
   try {
+    console.log("*** deleteSupaMission: Début de la fonction");
     console.log("Suppression d'une mission dans Supabase avec ID:", missionId);
     
     // Si l'identifiant n'est pas un UUID valide, retourner false
     if (!isValidUUID(missionId)) {
       console.warn(`ID mission non valide pour Supabase: ${missionId}`);
       return false;
+    } else {
+      console.log(`ID mission validé comme UUID valide: ${missionId}`);
     }
     
     // Vérifier l'authentification actuelle
@@ -103,6 +106,8 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     if (!session.session) {
       console.error("Erreur: Utilisateur non authentifié pour supprimer une mission");
       return false;
+    } else {
+      console.log(`Utilisateur authentifié avec ID: ${session.session.user.id} pour supprimer la mission ${missionId}`);
     }
     
     console.log("Session active pour suppression:", !!session.session);
@@ -110,19 +115,28 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     console.log("Tentative de suppression pour la mission:", missionId);
     
     // Essayer de supprimer la mission
-    const { error } = await supabase
+    console.log("Exécution de la requête DELETE sur la table 'missions'...");
+    const { error, count } = await supabase
       .from('missions')
       .delete()
-      .eq('id', missionId);
+      .eq('id', missionId)
+      .select('count');  // Pour compter les lignes affectées
 
     // Vérifier s'il y a eu une erreur
     if (error) {
       console.error("Erreur Supabase lors de la suppression de la mission:", error);
+      console.error("Code d'erreur:", error.code);
+      console.error("Message d'erreur:", error.message);
+      console.error("Détails:", error.details);
       return false;
     }
 
+    // Vérifier si des lignes ont été affectées
+    console.log(`Nombre de lignes supprimées: ${count || 'inconnu'}`);
+    
     // Si pas d'erreur, la suppression a réussi
     console.log(`Mission ${missionId} supprimée avec succès dans Supabase`);
+    console.log("*** deleteSupaMission: Fin de la fonction avec succès");
     return true;
   } catch (error) {
     console.error("Exception lors de la suppression de la mission:", error);
