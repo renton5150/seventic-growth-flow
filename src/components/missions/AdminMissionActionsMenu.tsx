@@ -32,7 +32,6 @@ export const AdminMissionActionsMenu = ({
     console.log("Mission supprimée, début du processus de mise à jour");
     
     // Forcer une invalidation et un rechargement complet des données
-    queryClient.removeQueries({ queryKey: ['missions'] });
     queryClient.invalidateQueries({ queryKey: ['missions'] });
     
     // Appeler le callback de succès si fourni

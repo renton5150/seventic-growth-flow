@@ -48,7 +48,7 @@ const Missions = () => {
       }
     },
     enabled: !!user,
-    staleTime: 0, // Toujours considérer les données comme périmées
+    staleTime: 60000, // Considérer les données comme fraiches pendant 1 minute
     refetchOnWindowFocus: false, // Ne pas recharger automatiquement lors du focus
     retry: 1, // Réessayer une seule fois en cas d'échec
   });
@@ -57,7 +57,6 @@ const Missions = () => {
   useEffect(() => {
     console.log("Nettoyage du cache des missions au chargement de la page");
     queryClient.removeQueries({ queryKey: ['missions'] });
-    queryClient.invalidateQueries({ queryKey: ['missions'] });
   }, [queryClient]);
   
   // Gestionnaire de rafraîchissement des missions
@@ -70,8 +69,8 @@ const Missions = () => {
     queryClient.invalidateQueries({ queryKey: ['missions'] });
     
     refetch()
-      .then(() => {
-        console.log("Liste des missions actualisée avec succès");
+      .then((result) => {
+        console.log("Liste des missions actualisée avec succès", result.data?.length || 0, "missions trouvées");
         toast.success("Liste des missions actualisée");
       })
       .catch(error => {

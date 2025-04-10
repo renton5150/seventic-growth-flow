@@ -51,24 +51,21 @@ export const DeleteMissionDialog = ({
       if (success) {
         console.log(`Suppression réussie pour mission ${mission.id}`);
         
-        // Forcer une invalidation complète du cache des missions
-        queryClient.removeQueries({ queryKey: ['missions'] });
+        // Invalider les caches de requêtes pour forcer un rechargement des données
         await queryClient.invalidateQueries({ queryKey: ['missions'] });
         
         // Notifier du succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Fermer la boîte de dialogue avant d'exécuter les callbacks
+        // Fermer la boîte de dialogue
         onOpenChange(false);
         
-        // Exécuter les callbacks immédiatement après avoir fermé la boîte de dialogue
+        // Exécuter les callbacks si fournis
         if (onDeleted) {
-          console.log("Exécution du callback onDeleted");
           onDeleted();
         }
         
         if (onSuccess) {
-          console.log("Exécution du callback onSuccess");
           onSuccess();
         }
       } else {

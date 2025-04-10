@@ -1,162 +1,107 @@
 
-// src/services/missions/mockMissions.ts
-import { v4 as uuidv4 } from 'uuid';
-import { Mission } from '@/types/types';
-import { MissionInput } from './types';
-import { missions as mockMissionsData } from '@/data/missions';
+import { Mission } from "@/types/types";
+import { getMissionById, getMissionsBySdrId, missions } from "@/data/missions";
+import { MissionInput, AssignmentResult, DeletionResult } from "./types";
 
-// Cache local pour simuler une base de données
-let localMissionCache: Mission[] = [...mockMissionsData];
-
-/**
- * Récupérer toutes les missions mockées
- */
+// Récupérer toutes les missions mockées
 export const getAllMockMissions = (): Mission[] => {
   console.log("getAllMockMissions: Récupération de toutes les missions mockées");
-  console.log(`Nombre de missions mockées: ${localMissionCache.length}`);
-  return [...localMissionCache];
+  
+  // Récupérer toutes les missions et les formater avec le nom du SDR
+  const allMissions = missions.map(mission => {
+    return {
+      ...mission,
+      sdrName: mission.sdrName || "John Doe (Mock)",
+    };
+  });
+  
+  console.log("Nombre de missions mockées:", allMissions.length);
+  return allMissions;
 };
 
-/**
- * Récupérer les missions mockées par ID d'utilisateur
- */
+// Récupérer les missions par ID utilisateur
 export const getMockMissionsByUserId = (userId: string): Mission[] => {
-  console.log(`getMockMissionsByUserId: Récupération des missions pour l'utilisateur ${userId}`);
-  const missions = localMissionCache.filter(mission => mission.sdrId === userId);
-  console.log(`Nombre de missions trouvées: ${missions.length}`);
-  return [...missions];
+  console.log("getMockMissionsByUserId: Récupération des missions de l'utilisateur", userId);
+  const userMissions = getMissionsBySdrId(userId);
+  return userMissions;
 };
 
-/**
- * Récupérer les missions mockées par ID de SDR
- */
-export const getMockMissionsBySdrId = (sdrId: string): Mission[] => {
-  console.log(`getMockMissionsBySdrId: Récupération des missions pour le SDR ${sdrId}`);
-  const missions = localMissionCache.filter(mission => mission.sdrId === sdrId);
-  console.log(`Nombre de missions trouvées: ${missions.length}`);
-  return [...missions];
-};
-
-/**
- * Récupérer une mission mockée par son ID
- */
+// Récupérer une mission par ID
 export const getMockMissionById = (id: string): Mission | undefined => {
-  console.log(`getMockMissionById: Recherche de la mission avec l'ID ${id}`);
-  
-  // Vérifier que l'ID est défini et non vide
-  if (!id) {
-    console.error("getMockMissionById: ID non fourni");
-    return undefined;
-  }
-  
-  const mission = localMissionCache.find(mission => mission.id === id);
-  
-  if (mission) {
-    console.log(`Mission trouvée: ${mission.name}`);
-    return { ...mission };
-  } else {
-    console.log(`Aucune mission trouvée avec l'ID ${id}`);
-    return undefined;
-  }
+  console.log("getMockMissionById: Récupération de la mission", id);
+  return getMissionById(id);
 };
 
-/**
- * Trouver une mission dans le cache local par son ID - fonction de support interne
- */
-export const findMockMissionById = (id: string): Mission | undefined => {
-  return localMissionCache.find(mission => mission.id === id);
-};
+// On réexporte findMockMissionById pour la compatibilité avec le code existant
+export const findMockMissionById = getMockMissionById;
 
-/**
- * Créer une nouvelle mission mockée
- */
+// Créer une nouvelle mission mockée
 export const createMockMission = (data: MissionInput): Mission => {
-  console.log("createMockMission: Création d'une nouvelle mission");
-  console.log("Données:", data);
+  console.log("createMockMission: Création d'une nouvelle mission mockée", data);
   
+  const newMissionId = `mission${missions.length + 1}`;
   const newMission: Mission = {
-    id: uuidv4(),
+    id: newMissionId,
     name: data.name,
-    client: data.client || 'Default Client',
-    description: data.description,
-    sdrId: data.sdrId || '',
-    sdrName: 'Non assigné',
+    client: data.client || "Default Client",
+    sdrId: data.sdrId,
+    sdrName: data.sdrName || "Non assigné",
     createdAt: new Date(),
     startDate: data.startDate || new Date(),
     requests: []
   };
   
-  localMissionCache.push(newMission);
-  console.log(`Mission créée avec l'ID ${newMission.id}`);
-  return { ...newMission };
+  // Ajouter la mission au tableau des missions (simulation)
+  missions.push(newMission);
+  
+  console.log("Mission mockée créée:", newMission);
+  return newMission;
 };
 
-/**
- * Supprimer une mission mockée
- */
-export const deleteMockMission = async (id: string): Promise<{ success: boolean, error?: string }> => {
-  console.log(`deleteMockMission: Suppression de la mission avec l'ID ${id}`);
+// Supprimer une mission mockée
+export const deleteMockMission = async (id: string): Promise<DeletionResult> => {
+  console.log("deleteMockMission: Suppression de la mission", id);
   
-  if (!id) {
-    console.error("deleteMockMission: ID non fourni");
-    return { success: false, error: "ID de mission non fourni" };
-  }
-  
-  const initialLength = localMissionCache.length;
-  const missionToDelete = localMissionCache.find(mission => mission.id === id);
-  
-  if (!missionToDelete) {
-    console.log(`Mission avec l'ID ${id} non trouvée`);
-    return { success: false, error: "Mission non trouvée" };
-  }
-  
-  // Filtrer la mission à supprimer
-  localMissionCache = localMissionCache.filter(mission => mission.id !== id);
-  
-  // Vérifier si la mission a été supprimée
-  const success = initialLength > localMissionCache.length;
-  console.log(`Suppression ${success ? "réussie" : "échouée"}`);
-  console.log(`État du cache après suppression: ${localMissionCache.length} missions`);
-  
-  // Simuler un délai réseau pour rendre la suppression plus réaliste
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  return { success };
-};
-
-/**
- * Assigner un SDR à une mission mockée
- */
-export const assignSDRToMockMission = async (
-  missionId: string, 
-  sdrId: string
-): Promise<{ success: boolean, error?: string }> => {
-  console.log(`assignSDRToMockMission: Assignation du SDR ${sdrId} à la mission ${missionId}`);
-  
-  if (!missionId || !sdrId) {
-    console.error("ID de mission ou de SDR non fourni");
-    return { success: false, error: "ID de mission ou de SDR non fourni" };
-  }
-  
-  // Trouver l'index de la mission à mettre à jour
-  const missionIndex = localMissionCache.findIndex(mission => mission.id === missionId);
+  // Rechercher l'index de la mission
+  const missionIndex = missions.findIndex(mission => mission.id === id);
   
   if (missionIndex === -1) {
-    console.log(`Mission avec l'ID ${missionId} non trouvée`);
-    return { success: false, error: "Mission non trouvée" };
+    console.log("Mission non trouvée avec l'ID:", id);
+    return { success: false, error: "Mission not found" };
   }
   
-  // Mettre à jour la mission
-  localMissionCache[missionIndex] = {
-    ...localMissionCache[missionIndex],
-    sdrId,
-    sdrName: "SDR Assigné" // Dans un cas réel, nous récupérerions le nom du SDR depuis la DB
-  };
+  try {
+    // Supprimer la mission du tableau (simulation)
+    missions.splice(missionIndex, 1);
+    console.log("Mission supprimée avec succès:", id);
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la mission:", error);
+    return { success: false, error: String(error) };
+  }
+};
+
+// Assigner un SDR à une mission mockée
+export const assignSDRToMockMission = async (missionId: string, sdrId: string): Promise<AssignmentResult> => {
+  console.log(`assignSDRToMockMission: Assignation du SDR ${sdrId} à la mission ${missionId}`);
   
-  console.log("Assignation réussie");
+  // Rechercher la mission
+  const missionIndex = missions.findIndex(mission => mission.id === missionId);
   
-  // Simuler un délai réseau
-  await new Promise(resolve => setTimeout(resolve, 300));
+  if (missionIndex === -1) {
+    console.log("Mission non trouvée avec l'ID:", missionId);
+    return { success: false, error: "Mission not found" };
+  }
   
-  return { success: true };
+  try {
+    // Mettre à jour le SDR de la mission
+    missions[missionIndex].sdrId = sdrId;
+    missions[missionIndex].sdrName = "SDR Assigné"; // Nom par défaut, en situation réelle on récupérerait le nom du SDR
+    
+    console.log("SDR assigné avec succès à la mission:", missionId);
+    return { success: true };
+  } catch (error) {
+    console.error("Erreur lors de l'assignation du SDR à la mission:", error);
+    return { success: false, error: String(error) };
+  }
 };
