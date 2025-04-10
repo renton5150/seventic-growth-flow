@@ -97,7 +97,6 @@ const Missions = () => {
         
         {/* Dialogs */}
         <CreateMissionDialog 
-          userId={user?.id || ''} 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
           onSuccess={handleRefreshMissions} 

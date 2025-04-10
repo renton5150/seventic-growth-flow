@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,17 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
-import { addMission } from "@/services/missions";
+import { createMission } from "@/services/missionService"; // Fixed import path
 import { toast } from "sonner";
-import { User } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
-import { getAllUsers } from "@/services/user";
+import { getAllUsers } from "@/services/user/userQueries";
 import { Loader2 } from "lucide-react";
 
 interface CreateMissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onMissionCreated: () => void;
+  onSuccess: () => void;
 }
 
 interface MissionFormData {
@@ -26,14 +26,14 @@ interface MissionFormData {
   description?: string;
 }
 
-export const CreateMissionDialog = ({ open, onOpenChange, onMissionCreated }: CreateMissionDialogProps) => {
+export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMissionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register, handleSubmit, reset, formState: { errors } } = useForm<MissionFormData>();
 
   // Fetch SDRs for assignment
   const { data: users = [] } = useQuery({
     queryKey: ['users-for-mission'],
-    queryFn: getAllUsers,
+    queryFn: () => getAllUsers(),
     enabled: open, // Only fetch when dialog is open
   });
 
@@ -42,17 +42,17 @@ export const CreateMissionDialog = ({ open, onOpenChange, onMissionCreated }: Cr
   const onSubmit = async (data: MissionFormData) => {
     setIsSubmitting(true);
     try {
-      await addMission({
+      await createMission({
         name: data.name,
         client: data.client,
-        sdr_id: data.sdr_id === 'unassigned' ? undefined : data.sdr_id,
+        sdrId: data.sdr_id === 'unassigned' ? '' : (data.sdr_id || ''),
         description: data.description
       });
       
       toast.success('Mission créée avec succès');
       reset();
       onOpenChange(false);
-      onMissionCreated(); // Refresh missions list
+      onSuccess(); // Refresh missions list
     } catch (error) {
       console.error('Erreur lors de la création de la mission:', error);
       toast.error('Erreur lors de la création de la mission');
