@@ -13,15 +13,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface DeleteMissionDialogProps {
   mission: Mission;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDeleted?: () => void;
   onSuccess?: () => void;
 }
 
@@ -29,59 +25,28 @@ export const DeleteMissionDialog = ({
   mission,
   open,
   onOpenChange,
-  onDeleted,
   onSuccess,
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
-  const queryClient = useQueryClient();
 
   const handleDelete = async () => {
-    if (!mission?.id) {
-      toast.error("Impossible de supprimer cette mission : ID invalide");
-      onOpenChange(false);
-      return;
-    }
-    
     try {
       setIsDeleting(true);
+      console.log("Suppression de la mission:", mission.id);
       
-      // Appel de l'API de suppression
-      const success = await deleteMission(mission.id);
+      await deleteMission(mission.id);
       
-      if (success) {
-        // Fermer d'abord la boîte de dialogue pour éviter le gel de l'interface
-        onOpenChange(false);
-        
-        // Notifier du succès
-        toast.success(`La mission ${mission.name} a été supprimée`);
-        
-        // Invalider TOUTES les requêtes de mission pour forcer un rechargement complet
-        await queryClient.invalidateQueries({ queryKey: ['missions'] });
-        
-        // Attendre un court instant pour permettre à l'UI de se mettre à jour
-        setTimeout(() => {
-          // Exécuter les callbacks si fournis
-          if (onDeleted) onDeleted();
-          if (onSuccess) onSuccess();
-        }, 100);
-      } else {
-        toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
-        setIsDeleting(false);
-      }
+      onSuccess?.();
+      onOpenChange(false);
     } catch (error) {
       console.error("Erreur lors de la suppression de la mission:", error);
-      toast.error("Une erreur est survenue lors de la suppression");
+    } finally {
       setIsDeleting(false);
     }
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={(value) => {
-      // Ne permettre la fermeture que si nous ne sommes pas en train de supprimer
-      if (!isDeleting) {
-        onOpenChange(value);
-      }
-    }}>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette mission ?</AlertDialogTitle>
@@ -90,19 +55,14 @@ export const DeleteMissionDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-          <Button 
+          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogAction 
             onClick={handleDelete}
             disabled={isDeleting}
-            variant="destructive"
+            className="bg-red-600 hover:bg-red-700"
           >
-            {isDeleting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                Suppression en cours...
-              </>
-            ) : "Confirmer"}
-          </Button>
+            {isDeleting ? "Suppression en cours..." : "Supprimer"}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

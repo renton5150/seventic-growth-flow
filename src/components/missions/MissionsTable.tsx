@@ -34,14 +34,6 @@ export const MissionsTable = ({
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
   
-  const handleRefresh = () => {
-    console.log("MissionsTable: Demande de rafraîchissement");
-    if (onRefresh) {
-      console.log("MissionsTable: Exécution du callback onRefresh");
-      onRefresh();
-    }
-  };
-  
   return (
     <Card className={`${isAdmin ? "border-blue-300" : "border-seventic-300"}`}>
       <CardHeader className={`${isAdmin ? "bg-blue-50" : "bg-seventic-50"}`}>
@@ -72,24 +64,22 @@ export const MissionsTable = ({
                 </TableCell>
                 <TableCell>{formatDate(mission.createdAt)}</TableCell>
                 <TableCell>{mission.requests.length}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end items-center gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => onViewMission(mission)}
-                      className={isAdmin ? "border-blue-500 hover:bg-blue-50" : ""}
-                    >
-                      Voir
-                    </Button>
-                    
-                    {showAdminActions && isAdmin && (
-                      <AdminMissionActionsMenu 
-                        mission={mission}
-                        onSuccess={handleRefresh}
-                      />
-                    )}
-                  </div>
+                <TableCell className="text-right flex justify-end gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onViewMission(mission)}
+                    className={isAdmin ? "border-blue-500 hover:bg-blue-50" : ""}
+                  >
+                    Voir
+                  </Button>
+                  
+                  {showAdminActions && (
+                    <AdminMissionActionsMenu 
+                      mission={mission}
+                      onSuccess={onRefresh}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             ))}

@@ -6,7 +6,6 @@ import { isValidUUID } from "./utils";
 
 /**
  * Obtenir toutes les missions depuis Supabase
- * @returns Promise<Mission[]> Array of missions
  */
 export const getAllSupaMissions = async (): Promise<Mission[]> => {
   try {
@@ -14,16 +13,9 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
-        id, 
-        name, 
-        client, 
-        description, 
-        sdr_id, 
-        created_at, 
-        start_date,
+        *,
         profiles!missions_sdr_id_fkey(name)
-      `)
-      .order('created_at', { ascending: false }); // Tri par date de création descendante
+      `);
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -39,12 +31,11 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
       return {
         id: mission.id,
         name: mission.name,
-        client: mission.client || "Default Client",
+        client: mission.client,
         description: mission.description || undefined,
         sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
         createdAt: new Date(mission.created_at),
-        startDate: new Date(mission.start_date || mission.created_at),
         requests
       };
     }));
@@ -58,8 +49,6 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
 
 /**
  * Obtenir les missions par utilisateur depuis Supabase
- * @param userId User ID to filter missions by
- * @returns Promise<Mission[]> Array of missions for the user
  */
 export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]> => {
   try {
@@ -74,17 +63,10 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
-        id, 
-        name, 
-        client, 
-        description, 
-        sdr_id, 
-        created_at, 
-        start_date,
+        *,
         profiles!missions_sdr_id_fkey(name)
       `)
-      .eq('sdr_id', userId)
-      .order('created_at', { ascending: false }); // Tri par date de création descendante
+      .eq('sdr_id', userId);
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -100,12 +82,11 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
       return {
         id: mission.id,
         name: mission.name,
-        client: mission.client || "Default Client",
+        client: mission.client,
         description: mission.description || undefined,
         sdrId: mission.sdr_id || "",
         sdrName: mission.profiles?.name || "Inconnu",
         createdAt: new Date(mission.created_at),
-        startDate: new Date(mission.start_date || mission.created_at),
         requests
       };
     }));
@@ -119,8 +100,6 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
 
 /**
  * Obtenir une mission par ID depuis Supabase
- * @param missionId Mission ID to retrieve
- * @returns Promise<Mission | undefined> The mission or undefined if not found
  */
 export const getSupaMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
@@ -135,13 +114,7 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
     const { data: mission, error } = await supabase
       .from('missions')
       .select(`
-        id, 
-        name, 
-        client, 
-        description, 
-        sdr_id, 
-        created_at, 
-        start_date,
+        *,
         profiles!missions_sdr_id_fkey(name)
       `)
       .eq('id', missionId)
@@ -159,12 +132,11 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
     return {
       id: mission.id,
       name: mission.name,
-      client: mission.client || "Default Client",
+      client: mission.client,
       description: mission.description || undefined,
       sdrId: mission.sdr_id || "",
       sdrName: mission.profiles?.name || "Inconnu",
       createdAt: new Date(mission.created_at),
-      startDate: new Date(mission.start_date || mission.created_at),
       requests
     };
   } catch (error) {

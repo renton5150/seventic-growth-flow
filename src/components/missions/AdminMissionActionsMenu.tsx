@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Mission } from "@/types/types";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Trash2, UserPlus } from "lucide-react";
+import { MoreHorizontal, Trash2, UserPlus, UserMinus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,10 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import { AssignSDRDialog } from "./AssignSDRDialog";
 import { DeleteMissionDialog } from "./DeleteMissionDialog";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 interface AdminMissionActionsMenuProps {
   mission: Mission;
@@ -26,19 +25,6 @@ export const AdminMissionActionsMenu = ({
 }: AdminMissionActionsMenuProps) => {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const queryClient = useQueryClient();
-
-  const handleMissionDeleted = () => {
-    // Force une invalidation des requêtes missions pour garantir un rechargement
-    queryClient.invalidateQueries({ queryKey: ['missions'] });
-    
-    // Appeler le callback de succès si fourni
-    if (onSuccess) {
-      setTimeout(() => {
-        onSuccess();
-      }, 100);
-    }
-  };
 
   return (
     <>
@@ -61,9 +47,7 @@ export const AdminMissionActionsMenu = ({
           <DropdownMenuSeparator />
           
           <DropdownMenuItem
-            onClick={() => {
-              setIsDeleteDialogOpen(true);
-            }}
+            onClick={() => setIsDeleteDialogOpen(true)}
             className="text-red-600 cursor-pointer focus:text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />
@@ -77,8 +61,7 @@ export const AdminMissionActionsMenu = ({
         open={isAssignDialogOpen}
         onOpenChange={setIsAssignDialogOpen}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['missions'] });
-          if (onSuccess) onSuccess();
+          onSuccess?.();
           toast.success(`SDR assigné à la mission ${mission.name}`);
         }}
       />
@@ -86,11 +69,11 @@ export const AdminMissionActionsMenu = ({
       <DeleteMissionDialog
         mission={mission}
         open={isDeleteDialogOpen}
-        onOpenChange={(open) => {
-          setIsDeleteDialogOpen(open);
+        onOpenChange={setIsDeleteDialogOpen}
+        onSuccess={() => {
+          onSuccess?.();
+          toast.success(`Mission ${mission.name} supprimée`);
         }}
-        onDeleted={handleMissionDeleted}
-        onSuccess={handleMissionDeleted}
       />
     </>
   );

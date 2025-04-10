@@ -1,39 +1,35 @@
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Mission } from "@/types/types";
+import { Mission, User } from "@/types/types";
 import { getAllMissions, getMissionsByUserId } from "@/services/missionService";
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { AdminMissionActionsMenu } from "@/components/missions/AdminMissionActionsMenu";
 
 const Missions = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const isAdmin = user?.role === "admin";
   const isGrowth = user?.role === "growth";
   const isSdr = user?.role === "sdr";
 
-  // Configuration de la requête React Query avec staleTime réduit pour forcer des actualisations plus fréquentes
-  const { 
-    data: missions = [], 
-    isLoading, 
-    refetch,
-    isRefetching
-  } = useQuery({
+  console.log("Page Missions - utilisateur:", user);
+
+  // Utiliser react-query pour gérer les missions
+  const { data: missions = [], isLoading, refetch } = useQuery({
     queryKey: ['missions', user?.id, isAdmin],
     queryFn: async () => {
       try {
+        console.log("Chargement des missions pour", isAdmin ? "admin" : "sdr", "avec ID:", user?.id);
         if (isAdmin) {
           return await getAllMissions();
         } else if (user?.id) {
@@ -42,47 +38,26 @@ const Missions = () => {
         return [];
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
-        toast.error("Erreur lors du chargement des missions");
         return [];
       }
     },
-    enabled: !!user,
-    staleTime: 10000, // Considérer les données comme fraîches seulement pendant 10 secondes
-    refetchOnWindowFocus: true, // Recharger lors du focus pour assurer les données à jour
-    retry: 2, // Réessayer deux fois en cas d'échec
+    enabled: !!user
   });
-  
-  // Gestionnaire de rafraîchissement des missions
-  const handleRefreshMissions = useCallback(() => {
-    setIsRefreshing(true);
     
-    // Forcer un nettoyage complet du cache et un rechargement
-    queryClient.removeQueries({ queryKey: ['missions'] });
-    
-    refetch()
-      .then(() => {
-        toast.success("Liste des missions actualisée");
-      })
-      .catch(error => {
-        console.error("Erreur lors du rafraîchissement des missions:", error);
-        toast.error("Erreur lors de l'actualisation des missions");
-      })
-      .finally(() => {
-        setIsRefreshing(false);
-      });
-  }, [refetch, queryClient]);
+  // Handlers
+  const handleRefreshMissions = () => {
+    console.log("Rafraîchissement des missions");
+    refetch();
+  };
   
   const handleViewMission = (mission: Mission) => {
+    console.log("Affichage de la mission:", mission);
     setSelectedMission(mission);
   };
   
   const handleCreateMissionClick = () => {
+    console.log("Ouverture de la modal de création de mission");
     setIsCreateModalOpen(true);
-  };
-
-  const handleMissionUpdated = () => {
-    setSelectedMission(null);
-    handleRefreshMissions();
   };
 
   if (isLoading) {
@@ -95,29 +70,18 @@ const Missions = () => {
     );
   }
   
+  console.log("Missions chargées:", missions);
+  
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Missions</h1>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={handleRefreshMissions} 
-              disabled={isRefreshing || isRefetching}
-              title="Actualiser les données"
-              className="flex items-center"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${(isRefreshing || isRefetching) ? 'animate-spin' : ''}`} />
-              Actualiser
+          {(isSdr || isAdmin) && (
+            <Button onClick={handleCreateMissionClick}>
+              <Plus className="mr-2 h-4 w-4" /> {isAdmin ? "Nouvelle mission" : "Nouvelle mission"}
             </Button>
-            
-            {(isSdr || isAdmin) && (
-              <Button onClick={handleCreateMissionClick}>
-                <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
-              </Button>
-            )}
-          </div>
+          )}
         </div>
         
         {missions.length === 0 ? (
@@ -150,7 +114,7 @@ const Missions = () => {
           onOpenChange={(open) => !open && setSelectedMission(null)} 
           isAdmin={isAdmin}
           isSdr={isSdr}
-          onMissionUpdated={handleMissionUpdated}
+          onMissionUpdated={handleRefreshMissions}
         />
       </div>
     </AppLayout>

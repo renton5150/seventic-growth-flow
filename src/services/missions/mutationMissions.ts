@@ -1,130 +1,140 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { MissionInput } from "./types";
 import { Mission } from "@/types/types";
-import { getSupaMissionById } from "./queryMissions";
+import { supabase } from "@/integrations/supabase/client";
 import { isValidUUID } from "./utils";
 
 /**
  * Créer une nouvelle mission dans Supabase
- * @param data Les données de la mission à créer
- * @returns La mission créée ou undefined en cas d'erreur
  */
-export const createSupaMission = async (data: MissionInput): Promise<Mission | undefined> => {
+export const createSupaMission = async (data: {
+  name: string;
+  client: string;
+  description?: string;
+  sdrId: string;
+}): Promise<Mission | undefined> => {
   try {
-    console.log("Création d'une mission dans Supabase:", data);
-
-    // Préparer les données pour l'insertion
+    // Vérifier que l'utilisateur est authentifié
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      console.error("Erreur: Utilisateur non authentifié pour créer une mission");
+      return undefined;
+    }
+    
+    console.log("Création d'une nouvelle mission dans Supabase:", data);
+    console.log("Session active:", !!session.session);
+    
+    // Vérifier et valider l'ID du SDR
+    let sdrId = data.sdrId;
+    if (!isValidUUID(sdrId)) {
+      // Si ce n'est pas un UUID valide, utilisez l'ID de l'utilisateur authentifié
+      sdrId = session.session?.user?.id || "";
+      console.log(`ID SDR non valide, utilisation de l'ID utilisateur actuel: ${sdrId}`);
+      
+      if (!isValidUUID(sdrId)) {
+        console.error("Impossible d'obtenir un UUID valide pour le SDR");
+        return undefined;
+      }
+    }
+    
     const missionData = {
       name: data.name,
-      client: data.client || 'Default Client',
-      description: data.description,
-      sdr_id: data.sdrId || null,
-      start_date: data.startDate ? data.startDate.toISOString() : new Date().toISOString(),
+      client: data.client,
+      description: data.description || null,
+      sdr_id: sdrId
     };
 
-    // Insérer la mission dans Supabase
+    console.log("Données de mission à insérer:", missionData);
+
     const { data: newMission, error } = await supabase
       .from('missions')
       .insert(missionData)
-      .select('id, name, client, description, sdr_id, created_at, start_date')
+      .select(`
+        *,
+        profiles!missions_sdr_id_fkey(name)
+      `)
       .single();
 
     if (error) {
-      console.error("Erreur lors de la création de la mission dans Supabase:", error);
+      console.error("Erreur lors de la création de la mission:", error);
       return undefined;
     }
 
-    console.log("Mission créée dans Supabase:", newMission);
+    console.log("Nouvelle mission créée dans Supabase:", newMission);
 
-    // Récupérer la mission complète pour avoir toutes les relations
-    return await getSupaMissionById(newMission.id);
+    return {
+      id: newMission.id,
+      name: newMission.name,
+      client: newMission.client,
+      description: newMission.description || undefined,
+      sdrId: newMission.sdr_id || "",
+      sdrName: newMission.profiles?.name || "Inconnu",
+      createdAt: new Date(newMission.created_at),
+      requests: []
+    };
   } catch (error) {
-    console.error("Exception lors de la création de la mission dans Supabase:", error);
+    console.error("Erreur inattendue lors de la création de la mission:", error);
     return undefined;
   }
 };
 
 /**
  * Supprimer une mission dans Supabase
- * @param missionId L'ID de la mission à supprimer
- * @returns Un objet indiquant le succès ou l'échec de l'opération
  */
-export const deleteSupaMission = async (
-  missionId: string
-): Promise<{ success: boolean; error?: any }> => {
+export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
   try {
     console.log("Suppression d'une mission dans Supabase:", missionId);
     
-    // Vérifier si l'ID est un UUID valide
+    // Si l'identifiant n'est pas un UUID valide, retourner false
     if (!isValidUUID(missionId)) {
-      console.error("ID de mission invalide pour Supabase:", missionId);
-      return { success: false, error: "ID de mission invalide" };
+      console.warn("ID mission non valide pour Supabase:", missionId);
+      return false;
     }
     
-    // Vérifier si la mission existe avant de la supprimer
-    const missionExists = await getSupaMissionById(missionId);
-    if (!missionExists) {
-      console.error("Mission introuvable dans Supabase:", missionId);
-      return { success: false, error: "Mission introuvable" };
-    }
-    
-    // Supprimer les relations de la mission d'abord si nécessaire
-    // (Si vous avez des tables liées avec des contraintes de clé étrangère)
-    
-    // Supprimer la mission
     const { error } = await supabase
       .from('missions')
       .delete()
       .eq('id', missionId);
 
     if (error) {
-      console.error("Erreur lors de la suppression de la mission dans Supabase:", error);
-      return { success: false, error };
+      console.error("Erreur lors de la suppression de la mission:", error);
+      return false;
     }
 
-    console.log("Mission supprimée avec succès dans Supabase:", missionId);
-    return { success: true };
+    console.log("Mission supprimée avec succès dans Supabase");
+    return true;
   } catch (error) {
-    console.error("Exception lors de la suppression de la mission dans Supabase:", error);
-    return { success: false, error };
+    console.error("Erreur inattendue lors de la suppression de la mission:", error);
+    return false;
   }
 };
 
 /**
  * Assigner un SDR à une mission dans Supabase
- * @param missionId L'ID de la mission
- * @param sdrId L'ID du SDR à assigner
- * @returns Un objet indiquant le succès ou l'échec de l'opération
  */
-export const assignSDRToSupaMission = async (
-  missionId: string,
-  sdrId: string
-): Promise<{ success: boolean; error?: any }> => {
+export const assignSDRToSupaMission = async (missionId: string, sdrId: string): Promise<boolean> => {
   try {
-    console.log(`Assignation du SDR ${sdrId} à la mission ${missionId} dans Supabase`);
+    console.log("Assignation d'un SDR à une mission dans Supabase:", missionId, sdrId);
     
-    // Vérifier si les ID sont des UUID valides
+    // Si l'identifiant n'est pas un UUID valide, retourner false
     if (!isValidUUID(missionId) || !isValidUUID(sdrId)) {
-      console.error("ID de mission ou de SDR invalide pour Supabase");
-      return { success: false, error: "ID de mission ou de SDR invalide" };
+      console.warn("ID mission ou SDR non valide pour Supabase:", { missionId, sdrId });
+      return false;
     }
     
-    // Mettre à jour la mission avec le nouveau SDR
     const { error } = await supabase
       .from('missions')
       .update({ sdr_id: sdrId })
       .eq('id', missionId);
 
     if (error) {
-      console.error("Erreur lors de l'assignation du SDR dans Supabase:", error);
-      return { success: false, error };
+      console.error("Erreur lors de l'assignation du SDR:", error);
+      return false;
     }
 
     console.log("SDR assigné avec succès dans Supabase");
-    return { success: true };
+    return true;
   } catch (error) {
-    console.error("Exception lors de l'assignation du SDR dans Supabase:", error);
-    return { success: false, error };
+    console.error("Erreur inattendue lors de l'assignation du SDR:", error);
+    return false;
   }
 };

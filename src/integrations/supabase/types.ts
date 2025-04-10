@@ -61,7 +61,6 @@ export type Database = {
           id: string
           name: string
           sdr_id: string | null
-          start_date: string | null
           updated_at: string
         }
         Insert: {
@@ -71,7 +70,6 @@ export type Database = {
           id?: string
           name: string
           sdr_id?: string | null
-          start_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -81,7 +79,6 @@ export type Database = {
           id?: string
           name?: string
           sdr_id?: string | null
-          start_date?: string | null
           updated_at?: string
         }
         Relationships: [
