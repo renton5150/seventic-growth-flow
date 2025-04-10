@@ -24,7 +24,7 @@ const Missions = () => {
   const isGrowth = user?.role === "growth";
   const isSdr = user?.role === "sdr";
 
-  // Configuration de la requête React Query avec staleTime à 0 pour toujours considérer comme périmé
+  // Configuration de la requête React Query
   const { 
     data: missions = [], 
     isLoading, 
@@ -49,13 +49,14 @@ const Missions = () => {
     },
     enabled: !!user,
     staleTime: 0, // Toujours considérer les données comme périmées
-    refetchOnWindowFocus: true, // Recharger lors du focus sur la fenêtre
-    retry: 2, // Réessayer 2 fois en cas d'échec
+    refetchOnWindowFocus: false, // Ne pas recharger automatiquement lors du focus
+    retry: 1, // Réessayer une seule fois en cas d'échec
   });
     
   // Effet pour nettoyer le cache lors du montage du composant
   useEffect(() => {
     console.log("Nettoyage du cache des missions au chargement de la page");
+    queryClient.removeQueries({ queryKey: ['missions'] });
     queryClient.invalidateQueries({ queryKey: ['missions'] });
   }, [queryClient]);
   
@@ -64,7 +65,8 @@ const Missions = () => {
     console.log("Rafraîchissement des missions demandé");
     setIsRefreshing(true);
     
-    // Invalidation puis rechargement explicite
+    // Forcer un nettoyage complet du cache et un rechargement
+    queryClient.removeQueries({ queryKey: ['missions'] });
     queryClient.invalidateQueries({ queryKey: ['missions'] });
     
     refetch()
@@ -116,6 +118,7 @@ const Missions = () => {
               onClick={handleRefreshMissions} 
               disabled={isRefreshing || isRefetching}
               title="Actualiser les données"
+              className="flex items-center"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${(isRefreshing || isRefetching) ? 'animate-spin' : ''}`} />
               Actualiser

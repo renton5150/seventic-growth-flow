@@ -1,135 +1,162 @@
 
-import { Mission, Request } from "@/types/types";
-import { v4 as uuidv4 } from "uuid";
-import { missions as mockMissions } from "@/data/missions";
-import { getUserById } from "@/data/users";
-import { getRequestsByMissionId as getMockRequestsByMissionId } from "@/data/requests";
-import { MissionInput, DeletionResult, AssignmentResult } from "./types";
+// src/services/missions/mockMissions.ts
+import { v4 as uuidv4 } from 'uuid';
+import { Mission } from '@/types/types';
+import { MissionInput } from './types';
+import mockMissionsData from '@/data/missions';
 
-// Variable locale pour stocker les missions mockées
-let missions = [...mockMissions];
+// Cache local pour simuler une base de données
+let localMissionCache: Mission[] = [...mockMissionsData];
 
-// Obtenir toutes les missions mockées
-export const getAllMockMissions = async (): Promise<Mission[]> => {
-  return missions.map(mission => {
-    const sdr = getUserById(mission.sdrId);
-    return {
-      ...mission,
-      sdrName: sdr?.name || "Inconnu",
-      requests: getMockRequestsByMissionId(mission.id)
-    };
-  });
+/**
+ * Récupérer toutes les missions mockées
+ */
+export const getAllMockMissions = (): Mission[] => {
+  console.log("getAllMockMissions: Récupération de toutes les missions mockées");
+  console.log(`Nombre de missions mockées: ${localMissionCache.length}`);
+  return [...localMissionCache];
 };
 
-// Obtenir les missions mockées par ID d'utilisateur
-export const getMockMissionsByUserId = async (userId: string): Promise<Mission[]> => {
-  return getMockMissionsBySdrId(userId);
+/**
+ * Récupérer les missions mockées par ID d'utilisateur
+ */
+export const getMockMissionsByUserId = (userId: string): Mission[] => {
+  console.log(`getMockMissionsByUserId: Récupération des missions pour l'utilisateur ${userId}`);
+  const missions = localMissionCache.filter(mission => mission.sdrId === userId);
+  console.log(`Nombre de missions trouvées: ${missions.length}`);
+  return [...missions];
 };
 
-// Exporté pour compatibilité avec du code existant
+/**
+ * Récupérer les missions mockées par ID de SDR
+ */
 export const getMockMissionsBySdrId = (sdrId: string): Mission[] => {
-  const filteredMissions = missions.filter((mission) => mission.sdrId === sdrId);
+  console.log(`getMockMissionsBySdrId: Récupération des missions pour le SDR ${sdrId}`);
+  const missions = localMissionCache.filter(mission => mission.sdrId === sdrId);
+  console.log(`Nombre de missions trouvées: ${missions.length}`);
+  return [...missions];
+};
+
+/**
+ * Récupérer une mission mockée par son ID
+ */
+export const getMockMissionById = (id: string): Mission | undefined => {
+  console.log(`getMockMissionById: Recherche de la mission avec l'ID ${id}`);
   
-  return filteredMissions.map(mission => {
-    const sdr = getUserById(mission.sdrId);
-    return {
-      ...mission,
-      sdrName: sdr?.name || "Inconnu",
-      requests: getMockRequestsByMissionId(mission.id)
-    };
-  });
+  // Vérifier que l'ID est défini et non vide
+  if (!id) {
+    console.error("getMockMissionById: ID non fourni");
+    return undefined;
+  }
+  
+  const mission = localMissionCache.find(mission => mission.id === id);
+  
+  if (mission) {
+    console.log(`Mission trouvée: ${mission.name}`);
+    return { ...mission };
+  } else {
+    console.log(`Aucune mission trouvée avec l'ID ${id}`);
+    return undefined;
+  }
 };
 
-// Obtenir une mission mockée par ID
-export const getMockMissionById = async (id: string): Promise<Mission | undefined> => {
-  return findMockMissionById(id);
-};
-
-// Fonction helper exportée pour compatibilité avec du code existant
+/**
+ * Trouver une mission dans le cache local par son ID - fonction de support interne
+ */
 export const findMockMissionById = (id: string): Mission | undefined => {
-  const mission = missions.find((mission) => mission.id === id);
-  
-  if (!mission) return undefined;
-  
-  const sdr = getUserById(mission.sdrId);
-  
-  return {
-    ...mission,
-    sdrName: sdr?.name || "Inconnu",
-    requests: getMockRequestsByMissionId(mission.id)
-  };
+  return localMissionCache.find(mission => mission.id === id);
 };
 
-// Créer une nouvelle mission mockée
-export const createMockMission = async (data: MissionInput): Promise<Mission> => {
-  const now = new Date();
-  const id = uuidv4();
+/**
+ * Créer une nouvelle mission mockée
+ */
+export const createMockMission = (data: MissionInput): Mission => {
+  console.log("createMockMission: Création d'une nouvelle mission");
+  console.log("Données:", data);
   
   const newMission: Mission = {
-    id,
+    id: uuidv4(),
     name: data.name,
-    client: "Default Client",
+    client: data.client,
     description: data.description,
-    sdrId: data.sdrId,
-    createdAt: now,
-    startDate: data.startDate || now,
+    sdrId: data.sdrId || '',
+    sdrName: data.sdrName || 'Non assigné',
+    createdAt: new Date(),
+    startDate: data.startDate || new Date(),
     requests: []
   };
   
-  // Ajouter à notre tableau local
-  missions.push(newMission);
+  localMissionCache.push(newMission);
+  console.log(`Mission créée avec l'ID ${newMission.id}`);
+  return { ...newMission };
+};
+
+/**
+ * Supprimer une mission mockée
+ */
+export const deleteMockMission = async (id: string): Promise<{ success: boolean, error?: string }> => {
+  console.log(`deleteMockMission: Suppression de la mission avec l'ID ${id}`);
   
-  const sdr = getUserById(data.sdrId);
+  if (!id) {
+    console.error("deleteMockMission: ID non fourni");
+    return { success: false, error: "ID de mission non fourni" };
+  }
   
-  return {
-    ...newMission,
-    sdrName: sdr?.name || "Inconnu",
+  const initialLength = localMissionCache.length;
+  const missionToDelete = localMissionCache.find(mission => mission.id === id);
+  
+  if (!missionToDelete) {
+    console.log(`Mission avec l'ID ${id} non trouvée`);
+    return { success: false, error: "Mission non trouvée" };
+  }
+  
+  // Filtrer la mission à supprimer
+  localMissionCache = localMissionCache.filter(mission => mission.id !== id);
+  
+  // Vérifier si la mission a été supprimée
+  const success = initialLength > localMissionCache.length;
+  console.log(`Suppression ${success ? "réussie" : "échouée"}`);
+  console.log(`État du cache après suppression: ${localMissionCache.length} missions`);
+  
+  // Simuler un délai réseau pour rendre la suppression plus réaliste
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  return { success };
+};
+
+/**
+ * Assigner un SDR à une mission mockée
+ */
+export const assignSDRToMockMission = async (
+  missionId: string, 
+  sdrId: string
+): Promise<{ success: boolean, error?: string }> => {
+  console.log(`assignSDRToMockMission: Assignation du SDR ${sdrId} à la mission ${missionId}`);
+  
+  if (!missionId || !sdrId) {
+    console.error("ID de mission ou de SDR non fourni");
+    return { success: false, error: "ID de mission ou de SDR non fourni" };
+  }
+  
+  // Trouver l'index de la mission à mettre à jour
+  const missionIndex = localMissionCache.findIndex(mission => mission.id === missionId);
+  
+  if (missionIndex === -1) {
+    console.log(`Mission avec l'ID ${missionId} non trouvée`);
+    return { success: false, error: "Mission non trouvée" };
+  }
+  
+  // Mettre à jour la mission
+  localMissionCache[missionIndex] = {
+    ...localMissionCache[missionIndex],
+    sdrId,
+    sdrName: "SDR Assigné" // Dans un cas réel, nous récupérerions le nom du SDR depuis la DB
   };
-};
-
-// Supprimer une mission mockée
-export const deleteMockMission = async (id: string): Promise<DeletionResult> => {
-  try {
-    const initialLength = missions.length;
-    missions = missions.filter(mission => mission.id !== id);
-    
-    const success = missions.length !== initialLength;
-    return { 
-      success,
-      error: success ? undefined : "Mission not found"
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred"
-    };
-  }
-};
-
-// Assigner un SDR à une mission mockée
-export const assignSDRToMockMission = async (missionId: string, sdrId: string): Promise<AssignmentResult> => {
-  try {
-    const missionIndex = missions.findIndex(mission => mission.id === missionId);
-    
-    if (missionIndex === -1) {
-      return {
-        success: false,
-        error: "Mission not found"
-      };
-    }
-    
-    missions[missionIndex] = {
-      ...missions[missionIndex],
-      sdrId
-    };
-    
-    return {
-      success: true
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred"
-    };
-  }
+  
+  console.log("Assignation réussie");
+  
+  // Simuler un délai réseau
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  return { success: true };
 };

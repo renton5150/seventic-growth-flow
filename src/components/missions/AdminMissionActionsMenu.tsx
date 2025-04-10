@@ -31,14 +31,9 @@ export const AdminMissionActionsMenu = ({
   const handleMissionDeleted = () => {
     console.log("Mission supprimée, début du processus de mise à jour");
     
-    // Invalider explicitement le cache des missions avec toutes les clés possibles
-    queryClient.invalidateQueries({queryKey: ['missions']});
-    
-    // Forcer un rechargement complet des données des missions
-    setTimeout(() => {
-      queryClient.refetchQueries({queryKey: ['missions']});
-      console.log("Rechargement des données des missions forcé");
-    }, 100);
+    // Forcer une invalidation et un rechargement complet des données
+    queryClient.removeQueries({ queryKey: ['missions'] });
+    queryClient.invalidateQueries({ queryKey: ['missions'] });
     
     // Appeler le callback de succès si fourni
     if (onSuccess) {
@@ -85,7 +80,7 @@ export const AdminMissionActionsMenu = ({
         open={isAssignDialogOpen}
         onOpenChange={setIsAssignDialogOpen}
         onSuccess={() => {
-          queryClient.invalidateQueries({queryKey: ['missions']});
+          queryClient.invalidateQueries({ queryKey: ['missions'] });
           onSuccess?.();
           toast.success(`SDR assigné à la mission ${mission.name}`);
         }}

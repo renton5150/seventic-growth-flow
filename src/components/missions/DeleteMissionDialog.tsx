@@ -51,33 +51,37 @@ export const DeleteMissionDialog = ({
       if (success) {
         console.log(`Suppression réussie pour mission ${mission.id}`);
         
-        // Invalider explicitement le cache des missions
-        queryClient.invalidateQueries({ queryKey: ['missions'] });
+        // Forcer une invalidation complète du cache des missions
+        queryClient.removeQueries({ queryKey: ['missions'] });
+        await queryClient.invalidateQueries({ queryKey: ['missions'] });
         
         // Notifier du succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Notifier le parent de la suppression réussie via callbacks
-        if (onDeleted) {
-          console.log("Exécution du callback onDeleted");
-          onDeleted();
-        }
-        
-        if (onSuccess) {
-          console.log("Exécution du callback onSuccess");
-          onSuccess();
-        }
-        
-        // Fermer la boîte de dialogue APRÈS avoir traité tous les callbacks
+        // Fermer la boîte de dialogue avant d'exécuter les callbacks
         onOpenChange(false);
+        
+        // Attendre un court instant pour permettre à React de traiter la fermeture du dialogue
+        setTimeout(() => {
+          // Notifier le parent de la suppression réussie via callbacks
+          if (onDeleted) {
+            console.log("Exécution du callback onDeleted");
+            onDeleted();
+          }
+          
+          if (onSuccess) {
+            console.log("Exécution du callback onSuccess");
+            onSuccess();
+          }
+        }, 100);
       } else {
         console.error(`Échec de la suppression pour mission ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
+        setIsDeleting(false);
       }
     } catch (error) {
       console.error("Erreur lors de la suppression de la mission:", error);
       toast.error("Une erreur est survenue lors de la suppression");
-    } finally {
       setIsDeleting(false);
     }
   };
