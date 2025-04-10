@@ -11,7 +11,7 @@ export { resendInvitation } from "./userInvitation";
 export { invalidateUserCache };
 
 // Utility function to update a user's role with optimized performance
-export const updateUserRole = async (userId: string, newRole: string): Promise<{ success: boolean; error?: string }> {
+export const updateUserRole = async (userId: string, newRole: string): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log(`Mise à jour du rôle pour l'utilisateur ${userId} vers ${newRole}`);
     
@@ -43,4 +43,4 @@ export const updateUserRole = async (userId: string, newRole: string): Promise<{
       error: error.message || "Erreur inconnue lors de la mise à jour du rôle"
     };
   }
-}
+};
