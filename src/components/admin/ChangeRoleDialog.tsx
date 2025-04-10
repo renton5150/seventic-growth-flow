@@ -48,53 +48,12 @@ export const ChangeRoleDialog = ({
   }, [open, user.role]);
 
   const handleSave = async () => {
-  // Skip update if role hasn't changed
-  if (selectedRole === user.role) {
-    onOpenChange(false);
-    return;
-  }
-
-  // IMPORTANT: Fermer le dialogue IMMÉDIATEMENT pour libérer l'interface
-  onOpenChange(false);
-  
-  // Afficher un toast de chargement global
-  const toastId = toast.loading(`Mise à jour du rôle de ${user.name}...`);
-  
-  try {
-    console.log(`Updating role for user ${user.id} from ${user.role} to ${selectedRole}`);
-    
-    const { success, error } = await updateUserRole(user.id, selectedRole);
-
-    if (!success) {
-      throw new Error(error);
+    // Skip update if role hasn't changed
+    if (selectedRole === user.role) {
+      onOpenChange(false);
+      return;
     }
-    
-    console.log("Role updated successfully");
-    
-    // Remplacer le toast de chargement par un toast de succès
-    toast.success("Rôle mis à jour", {
-      id: toastId,
-      description: `Le rôle de ${user.name} a été changé en ${selectedRole}`
-    });
-    
-    // Invalider les requêtes pour garantir des données à jour
-    queryClient.invalidateQueries({ queryKey: ['users'] });
-    queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-    
-    // Notifier le parent avec un court délai pour laisser le temps aux animations de se terminer
-    setTimeout(() => {
-      onRoleChanged();
-    }, 50);
-    
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour du rôle:", error);
-    // Gestion d'erreur avec le même ID de toast
-    toast.error("Erreur", {
-      id: toastId,
-      description: "Une erreur est survenue lors du changement de rôle"
-    });
-  }
-};
+
     // IMPORTANT: Fermer le dialogue IMMÉDIATEMENT pour libérer l'interface
     onOpenChange(false);
     
