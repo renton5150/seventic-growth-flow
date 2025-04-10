@@ -13,23 +13,14 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { AdminMissionActionsMenu } from "./AdminMissionActionsMenu";
 
 interface MissionsTableProps {
   missions: Mission[];
   isAdmin: boolean;
-  showAdminActions?: boolean;
   onViewMission: (mission: Mission) => void;
-  onRefresh?: () => void;
 }
 
-export const MissionsTable = ({ 
-  missions, 
-  isAdmin, 
-  showAdminActions = false,
-  onViewMission,
-  onRefresh
-}: MissionsTableProps) => {
+export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTableProps) => {
   const formatDate = (date: Date) => {
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
@@ -64,7 +55,7 @@ export const MissionsTable = ({
                 </TableCell>
                 <TableCell>{formatDate(mission.createdAt)}</TableCell>
                 <TableCell>{mission.requests.length}</TableCell>
-                <TableCell className="text-right flex justify-end gap-2">
+                <TableCell className="text-right">
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -73,13 +64,6 @@ export const MissionsTable = ({
                   >
                     Voir
                   </Button>
-                  
-                  {showAdminActions && (
-                    <AdminMissionActionsMenu 
-                      mission={mission}
-                      onSuccess={onRefresh}
-                    />
-                  )}
                 </TableCell>
               </TableRow>
             ))}

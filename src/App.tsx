@@ -98,7 +98,7 @@ const App = () => (
           <Route 
             path="/missions" 
             element={
-              <ProtectedRoute allowedRoles={["admin", "growth", "sdr"]}>
+              <ProtectedRoute>
                 <Missions />
               </ProtectedRoute>
             } 

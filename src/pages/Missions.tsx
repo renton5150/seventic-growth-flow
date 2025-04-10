@@ -2,16 +2,15 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, UserPlus, UserMinus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Mission, User } from "@/types/types";
+import { Mission } from "@/types/types";
 import { getAllMissions, getMissionsByUserId } from "@/services/missionService";
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { useQuery } from "@tanstack/react-query";
-import { AdminMissionActionsMenu } from "@/components/missions/AdminMissionActionsMenu";
 
 const Missions = () => {
   const { user } = useAuth();
@@ -19,7 +18,6 @@ const Missions = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   const isAdmin = user?.role === "admin";
-  const isGrowth = user?.role === "growth";
   const isSdr = user?.role === "sdr";
 
   console.log("Page Missions - utilisateur:", user);
@@ -77,9 +75,9 @@ const Missions = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Missions</h1>
-          {(isSdr || isAdmin) && (
+          {isSdr && (
             <Button onClick={handleCreateMissionClick}>
-              <Plus className="mr-2 h-4 w-4" /> {isAdmin ? "Nouvelle mission" : "Nouvelle mission"}
+              <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
             </Button>
           )}
         </div>
@@ -93,9 +91,7 @@ const Missions = () => {
           <MissionsTable 
             missions={missions} 
             isAdmin={isAdmin} 
-            onViewMission={handleViewMission}
-            showAdminActions={isAdmin}
-            onRefresh={handleRefreshMissions}
+            onViewMission={handleViewMission} 
           />
         )}
         
@@ -105,16 +101,13 @@ const Missions = () => {
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
           onSuccess={handleRefreshMissions} 
-          isAdmin={isAdmin}
         />
         
         <MissionDetailsDialog 
           mission={selectedMission} 
           open={!!selectedMission} 
           onOpenChange={(open) => !open && setSelectedMission(null)} 
-          isAdmin={isAdmin}
-          isSdr={isSdr}
-          onMissionUpdated={handleRefreshMissions}
+          isSdr={isSdr} 
         />
       </div>
     </AppLayout>

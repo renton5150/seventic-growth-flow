@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,6 +30,7 @@ import { User } from "@/types/types";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
+// Schema for mission form
 const missionSchema = z.object({
   name: z.string().min(2, {
     message: "Le nom de la mission doit avoir au moins 2 caractères.",
@@ -47,7 +49,6 @@ interface CreateMissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  isAdmin?: boolean;
 }
 
 export const CreateMissionDialog = ({
@@ -55,19 +56,20 @@ export const CreateMissionDialog = ({
   open,
   onOpenChange,
   onSuccess,
-  isAdmin = false,
 }: CreateMissionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
-
+  
+  // Récupérer la liste des SDRs
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: getAllUsers,
     enabled: open,
   });
-
+  
+  // Filtrer pour ne garder que les SDRs
   const sdrUsers = users.filter((user: User) => user.role === 'sdr');
-
+  
   const form = useForm<z.infer<typeof missionSchema>>({
     resolver: zodResolver(missionSchema),
     defaultValues: {
@@ -77,7 +79,7 @@ export const CreateMissionDialog = ({
       sdrId: user?.id || userId,
     },
   });
-
+  
   const onSubmit = async (values: z.infer<typeof missionSchema>) => {
     try {
       setIsSubmitting(true);
@@ -108,7 +110,7 @@ export const CreateMissionDialog = ({
       setIsSubmitting(false);
     }
   };
-
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -146,45 +148,41 @@ export const CreateMissionDialog = ({
                 </FormItem>
               )}
             />
-            
-            {(isAdmin || sdrUsers.length > 0) && (
-              <FormField
-                control={form.control}
-                name="sdrId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>SDR responsable</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value || user?.id}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez un SDR" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {sdrUsers.length > 0 ? (
-                          sdrUsers.map((sdrUser: User) => (
-                            <SelectItem key={sdrUser.id} value={sdrUser.id}>
-                              {sdrUser.name || sdrUser.email}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          user && (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.name || user.email}
-                            </SelectItem>
-                          )
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-            
+            <FormField
+              control={form.control}
+              name="sdrId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>SDR responsable</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value || user?.id}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez un SDR" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sdrUsers.length > 0 ? (
+                        sdrUsers.map((sdrUser: User) => (
+                          <SelectItem key={sdrUser.id} value={sdrUser.id}>
+                            {sdrUser.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        user && (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name || user.email}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="description"

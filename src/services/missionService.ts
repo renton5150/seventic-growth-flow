@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { isSupabaseConfigured } from "./missions/config";
 import {
@@ -5,17 +6,13 @@ import {
   getMockMissionsByUserId,
   getMockMissionById,
   createMockMission,
-  findMockMissionById,
-  deleteMockMission,
-  assignSDRToMockMission
+  findMockMissionById
 } from "./missions/mockMissions";
 import {
   getAllSupaMissions,
   getSupaMissionsByUserId,
   getSupaMissionById,
-  createSupaMission,
-  deleteSupaMission,
-  assignSDRToSupaMission
+  createSupaMission
 } from "./missions/supaMissions";
 
 // Ré-exporter les fonctions mockées pour la compatibilité
@@ -140,57 +137,5 @@ export const createMission = async (data: {
     console.error("Erreur inattendue lors de la création de la mission:", error);
     console.log("Fallback vers les données mockées");
     return createMockMission(data);
-  }
-};
-
-// Supprimer une mission
-export const deleteMission = async (missionId: string): Promise<boolean> => {
-  try {
-    const isAuthenticated = await isSupabaseAuthenticated();
-    console.log("Suppression d'une mission, Supabase configuré:", isSupabaseConfigured);
-    console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
-    
-    if (!isSupabaseConfigured || !isAuthenticated) {
-      console.log("Utilisation du mock pour la suppression de mission");
-      return deleteMockMission(missionId);
-    }
-
-    const success = await deleteSupaMission(missionId);
-    if (!success) {
-      console.log("Échec de suppression dans Supabase, fallback vers les données mockées");
-      return deleteMockMission(missionId);
-    }
-    
-    return success;
-  } catch (error) {
-    console.error("Erreur inattendue lors de la suppression de la mission:", error);
-    console.log("Fallback vers les données mockées");
-    return deleteMockMission(missionId);
-  }
-};
-
-// Assigner un SDR à une mission
-export const assignSDRToMission = async (missionId: string, sdrId: string): Promise<boolean> => {
-  try {
-    const isAuthenticated = await isSupabaseAuthenticated();
-    console.log("Assignation d'un SDR à une mission, Supabase configuré:", isSupabaseConfigured);
-    console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
-    
-    if (!isSupabaseConfigured || !isAuthenticated) {
-      console.log("Utilisation du mock pour l'assignation de SDR");
-      return assignSDRToMockMission(missionId, sdrId);
-    }
-
-    const success = await assignSDRToSupaMission(missionId, sdrId);
-    if (!success) {
-      console.log("Échec d'assignation dans Supabase, fallback vers les données mockées");
-      return assignSDRToMockMission(missionId, sdrId);
-    }
-    
-    return success;
-  } catch (error) {
-    console.error("Erreur inattendue lors de l'assignation du SDR:", error);
-    console.log("Fallback vers les données mockées");
-    return assignSDRToMockMission(missionId, sdrId);
   }
 };
