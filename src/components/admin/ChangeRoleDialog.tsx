@@ -19,6 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { User, UserRole } from "@/types/types";
 import { toast } from "sonner";
+import { updateUserRole } from "@/services/user/userManagement";
 
 interface ChangeRoleDialogProps {
   open: boolean;
@@ -34,6 +35,7 @@ export const ChangeRoleDialog = ({
   onRoleChanged,
 }: ChangeRoleDialogProps) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   // Reset selected role when dialog opens with a different user
   useEffect(() => {
@@ -44,27 +46,38 @@ export const ChangeRoleDialog = ({
 
   const handleSave = async () => {
     try {
+      setIsUpdating(true);
+      
       // Enregistrer l'état actuel du rôle pour debug
       console.log(`Changement de rôle : ${user.email} de ${user.role} à ${selectedRole}`);
       
-      // Fermer simplement la boîte de dialogue sans faire d'appel API pour l'instant
-      onOpenChange(false);
+      // Appeler l'API pour mettre à jour le rôle
+      const result = await updateUserRole(user.id, selectedRole);
       
-      // Si nous voulons montrer une notification, faisons-le ici
-      toast.success("Rôle modifié", {
-        description: `Le rôle de ${user.email} a été modifié avec succès.`,
-      });
-      
-      // Actualiser manuellement la page après un court délai
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-      
+      if (result.success) {
+        // Fermer la boîte de dialogue
+        onOpenChange(false);
+        
+        // Notifier l'utilisateur du succès
+        toast.success("Rôle modifié", {
+          description: `Le rôle de ${user.email} a été modifié avec succès.`,
+        });
+        
+        // Appeler la fonction de rappel pour rafraîchir la liste des utilisateurs
+        onRoleChanged();
+      } else {
+        // Afficher l'erreur
+        toast.error("Erreur", {
+          description: result.error || "Une erreur est survenue lors du changement de rôle."
+        });
+      }
     } catch (error) {
       console.error("Erreur lors du changement de rôle:", error);
       toast.error("Erreur", {
         description: "Une erreur est survenue lors du changement de rôle."
       });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -103,10 +116,10 @@ export const ChangeRoleDialog = ({
           </Button>
           <Button 
             onClick={handleSave} 
-            disabled={selectedRole === user.role}
+            disabled={selectedRole === user.role || isUpdating}
             className="min-w-[100px]"
           >
-            Enregistrer
+            {isUpdating ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </DialogFooter>
       </DialogContent>
