@@ -1,3 +1,5 @@
 
-// Configuration for forcing the use of Supabase
-export const isSupabaseConfigured: boolean = true;
+// Configuration settings for mission services
+
+// Check if Supabase is configured
+export const isSupabaseConfigured = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;

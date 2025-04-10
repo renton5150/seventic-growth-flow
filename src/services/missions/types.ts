@@ -8,6 +8,7 @@ export interface MissionInput {
   client?: string;
   sdrId: string;
   startDate: Date;
+  sdrName?: string; // Optional field for mock implementations
 }
 
 // Mission service response types
