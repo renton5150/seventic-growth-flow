@@ -112,6 +112,7 @@ export const deleteSupaMission = async (missionId: string): Promise<DeletionResu
     }
     
     // Première étape : supprimer tous les requests liés à cette mission
+    console.log("Suppression des demandes liées à la mission:", missionId);
     const { error: requestsError } = await supabase
       .from('requests')
       .delete()
@@ -123,6 +124,7 @@ export const deleteSupaMission = async (missionId: string): Promise<DeletionResu
     }
     
     // Deuxième étape : supprimer la mission elle-même
+    console.log("Suppression de la mission:", missionId);
     const { error } = await supabase
       .from('missions')
       .delete()

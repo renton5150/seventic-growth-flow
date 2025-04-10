@@ -29,11 +29,14 @@ export const AdminMissionActionsMenu = ({
   const queryClient = useQueryClient();
 
   const handleMissionDeleted = () => {
+    console.log("Mission supprimée, invalidation du cache");
+    
     // Invalider le cache des missions
     queryClient.invalidateQueries({queryKey: ['missions']});
     
     // Appeler le callback de succès si fourni
     if (onSuccess) {
+      console.log("Appel du callback onSuccess après suppression");
       onSuccess();
     }
   };
@@ -59,7 +62,10 @@ export const AdminMissionActionsMenu = ({
           <DropdownMenuSeparator />
           
           <DropdownMenuItem
-            onClick={() => setIsDeleteDialogOpen(true)}
+            onClick={() => {
+              console.log("Ouverture du dialogue de suppression pour mission:", mission.id);
+              setIsDeleteDialogOpen(true);
+            }}
             className="text-red-600 cursor-pointer focus:text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />

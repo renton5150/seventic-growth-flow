@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface DeleteMissionDialogProps {
@@ -20,7 +21,7 @@ interface DeleteMissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeleted?: () => void;
-  onSuccess?: () => void; // Added onSuccess prop to the interface
+  onSuccess?: () => void;
 }
 
 export const DeleteMissionDialog = ({
@@ -51,7 +52,7 @@ export const DeleteMissionDialog = ({
         // Notifier du succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Notifier le parent de la suppression réussie via onDeleted ou onSuccess
+        // Notifier le parent de la suppression réussie via callbacks
         if (onDeleted) {
           onDeleted();
         }
@@ -86,7 +87,12 @@ export const DeleteMissionDialog = ({
             disabled={isDeleting}
             variant="destructive"
           >
-            {isDeleting ? "Suppression en cours..." : "Confirmer"}
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                Suppression en cours...
+              </>
+            ) : "Confirmer"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

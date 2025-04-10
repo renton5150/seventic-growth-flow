@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -10,11 +10,12 @@ import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const Missions = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
@@ -49,7 +50,10 @@ const Missions = () => {
   });
     
   // Gestionnaire de rafraîchissement des missions
-  const handleRefreshMissions = () => {
+  const handleRefreshMissions = useCallback(() => {
+    console.log("Rafraîchissement des missions demandé");
+    queryClient.invalidateQueries({ queryKey: ['missions'] });
+    
     refetch()
       .then(() => {
         toast.success("Liste des missions actualisée");
@@ -58,7 +62,7 @@ const Missions = () => {
         console.error("Erreur lors du rafraîchissement des missions:", error);
         toast.error("Erreur lors de l'actualisation des missions");
       });
-  };
+  }, [refetch, queryClient]);
   
   const handleViewMission = (mission: Mission) => {
     setSelectedMission(mission);
