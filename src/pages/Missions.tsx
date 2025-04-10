@@ -46,26 +46,28 @@ const Missions = () => {
     },
     enabled: !!user,
     staleTime: 0, // Consider data stale immediately
-    gcTime: 0    // Renamed from cacheTime to gcTime in TanStack Query v5+
+    gcTime: 0,    // Renamed from cacheTime to gcTime in TanStack Query v5+
+    refetchOnWindowFocus: true, // Re-fetch when window regains focus
   });
     
   // Handlers
   const handleRefreshMissions = useCallback(() => {
     console.log("Missions: Rafraîchissement des missions");
     
-    // Invalider le cache et forcer un nouveau chargement
+    // Forcer un rechargement complet en supprimant la requête du cache
     queryClient.removeQueries({queryKey: missionsQueryKey});
     
     // Attendre un court instant avant de relancer la requête
     setTimeout(() => {
-      refetch().then(() => {
-        console.log("Missions: Données rechargées après rafraîchissement");
-        toast.success("Liste des missions actualisée");
-      })
-      .catch(error => {
-        console.error("Erreur lors du rafraîchissement des missions:", error);
-        toast.error("Erreur lors de l'actualisation des missions");
-      });
+      refetch()
+        .then(() => {
+          console.log("Missions: Données rechargées après rafraîchissement");
+          toast.success("Liste des missions actualisée");
+        })
+        .catch(error => {
+          console.error("Erreur lors du rafraîchissement des missions:", error);
+          toast.error("Erreur lors de l'actualisation des missions");
+        });
     }, 100);
   }, [refetch, queryClient, missionsQueryKey]);
   

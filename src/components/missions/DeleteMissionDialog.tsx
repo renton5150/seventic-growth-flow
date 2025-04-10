@@ -57,7 +57,7 @@ export const DeleteMissionDialog = ({
         // Notification de succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Exécuter le callback de succès après un court délai
+        // Exécuter le callback de succès si fourni
         if (onSuccess) {
           onSuccess();
         }

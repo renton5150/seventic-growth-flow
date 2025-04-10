@@ -10,10 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
 import { AssignSDRDialog } from "./AssignSDRDialog";
 import { DeleteMissionDialog } from "./DeleteMissionDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface AdminMissionActionsMenuProps {
   mission: Mission;
@@ -28,19 +28,11 @@ export const AdminMissionActionsMenu = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const handleDeleteClick = () => {
-    console.log("Ouverture de la boîte de dialogue de suppression pour la mission:", mission.id);
-    setIsDeleteDialogOpen(true);
-  };
-  
-  const handleMissionDeleted = () => {
-    console.log("Mission supprimée avec succès, notification au parent");
-    
-    // Invalider toutes les requêtes de missions
+  const handleDeleteSuccess = () => {
+    // Forcer un rafraîchissement complet des données de missions
     queryClient.invalidateQueries({queryKey: ['missions']});
     
     if (onSuccess) {
-      console.log("Exécution du callback onSuccess dans AdminMissionActionsMenu");
       onSuccess();
     }
   };
@@ -66,7 +58,7 @@ export const AdminMissionActionsMenu = ({
           <DropdownMenuSeparator />
           
           <DropdownMenuItem
-            onClick={handleDeleteClick}
+            onClick={() => setIsDeleteDialogOpen(true)}
             className="text-red-600 cursor-pointer focus:text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />
@@ -90,7 +82,7 @@ export const AdminMissionActionsMenu = ({
         mission={mission}
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onSuccess={handleMissionDeleted}
+        onSuccess={handleDeleteSuccess}
       />
     </>
   );
