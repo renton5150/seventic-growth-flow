@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface DeleteMissionDialogProps {
   mission: Mission;
@@ -30,39 +29,32 @@ export const DeleteMissionDialog = ({
   onSuccess,
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
-  const queryClient = useQueryClient();
 
   const handleDelete = async () => {
     if (!mission?.id) {
-      console.error("Tentative de suppression d'une mission sans ID valide");
       toast.error("Impossible de supprimer cette mission : ID invalide");
       return;
     }
     
     try {
       setIsDeleting(true);
-      console.log("Tentative de suppression de la mission ID:", mission.id);
       
       const success = await deleteMission(mission.id);
       
       if (success) {
-        console.log(`Mission ${mission.id} supprimée avec succès`);
-        
         // Fermer la boîte de dialogue immédiatement
         onOpenChange(false);
-        
-        // Invalider toutes les requêtes missions pour forcer un rechargement complet
-        queryClient.invalidateQueries({queryKey: ['missions']});
         
         // Notification de succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Exécuter le callback de succès si fourni
-        if (onSuccess) {
-          onSuccess();
-        }
+        // Différer légèrement l'exécution du callback pour éviter les problèmes de timing
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess();
+          }
+        }, 100);
       } else {
-        console.error(`Échec de la suppression de la mission: ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
       }
     } catch (error) {

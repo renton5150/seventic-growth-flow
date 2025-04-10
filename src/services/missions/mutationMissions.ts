@@ -89,15 +89,12 @@ export const createSupaMission = async (data: {
  */
 export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
   try {
-    console.log("*** deleteSupaMission: Début de la fonction");
     console.log("Suppression d'une mission dans Supabase avec ID:", missionId);
     
     // Si l'identifiant n'est pas un UUID valide, retourner false
     if (!isValidUUID(missionId)) {
       console.warn(`ID mission non valide pour Supabase: ${missionId}`);
       return false;
-    } else {
-      console.log(`ID mission validé comme UUID valide: ${missionId}`);
     }
     
     // Vérifier l'authentification actuelle
@@ -105,13 +102,9 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     if (!session.session) {
       console.error("Erreur: Utilisateur non authentifié pour supprimer une mission");
       return false;
-    } else {
-      console.log(`Utilisateur authentifié avec ID: ${session.session.user.id} pour supprimer la mission ${missionId}`);
     }
     
-    console.log(`Exécution de la requête DELETE sur la table 'missions' avec id=${missionId}...`);
-    
-    // Première étape : supprimer tous les requests liés à cette mission pour éviter les erreurs de clé étrangère
+    // Première étape : supprimer tous les requests liés à cette mission
     const { error: requestsError } = await supabase
       .from('requests')
       .delete()
@@ -119,12 +112,7 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       
     if (requestsError) {
       console.error("Erreur lors de la suppression des demandes liées à la mission:", requestsError);
-      console.error("Code d'erreur:", requestsError.code);
-      console.error("Message d'erreur:", requestsError.message);
-      console.error("Détails:", requestsError.details);
       // On continue quand même avec la suppression de la mission
-    } else {
-      console.log(`Demandes liées à la mission ${missionId} supprimées avec succès`);
     }
     
     // Deuxième étape : supprimer la mission elle-même
@@ -135,21 +123,13 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
 
     if (error) {
       console.error("Erreur Supabase lors de la suppression de la mission:", error);
-      console.error("Code d'erreur:", error.code);
-      console.error("Message d'erreur:", error.message);
-      console.error("Détails:", error.details);
       return false;
     }
     
     console.log(`Mission ${missionId} supprimée avec succès dans Supabase`);
-    console.log("*** deleteSupaMission: Fin de la fonction avec succès");
     return true;
   } catch (error) {
     console.error("Exception lors de la suppression de la mission:", error);
-    if (error instanceof Error) {
-      console.error("Message d'erreur:", error.message);
-      console.error("Stack trace:", error.stack);
-    }
     return false;
   }
 };

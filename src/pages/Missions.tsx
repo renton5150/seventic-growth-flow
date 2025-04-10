@@ -23,15 +23,14 @@ const Missions = () => {
   const isGrowth = user?.role === "growth";
   const isSdr = user?.role === "sdr";
 
-  console.log("Page Missions - utilisateur:", user);
-
-  // Utiliser react-query pour gérer les missions
+  // Utiliser un clé de cache stable
   const missionsQueryKey = ['missions', user?.id, isAdmin];
+  
+  // Configuration optimisée pour éviter les problèmes de rendu et de cache
   const { data: missions = [], isLoading, refetch } = useQuery({
     queryKey: missionsQueryKey,
     queryFn: async () => {
       try {
-        console.log("Chargement des missions pour", isAdmin ? "admin" : "sdr", "avec ID:", user?.id);
         if (isAdmin) {
           return await getAllMissions();
         } else if (user?.id) {
@@ -45,44 +44,38 @@ const Missions = () => {
       }
     },
     enabled: !!user,
-    staleTime: 0, // Consider data stale immediately
-    gcTime: 0,    // Renamed from cacheTime to gcTime in TanStack Query v5+
-    refetchOnWindowFocus: true, // Re-fetch when window regains focus
+    staleTime: 1000, // Une seconde pour éviter les multiples rechargements
+    gcTime: 3000,    // Conserver en cache un peu plus longtemps
+    refetchOnWindowFocus: false, // Éviter les rechargements automatiques qui peuvent causer des problèmes
   });
     
-  // Handlers
+  // Gestionnaire de rafraîchissement optimisé
   const handleRefreshMissions = useCallback(() => {
-    console.log("Missions: Rafraîchissement des missions");
-    
-    // Forcer un rechargement complet en supprimant la requête du cache
+    // Supprimer complètement la requête du cache
     queryClient.removeQueries({queryKey: missionsQueryKey});
     
-    // Attendre un court instant avant de relancer la requête
+    // Relancer la requête après un court délai
     setTimeout(() => {
       refetch()
         .then(() => {
-          console.log("Missions: Données rechargées après rafraîchissement");
           toast.success("Liste des missions actualisée");
         })
         .catch(error => {
           console.error("Erreur lors du rafraîchissement des missions:", error);
           toast.error("Erreur lors de l'actualisation des missions");
         });
-    }, 100);
+    }, 200);
   }, [refetch, queryClient, missionsQueryKey]);
   
   const handleViewMission = (mission: Mission) => {
-    console.log("Affichage de la mission:", mission);
     setSelectedMission(mission);
   };
   
   const handleCreateMissionClick = () => {
-    console.log("Ouverture de la modal de création de mission");
     setIsCreateModalOpen(true);
   };
 
   const handleMissionUpdated = useCallback(() => {
-    console.log("Mission mise à jour, rafraîchissement de la liste");
     setSelectedMission(null);
     handleRefreshMissions();
   }, [handleRefreshMissions]);
@@ -96,8 +89,6 @@ const Missions = () => {
       </AppLayout>
     );
   }
-  
-  console.log("Missions chargées:", missions);
   
   return (
     <AppLayout>

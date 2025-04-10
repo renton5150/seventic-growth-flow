@@ -29,9 +29,10 @@ export const AdminMissionActionsMenu = ({
   const queryClient = useQueryClient();
 
   const handleDeleteSuccess = () => {
-    // Forcer un rafraîchissement complet des données de missions
+    // Invalider la requête pour forcer un rechargement complet
     queryClient.invalidateQueries({queryKey: ['missions']});
     
+    // Exécuter le callback parent si fourni
     if (onSuccess) {
       onSuccess();
     }
