@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -10,25 +10,25 @@ import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const Missions = () => {
   const { user } = useAuth();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const queryClient = useQueryClient();
   
   const isAdmin = user?.role === "admin";
   const isGrowth = user?.role === "growth";
   const isSdr = user?.role === "sdr";
 
-  // Utiliser un clé de cache stable
-  const missionsQueryKey = ['missions', user?.id, isAdmin];
-  
-  // Configuration optimisée pour éviter les problèmes de rendu et de cache
-  const { data: missions = [], isLoading, refetch } = useQuery({
-    queryKey: missionsQueryKey,
+  // Configuration de la requête React Query
+  const { 
+    data: missions = [], 
+    isLoading, 
+    refetch 
+  } = useQuery({
+    queryKey: ['missions', user?.id, isAdmin],
     queryFn: async () => {
       try {
         if (isAdmin) {
@@ -44,28 +44,21 @@ const Missions = () => {
       }
     },
     enabled: !!user,
-    staleTime: 1000, // Une seconde pour éviter les multiples rechargements
-    gcTime: 3000,    // Conserver en cache un peu plus longtemps
-    refetchOnWindowFocus: false, // Éviter les rechargements automatiques qui peuvent causer des problèmes
+    staleTime: 0, // Toujours considérer les données comme périmées pour forcer le rechargement
+    refetchOnWindowFocus: false, // Éviter les rechargements automatiques
   });
     
-  // Gestionnaire de rafraîchissement optimisé
-  const handleRefreshMissions = useCallback(() => {
-    // Supprimer complètement la requête du cache
-    queryClient.removeQueries({queryKey: missionsQueryKey});
-    
-    // Relancer la requête après un court délai
-    setTimeout(() => {
-      refetch()
-        .then(() => {
-          toast.success("Liste des missions actualisée");
-        })
-        .catch(error => {
-          console.error("Erreur lors du rafraîchissement des missions:", error);
-          toast.error("Erreur lors de l'actualisation des missions");
-        });
-    }, 200);
-  }, [refetch, queryClient, missionsQueryKey]);
+  // Gestionnaire de rafraîchissement des missions
+  const handleRefreshMissions = () => {
+    refetch()
+      .then(() => {
+        toast.success("Liste des missions actualisée");
+      })
+      .catch(error => {
+        console.error("Erreur lors du rafraîchissement des missions:", error);
+        toast.error("Erreur lors de l'actualisation des missions");
+      });
+  };
   
   const handleViewMission = (mission: Mission) => {
     setSelectedMission(mission);
@@ -75,10 +68,10 @@ const Missions = () => {
     setIsCreateModalOpen(true);
   };
 
-  const handleMissionUpdated = useCallback(() => {
+  const handleMissionUpdated = () => {
     setSelectedMission(null);
     handleRefreshMissions();
-  }, [handleRefreshMissions]);
+  };
 
   if (isLoading) {
     return (

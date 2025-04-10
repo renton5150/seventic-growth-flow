@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidUUID } from "./utils";
@@ -112,7 +113,7 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       
     if (requestsError) {
       console.error("Erreur lors de la suppression des demandes liées à la mission:", requestsError);
-      // On continue quand même avec la suppression de la mission
+      // Continue quand même avec la suppression de la mission
     }
     
     // Deuxième étape : supprimer la mission elle-même

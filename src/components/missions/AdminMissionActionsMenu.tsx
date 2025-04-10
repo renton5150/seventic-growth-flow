@@ -28,11 +28,11 @@ export const AdminMissionActionsMenu = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const handleDeleteSuccess = () => {
-    // Invalider la requête pour forcer un rechargement complet
+  const handleMissionDeleted = () => {
+    // Invalider le cache des missions
     queryClient.invalidateQueries({queryKey: ['missions']});
     
-    // Exécuter le callback parent si fourni
+    // Appeler le callback de succès si fourni
     if (onSuccess) {
       onSuccess();
     }
@@ -83,7 +83,7 @@ export const AdminMissionActionsMenu = ({
         mission={mission}
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onSuccess={handleDeleteSuccess}
+        onDeleted={handleMissionDeleted}
       />
     </>
   );

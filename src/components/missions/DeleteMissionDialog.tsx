@@ -19,14 +19,14 @@ interface DeleteMissionDialogProps {
   mission: Mission;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onDeleted?: () => void;
 }
 
 export const DeleteMissionDialog = ({
   mission,
   open,
   onOpenChange,
-  onSuccess,
+  onDeleted,
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -39,21 +39,20 @@ export const DeleteMissionDialog = ({
     try {
       setIsDeleting(true);
       
+      // Appel de l'API de suppression
       const success = await deleteMission(mission.id);
       
       if (success) {
-        // Fermer la boîte de dialogue immédiatement
+        // Fermer la boîte de dialogue
         onOpenChange(false);
         
-        // Notification de succès
+        // Notifier du succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Différer légèrement l'exécution du callback pour éviter les problèmes de timing
-        setTimeout(() => {
-          if (onSuccess) {
-            onSuccess();
-          }
-        }, 100);
+        // Notifier le parent de la suppression réussie
+        if (onDeleted) {
+          onDeleted();
+        }
       } else {
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
       }

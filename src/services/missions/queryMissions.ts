@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getRequestsByMissionId } from "../requestService";
@@ -21,7 +22,7 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
         start_date,
         profiles!missions_sdr_id_fkey(name)
       `)
-      .order('created_at', { ascending: false }); // Tri consistant pour éviter les sauts d'UI
+      .order('created_at', { ascending: false }); // Tri par date de création descendante
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
@@ -79,7 +80,8 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
         start_date,
         profiles!missions_sdr_id_fkey(name)
       `)
-      .eq('sdr_id', userId);
+      .eq('sdr_id', userId)
+      .order('created_at', { ascending: false }); // Tri par date de création descendante
 
     if (error) {
       console.error("Erreur lors de la récupération des missions:", error);
