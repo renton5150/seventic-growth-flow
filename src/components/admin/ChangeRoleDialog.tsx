@@ -35,7 +35,7 @@ export const ChangeRoleDialog = ({
   onRoleChanged,
 }: ChangeRoleDialogProps) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Reset selected role when dialog opens with a different user
   useEffect(() => {
@@ -46,38 +46,56 @@ export const ChangeRoleDialog = ({
 
   const handleSave = async () => {
     try {
-      setIsUpdating(true);
+      // Désactiver le bouton pendant le traitement
+      setIsProcessing(true);
       
-      // Enregistrer l'état actuel du rôle pour debug
-      console.log(`Changement de rôle : ${user.email} de ${user.role} à ${selectedRole}`);
+      // 1. Fermer d'abord la boîte de dialogue (pour éviter le freeze)
+      onOpenChange(false);
       
-      // Appeler l'API pour mettre à jour le rôle
-      const result = await updateUserRole(user.id, selectedRole);
+      // 2. Afficher une notification de chargement
+      const loadingToastId = toast.loading(`Modification du rôle de ${user.email}...`);
       
-      if (result.success) {
-        // Fermer la boîte de dialogue
-        onOpenChange(false);
-        
-        // Notifier l'utilisateur du succès
-        toast.success("Rôle modifié", {
-          description: `Le rôle de ${user.email} a été modifié avec succès.`,
-        });
-        
-        // Appeler la fonction de rappel pour rafraîchir la liste des utilisateurs
-        onRoleChanged();
-      } else {
-        // Afficher l'erreur
-        toast.error("Erreur", {
-          description: result.error || "Une erreur est survenue lors du changement de rôle."
-        });
-      }
+      // 3. Appeler l'API avec un léger délai (pour donner le temps au dialogue de se fermer)
+      setTimeout(async () => {
+        try {
+          console.log(`Changement de rôle : ${user.email} de ${user.role} à ${selectedRole}`);
+          
+          // Appel à l'API pour changer le rôle
+          const result = await updateUserRole(user.id, selectedRole);
+          
+          if (result.success) {
+            // 4. Notification de succès (en remplaçant la notification de chargement)
+            toast.success("Rôle modifié", {
+              id: loadingToastId,
+              description: `Le rôle de ${user.email} a été modifié avec succès.`
+            });
+            
+            // 5. Appeler la fonction de rappel pour rafraîchir la liste des utilisateurs
+            onRoleChanged();
+          } else {
+            // Afficher l'erreur (en remplaçant la notification de chargement)
+            toast.error("Erreur", {
+              id: loadingToastId,
+              description: result.error || "Une erreur est survenue lors du changement de rôle."
+            });
+          }
+        } catch (error) {
+          console.error("Erreur lors du changement de rôle:", error);
+          toast.error("Erreur", {
+            id: loadingToastId,
+            description: "Une erreur est survenue lors du changement de rôle."
+          });
+        } finally {
+          // Réactiver le bouton après le traitement
+          setIsProcessing(false);
+        }
+      }, 300); // délai de 300ms pour laisser le temps à l'UI de se rafraîchir
     } catch (error) {
-      console.error("Erreur lors du changement de rôle:", error);
+      console.error("Erreur inattendue:", error);
       toast.error("Erreur", {
-        description: "Une erreur est survenue lors du changement de rôle."
+        description: "Une erreur inattendue est survenue."
       });
-    } finally {
-      setIsUpdating(false);
+      setIsProcessing(false);
     }
   };
 
@@ -116,10 +134,10 @@ export const ChangeRoleDialog = ({
           </Button>
           <Button 
             onClick={handleSave} 
-            disabled={selectedRole === user.role || isUpdating}
+            disabled={selectedRole === user.role || isProcessing}
             className="min-w-[100px]"
           >
-            {isUpdating ? "Enregistrement..." : "Enregistrer"}
+            {isProcessing ? "Traitement..." : "Enregistrer"}
           </Button>
         </DialogFooter>
       </DialogContent>
