@@ -54,7 +54,11 @@ export const ChangeRoleDialog = ({
       return;
     }
 
-    setIsLoading(true);
+    // IMPORTANT: Fermer le dialogue IMMÉDIATEMENT pour libérer l'interface
+    onOpenChange(false);
+    
+    // Afficher un toast de chargement global
+    const toastId = toast.loading(`Mise à jour du rôle de ${user.name}...`);
     
     try {
       console.log(`Updating role for user ${user.id} from ${user.role} to ${selectedRole}`);
@@ -65,39 +69,35 @@ export const ChangeRoleDialog = ({
         throw new Error(error);
       }
       
-      // Mise à jour locale immédiate
       console.log("Role updated successfully");
       
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      
+      // Remplacer le toast de chargement par un toast de succès
       toast.success("Rôle mis à jour", {
+        id: toastId,
         description: `Le rôle de ${user.name} a été changé en ${selectedRole}`
       });
       
-      // Close dialog before triggering refresh to improve perceived performance
-      onOpenChange(false);
+      // Invalider les requêtes pour garantir des données à jour
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       
-      // Notify parent of change
+      // Notifier le parent avec un court délai pour laisser le temps aux animations de se terminer
       setTimeout(() => {
         onRoleChanged();
-      }, 100);
+      }, 50);
       
     } catch (error) {
       console.error("Erreur lors de la mise à jour du rôle:", error);
+      // Gestion d'erreur avec le même ID de toast
       toast.error("Erreur", {
+        id: toastId,
         description: "Une erreur est survenue lors du changement de rôle"
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (isLoading) return; // Prevent closing while loading
-      onOpenChange(isOpen);
-    }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Changer le rôle</DialogTitle>
@@ -112,7 +112,6 @@ export const ChangeRoleDialog = ({
             <Select
               value={selectedRole}
               onValueChange={(value) => setSelectedRole(value as UserRole)}
-              disabled={isLoading}
             >
               <SelectTrigger id="role">
                 <SelectValue placeholder="Sélectionner un rôle" />
@@ -127,22 +126,15 @@ export const ChangeRoleDialog = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
           <Button 
             onClick={handleSave} 
-            disabled={isLoading || selectedRole === user.role}
+            disabled={selectedRole === user.role}
             className="min-w-[100px]"
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                Enregistrement...
-              </>
-            ) : (
-              "Enregistrer"
-            )}
+            Enregistrer
           </Button>
         </DialogFooter>
       </DialogContent>

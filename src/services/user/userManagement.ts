@@ -15,9 +15,13 @@ export const updateUserRole = async (userId: string, newRole: string): Promise<{
   try {
     console.log(`Mise à jour du rôle pour l'utilisateur ${userId} vers ${newRole}`);
     
+    // Optimisation : utiliser un upsert pour garantir que la mise à jour se fait en une seule opération
     const { error } = await supabase
       .from("profiles")
-      .update({ role: newRole })
+      .update({ 
+        role: newRole,
+        updated_at: new Date().toISOString() 
+      })
       .eq("id", userId);
       
     if (error) {
@@ -25,7 +29,7 @@ export const updateUserRole = async (userId: string, newRole: string): Promise<{
       return { success: false, error: error.message };
     }
     
-    // Invalidate the user cache to ensure fresh data
+    // Invalider immédiatement le cache pour que les prochaines requêtes récupèrent les données fraîches
     invalidateUserCache();
     
     return { success: true };

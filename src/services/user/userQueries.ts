@@ -8,7 +8,7 @@ let userCache: { users: User[] | null; timestamp: number } = {
   users: null,
   timestamp: 0
 };
-const CACHE_TIMEOUT = 2000; // 2 secondes
+const CACHE_TIMEOUT = 3000; // 3 secondes pour réduire les requêtes redondantes
 
 // Récupérer tous les utilisateurs - version compatible avec TanStack Query
 export const getAllUsers = async (): Promise<User[]> => {
@@ -45,7 +45,7 @@ export const getAllUsers = async (): Promise<User[]> => {
       avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=7E69AB&color=fff`
     }));
 
-    // Mise en cache des données
+    // Mise en cache des données avec horodatage
     userCache = {
       users,
       timestamp: now
@@ -77,7 +77,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Erreur lors de la récupération de l'utilisateur:", error);

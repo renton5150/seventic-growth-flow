@@ -11,11 +11,18 @@ const AdminUsers = () => {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   
-  // Fonction pour rafraîchir les données utilisateur
+  // Fonction pour rafraîchir les données utilisateur - optimisée pour limiter les appels
   const refreshUserData = useCallback(() => {
     console.log("Rafraîchissement des données utilisateur depuis AdminUsers");
+    
+    // Invalider le cache local
     invalidateUserCache();
-    queryClient.invalidateQueries({ queryKey: ['users'] });
+    
+    // Utiliser une seule invalidation pour tous les queries liées aux utilisateurs
+    queryClient.invalidateQueries({ 
+      queryKey: ['users'],
+      refetchType: 'all' // Force refresh 
+    });
   }, [queryClient]);
   
   if (!isAdmin) {
