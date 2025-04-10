@@ -6,6 +6,7 @@ import { isValidUUID } from "./utils";
 
 /**
  * Obtenir toutes les missions depuis Supabase
+ * @returns Promise<Mission[]> Array of missions
  */
 export const getAllSupaMissions = async (): Promise<Mission[]> => {
   try {
@@ -57,6 +58,8 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
 
 /**
  * Obtenir les missions par utilisateur depuis Supabase
+ * @param userId User ID to filter missions by
+ * @returns Promise<Mission[]> Array of missions for the user
  */
 export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]> => {
   try {
@@ -116,6 +119,8 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
 
 /**
  * Obtenir une mission par ID depuis Supabase
+ * @param missionId Mission ID to retrieve
+ * @returns Promise<Mission | undefined> The mission or undefined if not found
  */
 export const getSupaMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {

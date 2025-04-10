@@ -1,3 +1,3 @@
 
-// Configuration pour forcer l'utilisation de Supabase
-export const isSupabaseConfigured = true;
+// Configuration for forcing the use of Supabase
+export const isSupabaseConfigured: boolean = true;

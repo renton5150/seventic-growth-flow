@@ -1,6 +1,4 @@
 
-// Utility functions for mission services
-
 /**
  * Checks if a string is a valid UUID
  * @param str String to check

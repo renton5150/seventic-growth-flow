@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { missions as mockMissions } from "@/data/missions";
 import { getUserById } from "@/data/users";
 import { getRequestsByMissionId as getMockRequestsByMissionId } from "@/data/requests";
+import { MissionInput, DeletionResult, AssignmentResult } from "./types";
 
 // Variable locale pour stocker les missions mockées
 let missions = [...mockMissions];
@@ -60,12 +61,7 @@ export const findMockMissionById = (id: string): Mission | undefined => {
 };
 
 // Créer une nouvelle mission mockée
-export const createMockMission = async (data: {
-  name: string;
-  description?: string;
-  sdrId: string;
-  startDate: Date;
-}): Promise<Mission> => {
+export const createMockMission = async (data: MissionInput): Promise<Mission> => {
   const now = new Date();
   const id = uuidv4();
   
@@ -92,25 +88,48 @@ export const createMockMission = async (data: {
 };
 
 // Supprimer une mission mockée
-export const deleteMockMission = async (id: string): Promise<boolean> => {
-  const initialLength = missions.length;
-  missions = missions.filter(mission => mission.id !== id);
-  
-  return missions.length !== initialLength;
+export const deleteMockMission = async (id: string): Promise<DeletionResult> => {
+  try {
+    const initialLength = missions.length;
+    missions = missions.filter(mission => mission.id !== id);
+    
+    const success = missions.length !== initialLength;
+    return { 
+      success,
+      error: success ? undefined : "Mission not found"
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
 };
 
 // Assigner un SDR à une mission mockée
-export const assignSDRToMockMission = async (missionId: string, sdrId: string): Promise<boolean> => {
-  const missionIndex = missions.findIndex(mission => mission.id === missionId);
-  
-  if (missionIndex === -1) {
-    return false;
+export const assignSDRToMockMission = async (missionId: string, sdrId: string): Promise<AssignmentResult> => {
+  try {
+    const missionIndex = missions.findIndex(mission => mission.id === missionId);
+    
+    if (missionIndex === -1) {
+      return {
+        success: false,
+        error: "Mission not found"
+      };
+    }
+    
+    missions[missionIndex] = {
+      ...missions[missionIndex],
+      sdrId
+    };
+    
+    return {
+      success: true
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
   }
-  
-  missions[missionIndex] = {
-    ...missions[missionIndex],
-    sdrId
-  };
-  
-  return true;
 };
