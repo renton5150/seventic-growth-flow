@@ -21,7 +21,7 @@ import {
 } from "./missions/index";
 
 // Ré-exporter les fonctions mockées pour la compatibilité
-export { findMockMissionById, getMockMissionsBySdrId } from "./missions/mockMissions";
+export { findMockMissionById } from "./missions/mockMissions";
 
 // Vérifier si un utilisateur est connecté avec Supabase
 const isSupabaseAuthenticated = async (): Promise<boolean> => {
@@ -91,6 +91,9 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
     return getMockMissionsByUserId(userId);
   }
 };
+
+// Pour compatibilité, créer un alias de getMissionsByUserId
+export const getMissionsBySdrId = getMissionsByUserId;
 
 // Obtenir une mission par ID
 export const getMissionById = async (missionId: string): Promise<Mission | undefined> => {

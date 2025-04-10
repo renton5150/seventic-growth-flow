@@ -4,7 +4,6 @@ import { missions as mockMissions } from "@/data/missions";
 import { 
   getAllMockMissions,
   getMockMissionsByUserId,
-  getMockMissionsBySdrId,
   getMockMissionById,
   findMockMissionById,
   createMockMission,
@@ -70,7 +69,7 @@ describe("Mock Missions Service", () => {
     });
   });
 
-  describe("getMockMissionsByUserId and getMockMissionsBySdrId", () => {
+  describe("getMockMissionsByUserId", () => {
     test("should filter missions by user ID", async () => {
       const missions = await getMockMissionsByUserId("user1");
       
