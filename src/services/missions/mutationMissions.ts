@@ -128,9 +128,28 @@ export const deleteSupaMission = async (missionId: string): Promise<DeletionResu
     const { error } = await supabase
       .from('missions')
       .delete()
-      .eq('id', missionId);
-
+      .eq('id', missionId)
+      .single(); // S'assurer qu'une seule mission est supprimée
+    
     if (error) {
+      // Traitement d'erreur spécifique pour 'maybeSingle'
+      if (error.code === 'PGRST116') {
+        // Pas d'erreur réelle, juste aucune ligne trouvée ou plusieurs lignes
+        console.log("Aucune mission trouvée avec cet ID ou plusieurs missions correspondent");
+        
+        // Vérifier si la mission existe toujours
+        const { data: exists } = await supabase
+          .from('missions')
+          .select('id')
+          .eq('id', missionId)
+          .maybeSingle();
+        
+        if (!exists) {
+          console.log(`Mission ${missionId} n'existe plus, considérée comme supprimée`);
+          return { success: true };
+        }
+      }
+      
       console.error("Erreur Supabase lors de la suppression de la mission:", error);
       return {
         success: false,

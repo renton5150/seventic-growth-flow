@@ -29,10 +29,16 @@ export const AdminMissionActionsMenu = ({
   const queryClient = useQueryClient();
 
   const handleMissionDeleted = () => {
-    console.log("Mission supprimée, invalidation du cache");
+    console.log("Mission supprimée, début du processus de mise à jour");
     
-    // Invalider le cache des missions
+    // Invalider explicitement le cache des missions avec toutes les clés possibles
     queryClient.invalidateQueries({queryKey: ['missions']});
+    
+    // Forcer un rechargement complet des données des missions
+    setTimeout(() => {
+      queryClient.refetchQueries({queryKey: ['missions']});
+      console.log("Rechargement des données des missions forcé");
+    }, 100);
     
     // Appeler le callback de succès si fourni
     if (onSuccess) {
@@ -88,8 +94,12 @@ export const AdminMissionActionsMenu = ({
       <DeleteMissionDialog
         mission={mission}
         open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
+        onOpenChange={(open) => {
+          console.log(`Changement d'état de la boîte de dialogue de suppression: ${open}`);
+          setIsDeleteDialogOpen(open);
+        }}
         onDeleted={handleMissionDeleted}
+        onSuccess={handleMissionDeleted}
       />
     </>
   );

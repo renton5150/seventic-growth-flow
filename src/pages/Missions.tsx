@@ -1,8 +1,8 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mission } from "@/types/types";
 import { getAllMissions, getMissionsByUserId } from "@/services/missionService";
@@ -18,20 +18,23 @@ const Missions = () => {
   const queryClient = useQueryClient();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const isAdmin = user?.role === "admin";
   const isGrowth = user?.role === "growth";
   const isSdr = user?.role === "sdr";
 
-  // Configuration de la requête React Query
+  // Configuration de la requête React Query avec staleTime à 0 pour toujours considérer comme périmé
   const { 
     data: missions = [], 
     isLoading, 
-    refetch 
+    refetch,
+    isRefetching
   } = useQuery({
     queryKey: ['missions', user?.id, isAdmin],
     queryFn: async () => {
       try {
+        console.log("Exécution de la requête des missions");
         if (isAdmin) {
           return await getAllMissions();
         } else if (user?.id) {
@@ -45,22 +48,36 @@ const Missions = () => {
       }
     },
     enabled: !!user,
-    staleTime: 0, // Toujours considérer les données comme périmées pour forcer le rechargement
-    refetchOnWindowFocus: false, // Éviter les rechargements automatiques
+    staleTime: 0, // Toujours considérer les données comme périmées
+    refetchOnWindowFocus: true, // Recharger lors du focus sur la fenêtre
+    retry: 2, // Réessayer 2 fois en cas d'échec
   });
     
+  // Effet pour nettoyer le cache lors du montage du composant
+  useEffect(() => {
+    console.log("Nettoyage du cache des missions au chargement de la page");
+    queryClient.invalidateQueries({ queryKey: ['missions'] });
+  }, [queryClient]);
+  
   // Gestionnaire de rafraîchissement des missions
   const handleRefreshMissions = useCallback(() => {
     console.log("Rafraîchissement des missions demandé");
+    setIsRefreshing(true);
+    
+    // Invalidation puis rechargement explicite
     queryClient.invalidateQueries({ queryKey: ['missions'] });
     
     refetch()
       .then(() => {
+        console.log("Liste des missions actualisée avec succès");
         toast.success("Liste des missions actualisée");
       })
       .catch(error => {
         console.error("Erreur lors du rafraîchissement des missions:", error);
         toast.error("Erreur lors de l'actualisation des missions");
+      })
+      .finally(() => {
+        setIsRefreshing(false);
       });
   }, [refetch, queryClient]);
   
@@ -73,6 +90,7 @@ const Missions = () => {
   };
 
   const handleMissionUpdated = () => {
+    console.log("Mission mise à jour, nettoyage du cache et rafraîchissement");
     setSelectedMission(null);
     handleRefreshMissions();
   };
@@ -92,11 +110,23 @@ const Missions = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Missions</h1>
-          {(isSdr || isAdmin) && (
-            <Button onClick={handleCreateMissionClick}>
-              <Plus className="mr-2 h-4 w-4" /> {isAdmin ? "Nouvelle mission" : "Nouvelle mission"}
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleRefreshMissions} 
+              disabled={isRefreshing || isRefetching}
+              title="Actualiser les données"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${(isRefreshing || isRefetching) ? 'animate-spin' : ''}`} />
+              Actualiser
             </Button>
-          )}
+            
+            {(isSdr || isAdmin) && (
+              <Button onClick={handleCreateMissionClick}>
+                <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
+              </Button>
+            )}
+          </div>
         </div>
         
         {missions.length === 0 ? (

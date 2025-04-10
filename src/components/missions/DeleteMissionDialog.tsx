@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DeleteMissionDialogProps {
   mission: Mission;
@@ -32,6 +33,7 @@ export const DeleteMissionDialog = ({
   onSuccess,
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleDelete = async () => {
     if (!mission?.id) {
@@ -41,26 +43,35 @@ export const DeleteMissionDialog = ({
     
     try {
       setIsDeleting(true);
+      console.log(`Début de la suppression de mission ${mission.id}`);
       
       // Appel de l'API de suppression
       const success = await deleteMission(mission.id);
       
       if (success) {
-        // Fermer la boîte de dialogue
-        onOpenChange(false);
+        console.log(`Suppression réussie pour mission ${mission.id}`);
+        
+        // Invalider explicitement le cache des missions
+        queryClient.invalidateQueries({ queryKey: ['missions'] });
         
         // Notifier du succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
         // Notifier le parent de la suppression réussie via callbacks
         if (onDeleted) {
+          console.log("Exécution du callback onDeleted");
           onDeleted();
         }
         
         if (onSuccess) {
+          console.log("Exécution du callback onSuccess");
           onSuccess();
         }
+        
+        // Fermer la boîte de dialogue APRÈS avoir traité tous les callbacks
+        onOpenChange(false);
       } else {
+        console.error(`Échec de la suppression pour mission ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
       }
     } catch (error) {
@@ -72,7 +83,12 @@ export const DeleteMissionDialog = ({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={(value) => {
+      // Ne permettre la fermeture que si nous ne sommes pas en train de supprimer
+      if (!isDeleting) {
+        onOpenChange(value);
+      }
+    }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette mission ?</AlertDialogTitle>
