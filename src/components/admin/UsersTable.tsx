@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
-import { UserActionsMenu } from "./UserActionsMenu";
+import { UserActionsMenu } from "./user-actions/UserActionsMenu";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface UsersTableProps {

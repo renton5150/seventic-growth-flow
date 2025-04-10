@@ -1,10 +1,9 @@
 
 import { useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";
-import { ChangeRoleDialog } from "../ChangeRoleDialog";
 import { DeleteUserDialog } from "./DeleteUserDialog";
 import { UserActionMenuItems } from "./UserActionMenuItems";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,13 +14,12 @@ interface UserActionsMenuProps {
 }
 
 export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps) => {
-  const [isChangeRoleOpen, setIsChangeRoleOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const queryClient = useQueryClient();
 
-  const handleRoleChanged = () => {
+  const handleActionComplete = () => {
     // Invalidate relevant queries to ensure data is up-to-date
     queryClient.invalidateQueries({ queryKey: ['users'] });
     
@@ -43,20 +41,13 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
             user={user}
             isSendingInvite={isSendingInvite}
             isDeleting={isDeleting}
-            onChangeRole={() => setIsChangeRoleOpen(true)}
+            onChangeRole={() => {}} // Fonction vide car nous n'ouvrons plus de dialogue
             onDelete={() => setIsDeleteDialogOpen(true)}
             setIsSendingInvite={setIsSendingInvite}
-            onActionComplete={onActionComplete}
+            onActionComplete={handleActionComplete}
           />
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <ChangeRoleDialog 
-        open={isChangeRoleOpen} 
-        onOpenChange={setIsChangeRoleOpen} 
-        user={user} 
-        onRoleChanged={handleRoleChanged} 
-      />
 
       <DeleteUserDialog
         isOpen={isDeleteDialogOpen}
@@ -64,7 +55,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
         user={user}
         isDeleting={isDeleting}
         setIsDeleting={setIsDeleting}
-        onUserDeleted={onActionComplete}
+        onUserDeleted={handleActionComplete}
       />
     </>
   );

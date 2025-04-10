@@ -18,13 +18,13 @@ const AdminUsers = () => {
     // Invalider le cache local d'abord
     invalidateUserCache();
     
-    // Utiliser une seule invalidation avec refetchType: 'inactive' pour éviter les requêtes multiples simultanées
+    // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
     setTimeout(() => {
       queryClient.invalidateQueries({ 
         queryKey: ['users'],
         refetchType: 'all' 
       });
-    }, 50);
+    }, 100);
   }, [queryClient]);
   
   if (!isAdmin) {
