@@ -38,38 +38,33 @@ export const DeleteMissionDialog = ({
   const handleDelete = async () => {
     if (!mission?.id) {
       toast.error("Impossible de supprimer cette mission : ID invalide");
+      onOpenChange(false);
       return;
     }
     
     try {
       setIsDeleting(true);
-      console.log(`Début de la suppression de mission ${mission.id}`);
       
       // Appel de l'API de suppression
       const success = await deleteMission(mission.id);
       
       if (success) {
-        console.log(`Suppression réussie pour mission ${mission.id}`);
-        
-        // Invalider les caches de requêtes pour forcer un rechargement des données
-        await queryClient.invalidateQueries({ queryKey: ['missions'] });
+        // Fermer d'abord la boîte de dialogue pour éviter le gel de l'interface
+        onOpenChange(false);
         
         // Notifier du succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Fermer la boîte de dialogue
-        onOpenChange(false);
+        // Invalider TOUTES les requêtes de mission pour forcer un rechargement complet
+        await queryClient.invalidateQueries({ queryKey: ['missions'] });
         
-        // Exécuter les callbacks si fournis
-        if (onDeleted) {
-          onDeleted();
-        }
-        
-        if (onSuccess) {
-          onSuccess();
-        }
+        // Attendre un court instant pour permettre à l'UI de se mettre à jour
+        setTimeout(() => {
+          // Exécuter les callbacks si fournis
+          if (onDeleted) onDeleted();
+          if (onSuccess) onSuccess();
+        }, 100);
       } else {
-        console.error(`Échec de la suppression pour mission ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
         setIsDeleting(false);
       }

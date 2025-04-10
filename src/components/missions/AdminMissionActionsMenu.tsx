@@ -29,15 +29,14 @@ export const AdminMissionActionsMenu = ({
   const queryClient = useQueryClient();
 
   const handleMissionDeleted = () => {
-    console.log("Mission supprimée, début du processus de mise à jour");
-    
-    // Forcer une invalidation et un rechargement complet des données
+    // Force une invalidation des requêtes missions pour garantir un rechargement
     queryClient.invalidateQueries({ queryKey: ['missions'] });
     
     // Appeler le callback de succès si fourni
     if (onSuccess) {
-      console.log("Appel du callback onSuccess après suppression");
-      onSuccess();
+      setTimeout(() => {
+        onSuccess();
+      }, 100);
     }
   };
 
@@ -63,7 +62,6 @@ export const AdminMissionActionsMenu = ({
           
           <DropdownMenuItem
             onClick={() => {
-              console.log("Ouverture du dialogue de suppression pour mission:", mission.id);
               setIsDeleteDialogOpen(true);
             }}
             className="text-red-600 cursor-pointer focus:text-red-600"
@@ -80,7 +78,7 @@ export const AdminMissionActionsMenu = ({
         onOpenChange={setIsAssignDialogOpen}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['missions'] });
-          onSuccess?.();
+          if (onSuccess) onSuccess();
           toast.success(`SDR assigné à la mission ${mission.name}`);
         }}
       />
@@ -89,7 +87,6 @@ export const AdminMissionActionsMenu = ({
         mission={mission}
         open={isDeleteDialogOpen}
         onOpenChange={(open) => {
-          console.log(`Changement d'état de la boîte de dialogue de suppression: ${open}`);
           setIsDeleteDialogOpen(open);
         }}
         onDeleted={handleMissionDeleted}

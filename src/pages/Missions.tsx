@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
@@ -24,7 +24,7 @@ const Missions = () => {
   const isGrowth = user?.role === "growth";
   const isSdr = user?.role === "sdr";
 
-  // Configuration de la requête React Query
+  // Configuration de la requête React Query avec staleTime réduit pour forcer des actualisations plus fréquentes
   const { 
     data: missions = [], 
     isLoading, 
@@ -34,7 +34,6 @@ const Missions = () => {
     queryKey: ['missions', user?.id, isAdmin],
     queryFn: async () => {
       try {
-        console.log("Exécution de la requête des missions");
         if (isAdmin) {
           return await getAllMissions();
         } else if (user?.id) {
@@ -48,29 +47,20 @@ const Missions = () => {
       }
     },
     enabled: !!user,
-    staleTime: 60000, // Considérer les données comme fraiches pendant 1 minute
-    refetchOnWindowFocus: false, // Ne pas recharger automatiquement lors du focus
-    retry: 1, // Réessayer une seule fois en cas d'échec
+    staleTime: 10000, // Considérer les données comme fraîches seulement pendant 10 secondes
+    refetchOnWindowFocus: true, // Recharger lors du focus pour assurer les données à jour
+    retry: 2, // Réessayer deux fois en cas d'échec
   });
-    
-  // Effet pour nettoyer le cache lors du montage du composant
-  useEffect(() => {
-    console.log("Nettoyage du cache des missions au chargement de la page");
-    queryClient.removeQueries({ queryKey: ['missions'] });
-  }, [queryClient]);
   
   // Gestionnaire de rafraîchissement des missions
   const handleRefreshMissions = useCallback(() => {
-    console.log("Rafraîchissement des missions demandé");
     setIsRefreshing(true);
     
     // Forcer un nettoyage complet du cache et un rechargement
     queryClient.removeQueries({ queryKey: ['missions'] });
-    queryClient.invalidateQueries({ queryKey: ['missions'] });
     
     refetch()
-      .then((result) => {
-        console.log("Liste des missions actualisée avec succès", result.data?.length || 0, "missions trouvées");
+      .then(() => {
         toast.success("Liste des missions actualisée");
       })
       .catch(error => {
@@ -91,7 +81,6 @@ const Missions = () => {
   };
 
   const handleMissionUpdated = () => {
-    console.log("Mission mise à jour, nettoyage du cache et rafraîchissement");
     setSelectedMission(null);
     handleRefreshMissions();
   };
