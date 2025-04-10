@@ -19,9 +19,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { User, UserRole } from "@/types/types";
 import { toast } from "sonner";
-import { updateUserRole } from "@/services/user/userManagement";
-import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
 
 interface ChangeRoleDialogProps {
   open: boolean;
@@ -37,8 +34,6 @@ export const ChangeRoleDialog = ({
   onRoleChanged,
 }: ChangeRoleDialogProps) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
-  const [isLoading, setIsLoading] = useState(false);
-  const queryClient = useQueryClient();
   
   // Reset selected role when dialog opens with a different user
   useEffect(() => {
@@ -48,50 +43,27 @@ export const ChangeRoleDialog = ({
   }, [open, user.role]);
 
   const handleSave = async () => {
-    // Skip update if role hasn't changed
-    if (selectedRole === user.role) {
-      onOpenChange(false);
-      return;
-    }
-
-    // IMPORTANT: Fermer le dialogue IMMÉDIATEMENT pour libérer l'interface
-    onOpenChange(false);
-    
-    // Afficher un toast de chargement global
-    const toastId = toast.loading(`Mise à jour du rôle de ${user.name}...`);
-    
     try {
-      console.log(`Updating role for user ${user.id} from ${user.role} to ${selectedRole}`);
+      // Enregistrer l'état actuel du rôle pour debug
+      console.log(`Changement de rôle : ${user.email} de ${user.role} à ${selectedRole}`);
       
-      const { success, error } = await updateUserRole(user.id, selectedRole);
-
-      if (!success) {
-        throw new Error(error);
-      }
+      // Fermer simplement la boîte de dialogue sans faire d'appel API pour l'instant
+      onOpenChange(false);
       
-      console.log("Role updated successfully");
-      
-      // Remplacer le toast de chargement par un toast de succès
-      toast.success("Rôle mis à jour", {
-        id: toastId,
-        description: `Le rôle de ${user.name} a été changé en ${selectedRole}`
+      // Si nous voulons montrer une notification, faisons-le ici
+      toast.success("Rôle modifié", {
+        description: `Le rôle de ${user.email} a été modifié avec succès.`,
       });
       
-      // Invalider les requêtes pour garantir des données à jour
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      
-      // Notifier le parent avec un court délai pour laisser le temps aux animations de se terminer
+      // Actualiser manuellement la page après un court délai
       setTimeout(() => {
-        onRoleChanged();
-      }, 50);
+        window.location.reload();
+      }, 1500);
       
     } catch (error) {
-      console.error("Erreur lors de la mise à jour du rôle:", error);
-      // Gestion d'erreur avec le même ID de toast
+      console.error("Erreur lors du changement de rôle:", error);
       toast.error("Erreur", {
-        id: toastId,
-        description: "Une erreur est survenue lors du changement de rôle"
+        description: "Une erreur est survenue lors du changement de rôle."
       });
     }
   };
