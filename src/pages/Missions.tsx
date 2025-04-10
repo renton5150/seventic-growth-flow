@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -51,12 +52,13 @@ const Missions = () => {
   // Handlers
   const handleRefreshMissions = useCallback(() => {
     console.log("Missions: Rafraîchissement des missions");
-    // Invalider le cache avant de recharger
-    queryClient.invalidateQueries({queryKey: missionsQueryKey});
     
-    // Force React Query to refetch data
-    refetch()
-      .then(() => {
+    // Invalider le cache et forcer un nouveau chargement
+    queryClient.removeQueries({queryKey: missionsQueryKey});
+    
+    // Attendre un court instant avant de relancer la requête
+    setTimeout(() => {
+      refetch().then(() => {
         console.log("Missions: Données rechargées après rafraîchissement");
         toast.success("Liste des missions actualisée");
       })
@@ -64,6 +66,7 @@ const Missions = () => {
         console.error("Erreur lors du rafraîchissement des missions:", error);
         toast.error("Erreur lors de l'actualisation des missions");
       });
+    }, 100);
   }, [refetch, queryClient, missionsQueryKey]);
   
   const handleViewMission = (mission: Mission) => {
@@ -79,18 +82,8 @@ const Missions = () => {
   const handleMissionUpdated = useCallback(() => {
     console.log("Mission mise à jour, rafraîchissement de la liste");
     setSelectedMission(null);
-    
-    // Invalider le cache immédiatement
-    queryClient.invalidateQueries({queryKey: missionsQueryKey});
-    
-    // Utiliser un délai pour laisser le temps à l'UI de se mettre à jour
-    setTimeout(() => {
-      refetch().then(() => {
-        console.log("Missions: Données rechargées après mise à jour de mission");
-        toast.success("Liste des missions actualisée");
-      });
-    }, 300);
-  }, [refetch, queryClient, missionsQueryKey]);
+    handleRefreshMissions();
+  }, [handleRefreshMissions]);
 
   if (isLoading) {
     return (
@@ -146,7 +139,7 @@ const Missions = () => {
           onOpenChange={(open) => !open && setSelectedMission(null)} 
           isAdmin={isAdmin}
           isSdr={isSdr}
-          onMissionUpdated={handleRefreshMissions}
+          onMissionUpdated={handleMissionUpdated}
         />
       </div>
     </AppLayout>

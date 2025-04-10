@@ -36,15 +36,12 @@ export const AdminMissionActionsMenu = ({
   const handleMissionDeleted = () => {
     console.log("Mission supprimée avec succès, notification au parent");
     
-    // Invalider le cache avant d'appeler le callback
+    // Invalider toutes les requêtes de missions
     queryClient.invalidateQueries({queryKey: ['missions']});
     
     if (onSuccess) {
       console.log("Exécution du callback onSuccess dans AdminMissionActionsMenu");
-      // Utiliser un délai également ici pour éviter les problèmes de timing
-      setTimeout(() => {
-        onSuccess();
-      }, 300);
+      onSuccess();
     }
   };
 

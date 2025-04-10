@@ -41,43 +41,33 @@ export const DeleteMissionDialog = ({
     
     try {
       setIsDeleting(true);
-      console.log("*** DeleteMissionDialog.handleDelete: Début de la fonction");
-      console.log(`Tentative de suppression de la mission ID: ${mission.id}`);
-      console.log("Données complètes de la mission:", JSON.stringify(mission, null, 2));
+      console.log("Tentative de suppression de la mission ID:", mission.id);
       
       const success = await deleteMission(mission.id);
       
       if (success) {
-        console.log(`Mission supprimée avec succès: ${mission.id}`);
+        console.log(`Mission ${mission.id} supprimée avec succès`);
         
-        // Invalider immédiatement le cache de requêtes
-        queryClient.invalidateQueries({queryKey: ['missions']});
-        
-        // Fermer d'abord la boîte de dialogue
+        // Fermer la boîte de dialogue immédiatement
         onOpenChange(false);
         
-        // Notification de succès
-        toast.success(`La mission ${mission.name} a été supprimée avec succès`);
+        // Invalider toutes les requêtes missions pour forcer un rechargement complet
+        queryClient.invalidateQueries({queryKey: ['missions']});
         
-        // Exécuter le callback de succès avec un délai plus long
-        // pour garantir que l'interface a le temps de se mettre à jour
+        // Notification de succès
+        toast.success(`La mission ${mission.name} a été supprimée`);
+        
+        // Exécuter le callback de succès après un court délai
         if (onSuccess) {
-          console.log("Préparation à exécuter le callback onSuccess après suppression");
-          setTimeout(() => {
-            console.log("Exécution effective du callback onSuccess après délai");
-            onSuccess();
-          }, 800);
+          onSuccess();
         }
       } else {
         console.error(`Échec de la suppression de la mission: ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
       }
-      
-      console.log("*** DeleteMissionDialog.handleDelete: Fin de la fonction");
     } catch (error) {
       console.error("Erreur lors de la suppression de la mission:", error);
-      console.error("Détails de l'erreur:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-      toast.error("Une erreur est survenue lors de la suppression de la mission");
+      toast.error("Une erreur est survenue lors de la suppression");
     } finally {
       setIsDeleting(false);
     }
