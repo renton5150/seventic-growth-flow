@@ -2,4 +2,5 @@
 // Configuration settings for mission services
 
 // Check if Supabase is configured
-export const isSupabaseConfigured = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+export const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+
