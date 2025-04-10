@@ -20,6 +20,7 @@ interface DeleteMissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeleted?: () => void;
+  onSuccess?: () => void; // Added onSuccess prop to the interface
 }
 
 export const DeleteMissionDialog = ({
@@ -27,6 +28,7 @@ export const DeleteMissionDialog = ({
   open,
   onOpenChange,
   onDeleted,
+  onSuccess,
 }: DeleteMissionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -49,9 +51,13 @@ export const DeleteMissionDialog = ({
         // Notifier du succès
         toast.success(`La mission ${mission.name} a été supprimée`);
         
-        // Notifier le parent de la suppression réussie
+        // Notifier le parent de la suppression réussie via onDeleted ou onSuccess
         if (onDeleted) {
           onDeleted();
+        }
+        
+        if (onSuccess) {
+          onSuccess();
         }
       } else {
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);
