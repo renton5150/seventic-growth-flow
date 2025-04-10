@@ -5,6 +5,7 @@ import { Mission } from "@/types/types";
 export interface MissionInput {
   name: string;
   description?: string;
+  client?: string;
   sdrId: string;
   startDate: Date;
 }

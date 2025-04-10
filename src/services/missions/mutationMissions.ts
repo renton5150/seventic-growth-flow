@@ -17,10 +17,10 @@ export const createSupaMission = async (data: MissionInput): Promise<Mission | u
     // Préparer les données pour l'insertion
     const missionData = {
       name: data.name,
-      client: data.client,
+      client: data.client || 'Default Client',
       description: data.description,
       sdr_id: data.sdrId || null,
-      start_date: data.startDate || new Date(),
+      start_date: data.startDate ? data.startDate.toISOString() : new Date().toISOString(),
     };
 
     // Insérer la mission dans Supabase

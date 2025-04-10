@@ -61,19 +61,16 @@ export const DeleteMissionDialog = ({
         // Fermer la boîte de dialogue avant d'exécuter les callbacks
         onOpenChange(false);
         
-        // Attendre un court instant pour permettre à React de traiter la fermeture du dialogue
-        setTimeout(() => {
-          // Notifier le parent de la suppression réussie via callbacks
-          if (onDeleted) {
-            console.log("Exécution du callback onDeleted");
-            onDeleted();
-          }
-          
-          if (onSuccess) {
-            console.log("Exécution du callback onSuccess");
-            onSuccess();
-          }
-        }, 100);
+        // Exécuter les callbacks immédiatement après avoir fermé la boîte de dialogue
+        if (onDeleted) {
+          console.log("Exécution du callback onDeleted");
+          onDeleted();
+        }
+        
+        if (onSuccess) {
+          console.log("Exécution du callback onSuccess");
+          onSuccess();
+        }
       } else {
         console.error(`Échec de la suppression pour mission ${mission.id}`);
         toast.error(`Erreur lors de la suppression de la mission ${mission.name}`);

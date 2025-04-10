@@ -3,7 +3,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Mission } from '@/types/types';
 import { MissionInput } from './types';
-import mockMissionsData from '@/data/missions';
+import { missions as mockMissionsData } from '@/data/missions';
 
 // Cache local pour simuler une base de données
 let localMissionCache: Mission[] = [...mockMissionsData];
@@ -77,10 +77,10 @@ export const createMockMission = (data: MissionInput): Mission => {
   const newMission: Mission = {
     id: uuidv4(),
     name: data.name,
-    client: data.client,
+    client: data.client || 'Default Client',
     description: data.description,
     sdrId: data.sdrId || '',
-    sdrName: data.sdrName || 'Non assigné',
+    sdrName: 'Non assigné',
     createdAt: new Date(),
     startDate: data.startDate || new Date(),
     requests: []
