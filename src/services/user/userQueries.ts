@@ -11,16 +11,11 @@ let userCache: { users: User[] | null; timestamp: number } = {
 const CACHE_TIMEOUT = 2000; // 2 secondes
 
 // Récupérer tous les utilisateurs - version compatible avec TanStack Query
-export const getAllUsers = async () => {
-  return getAllUsersWithForceFresh();
-};
-
-// Version interne qui gère le forceRefresh
-export const getAllUsersWithForceFresh = async (forceRefresh = false): Promise<User[]> => {
+export const getAllUsers = async (): Promise<User[]> => {
   try {
     // Vérifier si des données sont déjà en cache et si elles sont encore valides
     const now = Date.now();
-    if (!forceRefresh && userCache.users && (now - userCache.timestamp < CACHE_TIMEOUT)) {
+    if (userCache.users && (now - userCache.timestamp < CACHE_TIMEOUT)) {
       console.log("Utilisation du cache pour les utilisateurs", userCache.users.length);
       return userCache.users;
     }

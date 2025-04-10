@@ -1,4 +1,6 @@
 
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { invalidateUserCache } from "./userQueries";
 
 // Re-export user management functions from modularized files
@@ -11,9 +13,7 @@ export { invalidateUserCache };
 // Utility function to update a user's role with optimized performance
 export const updateUserRole = async (userId: string, newRole: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { supabase } = await import("@/integrations/supabase/client");
-    
-    console.log(`Updating role for user ${userId} to ${newRole}`);
+    console.log(`Mise à jour du rôle pour l'utilisateur ${userId} vers ${newRole}`);
     
     const { error } = await supabase
       .from("profiles")
@@ -21,7 +21,7 @@ export const updateUserRole = async (userId: string, newRole: string): Promise<{
       .eq("id", userId);
       
     if (error) {
-      console.error("Role update error:", error);
+      console.error("Erreur lors de la mise à jour du rôle:", error);
       return { success: false, error: error.message };
     }
     
@@ -31,7 +31,7 @@ export const updateUserRole = async (userId: string, newRole: string): Promise<{
     return { success: true };
   } catch (err) {
     const error = err as Error;
-    console.error("Unexpected error updating role:", error);
+    console.error("Erreur inattendue lors de la mise à jour du rôle:", error);
     return { success: false, error: error.message };
   }
 };

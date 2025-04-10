@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { User, UserRole } from "@/types/types";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { updateUserRole } from "@/services/user/userManagement";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
@@ -59,14 +59,10 @@ export const ChangeRoleDialog = ({
     try {
       console.log(`Updating role for user ${user.id} from ${user.role} to ${selectedRole}`);
       
-      // Mettre à jour le rôle de l'utilisateur dans Supabase
-      const { error } = await supabase
-        .from("profiles")
-        .update({ role: selectedRole })
-        .eq("id", user.id);
+      const { success, error } = await updateUserRole(user.id, selectedRole);
 
-      if (error) {
-        throw error;
+      if (!success) {
+        throw new Error(error);
       }
       
       // Mise à jour locale immédiate
@@ -76,7 +72,7 @@ export const ChangeRoleDialog = ({
       queryClient.invalidateQueries({ queryKey: ['users'] });
       
       toast.success("Rôle mis à jour", {
-        description: `Le rôle de ${user.name} a été changé en ${selectedRole}`,
+        description: `Le rôle de ${user.name} a été changé en ${selectedRole}`
       });
       
       // Close dialog before triggering refresh to improve perceived performance
@@ -90,7 +86,7 @@ export const ChangeRoleDialog = ({
     } catch (error) {
       console.error("Erreur lors de la mise à jour du rôle:", error);
       toast.error("Erreur", {
-        description: "Une erreur est survenue lors du changement de rôle",
+        description: "Une erreur est survenue lors du changement de rôle"
       });
     } finally {
       setIsLoading(false);

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { User, UserRole } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
-import { getAllUsers } from "@/services/user";
+import { getAllUsers } from "@/services/user/userQueries";
 
 interface UserManagementTabsProps {
   onUserDataChange?: () => void;
@@ -21,27 +21,18 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 0, // Force TanStack Query to always check for new data
+    gcTime: 0, // Don't cache results
     retry: 2,
   });
 
+  // Moins d'appels à refetch pour éviter de surcharger l'API
   useEffect(() => {
-    console.log("UserManagementTabs monté - actualisation des données");
-    const fetchData = async () => {
-      await refetch();
-      setTimeout(() => refetch(), 300);
-      setTimeout(() => refetch(), 1000);
-    };
-    
-    fetchData();
-    
-    const interval = setInterval(() => {
+    if (onUserDataChange) {
+      console.log("UserManagementTabs monté - rafraîchissement initial");
       refetch();
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [refetch]);
+    }
+  }, [refetch, onUserDataChange]);
 
   const filteredUsers = users.filter(user => {
     if (activeTab === "all") return true;
@@ -54,26 +45,21 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   };
 
   const handleUserInvited = async () => {
-    console.log("Actualisation de la liste des utilisateurs après invitation");
-    
+    console.log("Utilisateur invité, rafraîchissement des données");
     await refetch();
-    
-    for (let i = 1; i <= 5; i++) {
-      setTimeout(async () => {
-        console.log(`Rafraîchissement #${i} après invitation`);
-        await refetch();
-      }, i * 500);
-    }
     
     // Notify parent component if callback exists
     if (onUserDataChange) {
       onUserDataChange();
     }
-    
-    console.log("Nombre d'utilisateurs après invitation:", users.length);
+  };
+  
+  const handleRefresh = () => {
+    console.log("Rafraîchissement manuel des utilisateurs");
+    refetch();
   };
 
-  console.log("Rendu de UserManagementTabs - Nombre d'utilisateurs:", users.length);
+  console.log("Render UserManagementTabs - Nombre d'utilisateurs:", users.length);
 
   return (
     <>
@@ -120,7 +106,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
         </div>
 
         <TabsContent value={activeTab} className="mt-4">
-          <UsersTable users={filteredUsers} isLoading={isLoading} onRefresh={refetch} />
+          <UsersTable users={filteredUsers} isLoading={isLoading} onRefresh={handleRefresh} />
         </TabsContent>
       </Tabs>
 
