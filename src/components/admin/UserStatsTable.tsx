@@ -1,9 +1,6 @@
-
 import { useState, useMemo } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
   ArrowUpDown, 
@@ -15,7 +12,7 @@ import {
   AlertCircle, 
   Search 
 } from "lucide-react";
-import { Request, User } from "@/types/types";
+import { User } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 import { getAllRequests } from "@/services/requestService";
 import { getAllUsers } from "@/services/userService";

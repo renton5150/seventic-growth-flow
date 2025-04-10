@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserManagementTabs } from "@/components/admin/UserManagementTabs";
 import { useAuth } from "@/contexts/auth";

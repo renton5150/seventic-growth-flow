@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
@@ -8,7 +9,11 @@ import { User, UserRole } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/user";
 
-export const UserManagementTabs = () => {
+interface UserManagementTabsProps {
+  onUserDataChange?: () => void;
+}
+
+export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps) => {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
@@ -18,7 +23,6 @@ export const UserManagementTabs = () => {
     queryFn: getAllUsers,
     staleTime: 0,
     gcTime: 0,
-    refetchInterval: 5000,
     retry: 2,
   });
 
@@ -59,6 +63,11 @@ export const UserManagementTabs = () => {
         console.log(`Rafraîchissement #${i} après invitation`);
         await refetch();
       }, i * 500);
+    }
+    
+    // Notify parent component if callback exists
+    if (onUserDataChange) {
+      onUserDataChange();
     }
     
     console.log("Nombre d'utilisateurs après invitation:", users.length);

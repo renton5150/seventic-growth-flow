@@ -75,8 +75,7 @@ export const ChangeRoleDialog = ({
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['users'] });
       
-      toast({
-        title: "Rôle mis à jour",
+      toast.success("Rôle mis à jour", {
         description: `Le rôle de ${user.name} a été changé en ${selectedRole}`,
       });
       
@@ -90,10 +89,8 @@ export const ChangeRoleDialog = ({
       
     } catch (error) {
       console.error("Erreur lors de la mise à jour du rôle:", error);
-      toast({
-        title: "Erreur",
+      toast.error("Erreur", {
         description: "Une erreur est survenue lors du changement de rôle",
-        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

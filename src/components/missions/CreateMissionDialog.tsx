@@ -1,208 +1,134 @@
-
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { createMission } from "@/services/missionService";
-import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { getAllUsers } from "@/services/userService";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User } from "@/types/types";
 import { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-
-// Schema for mission form
-const missionSchema = z.object({
-  name: z.string().min(2, {
-    message: "Le nom de la mission doit avoir au moins 2 caractères.",
-  }),
-  client: z.string().min(2, {
-    message: "Le nom du client doit avoir au moins 2 caractères.",
-  }),
-  description: z.string().optional(),
-  sdrId: z.string({
-    required_error: "Veuillez sélectionner un SDR."
-  }),
-});
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useForm } from "react-hook-form";
+import { addMission } from "@/services/missions";
+import { toast } from "sonner";
+import { User } from "@/types/types";
+import { useQuery } from "@tanstack/react-query";
+import { getAllUsers } from "@/services/user";
+import { Loader2 } from "lucide-react";
 
 interface CreateMissionDialogProps {
-  userId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onMissionCreated: () => void;
 }
 
-export const CreateMissionDialog = ({
-  userId,
-  open,
-  onOpenChange,
-  onSuccess,
-}: CreateMissionDialogProps) => {
+interface MissionFormData {
+  name: string;
+  client: string;
+  sdr_id?: string;
+  description?: string;
+}
+
+export const CreateMissionDialog = ({ open, onOpenChange, onMissionCreated }: CreateMissionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user } = useAuth();
-  
-  // Récupérer la liste des SDRs
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<MissionFormData>();
+
+  // Fetch SDRs for assignment
   const { data: users = [] } = useQuery({
-    queryKey: ['users'],
+    queryKey: ['users-for-mission'],
     queryFn: getAllUsers,
-    enabled: open,
+    enabled: open, // Only fetch when dialog is open
   });
-  
-  // Filtrer pour ne garder que les SDRs
-  const sdrUsers = users.filter((user: User) => user.role === 'sdr');
-  
-  const form = useForm<z.infer<typeof missionSchema>>({
-    resolver: zodResolver(missionSchema),
-    defaultValues: {
-      name: "",
-      client: "",
-      description: "",
-      sdrId: user?.id || userId,
-    },
-  });
-  
-  const onSubmit = async (values: z.infer<typeof missionSchema>) => {
+
+  const sdrs = users.filter(user => user.role === 'sdr');
+
+  const onSubmit = async (data: MissionFormData) => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      console.log("Création de mission - données soumises:", values);
-      console.log("Utilisateur actuel:", user);
-      
-      const result = await createMission({
-        name: values.name,
-        client: values.client, 
-        description: values.description,
-        sdrId: values.sdrId || user?.id || "",
+      await addMission({
+        name: data.name,
+        client: data.client,
+        sdr_id: data.sdr_id === 'unassigned' ? undefined : data.sdr_id,
+        description: data.description
       });
       
-      if (result) {
-        console.log("Mission créée avec succès:", result);
-        onSuccess();
-        onOpenChange(false);
-        form.reset();
-        toast.success("Mission créée avec succès");
-      } else {
-        console.error("Échec de création de la mission - résultat undefined");
-        toast.error("Erreur lors de la création de la mission");
-      }
+      toast.success('Mission créée avec succès');
+      reset();
+      onOpenChange(false);
+      onMissionCreated(); // Refresh missions list
     } catch (error) {
-      console.error("Erreur lors de la création de la mission:", error);
-      toast.error("Erreur lors de la création de la mission");
+      console.error('Erreur lors de la création de la mission:', error);
+      toast.error('Erreur lors de la création de la mission');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Créer une nouvelle mission</DialogTitle>
+          <DialogTitle>Créer une mission</DialogTitle>
           <DialogDescription>
-            Veuillez entrer les détails de la nouvelle mission.
+            Ajouter une nouvelle mission pour un SDR
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom de la mission</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nom de la mission" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nom de la mission</Label>
+            <Input
+              id="name"
+              placeholder="Nom de la mission"
+              {...register("name", { required: "Le nom de la mission est obligatoire" })}
             />
-            <FormField
-              control={form.control}
-              name="client"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom du client</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nom du client" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+            {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="client">Client</Label>
+            <Input
+              id="client"
+              placeholder="Nom du client"
+              {...register("client", { required: "Le nom du client est obligatoire" })}
             />
-            <FormField
-              control={form.control}
-              name="sdrId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>SDR responsable</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value || user?.id}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionnez un SDR" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {sdrUsers.length > 0 ? (
-                        sdrUsers.map((sdrUser: User) => (
-                          <SelectItem key={sdrUser.id} value={sdrUser.id}>
-                            {sdrUser.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        user && (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name || user.email}
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+            {errors.client && <p className="text-sm text-red-500">{errors.client.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sdr_id">Assigner à (SDR)</Label>
+            <Select {...register("sdr_id")}>
+              <SelectTrigger id="sdr_id">
+                <SelectValue placeholder="Sélectionner un SDR" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Non assigné</SelectItem>
+                {sdrs.map((sdr) => (
+                  <SelectItem key={sdr.id} value={sdr.id}>
+                    {sdr.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (optionnel)</Label>
+            <Textarea
+              id="description"
+              placeholder="Description de la mission"
+              {...register("description")}
             />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (optionnel)</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Description de la mission" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                "Créer la mission"
               )}
-            />
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Création en cours..." : "Créer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
