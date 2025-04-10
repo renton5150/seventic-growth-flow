@@ -29,8 +29,10 @@ export const updateUserRole = async (userId: string, newRole: string): Promise<{
       return { success: false, error: error.message };
     }
     
-    // Invalider immédiatement le cache pour que les prochaines requêtes récupèrent les données fraîches
-    invalidateUserCache();
+    // Exécution différée de l'invalidation pour permettre à l'UI de se rafraîchir d'abord
+    setTimeout(() => {
+      invalidateUserCache();
+    }, 0);
     
     return { success: true };
   } catch (err) {

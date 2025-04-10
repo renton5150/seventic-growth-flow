@@ -15,14 +15,16 @@ const AdminUsers = () => {
   const refreshUserData = useCallback(() => {
     console.log("Rafraîchissement des données utilisateur depuis AdminUsers");
     
-    // Invalider le cache local
+    // Invalider le cache local d'abord
     invalidateUserCache();
     
-    // Utiliser une seule invalidation pour tous les queries liées aux utilisateurs
-    queryClient.invalidateQueries({ 
-      queryKey: ['users'],
-      refetchType: 'all' // Force refresh 
-    });
+    // Utiliser une seule invalidation avec refetchType: 'inactive' pour éviter les requêtes multiples simultanées
+    setTimeout(() => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['users'],
+        refetchType: 'all' 
+      });
+    }, 50);
   }, [queryClient]);
   
   if (!isAdmin) {
