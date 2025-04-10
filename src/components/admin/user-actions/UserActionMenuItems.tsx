@@ -1,5 +1,5 @@
 
-import { Edit, Mail, Trash2, User, Shield, LineChart, HeadsetIcon } from "lucide-react";
+import { Edit, Mail, Trash2, User as UserIcon, Shield, LineChart, HeadsetIcon } from "lucide-react";
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";
 import { toast } from "sonner";
@@ -90,7 +90,7 @@ export const UserActionMenuItems = ({
       case "admin": return <Shield className="h-4 w-4 mr-2" />;
       case "growth": return <LineChart className="h-4 w-4 mr-2" />;
       case "sdr": return <HeadsetIcon className="h-4 w-4 mr-2" />;
-      default: return <User className="h-4 w-4 mr-2" />;
+      default: return <UserIcon className="h-4 w-4 mr-2" />;
     }
   };
   
