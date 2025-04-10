@@ -53,7 +53,7 @@ export const UserActionMenuItems = ({
   
   return (
     <>
-      <DropdownMenuItem onClick={onChangeRole} className="gap-[0.3rem]">
+      <DropdownMenuItem onClick={onChangeRole} className="gap-2">
         <Edit className="h-4 w-4" />
         <span>Modifier le rôle</span>
       </DropdownMenuItem>
@@ -61,7 +61,7 @@ export const UserActionMenuItems = ({
       <DropdownMenuItem 
         onClick={handleResendInvitation} 
         disabled={isSendingInvite}
-        className="gap-[0.3rem]"
+        className="gap-2"
       >
         <Mail className="h-4 w-4" />
         <span>Renvoyer l'invitation</span>
@@ -72,7 +72,7 @@ export const UserActionMenuItems = ({
       <DropdownMenuItem 
         onClick={onDelete} 
         disabled={isDeleting}
-        className="text-destructive gap-[0.3rem] focus:text-destructive"
+        className="text-destructive gap-2 focus:text-destructive"
       >
         <Trash2 className="h-4 w-4" />
         <span>Supprimer</span>
@@ -80,4 +80,3 @@ export const UserActionMenuItems = ({
     </>
   );
 };
-
