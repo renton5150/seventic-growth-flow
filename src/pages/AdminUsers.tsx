@@ -1,12 +1,22 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserManagementTabs } from "@/components/admin/UserManagementTabs";
 import { useAuth } from "@/contexts/auth";
 import { Navigate } from "react-router-dom";
+import { invalidateUserCache } from "@/services/user/userQueries";
+import { useQueryClient } from "@tanstack/react-query";
 
 const AdminUsers = () => {
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // Fonction pour rafraîchir les données utilisateur
+  const refreshUserData = useCallback(() => {
+    console.log("Rafraîchissement des données utilisateur depuis AdminUsers");
+    invalidateUserCache();
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+  }, [queryClient]);
   
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
@@ -19,7 +29,7 @@ const AdminUsers = () => {
           <h1 className="text-2xl font-bold">Gestion des utilisateurs</h1>
         </div>
         
-        <UserManagementTabs />
+        <UserManagementTabs onUserDataChange={refreshUserData} />
       </div>
     </AppLayout>
   );

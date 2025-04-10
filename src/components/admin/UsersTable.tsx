@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
 import { UserActionsMenu } from "./UserActionsMenu";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface UsersTableProps {
   users: User[];
@@ -14,6 +15,8 @@ interface UsersTableProps {
 }
 
 export const UsersTable = ({ users, isLoading, onRefresh }: UsersTableProps) => {
+  const queryClient = useQueryClient();
+  
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "admin":
@@ -25,6 +28,14 @@ export const UsersTable = ({ users, isLoading, onRefresh }: UsersTableProps) => 
       default:
         return <Badge variant="outline">Inconnu</Badge>;
     }
+  };
+
+  const handleActionComplete = () => {
+    // Refresh users with a slight delay to ensure changes are reflected
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      onRefresh();
+    }, 300);
   };
 
   if (isLoading) {
@@ -70,7 +81,7 @@ export const UsersTable = ({ users, isLoading, onRefresh }: UsersTableProps) => 
               <TableCell>{user.email}</TableCell>
               <TableCell>{getRoleBadge(user.role)}</TableCell>
               <TableCell className="text-right">
-                <UserActionsMenu user={user} onActionComplete={onRefresh} />
+                <UserActionsMenu user={user} onActionComplete={handleActionComplete} />
               </TableCell>
             </TableRow>
           ))}

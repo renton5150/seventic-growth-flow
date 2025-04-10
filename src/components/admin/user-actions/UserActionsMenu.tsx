@@ -1,12 +1,13 @@
 
 import { useState } from "react";
-import { MoreHorizontal, Loader2 } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";
 import { ChangeRoleDialog } from "../ChangeRoleDialog";
 import { DeleteUserDialog } from "./DeleteUserDialog";
 import { UserActionMenuItems } from "./UserActionMenuItems";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface UserActionsMenuProps {
   user: User;
@@ -18,6 +19,15 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleRoleChanged = () => {
+    // Invalidate relevant queries to ensure data is up-to-date
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    
+    // Notify parent component
+    onActionComplete();
+  };
 
   return (
     <>
@@ -45,7 +55,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
         open={isChangeRoleOpen} 
         onOpenChange={setIsChangeRoleOpen} 
         user={user} 
-        onRoleChanged={onActionComplete} 
+        onRoleChanged={handleRoleChanged} 
       />
 
       <DeleteUserDialog

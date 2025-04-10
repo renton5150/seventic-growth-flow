@@ -8,7 +8,9 @@ export {
   createUser,
   deleteUser,
   resendInvitation,
-  isValidUserRole
+  isValidUserRole,
+  invalidateUserCache,
+  updateUserRole
 } from './user';
 
 export type {

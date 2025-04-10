@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,10 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { User, UserRole } from "@/types/types";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 interface ChangeRoleDialogProps {
   open: boolean;
@@ -36,17 +38,27 @@ export const ChangeRoleDialog = ({
 }: ChangeRoleDialogProps) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Reset selected role when dialog opens with a different user
+  useEffect(() => {
+    if (open) {
+      setSelectedRole(user.role);
+    }
+  }, [open, user.role]);
 
   const handleSave = async () => {
+    // Skip update if role hasn't changed
     if (selectedRole === user.role) {
       onOpenChange(false);
       return;
     }
 
     setIsLoading(true);
-
+    
     try {
+      console.log(`Updating role for user ${user.id} from ${user.role} to ${selectedRole}`);
+      
       // Mettre à jour le rôle de l'utilisateur dans Supabase
       const { error } = await supabase
         .from("profiles")
@@ -57,13 +69,25 @@ export const ChangeRoleDialog = ({
         throw error;
       }
       
+      // Mise à jour locale immédiate
+      console.log("Role updated successfully");
+      
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      
       toast({
         title: "Rôle mis à jour",
         description: `Le rôle de ${user.name} a été changé en ${selectedRole}`,
       });
       
-      onRoleChanged();
+      // Close dialog before triggering refresh to improve perceived performance
       onOpenChange(false);
+      
+      // Notify parent of change
+      setTimeout(() => {
+        onRoleChanged();
+      }, 100);
+      
     } catch (error) {
       console.error("Erreur lors de la mise à jour du rôle:", error);
       toast({
@@ -77,7 +101,10 @@ export const ChangeRoleDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (isLoading) return; // Prevent closing while loading
+      onOpenChange(isOpen);
+    }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Changer le rôle</DialogTitle>
@@ -92,6 +119,7 @@ export const ChangeRoleDialog = ({
             <Select
               value={selectedRole}
               onValueChange={(value) => setSelectedRole(value as UserRole)}
+              disabled={isLoading}
             >
               <SelectTrigger id="role">
                 <SelectValue placeholder="Sélectionner un rôle" />
@@ -109,8 +137,19 @@ export const ChangeRoleDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Annuler
           </Button>
-          <Button onClick={handleSave} disabled={isLoading}>
-            {isLoading ? "Enregistrement..." : "Enregistrer"}
+          <Button 
+            onClick={handleSave} 
+            disabled={isLoading || selectedRole === user.role}
+            className="min-w-[100px]"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                Enregistrement...
+              </>
+            ) : (
+              "Enregistrer"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
