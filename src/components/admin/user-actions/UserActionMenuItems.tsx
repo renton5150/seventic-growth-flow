@@ -1,8 +1,7 @@
 
-import { Check, Edit, Mail, Trash2, X } from "lucide-react";
+import { Edit, Mail, Trash2 } from "lucide-react";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { resendInvitation } from "@/services/user/userManagement";
 
@@ -59,16 +58,14 @@ export const UserActionMenuItems = ({
         <span>Modifier le rôle</span>
       </DropdownMenuItem>
       
-      {user.needsInvite && (
-        <DropdownMenuItem 
-          onClick={handleResendInvitation} 
-          disabled={isSendingInvite}
-          className="gap-[0.3rem]"
-        >
-          <Mail className="h-4 w-4" />
-          <span>Renvoyer l'invitation</span>
-        </DropdownMenuItem>
-      )}
+      <DropdownMenuItem 
+        onClick={handleResendInvitation} 
+        disabled={isSendingInvite}
+        className="gap-[0.3rem]"
+      >
+        <Mail className="h-4 w-4" />
+        <span>Renvoyer l'invitation</span>
+      </DropdownMenuItem>
       
       <DropdownMenuSeparator />
       
@@ -83,3 +80,4 @@ export const UserActionMenuItems = ({
     </>
   );
 };
+
