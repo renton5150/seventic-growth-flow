@@ -17,7 +17,7 @@ import {
   createSupaMission,
   deleteSupaMission,
   assignSDRToSupaMission
-} from "./missions/supaMissions";
+} from "./missions/index";
 
 // Ré-exporter les fonctions mockées pour la compatibilité
 export { findMockMissionById, getMockMissionsBySdrId } from "./missions/mockMissions";
