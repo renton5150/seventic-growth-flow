@@ -43,4 +43,4 @@ export const updateUserRole = async (userId: string, newRole: string) => {
       error: error.message || "Erreur inconnue lors de la mise à jour du rôle"
     };
   }
-};
+}

@@ -1,9 +1,10 @@
 
-import { Loader2, Mail, Trash2, UserCog } from "lucide-react";
+import { Check, Edit, Mail, Trash2, X } from "lucide-react";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { resendInvitation } from "@/services/user";
+import { resendInvitation } from "@/services/user/userManagement";
 
 interface UserActionMenuItemsProps {
   user: User;
@@ -15,135 +16,68 @@ interface UserActionMenuItemsProps {
   onActionComplete: () => void;
 }
 
-export const UserActionMenuItems = ({ 
-  user, 
-  isSendingInvite, 
-  isDeleting, 
+export const UserActionMenuItems = ({
+  user,
+  isSendingInvite,
+  isDeleting,
   onChangeRole,
   onDelete,
   setIsSendingInvite,
   onActionComplete
 }: UserActionMenuItemsProps) => {
   
-  const handleResendInvite = async () => {
+  const handleResendInvitation = async () => {
     if (isSendingInvite) return;
     
+    setIsSendingInvite(true);
+    const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
+    
     try {
-      setIsSendingInvite(true);
+      await resendInvitation(user.id);
       
-      // Afficher un toast de chargement persistant
-      const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
+      toast.success("Invitation envoyée", {
+        id: toastId,
+        description: `Une nouvelle invitation a été envoyée à ${user.email}`
+      });
       
-      console.log("Envoi d'une invitation à:", user.email);
-      const { success, error, warning, userExists, actionUrl, emailProvider, smtpConfigured } = await resendInvitation(user.email);
-      console.log("Résultat de l'envoi d'invitation:", { success, error, warning, userExists, actionUrl, emailProvider, smtpConfigured });
-      
-      // Fermer le toast de chargement
-      toast.dismiss(toastId);
-      
-      if (success) {
-        // Message adapté selon que le SMTP est configuré ou non
-        if (!smtpConfigured) {
-          toast.warning(`Email envoyé via le service Supabase par défaut`, {
-            description: `⚠️ Votre serveur SMTP n'est pas correctement configuré. Pour utiliser l'adresse laura.decoster@7tic.fr comme expéditeur, veuillez configurer votre serveur SMTP dans les paramètres Supabase.`,
-            duration: 8000
-          });
-        }
-        
-        if (warning) {
-          toast.warning(`Opération longue`, {
-            description: "L'invitation a peut-être été envoyée. Vérifiez la boîte de réception et les dossiers spam du destinataire.",
-            duration: 8000
-          });
-        } else if (userExists) {
-          toast.success(`Email de réinitialisation envoyé à ${user.email}`, {
-            description: smtpConfigured ? 
-              `Email envoyé via votre serveur SMTP configuré avec laura.decoster@7tic.fr comme expéditeur.` :
-              `⚠️ Email envoyé via le service Supabase par défaut. Veuillez configurer votre serveur SMTP pour utiliser laura.decoster@7tic.fr.`,
-            duration: 5000
-          });
-          
-          if (actionUrl) {
-            console.log("URL d'action générée:", actionUrl);
-            // Option pour copier le lien
-            toast.message("Lien de réinitialisation généré", {
-              description: "Si l'email n'arrive pas, vous pouvez copier ce lien et l'envoyer manuellement.",
-              action: {
-                label: "Copier",
-                onClick: () => {
-                  navigator.clipboard.writeText(actionUrl);
-                  toast.success("Lien copié !");
-                }
-              },
-              duration: 10000
-            });
-          }
-        } else {
-          toast.success(`Invitation envoyée à ${user.email}`, {
-            description: smtpConfigured ? 
-              `Email envoyé via votre serveur SMTP configuré avec laura.decoster@7tic.fr comme expéditeur.` :
-              `⚠️ Email envoyé via le service Supabase par défaut. Veuillez configurer votre serveur SMTP pour utiliser laura.decoster@7tic.fr.`,
-            duration: 5000
-          });
-          
-          if (actionUrl) {
-            console.log("URL d'invitation générée:", actionUrl);
-            // Option pour copier le lien
-            toast.message("Lien d'invitation généré", {
-              description: "Si l'email n'arrive pas, vous pouvez copier ce lien et l'envoyer manuellement.",
-              action: {
-                label: "Copier",
-                onClick: () => {
-                  navigator.clipboard.writeText(actionUrl);
-                  toast.success("Lien copié !");
-                }
-              },
-              duration: 10000
-            });
-          }
-        }
-        onActionComplete();
-      } else {
-        toast.error(`Erreur: ${error || "Impossible d'envoyer l'email"}`, {
-          description: "Vérifiez la configuration SMTP et les logs de la fonction Edge pour plus de détails.",
-          duration: 8000
-        });
-      }
+      onActionComplete();
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'email:", error);
-      toast.error("Impossible d'envoyer l'email", {
-        description: "Une erreur inattendue s'est produite. Consultez la console pour plus de détails.",
-        duration: 8000
+      console.error("Erreur lors de l'envoi de l'invitation:", error);
+      toast.error("Erreur", {
+        id: toastId, 
+        description: "Une erreur est survenue lors de l'envoi de l'invitation"
       });
     } finally {
       setIsSendingInvite(false);
     }
   };
-
+  
   return (
     <>
-      <DropdownMenuItem onClick={onChangeRole} disabled={isDeleting || isSendingInvite}>
-        <UserCog className="mr-2 h-4 w-4" />
-        <span>Changer de rôle</span>
+      <DropdownMenuItem onClick={onChangeRole} className="gap-[0.3rem]">
+        <Edit className="h-4 w-4" />
+        <span>Modifier le rôle</span>
       </DropdownMenuItem>
       
-      <DropdownMenuItem onClick={handleResendInvite} disabled={isDeleting || isSendingInvite}>
-        {isSendingInvite ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Mail className="mr-2 h-4 w-4" />
-        )}
-        <span>{isSendingInvite ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
-      </DropdownMenuItem>
+      {user.needsInvite && (
+        <DropdownMenuItem 
+          onClick={handleResendInvitation} 
+          disabled={isSendingInvite}
+          className="gap-[0.3rem]"
+        >
+          <Mail className="h-4 w-4" />
+          <span>Renvoyer l'invitation</span>
+        </DropdownMenuItem>
+      )}
       
       <DropdownMenuSeparator />
       
-      <DropdownMenuItem onClick={onDelete} className="text-red-600" disabled={isDeleting || isSendingInvite}>
-        {isDeleting ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Trash2 className="mr-2 h-4 w-4" />
-        )}
+      <DropdownMenuItem 
+        onClick={onDelete} 
+        disabled={isDeleting}
+        className="text-destructive gap-[0.3rem] focus:text-destructive"
+      >
+        <Trash2 className="h-4 w-4" />
         <span>Supprimer</span>
       </DropdownMenuItem>
     </>
