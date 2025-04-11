@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { MoreHorizontal, Loader2 } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";

@@ -1,7 +1,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User, Users, BarChart3 } from "lucide-react";
+import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User, Users, BarChart3, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -110,6 +110,14 @@ export const AppSidebar = () => {
                   <Link to="/admin/dashboard">
                     <BarChart3 className="h-5 w-5 mr-3" />
                     Tableau Admin
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className={getLinkClass("/admin/missions")}>
+                  <Link to="/admin/missions">
+                    <Briefcase className="h-5 w-5 mr-3" />
+                    Gestion Missions
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

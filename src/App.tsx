@@ -24,6 +24,7 @@ import GrowthDashboard from "./pages/GrowthDashboard";
 import Databases from "./pages/Databases";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
+import AdminMissions from "./pages/AdminMissions";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,14 @@ const App = () => (
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AdminUsers />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/missions" 
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminMissions />
               </ProtectedRoute>
             } 
           />
