@@ -1,7 +1,7 @@
 
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { FileText, Users } from "lucide-react";
+import { FileText, Trash, Users } from "lucide-react";
 import { Mission } from "@/types/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +18,15 @@ interface MissionsTableProps {
   missions: Mission[];
   isAdmin: boolean;
   onViewMission: (mission: Mission) => void;
+  onDeleteMission?: (mission: Mission) => void;
 }
 
-export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTableProps) => {
+export const MissionsTable = ({ 
+  missions, 
+  isAdmin, 
+  onViewMission,
+  onDeleteMission 
+}: MissionsTableProps) => {
   const formatDate = (date: Date) => {
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
@@ -56,14 +62,27 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission }: MissionsTabl
                 <TableCell>{formatDate(mission.createdAt)}</TableCell>
                 <TableCell>{mission.requests.length}</TableCell>
                 <TableCell className="text-right">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => onViewMission(mission)}
-                    className={isAdmin ? "border-blue-500 hover:bg-blue-50" : ""}
-                  >
-                    Voir
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onViewMission(mission)}
+                      className={isAdmin ? "border-blue-500 hover:bg-blue-50" : ""}
+                    >
+                      Voir
+                    </Button>
+                    
+                    {isAdmin && onDeleteMission && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => onDeleteMission(mission)}
+                        className="border-red-500 text-red-500 hover:bg-red-50"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -1,4 +1,3 @@
-
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getRequestsByMissionId } from "../requestService";
@@ -208,6 +207,43 @@ export const createSupaMission = async (data: {
   } catch (error) {
     console.error("Erreur inattendue lors de la création de la mission:", error);
     return undefined;
+  }
+};
+
+// Supprimer une mission depuis Supabase
+export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
+  try {
+    console.log("Suppression d'une mission depuis Supabase par ID:", missionId);
+    
+    // Si l'identifiant n'est pas un UUID valide, retourner false
+    if (!isValidUUID(missionId)) {
+      console.warn("ID mission non valide pour Supabase:", missionId);
+      return false;
+    }
+    
+    // Vérifier que l'utilisateur est authentifié
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      console.error("Erreur: Utilisateur non authentifié pour supprimer une mission");
+      return false;
+    }
+    
+    // Supprimer la mission
+    const { error } = await supabase
+      .from('missions')
+      .delete()
+      .eq('id', missionId);
+
+    if (error) {
+      console.error("Erreur lors de la suppression de la mission:", error);
+      return false;
+    }
+
+    console.log("Mission supprimée avec succès dans Supabase:", missionId);
+    return true;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la suppression de la mission:", error);
+    return false;
   }
 };
 
