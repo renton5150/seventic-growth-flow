@@ -58,30 +58,36 @@ export type Database = {
           client: string
           created_at: string
           description: string | null
+          end_date: string | null
           id: string
           name: string
           sdr_id: string | null
           start_date: string | null
+          type: string | null
           updated_at: string
         }
         Insert: {
           client: string
           created_at?: string
           description?: string | null
+          end_date?: string | null
           id?: string
           name: string
           sdr_id?: string | null
           start_date?: string | null
+          type?: string | null
           updated_at?: string
         }
         Update: {
           client?: string
           created_at?: string
           description?: string | null
+          end_date?: string | null
           id?: string
           name?: string
           sdr_id?: string | null
           start_date?: string | null
+          type?: string | null
           updated_at?: string
         }
         Relationships: [
