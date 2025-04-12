@@ -35,7 +35,8 @@ export const createSupaMission = async (data: {
       description: data.description || "",
       start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
       end_date: data.endDate ? new Date(data.endDate).toISOString() : null,
-      type: data.type || "Full"
+      type: data.type || "Full",
+      client: data.name // Utilise le nom comme valeur pour client (requis par le schéma)
     };
     
     console.log("Données formatées pour Supabase:", missionData);
@@ -49,7 +50,16 @@ export const createSupaMission = async (data: {
 
     if (error) {
       console.error("Erreur lors de la création de la mission:", error);
-      throw error;
+      // Ajouter des informations détaillées sur l'erreur
+      if (error.code === "42501") {
+        throw new Error(`Erreur de permission: ${error.message} (RLS a refusé l'accès)`);
+      } else if (error.code === "23505") {
+        throw new Error(`Conflit de clé unique: ${error.message}`);
+      } else if (error.code === "23503") {
+        throw new Error(`Violation de contrainte de clé étrangère: ${error.message} (sdr_id non valide)`);
+      } else {
+        throw new Error(`Erreur Supabase [${error.code}]: ${error.message}`);
+      }
     }
 
     console.log("Données retournées par Supabase après insertion:", mission);
