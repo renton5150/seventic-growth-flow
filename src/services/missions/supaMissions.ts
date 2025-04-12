@@ -1,8 +1,34 @@
+
 import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { getRequestsByMissionId } from "@/data/requests";
 import { getUserById } from "@/data/users";
+
+// Function to map Supabase response to Mission type
+export function mapSupaMissionToMission(mission: any): Mission {
+  console.log("Données reçues de Supabase à mapper:", mission);
+  
+  // Check for sdr_id
+  if (!mission.sdr_id) {
+    console.warn("sdr_id manquant dans les données Supabase:", mission);
+  }
+  
+  const sdr = getUserById(mission.sdr_id);
+  return {
+    id: mission.id,
+    name: mission.name,
+    client: mission.client || "",
+    sdrId: mission.sdr_id, // Critical conversion point
+    description: mission.description || "",
+    createdAt: new Date(mission.created_at),
+    sdrName: sdr?.name || "Non assigné",
+    requests: getRequestsByMissionId(mission.id),
+    startDate: mission.start_date ? new Date(mission.start_date) : null,
+    endDate: mission.end_date ? new Date(mission.end_date) : null,
+    type: (mission.type as MissionType) || "Full"
+  };
+}
 
 // Récupérer toutes les missions
 export const getAllSupaMissions = async (): Promise<Mission[]> => {
@@ -17,22 +43,7 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
       throw error;
     }
 
-    return missions.map(mission => {
-      const sdr = getUserById(mission.sdr_id);
-      return {
-        id: mission.id,
-        name: mission.name,
-        client: mission.client || "",
-        sdrId: mission.sdr_id || "",
-        description: mission.description,
-        createdAt: new Date(mission.created_at),
-        sdrName: sdr?.name || "Non assigné",
-        requests: getRequestsByMissionId(mission.id),
-        startDate: mission.start_date ? new Date(mission.start_date) : null,
-        endDate: mission.end_date ? new Date(mission.end_date) : null,
-        type: (mission.type as MissionType) || "Full"
-      };
-    });
+    return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Erreur lors de la récupération des missions:", error);
     throw error;
@@ -53,22 +64,7 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
       throw error;
     }
 
-    return missions.map(mission => {
-      const sdr = getUserById(mission.sdr_id);
-      return {
-        id: mission.id,
-        name: mission.name,
-        client: mission.client || "",
-        sdrId: mission.sdr_id || "",
-        description: mission.description,
-        createdAt: new Date(mission.created_at),
-        sdrName: sdr?.name || "Non assigné",
-        requests: getRequestsByMissionId(mission.id),
-        startDate: mission.start_date ? new Date(mission.start_date) : null,
-        endDate: mission.end_date ? new Date(mission.end_date) : null,
-        type: (mission.type as MissionType) || "Full"
-      };
-    });
+    return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Erreur lors de la récupération des missions:", error);
     throw error;
@@ -94,20 +90,7 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
 
     if (!mission) return undefined;
 
-    const sdr = getUserById(mission.sdr_id);
-    return {
-      id: mission.id,
-      name: mission.name,
-      client: mission.client || "",
-      sdrId: mission.sdr_id || "",
-      description: mission.description,
-      createdAt: new Date(mission.created_at),
-      sdrName: sdr?.name || "Non assigné",
-      requests: getRequestsByMissionId(mission.id),
-      startDate: mission.start_date ? new Date(mission.start_date) : null,
-      endDate: mission.end_date ? new Date(mission.end_date) : null,
-      type: (mission.type as MissionType) || "Full"
-    };
+    return mapSupaMissionToMission(mission);
   } catch (error) {
     console.error("Erreur lors de la récupération de la mission:", error);
     throw error;
@@ -143,12 +126,13 @@ export const createSupaMission = async (data: {
   description?: string;
   startDate?: Date | null;
   endDate?: Date | null;
-  type?: string;
+  type?: MissionType | string;
 }): Promise<Mission | undefined> => {
   try {
     console.log("Mission reçue dans createSupaMission:", data);
     console.log("SDR ID reçu:", data.sdrId);
     
+    // Validate sdrId
     if (!data.sdrId) {
       console.error("SDR ID manquant dans createSupaMission!");
       throw new Error("Le SDR est requis pour créer une mission");
@@ -156,14 +140,15 @@ export const createSupaMission = async (data: {
     
     const missionId = uuidv4();
     
+    // Prepare data for Supabase
     const missionData = {
       id: missionId,
       name: data.name,
       client: data.client || "Client non spécifié",
-      sdr_id: data.sdrId,
-      description: data.description,
-      start_date: data.startDate ? data.startDate.toISOString() : null,
-      end_date: data.endDate ? data.endDate.toISOString() : null,
+      sdr_id: data.sdrId, // Critical conversion point
+      description: data.description || "",
+      start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
+      end_date: data.endDate ? new Date(data.endDate).toISOString() : null,
       type: data.type || "Full"
     };
     
@@ -182,21 +167,13 @@ export const createSupaMission = async (data: {
     }
 
     console.log("Données retournées par Supabase après insertion:", mission);
+    
+    // Verify sdr_id was properly saved
+    if (!mission.sdr_id) {
+      console.error("sdr_id manquant dans les données retournées:", mission);
+    }
 
-    const sdr = getUserById(mission.sdr_id);
-    return {
-      id: mission.id,
-      name: mission.name,
-      client: mission.client,
-      sdrId: mission.sdr_id,
-      description: mission.description,
-      createdAt: new Date(mission.created_at),
-      sdrName: sdr?.name || "Non assigné",
-      requests: [],
-      startDate: mission.start_date ? new Date(mission.start_date) : null,
-      endDate: mission.end_date ? new Date(mission.end_date) : null,
-      type: (mission.type as MissionType) || "Full"
-    };
+    return mapSupaMissionToMission(mission);
   } catch (error) {
     console.error("Erreur lors de la création de la mission:", error);
     throw error;
@@ -212,25 +189,38 @@ export const updateSupaMission = async (mission: {
   description?: string;
   startDate: Date | null;
   endDate: Date | null;
-  type: MissionType;
+  type: MissionType | string;
 }): Promise<Mission> => {
   console.log("updateSupaMission reçoit:", mission);
   
+  // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
     .from("missions")
     .select("id")
     .eq("id", mission.id)
-    .single();
+    .maybeSingle();
   
   if (checkError) {
     console.error("Erreur lors de la vérification de l'existence:", checkError);
     throw new Error(`Erreur lors de la vérification: ${checkError.message}`);
   }
   
+  if (!existingMission) {
+    console.error("Mission introuvable:", mission.id);
+    throw new Error("La mission n'existe pas");
+  }
+  
+  // Validate sdrId
+  if (!mission.sdrId) {
+    console.error("SDR ID manquant lors de la mise à jour!");
+    throw new Error("Le SDR est requis pour mettre à jour une mission");
+  }
+  
+  // Prepare data for Supabase
   const supabaseData = {
     name: mission.name,
     client: mission.client || "",
-    sdr_id: mission.sdrId,
+    sdr_id: mission.sdrId, // Critical conversion point
     description: mission.description || "",
     start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
     end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
@@ -254,26 +244,19 @@ export const updateSupaMission = async (mission: {
   
   console.log("Réponse de Supabase après mise à jour:", data);
   
-  const sdr = getUserById(data.sdr_id);
-  return {
-    id: data.id,
-    name: data.name,
-    client: data.client,
-    sdrId: data.sdr_id,
-    description: data.description,
-    createdAt: new Date(data.created_at),
-    sdrName: sdr?.name || "Non assigné",
-    requests: getRequestsByMissionId(data.id),
-    startDate: data.start_date ? new Date(data.start_date) : null,
-    endDate: data.end_date ? new Date(data.end_date) : null,
-    type: (data.type as MissionType) || "Full"
-  };
+  // Verify sdr_id was properly saved
+  if (!data.sdr_id) {
+    console.error("sdr_id manquant dans les données retournées après mise à jour:", data);
+  }
+  
+  return mapSupaMissionToMission(data);
 };
 
 // Supprimer une mission
 export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
   console.log("Suppression de mission dans Supabase. ID:", missionId);
   
+  // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
     .from("missions")
     .select("id")
@@ -290,6 +273,7 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     throw new Error("La mission n'existe pas");
   }
   
+  // Delete the mission
   const { error } = await supabase
     .from("missions")
     .delete()
@@ -300,6 +284,7 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
     throw new Error(`Erreur lors de la suppression: ${error.message}`);
   }
   
+  // Verify deletion
   const { data: checkAfterDelete, error: verifyError } = await supabase
     .from("missions")
     .select("id")

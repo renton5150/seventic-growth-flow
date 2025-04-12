@@ -38,30 +38,29 @@ export function DeleteMissionDialog({
       console.log("Tentative de suppression de la mission:", missionId);
       setIsDeleting(true);
       
-      // 1. Fermer la boîte de dialogue d'abord
-      onOpenChange(false);
-      
-      // 2. Montrer un toast de traitement
-      const pendingToastId = toast.loading(`Suppression de la mission ${missionName}...`);
-      
-      // 3. Vérifier si la mission existe avant de la supprimer
+      // 1. Check if mission exists
       const missionExists = await checkMissionExists(missionId);
       console.log("La mission existe-t-elle?", missionExists);
       
       if (!missionExists) {
         toast.error("Échec de la suppression", {
-          id: pendingToastId,
           description: "La mission n'existe pas ou a déjà été supprimée"
         });
+        onOpenChange(false);
         return;
       }
       
-      // 4. Supprimer la mission
+      // 2. Delete the mission
+      const pendingToastId = toast.loading(`Suppression de la mission ${missionName}...`);
+      
       const success = await deleteMission(missionId);
       
-      // 5. Vérifier le résultat
+      // 3. Close dialog
+      onOpenChange(false);
+      
+      // 4. Verify successful deletion
       if (success) {
-        // Vérifier que la mission a bien été supprimée
+        // Double-check the mission was truly deleted
         const stillExists = await checkMissionExists(missionId);
         
         if (stillExists) {
@@ -73,16 +72,16 @@ export function DeleteMissionDialog({
           return;
         }
         
-        // Suppression réussie
+        // Successfully deleted
         toast.success("Mission supprimée", {
           id: pendingToastId,
           description: `La mission ${missionName} a été supprimée avec succès.`
         });
         
-        // Actualiser la liste des missions
+        // Refresh the mission list
         onDeleted();
       } else {
-        // Échec de la suppression
+        // Delete failed
         toast.error("Échec de la suppression", {
           id: pendingToastId,
           description: "Impossible de supprimer la mission. Veuillez réessayer."
@@ -93,6 +92,7 @@ export function DeleteMissionDialog({
       toast.error("Erreur", {
         description: "Une erreur est survenue lors de la suppression de la mission."
       });
+      onOpenChange(false);
     } finally {
       setIsDeleting(false);
     }

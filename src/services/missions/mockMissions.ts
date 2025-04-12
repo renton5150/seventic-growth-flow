@@ -1,8 +1,49 @@
+
 import { Mission, MissionType } from "@/types/types";
 import { v4 as uuidv4 } from "uuid";
 import { getRequestsByMissionId } from "@/data/requests";
-import { getMockUser } from "@/data/users";
-import { mockMissions } from "@/data/missions";
+
+// Mock users for testing
+const mockUsers = [
+  { id: "user1", name: "John Doe" },
+  { id: "user2", name: "Jane Smith" },
+  { id: "user3", name: "Robert Brown" },
+];
+
+// Helper function to get a mock user by ID
+export const getMockUser = (id: string) => {
+  return mockUsers.find(user => user.id === id) || { name: "Non assigné" };
+};
+
+// Mock missions data
+export const mockMissions: Mission[] = [
+  {
+    id: "mission1",
+    name: "Prospection LinkedIn",
+    client: "TechCorp",
+    sdrId: "user1",
+    description: "Campagne de prospection sur LinkedIn",
+    createdAt: new Date("2023-01-15"),
+    sdrName: "John Doe",
+    requests: [],
+    startDate: new Date("2023-02-01"),
+    endDate: new Date("2023-03-15"),
+    type: "Full" as MissionType
+  },
+  {
+    id: "mission2",
+    name: "Emailing Secteur Finance",
+    client: "FinanceGroup",
+    sdrId: "user2",
+    description: "Campagne d'emailing ciblée",
+    createdAt: new Date("2023-02-20"),
+    sdrName: "Jane Smith",
+    requests: [],
+    startDate: new Date("2023-03-01"),
+    endDate: null,
+    type: "Part" as MissionType
+  }
+];
 
 // Obtenir toutes les missions mockées
 export const getAllMockMissions = (): Mission[] => {

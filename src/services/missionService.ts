@@ -1,5 +1,5 @@
 
-import { Mission } from "@/types/types";
+import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "./missions/config";
 import {
   getAllMockMissions,
@@ -140,22 +140,42 @@ export const createMission = async (data: {
       throw new Error("Le SDR est requis pour créer une mission");
     }
     
+    // Assurer que le type est une valeur MissionType valide
+    const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
+    
     if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation du mock pour la création de mission");
-      return createMockMission(data);
+      return createMockMission({
+        ...data,
+        type: missionType
+      });
     }
 
-    const mission = await createSupaMission(data);
+    const mission = await createSupaMission({
+      ...data,
+      type: missionType
+    });
+    
     if (!mission) {
       console.log("Échec de création dans Supabase, fallback vers les données mockées");
-      return createMockMission(data);
+      return createMockMission({
+        ...data,
+        type: missionType
+      });
     }
     
     return mission;
   } catch (error) {
     console.error("Erreur inattendue lors de la création de la mission:", error);
     console.log("Fallback vers les données mockées");
-    return createMockMission(data);
+    
+    // Assurer que le type est une valeur MissionType valide
+    const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
+    
+    return createMockMission({
+      ...data,
+      type: missionType
+    });
   }
 };
 
@@ -183,17 +203,34 @@ export const updateMission = async (data: {
       throw new Error("Le SDR est requis pour mettre à jour une mission");
     }
     
+    // Assurer que le type est une valeur MissionType valide
+    const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
+    
     if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation du mock pour la mise à jour de mission");
-      return updateMockMission(data);
+      return updateMockMission({
+        ...data,
+        type: missionType
+      });
     }
 
-    const mission = await updateSupaMission(data);
+    const mission = await updateSupaMission({
+      ...data,
+      type: missionType
+    });
+    
     return mission;
   } catch (error) {
     console.error("Erreur inattendue lors de la mise à jour de la mission:", error);
     console.log("Fallback vers les données mockées");
-    return updateMockMission(data);
+    
+    // Assurer que le type est une valeur MissionType valide
+    const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
+    
+    return updateMockMission({
+      ...data,
+      type: missionType
+    });
   }
 };
 

@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -46,12 +47,14 @@ export const MissionsTable = ({
 
   // Ouvrir le dialogue d'édition pour une mission
   const handleEditMission = (mission: Mission) => {
+    console.log("Ouverture du dialogue d'édition pour la mission:", mission);
     setMissionToEdit(mission);
     setIsEditDialogOpen(true);
   };
 
   // Clôturer l'édition et rafraîchir les données au besoin
   const handleEditComplete = () => {
+    console.log("Édition terminée, rafraîchissement des données");
     if (onMissionUpdated) {
       onMissionUpdated();
     }
