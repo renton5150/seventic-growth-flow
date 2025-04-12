@@ -1,3 +1,4 @@
+
 // User roles
 export type UserRole = "admin" | "sdr" | "growth";
 
@@ -12,6 +13,9 @@ export interface User {
 
 // Status for requests
 export type RequestStatus = "pending" | "inprogress" | "completed";
+
+// Mission type
+export type MissionType = "Full" | "Part";
 
 // Base request interface
 export interface BaseRequest {
@@ -112,6 +116,10 @@ export interface Mission {
   description?: string;
   sdrName?: string; // Added for UI display
   requests: Request[];
+  // Nouveaux champs
+  startDate: Date | null;
+  endDate: Date | null;
+  type: MissionType;
 }
 
 // Mock data type

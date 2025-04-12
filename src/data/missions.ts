@@ -12,6 +12,9 @@ export const missions: Mission[] = [
     sdrId: "user2",
     createdAt: new Date("2025-03-01"),
     requests: getRequestsByMissionId("mission1"),
+    startDate: new Date("2025-03-01"),
+    endDate: new Date("2025-05-31"),
+    type: "Full"
   },
   {
     id: "mission2",
@@ -20,6 +23,9 @@ export const missions: Mission[] = [
     sdrId: "user2",
     createdAt: new Date("2025-03-15"),
     requests: getRequestsByMissionId("mission2"),
+    startDate: new Date("2025-03-15"),
+    endDate: null,
+    type: "Part"
   },
   {
     id: "mission3",
@@ -28,6 +34,9 @@ export const missions: Mission[] = [
     sdrId: "user2",
     createdAt: new Date("2025-03-20"),
     requests: getRequestsByMissionId("mission3"),
+    startDate: new Date("2025-03-20"),
+    endDate: new Date("2025-12-31"),
+    type: "Full"
   },
 ];
 
