@@ -1,3 +1,4 @@
+
 import { useCallback, useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
@@ -31,6 +32,8 @@ const AdminMissions = () => {
   const refreshMissionsData = useCallback(() => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
     
+    // Invalidate the query cache and force a refetch with a slight delay
+    // to ensure the cache is properly cleared
     setTimeout(() => {
       queryClient.invalidateQueries({ 
         queryKey: ['missions'],
