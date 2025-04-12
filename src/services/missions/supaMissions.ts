@@ -1,5 +1,5 @@
 
-import { Mission } from "@/types/types";
+import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { getRequestsByMissionId } from "@/data/requests";
@@ -32,7 +32,7 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
         requests: getRequestsByMissionId(mission.id),
         startDate: mission.start_date ? new Date(mission.start_date) : null,
         endDate: mission.end_date ? new Date(mission.end_date) : null,
-        type: mission.type || "Full"
+        type: (mission.type as MissionType) || "Full"
       };
     });
   } catch (error) {
@@ -68,7 +68,7 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
         requests: getRequestsByMissionId(mission.id),
         startDate: mission.start_date ? new Date(mission.start_date) : null,
         endDate: mission.end_date ? new Date(mission.end_date) : null,
-        type: mission.type || "Full"
+        type: (mission.type as MissionType) || "Full"
       };
     });
   } catch (error) {
@@ -109,7 +109,7 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
       requests: getRequestsByMissionId(mission.id),
       startDate: mission.start_date ? new Date(mission.start_date) : null,
       endDate: mission.end_date ? new Date(mission.end_date) : null,
-      type: mission.type || "Full"
+      type: (mission.type as MissionType) || "Full"
     };
   } catch (error) {
     console.error("Erreur lors de la récupération de la mission:", error);
@@ -143,7 +143,7 @@ export const createSupaMission = async (data: {
           start_date: data.startDate,
           end_date: data.endDate,
           type: data.type || "Full"
-        },
+        }
       ])
       .select("*")
       .single();
@@ -165,7 +165,7 @@ export const createSupaMission = async (data: {
       requests: [],
       startDate: mission.start_date ? new Date(mission.start_date) : null,
       endDate: mission.end_date ? new Date(mission.end_date) : null,
-      type: mission.type || "Full"
+      type: (mission.type as MissionType) || "Full"
     };
   } catch (error) {
     console.error("Erreur lors de la création de la mission:", error);

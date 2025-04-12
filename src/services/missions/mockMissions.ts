@@ -1,5 +1,5 @@
 
-import { Mission, Request } from "@/types/types";
+import { Mission, Request, MissionType } from "@/types/types";
 import { missions as mockMissions } from "@/data/missions";
 import { v4 as uuidv4 } from "uuid";
 import { getUserById } from "@/data/users";
@@ -67,7 +67,7 @@ export const createMockMission = (data: {
     requests: [],
     startDate: data.startDate || null,
     endDate: data.endDate || null,
-    type: (data.type as "Full" | "Part") || "Full"
+    type: (data.type as MissionType) || "Full"
   };
   
   missionsData.push(newMission);

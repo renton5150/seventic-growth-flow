@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { isSupabaseConfigured } from "./missions/config";
 import {
@@ -116,6 +117,9 @@ export const createMission = async (data: {
   client: string;
   description?: string;
   sdrId: string;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  type?: string;
 }): Promise<Mission | undefined> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
