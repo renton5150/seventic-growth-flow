@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -20,23 +21,24 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/user/userQueries";
 import { cn } from "@/lib/utils";
 
-// Définir le schéma de validation avec superRefine pour la validation de date
+// Définir le schéma de validation avec une méthode refine correcte pour la validation de date
 const formSchema = z.object({
   name: z.string().min(1, "Le nom de la mission est requis"),
   client: z.string().optional(),
   sdrId: z.string().min(1, "Vous devez sélectionner un SDR"),
   description: z.string().optional(),
   startDate: z.date().nullable(),
-  endDate: z.date().nullable().superRefine((endDate, ctx) => {
-    const { startDate } = ctx.parent;
-    if (endDate && startDate && endDate < startDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "La date de fin doit être après la date de début",
-      });
-    }
-  }),
+  endDate: z.date().nullable(),
   type: z.enum(["Full", "Part"]),
+}).refine((data) => {
+  // Si les deux dates sont définies, vérifier que la date de fin est après la date de début
+  if (data.startDate && data.endDate) {
+    return data.endDate >= data.startDate;
+  }
+  return true;
+}, {
+  message: "La date de fin doit être après la date de début",
+  path: ["endDate"], // Associer ce message d'erreur au champ endDate
 });
 
 interface EditMissionDialogProps {
