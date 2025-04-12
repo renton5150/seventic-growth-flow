@@ -25,54 +25,69 @@ export const useAuthOperations = (
 
       console.log("Tentative de connexion pour:", email);
       
-      // Use Promise.race for timeout handling
-      const loginPromise = supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Créer un contrôleur d'abandon pour gérer le timeout
+      const controller = new AbortController();
+      const { signal } = controller;
       
-      const timeoutPromise = new Promise<{data: null, error: Error}>((_resolve, reject) => {
-        setTimeout(() => {
-          reject(new Error("La connexion prend trop de temps, veuillez réessayer"));
-        }, 8000); // 8 second timeout
-      });
+      // Configurer un timeout de 10 secondes
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 10000);
       
-      const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as any;
-
-      if (error) {
-        let errorMessage = "";
-        if (error.message === "Invalid login credentials") {
-          errorMessage = "Identifiants invalides";
-        } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "Veuillez confirmer votre email avant de vous connecter";
-        } else {
-          errorMessage = error.message;
-        }
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
         
-        console.error("Erreur de connexion:", errorMessage);
-        toast.error("Échec de la connexion", { description: errorMessage });
-        setAuthError(errorMessage);
-        setLoading(false);
-        return false;
-      }
+        clearTimeout(timeoutId);
+        
+        if (error) {
+          let errorMessage = "";
+          if (error.message === "Invalid login credentials") {
+            errorMessage = "Identifiants invalides";
+          } else if (error.message.includes("Email not confirmed")) {
+            errorMessage = "Veuillez confirmer votre email avant de vous connecter";
+          } else {
+            errorMessage = error.message;
+          }
+          
+          console.error("Erreur de connexion:", errorMessage);
+          toast.error("Échec de la connexion", { description: errorMessage });
+          setAuthError(errorMessage);
+          setLoading(false);
+          return false;
+        }
 
-      if (!data?.session) {
-        console.error("Session non créée");
-        toast.error("Erreur: Session non créée");
-        setAuthError("Impossible d'établir une session");
-        setLoading(false);
-        return false;
-      }
+        if (!data?.session) {
+          console.error("Session non créée");
+          toast.error("Erreur: Session non créée");
+          setAuthError("Impossible d'établir une session");
+          setLoading(false);
+          return false;
+        }
 
-      console.log("Connexion réussie:", data.session.user.id);
-      toast.success("Connexion réussie");
-      
-      // L'écouteur d'authentification se charge du reste
-      return true;
+        console.log("Connexion réussie:", data.session.user.id);
+        toast.success("Connexion réussie");
+        
+        // L'écouteur d'authentification se charge du reste
+        return true;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        throw err; // Relancer pour le gestionnaire externe
+      }
     } catch (error) {
       console.error("Exception lors de la connexion:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-      toast.error("Erreur de connexion", { description: errorMessage });
+      
+      if (errorMessage.includes("aborted")) {
+        toast.error("La connexion a pris trop de temps", { 
+          description: "Le serveur ne répond pas. Veuillez réessayer plus tard."
+        });
+      } else {
+        toast.error("Erreur de connexion", { description: errorMessage });
+      }
+      
       setAuthError(errorMessage);
       setLoading(false);
       return false;
@@ -80,7 +95,7 @@ export const useAuthOperations = (
       // S'assurer que loading est mis à false après une tentative
       setTimeout(() => {
         setLoading(false);
-      }, 500); // Reduced from 1000ms to 500ms
+      }, 500);
     }
   };
 
@@ -88,33 +103,42 @@ export const useAuthOperations = (
     try {
       setLoading(true);
 
-      // Use Promise.race for timeout handling
-      const logoutPromise = supabase.auth.signOut();
+      // Gestion du timeout pour la déconnexion
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 5000);
       
-      const timeoutPromise = new Promise<{error: Error}>((_resolve, reject) => {
-        setTimeout(() => {
-          reject(new Error("La déconnexion prend trop de temps"));
-        }, 5000); // 5 second timeout
-      });
-      
-      const { error } = await Promise.race([logoutPromise, timeoutPromise]) as any;
+      try {
+        const { error } = await supabase.auth.signOut();
+        
+        clearTimeout(timeoutId);
 
-      if (error) {
-        console.error("Erreur de déconnexion:", error.message);
-        toast.error("Échec de la déconnexion");
+        if (error) {
+          console.error("Erreur de déconnexion:", error.message);
+          toast.error("Échec de la déconnexion");
+          setLoading(false);
+          return false;
+        }
+
+        console.log("Déconnexion réussie");
+        toast.success("Déconnexion réussie");
+        
+        // Réinitialiser l'état immédiatement pour une meilleure expérience utilisateur
+        setUser(null);
         setLoading(false);
-        return false;
+        return true;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        throw err;
       }
-
-      console.log("Déconnexion réussie");
-      toast.success("Déconnexion réussie");
-      
-      // Réinitialiser l'état immédiatement pour une meilleure expérience utilisateur
-      setUser(null);
-      setLoading(false);
-      return true;
     } catch (error) {
       console.error("Exception lors de la déconnexion:", error);
+      
+      // Forcer la déconnexion locale même en cas d'erreur
+      setUser(null);
+      localStorage.removeItem('supabase.auth.token');
+      
       setLoading(false);
       return false;
     }

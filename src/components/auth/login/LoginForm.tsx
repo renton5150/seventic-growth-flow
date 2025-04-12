@@ -13,9 +13,9 @@ interface LoginFormProps {
   showDemoMode?: boolean;
 }
 
-export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
+export const LoginForm = ({ showDemoMode = true }: LoginFormProps) => {
   const [formMode, setFormMode] = useState<"login" | "signup">("login");
-  const { networkStatus, error, setError, checkServerConnection } = useConnectionCheck();
+  const { networkStatus, error, setError, checkServerConnection, retryCount } = useConnectionCheck();
   const { isSigningUp, handleLogin, handleSignup } = useAuthSubmit(checkServerConnection, setError);
 
   const handleRetry = async () => {
@@ -52,12 +52,13 @@ export const LoginForm = ({ showDemoMode = false }: LoginFormProps) => {
         </div>
       </div>
       
-      {showDemoMode && <DemoAlert showDemoMode={true} />}
+      {showDemoMode && <DemoAlert showDemoMode={showDemoMode} />}
       
       <NetworkStatus 
         status={networkStatus}
         error={error}
         onRetry={handleRetry}
+        retryCount={retryCount}
       />
     </div>
   );

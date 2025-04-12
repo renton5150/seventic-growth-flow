@@ -10,76 +10,94 @@ export const checkMissionAccess = async (missionId: string): Promise<{
   debugInfo?: any;
 }> => {
   try {
-    // 1. Récupérer la session utilisateur actuelle
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // 1. Récupérer la session utilisateur actuelle avec timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     
-    if (sessionError || !session) {
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      clearTimeout(timeoutId);
+      
+      if (sessionError || !session) {
+        return {
+          authorized: false,
+          reason: "Non authentifié",
+          debugInfo: sessionError
+        };
+      }
+      
+      const userId = session.user.id;
+      
+      // 2. Vérifier si l'utilisateur peut lire la mission (test de base)
+      const { data: mission, error: readError } = await supabase
+        .from("missions")
+        .select("id, sdr_id")
+        .eq("id", missionId)
+        .maybeSingle();
+      
+      if (readError) {
+        return {
+          authorized: false,
+          reason: "Erreur lors de la lecture",
+          debugInfo: readError
+        };
+      }
+      
+      if (!mission) {
+        return {
+          authorized: false,
+          reason: "Mission introuvable",
+        };
+      }
+      
+      // 3. Vérifier si l'utilisateur est le SDR de la mission
+      const isSDR = mission.sdr_id === userId;
+      
+      // 4. Vérifier si l'utilisateur est un admin
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+      
+      if (profileError) {
+        return {
+          authorized: false,
+          reason: "Erreur lors de la vérification du rôle",
+          debugInfo: profileError
+        };
+      }
+      
+      const isAdmin = profile.role === "admin";
+      
+      // 5. Retourner le résultat
+      if (isSDR || isAdmin) {
+        return {
+          authorized: true,
+          reason: isSDR ? "Est le SDR assigné" : "Est administrateur",
+          debugInfo: { isSDR, isAdmin, userId, missionSdrId: mission.sdr_id }
+        };
+      }
+      
       return {
         authorized: false,
-        reason: "Non authentifié",
-        debugInfo: sessionError
-      };
-    }
-    
-    const userId = session.user.id;
-    
-    // 2. Vérifier si l'utilisateur peut lire la mission (test de base)
-    const { data: mission, error: readError } = await supabase
-      .from("missions")
-      .select("id, sdr_id")
-      .eq("id", missionId)
-      .maybeSingle();
-    
-    if (readError) {
-      return {
-        authorized: false,
-        reason: "Erreur lors de la lecture",
-        debugInfo: readError
-      };
-    }
-    
-    if (!mission) {
-      return {
-        authorized: false,
-        reason: "Mission introuvable",
-      };
-    }
-    
-    // 3. Vérifier si l'utilisateur est le SDR de la mission
-    const isSDR = mission.sdr_id === userId;
-    
-    // 4. Vérifier si l'utilisateur est un admin
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
-    
-    if (profileError) {
-      return {
-        authorized: false,
-        reason: "Erreur lors de la vérification du rôle",
-        debugInfo: profileError
-      };
-    }
-    
-    const isAdmin = profile.role === "admin";
-    
-    // 5. Retourner le résultat
-    if (isSDR || isAdmin) {
-      return {
-        authorized: true,
-        reason: isSDR ? "Est le SDR assigné" : "Est administrateur",
+        reason: "N'est ni le SDR assigné ni un administrateur",
         debugInfo: { isSDR, isAdmin, userId, missionSdrId: mission.sdr_id }
       };
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return {
+        authorized: false,
+        reason: "Délai d'attente dépassé lors de la vérification des autorisations",
+        debugInfo: error
+      };
     }
     
-    return {
-      authorized: false,
-      reason: "N'est ni le SDR assigné ni un administrateur",
-      debugInfo: { isSDR, isAdmin, userId, missionSdrId: mission.sdr_id }
-    };
-  } catch (error) {
     return {
       authorized: false,
       reason: "Erreur lors de la vérification des autorisations",

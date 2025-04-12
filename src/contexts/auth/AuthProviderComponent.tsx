@@ -18,6 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setLoading = (loading: boolean) => setAuthState(prev => ({ ...prev, loading }));
   
   const { login, logout } = useAuthOperations(setUser, setLoading);
+  const authSessionHelpers = createAuthSessionHelpers(setUser, setLoading);
   
   // Gérer les redirections d'authentification
   useEffect(() => {
@@ -97,17 +98,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (accessToken) {
             try {
               console.log("Configuration de la session avec le token d'accès");
-              const { error } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || "",
-              });
               
-              if (error) {
-                console.error("Erreur lors de la configuration de la session:", error);
-                toast.error(`Erreur d'authentification: ${error.message}`);
-              } else {
-                console.log("Session définie avec succès à partir de l'URL");
-                toast.success("Authentification réussie");
+              // Utiliser un timeout pour éviter les blocages potentiels
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => {
+                controller.abort();
+              }, 5000);
+              
+              try {
+                const { error } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken || "",
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (error) {
+                  console.error("Erreur lors de la configuration de la session:", error);
+                  toast.error(`Erreur d'authentification: ${error.message}`);
+                } else {
+                  console.log("Session définie avec succès à partir de l'URL");
+                  toast.success("Authentification réussie");
+                }
+              } catch (err) {
+                clearTimeout(timeoutId);
+                throw err;
               }
             } catch (err) {
               console.error("Erreur lors de la définition de la session:", err);
@@ -128,14 +143,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log("Initialisation de l'authentification");
     let mounted = true;
     
-    const sessionHelpers = createAuthSessionHelpers(setUser, setLoading);
-    
-    const subscription = sessionHelpers.setupAuthListener();
+    // Configurer l'écouteur d'authentification d'abord
+    const subscription = authSessionHelpers.setupAuthListener();
     
     // Vérifier la session après un court délai
     setTimeout(() => {
       if (mounted) {
-        sessionHelpers.checkSession()
+        authSessionHelpers.checkSession()
           .catch(error => {
             console.error("Erreur lors de la vérification de session:", error);
             if (mounted) {

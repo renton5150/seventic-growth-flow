@@ -45,6 +45,15 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
     try {
       console.log("Tentative de connexion:", values.email);
       
+      // Vérifier la connexion au serveur avant de soumettre
+      if (isOffline) {
+        toast.error("Serveur non disponible", {
+          description: "Veuillez vérifier votre connexion et réessayer"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
       const result = await onSubmit(values.email, values.password);
       
       if (!result) {
@@ -86,6 +95,12 @@ export const LoginFormContent = ({ onSubmit, isOffline }: LoginFormContentProps)
           disabled={isSubmitting || isOffline}
           autoComplete="current-password"
         />
+        
+        <div className="text-right text-sm">
+          <Link to="/forgot-password" className="text-seventic-500 hover:underline">
+            Mot de passe oublié?
+          </Link>
+        </div>
         
         <Button 
           type="submit" 
