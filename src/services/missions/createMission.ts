@@ -1,0 +1,69 @@
+
+import { Mission, MissionType } from "@/types/types";
+import { supabase } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from "uuid";
+import { mapSupaMissionToMission } from "./utils";
+
+/**
+ * Créer une nouvelle mission
+ */
+export const createSupaMission = async (data: {
+  name: string;
+  client: string;
+  sdrId: string;
+  description?: string;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  type?: MissionType | string;
+}): Promise<Mission | undefined> => {
+  try {
+    console.log("Mission reçue dans createSupaMission:", data);
+    console.log("SDR ID reçu:", data.sdrId);
+    
+    // Validate sdrId
+    if (!data.sdrId) {
+      console.error("SDR ID manquant dans createSupaMission!");
+      throw new Error("Le SDR est requis pour créer une mission");
+    }
+    
+    const missionId = uuidv4();
+    
+    // Prepare data for Supabase
+    const missionData = {
+      id: missionId,
+      name: data.name,
+      client: data.client || "Client non spécifié",
+      sdr_id: data.sdrId,
+      description: data.description || "",
+      start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
+      end_date: data.endDate ? new Date(data.endDate).toISOString() : null,
+      type: data.type || "Full"
+    };
+    
+    console.log("Données formatées pour Supabase:", missionData);
+    console.log("SDR ID qui sera inséré:", missionData.sdr_id);
+
+    const { data: mission, error } = await supabase
+      .from("missions")
+      .insert([missionData])
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Erreur lors de la création de la mission:", error);
+      throw error;
+    }
+
+    console.log("Données retournées par Supabase après insertion:", mission);
+    
+    // Verify sdr_id was properly saved
+    if (!mission.sdr_id) {
+      console.error("sdr_id manquant dans les données retournées:", mission);
+    }
+
+    return mapSupaMissionToMission(mission);
+  } catch (error) {
+    console.error("Erreur lors de la création de la mission:", error);
+    throw error;
+  }
+};
