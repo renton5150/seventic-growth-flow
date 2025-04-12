@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,130 +24,141 @@ import Databases from "./pages/Databases";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminMissions from "./pages/AdminMissions";
+import PermissionsDebug from "./pages/PermissionsDebug";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/requests/email/new" 
-            element={
-              <ProtectedRoute>
-                <EmailCampaignRequest />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/requests/email/:id/edit" 
-            element={
-              <ProtectedRoute>
-                <EmailCampaignEdit />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/requests/database/new" 
-            element={
-              <ProtectedRoute>
-                <DatabaseCreationRequest />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/requests/linkedin/new" 
-            element={
-              <ProtectedRoute>
-                <LinkedInScrapingRequest />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/requests/:type/:id" 
-            element={
-              <ProtectedRoute>
-                <RequestDetails />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/calendar" 
-            element={
-              <ProtectedRoute>
-                <Calendar />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/missions" 
-            element={
-              <ProtectedRoute>
-                <Missions />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/growth" 
-            element={
-              <ProtectedRoute allowedRoles={["admin", "growth"]}>
-                <GrowthDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/databases" 
-            element={
-              <ProtectedRoute>
-                <Databases />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/dashboard" 
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/users" 
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AdminUsers />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/missions" 
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AdminMissions />
-              </ProtectedRoute>
-            } 
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/email/new" 
+              element={
+                <ProtectedRoute>
+                  <EmailCampaignRequest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/email/:id/edit" 
+              element={
+                <ProtectedRoute>
+                  <EmailCampaignEdit />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/database/new" 
+              element={
+                <ProtectedRoute>
+                  <DatabaseCreationRequest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/linkedin/new" 
+              element={
+                <ProtectedRoute>
+                  <LinkedInScrapingRequest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/requests/:type/:id" 
+              element={
+                <ProtectedRoute>
+                  <RequestDetails />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/calendar" 
+              element={
+                <ProtectedRoute>
+                  <Calendar />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/missions" 
+              element={
+                <ProtectedRoute>
+                  <Missions />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/growth" 
+              element={
+                <ProtectedRoute allowedRoles={["admin", "growth"]}>
+                  <GrowthDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/databases" 
+              element={
+                <ProtectedRoute>
+                  <Databases />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/users" 
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminUsers />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/missions" 
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminMissions />
+                </ProtectedRoute>
+              } 
+            />
+            <Route
+              path="/debug/permissions"
+              element={
+                <ProtectedRoute>
+                  <PermissionsDebug />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;

@@ -64,7 +64,16 @@ export const updateSupaMission = async (mission: {
   
   if (error) {
     console.error("Erreur Supabase lors de la mise à jour:", error);
-    throw new Error(`Erreur lors de la mise à jour: ${error.message}`);
+    // Ajouter des informations détaillées sur l'erreur
+    if (error.code === "42501") {
+      throw new Error(`Erreur de permission: ${error.message} (RLS a refusé l'accès)`);
+    } else if (error.code === "23505") {
+      throw new Error(`Conflit de clé unique: ${error.message}`);
+    } else if (error.code === "23503") {
+      throw new Error(`Violation de contrainte de clé étrangère: ${error.message} (sdr_id non valide)`);
+    } else {
+      throw new Error(`Erreur Supabase [${error.code}]: ${error.message}`);
+    }
   }
   
   console.log("Réponse de Supabase après mise à jour:", data);
@@ -99,7 +108,12 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   
   if (error) {
     console.error("Erreur lors de la suppression:", error);
-    throw new Error(`Erreur lors de la suppression: ${error.message}`);
+    // Ajouter des informations détaillées sur l'erreur
+    if (error.code === "42501") {
+      throw new Error(`Erreur de permission: ${error.message} (RLS a refusé l'accès)`);
+    } else {
+      throw new Error(`Erreur lors de la suppression [${error.code}]: ${error.message}`);
+    }
   }
   
   // Verify deletion
