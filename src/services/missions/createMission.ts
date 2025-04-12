@@ -50,16 +50,7 @@ export const createSupaMission = async (data: {
 
     if (error) {
       console.error("Erreur lors de la création de la mission:", error);
-      // Ajouter des informations détaillées sur l'erreur
-      if (error.code === "42501") {
-        throw new Error(`Erreur de permission: ${error.message} (RLS a refusé l'accès)`);
-      } else if (error.code === "23505") {
-        throw new Error(`Conflit de clé unique: ${error.message}`);
-      } else if (error.code === "23503") {
-        throw new Error(`Violation de contrainte de clé étrangère: ${error.message} (sdr_id non valide)`);
-      } else {
-        throw new Error(`Erreur Supabase [${error.code}]: ${error.message}`);
-      }
+      throw error;
     }
 
     console.log("Données retournées par Supabase après insertion:", mission);

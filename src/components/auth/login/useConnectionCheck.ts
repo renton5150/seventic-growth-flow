@@ -1,89 +1,71 @@
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase, testSupabaseConnection } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ConnectionStatus = "online" | "offline" | "checking";
 
 export const useConnectionCheck = () => {
   const [networkStatus, setNetworkStatus] = useState<ConnectionStatus>("checking");
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
 
   const checkServerConnection = useCallback(async () => {
     try {
       setNetworkStatus("checking");
       
-      // Vérifier d'abord si le navigateur est en ligne
+      // Check if browser is online first
       if (!navigator.onLine) {
         setNetworkStatus("offline");
         setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
         return false;
       }
       
-      // Utiliser le test de connexion amélioré
+      // Use Promise.race for timeout handling instead of AbortController
+      const checkPromise = supabase.from("profiles")
+        .select("count")
+        .limit(1);
+      
+      const timeoutPromise = new Promise<{error: {message: string}}>((_, reject) => {
+        setTimeout(() => {
+          reject({ error: { message: "Le serveur met trop de temps à répondre" } });
+        }, 3000); // Reduced from 5000ms to 3000ms
+      });
+      
       const startTime = Date.now();
-      const isConnected = await testSupabaseConnection();
-      const responseTime = Date.now() - startTime;
+      const result = await Promise.race([checkPromise, timeoutPromise]);
+      const endTime = Date.now();
+      console.log(`Temps de réponse du serveur: ${endTime - startTime}ms`);
       
-      console.log(`Temps de réponse du serveur Supabase: ${responseTime}ms`);
-      
-      if (!isConnected) {
+      if (result.error) {
+        console.error("Erreur de connexion:", result.error);
         setNetworkStatus("offline");
-        
-        if (responseTime >= 5000) {
-          setError("Le serveur met trop de temps à répondre (timeout). Vérifiez votre connexion ou réessayez plus tard.");
-        } else {
-          setError("Impossible de se connecter au serveur Supabase. Vérifiez votre connexion ou réessayez plus tard.");
-        }
-        
+        setError(`Erreur de connexion au serveur: ${result.error.message}`);
         return false;
       }
       
       setNetworkStatus("online");
       setError(null);
-      setRetryCount(0); // Réinitialiser le compteur de tentatives si réussite
       return true;
-    } catch (err: any) {
+    } catch (err) {
       console.error("Exception lors de la vérification de la connexion:", err);
       
-      setNetworkStatus("offline");
-      setError(`Erreur de connexion: ${err.message || "Erreur inconnue"}`);
+      if (err.message && err.message.includes("trop de temps")) {
+        setNetworkStatus("offline");
+        setError("Le serveur met trop de temps à répondre");
+      } else {
+        setNetworkStatus("offline");
+        setError("Impossible de se connecter au serveur Supabase");
+      }
       
       return false;
     }
   }, []);
-  
-  // Fonction de nouvelle tentative avec backoff exponentiel
-  const retryConnection = useCallback(async () => {
-    if (retryCount >= maxRetries) {
-      console.log(`Nombre maximum de tentatives atteint (${maxRetries})`);
-      return;
-    }
-    
-    const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Backoff exponentiel, max 10 secondes
-    console.log(`Nouvelle tentative dans ${delay}ms (tentative ${retryCount + 1}/${maxRetries})`);
-    
-    setTimeout(async () => {
-      const success = await checkServerConnection();
-      
-      if (!success && retryCount < maxRetries - 1) {
-        setRetryCount(prev => prev + 1);
-      }
-    }, delay);
-  }, [checkServerConnection, retryCount, maxRetries]);
 
-  // Vérifier la connexion lorsque le composant est monté
+  // Check connection when component mounts
   useEffect(() => {
     console.log("Vérification de la connexion au serveur...");
+    checkServerConnection();
     
-    checkServerConnection().then(success => {
-      if (!success) {
-        retryConnection();
-      }
-    });
-    
-    // Vérifier à nouveau la connexion si l'utilisateur revient en ligne
+    // Check connection again if the user comes back online
     const handleOnline = () => {
       console.log("Connexion internet rétablie, vérification du serveur...");
       checkServerConnection();
@@ -95,29 +77,19 @@ export const useConnectionCheck = () => {
       setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
     };
     
-    // Vérifier périodiquement la connexion si elle est offline (toutes les 30 secondes)
-    const intervalId = setInterval(() => {
-      if (networkStatus === "offline") {
-        console.log("Vérification périodique de la connexion...");
-        checkServerConnection();
-      }
-    }, 30000);
-    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      clearInterval(intervalId);
     };
-  }, [checkServerConnection, networkStatus, retryConnection]);
+  }, [checkServerConnection]);
 
   return {
     networkStatus,
     error,
     setError,
-    checkServerConnection,
-    retryConnection
+    checkServerConnection
   };
 };
