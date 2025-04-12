@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
@@ -24,6 +25,8 @@ const AdminMissions = () => {
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
+  const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   const refreshMissionsData = useCallback(() => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
@@ -103,6 +106,12 @@ const AdminMissions = () => {
     refreshMissionsData();
   };
 
+  const handleEditMission = (mission: Mission) => {
+    console.log("Demande d'édition de la mission:", mission);
+    setMissionToEdit(mission);
+    setIsEditModalOpen(true);
+  };
+
   if (isLoading) {
     return (
       <AppLayout>
@@ -134,6 +143,7 @@ const AdminMissions = () => {
             isAdmin={true} 
             onViewMission={handleViewMission}
             onDeleteMission={handleDeleteMission}
+            onEditMission={handleEditMission}
             onMissionUpdated={refreshMissionsData}
           />
         )}
@@ -160,6 +170,13 @@ const AdminMissions = () => {
             onDeleted={handleDeleteSuccess}
           />
         )}
+        
+        <EditMissionDialog
+          mission={missionToEdit}
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          onMissionUpdated={refreshMissionsData}
+        />
       </div>
     </AppLayout>
   );
