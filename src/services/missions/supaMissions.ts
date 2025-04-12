@@ -14,7 +14,18 @@ export function mapSupaMissionToMission(mission: any): Mission {
     console.warn("sdr_id manquant dans les données Supabase:", mission);
   }
   
-  const sdr = getUserById(mission.sdr_id);
+  // Attempt to get SDR name from different possible sources
+  let sdrName = "Non assigné";
+  
+  // If we have profiles data from a join
+  if (mission.profiles) {
+    sdrName = mission.profiles.name || "Non assigné";
+  } else {
+    // Fallback to get user from mock data
+    const sdr = getUserById(mission.sdr_id);
+    sdrName = sdr?.name || "Non assigné";
+  }
+  
   return {
     id: mission.id,
     name: mission.name,
@@ -22,7 +33,7 @@ export function mapSupaMissionToMission(mission: any): Mission {
     sdrId: mission.sdr_id, // Critical conversion point
     description: mission.description || "",
     createdAt: new Date(mission.created_at),
-    sdrName: sdr?.name || "Non assigné",
+    sdrName: sdrName,
     requests: getRequestsByMissionId(mission.id),
     startDate: mission.start_date ? new Date(mission.start_date) : null,
     endDate: mission.end_date ? new Date(mission.end_date) : null,
@@ -35,7 +46,10 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
   try {
     const { data: missions, error } = await supabase
       .from("missions")
-      .select("*")
+      .select(`
+        *,
+        profiles:sdr_id (id, name, email)
+      `)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -43,6 +57,7 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
       throw error;
     }
 
+    console.log("Missions récupérées avec données de profil:", missions);
     return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Erreur lors de la récupération des missions:", error);
@@ -55,7 +70,10 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
   try {
     const { data: missions, error } = await supabase
       .from("missions")
-      .select("*")
+      .select(`
+        *,
+        profiles:sdr_id (id, name, email)
+      `)
       .eq("sdr_id", userId)
       .order("created_at", { ascending: false });
 
@@ -76,7 +94,10 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
   try {
     const { data: mission, error } = await supabase
       .from("missions")
-      .select("*")
+      .select(`
+        *,
+        profiles:sdr_id (id, name, email)
+      `)
       .eq("id", missionId)
       .single();
 

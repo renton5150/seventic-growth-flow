@@ -1,5 +1,4 @@
-
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -16,6 +15,7 @@ import { invalidateUserCache } from "@/services/user/userQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
@@ -36,12 +36,40 @@ const AdminMissions = () => {
     }, 100);
   }, [queryClient]);
 
+  useEffect(() => {
+    const diagnoseMissionData = async () => {
+      try {
+        const { data: directData, error: directError } = await supabase
+          .from('missions')
+          .select('id, name, sdr_id');
+        
+        if (directError) {
+          console.error("Erreur lors de la vérification directe:", directError);
+        } else {
+          console.log("Données directes de Supabase:", directData);
+        }
+      } catch (error) {
+        console.error("Erreur lors du diagnostic:", error);
+      }
+    };
+    
+    diagnoseMissionData();
+  }, []);
+
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions', 'admin'],
     queryFn: async () => {
       try {
         console.log("Chargement des missions pour l'administrateur");
         const allMissions = await getAllMissions();
+        console.log("Missions récupérées:", allMissions);
+        allMissions.forEach(mission => {
+          console.log(`Mission ${mission.id}:`, {
+            name: mission.name,
+            sdrId: mission.sdrId,
+            sdrName: mission.sdrName || "Non assigné"
+          });
+        });
         return allMissions;
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);

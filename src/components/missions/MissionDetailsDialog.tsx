@@ -32,6 +32,9 @@ export const MissionDetailsDialog = ({
     return format(new Date(date), "d MMMM yyyy", { locale: fr });
   };
 
+  console.log("Affichage des détails de mission:", mission);
+  console.log("SDR assigné à la mission:", mission.sdrName || "Non assigné");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">

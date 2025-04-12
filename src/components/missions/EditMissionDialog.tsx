@@ -82,6 +82,7 @@ export function EditMissionDialog({
   // Mettre à jour les valeurs du formulaire quand la mission change
   useEffect(() => {
     if (mission) {
+      console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", mission);
       form.reset({
         name: mission.name,
         client: mission.client || "",
