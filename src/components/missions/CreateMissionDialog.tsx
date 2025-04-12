@@ -113,6 +113,12 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
 
     setIsSubmitting(true);
     try {
+      // Log pour débogage
+      console.log("Données du formulaire:", data);
+      console.log("SDR ID:", data.sdr_id);
+      
+      // Correction: s'assurer que sdrId est correctement passé
+      // Note: nous utilisons sdrId (camelCase) dans l'API mais sdr_id (snake_case) dans le formulaire
       await createMission({
         name: data.name,
         client: "", // Sending empty string for client as it's removed from the form
@@ -171,7 +177,11 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Assigner à (SDR)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionner un SDR" />
@@ -186,6 +196,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
                 </FormItem>
               )}
             />

@@ -128,6 +128,15 @@ export const createSupaMission = async (data: {
   type?: string;
 }): Promise<Mission | undefined> => {
   try {
+    // Log pour débogage
+    console.log("Mission reçue dans createSupaMission:", data);
+    console.log("SDR ID reçu:", data.sdrId);
+    
+    // Vérifier si sdrId est défini et non vide
+    if (!data.sdrId) {
+      console.warn("Aucun SDR ID fourni pour la création de la mission");
+    }
+    
     // Créer un ID unique pour la mission
     const missionId = uuidv4();
     
@@ -136,12 +145,14 @@ export const createSupaMission = async (data: {
       id: missionId,
       name: data.name,
       client: data.client || "Client non spécifié",
-      sdr_id: data.sdrId,
+      sdr_id: data.sdrId, // Nous nous assurons que c'est bien sdr_id (underscore) pour Supabase
       description: data.description,
       start_date: data.startDate ? data.startDate.toISOString() : null,
       end_date: data.endDate ? data.endDate.toISOString() : null,
       type: data.type || "Full"
     };
+    
+    console.log("Données formatées pour Supabase:", missionData);
 
     const { data: mission, error } = await supabase
       .from("missions")
@@ -153,6 +164,8 @@ export const createSupaMission = async (data: {
       console.error("Erreur lors de la création de la mission:", error);
       throw error;
     }
+
+    console.log("Données retournées par Supabase après insertion:", mission);
 
     const sdr = getUserById(mission.sdr_id);
     return {

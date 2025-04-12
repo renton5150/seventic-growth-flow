@@ -125,6 +125,13 @@ export const createMission = async (data: {
     const isAuthenticated = await isSupabaseAuthenticated();
     console.log("Création d'une mission, Supabase configuré:", isSupabaseConfigured);
     console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
+    console.log("Données reçues dans createMission:", data);
+    console.log("SDR ID reçu:", data.sdrId);
+    
+    // Vérifier si sdrId est défini
+    if (!data.sdrId) {
+      console.warn("Aucun SDR ID fourni pour la création de la mission");
+    }
     
     if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation du mock pour la création de mission");
