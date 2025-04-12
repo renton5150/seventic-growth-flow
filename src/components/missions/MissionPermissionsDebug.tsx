@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { checkMissionAccess, compareIds } from "@/utils/permissionUtils";
 import { Mission } from "@/types/types";
 import { toast } from "sonner";
+import { mapSupaMissionToMission } from "@/services/missions/utils";
 
 // Politiques RLS pour les missions (statiques pour éviter les erreurs de type)
 const MISSION_POLICIES = [
@@ -106,7 +107,7 @@ export function MissionPermissionsDebug() {
       setChecking(true);
       
       // Récupérer les détails de la mission
-      const { data: mission, error: missionError } = await supabase
+      const { data: missionData, error: missionError } = await supabase
         .from("missions")
         .select("*")
         .eq("id", missionId)
@@ -118,15 +119,21 @@ export function MissionPermissionsDebug() {
         return;
       }
       
-      setMissionDetails(mission);
+      // Convertir les données Supabase au format Mission de l'application
+      if (missionData) {
+        const mission = mapSupaMissionToMission(missionData);
+        setMissionDetails(mission);
+      } else {
+        setMissionDetails(null);
+      }
       
       // Vérifier l'accès
       const accessInfo = await checkMissionAccess(missionId);
       setAccessResult(accessInfo);
       
       // Si l'utilisateur est authentifié et a accès, vérifier les comparaisons d'ID
-      if (session?.user && mission) {
-        const idComparison = compareIds(session.user.id, mission.sdr_id);
+      if (session?.user && missionData) {
+        const idComparison = compareIds(session.user.id, missionData.sdr_id);
         setAccessResult((prev: any) => ({
           ...prev,
           idComparison
