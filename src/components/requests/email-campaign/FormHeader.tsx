@@ -77,7 +77,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                   <SelectContent>
                     {missions.map((mission) => (
                       <SelectItem key={mission.id} value={mission.id}>
-                        {mission.name} ({mission.client})
+                        {mission.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

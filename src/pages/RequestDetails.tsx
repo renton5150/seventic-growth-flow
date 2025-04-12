@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -137,10 +138,6 @@ const RequestDetails = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Mission</p>
                   <p className="font-medium">{mission?.name || "Inconnue"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Client</p>
-                  <p className="font-medium">{mission?.client || "Inconnu"}</p>
                 </div>
               </div>
             </div>

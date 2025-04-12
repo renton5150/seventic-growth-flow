@@ -20,7 +20,6 @@ export const mockMissions: Mission[] = [
   {
     id: "mission1",
     name: "Prospection LinkedIn",
-    client: "TechCorp",
     sdrId: "user1",
     description: "Campagne de prospection sur LinkedIn",
     createdAt: new Date("2023-01-15"),
@@ -33,7 +32,6 @@ export const mockMissions: Mission[] = [
   {
     id: "mission2",
     name: "Emailing Secteur Finance",
-    client: "FinanceGroup",
     sdrId: "user2",
     description: "Campagne d'emailing ciblée",
     createdAt: new Date("2023-02-20"),
@@ -73,7 +71,6 @@ export const findMockMissionById = (missionId: string): Mission | undefined => {
 // Créer une nouvelle mission mockée
 export const createMockMission = (data: {
   name: string;
-  client: string;
   description?: string;
   sdrId: string;
   startDate?: Date | null;
@@ -83,15 +80,14 @@ export const createMockMission = (data: {
   const newMission: Mission = {
     id: uuidv4(),
     name: data.name,
-    client: data.client,
     sdrId: data.sdrId,
     description: data.description,
     createdAt: new Date(),
     sdrName: getMockUser(data.sdrId)?.name || "Non assigné",
     requests: [],
-    startDate: data.startDate,
-    endDate: data.endDate,
-    type: data.type as MissionType || "Full"
+    startDate: data.startDate || null,
+    endDate: data.endDate || null,
+    type: (data.type as MissionType) || "Full"
   };
   mockMissions.push(newMission);
   return newMission;
@@ -111,7 +107,6 @@ export const deleteMockMission = (missionId: string): boolean => {
 export const updateMockMission = async (data: {
   id: string;
   name: string;
-  client?: string;
   sdrId: string;
   description?: string;
   startDate: Date | null;
@@ -131,7 +126,6 @@ export const updateMockMission = async (data: {
   const updatedMission: Mission = {
     id: data.id,
     name: data.name,
-    client: data.client || "",
     sdrId: data.sdrId,
     description: data.description || "",
     createdAt: mockMissions[missionIndex].createdAt,

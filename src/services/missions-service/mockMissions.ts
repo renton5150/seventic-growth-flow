@@ -39,7 +39,6 @@ export const getMockedMissionById = async (missionId: string): Promise<Mission |
  */
 export const createMockedMission = async (data: {
   name: string;
-  client: string;
   description?: string;
   sdrId: string;
   startDate?: Date | null;
@@ -61,7 +60,6 @@ export const createMockedMission = async (data: {
 export const updateMockedMission = async (data: {
   id: string;
   name: string;
-  client?: string;
   sdrId: string;
   description?: string;
   startDate: Date | null;
