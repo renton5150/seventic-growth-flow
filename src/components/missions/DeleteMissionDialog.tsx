@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteMission } from "@/services/missionService";
+import { deleteMission, checkMissionExists } from "@/services/missionService";
 import { toast } from "sonner";
 
 interface DeleteMissionDialogProps {
@@ -31,48 +31,71 @@ export function DeleteMissionDialog({
 }: DeleteMissionDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!missionId) return;
     
-    // 1. D'abord fermer la boîte de dialogue
-    onOpenChange(false);
-    
-    // 2. Montrer un toast de traitement
-    const pendingToastId = toast.loading(`Suppression de la mission ${missionName}...`);
-    
-    // 3. Exécuter la suppression avec un léger délai pour éviter les blocages d'interface
-    setTimeout(async () => {
+    try {
+      console.log("Tentative de suppression de la mission:", missionId);
       setIsDeleting(true);
       
-      try {
-        const success = await deleteMission(missionId);
+      // 1. Fermer la boîte de dialogue d'abord
+      onOpenChange(false);
+      
+      // 2. Montrer un toast de traitement
+      const pendingToastId = toast.loading(`Suppression de la mission ${missionName}...`);
+      
+      // 3. Vérifier si la mission existe avant de la supprimer
+      const missionExists = await checkMissionExists(missionId);
+      console.log("La mission existe-t-elle?", missionExists);
+      
+      if (!missionExists) {
+        toast.error("Échec de la suppression", {
+          id: pendingToastId,
+          description: "La mission n'existe pas ou a déjà été supprimée"
+        });
+        return;
+      }
+      
+      // 4. Supprimer la mission
+      const success = await deleteMission(missionId);
+      
+      // 5. Vérifier le résultat
+      if (success) {
+        // Vérifier que la mission a bien été supprimée
+        const stillExists = await checkMissionExists(missionId);
         
-        if (success) {
-          // Suppression réussie
-          toast.success("Mission supprimée", {
-            id: pendingToastId,
-            description: `La mission ${missionName} a été supprimée avec succès.`
-          });
-          
-          // Actualiser la liste des missions
-          onDeleted();
-        } else {
-          // Échec de la suppression
+        if (stillExists) {
+          console.error("La mission existe toujours après tentative de suppression");
           toast.error("Échec de la suppression", {
             id: pendingToastId,
-            description: "Impossible de supprimer la mission. Veuillez réessayer."
+            description: "La mission existe toujours après tentative de suppression"
           });
+          return;
         }
-      } catch (error) {
-        console.error("Erreur lors de la suppression de la mission:", error);
-        toast.error("Erreur", {
+        
+        // Suppression réussie
+        toast.success("Mission supprimée", {
           id: pendingToastId,
-          description: "Une erreur est survenue lors de la suppression de la mission."
+          description: `La mission ${missionName} a été supprimée avec succès.`
         });
-      } finally {
-        setIsDeleting(false);
+        
+        // Actualiser la liste des missions
+        onDeleted();
+      } else {
+        // Échec de la suppression
+        toast.error("Échec de la suppression", {
+          id: pendingToastId,
+          description: "Impossible de supprimer la mission. Veuillez réessayer."
+        });
       }
-    }, 100);
+    } catch (error) {
+      console.error("Erreur lors de la suppression de la mission:", error);
+      toast.error("Erreur", {
+        description: "Une erreur est survenue lors de la suppression de la mission."
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (

@@ -1,4 +1,3 @@
-
 import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
@@ -18,7 +17,6 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
       throw error;
     }
 
-    // Convertir les missions du format Supabase au format de l'application
     return missions.map(mission => {
       const sdr = getUserById(mission.sdr_id);
       return {
@@ -88,7 +86,6 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
 
     if (error) {
       if (error.code === "PGRST116") {
-        // Code erreur quand aucune ligne n'est trouvée
         return undefined;
       }
       console.error("Erreur lors de la récupération de la mission:", error);
@@ -117,6 +114,27 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
   }
 };
 
+// Vérifier si une mission existe
+export const checkMissionExists = async (missionId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from("missions")
+      .select("id")
+      .eq("id", missionId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Erreur lors de la vérification de l'existence de la mission:", error);
+      return false;
+    }
+
+    return !!data;
+  } catch (error) {
+    console.error("Exception lors de la vérification de l'existence de la mission:", error);
+    return false;
+  }
+};
+
 // Créer une nouvelle mission
 export const createSupaMission = async (data: {
   name: string;
@@ -128,24 +146,21 @@ export const createSupaMission = async (data: {
   type?: string;
 }): Promise<Mission | undefined> => {
   try {
-    // Log pour débogage
     console.log("Mission reçue dans createSupaMission:", data);
     console.log("SDR ID reçu:", data.sdrId);
     
-    // Vérifier si sdrId est défini et non vide
     if (!data.sdrId) {
-      console.warn("Aucun SDR ID fourni pour la création de la mission");
+      console.error("SDR ID manquant dans createSupaMission!");
+      throw new Error("Le SDR est requis pour créer une mission");
     }
     
-    // Créer un ID unique pour la mission
     const missionId = uuidv4();
     
-    // Convert Date objects to ISO strings for proper insertion
     const missionData = {
       id: missionId,
       name: data.name,
       client: data.client || "Client non spécifié",
-      sdr_id: data.sdrId, // Nous nous assurons que c'est bien sdr_id (underscore) pour Supabase
+      sdr_id: data.sdrId,
       description: data.description,
       start_date: data.startDate ? data.startDate.toISOString() : null,
       end_date: data.endDate ? data.endDate.toISOString() : null,
@@ -153,6 +168,7 @@ export const createSupaMission = async (data: {
     };
     
     console.log("Données formatées pour Supabase:", missionData);
+    console.log("SDR ID qui sera inséré:", missionData.sdr_id);
 
     const { data: mission, error } = await supabase
       .from("missions")
@@ -187,22 +203,118 @@ export const createSupaMission = async (data: {
   }
 };
 
+// Mettre à jour une mission existante
+export const updateSupaMission = async (mission: {
+  id: string;
+  name: string;
+  client?: string;
+  sdrId: string;
+  description?: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  type: MissionType;
+}): Promise<Mission> => {
+  console.log("updateSupaMission reçoit:", mission);
+  
+  const { data: existingMission, error: checkError } = await supabase
+    .from("missions")
+    .select("id")
+    .eq("id", mission.id)
+    .single();
+  
+  if (checkError) {
+    console.error("Erreur lors de la vérification de l'existence:", checkError);
+    throw new Error(`Erreur lors de la vérification: ${checkError.message}`);
+  }
+  
+  const supabaseData = {
+    name: mission.name,
+    client: mission.client || "",
+    sdr_id: mission.sdrId,
+    description: mission.description || "",
+    start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
+    end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
+    type: mission.type || "Full",
+  };
+  
+  console.log("Données formatées pour mise à jour Supabase:", supabaseData);
+  console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);
+  
+  const { data, error } = await supabase
+    .from("missions")
+    .update(supabaseData)
+    .eq("id", mission.id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Erreur Supabase lors de la mise à jour:", error);
+    throw new Error(`Erreur lors de la mise à jour: ${error.message}`);
+  }
+  
+  console.log("Réponse de Supabase après mise à jour:", data);
+  
+  const sdr = getUserById(data.sdr_id);
+  return {
+    id: data.id,
+    name: data.name,
+    client: data.client,
+    sdrId: data.sdr_id,
+    description: data.description,
+    createdAt: new Date(data.created_at),
+    sdrName: sdr?.name || "Non assigné",
+    requests: getRequestsByMissionId(data.id),
+    startDate: data.start_date ? new Date(data.start_date) : null,
+    endDate: data.end_date ? new Date(data.end_date) : null,
+    type: (data.type as MissionType) || "Full"
+  };
+};
+
 // Supprimer une mission
 export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from("missions")
-      .delete()
-      .eq("id", missionId);
-
-    if (error) {
-      console.error("Erreur lors de la suppression de la mission:", error);
-      throw error;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Erreur lors de la suppression de la mission:", error);
-    return false;
+  console.log("Suppression de mission dans Supabase. ID:", missionId);
+  
+  const { data: existingMission, error: checkError } = await supabase
+    .from("missions")
+    .select("id")
+    .eq("id", missionId)
+    .maybeSingle();
+  
+  if (checkError) {
+    console.error("Erreur lors de la vérification de l'existence:", checkError);
+    throw new Error(`Erreur lors de la vérification: ${checkError.message}`);
   }
+  
+  if (!existingMission) {
+    console.error("Tentative de suppression d'une mission inexistante:", missionId);
+    throw new Error("La mission n'existe pas");
+  }
+  
+  const { error } = await supabase
+    .from("missions")
+    .delete()
+    .eq("id", missionId);
+  
+  if (error) {
+    console.error("Erreur lors de la suppression:", error);
+    throw new Error(`Erreur lors de la suppression: ${error.message}`);
+  }
+  
+  const { data: checkAfterDelete, error: verifyError } = await supabase
+    .from("missions")
+    .select("id")
+    .eq("id", missionId)
+    .maybeSingle();
+  
+  if (verifyError) {
+    console.error("Erreur lors de la vérification après suppression:", verifyError);
+  }
+  
+  if (checkAfterDelete) {
+    console.error("La mission existe toujours après suppression");
+    throw new Error("Échec de la suppression: la mission existe toujours");
+  }
+  
+  console.log("Mission supprimée avec succès");
+  return true;
 };

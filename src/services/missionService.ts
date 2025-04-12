@@ -7,18 +7,24 @@ import {
   getMockMissionById,
   createMockMission,
   findMockMissionById,
-  deleteMockMission
+  deleteMockMission,
+  updateMockMission
 } from "./missions/mockMissions";
 import {
   getAllSupaMissions,
   getSupaMissionsByUserId,
   getSupaMissionById,
   createSupaMission,
-  deleteSupaMission
+  deleteSupaMission,
+  checkMissionExists,
+  updateSupaMission
 } from "./missions/supaMissions";
 
 // Ré-exporter les fonctions mockées pour la compatibilité
 export { findMockMissionById, getMockMissionsBySdrId } from "./missions/mockMissions";
+
+// Ré-exporter la fonction de vérification d'existence
+export { checkMissionExists } from "./missions/supaMissions";
 
 // Vérifier si un utilisateur est connecté avec Supabase
 const isSupabaseAuthenticated = async (): Promise<boolean> => {
@@ -130,7 +136,8 @@ export const createMission = async (data: {
     
     // Vérifier si sdrId est défini
     if (!data.sdrId) {
-      console.warn("Aucun SDR ID fourni pour la création de la mission");
+      console.error("SDR ID manquant!");
+      throw new Error("Le SDR est requis pour créer une mission");
     }
     
     if (!isSupabaseConfigured || !isAuthenticated) {
@@ -152,6 +159,44 @@ export const createMission = async (data: {
   }
 };
 
+// Mettre à jour une mission existante
+export const updateMission = async (data: {
+  id: string;
+  name: string;
+  client?: string;
+  sdrId: string;
+  description?: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  type: string;
+}): Promise<Mission | undefined> => {
+  try {
+    const isAuthenticated = await isSupabaseAuthenticated();
+    console.log("Mise à jour d'une mission, Supabase configuré:", isSupabaseConfigured);
+    console.log("Utilisateur authentifié avec Supabase:", isAuthenticated);
+    console.log("Données reçues dans updateMission:", data);
+    console.log("SDR ID reçu:", data.sdrId);
+    
+    // Vérifier si sdrId est défini
+    if (!data.sdrId) {
+      console.error("SDR ID manquant!");
+      throw new Error("Le SDR est requis pour mettre à jour une mission");
+    }
+    
+    if (!isSupabaseConfigured || !isAuthenticated) {
+      console.log("Utilisation du mock pour la mise à jour de mission");
+      return updateMockMission(data);
+    }
+
+    const mission = await updateSupaMission(data);
+    return mission;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la mise à jour de la mission:", error);
+    console.log("Fallback vers les données mockées");
+    return updateMockMission(data);
+  }
+};
+
 // Supprimer une mission par ID
 export const deleteMission = async (missionId: string): Promise<boolean> => {
   try {
@@ -162,6 +207,13 @@ export const deleteMission = async (missionId: string): Promise<boolean> => {
     if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Utilisation du mock pour la suppression de mission");
       return deleteMockMission(missionId);
+    }
+
+    // Vérifier si la mission existe avant de tenter de la supprimer
+    const exists = await checkMissionExists(missionId);
+    if (!exists) {
+      console.error("Mission inexistante:", missionId);
+      throw new Error("La mission n'existe pas ou a déjà été supprimée");
     }
 
     const success = await deleteSupaMission(missionId);

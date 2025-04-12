@@ -1,4 +1,3 @@
-
 import { useCallback, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
@@ -25,11 +24,9 @@ const AdminMissions = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
   
-  // Fonction pour rafraîchir les données - optimisée pour limiter les appels
   const refreshMissionsData = useCallback(() => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
     
-    // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
     setTimeout(() => {
       queryClient.invalidateQueries({ 
         queryKey: ['missions'],
@@ -38,7 +35,6 @@ const AdminMissions = () => {
     }, 100);
   }, [queryClient]);
 
-  // Utiliser react-query pour gérer les missions
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions', 'admin'],
     queryFn: async () => {
@@ -108,11 +104,11 @@ const AdminMissions = () => {
             missions={missions} 
             isAdmin={true} 
             onViewMission={handleViewMission}
-            onDeleteMission={handleDeleteMission} 
+            onDeleteMission={handleDeleteMission}
+            onMissionUpdated={refreshMissionsData}
           />
         )}
         
-        {/* Dialogs */}
         <CreateMissionDialog 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 

@@ -1,23 +1,32 @@
-
 import { Mission } from "@/types/types";
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState } from "react";
+import { EditMissionDialog } from "./EditMissionDialog";
 
 interface MissionsTableProps {
   missions: Mission[];
   isAdmin: boolean;
   onViewMission: (mission: Mission) => void;
   onDeleteMission?: (mission: Mission) => void;
+  onMissionUpdated?: () => void;
 }
 
-export const MissionsTable = ({ missions, isAdmin, onViewMission, onDeleteMission }: MissionsTableProps) => {
+export const MissionsTable = ({ 
+  missions, 
+  isAdmin, 
+  onViewMission, 
+  onDeleteMission,
+  onMissionUpdated
+}: MissionsTableProps) => {
   const [sortColumn, setSortColumn] = useState<string>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Fonction pour formater les dates
   const formatDate = (date: Date | null) => {
@@ -32,6 +41,19 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission, onDeleteMissio
     } else {
       setSortColumn(column);
       setSortDirection("asc");
+    }
+  };
+
+  // Ouvrir le dialogue d'édition pour une mission
+  const handleEditMission = (mission: Mission) => {
+    setMissionToEdit(mission);
+    setIsEditDialogOpen(true);
+  };
+
+  // Clôturer l'édition et rafraîchir les données au besoin
+  const handleEditComplete = () => {
+    if (onMissionUpdated) {
+      onMissionUpdated();
     }
   };
 
@@ -82,65 +104,84 @@ export const MissionsTable = ({ missions, isAdmin, onViewMission, onDeleteMissio
   };
 
   return (
-    <div className="border rounded-md overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <SortableHeader column="name" label="Nom" />
-            <SortableHeader column="sdrName" label="SDR responsable" />
-            <SortableHeader column="type" label="Type" />
-            <SortableHeader column="startDate" label="Dates" />
-            <SortableHeader column="createdAt" label="Créée le" />
-            <SortableHeader column="requests" label="Demandes" />
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedMissions.map((mission) => (
-            <TableRow key={mission.id}>
-              <TableCell className="font-medium">{mission.name}</TableCell>
-              <TableCell>{mission.sdrName || "Non assigné"}</TableCell>
-              <TableCell>
-                <Badge variant={mission.type === "Full" ? "default" : "outline"}>
-                  {mission.type}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                {formatDate(mission.startDate)}
-                {mission.endDate && (
-                  <> → {formatDate(mission.endDate)}</>
-                )}
-              </TableCell>
-              <TableCell>{formatDate(mission.createdAt)}</TableCell>
-              <TableCell>
-                {mission.requests.length > 0 ? (
-                  <Badge variant="secondary">{mission.requests.length}</Badge>
-                ) : (
-                  "Aucune"
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => onViewMission(mission)}>
-                    <Eye className="h-4 w-4 mr-1" /> Voir
-                  </Button>
-                  
-                  {isAdmin && onDeleteMission && (
+    <>
+      <div className="border rounded-md overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableHeader column="name" label="Nom" />
+              <SortableHeader column="sdrName" label="SDR responsable" />
+              <SortableHeader column="type" label="Type" />
+              <SortableHeader column="startDate" label="Dates" />
+              <SortableHeader column="createdAt" label="Créée le" />
+              <SortableHeader column="requests" label="Demandes" />
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedMissions.map((mission) => (
+              <TableRow key={mission.id}>
+                <TableCell className="font-medium">{mission.name}</TableCell>
+                <TableCell>{mission.sdrName || "Non assigné"}</TableCell>
+                <TableCell>
+                  <Badge variant={mission.type === "Full" ? "default" : "outline"}>
+                    {mission.type}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {formatDate(mission.startDate)}
+                  {mission.endDate && (
+                    <> → {formatDate(mission.endDate)}</>
+                  )}
+                </TableCell>
+                <TableCell>{formatDate(mission.createdAt)}</TableCell>
+                <TableCell>
+                  {mission.requests.length > 0 ? (
+                    <Badge variant="secondary">{mission.requests.length}</Badge>
+                  ) : (
+                    "Aucune"
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => onViewMission(mission)}>
+                      <Eye className="h-4 w-4 mr-1" /> Voir
+                    </Button>
+                    
                     <Button 
                       size="sm" 
-                      variant="ghost" 
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => onDeleteMission(mission)}
+                      variant="ghost"
+                      className="hover:bg-blue-50"
+                      onClick={() => handleEditMission(mission)}
                     >
-                      <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+                      <Edit className="h-4 w-4 mr-1" /> Modifier
                     </Button>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+                    
+                    {isAdmin && onDeleteMission && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => onDeleteMission(mission)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      
+      {/* Dialogue d'édition */}
+      <EditMissionDialog
+        mission={missionToEdit}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onMissionUpdated={handleEditComplete}
+      />
+    </>
   );
 };
