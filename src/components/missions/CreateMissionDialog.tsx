@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
-import { createMission } from "@/services/missionService";
+import { createMission } from "@/services/missions-service"; // Updated import path
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/user/userQueries";
 import { Loader2, CalendarIcon } from "lucide-react";
-import { getAllMissions } from "@/services/missionService";
+import { getAllMissions } from "@/services/missions-service"; // Updated import path
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";

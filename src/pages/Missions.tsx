@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mission } from "@/types/types";
-import { getAllMissions, getMissionsByUserId } from "@/services/missionService";
+import { getAllMissions, getMissionsByUserId } from "@/services/missions-service"; // Updated import path
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";

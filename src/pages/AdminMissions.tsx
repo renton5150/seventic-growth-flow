@@ -10,7 +10,7 @@ import { Plus } from "lucide-react";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { DeleteMissionDialog } from "@/components/missions/DeleteMissionDialog";
-import { getAllMissions } from "@/services/missionService";
+import { getAllMissions } from "@/services/missions-service"; // Updated import path
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { invalidateUserCache } from "@/services/user/userQueries";
 import { useQueryClient } from "@tanstack/react-query";

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Mission } from "@/types/types";
-import { updateMission } from "@/services/missionService";
+import { updateMission } from "@/services/missions-service"; // Updated import path
 import { MissionForm } from "./form/MissionForm";
 import { MissionFormValues } from "./schemas/missionFormSchema";
 
