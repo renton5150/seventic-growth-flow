@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/user/userQueries";
 import { Loader2 } from "lucide-react";
+import { getAllMissions } from "@/services/missionService";
 
 interface CreateMissionDialogProps {
   open: boolean;
@@ -27,7 +28,7 @@ interface MissionFormData {
 
 export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMissionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<MissionFormData>();
+  const { register, handleSubmit, reset, setError, formState: { errors } } = useForm<MissionFormData>();
 
   // Fetch SDRs for assignment
   const { data: users = [] } = useQuery({
@@ -36,9 +37,45 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
     enabled: open, // Only fetch when dialog is open
   });
 
+  // Fetch existing missions for duplicate name validation
+  const { data: existingMissions = [] } = useQuery({
+    queryKey: ['existing-missions'],
+    queryFn: () => getAllMissions(),
+    enabled: open, // Only fetch when dialog is open
+  });
+
+  // Memoize existing mission names for efficient comparison
+  const existingMissionNames = useMemo(() => {
+    return existingMissions.map(mission => mission.name.trim().toLowerCase());
+  }, [existingMissions]);
+
   const sdrs = users.filter(user => user.role === 'sdr');
 
+  const validateMissionName = (name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return "Le nom de la mission est obligatoire";
+    }
+    
+    const exists = existingMissionNames.includes(trimmedName.toLowerCase());
+    if (exists) {
+      return "Une mission avec ce nom existe déjà";
+    }
+    
+    return true;
+  };
+
   const onSubmit = async (data: MissionFormData) => {
+    // Validate mission name for duplicates
+    const nameValidation = validateMissionName(data.name);
+    if (nameValidation !== true) {
+      setError("name", { 
+        type: "manual", 
+        message: nameValidation 
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await createMission({
@@ -75,7 +112,11 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
             <Input
               id="name"
               placeholder="Nom de la mission"
-              {...register("name", { required: "Le nom de la mission est obligatoire" })}
+              {...register("name", { 
+                required: "Le nom de la mission est obligatoire",
+                validate: validateMissionName
+              })}
+              className={errors.name ? "border-red-500" : ""}
             />
             {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
           </div>
