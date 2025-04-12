@@ -8,7 +8,6 @@ export const missions: Mission[] = [
   {
     id: "mission1",
     name: "Acme Corp",
-    client: "Acme Corporation",
     sdrId: "user2",
     createdAt: new Date("2025-03-01"),
     requests: getRequestsByMissionId("mission1"),
@@ -19,7 +18,6 @@ export const missions: Mission[] = [
   {
     id: "mission2",
     name: "TechStart",
-    client: "TechStart Inc",
     sdrId: "user2",
     createdAt: new Date("2025-03-15"),
     requests: getRequestsByMissionId("mission2"),
@@ -30,7 +28,6 @@ export const missions: Mission[] = [
   {
     id: "mission3",
     name: "Global Finance",
-    client: "Global Finance Ltd",
     sdrId: "user2",
     createdAt: new Date("2025-03-20"),
     requests: getRequestsByMissionId("mission3"),

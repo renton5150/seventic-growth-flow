@@ -10,7 +10,6 @@ import { checkMissionExists } from "./getMissions";
 export const updateSupaMission = async (mission: {
   id: string;
   name: string;
-  client?: string;
   sdrId: string;
   description?: string;
   startDate: Date | null;
@@ -45,7 +44,6 @@ export const updateSupaMission = async (mission: {
   // Prepare data for Supabase
   const supabaseData = {
     name: mission.name,
-    client: mission.client || "",
     sdr_id: mission.sdrId,
     description: mission.description || "",
     start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,

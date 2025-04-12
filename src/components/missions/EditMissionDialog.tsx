@@ -35,7 +35,6 @@ export function EditMissionDialog({
       const updatedMissionData = {
         id: mission.id,
         name: values.name,
-        client: values.client || "",
         sdrId: values.sdrId,
         description: values.description || "",
         startDate: values.startDate,

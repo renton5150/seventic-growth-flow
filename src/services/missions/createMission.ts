@@ -9,7 +9,6 @@ import { mapSupaMissionToMission } from "./utils";
  */
 export const createSupaMission = async (data: {
   name: string;
-  client: string;
   sdrId: string;
   description?: string;
   startDate?: Date | null;
@@ -32,7 +31,6 @@ export const createSupaMission = async (data: {
     const missionData = {
       id: missionId,
       name: data.name,
-      client: data.client || "Client non spécifié",
       sdr_id: data.sdrId,
       description: data.description || "",
       start_date: data.startDate ? new Date(data.startDate).toISOString() : null,

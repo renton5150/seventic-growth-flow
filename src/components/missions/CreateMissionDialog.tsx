@@ -31,7 +31,6 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
       name: "",
-      client: "",
       sdrId: "",
       description: "",
       startDate: null,
@@ -75,7 +74,6 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       
       await createMission({
         name: data.name,
-        client: data.client || "",
         sdrId: data.sdrId === 'unassigned' ? '' : (data.sdrId || ''),
         description: data.description,
         startDate: data.startDate,

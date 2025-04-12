@@ -88,7 +88,6 @@ export const getSupabaseMissionById = async (missionId: string): Promise<Mission
  */
 export const createSupabaseMission = async (data: {
   name: string;
-  client: string;
   description?: string;
   sdrId: string;
   startDate?: Date | null;
@@ -128,7 +127,6 @@ export const createSupabaseMission = async (data: {
 export const updateSupabaseMission = async (data: {
   id: string;
   name: string;
-  client?: string;
   sdrId: string;
   description?: string;
   startDate: Date | null;

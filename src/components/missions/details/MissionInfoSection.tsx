@@ -23,12 +23,6 @@ export const MissionInfoSection = ({ mission }: MissionInfoSectionProps) => {
       </div>
       <div>
         <h3 className="text-sm font-medium text-gray-500 mb-1">
-          Client
-        </h3>
-        <p>{mission.client || "-"}</p>
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-gray-500 mb-1">
           Date de création
         </h3>
         <p>{formatDate(mission.createdAt)}</p>

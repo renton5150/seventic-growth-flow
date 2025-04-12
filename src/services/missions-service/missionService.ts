@@ -75,7 +75,6 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
  */
 export const createMission = async (data: {
   name: string;
-  client: string;
   description?: string;
   sdrId: string;
   startDate?: Date | null;
@@ -104,7 +103,6 @@ export const createMission = async (data: {
 export const updateMission = async (data: {
   id: string;
   name: string;
-  client?: string;
   sdrId: string;
   description?: string;
   startDate: Date | null;

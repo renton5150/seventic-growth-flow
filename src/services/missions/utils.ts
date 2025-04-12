@@ -29,7 +29,6 @@ export function mapSupaMissionToMission(mission: any): Mission {
   return {
     id: mission.id,
     name: mission.name,
-    client: mission.client || "",
     sdrId: mission.sdr_id,
     description: mission.description || "",
     createdAt: new Date(mission.created_at),

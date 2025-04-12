@@ -110,7 +110,6 @@ export type Request = EmailCampaignRequest | DatabaseRequest | LinkedInScrapingR
 export interface Mission {
   id: string;
   name: string;
-  client: string;
   sdrId: string;
   createdAt: Date;
   description?: string;

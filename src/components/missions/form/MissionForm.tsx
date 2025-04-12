@@ -25,7 +25,6 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
       name: "",
-      client: "",
       sdrId: "",
       description: "",
       startDate: null,
@@ -40,7 +39,6 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
       console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", mission);
       form.reset({
         name: mission.name,
-        client: mission.client || "",
         sdrId: mission.sdrId,
         description: mission.description || "",
         startDate: mission.startDate ? new Date(mission.startDate) : null,

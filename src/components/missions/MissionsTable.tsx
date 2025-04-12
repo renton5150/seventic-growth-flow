@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,6 @@ export const MissionsTable = ({
       <TableHeader>
         <TableRow>
           <TableHead>Nom de la mission</TableHead>
-          <TableHead>Client</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>SDR responsable</TableHead>
           <TableHead>Actions</TableHead>
@@ -43,7 +43,6 @@ export const MissionsTable = ({
         {missions.map((mission) => (
           <TableRow key={mission.id}>
             <TableCell className="font-medium">{mission.name}</TableCell>
-            <TableCell>{mission.client || "-"}</TableCell>
             <TableCell>
               <Badge variant={mission.type === "Full" ? "default" : "outline"}>
                 {mission.type}
