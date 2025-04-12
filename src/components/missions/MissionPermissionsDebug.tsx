@@ -35,27 +35,38 @@ export function MissionPermissionsDebug() {
     checkConnection();
   }, []);
   
-  // Récupérer les politiques RLS
+  // Récupérer les informations de politiques RLS (simplifiées)
   useEffect(() => {
     const fetchPolicies = async () => {
       if (connectionStatus !== "online" || !user?.id) return;
       
       try {
-        // Cette requête nécessite des droits élevés mais nous la conservons pour le debug
-        // Au lieu d'utiliser rpc avec get_table_policies, nous allons faire une requête SQL directe
-        const { data, error } = await supabase
-          .from('pg_policies')
-          .select('*')
-          .eq('tablename', 'missions');
+        // Au lieu d'essayer d'accéder aux politiques directement, 
+        // nous stockons simplement des informations statiques pour l'affichage
+        setPolicies([
+          {
+            policyname: "Les utilisateurs peuvent voir leurs propres missions",
+            permissive: "PERMISSIVE",
+            cmd: "SELECT",
+            qual: "sdr_id = auth.uid()"
+          },
+          {
+            policyname: "Les utilisateurs peuvent modifier leurs propres missions",
+            permissive: "PERMISSIVE",
+            cmd: "UPDATE",
+            qual: "sdr_id = auth.uid()"
+          },
+          {
+            policyname: "Les administrateurs peuvent tout voir",
+            permissive: "PERMISSIVE",
+            cmd: "ALL",
+            qual: "auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin')"
+          }
+        ]);
         
-        if (error) {
-          console.warn("Impossible de récupérer les politiques RLS:", error.message);
-        } else if (data) {
-          setPolicies(Array.isArray(data) ? data : []);
-          console.log("Politiques RLS récupérées:", data);
-        }
+        console.log("Informations de politiques RLS chargées (statiques)");
       } catch (error) {
-        console.warn("Erreur lors de la récupération des politiques RLS");
+        console.warn("Erreur lors du chargement des informations de politiques");
       }
     };
     
