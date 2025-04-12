@@ -1,3 +1,4 @@
+
 import { Mission } from "@/types/types";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -8,7 +9,7 @@ let mockMissions: Mission[] = [
   {
     id: "a7447441-44c9-449c-b199-3ca4211f3199",
     name: "Mission Test",
-    client: "Entreprise Test",
+    client: "",
     sdrId: "user123",
     sdrName: "John Doe",
     createdAt: new Date(),
@@ -17,7 +18,7 @@ let mockMissions: Mission[] = [
   {
     id: "b7447441-44c9-449c-b199-3ca4211f3200",
     name: "Mission Example",
-    client: "Acme Corp",
+    client: "",
     sdrId: "user456",
     sdrName: "Jane Smith",
     createdAt: new Date(),
@@ -26,7 +27,7 @@ let mockMissions: Mission[] = [
   {
     id: "c7447441-44c9-449c-b199-3ca4211f3201",
     name: "Mission Demo",
-    client: "Beta Co",
+    client: "",
     sdrId: "user123",
     sdrName: "John Doe",
     createdAt: new Date(),

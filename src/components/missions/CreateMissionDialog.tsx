@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
-import { createMission } from "@/services/missionService"; // Fixed import path
+import { createMission } from "@/services/missionService";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/user/userQueries";
@@ -21,7 +21,6 @@ interface CreateMissionDialogProps {
 
 interface MissionFormData {
   name: string;
-  client: string;
   sdr_id?: string;
   description?: string;
 }
@@ -44,7 +43,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
     try {
       await createMission({
         name: data.name,
-        client: data.client,
+        client: "", // Sending empty string for client as it's removed from the form
         sdrId: data.sdr_id === 'unassigned' ? '' : (data.sdr_id || ''),
         description: data.description
       });
@@ -79,15 +78,6 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
               {...register("name", { required: "Le nom de la mission est obligatoire" })}
             />
             {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="client">Client</Label>
-            <Input
-              id="client"
-              placeholder="Nom du client"
-              {...register("client", { required: "Le nom du client est obligatoire" })}
-            />
-            {errors.client && <p className="text-sm text-red-500">{errors.client.message}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="sdr_id">Assigner à (SDR)</Label>

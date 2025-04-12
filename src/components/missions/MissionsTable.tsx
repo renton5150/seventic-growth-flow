@@ -41,7 +41,6 @@ export const MissionsTable = ({
           <TableHeader>
             <TableRow>
               <TableHead>Nom</TableHead>
-              <TableHead>Client</TableHead>
               <TableHead>SDR responsable</TableHead>
               <TableHead>Créée le</TableHead>
               <TableHead>Demandes</TableHead>
@@ -52,7 +51,6 @@ export const MissionsTable = ({
             {missions.map((mission) => (
               <TableRow key={mission.id}>
                 <TableCell className="font-medium">{mission.name}</TableCell>
-                <TableCell>{mission.client}</TableCell>
                 <TableCell>
                   <div className="flex items-center">
                     <Users className="mr-2 h-4 w-4 text-muted-foreground" />
