@@ -1,3 +1,4 @@
+
 import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "./utils";
@@ -47,7 +48,8 @@ export const updateSupaMission = async (mission: {
     description: mission.description || "",
     start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
     end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
-    type: mission.type || "Full"
+    type: mission.type || "Full",
+    client: mission.name // Utilise le nom comme valeur pour client (requis par le schéma)
   };
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
