@@ -3,6 +3,7 @@ import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "./utils";
 import { checkMissionExists } from "./getMissions";
+import { compareIds } from "@/utils/permissionUtils";
 
 /**
  * Mettre à jour une mission existante
@@ -21,7 +22,7 @@ export const updateSupaMission = async (mission: {
   // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
     .from("missions")
-    .select("id")
+    .select("id, sdr_id")
     .eq("id", mission.id)
     .maybeSingle();
   
@@ -33,6 +34,19 @@ export const updateSupaMission = async (mission: {
   if (!existingMission) {
     console.error("Mission introuvable:", mission.id);
     throw new Error("La mission n'existe pas");
+  }
+  
+  // Vérifier la concordance des IDs pour le debug
+  const idsComparison = compareIds(existingMission.sdr_id, mission.sdrId);
+  console.log("Comparaison des IDs:", idsComparison);
+  
+  // Get current user for debug
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (!sessionError && session) {
+    console.log("Session utilisateur actuelle:", session.user.id);
+    console.log("Comparaison avec sdr_id:", compareIds(session.user.id, existingMission.sdr_id));
+  } else {
+    console.error("Impossible de récupérer la session utilisateur:", sessionError);
   }
   
   // Validate sdrId
@@ -54,6 +68,10 @@ export const updateSupaMission = async (mission: {
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
   console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);
+  
+  // Ajouter des logs détaillés pour le debug
+  console.log("Requête Supabase: .from('missions').update(données).eq('id', mission.id)");
+  console.log("ID de la mission pour la mise à jour:", mission.id);
   
   const { data, error } = await supabase
     .from("missions")
@@ -98,6 +116,23 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   if (!exists) {
     console.error("Tentative de suppression d'une mission inexistante:", missionId);
     throw new Error("La mission n'existe pas");
+  }
+  
+  // Get current user for debug
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (!sessionError && session) {
+    console.log("Session utilisateur actuelle pour suppression:", session.user.id);
+    
+    // Fetch mission details for comparison
+    const { data: mission } = await supabase
+      .from("missions")
+      .select("sdr_id")
+      .eq("id", missionId)
+      .single();
+    
+    if (mission) {
+      console.log("Comparaison pour suppression:", compareIds(session.user.id, mission.sdr_id));
+    }
   }
   
   // Delete the mission
