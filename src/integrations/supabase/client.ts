@@ -35,7 +35,17 @@ console.log("Mode de fonctionnement:", supabaseUrl && supabaseAnonKey ? "Product
 export const testSupabaseConnection = async (): Promise<boolean> => {
   try {
     const startTime = Date.now();
-    const { data, error } = await supabase.from('profiles').select('count').limit(1).timeout(5000);
+    // Utilisons une approche sans timeout explicite car ce n'est pas supporté directement
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('count')
+      .limit(1)
+      .abortSignal(controller.signal);
+      
+    clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     
     console.log(`Test de connexion Supabase: ${error ? 'Échec' : 'Succès'} en ${duration}ms`);

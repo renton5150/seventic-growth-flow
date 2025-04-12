@@ -122,7 +122,6 @@ export const compareIds = (id1: string | null | undefined, id2: string | null | 
   return {
     equal: stringId1 === stringId2,
     strictEqual: id1 === id2,
-    normalizedEqual: normalizedId1 === normalizedId2,
     debugInfo: {
       id1: {
         value: id1,
@@ -137,7 +136,8 @@ export const compareIds = (id1: string | null | undefined, id2: string | null | 
         length: stringId2.length,
         charCodes: [...stringId2].map(c => c.charCodeAt(0)),
         normalized: normalizedId2
-      }
+      },
+      normalizedEqual: normalizedId1 === normalizedId2 // Ajouté dans le debugInfo au lieu d'être une propriété de premier niveau
     }
   };
 };

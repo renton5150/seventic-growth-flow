@@ -41,13 +41,17 @@ export function MissionPermissionsDebug() {
       if (connectionStatus !== "online" || !user?.id) return;
       
       try {
-        // Cette requête nécessite des droits élevés, mais nous la laissons pour le debug
-        const { data, error } = await supabase.rpc('get_table_policies', { table_name: 'missions' });
+        // Cette requête nécessite des droits élevés mais nous la conservons pour le debug
+        // Au lieu d'utiliser rpc avec get_table_policies, nous allons faire une requête SQL directe
+        const { data, error } = await supabase
+          .from('pg_policies')
+          .select('*')
+          .eq('tablename', 'missions');
         
         if (error) {
           console.warn("Impossible de récupérer les politiques RLS:", error.message);
         } else if (data) {
-          setPolicies(data);
+          setPolicies(Array.isArray(data) ? data : []);
           console.log("Politiques RLS récupérées:", data);
         }
       } catch (error) {
@@ -196,7 +200,8 @@ export function MissionPermissionsDebug() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Diagnostic de Permissions</h2>
         <div className="flex items-center gap-2">
-          <Badge variant={connectionStatus === "online" ? "success" : connectionStatus === "checking" ? "outline" : "destructive"}>
+          <Badge variant={connectionStatus === "online" ? "default" : connectionStatus === "checking" ? "outline" : "destructive"} 
+                 className={connectionStatus === "online" ? "bg-green-500 hover:bg-green-600" : ""}>
             {connectionStatus === "online" ? "Connecté" : connectionStatus === "checking" ? "Vérification..." : "Déconnecté"}
           </Badge>
           <Button 
