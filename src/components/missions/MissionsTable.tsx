@@ -10,7 +10,9 @@ import {
   Search, 
   Trash, 
   Users, 
-  X
+  X,
+  CalendarCheck,
+  CalendarDays
 } from "lucide-react";
 import { Mission } from "@/types/types";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 // Interface de base
@@ -51,6 +60,7 @@ interface Filters {
   searchTerm: string;
   sdrs: string[];
   dateRange: {
+    type: 'between' | 'after' | 'before' | 'equal' | null;
     from: Date | null;
     to: Date | null;
   };
@@ -75,6 +85,7 @@ export const MissionsTable = ({
     searchTerm: "",
     sdrs: [],
     dateRange: {
+      type: null,
       from: null,
       to: null
     },
@@ -87,7 +98,11 @@ export const MissionsTable = ({
   // État pour les dropdowns de filtres
   const [openFilterDropdown, setOpenFilterDropdown] = useState<string | null>(null);
   const [tempSdrFilters, setTempSdrFilters] = useState<string[]>([]);
-  const [tempDateRange, setTempDateRange] = useState<{from: Date | null, to: Date | null}>({ from: null, to: null });
+  const [tempDateFilter, setTempDateFilter] = useState<{
+    type: 'between' | 'after' | 'before' | 'equal' | null;
+    from: Date | null;
+    to: Date | null;
+  }>({ type: null, from: null, to: null });
   const [tempRequestsRange, setTempRequestsRange] = useState<[number]>([0]);
   
   // Pour le debounce de la recherche
@@ -138,7 +153,7 @@ export const MissionsTable = ({
       if (dropdown === "sdr") {
         setTempSdrFilters([...filters.sdrs]);
       } else if (dropdown === "date") {
-        setTempDateRange({ ...filters.dateRange });
+        setTempDateFilter({ ...filters.dateRange });
       } else if (dropdown === "requests") {
         setTempRequestsRange([filters.requestsRange.min || 0]);
       }
@@ -159,12 +174,11 @@ export const MissionsTable = ({
   const applyDateFilter = () => {
     setFilters(prev => ({
       ...prev,
-      dateRange: { ...tempDateRange }
+      dateRange: { ...tempDateFilter }
     }));
     setOpenFilterDropdown(null);
     
-    const hasDateFilter = tempDateRange.from || tempDateRange.to;
-    if (hasDateFilter) {
+    if (tempDateFilter.type) {
       toast.success("Filtre de dates appliqué");
     } else {
       toast.success("Filtres de dates réinitialisés");
@@ -216,6 +230,7 @@ export const MissionsTable = ({
       searchTerm: "",
       sdrs: [],
       dateRange: {
+        type: null,
         from: null,
         to: null
       },
@@ -239,6 +254,61 @@ export const MissionsTable = ({
     
     return () => clearTimeout(timer);
   }, [searchInputValue]);
+  
+  // Options pour le sélecteur de type de filtre date
+  const dateFilterOptions = [
+    { value: 'between', label: 'Se trouve entre', icon: CalendarDays },
+    { value: 'after', label: 'Est après', icon: Calendar },
+    { value: 'before', label: 'Est avant', icon: Calendar },
+    { value: 'equal', label: 'Est égal à', icon: CalendarCheck }
+  ];
+  
+  // Vérifier si le filtre de date temporaire est valide pour être appliqué
+  const canApplyDateFilter = () => {
+    if (!tempDateFilter.type) return false;
+    
+    if (tempDateFilter.type === 'between') {
+      return !!tempDateFilter.from && !!tempDateFilter.to;
+    }
+    
+    return !!tempDateFilter.from;
+  };
+  
+  // Réinitialiser le filtre de date temporaire
+  const resetDateFilter = () => {
+    setTempDateFilter({ type: null, from: null, to: null });
+  };
+  
+  // Gérer le changement de type de filtre date
+  const handleDateFilterTypeChange = (type: 'between' | 'after' | 'before' | 'equal' | null) => {
+    setTempDateFilter(prev => ({
+      ...prev,
+      type,
+      // Réinitialiser to si on ne sélectionne plus "between"
+      to: type === 'between' ? prev.to : null
+    }));
+  };
+  
+  // Obtenir la description du filtre de date pour l'afficher dans le badge
+  const getDateFilterDescription = () => {
+    if (!filters.dateRange.type || !filters.dateRange.from) return null;
+    
+    const formatDateShort = (date: Date) => format(date, "dd/MM/yyyy", { locale: fr });
+    
+    switch (filters.dateRange.type) {
+      case 'between':
+        if (!filters.dateRange.to) return null;
+        return `Entre le ${formatDateShort(filters.dateRange.from)} et le ${formatDateShort(filters.dateRange.to)}`;
+      case 'after':
+        return `Après le ${formatDateShort(filters.dateRange.from)}`;
+      case 'before':
+        return `Avant le ${formatDateShort(filters.dateRange.from)}`;
+      case 'equal':
+        return `Le ${formatDateShort(filters.dateRange.from)}`;
+      default:
+        return null;
+    }
+  };
   
   // Composant pour les en-têtes triables
   const SortableHead = ({ column, children }: { column: string, children: React.ReactNode }) => {
@@ -336,17 +406,17 @@ export const MissionsTable = ({
     );
   };
   
-  // En-tête filtrable pour la date
+  // En-tête filtrable pour la date (nouveau système avancé)
   const FilterableDateHead = () => {
-    const isActive = filters.dateRange.from !== null || filters.dateRange.to !== null;
+    const isActive = filters.dateRange.type !== null;
     
     return (
       <TableHead className="relative">
-        <DropdownMenu 
+        <Popover 
           open={openFilterDropdown === "date"} 
           onOpenChange={(open) => open ? toggleFilterDropdown("date") : setOpenFilterDropdown(null)}
         >
-          <DropdownMenuTrigger asChild>
+          <PopoverTrigger asChild>
             <div className="flex items-center gap-2 cursor-pointer hover:bg-muted/30 px-4 py-3">
               <span>Créée le</span>
               {isActive ? (
@@ -357,47 +427,110 @@ export const MissionsTable = ({
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               )}
             </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-auto p-2">
-            <div className="grid gap-4 p-2">
+          </PopoverTrigger>
+          <PopoverContent align="start" side="bottom" className="w-80 p-4">
+            <div className="space-y-4">
               <div>
-                <h4 className="font-medium mb-2 text-sm">Du</h4>
-                <CalendarComponent
-                  mode="single"
-                  selected={tempDateRange.from || undefined}
-                  onSelect={(date) => setTempDateRange(prev => ({ ...prev, from: date }))}
-                  className="rounded border"
-                  defaultMonth={tempDateRange.from || undefined}
-                />
+                <h4 className="text-sm font-medium mb-2">Type de filtre</h4>
+                <RadioGroup 
+                  value={tempDateFilter.type || ""} 
+                  onValueChange={(value) => handleDateFilterTypeChange(value as any)}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {dateFilterOptions.map(option => (
+                    <div key={option.value} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option.value} id={`date-filter-${option.value}`} />
+                      <Label htmlFor={`date-filter-${option.value}`} className="flex items-center gap-1.5 cursor-pointer">
+                        <option.icon className="h-3.5 w-3.5" />
+                        <span>{option.label}</span>
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
               </div>
-              <div>
-                <h4 className="font-medium mb-2 text-sm">Au</h4>
-                <CalendarComponent
-                  mode="single"
-                  selected={tempDateRange.to || undefined}
-                  onSelect={(date) => setTempDateRange(prev => ({ ...prev, to: date }))}
-                  className="rounded border"
-                  defaultMonth={tempDateRange.to || undefined}
-                  disabled={(date) => tempDateRange.from ? date < tempDateRange.from : false}
-                />
-              </div>
-              <div className="flex justify-between pt-2">
+
+              {tempDateFilter.type && (
+                <>
+                  {tempDateFilter.type === 'between' ? (
+                    <div className="grid gap-4">
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Date de début</h4>
+                        <CalendarComponent
+                          mode="single"
+                          selected={tempDateFilter.from || undefined}
+                          onSelect={(date) => setTempDateFilter(prev => ({ ...prev, from: date }))}
+                          className="rounded border"
+                          initialFocus
+                        />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Date de fin</h4>
+                        <CalendarComponent
+                          mode="single"
+                          selected={tempDateFilter.to || undefined}
+                          onSelect={(date) => setTempDateFilter(prev => ({ ...prev, to: date }))}
+                          className="rounded border"
+                          disabled={(date) => {
+                            return tempDateFilter.from ? date < tempDateFilter.from : false;
+                          }}
+                          initialFocus={false}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">
+                        {tempDateFilter.type === 'after' ? 'Date (après)' : 
+                         tempDateFilter.type === 'before' ? 'Date (avant)' : 'Date exacte'}
+                      </h4>
+                      <CalendarComponent
+                        mode="single"
+                        selected={tempDateFilter.from || undefined}
+                        onSelect={(date) => setTempDateFilter(prev => ({ ...prev, from: date }))}
+                        className="rounded border"
+                        initialFocus
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+              
+              {/* Résumé du filtre sélectionné */}
+              {canApplyDateFilter() && (
+                <div className="p-2 bg-blue-50 rounded-md text-sm">
+                  <p className="font-medium">Filtre sélectionné:</p>
+                  <p className="text-blue-700">
+                    {tempDateFilter.type === 'between' && tempDateFilter.to ? 
+                      `Entre le ${format(tempDateFilter.from!, "PPP", { locale: fr })} et le ${format(tempDateFilter.to, "PPP", { locale: fr })}` :
+                     tempDateFilter.type === 'after' ? 
+                      `Après le ${format(tempDateFilter.from!, "PPP", { locale: fr })}` :
+                     tempDateFilter.type === 'before' ? 
+                      `Avant le ${format(tempDateFilter.from!, "PPP", { locale: fr })}` :
+                      `Le ${format(tempDateFilter.from!, "PPP", { locale: fr })}`
+                    }
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-between pt-2 border-t">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => {
-                    setTempDateRange({ from: null, to: null });
-                  }}
+                  onClick={resetDateFilter}
                 >
                   Réinitialiser
                 </Button>
-                <Button size="sm" onClick={applyDateFilter}>
+                <Button 
+                  size="sm" 
+                  onClick={applyDateFilter}
+                  disabled={!canApplyDateFilter()}
+                >
                   Appliquer
                 </Button>
               </div>
             </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </PopoverContent>
+        </Popover>
       </TableHead>
     );
   };
@@ -474,18 +607,34 @@ export const MissionsTable = ({
         return false;
       }
       
-      // Filtre par date
-      if (filters.dateRange.from && new Date(mission.createdAt) < filters.dateRange.from) {
-        return false;
-      }
-      
-      if (filters.dateRange.to) {
-        // Ajouter 1 jour à la date de fin pour inclure cette journée complète
-        const endDate = new Date(filters.dateRange.to);
-        endDate.setDate(endDate.getDate() + 1);
+      // Filtre par date (nouveau système avancé)
+      if (filters.dateRange.type && filters.dateRange.from) {
+        const missionDate = new Date(mission.createdAt);
+        // Normaliser les dates (sans heure)
+        missionDate.setHours(0, 0, 0, 0);
         
-        if (new Date(mission.createdAt) > endDate) {
-          return false;
+        const dateFrom = new Date(filters.dateRange.from);
+        dateFrom.setHours(0, 0, 0, 0);
+        
+        switch (filters.dateRange.type) {
+          case 'between':
+            if (!filters.dateRange.to) return true;
+            
+            const dateTo = new Date(filters.dateRange.to);
+            dateTo.setHours(23, 59, 59, 999); // Inclure toute la journée de fin
+            
+            return missionDate >= dateFrom && missionDate <= dateTo;
+            
+          case 'after':
+            return missionDate >= dateFrom;
+            
+          case 'before':
+            return missionDate <= dateFrom;
+            
+          case 'equal':
+            const nextDay = new Date(dateFrom);
+            nextDay.setDate(nextDay.getDate() + 1);
+            return missionDate >= dateFrom && missionDate < nextDay;
         }
       }
       
@@ -521,8 +670,7 @@ export const MissionsTable = ({
   // Vérifier si des filtres sont actifs
   const hasActiveFilters = filters.searchTerm !== "" || 
                            filters.sdrs.length > 0 || 
-                           filters.dateRange.from !== null || 
-                           filters.dateRange.to !== null || 
+                           filters.dateRange.type !== null || 
                            filters.requestsRange.min !== null;
   
   return (
@@ -582,16 +730,14 @@ export const MissionsTable = ({
               </Badge>
             )}
             
-            {(filters.dateRange.from || filters.dateRange.to) && (
+            {filters.dateRange.type && (
               <Badge variant="outline" className="bg-blue-100 border-blue-300 text-blue-800 py-1 gap-1">
-                {filters.dateRange.from && filters.dateRange.to 
-                  ? `Du ${format(filters.dateRange.from, "dd/MM/yyyy")} au ${format(filters.dateRange.to, "dd/MM/yyyy")}`
-                  : filters.dateRange.from 
-                    ? `À partir du ${format(filters.dateRange.from, "dd/MM/yyyy")}`
-                    : `Jusqu'au ${format(filters.dateRange.to!, "dd/MM/yyyy")}`
-                }
+                {getDateFilterDescription()}
                 <button 
-                  onClick={() => setFilters(prev => ({ ...prev, dateRange: { from: null, to: null } }))}
+                  onClick={() => setFilters(prev => ({ 
+                    ...prev, 
+                    dateRange: { type: null, from: null, to: null } 
+                  }))}
                   className="ml-1 hover:bg-blue-200 rounded-full p-1"
                 >
                   <X size={12} />
