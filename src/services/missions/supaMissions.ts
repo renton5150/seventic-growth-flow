@@ -131,20 +131,21 @@ export const createSupaMission = async (data: {
     // Créer un ID unique pour la mission
     const missionId = uuidv4();
     
+    // Convert Date objects to ISO strings for proper insertion
+    const missionData = {
+      id: missionId,
+      name: data.name,
+      client: data.client || "Client non spécifié",
+      sdr_id: data.sdrId,
+      description: data.description,
+      start_date: data.startDate ? data.startDate.toISOString() : null,
+      end_date: data.endDate ? data.endDate.toISOString() : null,
+      type: data.type || "Full"
+    };
+
     const { data: mission, error } = await supabase
       .from("missions")
-      .insert([
-        {
-          id: missionId,
-          name: data.name,
-          client: data.client || "Client non spécifié",
-          sdr_id: data.sdrId,
-          description: data.description,
-          start_date: data.startDate,
-          end_date: data.endDate,
-          type: data.type || "Full"
-        }
-      ])
+      .insert([missionData])
       .select("*")
       .single();
 
