@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { safeSupabase } from "@/integrations/supabase/safeClient";
 import { toast } from "sonner";
 
 // Define simple but effective types
@@ -75,7 +75,7 @@ class ApiService {
     try {
       console.log(`API GET ${table}`, options);
       
-      let query = supabase.from(table).select(options.select || '*');
+      let query = safeSupabase.from(table).select(options.select || '*');
       
       // Filtre par ID si spécifié
       if (options.id) {
@@ -141,9 +141,9 @@ class ApiService {
       // Always insert as array to avoid type errors
       let insertResponse;
       if (options.upsert) {
-        insertResponse = await supabase.from(table).upsert([data]);
+        insertResponse = await safeSupabase.from(table).upsert([data]);
       } else {
-        insertResponse = await supabase.from(table).insert([data]);
+        insertResponse = await safeSupabase.from(table).insert([data]);
       }
       
       if (this.isErrorResponse(insertResponse)) {
@@ -156,12 +156,12 @@ class ApiService {
         const insertedId = insertResponse.data[0].id;
         
         if (options.select) {
-          selectResponse = await supabase.from(table)
+          selectResponse = await safeSupabase.from(table)
             .select(options.select)
             .eq('id', insertedId)
             .single();
         } else {
-          selectResponse = await supabase.from(table)
+          selectResponse = await safeSupabase.from(table)
             .select()
             .eq('id', insertedId)
             .single();
@@ -195,7 +195,7 @@ class ApiService {
       console.log(`API PUT ${table}/${id}`, data);
       
       // Prépare la requête de mise à jour
-      const updateResponse = await supabase.from(table)
+      const updateResponse = await safeSupabase.from(table)
         .update(data)
         .eq('id', id);
       
@@ -204,7 +204,7 @@ class ApiService {
       }
       
       // Récupère les données mises à jour
-      const selectResponse = await supabase.from(table)
+      const selectResponse = await safeSupabase.from(table)
         .select(options.select || '*')
         .eq('id', id)
         .single();
@@ -230,7 +230,7 @@ class ApiService {
       console.log(`API DELETE ${table}/${id}`);
       
       // Exécute la requête
-      const response = await supabase.from(table)
+      const response = await safeSupabase.from(table)
         .delete()
         .eq('id', id);
       
@@ -254,7 +254,7 @@ class ApiService {
     try {
       console.log(`API RPC ${functionName}`, params);
       
-      const response = await supabase.rpc(functionName, params);
+      const response = await safeSupabase.rpc(functionName, params);
       
       if (this.isErrorResponse(response)) {
         return this.handleError('RPC', functionName, response.error);
