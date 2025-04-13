@@ -7,6 +7,7 @@ import { updateMission } from "@/services/missions-service"; // Updated import p
 import { MissionForm } from "./form/MissionForm";
 import { MissionFormValues } from "./schemas/missionFormSchema";
 import { ErrorBoundary } from "react-error-boundary";
+import { useNavigate } from "react-router-dom";
 
 interface EditMissionDialogProps {
   mission: Mission | null;
@@ -40,6 +41,7 @@ export function EditMissionDialog({
   onMissionUpdated,
 }: EditMissionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
   
   // Function to close the dialog and reset state
   const handleClose = () => {
@@ -82,9 +84,21 @@ export function EditMissionDialog({
       
       handleClose();
       
+      // Utiliser toast.success mais immédiatement rediriger après
       toast.success("Mission mise à jour", {
-        description: "La mission a été mise à jour avec succès"
+        description: "La mission a été mise à jour avec succès",
+        onDismiss: () => {
+          // Rediriger vers la liste des missions avec paramètre timestamp pour éviter les problèmes de cache
+          window.location.href = `/missions?t=${Date.now()}`;
+        },
+        // Fermer automatiquement après un court délai pour éviter de bloquer l'interface
+        duration: 1500,
       });
+      
+      // Alternative: rediriger immédiatement sans attendre la fermeture du toast
+      setTimeout(() => {
+        window.location.href = `/missions?t=${Date.now()}`;
+      }, 2000);
       
       if (onMissionUpdated) {
         onMissionUpdated();
