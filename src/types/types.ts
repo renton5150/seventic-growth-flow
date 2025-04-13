@@ -105,7 +105,10 @@ export interface LinkedInScrapingRequest extends BaseRequest {
 // Union type for all request types
 export type Request = EmailCampaignRequest | DatabaseRequest | LinkedInScrapingRequest;
 
-// Client mission
+// Add a new type for mission status
+export type MissionStatus = "En cours" | "Terminé";
+
+// Update the Mission interface to include the status field
 export interface Mission {
   id: string;
   name: string;
@@ -118,6 +121,7 @@ export interface Mission {
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType;
+  status: MissionStatus;
 }
 
 // Mock data type

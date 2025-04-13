@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
@@ -13,6 +12,7 @@ import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
 import { useAuth } from "@/contexts/AuthContext";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface MissionFormProps {
   mission: Mission | null;
@@ -35,10 +35,10 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
       startDate: null,
       endDate: null,
       type: "Full",
+      status: "En cours",
     },
   });
 
-  // Mettre à jour les valeurs du formulaire quand la mission change
   useEffect(() => {
     if (mission) {
       console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", mission);
@@ -50,6 +50,7 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
           startDate: mission.startDate ? new Date(mission.startDate) : null,
           endDate: mission.endDate ? new Date(mission.endDate) : null,
           type: mission.type,
+          status: mission.status,
         });
         setFormInitialized(true);
       } catch (error) {
@@ -69,7 +70,6 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
     );
   }
 
-  // Affichage en lecture seule pour les champs restreints aux SDRs
   if (!isAdmin && mission) {
     return (
       <Form {...form}>
@@ -90,7 +90,6 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
             )}
           />
 
-          {/* SDR Selector en lecture seule pour les SDRs */}
           <FormItem>
             <FormLabel>
               Assigner à (SDR) <span className="text-red-500">*</span>
@@ -116,15 +115,12 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
             minDate={startDate}
           />
 
-          {/* Type de mission en lecture seule pour les SDRs */}
           <FormItem>
-            <FormLabel>
-              Type de mission <span className="text-red-500">*</span>
-            </FormLabel>
+            <FormLabel>Statut de la mission</FormLabel>
             <div className="bg-gray-100 border border-gray-200 rounded px-3 py-2 text-gray-700">
-              {mission.type}
+              {mission.status}
             </div>
-            <input type="hidden" {...form.register("type")} />
+            <input type="hidden" {...form.register("status")} />
           </FormItem>
 
           <FormField
@@ -171,7 +167,6 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
     );
   }
 
-  // Version normale pour les administrateurs
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -212,7 +207,26 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
           minDate={startDate}
         />
 
-        <MissionTypeSelector control={form.control} disabled={isSubmitting} />
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Statut de la mission</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un statut" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="En cours">En cours</SelectItem>
+                  <SelectItem value="Terminé">Terminé</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}

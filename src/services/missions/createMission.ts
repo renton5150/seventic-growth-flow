@@ -1,5 +1,4 @@
-
-import { Mission, MissionType } from "@/types/types";
+import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { mapSupaMissionToMission } from "./utils";
@@ -14,7 +13,8 @@ export const createSupaMission = async (data: {
   startDate?: Date | null;
   endDate?: Date | null;
   type?: MissionType | string;
-}): Promise<Mission | undefined> => {
+  status?: MissionStatus;
+}): Promise<Mission> => {
   try {
     console.log("Mission reçue dans createSupaMission:", data);
     console.log("SDR ID reçu:", data.sdrId);
@@ -36,7 +36,8 @@ export const createSupaMission = async (data: {
       start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
       end_date: data.endDate ? new Date(data.endDate).toISOString() : null,
       type: data.type || "Full",
-      client: data.name // Utilise le nom comme valeur pour client (requis par le schéma)
+      client: data.name, // Utilise le nom comme valeur pour client (requis par le schéma)
+      status: data.status || "En cours"
     };
     
     console.log("Données formatées pour Supabase:", missionData);

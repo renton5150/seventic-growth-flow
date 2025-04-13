@@ -1,5 +1,4 @@
-
-import { Mission, MissionType } from "@/types/types";
+import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "./utils";
 import { checkMissionExists } from "./getMissions";
@@ -15,6 +14,7 @@ export const updateSupaMission = async (mission: {
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType | string;
+  status?: MissionStatus;
 }, userRole?: string): Promise<Mission> => {
   console.log("updateSupaMission reçoit:", mission);
   console.log("Rôle de l'utilisateur pour la mise à jour:", userRole);
@@ -22,7 +22,7 @@ export const updateSupaMission = async (mission: {
   // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
     .from("missions")
-    .select("id, sdr_id, type")
+    .select("id, sdr_id, type, status")
     .eq("id", mission.id)
     .maybeSingle();
   
@@ -45,17 +45,19 @@ export const updateSupaMission = async (mission: {
     client: mission.name // Utilise le nom comme valeur pour client (requis par le schéma)
   };
   
-  // Protection côté serveur: si l'utilisateur est SDR, conserver les valeurs originales pour les champs restreints
+  // Protection côté serveur: si l'utilisateur est SDR, conserver la valeur originale
   if (userRole === 'sdr') {
     // Utiliser les valeurs existantes pour les champs restreints
     supabaseData.sdr_id = existingMission.sdr_id;
     supabaseData.type = existingMission.type;
+    supabaseData.status = existingMission.status;
     
-    console.log("Utilisateur SDR: conservation des valeurs originales pour sdr_id et type");
+    console.log("Utilisateur SDR: conservation des valeurs originales pour sdr_id, type et status");
   } else {
     // Admin peut modifier tous les champs
     supabaseData.sdr_id = mission.sdrId;
     supabaseData.type = mission.type || "Full";
+    supabaseData.status = mission.status || existingMission.status;
   }
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
