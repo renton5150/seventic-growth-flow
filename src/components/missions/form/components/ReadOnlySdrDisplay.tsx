@@ -4,6 +4,7 @@ import { FormItem, FormLabel } from "@/components/ui/form";
 
 interface ReadOnlySdrDisplayProps {
   sdrName: string;
+  sdrId?: string;
 }
 
 export function ReadOnlySdrDisplay({ sdrName }: ReadOnlySdrDisplayProps) {

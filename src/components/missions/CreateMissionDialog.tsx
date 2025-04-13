@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { MissionFormValues, missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
+import { MissionFormValues } from "@/types/types";
+import { missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MissionForm } from "./form/MissionForm";
 import { useAllMissions, useCreateMission } from "@/hooks/useMissions";
@@ -29,7 +30,8 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       description: "",
       startDate: null,
       endDate: null,
-      type: "Full"
+      type: "Full",
+      status: "En cours"
     }
   });
 
@@ -70,7 +72,8 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
         description: data.description,
         startDate: data.startDate,
         endDate: data.endDate,
-        type: data.type
+        type: data.type,
+        status: data.status
       });
       
       form.reset();

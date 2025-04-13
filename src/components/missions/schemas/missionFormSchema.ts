@@ -1,8 +1,9 @@
+
 import * as z from "zod";
-import { MissionType } from "@/types/types";
 
 // Définir le schéma de validation pour les formulaires de mission
 export const missionFormSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(1, "Le nom de la mission est requis"),
   sdrId: z.string().min(1, "Vous devez sélectionner un SDR"),
   description: z.string().optional(),

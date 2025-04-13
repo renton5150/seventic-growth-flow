@@ -70,7 +70,9 @@ class ApiService {
     try {
       console.log(`API GET ${table}`, options);
       
-      let query = supabase.from(table).select(options.select || '*');
+      // Supabase expects actual table names, not dynamic strings
+      const tableQuery = supabase.from(table);
+      let query = tableQuery.select(options.select || '*');
       
       // Filtre par ID si spécifié
       if (options.id) {
@@ -134,22 +136,32 @@ class ApiService {
       console.log(`API POST ${table}`, data);
       
       // Prépare la requête
-      let query = supabase.from(table).insert(data);
-
-      // Ajoute l'option upsert si spécifiée
+      const tableQuery = supabase.from(table);
+      
+      // Handle insert with or without upsert
+      let insertQuery;
       if (options.upsert) {
-        query = query.upsert(data);
-      }
-
-      // Sélectionne les données retournées
-      if (options.select) {
-        query = query.select(options.select);
+        insertQuery = await tableQuery.upsert(data);
       } else {
-        query = query.select();
+        insertQuery = await tableQuery.insert(data);
       }
       
-      // Exécute la requête
-      const response = await query.single();
+      // Get the inserted data
+      let query;
+      if (options.select) {
+        query = supabase.from(table)
+          .select(options.select)
+          .eq('id', insertQuery.data?.[0].id)
+          .single();
+      } else {
+        query = supabase.from(table)
+          .select()
+          .eq('id', insertQuery.data?.[0].id)
+          .single();
+      }
+      
+      // Exécute la requête pour obtenir les données
+      const response = await query;
       
       if (this.isErrorResponse(response)) {
         return this.handleError('POST', table, response.error);
@@ -175,18 +187,23 @@ class ApiService {
     try {
       console.log(`API PUT ${table}/${id}`, data);
       
-      // Prépare la requête
-      let query = supabase.from(table).update(data).eq('id', id);
+      // Prépare la requête de mise à jour
+      const updateQuery = await supabase.from(table)
+        .update(data)
+        .eq('id', id);
       
-      // Sélectionne les données retournées
-      if (options.select) {
-        query = query.select(options.select);
-      } else {
-        query = query.select();
+      if (this.isErrorResponse(updateQuery)) {
+        return this.handleError('PUT', table, updateQuery.error);
       }
       
+      // Récupère les données mises à jour
+      const tableQuery = supabase.from(table);
+      let query = tableQuery.select(options.select || '*')
+        .eq('id', id)
+        .single();
+      
       // Exécute la requête
-      const response = await query.single();
+      const response = await query;
       
       if (this.isErrorResponse(response)) {
         return this.handleError('PUT', table, response.error);
@@ -209,7 +226,9 @@ class ApiService {
       console.log(`API DELETE ${table}/${id}`);
       
       // Exécute la requête
-      const response = await supabase.from(table).delete().eq('id', id);
+      const response = await supabase.from(table)
+        .delete()
+        .eq('id', id);
       
       if (this.isErrorResponse(response)) {
         return this.handleError('DELETE', table, response.error);
@@ -222,10 +241,10 @@ class ApiService {
   }
 
   /**
-   * Exécute une requête personnalisée
+   * Exécute une fonction RPC
    */
   async rpc<T = any>(
-    functionName: string,
+    functionName: "create_user_profile" | "user_has_growth_role" | "user_is_admin",
     params: Record<string, any> = {}
   ): Promise<T> {
     try {

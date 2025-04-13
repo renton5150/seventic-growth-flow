@@ -4,7 +4,7 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Control } from "react-hook-form";
-import { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
+import { MissionFormValues } from "@/types/types";
 
 interface BasicMissionFieldsProps {
   control: Control<MissionFormValues>;

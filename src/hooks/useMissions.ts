@@ -1,9 +1,10 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiService } from "@/services/apiService";
-import { Mission, MissionFormValues } from "@/types/types";
+import { Mission } from "@/types/types";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth";
+import { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
 
 /**
  * Hook pour récupérer toutes les missions
@@ -73,12 +74,12 @@ export const useCreateMission = () => {
   
   return useMutation({
     mutationFn: async (mission: Omit<MissionFormValues, 'id'>) => {
-      // Formater les dates si nécessaire
+      // Formater les données pour l'API
       const formattedData = {
         ...mission,
         start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
         end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
-        // Ajout du champ client requis par le schéma
+        // Ajouter le champ client requis par le schéma
         client: mission.name,
         // Mapper les champs aux colonnes de la base de données
         sdr_id: mission.sdrId,
@@ -116,12 +117,12 @@ export const useUpdateMission = () => {
         throw new Error("ID de mission manquant");
       }
       
-      // Formater les dates si nécessaire
+      // Formater les données pour l'API
       const formattedData = {
         ...mission,
         start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
         end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
-        // Ajout du champ client requis par le schéma
+        // Ajouter le champ client requis par le schéma
         client: mission.name,
         // Mapper les champs aux colonnes de la base de données
         sdr_id: mission.sdrId,

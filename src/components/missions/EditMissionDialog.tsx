@@ -12,9 +12,16 @@ interface EditMissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  onMissionUpdated?: () => void;
 }
 
-export const EditMissionDialog = ({ mission, open, onOpenChange, onSuccess }: EditMissionDialogProps) => {
+export const EditMissionDialog = ({ 
+  mission, 
+  open, 
+  onOpenChange, 
+  onSuccess,
+  onMissionUpdated 
+}: EditMissionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
   
@@ -35,7 +42,11 @@ export const EditMissionDialog = ({ mission, open, onOpenChange, onSuccess }: Ed
       });
       
       onOpenChange(false);
+      
+      // Appeler le callback approprié
       if (onSuccess) onSuccess();
+      if (onMissionUpdated) onMissionUpdated();
+      
     } catch (error) {
       console.error("Erreur lors de la mise à jour:", error);
     } finally {

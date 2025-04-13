@@ -1,3 +1,4 @@
+
 // User roles
 export type UserRole = "admin" | "sdr" | "growth";
 
@@ -118,6 +119,18 @@ export interface Mission {
   sdrName?: string; // Added for UI display
   requests: Request[];
   // Nouveaux champs
+  startDate: Date | null;
+  endDate: Date | null;
+  type: MissionType;
+  status: MissionStatus;
+}
+
+// Export MissionFormValues type for use elsewhere
+export interface MissionFormValues {
+  id?: string;
+  name: string;
+  sdrId: string;
+  description?: string;
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType;

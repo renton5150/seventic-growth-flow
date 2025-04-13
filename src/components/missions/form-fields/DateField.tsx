@@ -1,3 +1,4 @@
+
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -7,17 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Control } from "react-hook-form";
-import { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
+import { MissionFormValues } from "@/types/types";
 
 interface DateFieldProps {
   control: Control<MissionFormValues>;
   name: "startDate" | "endDate";
   label: string;
+  placeholder?: string;
   disabled?: boolean;
   minDate?: Date | null;
 }
 
-export function DateField({ control, name, label, disabled = false, minDate }: DateFieldProps) {
+export function DateField({ 
+  control, 
+  name, 
+  label, 
+  placeholder = "Sélectionner une date",
+  disabled = false, 
+  minDate 
+}: DateFieldProps) {
   return (
     <FormField
       control={control}
@@ -39,7 +48,7 @@ export function DateField({ control, name, label, disabled = false, minDate }: D
                   {field.value ? (
                     format(field.value, "d MMMM yyyy", { locale: fr })
                   ) : (
-                    <span>Sélectionner une date</span>
+                    <span>{placeholder}</span>
                   )}
                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                 </Button>

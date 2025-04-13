@@ -3,9 +3,8 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
-import { Loader2 } from "lucide-react";
-import { Mission } from "@/types/types";
-import { MissionFormValues, missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
+import { Mission, MissionFormValues } from "@/types/types";
+import { missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
 import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
@@ -36,7 +35,6 @@ export const MissionForm = ({
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
-      id: mission?.id || "",
       name: mission?.name || "",
       sdrId: mission?.sdrId || "",
       description: mission?.description || "",
@@ -53,7 +51,6 @@ export const MissionForm = ({
       console.log("Mission chargée dans le formulaire:", mission);
       
       form.reset({
-        id: mission.id,
         name: mission.name,
         sdrId: mission.sdrId,
         description: mission.description || "",
@@ -93,14 +90,12 @@ export const MissionForm = ({
             control={form.control}
             name="startDate"
             label="Date de début"
-            placeholder="Sélectionner une date"
             disabled={isSubmitting}
           />
           <DateField
             control={form.control}
             name="endDate"
             label="Date de fin (optionnelle)"
-            placeholder="Sélectionner une date"
             disabled={isSubmitting}
           />
         </div>
@@ -123,7 +118,7 @@ export const MissionForm = ({
         {canEditAllFields ? (
           <SdrSelector control={form.control} disabled={isSubmitting} />
         ) : (
-          <ReadOnlySdrDisplay sdrId={mission?.sdrId || ""} />
+          <ReadOnlySdrDisplay sdrName={mission?.sdrName || "Non assigné"} />
         )}
 
         <FormButtons
