@@ -5,20 +5,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Control } from "react-hook-form";
 import { getAllUsers } from "@/services/user/userQueries";
 import { MissionFormValues } from "../schemas/missionFormSchema";
+import { useState, useEffect } from "react";
 
 interface SdrSelectorProps {
   control: Control<MissionFormValues>;
   disabled?: boolean;
+  initialSdrName?: string;
 }
 
-export function SdrSelector({ control, disabled = false }: SdrSelectorProps) {
+export function SdrSelector({ control, disabled = false, initialSdrName }: SdrSelectorProps) {
+  const [sdrsLoaded, setSdrsLoaded] = useState(false);
+  
   // Fetch SDRs for assignment
   const { data: users = [], isLoading: isSdrsLoading } = useQuery({
     queryKey: ['users-for-mission-edit'],
     queryFn: getAllUsers,
+    onSuccess: () => setSdrsLoaded(true),
+    onError: (error) => {
+      console.error("Erreur de chargement des SDRs:", error);
+      setSdrsLoaded(true); // Mark as loaded even on error to avoid infinite loading state
+    },
   });
 
   const sdrs = users.filter(user => user.role === 'sdr');
+  
+  // Logs for debugging
+  useEffect(() => {
+    if (sdrs.length > 0) {
+      console.log("SDRs chargés:", sdrs);
+    }
+    
+    if (initialSdrName) {
+      console.log("SDR initial:", initialSdrName);
+    }
+  }, [sdrs, initialSdrName]);
 
   return (
     <FormField
@@ -37,7 +57,7 @@ export function SdrSelector({ control, disabled = false }: SdrSelectorProps) {
           >
             <FormControl>
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un SDR" />
+                <SelectValue placeholder={initialSdrName || "Sélectionner un SDR"} />
               </SelectTrigger>
             </FormControl>
             <SelectContent>
@@ -45,12 +65,16 @@ export function SdrSelector({ control, disabled = false }: SdrSelectorProps) {
                 <SelectItem value="loading" disabled>
                   Chargement des SDRs...
                 </SelectItem>
-              ) : (
+              ) : sdrs.length > 0 ? (
                 sdrs.map((sdr) => (
                   <SelectItem key={sdr.id} value={sdr.id}>
                     {sdr.name}
                   </SelectItem>
                 ))
+              ) : (
+                <SelectItem value="no-sdrs" disabled>
+                  Aucun SDR disponible
+                </SelectItem>
               )}
             </SelectContent>
           </Select>

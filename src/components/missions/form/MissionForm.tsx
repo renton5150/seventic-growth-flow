@@ -21,6 +21,7 @@ interface MissionFormProps {
 }
 
 export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: MissionFormProps) {
+  const [formInitialized, setFormInitialized] = useState(false);
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
@@ -37,18 +38,32 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
   useEffect(() => {
     if (mission) {
       console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", mission);
-      form.reset({
-        name: mission.name,
-        sdrId: mission.sdrId,
-        description: mission.description || "",
-        startDate: mission.startDate ? new Date(mission.startDate) : null,
-        endDate: mission.endDate ? new Date(mission.endDate) : null,
-        type: mission.type,
-      });
+      try {
+        form.reset({
+          name: mission.name,
+          sdrId: mission.sdrId || "",
+          description: mission.description || "",
+          startDate: mission.startDate ? new Date(mission.startDate) : null,
+          endDate: mission.endDate ? new Date(mission.endDate) : null,
+          type: mission.type,
+        });
+        setFormInitialized(true);
+      } catch (error) {
+        console.error("Erreur lors de l'initialisation du formulaire:", error);
+      }
     }
   }, [mission, form]);
 
   const startDate = form.watch("startDate");
+
+  if (!formInitialized && mission) {
+    return (
+      <div className="flex justify-center items-center p-4">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="ml-2">Chargement du formulaire...</span>
+      </div>
+    );
+  }
 
   return (
     <Form {...form}>
@@ -69,7 +84,11 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
           )}
         />
 
-        <SdrSelector control={form.control} disabled={isSubmitting} />
+        <SdrSelector 
+          control={form.control} 
+          disabled={isSubmitting} 
+          initialSdrName={mission?.sdrName}
+        />
 
         <DateField 
           control={form.control}
