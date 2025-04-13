@@ -1,12 +1,24 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAllMissions } from "./useMissions";
-import { Mission } from "@/types/types";
+import { Mission, MissionStatus, MissionType } from "@/types/types";
 
 // Options de tri pour les missions
+export type SortField = "name" | "sdrName" | "startDate" | "endDate" | "status" | "type";
+export type SortDirection = "asc" | "desc";
+
 export type SortOptions = {
-  field: "name" | "sdrName" | "startDate" | "endDate" | "status" | "type";
-  direction: "asc" | "desc";
+  field: SortField;
+  direction: SortDirection;
+};
+
+// Type pour les filtres de missions
+export type MissionFilters = {
+  status?: MissionStatus | undefined;
+  type?: MissionType | undefined;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  search?: string;
 };
 
 // Fonction de filtrage de missions
@@ -18,12 +30,12 @@ export const useMissionsList = () => {
   const [sort, setSort] = useState<SortOptions>({ field: "startDate", direction: "desc" });
   
   // Filtres
-  const [filters, setFilters] = useState({
-    status: "all",
-    type: "all",
-    startDate: null as Date | null,
-    endDate: null as Date | null,
-    search: "",
+  const [filters, setFilters] = useState<MissionFilters>({
+    status: undefined,
+    type: undefined,
+    startDate: null,
+    endDate: null,
+    search: undefined,
   });
   
   // Pagination
@@ -54,12 +66,12 @@ export const useMissionsList = () => {
     }
     
     // Filtrer par status
-    if (filters.status !== "all") {
+    if (filters.status) {
       result = result.filter(mission => mission.status === filters.status);
     }
     
     // Filtrer par type
-    if (filters.type !== "all") {
+    if (filters.type) {
       result = result.filter(mission => mission.type === filters.type);
     }
     
@@ -103,6 +115,50 @@ export const useMissionsList = () => {
     setCurrentPage(1);
   }, [missions, filters, sort]);
   
+  // Fonctions pour la pagination
+  const goToPage = (page: number) => {
+    const validPage = Math.max(1, Math.min(page, totalPages));
+    setCurrentPage(validPage);
+  };
+  
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+  
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+  
+  // Fonction pour mettre à jour les filtres
+  const updateFilters = (newFilters: Partial<MissionFilters>) => {
+    setFilters(current => ({
+      ...current,
+      ...newFilters,
+    }));
+  };
+  
+  // Fonction pour mettre à jour le tri
+  const updateSort = (field: SortField) => {
+    setSort(current => {
+      if (current.field === field) {
+        // Inverser la direction si on clique sur la même colonne
+        return {
+          field,
+          direction: current.direction === "asc" ? "desc" : "asc"
+        };
+      }
+      // Nouvelle colonne, direction par défaut : desc
+      return {
+        field,
+        direction: "desc"
+      };
+    });
+  };
+  
   return {
     missions: paginatedMissions,
     allMissions: missions,
@@ -111,15 +167,20 @@ export const useMissionsList = () => {
     error,
     refetch,
     filters,
-    setFilters,
+    updateFilters,
     sort,
     setSort,
+    updateSort,
     pagination: {
       currentPage,
       pageSize,
       totalPages,
+      totalItems: filteredMissions.length,
       setCurrentPage,
       setPageSize,
+      goToPage,
+      nextPage,
+      prevPage,
     },
   };
 };

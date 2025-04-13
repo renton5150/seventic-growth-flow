@@ -1,20 +1,13 @@
 
+import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue 
+  SelectValue,
 } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface MissionsPaginationProps {
   currentPage: number;
@@ -35,115 +28,168 @@ export const MissionsPagination = ({
   goToPage,
   nextPage,
   prevPage,
-  setPageSize
+  setPageSize,
 }: MissionsPaginationProps) => {
-  // Pas besoin de pagination si on a une seule page
-  if (totalPages <= 1) return null;
-  
-  // Fonction pour générer les numéros de page à afficher
-  const getPageNumbers = () => {
-    const pageNumbers = [];
-    const maxPagesToShow = 5;
+  // Pas besoin de pagination si moins d'une page
+  if (totalPages <= 1) {
+    return (
+      <div className="flex justify-between items-center py-2 text-sm text-muted-foreground">
+        <div>
+          {totalItems} mission{totalItems !== 1 ? "s" : ""}
+        </div>
+        <div></div>
+      </div>
+    );
+  }
+
+  // Générer les boutons de page
+  const renderPageButtons = () => {
+    const pageButtons = [];
+    const maxVisiblePages = 5;
     
-    if (totalPages <= maxPagesToShow) {
-      // Afficher toutes les pages si leur nombre est inférieur à maxPagesToShow
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(i);
-      }
-    } else {
-      // Afficher les pages avec ellipsis
-      if (currentPage <= 3) {
-        // Premières pages
-        for (let i = 1; i <= 3; i++) {
-          pageNumbers.push(i);
-        }
-        pageNumbers.push("ellipsis");
-        pageNumbers.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        // Dernières pages
-        pageNumbers.push(1);
-        pageNumbers.push("ellipsis");
-        for (let i = totalPages - 2; i <= totalPages; i++) {
-          pageNumbers.push(i);
-        }
-      } else {
-        // Pages du milieu
-        pageNumbers.push(1);
-        pageNumbers.push("ellipsis");
-        pageNumbers.push(currentPage - 1);
-        pageNumbers.push(currentPage);
-        pageNumbers.push(currentPage + 1);
-        pageNumbers.push("ellipsis");
-        pageNumbers.push(totalPages);
+    // Toujours afficher la première page
+    if (currentPage > 3) {
+      pageButtons.push(
+        <Button
+          key={1}
+          variant={currentPage === 1 ? "default" : "outline"}
+          size="sm"
+          onClick={() => goToPage(1)}
+        >
+          1
+        </Button>
+      );
+      
+      // Afficher les points de suspension si on n'est pas proche du début
+      if (currentPage > 4) {
+        pageButtons.push(
+          <span key="ellipsis1" className="px-2">
+            ...
+          </span>
+        );
       }
     }
     
-    return pageNumbers;
-  };
-  
-  const pageNumbers = getPageNumbers();
-  const startingItem = (currentPage - 1) * pageSize + 1;
-  const endingItem = Math.min(currentPage * pageSize, totalItems);
-  
-  return (
-    <div className="mt-4 flex flex-col sm:flex-row items-center justify-between">
-      <div className="text-sm text-muted-foreground mb-4 sm:mb-0">
-        Affichage de <span className="font-medium">{startingItem}</span> à{" "}
-        <span className="font-medium">{endingItem}</span> sur{" "}
-        <span className="font-medium">{totalItems}</span> missions
-      </div>
-      
-      <div className="flex items-center gap-4">
-        <Select
-          value={pageSize.toString()}
-          onValueChange={(value) => setPageSize(parseInt(value))}
+    // Pages autour de la page actuelle
+    const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    for (let i = startPage; i <= endPage; i++) {
+      // Ne pas dupliquer la première et la dernière page
+      if (i === 1 && currentPage <= 3) {
+        pageButtons.push(
+          <Button
+            key={i}
+            variant={currentPage === i ? "default" : "outline"}
+            size="sm"
+            onClick={() => goToPage(i)}
+          >
+            {i}
+          </Button>
+        );
+      } else if (i === totalPages && currentPage >= totalPages - 2) {
+        // Ne rien faire, on va l'ajouter plus tard
+      } else if (i !== 1 && i !== totalPages) {
+        pageButtons.push(
+          <Button
+            key={i}
+            variant={currentPage === i ? "default" : "outline"}
+            size="sm"
+            onClick={() => goToPage(i)}
+          >
+            {i}
+          </Button>
+        );
+      }
+    }
+    
+    // Ajouter les points de suspension si on n'est pas proche de la fin
+    if (currentPage < totalPages - 3) {
+      pageButtons.push(
+        <span key="ellipsis2" className="px-2">
+          ...
+        </span>
+      );
+    }
+    
+    // Toujours afficher la dernière page
+    if (currentPage < totalPages - 1) {
+      pageButtons.push(
+        <Button
+          key={totalPages}
+          variant={currentPage === totalPages ? "default" : "outline"}
+          size="sm"
+          onClick={() => goToPage(totalPages)}
         >
-          <SelectTrigger className="w-[100px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="5">5 par page</SelectItem>
-            <SelectItem value="10">10 par page</SelectItem>
-            <SelectItem value="20">20 par page</SelectItem>
-            <SelectItem value="50">50 par page</SelectItem>
-          </SelectContent>
-        </Select>
+          {totalPages}
+        </Button>
+      );
+    }
+    
+    return pageButtons;
+  };
+
+  return (
+    <div className="flex flex-col xs:flex-row justify-between items-center pt-4 space-y-3 xs:space-y-0">
+      <div className="text-sm text-muted-foreground">
+        Affichage des résultats {(currentPage - 1) * pageSize + 1} à{" "}
+        {Math.min(currentPage * pageSize, totalItems)} sur {totalItems}
+      </div>
+
+      <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={prevPage}
+            disabled={currentPage === 1}
+            className="h-8 w-8"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span className="sr-only">Page précédente</span>
+          </Button>
+          
+          <div className="hidden sm:flex space-x-2">
+            {renderPageButtons()}
+          </div>
+          
+          <div className="sm:hidden">
+            <span className="text-sm">
+              {currentPage} / {totalPages}
+            </span>
+          </div>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={nextPage}
+            disabled={currentPage === totalPages}
+            className="h-8 w-8"
+          >
+            <ChevronRight className="h-4 w-4" />
+            <span className="sr-only">Page suivante</span>
+          </Button>
+        </div>
         
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={prevPage}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            
-            {pageNumbers.map((page, index) => (
-              page === "ellipsis" ? (
-                <PaginationItem key={`ellipsis-${index}`}>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              ) : (
-                <PaginationItem key={`page-${page}`}>
-                  <PaginationLink
-                    isActive={currentPage === page}
-                    onClick={() => goToPage(page as number)}
-                    className="cursor-pointer"
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              )
-            ))}
-            
-            <PaginationItem>
-              <PaginationNext
-                onClick={nextPage}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            Par page:
+          </span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => setPageSize(Number(value))}
+          >
+            <SelectTrigger className="h-8 w-16">
+              <SelectValue placeholder={pageSize} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5</SelectItem>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );

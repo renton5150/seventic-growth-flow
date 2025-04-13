@@ -5,11 +5,10 @@ import { MissionsTable } from "@/components/missions/MissionsTable";
 import { MissionsFilter } from "@/components/missions/MissionsFilter";
 import { MissionsPagination } from "@/components/missions/MissionsPagination";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
-import { useMissionsList } from "@/hooks/useMissionsList";
+import { useMissionsList, SortField } from "@/hooks/useMissionsList";
 import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { MissionSortField, SortDirection } from "@/hooks/useMissionsList";
 
 interface MissionsListViewProps {
   userId?: string;
@@ -40,10 +39,10 @@ export const MissionsListView = ({
     refetch,
     filters,
     updateFilters,
-    sortOptions,
+    sort,
     updateSort,
     pagination
-  } = useMissionsList(userId, isAdmin);
+  } = useMissionsList();
 
   if (isLoading) {
     return (
@@ -77,9 +76,11 @@ export const MissionsListView = ({
   }
 
   // Fonction de tri pour l'en-tête du tableau
-  const handleSort = (field: MissionSortField) => {
+  const handleSort = (field: SortField) => {
     updateSort(field);
   };
+
+  const hasActiveFilters = !!filters.search || !!filters.status || !!filters.type || !!filters.startDate || !!filters.endDate;
 
   return (
     <div className="space-y-4">
@@ -90,7 +91,7 @@ export const MissionsListView = ({
       />
       
       {missions.length === 0 ? (
-        filters.search || filters.status || filters.type || filters.startDate || filters.endDate ? (
+        hasActiveFilters ? (
           <div className="text-center py-12 bg-muted/50 rounded-md border">
             <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-lg font-semibold">Aucune mission ne correspond à ces critères</h3>
@@ -121,12 +122,8 @@ export const MissionsListView = ({
         <>
           <MissionsTable 
             missions={missions} 
-            isAdmin={isAdmin} 
-            onViewMission={onViewMission}
-            onEditMission={onEditMission}
-            onDeleteMission={onDeleteMission}
-            onMissionUpdated={onMissionUpdated}
-            sortOptions={sortOptions}
+            isLoading={isLoading}
+            sort={sort}
             onSort={handleSort}
           />
           

@@ -25,10 +25,9 @@ export const MissionCard = ({ mission, className }: MissionCardProps) => {
     return format(new Date(date), "d MMMM yyyy", { locale: fr });
   };
 
-  // Déterminer le statut de la badge
-  const getBadgeVariant = () => {
-    // Utilisons uniquement les statuts définis dans le type MissionStatus
-    if (mission.status === "Terminé") {
+  // Déterminer la variante du badge
+  const getBadgeVariant = (status: MissionStatus) => {
+    if (status === "Terminé") {
       return "success";
     }
     // En cours est le statut par défaut
@@ -45,7 +44,7 @@ export const MissionCard = ({ mission, className }: MissionCardProps) => {
               {mission.type === "Full" ? "Mission complète" : "Mission partielle"}
             </CardDescription>
           </div>
-          <Badge variant={getBadgeVariant() as any}>{mission.status}</Badge>
+          <Badge variant={getBadgeVariant(mission.status) as "default" | "success"}>{mission.status}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

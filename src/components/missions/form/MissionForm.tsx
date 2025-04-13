@@ -68,7 +68,7 @@ export const MissionForm = ({
   // Mettre à jour la progression du formulaire
   useEffect(() => {
     const { formState } = form;
-    const totalFields = Object.keys(missionFormSchema.shape).length;
+    const totalFields = Object.keys(missionFormSchema._def.shape()).length;
     const completedFields = Object.keys(form.getValues()).filter(
       key => !!form.getValues()[key as keyof MissionFormValues]
     ).length;
@@ -208,8 +208,8 @@ export const MissionForm = ({
                   disabled={
                     !form.getValues('name') || 
                     !form.getValues('sdrId') ||
-                    form.formState.errors.name || 
-                    form.formState.errors.sdrId
+                    !!form.formState.errors.name || 
+                    !!form.formState.errors.sdrId
                   }
                 >
                   Suivant
