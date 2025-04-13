@@ -13,12 +13,6 @@ interface SupabaseMissionData {
   [key: string]: any; // Permet d'autres propriétés
 }
 
-// Type pour gérer les retours de Supabase avec plus de précision
-type SafeSupabaseResponse<T> = {
-  data: T | null;
-  error: { message: string; code?: string } | null;
-};
-
 /**
  * Mettre à jour une mission existante
  */
@@ -37,25 +31,25 @@ export const updateSupaMission = async (mission: {
   console.log("Rôle de l'utilisateur pour la mise à jour:", userRole || mission.user_role);
   
   try {
-    // Vérification explicite du type de retour
-    const { data, error } = await safeSupabase
+    // Vérification de l'existence de la mission
+    const response = await safeSupabase
       .from("missions")
       .select("id, sdr_id, type, status")
       .eq("id", mission.id)
       .maybeSingle();
     
-    if (error) {
-      console.error("Erreur lors de la vérification de l'existence:", error);
-      throw new Error(`Erreur lors de la vérification: ${error.message}`);
+    if (response.error) {
+      console.error("Erreur lors de la vérification de l'existence:", response.error);
+      throw new Error(`Erreur lors de la vérification: ${response.error.message}`);
     }
     
-    if (!data) {
+    if (!response.data) {
       console.error("Mission introuvable:", mission.id);
       throw new Error("La mission n'existe pas");
     }
     
-    // Casting explicite et sécurisé après vérifications
-    const existingMission = data as SupabaseMissionData;
+    // Maintenant que nous avons vérifié que data n'est pas null, nous pouvons accéder à ses propriétés
+    const existingMission = response.data as SupabaseMissionData;
     
     // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
     const effectiveUserRole = userRole || mission.user_role;
@@ -92,39 +86,39 @@ export const updateSupaMission = async (mission: {
     
     console.log("Données formatées pour mise à jour Supabase:", supabaseData);
     
-    const { data: updatedData, error: updateError } = await safeSupabase
+    const updateResponse = await safeSupabase
       .from("missions")
       .update(supabaseData)
       .eq("id", mission.id)
       .select()
       .single();
     
-    if (updateError) {
-      console.error("Erreur Supabase lors de la mise à jour:", updateError);
+    if (updateResponse.error) {
+      console.error("Erreur Supabase lors de la mise à jour:", updateResponse.error);
       // Ajouter des informations détaillées sur l'erreur
-      if (updateError.code === "42501") {
-        throw new Error(`Erreur de permission: ${updateError.message} (RLS a refusé l'accès)`);
-      } else if (updateError.code === "23505") {
-        throw new Error(`Conflit de clé unique: ${updateError.message}`);
-      } else if (updateError.code === "23503") {
-        throw new Error(`Violation de contrainte de clé étrangère: ${updateError.message} (sdr_id non valide)`);
+      if (updateResponse.error.code === "42501") {
+        throw new Error(`Erreur de permission: ${updateResponse.error.message} (RLS a refusé l'accès)`);
+      } else if (updateResponse.error.code === "23505") {
+        throw new Error(`Conflit de clé unique: ${updateResponse.error.message}`);
+      } else if (updateResponse.error.code === "23503") {
+        throw new Error(`Violation de contrainte de clé étrangère: ${updateResponse.error.message} (sdr_id non valide)`);
       } else {
-        throw new Error(`Erreur Supabase [${updateError.code}]: ${updateError.message}`);
+        throw new Error(`Erreur Supabase [${updateResponse.error.code}]: ${updateResponse.error.message}`);
       }
     }
     
-    if (!updatedData) {
+    if (!updateResponse.data) {
       throw new Error("Aucune donnée retournée après la mise à jour");
     }
     
-    console.log("Réponse de Supabase après mise à jour:", updatedData);
+    console.log("Réponse de Supabase après mise à jour:", updateResponse.data);
     
     // Verify sdr_id was properly saved
-    if (!updatedData.sdr_id) {
-      console.error("sdr_id manquant dans les données retournées après mise à jour:", updatedData);
+    if (!updateResponse.data.sdr_id) {
+      console.error("sdr_id manquant dans les données retournées après mise à jour:", updateResponse.data);
     }
     
-    return mapSupaMissionToMission(updatedData);
+    return mapSupaMissionToMission(updateResponse.data);
   } catch (error: any) {
     console.error("Erreur dans updateSupaMission:", error);
     throw error;
@@ -162,17 +156,17 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   }
   
   // Verify deletion
-  const { data: checkAfterDelete, error: verifyError } = await safeSupabase
+  const verificationResponse = await safeSupabase
     .from("missions")
     .select("id")
     .eq("id", missionId)
     .maybeSingle();
   
-  if (verifyError) {
-    console.error("Erreur lors de la vérification après suppression:", verifyError);
+  if (verificationResponse.error) {
+    console.error("Erreur lors de la vérification après suppression:", verificationResponse.error);
   }
   
-  if (checkAfterDelete) {
+  if (verificationResponse.data) {
     console.error("La mission existe toujours après suppression");
     throw new Error("Échec de la suppression: la mission existe toujours");
   }
