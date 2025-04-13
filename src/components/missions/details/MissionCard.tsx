@@ -1,5 +1,5 @@
 
-import { Mission } from "@/types/types";
+import { Mission, MissionStatus } from "@/types/types";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -27,17 +27,12 @@ export const MissionCard = ({ mission, className }: MissionCardProps) => {
 
   // Déterminer le statut de la badge
   const getBadgeVariant = () => {
-    switch (mission.status) {
-      case "Terminée":
-        return "success";
-      case "En pause":
-        return "warning";
-      case "Annulée":
-        return "destructive";
-      case "En cours":
-      default:
-        return "default";
+    // Utilisons uniquement les statuts définis dans le type MissionStatus
+    if (mission.status === "Terminé") {
+      return "success";
     }
+    // En cours est le statut par défaut
+    return "default";
   };
 
   return (

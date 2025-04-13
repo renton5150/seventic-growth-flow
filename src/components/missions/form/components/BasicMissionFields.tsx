@@ -1,13 +1,14 @@
 
 import React from "react";
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Control } from "react-hook-form";
 import { MissionFormValues } from "@/types/types";
+import { Briefcase, FileText } from "lucide-react";
 
 interface BasicMissionFieldsProps {
-  control: Control<any>; // Utiliser any pour éviter les erreurs de typage restrictives
+  control: Control<any>;
   isSubmitting: boolean;
 }
 
@@ -19,12 +20,21 @@ export function BasicMissionFields({ control, isSubmitting }: BasicMissionFields
         name="name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>
-              Nom de la mission <span className="text-red-500">*</span>
+            <FormLabel className="flex items-center">
+              <Briefcase className="mr-2 h-4 w-4" />
+              Nom de la mission <span className="text-red-500 ml-1">*</span>
             </FormLabel>
             <FormControl>
-              <Input {...field} placeholder="Nom de la mission" disabled={isSubmitting} />
+              <Input 
+                {...field} 
+                placeholder="Ex: Campagne LinkedIn pour ClientX" 
+                disabled={isSubmitting} 
+                className="transition-all focus:scale-[1.01]"
+              />
             </FormControl>
+            <FormDescription>
+              Donnez un nom clair et descriptif à votre mission
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -35,15 +45,21 @@ export function BasicMissionFields({ control, isSubmitting }: BasicMissionFields
         name="description"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Description (optionnelle)</FormLabel>
+            <FormLabel className="flex items-center">
+              <FileText className="mr-2 h-4 w-4" />
+              Description (optionnelle)
+            </FormLabel>
             <FormControl>
               <Textarea
                 {...field}
-                placeholder="Description de la mission"
-                className="resize-none"
+                placeholder="Décrivez les objectifs et contexte de la mission..."
+                className="resize-none min-h-[120px] transition-all focus:scale-[1.01]"
                 disabled={isSubmitting}
               />
             </FormControl>
+            <FormDescription>
+              Fournissez des détails supplémentaires pour aider les SDRs à comprendre la mission
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

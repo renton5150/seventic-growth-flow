@@ -110,6 +110,15 @@
   }
 }
 
+@keyframes pulseHighlight {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
@@ -122,7 +131,21 @@
   animation: slideIn 0.3s ease-out;
 }
 
-/* Extensions pour les badges de statut */
+.animate-highlight {
+  animation: pulseHighlight 1.5s ease-in-out;
+}
+
+/* Transition pour les éléments interactifs */
+.transition-element {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+/* Hover effects */
+.hover-scale {
+  @apply hover:scale-[1.02] transition-all duration-200;
+}
+
+/* Badge extensions */
 .badge-success {
   @apply bg-green-100 text-green-800 hover:bg-green-200;
 }
@@ -133,4 +156,33 @@
 
 .badge-danger {
   @apply bg-red-100 text-red-800 hover:bg-red-200;
+}
+
+/* Formulaire responsive */
+@media (max-width: 640px) {
+  .form-row {
+    @apply flex-col;
+  }
+  
+  .form-col {
+    @apply w-full;
+  }
+}
+
+/* Amélioration focus sur les inputs */
+input:focus, textarea:focus, select:focus {
+  @apply ring-2 ring-blue-400 ring-opacity-50 transition-all duration-200;
+}
+
+/* Input masks for better UX */
+.input-container {
+  @apply relative;
+}
+
+.input-icon {
+  @apply absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400;
+}
+
+.input-with-icon {
+  @apply pl-10;
 }

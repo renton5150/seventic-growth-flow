@@ -4,6 +4,7 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/comp
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Control } from "react-hook-form";
 import { MissionFormValues } from "@/types/types";
+import { CheckCircle2, Clock } from "lucide-react";
 
 interface StatusSelectorProps {
   control: Control<MissionFormValues>;
@@ -28,13 +29,23 @@ export function StatusSelector({ control, disabled = false }: StatusSelectorProp
             disabled={disabled}
           >
             <FormControl>
-              <SelectTrigger>
+              <SelectTrigger className="flex items-center">
                 <SelectValue placeholder="Sélectionner un statut" />
               </SelectTrigger>
             </FormControl>
             <SelectContent>
-              <SelectItem value="En cours">En cours</SelectItem>
-              <SelectItem value="Terminé">Terminé</SelectItem>
+              <SelectItem value="En cours" className="flex items-center">
+                <div className="flex items-center">
+                  <Clock className="mr-2 h-4 w-4 text-blue-500" />
+                  <span>En cours</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="Terminé" className="flex items-center">
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                  <span>Terminé</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
           <FormMessage />
