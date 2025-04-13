@@ -1,29 +1,13 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Database } from '@/integrations/supabase/types';
 
-// Type definitions for tables to type-check table names
-type TableNames = "missions" | "profiles" | "database_files" | "requests";
-
-// Define type for RPC function names to avoid typing errors
-type RPCFunctionName = "create_user_profile" | "user_has_growth_role" | "user_is_admin";
-
-// Define parameter types for RPC functions
-type RPCParams = {
-  create_user_profile: {
-    user_id: string;
-    user_email: string;
-    user_name: string;
-    user_role: string;
-    user_avatar: string;
-  };
-  user_has_growth_role: Record<string, never>;
-  user_is_admin: Record<string, never>;
-};
+// Define simple but effective types
+type TableName = string;
+type RPCName = string;
 
 // Error message mapping
-const API_ERROR_MESSAGES = {
+const API_ERROR_MESSAGES: Record<string | number, string> = {
   400: "Données invalides",
   401: "Non autorisé",
   403: "Accès refusé", 
@@ -49,7 +33,7 @@ class ApiService {
   private handleError(method: string, endpoint: string, error: any): never {
     // Message d'erreur avec contexte
     const statusCode = error.code || error.status || "unknown";
-    const defaultMessage = API_ERROR_MESSAGES[statusCode as keyof typeof API_ERROR_MESSAGES] 
+    const defaultMessage = API_ERROR_MESSAGES[statusCode] 
       || "Une erreur est survenue";
     
     const errorObj = new Error(error.message || defaultMessage) as any;
@@ -77,7 +61,7 @@ class ApiService {
    * Récupère les données depuis une table
    */
   async get<T = any>(
-    table: TableNames, 
+    table: TableName, 
     options: {
       id?: string;
       query?: Record<string, any>;
@@ -144,7 +128,7 @@ class ApiService {
    * Crée un nouvel enregistrement dans une table
    */
   async post<T = any>(
-    table: TableNames, 
+    table: TableName, 
     data: any,
     options: {
       select?: string;
@@ -154,7 +138,7 @@ class ApiService {
     try {
       console.log(`API POST ${table}`, data);
       
-      // Insert with or without upsert
+      // Always insert as array to avoid type errors
       let insertResponse;
       if (options.upsert) {
         insertResponse = await supabase.from(table).upsert([data]);
@@ -200,7 +184,7 @@ class ApiService {
    * Met à jour un enregistrement existant
    */
   async put<T = any>(
-    table: TableNames, 
+    table: TableName, 
     id: string, 
     data: any,
     options: {
@@ -239,7 +223,7 @@ class ApiService {
    * Supprime un enregistrement
    */
   async delete(
-    table: TableNames, 
+    table: TableName, 
     id: string
   ): Promise<boolean> {
     try {
@@ -264,7 +248,7 @@ class ApiService {
    * Exécute une fonction RPC
    */
   async rpc<T = any>(
-    functionName: RPCFunctionName,
+    functionName: RPCName,
     params: any = {}
   ): Promise<T> {
     try {
