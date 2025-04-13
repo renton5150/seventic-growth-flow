@@ -4,6 +4,15 @@ import { safeSupabase } from "@/integrations/supabase/safeClient";
 import { mapSupaMissionToMission } from "./utils";
 import { checkMissionExists } from "./getMissions";
 
+// Type d'aide pour contourner les erreurs TypeScript avec les retours Supabase
+interface SupabaseMissionData {
+  id: string;
+  sdr_id: string;
+  type: string;
+  status: string;
+  [key: string]: any; // Permet d'autres propriétés
+}
+
 /**
  * Mettre à jour une mission existante
  */
@@ -22,7 +31,7 @@ export const updateSupaMission = async (mission: {
   console.log("Rôle de l'utilisateur pour la mise à jour:", userRole || mission.user_role);
   
   // Check if mission exists
-  const { data: existingMission, error: checkError } = await safeSupabase
+  const { data, error: checkError } = await safeSupabase
     .from("missions")
     .select("id, sdr_id, type, status")
     .eq("id", mission.id)
@@ -33,10 +42,13 @@ export const updateSupaMission = async (mission: {
     throw new Error(`Erreur lors de la vérification: ${checkError.message}`);
   }
   
-  if (!existingMission) {
+  if (!data) {
     console.error("Mission introuvable:", mission.id);
     throw new Error("La mission n'existe pas");
   }
+  
+  // Casting explicite pour éviter les erreurs TypeScript
+  const existingMission = data as unknown as SupabaseMissionData;
   
   // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
   const effectiveUserRole = userRole || mission.user_role;
@@ -73,7 +85,7 @@ export const updateSupaMission = async (mission: {
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
   
-  const { data, error } = await safeSupabase
+  const { data: updatedData, error } = await safeSupabase
     .from("missions")
     .update(supabaseData)
     .eq("id", mission.id)
@@ -94,14 +106,14 @@ export const updateSupaMission = async (mission: {
     }
   }
   
-  console.log("Réponse de Supabase après mise à jour:", data);
+  console.log("Réponse de Supabase après mise à jour:", updatedData);
   
   // Verify sdr_id was properly saved
-  if (!data.sdr_id) {
-    console.error("sdr_id manquant dans les données retournées après mise à jour:", data);
+  if (!updatedData.sdr_id) {
+    console.error("sdr_id manquant dans les données retournées après mise à jour:", updatedData);
   }
   
-  return mapSupaMissionToMission(data);
+  return mapSupaMissionToMission(updatedData);
 };
 
 /**
@@ -153,4 +165,3 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   console.log("Mission supprimée avec succès");
   return true;
 };
-

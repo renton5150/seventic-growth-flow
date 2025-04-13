@@ -26,4 +26,3 @@ export function ReadOnlyStatusDisplay({ status }: ReadOnlyStatusDisplayProps) {
     </FormItem>
   );
 }
-

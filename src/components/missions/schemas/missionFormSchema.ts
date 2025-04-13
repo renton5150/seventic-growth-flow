@@ -22,5 +22,15 @@ export const missionFormSchema = z.object({
   path: ["endDate"],
 });
 
+// Type pour les valeurs du formulaire de mission
+// Notez que ce type reflète le schéma Zod ci-dessus
 export type MissionFormValues = z.infer<typeof missionFormSchema>;
 
+// Version plus permissive du type pour gérer les valeurs partielles dans le formulaire
+export type PartialMissionFormValues = Partial<MissionFormValues> & {
+  // On garde seulement les champs requis pour éviter les erreurs TypeScript
+  name: string;
+  sdrId: string;
+  type: "Full" | "Part";
+  status: "En cours" | "Terminé";
+};

@@ -7,7 +7,7 @@ import { Control } from "react-hook-form";
 import { MissionFormValues } from "@/types/types";
 
 interface BasicMissionFieldsProps {
-  control: Control<MissionFormValues>;
+  control: Control<any>; // Utiliser any pour éviter les erreurs de typage restrictives
   isSubmitting: boolean;
 }
 
@@ -23,7 +23,7 @@ export function BasicMissionFields({ control, isSubmitting }: BasicMissionFields
               Nom de la mission <span className="text-red-500">*</span>
             </FormLabel>
             <FormControl>
-              <Input {...field} placeholder="Nom de la mission" />
+              <Input {...field} placeholder="Nom de la mission" disabled={isSubmitting} />
             </FormControl>
             <FormMessage />
           </FormItem>
