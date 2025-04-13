@@ -263,17 +263,14 @@ class ApiService {
   /**
    * Exécute une fonction RPC
    */
-  async rpc<
-    T = any,
-    F extends RPCFunctionName = RPCFunctionName
-  >(
-    functionName: F,
-    params: RPCParams[F] = {} as RPCParams[F]
+  async rpc<T = any>(
+    functionName: RPCFunctionName,
+    params: any = {}
   ): Promise<T> {
     try {
       console.log(`API RPC ${functionName}`, params);
       
-      const response = await supabase.rpc(functionName, params as any);
+      const response = await supabase.rpc(functionName, params);
       
       if (this.isErrorResponse(response)) {
         return this.handleError('RPC', functionName, response.error);
