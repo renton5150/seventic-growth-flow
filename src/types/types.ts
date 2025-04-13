@@ -1,4 +1,5 @@
 
+
 export type UserRole = "admin" | "sdr" | "growth";
 
 export interface User {
@@ -58,16 +59,20 @@ export interface Request {
   dueDate: Date;
   lastUpdated: Date;
   isLate?: boolean;
+  sdrName?: string;
   template?: {
     content?: string;
     webLink?: string;
+    fileUrl?: string;
   };
   database?: {
     notes?: string;
+    webLink?: string;
+    fileUrl?: string;
   };
   blacklist?: {
-    accounts?: { notes: string };
-    emails?: { notes: string };
+    accounts?: { notes: string; fileUrl?: string };
+    emails?: { notes: string; fileUrl?: string };
   };
   platform?: string;
   statistics?: {
@@ -85,6 +90,8 @@ export interface Request {
   };
   tool?: string;
   contactsCreated?: number;
+  profilesScraped?: number;
+  resultFileUrl?: string;
 }
 
 export interface EmailCampaignRequest extends Request {
@@ -92,13 +99,16 @@ export interface EmailCampaignRequest extends Request {
   template: {
     content?: string;
     webLink?: string;
+    fileUrl?: string;
   };
   database: {
     notes: string;
+    webLink?: string;
+    fileUrl?: string;
   };
   blacklist?: {
-    accounts?: { notes: string };
-    emails?: { notes: string };
+    accounts?: { notes: string; fileUrl?: string };
+    emails?: { notes: string; fileUrl?: string };
   };
   platform?: string;
   statistics?: {
@@ -119,7 +129,7 @@ export interface DatabaseRequest extends Request {
     otherCriteria?: string;
   };
   blacklist: {
-    accounts: { notes: string };
+    accounts: { notes: string; fileUrl?: string };
   };
   contactsCreated?: number;
 }
@@ -132,6 +142,8 @@ export interface LinkedInScrapingRequest extends Request {
     industries: string[];
     companySize: string[];
   };
+  profilesScraped?: number;
+  resultFileUrl?: string;
 }
 
 // Interface pour l'ensemble des données de l'application
@@ -143,3 +155,4 @@ export interface AppData {
 
 // On réexporte également les types du formulaire de mission pour compatibilité
 export type { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
+
