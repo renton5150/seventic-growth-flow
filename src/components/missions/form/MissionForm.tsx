@@ -12,6 +12,7 @@ import { MissionFormValues, missionFormSchema } from "../schemas/missionFormSche
 import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface MissionFormProps {
   mission: Mission | null;
@@ -22,6 +23,9 @@ interface MissionFormProps {
 
 export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: MissionFormProps) {
   const [formInitialized, setFormInitialized] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
@@ -65,6 +69,109 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
     );
   }
 
+  // Affichage en lecture seule pour les champs restreints aux SDRs
+  if (!isAdmin && mission) {
+    return (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Nom de la mission <span className="text-red-500">*</span>
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Nom de la mission" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* SDR Selector en lecture seule pour les SDRs */}
+          <FormItem>
+            <FormLabel>
+              Assigner à (SDR) <span className="text-red-500">*</span>
+            </FormLabel>
+            <div className="bg-gray-100 border border-gray-200 rounded px-3 py-2 text-gray-700">
+              {mission.sdrName || "Non assigné"}
+            </div>
+            <input type="hidden" {...form.register("sdrId")} />
+          </FormItem>
+
+          <DateField 
+            control={form.control}
+            name="startDate"
+            label="Date de démarrage"
+            disabled={isSubmitting}
+          />
+
+          <DateField 
+            control={form.control}
+            name="endDate"
+            label="Date de fin"
+            disabled={isSubmitting}
+            minDate={startDate}
+          />
+
+          {/* Type de mission en lecture seule pour les SDRs */}
+          <FormItem>
+            <FormLabel>
+              Type de mission <span className="text-red-500">*</span>
+            </FormLabel>
+            <div className="bg-gray-100 border border-gray-200 rounded px-3 py-2 text-gray-700">
+              {mission.type}
+            </div>
+            <input type="hidden" {...form.register("type")} />
+          </FormItem>
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description (optionnelle)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    {...field}
+                    placeholder="Description de la mission"
+                    className="resize-none"
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Mise à jour...
+                </>
+              ) : (
+                "Mettre à jour"
+              )}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    );
+  }
+
+  // Version normale pour les administrateurs
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
