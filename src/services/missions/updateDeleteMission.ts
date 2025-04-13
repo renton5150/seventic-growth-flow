@@ -1,3 +1,4 @@
+
 import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { safeSupabase } from "@/integrations/supabase/safeClient";
 import { mapSupaMissionToMission } from "./utils";
@@ -35,94 +36,99 @@ export const updateSupaMission = async (mission: {
   console.log("updateSupaMission reçoit:", mission);
   console.log("Rôle de l'utilisateur pour la mise à jour:", userRole || mission.user_role);
   
-  // Vérification explicite du type de retour
-  const result = await safeSupabase
-    .from("missions")
-    .select("id, sdr_id, type, status")
-    .eq("id", mission.id)
-    .maybeSingle() as SafeSupabaseResponse<SupabaseMissionData>;
-
-  if (result.error) {
-    console.error("Erreur lors de la vérification de l'existence:", result.error);
-    throw new Error(`Erreur lors de la vérification: ${result.error.message}`);
-  }
-  
-  if (!result.data) {
-    console.error("Mission introuvable:", mission.id);
-    throw new Error("La mission n'existe pas");
-  }
-  
-  // Casting explicite et sécurisé
-  const existingMission = result.data as SupabaseMissionData;
-  
-  // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
-  const effectiveUserRole = userRole || mission.user_role;
-  
-  // Préparation des données pour Supabase avec protection des champs selon le rôle
-  let supabaseData: any = {
-    name: mission.name,
-    description: mission.description || "",
-    start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
-    end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
-    client: mission.name // Utilise le nom comme valeur pour client (requis par le schéma)
-  };
-  
-  // Protection côté serveur: si l'utilisateur est SDR, conserver la valeur originale
-  if (effectiveUserRole === 'sdr') {
-    console.log("Utilisateur SDR: conservation des valeurs originales pour sdr_id, type");
-    // Un SDR ne peut modifier que le statut de ses propres missions
-    if (existingMission.sdr_id === mission.sdrId) {
+  try {
+    // Vérification explicite du type de retour
+    const { data, error } = await safeSupabase
+      .from("missions")
+      .select("id, sdr_id, type, status")
+      .eq("id", mission.id)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Erreur lors de la vérification de l'existence:", error);
+      throw new Error(`Erreur lors de la vérification: ${error.message}`);
+    }
+    
+    if (!data) {
+      console.error("Mission introuvable:", mission.id);
+      throw new Error("La mission n'existe pas");
+    }
+    
+    // Casting explicite et sécurisé après vérifications
+    const existingMission = data as SupabaseMissionData;
+    
+    // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
+    const effectiveUserRole = userRole || mission.user_role;
+    
+    // Préparation des données pour Supabase avec protection des champs selon le rôle
+    let supabaseData: any = {
+      name: mission.name,
+      description: mission.description || "",
+      start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
+      end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
+      client: mission.name // Utilise le nom comme valeur pour client (requis par le schéma)
+    };
+    
+    // Protection côté serveur: si l'utilisateur est SDR, conserver la valeur originale
+    if (effectiveUserRole === 'sdr') {
+      console.log("Utilisateur SDR: conservation des valeurs originales pour sdr_id, type");
+      // Un SDR ne peut modifier que le statut de ses propres missions
+      if (existingMission.sdr_id === mission.sdrId) {
+        supabaseData.status = mission.status || existingMission.status;
+        console.log("SDR modifiant sa propre mission, statut mis à jour à:", supabaseData.status);
+      } else {
+        supabaseData.status = existingMission.status;
+      }
+      // Utiliser les valeurs existantes pour les champs restreints
+      supabaseData.sdr_id = existingMission.sdr_id;
+      supabaseData.type = existingMission.type;
+    } else {
+      // Admin peut modifier tous les champs
+      supabaseData.sdr_id = mission.sdrId;
+      supabaseData.type = mission.type || "Full";
       supabaseData.status = mission.status || existingMission.status;
-      console.log("SDR modifiant sa propre mission, statut mis à jour à:", supabaseData.status);
-    } else {
-      supabaseData.status = existingMission.status;
+      console.log("Administrateur: mise à jour de tous les champs, statut à", supabaseData.status);
     }
-    // Utiliser les valeurs existantes pour les champs restreints
-    supabaseData.sdr_id = existingMission.sdr_id;
-    supabaseData.type = existingMission.type;
-  } else {
-    // Admin peut modifier tous les champs
-    supabaseData.sdr_id = mission.sdrId;
-    supabaseData.type = mission.type || "Full";
-    supabaseData.status = mission.status || existingMission.status;
-    console.log("Administrateur: mise à jour de tous les champs, statut à", supabaseData.status);
-  }
-  
-  console.log("Données formatées pour mise à jour Supabase:", supabaseData);
-  
-  const { data: updatedData, error } = await safeSupabase
-    .from("missions")
-    .update(supabaseData)
-    .eq("id", mission.id)
-    .select()
-    .single();
-  
-  if (error) {
-    console.error("Erreur Supabase lors de la mise à jour:", error);
-    // Ajouter des informations détaillées sur l'erreur
-    if (error.code === "42501") {
-      throw new Error(`Erreur de permission: ${error.message} (RLS a refusé l'accès)`);
-    } else if (error.code === "23505") {
-      throw new Error(`Conflit de clé unique: ${error.message}`);
-    } else if (error.code === "23503") {
-      throw new Error(`Violation de contrainte de clé étrangère: ${error.message} (sdr_id non valide)`);
-    } else {
-      throw new Error(`Erreur Supabase [${error.code}]: ${error.message}`);
+    
+    console.log("Données formatées pour mise à jour Supabase:", supabaseData);
+    
+    const { data: updatedData, error: updateError } = await safeSupabase
+      .from("missions")
+      .update(supabaseData)
+      .eq("id", mission.id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error("Erreur Supabase lors de la mise à jour:", updateError);
+      // Ajouter des informations détaillées sur l'erreur
+      if (updateError.code === "42501") {
+        throw new Error(`Erreur de permission: ${updateError.message} (RLS a refusé l'accès)`);
+      } else if (updateError.code === "23505") {
+        throw new Error(`Conflit de clé unique: ${updateError.message}`);
+      } else if (updateError.code === "23503") {
+        throw new Error(`Violation de contrainte de clé étrangère: ${updateError.message} (sdr_id non valide)`);
+      } else {
+        throw new Error(`Erreur Supabase [${updateError.code}]: ${updateError.message}`);
+      }
     }
+    
+    if (!updatedData) {
+      throw new Error("Aucune donnée retournée après la mise à jour");
+    }
+    
+    console.log("Réponse de Supabase après mise à jour:", updatedData);
+    
+    // Verify sdr_id was properly saved
+    if (!updatedData.sdr_id) {
+      console.error("sdr_id manquant dans les données retournées après mise à jour:", updatedData);
+    }
+    
+    return mapSupaMissionToMission(updatedData);
+  } catch (error: any) {
+    console.error("Erreur dans updateSupaMission:", error);
+    throw error;
   }
-  
-  if (!updatedData) {
-    throw new Error("Aucune donnée retournée après la mise à jour");
-  }
-  
-  console.log("Réponse de Supabase après mise à jour:", updatedData);
-  
-  // Verify sdr_id was properly saved
-  if (!updatedData.sdr_id) {
-    console.error("sdr_id manquant dans les données retournées après mise à jour:", updatedData);
-  }
-  
-  return mapSupaMissionToMission(updatedData);
 };
 
 /**
