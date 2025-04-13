@@ -1,4 +1,3 @@
-
 import { Mission, MissionType } from "@/types/types";
 import { v4 as uuidv4 } from "uuid";
 import { getRequestsByMissionId } from "@/data/requests";
@@ -27,7 +26,8 @@ export const mockMissions: Mission[] = [
     requests: [],
     startDate: new Date("2023-02-01"),
     endDate: new Date("2023-03-15"),
-    type: "Full" as MissionType
+    type: "Full" as MissionType,
+    status: "En cours"
   },
   {
     id: "mission2",
@@ -39,7 +39,8 @@ export const mockMissions: Mission[] = [
     requests: [],
     startDate: new Date("2023-03-01"),
     endDate: null,
-    type: "Part" as MissionType
+    type: "Part" as MissionType,
+    status: "En cours"
   }
 ];
 
@@ -87,7 +88,8 @@ export const createMockMission = (data: {
     requests: [],
     startDate: data.startDate || null,
     endDate: data.endDate || null,
-    type: (data.type as MissionType) || "Full"
+    type: (data.type as MissionType) || "Full",
+    status: "En cours"
   };
   mockMissions.push(newMission);
   return newMission;
@@ -113,16 +115,13 @@ export const updateMockMission = async (data: {
   endDate: Date | null;
   type: string;
 }): Promise<Mission> => {
-  // Chercher la mission à mettre à jour
   const missionIndex = mockMissions.findIndex(mission => mission.id === data.id);
   if (missionIndex === -1) {
     throw new Error(`Mission avec ID ${data.id} non trouvée`);
   }
 
-  // Obtenir des informations sur le SDR
   const sdr = getMockUser(data.sdrId);
   
-  // Créer un objet mission mis à jour
   const updatedMission: Mission = {
     id: data.id,
     name: data.name,
@@ -133,10 +132,10 @@ export const updateMockMission = async (data: {
     requests: getRequestsByMissionId(data.id),
     startDate: data.startDate,
     endDate: data.endDate,
-    type: data.type as MissionType || "Full"
+    type: data.type as MissionType || "Full",
+    status: mockMissions[missionIndex].status
   };
   
-  // Mettre à jour la mission dans le tableau mockée
   mockMissions[missionIndex] = updatedMission;
   
   return updatedMission;
