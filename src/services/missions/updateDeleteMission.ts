@@ -31,7 +31,7 @@ export const updateSupaMission = async (mission: {
   console.log("Rôle de l'utilisateur pour la mise à jour:", userRole || mission.user_role);
   
   // Check if mission exists
-  const { data, error: checkError } = await safeSupabase
+  const { data: checkData, error: checkError } = await safeSupabase
     .from("missions")
     .select("id, sdr_id, type, status")
     .eq("id", mission.id)
@@ -42,13 +42,13 @@ export const updateSupaMission = async (mission: {
     throw new Error(`Erreur lors de la vérification: ${checkError.message}`);
   }
   
-  if (!data) {
+  if (!checkData) {
     console.error("Mission introuvable:", mission.id);
     throw new Error("La mission n'existe pas");
   }
   
   // Casting explicite pour éviter les erreurs TypeScript
-  const existingMission = data as unknown as SupabaseMissionData;
+  const existingMission = checkData as SupabaseMissionData;
   
   // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
   const effectiveUserRole = userRole || mission.user_role;
@@ -104,6 +104,10 @@ export const updateSupaMission = async (mission: {
     } else {
       throw new Error(`Erreur Supabase [${error.code}]: ${error.message}`);
     }
+  }
+  
+  if (!updatedData) {
+    throw new Error("Aucune donnée retournée après la mise à jour");
   }
   
   console.log("Réponse de Supabase après mise à jour:", updatedData);
