@@ -2,10 +2,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { Form } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
 import { Mission } from "@/types/types";
 import { MissionFormValues, missionFormSchema } from "../schemas/missionFormSchema";
@@ -13,7 +10,11 @@ import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
 import { useAuth } from "@/contexts/AuthContext";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { BasicMissionFields } from "./components/BasicMissionFields";
+import { StatusSelector } from "./components/StatusSelector";
+import { ReadOnlyStatusDisplay } from "./components/ReadOnlyStatusDisplay";
+import { ReadOnlySdrDisplay } from "./components/ReadOnlySdrDisplay";
+import { FormButtons } from "./components/FormButtons";
 
 interface MissionFormProps {
   mission: Mission | null;
@@ -84,35 +85,61 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
     onSubmit(values);
   };
 
+  // Restricted view for non-admin users editing an existing mission
   if (!isAdmin && mission) {
+    return renderRestrictedForm(mission);
+  }
+
+  // Full edit form for admins or new mission creation
+  return renderFullForm();
+
+  function renderRestrictedForm(mission: Mission) {
     return (
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-          <FormField
+          <BasicMissionFields control={form.control} isSubmitting={isSubmitting} />
+          
+          <ReadOnlySdrDisplay sdrName={mission.sdrName} />
+          <input type="hidden" {...form.register("sdrId")} />
+          
+          <DateField 
             control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Nom de la mission <span className="text-red-500">*</span>
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Nom de la mission" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            name="startDate"
+            label="Date de démarrage"
+            disabled={isSubmitting}
           />
 
-          <FormItem>
-            <FormLabel>
-              Assigner à (SDR) <span className="text-red-500">*</span>
-            </FormLabel>
-            <div className="bg-gray-100 border border-gray-200 rounded px-3 py-2 text-gray-700">
-              {mission.sdrName || "Non assigné"}
-            </div>
-            <input type="hidden" {...form.register("sdrId")} />
-          </FormItem>
+          <DateField 
+            control={form.control}
+            name="endDate"
+            label="Date de fin"
+            disabled={isSubmitting}
+            minDate={startDate}
+          />
+
+          <ReadOnlyStatusDisplay status={mission.status} />
+          <input type="hidden" {...form.register("status")} />
+
+          <FormButtons 
+            isSubmitting={isSubmitting} 
+            onCancel={onCancel}
+          />
+        </form>
+      </Form>
+    );
+  }
+
+  function renderFullForm() {
+    return (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+          <BasicMissionFields control={form.control} isSubmitting={isSubmitting} />
+          
+          <SdrSelector 
+            control={form.control} 
+            disabled={isSubmitting} 
+            initialSdrName={mission?.sdrName}
+          />
 
           <DateField 
             control={form.control}
@@ -129,167 +156,14 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
             minDate={startDate}
           />
 
-          <FormItem>
-            <FormLabel>Statut de la mission</FormLabel>
-            <div className="bg-gray-100 border border-gray-200 rounded px-3 py-2 text-gray-700">
-              {mission.status}
-            </div>
-            <input type="hidden" {...form.register("status")} />
-          </FormItem>
+          <StatusSelector control={form.control} disabled={isSubmitting} />
 
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description (optionnelle)</FormLabel>
-                <FormControl>
-                  <Textarea
-                    {...field}
-                    placeholder="Description de la mission"
-                    className="resize-none"
-                    disabled={isSubmitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+          <FormButtons 
+            isSubmitting={isSubmitting} 
+            onCancel={onCancel}
           />
-
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              disabled={isSubmitting}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Mise à jour...
-                </>
-              ) : (
-                "Mettre à jour"
-              )}
-            </Button>
-          </div>
         </form>
       </Form>
     );
   }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>
-                Nom de la mission <span className="text-red-500">*</span>
-              </FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Nom de la mission" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <SdrSelector 
-          control={form.control} 
-          disabled={isSubmitting} 
-          initialSdrName={mission?.sdrName}
-        />
-
-        <DateField 
-          control={form.control}
-          name="startDate"
-          label="Date de démarrage"
-          disabled={isSubmitting}
-        />
-
-        <DateField 
-          control={form.control}
-          name="endDate"
-          label="Date de fin"
-          disabled={isSubmitting}
-          minDate={startDate}
-        />
-
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Statut de la mission</FormLabel>
-              <Select 
-                onValueChange={(value) => {
-                  console.log("Changement de statut à:", value);
-                  field.onChange(value);
-                }}
-                defaultValue={field.value}
-                value={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un statut" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="En cours">En cours</SelectItem>
-                  <SelectItem value="Terminé">Terminé</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description (optionnelle)</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  placeholder="Description de la mission"
-                  className="resize-none"
-                  disabled={isSubmitting}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex justify-end space-x-2 pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isSubmitting}
-          >
-            Annuler
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Mise à jour...
-              </>
-            ) : (
-              "Mettre à jour"
-            )}
-          </Button>
-        </div>
-      </form>
-    </Form>
-  );
 }

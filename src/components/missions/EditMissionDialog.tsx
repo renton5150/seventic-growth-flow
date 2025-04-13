@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Mission } from "@/types/types";
-import { updateMission } from "@/services/missions-service"; // Updated import path
+import { updateMission } from "@/services/missions-service"; 
 import { MissionForm } from "./form/MissionForm";
 import { MissionFormValues } from "./schemas/missionFormSchema";
 import { ErrorBoundary } from "react-error-boundary";
@@ -84,7 +84,7 @@ export function EditMissionDialog({
         setTimeout(() => reject(new Error("Délai d'attente dépassé")), 10000);
       });
       
-      const updatedMission = await Promise.race([updatePromise, timeoutPromise]);
+      const updatedMission = await Promise.race([updatePromise, timeoutPromise]) as Mission;
       
       console.log("Mission mise à jour avec succès, nouveaux statut:", updatedMission.status);
       
