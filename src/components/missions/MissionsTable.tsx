@@ -5,7 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Trash } from "lucide-react";
+import { Eye, Pencil, Trash, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MissionsTableProps {
   missions: Mission[];
@@ -60,26 +66,33 @@ export const MissionsTable = ({
                   Voir
                 </Button>
                 
-                {onEditMission && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onEditMission(mission)}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Modifier
-                  </Button>
-                )}
-                
-                {onDeleteMission && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => onDeleteMission(mission)}
-                  >
-                    <Trash className="h-4 w-4 mr-1" />
-                    Supprimer
-                  </Button>
+                {/* Dropdown menu for more actions */}
+                {(onEditMission || onDeleteMission) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Actions</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {onEditMission && (
+                        <DropdownMenuItem onClick={() => onEditMission(mission)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Modifier
+                        </DropdownMenuItem>
+                      )}
+                      {onDeleteMission && (
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => onDeleteMission(mission)}
+                        >
+                          <Trash className="h-4 w-4 mr-2" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
             </TableCell>

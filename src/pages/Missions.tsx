@@ -10,12 +10,14 @@ import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
+import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
 import { useQuery } from "@tanstack/react-query";
 
 const Missions = () => {
   const { user } = useAuth();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   const isAdmin = user?.role === "admin";
   const isSdr = user?.role === "sdr";
@@ -51,6 +53,12 @@ const Missions = () => {
   const handleViewMission = (mission: Mission) => {
     console.log("Affichage de la mission:", mission);
     setSelectedMission(mission);
+  };
+  
+  const handleEditMission = (mission: Mission) => {
+    console.log("Modification de la mission:", mission);
+    setSelectedMission(mission);
+    setIsEditModalOpen(true);
   };
   
   const handleCreateMissionClick = () => {
@@ -91,7 +99,8 @@ const Missions = () => {
           <MissionsTable 
             missions={missions} 
             isAdmin={isAdmin} 
-            onViewMission={handleViewMission} 
+            onViewMission={handleViewMission}
+            onEditMission={isSdr ? handleEditMission : undefined}
           />
         )}
         
@@ -104,9 +113,16 @@ const Missions = () => {
         
         <MissionDetailsDialog 
           mission={selectedMission} 
-          open={!!selectedMission} 
+          open={!!selectedMission && !isEditModalOpen} 
           onOpenChange={(open) => !open && setSelectedMission(null)} 
           isSdr={isSdr} 
+        />
+
+        <EditMissionDialog
+          mission={selectedMission}
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          onMissionUpdated={handleRefreshMissions}
         />
       </div>
     </AppLayout>
