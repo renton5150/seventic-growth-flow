@@ -1,4 +1,3 @@
-
 import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { safeSupabase } from "@/integrations/supabase/safeClient";
 import { mapSupaMissionToMission } from "./utils";
@@ -12,6 +11,12 @@ interface SupabaseMissionData {
   status: string;
   [key: string]: any; // Permet d'autres propriétés
 }
+
+// Type pour gérer les retours de Supabase avec plus de précision
+type SafeSupabaseResponse<T> = {
+  data: T | null;
+  error: { message: string; code?: string } | null;
+};
 
 /**
  * Mettre à jour une mission existante
@@ -30,25 +35,25 @@ export const updateSupaMission = async (mission: {
   console.log("updateSupaMission reçoit:", mission);
   console.log("Rôle de l'utilisateur pour la mise à jour:", userRole || mission.user_role);
   
-  // Check if mission exists
-  const { data: checkData, error: checkError } = await safeSupabase
+  // Vérification explicite du type de retour
+  const result = await safeSupabase
     .from("missions")
     .select("id, sdr_id, type, status")
     .eq("id", mission.id)
-    .maybeSingle();
-  
-  if (checkError) {
-    console.error("Erreur lors de la vérification de l'existence:", checkError);
-    throw new Error(`Erreur lors de la vérification: ${checkError.message}`);
+    .maybeSingle() as SafeSupabaseResponse<SupabaseMissionData>;
+
+  if (result.error) {
+    console.error("Erreur lors de la vérification de l'existence:", result.error);
+    throw new Error(`Erreur lors de la vérification: ${result.error.message}`);
   }
   
-  if (!checkData) {
+  if (!result.data) {
     console.error("Mission introuvable:", mission.id);
     throw new Error("La mission n'existe pas");
   }
   
-  // Casting explicite pour éviter les erreurs TypeScript
-  const existingMission = checkData as SupabaseMissionData;
+  // Casting explicite et sécurisé
+  const existingMission = result.data as SupabaseMissionData;
   
   // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
   const effectiveUserRole = userRole || mission.user_role;
