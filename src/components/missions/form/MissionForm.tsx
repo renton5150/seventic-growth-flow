@@ -68,7 +68,9 @@ export const MissionForm = ({
   // Mettre à jour la progression du formulaire
   useEffect(() => {
     const { formState } = form;
-    const totalFields = Object.keys(missionFormSchema._def.shape()).length;
+    // Correction : Accéder correctement aux champs du schéma Zod
+    // Les schémas avec refine() sont de type ZodEffects, nous devons donc accéder au schéma interne
+    const totalFields = Object.keys(missionFormSchema._def.schema?._def?.shape || {}).length;
     const completedFields = Object.keys(form.getValues()).filter(
       key => !!form.getValues()[key as keyof MissionFormValues]
     ).length;
@@ -273,3 +275,4 @@ export const MissionForm = ({
     </Form>
   );
 };
+
