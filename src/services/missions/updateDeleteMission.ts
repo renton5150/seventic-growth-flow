@@ -43,13 +43,14 @@ export const updateSupaMission = async (mission: {
       throw new Error(`Erreur lors de la vérification: ${response.error.message}`);
     }
     
+    // Vérifier si les données existent
     if (!response.data) {
       console.error("Mission introuvable:", mission.id);
       throw new Error("La mission n'existe pas");
     }
     
-    // Maintenant que nous avons vérifié que data n'est pas null, nous pouvons accéder à ses propriétés
-    const existingMission = response.data as SupabaseMissionData;
+    // Maintenant que nous savons que data existe, nous pouvons l'utiliser en toute sécurité
+    const existingMission = response.data as unknown as SupabaseMissionData;
     
     // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
     const effectiveUserRole = userRole || mission.user_role;
@@ -113,12 +114,15 @@ export const updateSupaMission = async (mission: {
     
     console.log("Réponse de Supabase après mise à jour:", updateResponse.data);
     
+    // Convertir explicitement le résultat avant d'utiliser ses propriétés
+    const updatedMissionData = updateResponse.data as unknown as SupabaseMissionData;
+    
     // Verify sdr_id was properly saved
-    if (!updateResponse.data.sdr_id) {
-      console.error("sdr_id manquant dans les données retournées après mise à jour:", updateResponse.data);
+    if (!updatedMissionData.sdr_id) {
+      console.error("sdr_id manquant dans les données retournées après mise à jour:", updatedMissionData);
     }
     
-    return mapSupaMissionToMission(updateResponse.data);
+    return mapSupaMissionToMission(updatedMissionData);
   } catch (error: any) {
     console.error("Erreur dans updateSupaMission:", error);
     throw error;
