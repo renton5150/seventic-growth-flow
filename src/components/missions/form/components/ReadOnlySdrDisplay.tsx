@@ -7,7 +7,7 @@ interface ReadOnlySdrDisplayProps {
   sdrId?: string;
 }
 
-export function ReadOnlySdrDisplay({ sdrName }: ReadOnlySdrDisplayProps) {
+export function ReadOnlySdrDisplay({ sdrName, sdrId }: ReadOnlySdrDisplayProps) {
   return (
     <FormItem>
       <FormLabel>

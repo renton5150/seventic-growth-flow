@@ -1,7 +1,15 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Database } from '@supabase/supabase-js';
 
+// Type definitions for tables to type-check table names
+type TableNames = "missions" | "profiles" | "database_files" | "requests";
+
+// Define type for RPC function names to avoid typing errors
+type RPCFunctionName = "create_user_profile" | "user_has_growth_role" | "user_is_admin";
+
+// Error message mapping
 const API_ERROR_MESSAGES = {
   400: "Données invalides",
   401: "Non autorisé",
@@ -56,7 +64,7 @@ class ApiService {
    * Récupère les données depuis une table
    */
   async get<T = any>(
-    table: string, 
+    table: TableNames, 
     options: {
       id?: string;
       query?: Record<string, any>;
@@ -70,9 +78,7 @@ class ApiService {
     try {
       console.log(`API GET ${table}`, options);
       
-      // Supabase expects actual table names, not dynamic strings
-      const tableQuery = supabase.from(table);
-      let query = tableQuery.select(options.select || '*');
+      let query = supabase.from(table).select(options.select || '*');
       
       // Filtre par ID si spécifié
       if (options.id) {
@@ -125,7 +131,7 @@ class ApiService {
    * Crée un nouvel enregistrement dans une table
    */
   async post<T = any>(
-    table: string, 
+    table: TableNames, 
     data: Record<string, any>,
     options: {
       select?: string;
@@ -135,39 +141,43 @@ class ApiService {
     try {
       console.log(`API POST ${table}`, data);
       
-      // Prépare la requête
-      const tableQuery = supabase.from(table);
-      
-      // Handle insert with or without upsert
-      let insertQuery;
+      // Insert with or without upsert
+      let insertResponse;
       if (options.upsert) {
-        insertQuery = await tableQuery.upsert(data);
+        insertResponse = await supabase.from(table).upsert(data);
       } else {
-        insertQuery = await tableQuery.insert(data);
+        insertResponse = await supabase.from(table).insert(data);
+      }
+      
+      if (this.isErrorResponse(insertResponse)) {
+        return this.handleError('POST', table, insertResponse.error);
       }
       
       // Get the inserted data
-      let query;
-      if (options.select) {
-        query = supabase.from(table)
-          .select(options.select)
-          .eq('id', insertQuery.data?.[0].id)
-          .single();
-      } else {
-        query = supabase.from(table)
-          .select()
-          .eq('id', insertQuery.data?.[0].id)
-          .single();
+      let selectResponse;
+      if (insertResponse.data && insertResponse.data.length > 0) {
+        const insertedId = insertResponse.data[0].id;
+        
+        if (options.select) {
+          selectResponse = await supabase.from(table)
+            .select(options.select)
+            .eq('id', insertedId)
+            .single();
+        } else {
+          selectResponse = await supabase.from(table)
+            .select()
+            .eq('id', insertedId)
+            .single();
+        }
+        
+        if (this.isErrorResponse(selectResponse)) {
+          return this.handleError('POST', table, selectResponse.error);
+        }
+        
+        return selectResponse.data as T;
       }
       
-      // Exécute la requête pour obtenir les données
-      const response = await query;
-      
-      if (this.isErrorResponse(response)) {
-        return this.handleError('POST', table, response.error);
-      }
-      
-      return response.data as T;
+      return insertResponse.data?.[0] as T;
     } catch (error) {
       return this.handleError('POST', table, error);
     }
@@ -177,7 +187,7 @@ class ApiService {
    * Met à jour un enregistrement existant
    */
   async put<T = any>(
-    table: string, 
+    table: TableNames, 
     id: string, 
     data: Record<string, any>,
     options: {
@@ -188,28 +198,25 @@ class ApiService {
       console.log(`API PUT ${table}/${id}`, data);
       
       // Prépare la requête de mise à jour
-      const updateQuery = await supabase.from(table)
+      const updateResponse = await supabase.from(table)
         .update(data)
         .eq('id', id);
       
-      if (this.isErrorResponse(updateQuery)) {
-        return this.handleError('PUT', table, updateQuery.error);
+      if (this.isErrorResponse(updateResponse)) {
+        return this.handleError('PUT', table, updateResponse.error);
       }
       
       // Récupère les données mises à jour
-      const tableQuery = supabase.from(table);
-      let query = tableQuery.select(options.select || '*')
+      const selectResponse = await supabase.from(table)
+        .select(options.select || '*')
         .eq('id', id)
         .single();
       
-      // Exécute la requête
-      const response = await query;
-      
-      if (this.isErrorResponse(response)) {
-        return this.handleError('PUT', table, response.error);
+      if (this.isErrorResponse(selectResponse)) {
+        return this.handleError('PUT', table, selectResponse.error);
       }
       
-      return response.data as T;
+      return selectResponse.data as T;
     } catch (error) {
       return this.handleError('PUT', table, error);
     }
@@ -219,7 +226,7 @@ class ApiService {
    * Supprime un enregistrement
    */
   async delete(
-    table: string, 
+    table: TableNames, 
     id: string
   ): Promise<boolean> {
     try {
@@ -244,11 +251,19 @@ class ApiService {
    * Exécute une fonction RPC
    */
   async rpc<T = any>(
-    functionName: "create_user_profile" | "user_has_growth_role" | "user_is_admin",
+    functionName: RPCFunctionName,
     params: Record<string, any> = {}
   ): Promise<T> {
     try {
       console.log(`API RPC ${functionName}`, params);
+      
+      // Type assertion for specific functions
+      if (functionName === "create_user_profile") {
+        // Make sure params match the expected structure for create_user_profile
+        if (!params.user_id || !params.user_email || !params.user_name || !params.user_role) {
+          throw new Error("Missing required parameters for create_user_profile");
+        }
+      }
       
       const response = await supabase.rpc(functionName, params);
       
