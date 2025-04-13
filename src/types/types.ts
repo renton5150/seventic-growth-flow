@@ -1,145 +1,43 @@
-
-// User roles
-export type UserRole = "admin" | "sdr" | "growth";
-
-// User model
 export interface User {
   id: string;
-  email: string;
   name: string;
-  role: UserRole;
-  avatar?: string;
+  email: string;
+  role: "admin" | "sdr";
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-// Status for requests
-export type RequestStatus = "pending" | "inprogress" | "completed";
+export interface GrowthDashboardData {
+  totalMissions: number;
+  activeMissions: number;
+  completedMissions: number;
+  totalSDRs: number;
+}
 
-// Mission type
-export type MissionType = "Full" | "Part";
-
-// Base request interface
-export interface BaseRequest {
+export interface DashboardRequest {
   id: string;
-  title: string;
-  missionId: string;
-  createdBy: string;
-  createdAt: Date;
-  status: RequestStatus;
-  dueDate: Date;
-  lastUpdated: Date;
-  isLate?: boolean;
-  sdrName?: string; // SDR responsable
+  type: string;
+  description: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt?: Date;
 }
 
-// Email campaign request
-export interface EmailCampaignRequest extends BaseRequest {
-  type: "email";
-  template: {
-    content?: string;
-    fileUrl?: string;
-    webLink?: string;
-  };
-  database: {
-    fileUrl?: string;
-    webLink?: string;
-    notes?: string;
-  };
-  blacklist: {
-    accounts?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-    emails?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-  };
-  // Added when completed by Growth team
-  platform?: "Acelmail" | "Bevo" | "Postyman" | "Direct IQ" | "Mindbaz";
-  statistics?: {
-    sent: number;
-    opened: number;
-    clicked: number;
-    bounced: number;
-  };
-}
-
-// Database creation request
-export interface DatabaseRequest extends BaseRequest {
-  type: "database";
-  tool: "Hubspot" | "Apollo";
-  targeting: {
-    jobTitles?: string[];
-    industries?: string[];
-    companySize?: string[];
-    otherCriteria?: string;
-  };
-  blacklist: {
-    accounts?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-    contacts?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-  };
-  // Added when completed by Growth team
-  contactsCreated?: number;
-}
-
-// LinkedIn scraping request
-export interface LinkedInScrapingRequest extends BaseRequest {
-  type: "linkedin";
-  targeting: {
-    jobTitles?: string[];
-    locations?: string[];
-    industries?: string[];
-    companySize?: string[];
-    otherCriteria?: string;
-  };
-  // Added when completed by Growth team
-  profilesScraped?: number;
-  resultFileUrl?: string;
-}
-
-// Union type for all request types
-export type Request = EmailCampaignRequest | DatabaseRequest | LinkedInScrapingRequest;
-
-// Add a new type for mission status
+export type MissionType = "Full" | "Part";
 export type MissionStatus = "En cours" | "Terminé";
 
-// Update the Mission interface to include the status field
 export interface Mission {
   id: string;
   name: string;
-  sdrId: string;
-  createdAt: Date;
   description?: string;
-  sdrName?: string; // Added for UI display
-  requests: Request[];
-  // Nouveaux champs
+  sdrId: string;
+  sdrName?: string;
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType;
   status: MissionStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-// Export MissionFormValues type for use elsewhere
-export interface MissionFormValues {
-  id?: string;
-  name: string;
-  sdrId: string;
-  description?: string;
-  startDate: Date | null;
-  endDate: Date | null;
-  type: MissionType;
-  status: MissionStatus;
-}
-
-// Mock data type
-export interface AppData {
-  users: User[];
-  missions: Mission[];
-  requests: Request[];
-}
+// On réexporte également les types du formulaire de mission pour compatibilité
+export type { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";

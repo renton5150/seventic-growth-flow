@@ -5,14 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Mission } from "@/types/types";
 import { missionFormSchema, MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
-import { DateField } from "../form-fields/DateField";
-import { SdrSelector } from "../form-fields/SdrSelector";
-import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
-import { StatusSelector } from "./components/StatusSelector";
-import { FormButtons } from "./components/FormButtons";
-import { BasicMissionFields } from "./components/BasicMissionFields";
-import { ReadOnlySdrDisplay } from "./components/ReadOnlySdrDisplay";
-import { ReadOnlyStatusDisplay } from "./components/ReadOnlyStatusDisplay";
 import { useAuth } from "@/contexts/auth";
 import { toast } from "sonner";
 import { useMissionFormDraft } from "@/hooks/useMissionFormDraft";
@@ -20,6 +12,13 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCcw, SaveAll } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+
+// Import des composants de formulaire
+import { FormStepOne } from "./steps/FormStepOne";
+import { FormStepTwo } from "./steps/FormStepTwo";
+import { FormStepNavigation } from "./components/FormStepNavigation";
+import { DraftAlert } from "./components/DraftAlert";
 
 interface MissionFormProps {
   mission: Mission | null;
@@ -127,7 +126,7 @@ export const MissionForm = ({
 
   // Gérer le passage à l'étape suivante
   const nextStep = () => {
-    setFormStep(current => Math.min(current + 1, 2));
+    setFormStep(current => Math.min(current + 1, 1));
   };
 
   // Gérer le retour à l'étape précédente
@@ -156,123 +155,93 @@ export const MissionForm = ({
     setShowDraftMessage(false);
   };
 
+  // Variantes d'animation pour les étapes du formulaire
+  const formVariants = {
+    initial: { opacity: 0, x: -20 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 20 }
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Indicateur de progression */}
-        <Progress value={formProgress} className="mb-6 h-2" />
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Étape {formStep + 1} sur 2</span>
+            <span>{formProgress}% complété</span>
+          </div>
+          <Progress value={formProgress} className="h-2" />
+        </div>
         
         {/* Message de brouillon */}
         {showDraftMessage && hasDraft && (
-          <Alert className="mb-6 animate-fade-in">
-            <RefreshCcw className="h-4 w-4" />
-            <AlertTitle>Brouillon disponible</AlertTitle>
-            <AlertDescription className="flex flex-col space-y-2">
-              <p>Un brouillon sauvegardé est disponible pour ce formulaire.</p>
-              <div className="flex space-x-2 mt-2">
-                <Button size="sm" onClick={handleRestoreDraft}>
-                  <SaveAll className="mr-2 h-4 w-4" />
-                  Restaurer le brouillon
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleIgnoreDraft}>
-                  Ignorer
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
+          <DraftAlert 
+            onRestore={handleRestoreDraft}
+            onIgnore={handleIgnoreDraft}
+          />
         )}
         
-        {/* Étapes du formulaire */}
-        <div className="space-y-6">
+        {/* Étapes du formulaire avec animations */}
+        <AnimatePresence mode="wait">
           {formStep === 0 && (
-            <div className="space-y-6 animate-fade-in">
-              <h3 className="text-lg font-medium">Informations générales</h3>
-              <BasicMissionFields
-                control={control}
-                isSubmitting={isSubmitting}
+            <motion.div
+              key="step1"
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              variants={formVariants}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              <FormStepOne 
+                control={control} 
+                isSubmitting={isSubmitting} 
+                canEditAllFields={canEditAllFields} 
+                mission={mission}
               />
               
-              {canEditAllFields && (
-                <SdrSelector control={control} disabled={isSubmitting} />
-              )}
-              
-              {!canEditAllFields && (
-                <ReadOnlySdrDisplay 
-                  sdrName={mission?.sdrName || "Non assigné"} 
-                  sdrId={mission?.sdrId}
-                />
-              )}
-              
-              <div className="flex justify-end space-x-2">
-                <Button 
-                  type="button" 
-                  onClick={nextStep} 
-                  disabled={
-                    !form.getValues('name') || 
-                    !form.getValues('sdrId') ||
-                    !!form.formState.errors.name || 
-                    !!form.formState.errors.sdrId
-                  }
-                >
-                  Suivant
-                </Button>
-              </div>
-            </div>
+              <FormStepNavigation 
+                currentStep={0}
+                onNext={nextStep}
+                canGoNext={!!form.getValues('name') && !!form.getValues('sdrId')}
+                isNextDisabled={!!form.formState.errors.name || !!form.formState.errors.sdrId}
+              />
+            </motion.div>
           )}
           
           {formStep === 1 && (
-            <div className="space-y-6 animate-fade-in">
-              <h3 className="text-lg font-medium">Dates et type</h3>
+            <motion.div
+              key="step2"
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              variants={formVariants}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              <FormStepTwo
+                control={control}
+                isSubmitting={isSubmitting}
+                canEditAllFields={canEditAllFields}
+                canChangeStatus={canChangeStatus}
+                isEditMode={isEditMode}
+                mission={mission}
+                form={form}
+              />
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DateField
-                  control={control}
-                  name="startDate"
-                  label="Date de début"
-                  disabled={isSubmitting}
-                />
-                <DateField
-                  control={control}
-                  name="endDate"
-                  label="Date de fin (optionnelle)"
-                  disabled={isSubmitting}
-                  minDate={form.watch('startDate') || undefined}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <MissionTypeSelector
-                  control={control}
-                  disabled={isSubmitting || !canEditAllFields}
-                />
-                
-                {isEditMode ? (
-                  canChangeStatus ? (
-                    <StatusSelector 
-                      control={control} 
-                      disabled={isSubmitting}
-                    />
-                  ) : (
-                    <ReadOnlyStatusDisplay status={mission?.status || "En cours"} />
-                  )
-                ) : null}
-              </div>
-              
-              <div className="flex justify-between space-x-2">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  Retour
-                </Button>
-                <FormButtons
-                  isSubmitting={isSubmitting}
-                  onCancel={onCancel}
-                  submitLabel={isEditMode ? "Mettre à jour" : "Créer"}
-                />
-              </div>
-            </div>
+              <FormStepNavigation 
+                currentStep={1}
+                onPrev={prevStep}
+                onCancel={onCancel}
+                onSubmit={() => {}}
+                isSubmitting={isSubmitting}
+                isEditMode={isEditMode}
+              />
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </form>
     </Form>
   );
 };
-
