@@ -6,7 +6,7 @@ import { createMission } from "@/services/missions-service"; // Updated import p
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAllMissions } from "@/services/missions-service"; // Updated import path
-import { MissionFormValues, missionFormSchema } from "./schemas/missionFormSchema";
+import { MissionFormValues, missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MissionForm } from "./form/MissionForm";
 

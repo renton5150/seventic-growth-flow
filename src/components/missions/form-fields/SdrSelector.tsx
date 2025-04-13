@@ -4,7 +4,7 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Control } from "react-hook-form";
 import { getAllUsers } from "@/services/user/userQueries";
-import { MissionFormValues } from "../schemas/missionFormSchema";
+import { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
 import { useState, useEffect } from "react";
 
 interface SdrSelectorProps {

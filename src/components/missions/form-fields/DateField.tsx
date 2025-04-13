@@ -1,4 +1,3 @@
-
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Control } from "react-hook-form";
-import { MissionFormValues } from "../schemas/missionFormSchema";
+import { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
 
 interface DateFieldProps {
   control: Control<MissionFormValues>;

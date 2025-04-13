@@ -3,7 +3,7 @@ import React from "react";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Control } from "react-hook-form";
-import { MissionFormValues } from "../schemas/missionFormSchema";
+import { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
 
 interface StatusSelectorProps {
   control: Control<MissionFormValues>;

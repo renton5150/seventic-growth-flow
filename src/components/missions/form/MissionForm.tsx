@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Form } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
 import { Mission } from "@/types/types";
-import { MissionFormValues, missionFormSchema } from "../schemas/missionFormSchema";
+import { MissionFormValues, missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
 import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
