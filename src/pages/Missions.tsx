@@ -1,9 +1,10 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth";
 import { Mission } from "@/types/types";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
@@ -13,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const Missions = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
@@ -33,8 +35,8 @@ const Missions = () => {
   
   // Handlers
   const handleViewMission = (mission: Mission) => {
-    console.log("Affichage de la mission:", mission);
-    setSelectedMission(mission);
+    console.log("Navigation vers la page de détail de la mission:", mission.id);
+    navigate(`/missions/${mission.id}`);
   };
   
   const handleEditMission = (mission: Mission) => {
@@ -77,13 +79,6 @@ const Missions = () => {
           onSuccess={refreshMissions} 
         />
         
-        <MissionDetailsDialog 
-          mission={selectedMission} 
-          open={!!selectedMission && !isEditModalOpen} 
-          onOpenChange={(open) => !open && setSelectedMission(null)} 
-          isSdr={isSdr} 
-        />
-
         <EditMissionDialog
           mission={selectedMission}
           open={isEditModalOpen}

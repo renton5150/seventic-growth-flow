@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
 import { Navigate } from "react-router-dom";
@@ -7,7 +8,6 @@ import { Mission } from "@/types/types";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
-import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { DeleteMissionDialog } from "@/components/missions/DeleteMissionDialog";
 import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
 import { MissionsListView } from "@/components/missions/MissionsListView";
@@ -15,9 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
@@ -46,8 +46,8 @@ const AdminMissions = () => {
   };
 
   const handleViewMission = (mission: Mission) => {
-    console.log("Affichage de la mission:", mission);
-    setSelectedMission(mission);
+    console.log("Navigation vers la page de détail de la mission:", mission.id);
+    navigate(`/admin/missions/${mission.id}`);
   };
   
   const handleDeleteMission = (mission: Mission) => {
@@ -89,13 +89,6 @@ const AdminMissions = () => {
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
           onSuccess={refreshMissionsData} 
-        />
-        
-        <MissionDetailsDialog 
-          mission={selectedMission} 
-          open={!!selectedMission} 
-          onOpenChange={(open) => !open && setSelectedMission(null)} 
-          isSdr={false} 
         />
         
         {missionToDelete && (

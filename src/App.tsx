@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +20,7 @@ import LinkedInScrapingRequest from "./pages/LinkedInScrapingRequest";
 import RequestDetails from "./pages/RequestDetails";
 import Calendar from "./pages/Calendar";
 import Missions from "./pages/Missions";
+import MissionDetail from "./pages/MissionDetail";
 import GrowthDashboard from "./pages/GrowthDashboard";
 import Databases from "./pages/Databases";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -28,7 +28,6 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminMissions from "./pages/AdminMissions";
 import PermissionsDebug from "./pages/PermissionsDebug";
 
-// Configuration optimisée du client de requête
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -119,6 +118,14 @@ function App() {
                 } 
               />
               <Route 
+                path="/missions/:id" 
+                element={
+                  <ProtectedRoute>
+                    <MissionDetail />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
                 path="/growth" 
                 element={
                   <ProtectedRoute allowedRoles={["admin", "growth"]}>
@@ -155,6 +162,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={["admin"]}>
                     <AdminMissions />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/missions/:id" 
+                element={
+                  <ProtectedRoute allowedRoles={["admin"]}>
+                    <MissionDetail />
                   </ProtectedRoute>
                 } 
               />
