@@ -16,17 +16,21 @@ interface SdrSelectorProps {
 export function SdrSelector({ control, disabled = false, initialSdrName }: SdrSelectorProps) {
   const [sdrsLoaded, setSdrsLoaded] = useState(false);
   
-  // Fetch SDRs for assignment
+  // Fetch SDRs for assignment - fixed to use proper options structure
   const { data: users = [], isLoading: isSdrsLoading } = useQuery({
     queryKey: ['users-for-mission-edit'],
     queryFn: getAllUsers,
-    onSuccess: () => setSdrsLoaded(true),
-    onError: (error) => {
-      console.error("Erreur de chargement des SDRs:", error);
-      setSdrsLoaded(true); // Mark as loaded even on error to avoid infinite loading state
-    },
+    // Remove the improper onSuccess and onError callbacks
+    staleTime: 60000, // Cache data for 1 minute
   });
 
+  // Set the loaded state after data is fetched
+  useEffect(() => {
+    if (users.length > 0 || !isSdrsLoading) {
+      setSdrsLoaded(true);
+    }
+  }, [users, isSdrsLoading]);
+  
   const sdrs = users.filter(user => user.role === 'sdr');
   
   // Logs for debugging
