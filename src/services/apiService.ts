@@ -1,13 +1,26 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Database } from '@supabase/supabase-js';
+import { Database } from '@/integrations/supabase/types';
 
 // Type definitions for tables to type-check table names
 type TableNames = "missions" | "profiles" | "database_files" | "requests";
 
 // Define type for RPC function names to avoid typing errors
 type RPCFunctionName = "create_user_profile" | "user_has_growth_role" | "user_is_admin";
+
+// Define parameter types for RPC functions
+type RPCParams = {
+  create_user_profile: {
+    user_id: string;
+    user_email: string;
+    user_name: string;
+    user_role: string;
+    user_avatar: string;
+  };
+  user_has_growth_role: Record<string, never>;
+  user_is_admin: Record<string, never>;
+};
 
 // Error message mapping
 const API_ERROR_MESSAGES = {
@@ -132,7 +145,7 @@ class ApiService {
    */
   async post<T = any>(
     table: TableNames, 
-    data: Record<string, any>,
+    data: any,
     options: {
       select?: string;
       upsert?: boolean;
@@ -144,9 +157,9 @@ class ApiService {
       // Insert with or without upsert
       let insertResponse;
       if (options.upsert) {
-        insertResponse = await supabase.from(table).upsert(data);
+        insertResponse = await supabase.from(table).upsert([data]);
       } else {
-        insertResponse = await supabase.from(table).insert(data);
+        insertResponse = await supabase.from(table).insert([data]);
       }
       
       if (this.isErrorResponse(insertResponse)) {
@@ -189,7 +202,7 @@ class ApiService {
   async put<T = any>(
     table: TableNames, 
     id: string, 
-    data: Record<string, any>,
+    data: any,
     options: {
       select?: string;
     } = {}
@@ -250,22 +263,17 @@ class ApiService {
   /**
    * Exécute une fonction RPC
    */
-  async rpc<T = any>(
-    functionName: RPCFunctionName,
-    params: Record<string, any> = {}
+  async rpc<
+    T = any,
+    F extends RPCFunctionName = RPCFunctionName
+  >(
+    functionName: F,
+    params: RPCParams[F] = {} as RPCParams[F]
   ): Promise<T> {
     try {
       console.log(`API RPC ${functionName}`, params);
       
-      // Type assertion for specific functions
-      if (functionName === "create_user_profile") {
-        // Make sure params match the expected structure for create_user_profile
-        if (!params.user_id || !params.user_email || !params.user_name || !params.user_role) {
-          throw new Error("Missing required parameters for create_user_profile");
-        }
-      }
-      
-      const response = await supabase.rpc(functionName, params);
+      const response = await supabase.rpc(functionName, params as any);
       
       if (this.isErrorResponse(response)) {
         return this.handleError('RPC', functionName, response.error);
