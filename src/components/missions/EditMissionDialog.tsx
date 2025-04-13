@@ -59,6 +59,7 @@ export function EditMissionDialog({
     try {
       console.log("Formulaire de mise à jour soumis avec les valeurs:", values);
       console.log("SDR ID sélectionné pour mise à jour:", values.sdrId);
+      console.log("Statut sélectionné pour mise à jour:", values.status);
       
       setIsSubmitting(true);
       
@@ -70,6 +71,7 @@ export function EditMissionDialog({
         startDate: values.startDate,
         endDate: values.endDate,
         type: values.type,
+        status: values.status,
       };
       
       console.log("Données préparées pour la mise à jour:", updatedMissionData);
@@ -82,7 +84,9 @@ export function EditMissionDialog({
         setTimeout(() => reject(new Error("Délai d'attente dépassé")), 10000);
       });
       
-      await Promise.race([updatePromise, timeoutPromise]);
+      const updatedMission = await Promise.race([updatePromise, timeoutPromise]);
+      
+      console.log("Mission mise à jour avec succès, nouveaux statut:", updatedMission.status);
       
       handleClose();
       

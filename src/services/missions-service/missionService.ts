@@ -8,7 +8,7 @@ import {
   getSupaMissionById 
 } from '../missions/getMissions';
 
-import { Mission } from '@/types/types';
+import { Mission, MissionStatus } from '@/types/types';
 
 // Les fonctions exportées par ce service
 export const getAllMissions = getAllSupaMissions;
@@ -27,8 +27,10 @@ export const updateMission = async (mission: {
   startDate: Date | null;
   endDate: Date | null;
   type: string;
+  status?: MissionStatus;
 }, userRole?: string): Promise<Mission> => {
   console.log("Mise à jour de mission avec rôle utilisateur:", userRole);
+  console.log("Données de mission incluant status:", mission);
   return updateSupaMission(mission, userRole);
 };
 

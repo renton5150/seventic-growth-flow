@@ -1,5 +1,5 @@
 
-import { Mission, MissionType } from "@/types/types";
+import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { v4 as uuidv4 } from "uuid";
 import { mockMissions } from "./mockData";
 import { getMockUser } from "./mockUsers";
@@ -13,6 +13,7 @@ export const createMockMission = (data: {
   startDate?: Date | null;
   endDate?: Date | null;
   type?: string;
+  status?: MissionStatus;
 }): Mission => {
   const newMission: Mission = {
     id: uuidv4(),
@@ -25,8 +26,10 @@ export const createMockMission = (data: {
     startDate: data.startDate || null,
     endDate: data.endDate || null,
     type: (data.type as MissionType) || "Full",
-    status: "En cours"
+    status: data.status || "En cours"
   };
+  
+  console.log("Nouvelle mission créée avec statut:", newMission.status);
   mockMissions.push(newMission);
   return newMission;
 };
@@ -50,7 +53,11 @@ export const updateMockMission = async (data: {
   startDate: Date | null;
   endDate: Date | null;
   type: string;
+  status?: MissionStatus;
 }): Promise<Mission> => {
+  console.log("Mise à jour de mission avec données:", data);
+  console.log("Statut reçu pour mise à jour:", data.status);
+  
   const missionIndex = mockMissions.findIndex(mission => mission.id === data.id);
   if (missionIndex === -1) {
     throw new Error(`Mission avec ID ${data.id} non trouvée`);
@@ -69,9 +76,10 @@ export const updateMockMission = async (data: {
     startDate: data.startDate,
     endDate: data.endDate,
     type: data.type as MissionType || "Full",
-    status: mockMissions[missionIndex].status
+    status: data.status || mockMissions[missionIndex].status
   };
   
+  console.log("Mission mise à jour avec statut:", updatedMission.status);
   mockMissions[missionIndex] = updatedMission;
   
   return updatedMission;

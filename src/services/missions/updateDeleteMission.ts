@@ -1,3 +1,4 @@
+
 import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "./utils";
@@ -18,6 +19,7 @@ export const updateSupaMission = async (mission: {
 }, userRole?: string): Promise<Mission> => {
   console.log("updateSupaMission reçoit:", mission);
   console.log("Rôle de l'utilisateur pour la mise à jour:", userRole);
+  console.log("Statut reçu pour mise à jour Supabase:", mission.status);
   
   // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
@@ -58,10 +60,12 @@ export const updateSupaMission = async (mission: {
     supabaseData.sdr_id = mission.sdrId;
     supabaseData.type = mission.type || "Full";
     supabaseData.status = mission.status || existingMission.status;
+    console.log("Administrateur: mise à jour du statut à", supabaseData.status);
   }
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
   console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);
+  console.log("Status qui sera mis à jour:", supabaseData.status);
   
   const { data, error } = await supabase
     .from("missions")
@@ -85,6 +89,7 @@ export const updateSupaMission = async (mission: {
   }
   
   console.log("Réponse de Supabase après mise à jour:", data);
+  console.log("Statut retourné par Supabase:", data.status);
   
   // Verify sdr_id was properly saved
   if (!data.sdr_id) {

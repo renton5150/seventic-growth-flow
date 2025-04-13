@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
@@ -42,6 +43,7 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
   useEffect(() => {
     if (mission) {
       console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", mission);
+      console.log("Statut de la mission à initialiser:", mission.status);
       try {
         form.reset({
           name: mission.name,
@@ -60,6 +62,12 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
   }, [mission, form]);
 
   const startDate = form.watch("startDate");
+  
+  // Logging pour le débogage du statut
+  const selectedStatus = form.watch("status");
+  useEffect(() => {
+    console.log("Statut actuellement sélectionné dans le formulaire:", selectedStatus);
+  }, [selectedStatus]);
 
   if (!formInitialized && mission) {
     return (
@@ -70,10 +78,16 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
     );
   }
 
+  const handleFormSubmit = (values: MissionFormValues) => {
+    console.log("Formulaire soumis avec les valeurs:", values);
+    console.log("Statut lors de la soumission:", values.status);
+    onSubmit(values);
+  };
+
   if (!isAdmin && mission) {
     return (
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
           <FormField
             control={form.control}
             name="name"
@@ -169,7 +183,7 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -213,7 +227,14 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
           render={({ field }) => (
             <FormItem>
               <FormLabel>Statut de la mission</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select 
+                onValueChange={(value) => {
+                  console.log("Changement de statut à:", value);
+                  field.onChange(value);
+                }}
+                defaultValue={field.value}
+                value={field.value}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un statut" />
@@ -224,6 +245,7 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
                   <SelectItem value="Terminé">Terminé</SelectItem>
                 </SelectContent>
               </Select>
+              <FormMessage />
             </FormItem>
           )}
         />
