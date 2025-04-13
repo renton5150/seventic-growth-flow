@@ -1,7 +1,7 @@
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useEffect } from "react";
 import { Form } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
 import { Mission } from "@/types/types";
@@ -9,161 +9,129 @@ import { MissionFormValues, missionFormSchema } from "@/components/missions/sche
 import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
-import { useAuth } from "@/contexts/AuthContext";
-import { BasicMissionFields } from "./components/BasicMissionFields";
 import { StatusSelector } from "./components/StatusSelector";
-import { ReadOnlyStatusDisplay } from "./components/ReadOnlyStatusDisplay";
-import { ReadOnlySdrDisplay } from "./components/ReadOnlySdrDisplay";
 import { FormButtons } from "./components/FormButtons";
+import { BasicMissionFields } from "./components/BasicMissionFields";
+import { ReadOnlySdrDisplay } from "./components/ReadOnlySdrDisplay";
+import { ReadOnlyStatusDisplay } from "./components/ReadOnlyStatusDisplay";
+import { useAuth } from "@/contexts/auth";
 
 interface MissionFormProps {
   mission: Mission | null;
   isSubmitting: boolean;
-  onSubmit: (values: MissionFormValues) => void;
+  onSubmit: (data: MissionFormValues) => void;
   onCancel: () => void;
 }
 
-export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: MissionFormProps) {
-  const [formInitialized, setFormInitialized] = useState(false);
+export const MissionForm = ({
+  mission,
+  isSubmitting,
+  onSubmit,
+  onCancel,
+}: MissionFormProps) => {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   
+  // Initialiser le formulaire avec React Hook Form
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
-      name: "",
-      sdrId: "",
-      description: "",
-      startDate: null,
-      endDate: null,
-      type: "Full",
-      status: "En cours",
+      id: mission?.id || "",
+      name: mission?.name || "",
+      sdrId: mission?.sdrId || "",
+      description: mission?.description || "",
+      startDate: mission?.startDate || null,
+      endDate: mission?.endDate || null,
+      type: mission?.type || "Full",
+      status: mission?.status || "En cours",
     },
   });
-
+  
+  // Mettre à jour les valeurs du formulaire lorsque la mission change
   useEffect(() => {
     if (mission) {
-      console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", mission);
-      console.log("Statut de la mission à initialiser:", mission.status);
-      try {
-        form.reset({
-          name: mission.name,
-          sdrId: mission.sdrId || "",
-          description: mission.description || "",
-          startDate: mission.startDate ? new Date(mission.startDate) : null,
-          endDate: mission.endDate ? new Date(mission.endDate) : null,
-          type: mission.type,
-          status: mission.status,
-        });
-        setFormInitialized(true);
-      } catch (error) {
-        console.error("Erreur lors de l'initialisation du formulaire:", error);
-      }
+      console.log("Mission chargée dans le formulaire:", mission);
+      
+      form.reset({
+        id: mission.id,
+        name: mission.name,
+        sdrId: mission.sdrId,
+        description: mission.description || "",
+        startDate: mission.startDate,
+        endDate: mission.endDate,
+        type: mission.type,
+        status: mission.status,
+      });
     }
   }, [mission, form]);
 
-  const startDate = form.watch("startDate");
+  // Gérer la soumission du formulaire
+  const handleSubmit = form.handleSubmit((data) => {
+    console.log("Données soumises:", data);
+    onSubmit(data);
+  });
+
+  // Déterminer si c'est une création ou une édition
+  const isEditMode = !!mission?.id;
   
-  // Logging pour le débogage du statut
-  const selectedStatus = form.watch("status");
-  useEffect(() => {
-    console.log("Statut actuellement sélectionné dans le formulaire:", selectedStatus);
-  }, [selectedStatus]);
+  // Déterminer les droits d'édition
+  const isSDR = user?.role === "sdr";
+  const isEditingOwnMission = isSDR && mission?.sdrId === user?.id;
+  const canEditAllFields = isAdmin || (!isEditMode && !isSDR);
+  const canChangeStatus = isAdmin || isEditingOwnMission;
 
-  if (!formInitialized && mission) {
-    return (
-      <div className="flex justify-center items-center p-4">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <span className="ml-2">Chargement du formulaire...</span>
-      </div>
-    );
-  }
+  return (
+    <Form {...form}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <BasicMissionFields
+          control={form.control}
+          isSubmitting={isSubmitting}
+        />
 
-  const handleFormSubmit = (values: MissionFormValues) => {
-    console.log("Formulaire soumis avec les valeurs:", values);
-    console.log("Statut lors de la soumission:", values.status);
-    onSubmit(values);
-  };
-
-  // Restricted view for non-admin users editing an existing mission
-  if (!isAdmin && mission) {
-    return renderRestrictedForm(mission);
-  }
-
-  // Full edit form for admins or new mission creation
-  return renderFullForm();
-
-  function renderRestrictedForm(mission: Mission) {
-    return (
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-          <BasicMissionFields control={form.control} isSubmitting={isSubmitting} />
-          
-          <ReadOnlySdrDisplay sdrName={mission.sdrName} />
-          <input type="hidden" {...form.register("sdrId")} />
-          
-          <DateField 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DateField
             control={form.control}
             name="startDate"
-            label="Date de démarrage"
+            label="Date de début"
+            placeholder="Sélectionner une date"
             disabled={isSubmitting}
           />
-
-          <DateField 
+          <DateField
             control={form.control}
             name="endDate"
-            label="Date de fin"
+            label="Date de fin (optionnelle)"
+            placeholder="Sélectionner une date"
             disabled={isSubmitting}
-            minDate={startDate}
           />
+        </div>
 
-          <ReadOnlyStatusDisplay status={mission.status} />
-          <input type="hidden" {...form.register("status")} />
-
-          <FormButtons 
-            isSubmitting={isSubmitting} 
-            onCancel={onCancel}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MissionTypeSelector
+            control={form.control}
+            disabled={isSubmitting || !canEditAllFields}
           />
-        </form>
-      </Form>
-    );
-  }
-
-  function renderFullForm() {
-    return (
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-          <BasicMissionFields control={form.control} isSubmitting={isSubmitting} />
           
-          <SdrSelector 
-            control={form.control} 
-            disabled={isSubmitting} 
-            initialSdrName={mission?.sdrName}
-          />
+          {isEditMode ? (
+            canChangeStatus ? (
+              <StatusSelector control={form.control} disabled={isSubmitting} />
+            ) : (
+              <ReadOnlyStatusDisplay status={mission?.status || "En cours"} />
+            )
+          ) : null}
+        </div>
 
-          <DateField 
-            control={form.control}
-            name="startDate"
-            label="Date de démarrage"
-            disabled={isSubmitting}
-          />
+        {canEditAllFields ? (
+          <SdrSelector control={form.control} disabled={isSubmitting} />
+        ) : (
+          <ReadOnlySdrDisplay sdrId={mission?.sdrId || ""} />
+        )}
 
-          <DateField 
-            control={form.control}
-            name="endDate"
-            label="Date de fin"
-            disabled={isSubmitting}
-            minDate={startDate}
-          />
-
-          <StatusSelector control={form.control} disabled={isSubmitting} />
-
-          <FormButtons 
-            isSubmitting={isSubmitting} 
-            onCancel={onCancel}
-          />
-        </form>
-      </Form>
-    );
-  }
-}
+        <FormButtons
+          isSubmitting={isSubmitting}
+          onCancel={onCancel}
+          submitLabel={isEditMode ? "Mettre à jour" : "Créer"}
+        />
+      </form>
+    </Form>
+  );
+};
