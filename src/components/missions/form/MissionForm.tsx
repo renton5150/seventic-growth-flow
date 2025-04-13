@@ -3,8 +3,8 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
-import { Mission, MissionFormValues } from "@/types/types";
-import { missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
+import { Mission } from "@/types/types";
+import { missionFormSchema, MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
 import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
@@ -14,6 +14,7 @@ import { BasicMissionFields } from "./components/BasicMissionFields";
 import { ReadOnlySdrDisplay } from "./components/ReadOnlySdrDisplay";
 import { ReadOnlyStatusDisplay } from "./components/ReadOnlyStatusDisplay";
 import { useAuth } from "@/contexts/auth";
+import { toast } from "sonner";
 
 interface MissionFormProps {
   mission: Mission | null;
@@ -31,7 +32,7 @@ export const MissionForm = ({
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   
-  // Initialiser le formulaire avec React Hook Form
+  // Initialiser le formulaire avec React Hook Form et Zod pour la validation
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
@@ -51,6 +52,7 @@ export const MissionForm = ({
       console.log("Mission chargée dans le formulaire:", mission);
       
       form.reset({
+        id: mission.id,
         name: mission.name,
         sdrId: mission.sdrId,
         description: mission.description || "",
@@ -65,6 +67,13 @@ export const MissionForm = ({
   // Gérer la soumission du formulaire
   const handleSubmit = form.handleSubmit((data) => {
     console.log("Données soumises:", data);
+    
+    // Validation supplémentaire côté client si nécessaire
+    if (data.startDate && data.endDate && data.endDate < data.startDate) {
+      toast.error("La date de fin doit être postérieure à la date de début");
+      return;
+    }
+    
     onSubmit(data);
   });
 
@@ -97,6 +106,7 @@ export const MissionForm = ({
             name="endDate"
             label="Date de fin (optionnelle)"
             disabled={isSubmitting}
+            minDate={form.watch('startDate') || null}
           />
         </div>
 
@@ -108,7 +118,10 @@ export const MissionForm = ({
           
           {isEditMode ? (
             canChangeStatus ? (
-              <StatusSelector control={form.control} disabled={isSubmitting} />
+              <StatusSelector 
+                control={form.control} 
+                disabled={isSubmitting}
+              />
             ) : (
               <ReadOnlyStatusDisplay status={mission?.status || "En cours"} />
             )
@@ -118,7 +131,10 @@ export const MissionForm = ({
         {canEditAllFields ? (
           <SdrSelector control={form.control} disabled={isSubmitting} />
         ) : (
-          <ReadOnlySdrDisplay sdrName={mission?.sdrName || "Non assigné"} />
+          <ReadOnlySdrDisplay 
+            sdrName={mission?.sdrName || "Non assigné"} 
+            sdrId={mission?.sdrId}
+          />
         )}
 
         <FormButtons

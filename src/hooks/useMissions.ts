@@ -13,6 +13,7 @@ export const useAllMissions = (filters: Record<string, any> = {}) => {
   return useQuery({
     queryKey: ['missions', filters],
     queryFn: async () => {
+      console.log("Fetching all missions with filters:", filters);
       return apiService.get<Mission[]>('missions', {
         query: filters,
         order: { column: 'created_at', ascending: false }
@@ -30,6 +31,7 @@ export const useUserMissions = (userId: string | undefined) => {
     queryFn: async () => {
       if (!userId) return [];
       
+      console.log("Fetching missions for user:", userId);
       return apiService.get<Mission[]>('missions', {
         query: { sdr_id: userId },
         order: { column: 'created_at', ascending: false }
@@ -57,6 +59,7 @@ export const useMission = (missionId: string | undefined) => {
     queryFn: async () => {
       if (!missionId) return null;
       
+      console.log("Fetching single mission with ID:", missionId);
       return apiService.get<Mission>('missions', {
         id: missionId,
         maybeSingle: true
@@ -74,6 +77,8 @@ export const useCreateMission = () => {
   
   return useMutation({
     mutationFn: async (mission: Omit<MissionFormValues, 'id'>) => {
+      console.log("Creating new mission:", mission);
+      
       // Formater les données pour l'API
       const formattedData = {
         ...mission,
@@ -94,11 +99,11 @@ export const useCreateMission = () => {
     onSuccess: () => {
       // Invalider les requêtes concernées
       queryClient.invalidateQueries({ queryKey: ['missions'] });
-      toast.success('Mission créée avec succès');
     },
     onError: (error: any) => {
+      console.error("Error creating mission:", error);
       toast.error('Erreur lors de la création de la mission', {
-        description: error.message
+        description: error.message || "Veuillez réessayer"
       });
     }
   });
@@ -117,6 +122,8 @@ export const useUpdateMission = () => {
         throw new Error("ID de mission manquant");
       }
       
+      console.log("Updating mission:", mission);
+      
       // Formater les données pour l'API
       const formattedData = {
         ...mission,
@@ -126,13 +133,15 @@ export const useUpdateMission = () => {
         client: mission.name,
         // Mapper les champs aux colonnes de la base de données
         sdr_id: mission.sdrId,
+        // Ajout du rôle utilisateur pour la validation côté serveur
+        user_role: user?.role,
         // Supprimer les champs à ne pas envoyer
         startDate: undefined,
         endDate: undefined,
         sdrId: undefined
       };
       
-      console.log("Données de mission formatées pour mise à jour:", formattedData);
+      console.log("Formatted data for update:", formattedData);
       
       return apiService.put<Mission>('missions', mission.id, formattedData);
     },
@@ -140,11 +149,11 @@ export const useUpdateMission = () => {
       // Invalider les requêtes concernées
       queryClient.invalidateQueries({ queryKey: ['missions'] });
       queryClient.invalidateQueries({ queryKey: ['mission', variables.id] });
-      toast.success('Mission mise à jour avec succès');
     },
     onError: (error: any) => {
+      console.error("Error updating mission:", error);
       toast.error('Erreur lors de la mise à jour de la mission', {
-        description: error.message
+        description: error.message || "Veuillez réessayer"
       });
     }
   });
@@ -158,6 +167,7 @@ export const useDeleteMission = () => {
   
   return useMutation({
     mutationFn: async (missionId: string) => {
+      console.log("Deleting mission with ID:", missionId);
       return apiService.delete('missions', missionId);
     },
     onSuccess: (_, missionId) => {
@@ -167,8 +177,9 @@ export const useDeleteMission = () => {
       toast.success('Mission supprimée avec succès');
     },
     onError: (error: any) => {
+      console.error("Error deleting mission:", error);
       toast.error('Erreur lors de la suppression de la mission', {
-        description: error.message
+        description: error.message || "Veuillez réessayer"
       });
     }
   });

@@ -1,6 +1,6 @@
 
 import { Mission, MissionType, MissionStatus } from "@/types/types";
-import { supabase } from "@/integrations/supabase/client";
+import { safeSupabase } from "@/integrations/supabase/safeClient";
 import { mapSupaMissionToMission } from "./utils";
 import { checkMissionExists } from "./getMissions";
 
@@ -16,13 +16,13 @@ export const updateSupaMission = async (mission: {
   endDate: Date | null;
   type: MissionType | string;
   status?: MissionStatus;
+  user_role?: string; // Ajout du rôle utilisateur pour la validation côté serveur
 }, userRole?: string): Promise<Mission> => {
   console.log("updateSupaMission reçoit:", mission);
-  console.log("Rôle de l'utilisateur pour la mise à jour:", userRole);
-  console.log("Statut reçu pour mise à jour Supabase:", mission.status);
+  console.log("Rôle de l'utilisateur pour la mise à jour:", userRole || mission.user_role);
   
   // Check if mission exists
-  const { data: existingMission, error: checkError } = await supabase
+  const { data: existingMission, error: checkError } = await safeSupabase
     .from("missions")
     .select("id, sdr_id, type, status")
     .eq("id", mission.id)
@@ -38,6 +38,9 @@ export const updateSupaMission = async (mission: {
     throw new Error("La mission n'existe pas");
   }
   
+  // Utiliser le rôle fourni en paramètre ou celui inclus dans l'objet mission
+  const effectiveUserRole = userRole || mission.user_role;
+  
   // Préparation des données pour Supabase avec protection des champs selon le rôle
   let supabaseData: any = {
     name: mission.name,
@@ -48,26 +51,29 @@ export const updateSupaMission = async (mission: {
   };
   
   // Protection côté serveur: si l'utilisateur est SDR, conserver la valeur originale
-  if (userRole === 'sdr') {
+  if (effectiveUserRole === 'sdr') {
+    console.log("Utilisateur SDR: conservation des valeurs originales pour sdr_id, type");
+    // Un SDR ne peut modifier que le statut de ses propres missions
+    if (existingMission.sdr_id === mission.sdrId) {
+      supabaseData.status = mission.status || existingMission.status;
+      console.log("SDR modifiant sa propre mission, statut mis à jour à:", supabaseData.status);
+    } else {
+      supabaseData.status = existingMission.status;
+    }
     // Utiliser les valeurs existantes pour les champs restreints
     supabaseData.sdr_id = existingMission.sdr_id;
     supabaseData.type = existingMission.type;
-    supabaseData.status = existingMission.status;
-    
-    console.log("Utilisateur SDR: conservation des valeurs originales pour sdr_id, type et status");
   } else {
     // Admin peut modifier tous les champs
     supabaseData.sdr_id = mission.sdrId;
     supabaseData.type = mission.type || "Full";
     supabaseData.status = mission.status || existingMission.status;
-    console.log("Administrateur: mise à jour du statut à", supabaseData.status);
+    console.log("Administrateur: mise à jour de tous les champs, statut à", supabaseData.status);
   }
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
-  console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);
-  console.log("Status qui sera mis à jour:", supabaseData.status);
   
-  const { data, error } = await supabase
+  const { data, error } = await safeSupabase
     .from("missions")
     .update(supabaseData)
     .eq("id", mission.id)
@@ -89,7 +95,6 @@ export const updateSupaMission = async (mission: {
   }
   
   console.log("Réponse de Supabase après mise à jour:", data);
-  console.log("Statut retourné par Supabase:", data.status);
   
   // Verify sdr_id was properly saved
   if (!data.sdr_id) {
