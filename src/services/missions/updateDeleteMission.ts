@@ -119,7 +119,7 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   }
   
   // Delete the mission
-  const { error } = await supabase
+  const { error } = await safeSupabase
     .from("missions")
     .delete()
     .eq("id", missionId);
@@ -135,7 +135,7 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   }
   
   // Verify deletion
-  const { data: checkAfterDelete, error: verifyError } = await supabase
+  const { data: checkAfterDelete, error: verifyError } = await safeSupabase
     .from("missions")
     .select("id")
     .eq("id", missionId)
@@ -153,3 +153,4 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
   console.log("Mission supprimée avec succès");
   return true;
 };
+
