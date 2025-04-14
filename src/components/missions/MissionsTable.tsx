@@ -1,20 +1,11 @@
+
 import { Mission } from "@/types/types";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Trash, MoreHorizontal, Calendar, CheckCircle, Clock, ChevronUp, ChevronDown, Filter } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useState, useMemo, useEffect } from "react";
-import { DateFilterPopover } from "./DateFilterPopover";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CheckboxFilterPopover } from "./filters/CheckboxFilterPopover";
+import { Table, TableBody, TableHeader } from "@/components/ui/table";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import { useMissionsTable } from "./hooks/useMissionsTable";
+import { TableHeader } from "./table/TableHeader";
+import { TableRow } from "./table/TableRow";
+import { SortColumn } from "./types";
 
 interface MissionsTableProps {
   missions: Mission[];
@@ -25,316 +16,57 @@ interface MissionsTableProps {
   onMissionUpdated?: () => void;
 }
 
-// Types pour le tri et filtrage
-type SortColumn = 'name' | 'type' | 'sdr' | 'startDate' | 'endDate' | 'status';
-type SortDirection = 'asc' | 'desc';
-type DateFilterType = 'equals' | 'before' | 'after' | 'between' | null;
-type DateField = 'startDate' | 'endDate';
-
-interface DateFilterValues {
-  date?: Date | null;
-  startDate?: Date | null;
-  endDate?: Date | null;
-}
-
-const renderMissionStatusBadge = (status: "En cours" | "Fin") => {
-  switch (status) {
-    case "En cours":
-      return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-600 flex items-center gap-1">
-          <Clock size={14} /> En cours
-        </Badge>
-      );
-    case "Fin":
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-600 flex items-center gap-1">
-          <CheckCircle size={14} /> Terminée
-        </Badge>
-      );
-    default:
-      return null;
-  }
-};
-
 export const MissionsTable = ({ 
   missions, 
-  isAdmin = false, 
   onViewMission,
   onEditMission,
   onDeleteMission,
-  onMissionUpdated,
 }: MissionsTableProps) => {
-  // État pour le tri et le filtrage
-  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [dateFilters, setDateFilters] = useState<{[key in DateField]?: { type: DateFilterType, values: DateFilterValues }}>({});
-  
-  // Add new state for checkbox filters
-  const [nameFilter, setNameFilter] = useState<string[]>([]);
-  const [sdrFilter, setSdrFilter] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  
-  // Fonction de formatage de date
-  const formatDate = (date: Date | null) => {
-    if (!date) return "-";
-    return format(new Date(date), "d MMMM yyyy", { locale: fr });
-  };
-  
-  // Fonction pour gérer le tri
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      // Inverser la direction si on clique sur la même colonne
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Définir la nouvelle colonne et réinitialiser la direction
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
-  
-  // Fonction pour définir le filtre de date
-  const setDateFilter = (field: DateField, filterType: DateFilterType, values: DateFilterValues) => {
-    setDateFilters(prev => ({
-      ...prev,
-      [field]: { type: filterType, values }
-    }));
-  };
-  
-  // Fonction pour effacer le filtre de date
-  const clearDateFilter = (field: DateField) => {
-    setDateFilters(prev => {
-      const newFilters = { ...prev };
-      delete newFilters[field];
-      return newFilters;
-    });
-  };
-  
-    // Get unique options for filters
-    const uniqueNames = useMemo(() => [...new Set(missions.map(m => m.name))], [missions]);
-    const uniqueSdrs = useMemo(() => [...new Set(missions.map(m => m.sdrName || ""))], [missions]);
-    const uniqueStatuses = useMemo(() => [...new Set(missions.map(m => m.status))], [missions]);
-  
-  // Récupération des préférences de tri depuis le localStorage
-  useEffect(() => {
-    try {
-      const savedSort = localStorage.getItem('missionsTableSort');
-      if (savedSort) {
-        const { column, direction } = JSON.parse(savedSort);
-        setSortColumn(column);
-        setSortDirection(direction);
-      }
-    } catch (error) {
-      console.error("Erreur lors de la récupération des préférences de tri:", error);
-    }
-  }, []);
-  
-  // Sauvegarde des préférences de tri dans le localStorage
-  useEffect(() => {
-    if (sortColumn) {
-      try {
-        localStorage.setItem('missionsTableSort', JSON.stringify({ column: sortColumn, direction: sortDirection }));
-      } catch (error) {
-        console.error("Erreur lors de la sauvegarde des préférences de tri:", error);
-      }
-    }
-  }, [sortColumn, sortDirection]);
-  
-  // Filtrage des missions par date
-  const filterMissionsByDate = (missionsList: Mission[]) => {
-    return missionsList.filter(mission => {
-      // Vérifier tous les filtres de date
-      for (const [field, filter] of Object.entries(dateFilters) as [DateField, { type: DateFilterType, values: DateFilterValues }][]) {
-        if (!filter.type) continue;
-        
-        const missionDate = mission[field];
-        if (!missionDate) {
-          // Si la date est null/undefined et qu'on a un filtre, cette mission ne correspond pas
-          return false;
-        }
-        
-        const mDate = new Date(missionDate);
-        
-        switch (filter.type) {
-          case 'equals':
-            if (filter.values.date && mDate.toDateString() !== filter.values.date.toDateString()) {
-              return false;
-            }
-            break;
-          case 'before':
-            if (filter.values.date && mDate >= filter.values.date) {
-              return false;
-            }
-            break;
-          case 'after':
-            if (filter.values.date && mDate <= filter.values.date) {
-              return false;
-            }
-            break;
-          case 'between':
-            if ((filter.values.startDate && mDate < filter.values.startDate) || 
-                (filter.values.endDate && mDate > filter.values.endDate)) {
-              return false;
-            }
-            break;
-        }
-      }
-      return true;
-    });
-  };
-  
-  // Tri et filtrage des missions avec useMemo pour éviter des re-rendus inutiles
-  const sortedAndFilteredMissions = useMemo(() => {
-    let result = [...missions];
-    
-    // Apply checkbox filters
-    if (nameFilter.length > 0) {
-      result = result.filter(mission => nameFilter.includes(mission.name));
-    }
-    if (sdrFilter.length > 0) {
-      result = result.filter(mission => sdrFilter.includes(mission.sdrName || ""));
-    }
-    if (statusFilter.length > 0) {
-      result = result.filter(mission => statusFilter.includes(mission.status));
-    }
-    
-    // Apply date filters
-    result = filterMissionsByDate(result);
-    
-    // Apply sorting
-    if (sortColumn) {
-      result.sort((a, b) => {
-        let comparison = 0;
-        
-        switch (sortColumn) {
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'type':
-            comparison = a.type.localeCompare(b.type);
-            break;
-          case 'sdr':
-            comparison = (a.sdrName || '').localeCompare(b.sdrName || '');
-            break;
-          case 'startDate':
-            if (a.startDate && b.startDate) {
-              comparison = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-            } else if (a.startDate) {
-              comparison = -1;
-            } else if (b.startDate) {
-              comparison = 1;
-            }
-            break;
-          case 'endDate':
-            if (a.endDate && b.endDate) {
-              comparison = new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
-            } else if (a.endDate) {
-              comparison = -1;
-            } else if (b.endDate) {
-              comparison = 1;
-            }
-            break;
-          case 'status':
-            comparison = a.status.localeCompare(b.status);
-            break;
-        }
-        
-        return sortDirection === 'asc' ? comparison : -comparison;
-      });
-    }
-    
-    return result;
-  }, [missions, nameFilter, sdrFilter, statusFilter, sortColumn, sortDirection, dateFilters]);
-  
-  // Rendu des indicateurs de tri
+  const {
+    sortColumn,
+    sortDirection,
+    handleSort,
+    dateFilters,
+    setDateFilter,
+    clearDateFilter,
+    nameFilter,
+    setNameFilter,
+    sdrFilter,
+    setSdrFilter,
+    statusFilter,
+    setStatusFilter,
+    uniqueNames,
+    uniqueSdrs,
+    uniqueStatuses,
+    sortedAndFilteredMissions
+  } = useMissionsTable(missions);
+
   const renderSortIndicator = (column: SortColumn) => {
     if (sortColumn !== column) return null;
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
-  
-  // Rendu des en-têtes triables
-  const renderSortableHeader = (column: SortColumn, label: string) => (
-    <div 
-      className="flex items-center gap-1 cursor-pointer" 
-      onClick={() => handleSort(column)}
-    >
-      {label}
-      {renderSortIndicator(column)}
-    </div>
-  );
-  
-  // Rendu de l'en-tête avec filtre de date
-  const renderDateHeader = (column: DateField, label: string) => {
-    const hasFilter = dateFilters[column]?.type !== null && dateFilters[column]?.type !== undefined;
-    
-    return (
-      <div className="flex items-center justify-between">
-        <div 
-          className="flex items-center gap-1 cursor-pointer" 
-          onClick={() => handleSort(column)}
-        >
-          <Calendar className="h-4 w-4 mr-1" />
-          {label}
-          {renderSortIndicator(column as SortColumn)}
-        </div>
-        
-        <DateFilterPopover
-          hasFilter={hasFilter}
-          onFilterChange={(type, values) => setDateFilter(column, type, values)}
-          onClearFilter={() => clearDateFilter(column)}
-          currentFilter={dateFilters[column]}
-        />
-      </div>
-    );
-  };
-  
+
   return (
     <Table>
       <TableHeader>
-        <TableRow>
-          <TableHead>
-            <div className="flex items-center justify-between">
-              {renderSortableHeader('name', 'Nom de la mission')}
-              <CheckboxFilterPopover
-                column="Nom"
-                options={uniqueNames}
-                selectedValues={nameFilter}
-                onFilterChange={setNameFilter}
-                hasFilter={nameFilter.length > 0}
-                onClearFilter={() => setNameFilter([])}
-              />
-            </div>
-          </TableHead>
-          <TableHead>{renderSortableHeader('type', 'Type')}</TableHead>
-          <TableHead>
-            <div className="flex items-center justify-between">
-              {renderSortableHeader('sdr', 'SDR responsable')}
-              <CheckboxFilterPopover
-                column="SDR"
-                options={uniqueSdrs}
-                selectedValues={sdrFilter}
-                onFilterChange={setSdrFilter}
-                hasFilter={sdrFilter.length > 0}
-                onClearFilter={() => setSdrFilter([])}
-              />
-            </div>
-          </TableHead>
-          <TableHead>{renderDateHeader('startDate', 'Date de démarrage')}</TableHead>
-          <TableHead>{renderDateHeader('endDate', 'Date de fin')}</TableHead>
-          <TableHead>
-            <div className="flex items-center justify-between">
-              {renderSortableHeader('status', 'Statut Mission')}
-              <CheckboxFilterPopover
-                column="Statut"
-                options={uniqueStatuses}
-                selectedValues={statusFilter}
-                onFilterChange={setStatusFilter}
-                hasFilter={statusFilter.length > 0}
-                onClearFilter={() => setStatusFilter([])}
-              />
-            </div>
-          </TableHead>
-          <TableHead>Actions</TableHead>
-        </TableRow>
+        <TableHeader
+          uniqueNames={uniqueNames}
+          uniqueSdrs={uniqueSdrs}
+          uniqueStatuses={uniqueStatuses}
+          nameFilter={nameFilter}
+          sdrFilter={sdrFilter}
+          statusFilter={statusFilter}
+          setNameFilter={setNameFilter}
+          setSdrFilter={setSdrFilter}
+          setStatusFilter={setStatusFilter}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          handleSort={handleSort}
+          dateFilters={dateFilters}
+          setDateFilter={setDateFilter}
+          clearDateFilter={clearDateFilter}
+          renderSortIndicator={renderSortIndicator}
+        />
       </TableHeader>
       <TableBody>
         {sortedAndFilteredMissions.length === 0 ? (
@@ -345,59 +77,13 @@ export const MissionsTable = ({
           </TableRow>
         ) : (
           sortedAndFilteredMissions.map((mission) => (
-            <TableRow key={mission.id}>
-              <TableCell className="font-medium">{mission.name}</TableCell>
-              <TableCell>
-                <Badge variant={mission.type === "Full" ? "default" : "outline"}>
-                  {mission.type}
-                </Badge>
-              </TableCell>
-              <TableCell>{mission.sdrName || "Non assigné"}</TableCell>
-              <TableCell>{formatDate(mission.startDate)}</TableCell>
-              <TableCell>{formatDate(mission.endDate)}</TableCell>
-              <TableCell>{renderMissionStatusBadge(mission.status)}</TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onViewMission(mission)}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Voir
-                  </Button>
-                  
-                  {/* Dropdown menu for more actions */}
-                  {(onEditMission || onDeleteMission) && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {onEditMission && (
-                          <DropdownMenuItem onClick={() => onEditMission(mission)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Modifier
-                          </DropdownMenuItem>
-                        )}
-                        {onDeleteMission && (
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => onDeleteMission(mission)}
-                          >
-                            <Trash className="h-4 w-4 mr-2" />
-                            Supprimer
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
+            <TableRow
+              key={mission.id}
+              mission={mission}
+              onViewMission={onViewMission}
+              onEditMission={onEditMission}
+              onDeleteMission={onDeleteMission}
+            />
           ))
         )}
       </TableBody>
