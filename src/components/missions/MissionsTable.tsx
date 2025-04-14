@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Trash, MoreHorizontal } from "lucide-react";
+import { Eye, Pencil, Trash, MoreHorizontal, Calendar } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,18 @@ export const MissionsTable = ({
           <TableHead>Nom de la mission</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>SDR responsable</TableHead>
+          <TableHead>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Date de démarrage
+            </div>
+          </TableHead>
+          <TableHead>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Date de fin
+            </div>
+          </TableHead>
           <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -55,6 +67,8 @@ export const MissionsTable = ({
               </Badge>
             </TableCell>
             <TableCell>{mission.sdrName || "Non assigné"}</TableCell>
+            <TableCell>{formatDate(mission.startDate)}</TableCell>
+            <TableCell>{formatDate(mission.endDate)}</TableCell>
             <TableCell>
               <div className="flex space-x-2">
                 <Button
@@ -102,3 +116,4 @@ export const MissionsTable = ({
     </Table>
   );
 };
+
