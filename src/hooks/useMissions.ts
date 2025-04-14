@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiService } from "@/services/apiService";
+import * as apiService from "@/services/apiService";
 import { Mission } from "@/types/types";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth";
@@ -165,7 +165,7 @@ export const useDeleteMission = () => {
   return useMutation({
     mutationFn: async (missionId: string) => {
       console.log("Deleting mission with ID:", missionId);
-      return apiService.delete('missions', missionId);
+      return apiService.remove('missions', missionId);
     },
     onSuccess: (_, missionId) => {
       // Invalider les requêtes concernées

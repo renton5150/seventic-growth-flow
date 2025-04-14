@@ -1,8 +1,8 @@
-
 import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { safeSupabase } from "@/integrations/supabase/safeClient";
 import { mapSupaMissionToMission } from "./utils";
 import { checkMissionExists } from "./getMissions";
+import { remove } from "@/services/apiService"; // Import the renamed function
 
 // Type d'aide pour contourner les erreurs TypeScript avec les retours Supabase
 interface SupabaseMissionData {
@@ -138,46 +138,38 @@ export const updateSupaMission = async (mission: {
 export const deleteSupaMission = async (missionId: string): Promise<boolean> => {
   console.log("Suppression de mission dans Supabase. ID:", missionId);
   
-  // Check if mission exists
-  const exists = await checkMissionExists(missionId);
-  
-  if (!exists) {
-    console.error("Tentative de suppression d'une mission inexistante:", missionId);
-    throw new Error("La mission n'existe pas");
-  }
-  
-  // Delete the mission
-  const { error } = await safeSupabase
-    .from("missions")
-    .delete()
-    .eq("id", missionId);
-  
-  if (error) {
-    console.error("Erreur lors de la suppression:", error);
-    // Ajouter des informations détaillées sur l'erreur
-    if (error.code === "42501") {
-      throw new Error(`Erreur de permission: ${error.message} (RLS a refusé l'accès)`);
-    } else {
-      throw new Error(`Erreur lors de la suppression [${error.code}]: ${error.message}`);
+  try {
+    // Check if mission exists
+    const exists = await checkMissionExists(missionId);
+    
+    if (!exists) {
+      console.error("Tentative de suppression d'une mission inexistante:", missionId);
+      throw new Error("La mission n'existe pas");
     }
+    
+    // Use the remove function from apiService
+    await remove("missions", missionId);
+    
+    // Verify deletion
+    const verificationResponse = await safeSupabase
+      .from("missions")
+      .select("id")
+      .eq("id", missionId)
+      .maybeSingle();
+    
+    if (verificationResponse.error) {
+      console.error("Erreur lors de la vérification après suppression:", verificationResponse.error);
+    }
+    
+    if (verificationResponse.data) {
+      console.error("La mission existe toujours après suppression");
+      throw new Error("Échec de la suppression: la mission existe toujours");
+    }
+    
+    console.log("Mission supprimée avec succès");
+    return true;
+  } catch (error) {
+    console.error("Erreur dans deleteSupaMission:", error);
+    throw error;
   }
-  
-  // Verify deletion
-  const verificationResponse = await safeSupabase
-    .from("missions")
-    .select("id")
-    .eq("id", missionId)
-    .maybeSingle();
-  
-  if (verificationResponse.error) {
-    console.error("Erreur lors de la vérification après suppression:", verificationResponse.error);
-  }
-  
-  if (verificationResponse.data) {
-    console.error("La mission existe toujours après suppression");
-    throw new Error("Échec de la suppression: la mission existe toujours");
-  }
-  
-  console.log("Mission supprimée avec succès");
-  return true;
 };
