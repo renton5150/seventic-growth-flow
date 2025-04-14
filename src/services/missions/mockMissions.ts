@@ -1,7 +1,7 @@
+
 import { Mission, MissionType } from "@/types/types";
 import { v4 as uuidv4 } from "uuid";
 import { getRequestsByMissionId } from "@/data/requests";
-import { getMockUser } from "./mockMissions";
 
 // Mock users for testing
 const mockUsers = [
