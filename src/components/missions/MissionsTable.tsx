@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Trash, MoreHorizontal, Calendar } from "lucide-react";
+import { Eye, Pencil, Trash, MoreHorizontal, Calendar, CheckCircle, Clock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +21,25 @@ interface MissionsTableProps {
   onDeleteMission?: (mission: Mission) => void;
   onMissionUpdated?: () => void;
 }
+
+const renderMissionStatusBadge = (status: "En cours" | "Fin") => {
+  switch (status) {
+    case "En cours":
+      return (
+        <Badge variant="outline" className="bg-blue-50 text-blue-600 flex items-center gap-1">
+          <Clock size={14} /> En cours
+        </Badge>
+      );
+    case "Fin":
+      return (
+        <Badge variant="outline" className="bg-green-50 text-green-600 flex items-center gap-1">
+          <CheckCircle size={14} /> Terminée
+        </Badge>
+      );
+    default:
+      return null;
+  }
+};
 
 export const MissionsTable = ({ 
   missions, 
@@ -54,6 +73,7 @@ export const MissionsTable = ({
               Date de fin
             </div>
           </TableHead>
+          <TableHead>Statut Mission</TableHead>
           <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -69,6 +89,7 @@ export const MissionsTable = ({
             <TableCell>{mission.sdrName || "Non assigné"}</TableCell>
             <TableCell>{formatDate(mission.startDate)}</TableCell>
             <TableCell>{formatDate(mission.endDate)}</TableCell>
+            <TableCell>{renderMissionStatusBadge(mission.status)}</TableCell>
             <TableCell>
               <div className="flex space-x-2">
                 <Button
