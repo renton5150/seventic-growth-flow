@@ -13,7 +13,8 @@ export const missions: Mission[] = [
     requests: getRequestsByMissionId("mission1"),
     startDate: new Date("2025-03-01"),
     endDate: new Date("2025-05-31"),
-    type: "Full"
+    type: "Full",
+    status: "En cours"
   },
   {
     id: "mission2",
@@ -23,7 +24,8 @@ export const missions: Mission[] = [
     requests: getRequestsByMissionId("mission2"),
     startDate: new Date("2025-03-15"),
     endDate: null,
-    type: "Part"
+    type: "Part",
+    status: "En cours"
   },
   {
     id: "mission3",
@@ -33,7 +35,8 @@ export const missions: Mission[] = [
     requests: getRequestsByMissionId("mission3"),
     startDate: new Date("2025-03-20"),
     endDate: new Date("2025-12-31"),
-    type: "Full"
+    type: "Full",
+    status: "En cours"
   },
 ];
 

@@ -36,6 +36,7 @@ export function mapSupaMissionToMission(mission: any): Mission {
     requests: getRequestsByMissionId(mission.id),
     startDate: mission.start_date ? new Date(mission.start_date) : null,
     endDate: mission.end_date ? new Date(mission.end_date) : null,
-    type: (mission.type as MissionType) || "Full"
+    type: (mission.type as MissionType) || "Full",
+    status: mission.status || "En cours"
   };
 }

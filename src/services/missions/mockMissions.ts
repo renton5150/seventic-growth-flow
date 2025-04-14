@@ -27,7 +27,8 @@ export const mockMissions: Mission[] = [
     requests: [],
     startDate: new Date("2023-02-01"),
     endDate: new Date("2023-03-15"),
-    type: "Full" as MissionType
+    type: "Full" as MissionType,
+    status: "En cours"
   },
   {
     id: "mission2",
@@ -39,7 +40,8 @@ export const mockMissions: Mission[] = [
     requests: [],
     startDate: new Date("2023-03-01"),
     endDate: null,
-    type: "Part" as MissionType
+    type: "Part" as MissionType,
+    status: "En cours"
   }
 ];
 
@@ -87,7 +89,8 @@ export const createMockMission = (data: {
     requests: [],
     startDate: data.startDate || null,
     endDate: data.endDate || null,
-    type: (data.type as MissionType) || "Full"
+    type: (data.type as MissionType) || "Full",
+    status: "En cours"
   };
   mockMissions.push(newMission);
   return newMission;
@@ -112,6 +115,7 @@ export const updateMockMission = async (data: {
   startDate: Date | null;
   endDate: Date | null;
   type: string;
+  status?: string;
 }): Promise<Mission> => {
   // Chercher la mission à mettre à jour
   const missionIndex = mockMissions.findIndex(mission => mission.id === data.id);
@@ -133,7 +137,8 @@ export const updateMockMission = async (data: {
     requests: getRequestsByMissionId(data.id),
     startDate: data.startDate,
     endDate: data.endDate,
-    type: data.type as MissionType || "Full"
+    type: data.type as MissionType || "Full",
+    status: data.status || "En cours"
   };
   
   // Mettre à jour la mission dans le tableau mockée
