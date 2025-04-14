@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiService } from "@/services/apiService";
 import { Mission } from "@/types/types";
@@ -124,7 +123,7 @@ export const useUpdateMission = () => {
       
       console.log("Updating mission:", mission);
       
-      // Formater les données pour l'API
+      // Formater les données pour l'API mais sans inclure le champ user_role directement dans l'objet
       const formattedData = {
         ...mission,
         start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
@@ -132,18 +131,16 @@ export const useUpdateMission = () => {
         // Ajouter le champ client requis par le schéma
         client: mission.name,
         // Mapper les champs aux colonnes de la base de données
-        sdr_id: mission.sdrId,
-        // Ajout du rôle utilisateur pour la validation côté serveur
-        user_role: user?.role,
-        // Supprimer les champs à ne pas envoyer
-        startDate: undefined,
-        endDate: undefined,
-        sdrId: undefined
+        sdr_id: mission.sdrId
+        // Ne pas inclure user_role ici, il sera géré par le service
       };
       
       console.log("Formatted data for update:", formattedData);
       
-      return apiService.put<Mission>('missions', mission.id, formattedData);
+      // Passer le rôle utilisateur comme second paramètre à la fonction PUT
+      return apiService.put<Mission>('missions', mission.id, formattedData, {
+        userRole: user?.role
+      });
     },
     onSuccess: (data, variables) => {
       // Invalider les requêtes concernées

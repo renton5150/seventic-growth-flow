@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -126,6 +127,14 @@ function App() {
                 } 
               />
               <Route 
+                path="/missions/:id/edit" 
+                element={
+                  <ProtectedRoute>
+                    <MissionDetail />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
                 path="/growth" 
                 element={
                   <ProtectedRoute allowedRoles={["admin", "growth"]}>
@@ -167,6 +176,14 @@ function App() {
               />
               <Route 
                 path="/admin/missions/:id" 
+                element={
+                  <ProtectedRoute allowedRoles={["admin"]}>
+                    <MissionDetail />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/missions/:id/edit" 
                 element={
                   <ProtectedRoute allowedRoles={["admin"]}>
                     <MissionDetail />

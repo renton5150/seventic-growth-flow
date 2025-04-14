@@ -28,12 +28,10 @@ const AdminMissions = () => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
     
     // Invalider le cache des requêtes et forcer un rechargement
-    setTimeout(() => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['missions'],
-        refetchType: 'all' 
-      });
-    }, 100);
+    queryClient.invalidateQueries({ 
+      queryKey: ['missions'],
+      refetchType: 'all' 
+    });
   };
 
   if (!isAdmin) {
