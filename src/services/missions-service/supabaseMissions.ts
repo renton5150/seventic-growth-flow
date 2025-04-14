@@ -1,5 +1,5 @@
 
-import { Mission, MissionType, MissionStatus } from "@/types/types";
+import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import {
   getAllSupaMissions,
@@ -93,7 +93,6 @@ export const createSupabaseMission = async (data: {
   startDate?: Date | null;
   endDate?: Date | null;
   type?: string;
-  status?: MissionStatus;
 }): Promise<Mission | undefined> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
@@ -114,8 +113,7 @@ export const createSupabaseMission = async (data: {
     
     return await createSupaMission({
       ...data,
-      type: missionType,
-      status: data.status || "En cours"
+      type: missionType
     });
   } catch (error) {
     console.error("Error creating mission in Supabase:", error);
@@ -134,8 +132,7 @@ export const updateSupabaseMission = async (data: {
   startDate: Date | null;
   endDate: Date | null;
   type: string;
-  status?: MissionStatus;
-}, userRole?: string): Promise<Mission | undefined> => {
+}): Promise<Mission | undefined> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
     
@@ -153,13 +150,10 @@ export const updateSupabaseMission = async (data: {
     // Ensure type is a valid MissionType
     const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
     
-    console.log("Statut avant envoi à updateSupaMission:", data.status);
-    
     return await updateSupaMission({
       ...data,
-      type: missionType,
-      status: data.status
-    }, userRole);
+      type: missionType
+    });
   } catch (error) {
     console.error("Error updating mission in Supabase:", error);
     throw error;

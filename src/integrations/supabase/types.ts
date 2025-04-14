@@ -63,7 +63,6 @@ export type Database = {
           name: string
           sdr_id: string | null
           start_date: string | null
-          status: string
           type: string | null
           updated_at: string
         }
@@ -76,7 +75,6 @@ export type Database = {
           name: string
           sdr_id?: string | null
           start_date?: string | null
-          status?: string
           type?: string | null
           updated_at?: string
         }
@@ -89,7 +87,6 @@ export type Database = {
           name?: string
           sdr_id?: string | null
           start_date?: string | null
-          status?: string
           type?: string | null
           updated_at?: string
         }

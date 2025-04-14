@@ -4,7 +4,7 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Control } from "react-hook-form";
 import { getAllUsers } from "@/services/user/userQueries";
-import { MissionFormValues } from "@/types/types";
+import { MissionFormValues } from "../schemas/missionFormSchema";
 import { useState, useEffect } from "react";
 
 interface SdrSelectorProps {
@@ -20,6 +20,7 @@ export function SdrSelector({ control, disabled = false, initialSdrName }: SdrSe
   const { data: users = [], isLoading: isSdrsLoading } = useQuery({
     queryKey: ['users-for-mission-edit'],
     queryFn: getAllUsers,
+    // Remove the improper onSuccess and onError callbacks
     staleTime: 60000, // Cache data for 1 minute
   });
 

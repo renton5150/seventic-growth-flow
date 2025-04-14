@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 
 import { Form } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,10 +13,9 @@ import { DatabaseSection } from "./email-campaign/DatabaseSection";
 import { BlacklistSection } from "./email-campaign/BlacklistSection";
 import { FormFooter } from "./email-campaign/FormFooter";
 import { formSchema, FormData, defaultValues } from "./email-campaign/schema";
-import { EmailCampaignRequest } from "@/types/types";
-import { useFileUpload } from "@/hooks";
-import { useEmailCampaignSubmit } from "@/hooks/useEmailCampaignSubmit";
+import { createEmailCampaignRequest, updateRequest } from "@/services/requestService";
 import { supabase } from "@/integrations/supabase/client";
+import { EmailCampaignRequest } from "@/types/types";
 
 interface EmailCampaignFormProps {
   editMode?: boolean;
@@ -25,24 +25,20 @@ interface EmailCampaignFormProps {
 export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampaignFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistEmailsTab, setBlacklistEmailsTab] = useState("file");
-  const { uploading: fileUploading, handleFileUpload } = useFileUpload();
-  const { submitting, handleSubmit: submitForm } = useEmailCampaignSubmit({ 
-    editMode, 
-    initialDataId: initialData?.id,
-    fileUploading 
-  });
+  const [fileUploading, setFileUploading] = useState(false);
 
   // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
     if (editMode && initialData) {
-      // Ensure all objects exist with safe defaults
-      const template = initialData.template || { content: "", fileUrl: "", webLink: "" };
-      const database = initialData.database || { notes: "", fileUrl: "", webLink: "" };
+      // Accéder directement aux propriétés de l'EmailCampaignRequest
+      const template = initialData.template || {};
+      const database = initialData.database || {};
       const blacklist = initialData.blacklist || {};
-      const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
-      const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "" };
+      const blacklistAccounts = blacklist.accounts || {};
+      const blacklistEmails = blacklist.emails || {};
 
       // Adapter la date pour le format de l'input date
       const dueDate = new Date(initialData.dueDate);
@@ -76,8 +72,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   useEffect(() => {
     if (editMode && initialData) {
       const blacklist = initialData.blacklist || {};
-      const accounts = blacklist.accounts || { notes: "", fileUrl: "" };
-      const emails = blacklist.emails || { notes: "", fileUrl: "" };
+      const accounts = blacklist.accounts || {};
+      const emails = blacklist.emails || {};
 
       // Définir l'onglet actif pour les comptes blacklist
       if (accounts.notes && !accounts.fileUrl) {
@@ -111,27 +107,135 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   }, []);
 
   const onSubmit = async (data: FormData) => {
-    await submitForm(data, user, navigate);
+    if (fileUploading) {
+      toast.error("Veuillez attendre la fin du téléchargement des fichiers");
+      return;
+    }
+
+    if (!user) {
+      toast.error("Vous devez être connecté pour créer une requête");
+      return;
+    }
+
+    setSubmitting(true);
+    
+    try {
+      console.log("Données soumises:", data);
+      
+      // Convertir la date string en objet Date
+      const dueDate = new Date(data.dueDate);
+      
+      // Format the data for the request
+      const requestData = {
+        title: data.title,
+        missionId: data.missionId,
+        createdBy: user.id,
+        template: {
+          content: data.templateContent,
+          fileUrl: data.templateFileUrl,
+          webLink: data.templateWebLink
+        },
+        database: {
+          fileUrl: data.databaseFileUrl,
+          webLink: data.databaseWebLink,
+          notes: data.databaseNotes
+        },
+        blacklist: {
+          accounts: {
+            fileUrl: data.blacklistAccountsFileUrl,
+            notes: data.blacklistAccountsNotes
+          },
+          emails: {
+            fileUrl: data.blacklistEmailsFileUrl,
+            notes: data.blacklistEmailsNotes
+          }
+        },
+        dueDate: dueDate
+      };
+      
+      let result;
+      
+      if (editMode && initialData) {
+        // Mode édition - Mettre à jour la demande existante
+        console.log("Mise à jour de la demande avec:", requestData);
+        result = await updateRequest(initialData.id, {
+          title: data.title,
+          dueDate: dueDate,
+          // Mise à jour directe des propriétés au lieu d'utiliser details
+          template: requestData.template,
+          database: requestData.database,
+          blacklist: requestData.blacklist
+        });
+        
+        if (result) {
+          console.log("Demande mise à jour:", result);
+          toast.success("Demande de campagne email mise à jour avec succès");
+          navigate("/requests/email/" + initialData.id);
+        } else {
+          throw new Error("Erreur lors de la mise à jour de la demande");
+        }
+      } else {
+        // Mode création - Créer une nouvelle demande
+        console.log("Création de la demande avec:", requestData);
+        const newRequest = await createEmailCampaignRequest(requestData);
+        
+        if (newRequest) {
+          console.log("Nouvelle demande créée:", newRequest);
+          toast.success("Demande de campagne email créée avec succès");
+          navigate("/dashboard");
+        } else {
+          throw new Error("Erreur lors de la création de la demande");
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de la soumission:", error);
+      // Afficher plus de détails sur l'erreur
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Erreur inconnue lors de la création/modification de la demande";
+      toast.error(`Erreur: ${errorMessage}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFileUpload = (field: string, files: FileList | null | string) => {
+    setFileUploading(true);
+    console.log("Téléchargement du fichier pour le champ:", field, files);
+    try {
+      // Cas où files est une chaîne (URL directe)
+      if (typeof files === 'string') {
+        console.log("URL directe fournie:", files);
+        form.setValue(field as any, files);
+        return;
+      }
+      
+      // Cas où files est une FileList
+      if (files && files.length > 0) {
+        const file = files[0];
+        console.log("Fichier sélectionné:", file.name);
+        const fakeUrl = `uploads/${file.name}`;
+        form.setValue(field as any, fakeUrl);
+        return;
+      }
+      
+      // Cas où files est null (effacement)
+      console.log("Effacement du fichier");
+      form.setValue(field as any, "");
+    } finally {
+      // Toujours remettre fileUploading à false après traitement
+      setTimeout(() => setFileUploading(false), 100);
+    }
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormHeader control={form.control} user={user} editMode={editMode} />
-        <TemplateSection control={form.control} handleFileUpload={(files) => 
-          handleFileUpload(form.setValue, "templateFileUrl", files, { 
-            acceptedFormats: ["doc", "docx", "html", "htm"], 
-            maxSize: 10 
-          })
-        } />
+        <TemplateSection control={form.control} handleFileUpload={handleFileUpload} />
         <DatabaseSection 
           control={form.control} 
-          handleFileUpload={(files) => 
-            handleFileUpload(form.setValue, "databaseFileUrl", files, { 
-              acceptedFormats: ["csv", "xls", "xlsx"], 
-              maxSize: 50 
-            })
-          }
+          handleFileUpload={handleFileUpload}
         />
         <BlacklistSection 
           control={form.control} 
@@ -139,16 +243,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
           setBlacklistAccountsTab={setBlacklistAccountsTab}
           blacklistEmailsTab={blacklistEmailsTab}
           setBlacklistEmailsTab={setBlacklistEmailsTab}
-          handleFileUpload={{
-            accounts: (files) => handleFileUpload(form.setValue, "blacklistAccountsFileUrl", files, { 
-              acceptedFormats: ["csv", "xls", "xlsx"], 
-              maxSize: 10 
-            }),
-            emails: (files) => handleFileUpload(form.setValue, "blacklistEmailsFileUrl", files, { 
-              acceptedFormats: ["csv", "xls", "xlsx"], 
-              maxSize: 10 
-            })
-          }}
+          handleFileUpload={handleFileUpload}
         />
         <FormFooter submitting={submitting || fileUploading} editMode={editMode} />
       </form>

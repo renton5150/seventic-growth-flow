@@ -1,22 +1,20 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { useAuth } from "@/contexts/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Mission } from "@/types/types";
+import { getAllMissions, getMissionsByUserId } from "@/services/missions-service"; // Updated import path
+import { MissionsTable } from "@/components/missions/MissionsTable";
+import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
-import { MissionsListView } from "@/components/missions/MissionsListView";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 const Missions = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -24,19 +22,37 @@ const Missions = () => {
   const isAdmin = user?.role === "admin";
   const isSdr = user?.role === "sdr";
 
-  // Fonction pour rafraîchir les données
-  const refreshMissions = () => {
+  console.log("Page Missions - utilisateur:", user);
+
+  // Utiliser react-query pour gérer les missions
+  const { data: missions = [], isLoading, refetch } = useQuery({
+    queryKey: ['missions', user?.id, isAdmin],
+    queryFn: async () => {
+      try {
+        console.log("Chargement des missions pour", isAdmin ? "admin" : "sdr", "avec ID:", user?.id);
+        if (isAdmin) {
+          return await getAllMissions();
+        } else if (user?.id) {
+          return await getMissionsByUserId(user.id);
+        }
+        return [];
+      } catch (error) {
+        console.error("Erreur lors du chargement des missions:", error);
+        return [];
+      }
+    },
+    enabled: !!user
+  });
+    
+  // Handlers
+  const handleRefreshMissions = () => {
     console.log("Rafraîchissement des missions");
-    queryClient.invalidateQueries({ 
-      queryKey: ['missions'],
-      refetchType: 'all'
-    });
+    refetch();
   };
   
-  // Handlers
   const handleViewMission = (mission: Mission) => {
-    console.log("Navigation vers la page de détail de la mission:", mission.id);
-    navigate(`/missions/${mission.id}`);
+    console.log("Affichage de la mission:", mission);
+    setSelectedMission(mission);
   };
   
   const handleEditMission = (mission: Mission) => {
@@ -49,6 +65,18 @@ const Missions = () => {
     console.log("Ouverture de la modal de création de mission");
     setIsCreateModalOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <p>Chargement des missions...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+  
+  console.log("Missions chargées:", missions);
   
   return (
     <AppLayout>
@@ -62,28 +90,39 @@ const Missions = () => {
           )}
         </div>
         
-        <MissionsListView
-          userId={user?.id}
-          isAdmin={isAdmin}
-          isSdr={isSdr}
-          onCreateMission={handleCreateMissionClick}
-          onViewMission={handleViewMission}
-          onEditMission={isSdr ? handleEditMission : undefined}
-          onMissionUpdated={refreshMissions}
-        />
+        {missions.length === 0 ? (
+          <EmptyMissionState 
+            isSdr={isSdr} 
+            onCreateMission={handleCreateMissionClick} 
+          />
+        ) : (
+          <MissionsTable 
+            missions={missions} 
+            isAdmin={isAdmin} 
+            onViewMission={handleViewMission}
+            onEditMission={isSdr ? handleEditMission : undefined}
+          />
+        )}
         
         {/* Dialogs */}
         <CreateMissionDialog 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
-          onSuccess={refreshMissions} 
+          onSuccess={handleRefreshMissions} 
         />
         
+        <MissionDetailsDialog 
+          mission={selectedMission} 
+          open={!!selectedMission && !isEditModalOpen} 
+          onOpenChange={(open) => !open && setSelectedMission(null)} 
+          isSdr={isSdr} 
+        />
+
         <EditMissionDialog
           mission={selectedMission}
           open={isEditModalOpen}
           onOpenChange={setIsEditModalOpen}
-          onMissionUpdated={refreshMissions}
+          onMissionUpdated={handleRefreshMissions}
         />
       </div>
     </AppLayout>

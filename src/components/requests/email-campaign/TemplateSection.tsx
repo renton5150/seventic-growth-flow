@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 interface TemplateSectionProps {
   control: Control<any>;
-  handleFileUpload: (files: FileList | null) => void;
+  handleFileUpload: (field: string, files: FileList | null) => void;
 }
 
 export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionProps) => {
@@ -52,7 +52,7 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                       title="Importer votre template"
                       description="Formats acceptés : DOC, DOCX, HTML (Max 10 Mo)"
                       value={field.value}
-                      onChange={handleFileUpload}
+                      onChange={(files) => handleFileUpload("templateFileUrl", files)}
                       accept=".doc,.docx,.html,.htm"
                       maxSize={10}
                     />

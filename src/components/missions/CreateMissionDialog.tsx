@@ -2,12 +2,13 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
-import { MissionFormValues } from "@/types/types";
-import { missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
+import { createMission } from "@/services/missions-service"; // Updated import path
+import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAllMissions } from "@/services/missions-service"; // Updated import path
+import { MissionFormValues, missionFormSchema } from "./schemas/missionFormSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MissionForm } from "./form/MissionForm";
-import { useAllMissions, useCreateMission } from "@/hooks/useMissions";
-import { Mission } from "@/types/types";
 
 interface CreateMissionDialogProps {
   open: boolean;
@@ -17,10 +18,14 @@ interface CreateMissionDialogProps {
 
 export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMissionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
   
-  // Utiliser nos hooks personnalisés
-  const { data: existingMissions = [] } = useAllMissions();
-  const createMissionMutation = useCreateMission();
+  // Fetch existing missions for duplicate name validation
+  const { data: existingMissions = [] } = useQuery({
+    queryKey: ['existing-missions'],
+    queryFn: () => getAllMissions(),
+    enabled: open, // Only fetch when dialog is open
+  });
   
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
@@ -30,8 +35,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       description: "",
       startDate: null,
       endDate: null,
-      type: "Full",
-      status: "En cours"
+      type: "Full"
     }
   });
 
@@ -41,8 +45,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       return "Le nom de la mission est obligatoire";
     }
     
-    // Vérifier si une mission avec ce nom existe déjà
-    const exists = existingMissions.some((mission: Mission) => 
+    const exists = existingMissions.some(mission => 
       mission.name.trim().toLowerCase() === trimmedName.toLowerCase()
     );
     
@@ -54,7 +57,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
   };
 
   const onSubmit = async (data: MissionFormValues) => {
-    // Valider le nom de la mission
+    // Validate mission name for duplicates
     const nameValidation = validateMissionName(data.name);
     if (nameValidation !== true) {
       form.setError("name", { 
@@ -66,22 +69,25 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
 
     setIsSubmitting(true);
     try {
-      // Utiliser le hook de mutation pour créer la mission
-      await createMissionMutation.mutateAsync({
+      // Log pour débogage
+      console.log("Données du formulaire:", data);
+      
+      await createMission({
         name: data.name,
         sdrId: data.sdrId === 'unassigned' ? '' : (data.sdrId || ''),
         description: data.description,
         startDate: data.startDate,
         endDate: data.endDate,
-        type: data.type,
-        status: data.status
+        type: data.type
       });
       
+      toast.success('Mission créée avec succès');
       form.reset();
       onOpenChange(false);
       onSuccess(); // Refresh missions list
     } catch (error) {
       console.error('Erreur lors de la création de la mission:', error);
+      toast.error('Erreur lors de la création de la mission');
     } finally {
       setIsSubmitting(false);
     }

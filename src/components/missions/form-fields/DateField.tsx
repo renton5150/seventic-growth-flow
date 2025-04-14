@@ -8,25 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Control } from "react-hook-form";
-import { MissionFormValues } from "@/types/types";
+import { MissionFormValues } from "../schemas/missionFormSchema";
 
 interface DateFieldProps {
   control: Control<MissionFormValues>;
   name: "startDate" | "endDate";
   label: string;
-  placeholder?: string;
   disabled?: boolean;
   minDate?: Date | null;
 }
 
-export function DateField({ 
-  control, 
-  name, 
-  label, 
-  placeholder = "Sélectionner une date",
-  disabled = false, 
-  minDate 
-}: DateFieldProps) {
+export function DateField({ control, name, label, disabled = false, minDate }: DateFieldProps) {
   return (
     <FormField
       control={control}
@@ -48,7 +40,7 @@ export function DateField({
                   {field.value ? (
                     format(field.value, "d MMMM yyyy", { locale: fr })
                   ) : (
-                    <span>{placeholder}</span>
+                    <span>Sélectionner une date</span>
                   )}
                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                 </Button>

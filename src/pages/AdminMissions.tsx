@@ -1,38 +1,89 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Mission } from "@/types/types";
+import { MissionsTable } from "@/components/missions/MissionsTable";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
+import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { DeleteMissionDialog } from "@/components/missions/DeleteMissionDialog";
-import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
-import { MissionsListView } from "@/components/missions/MissionsListView";
+import { getAllMissions } from "@/services/missions-service"; // Updated import path
+import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
+import { invalidateUserCache } from "@/services/user/userQueries";
 import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  
+  const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
-  // Fonction pour rafraîchir les données de missions
-  const refreshMissionsData = () => {
+  const refreshMissionsData = useCallback(() => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
     
-    // Invalider le cache des requêtes et forcer un rechargement
-    queryClient.invalidateQueries({ 
-      queryKey: ['missions'],
-      refetchType: 'all' 
-    });
-  };
+    // Invalidate the query cache and force a refetch with a slight delay
+    // to ensure the cache is properly cleared
+    setTimeout(() => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['missions'],
+        refetchType: 'all' 
+      });
+    }, 100);
+  }, [queryClient]);
+
+  useEffect(() => {
+    const diagnoseMissionData = async () => {
+      try {
+        const { data: directData, error: directError } = await supabase
+          .from('missions')
+          .select('id, name, sdr_id');
+        
+        if (directError) {
+          console.error("Erreur lors de la vérification directe:", directError);
+        } else {
+          console.log("Données directes de Supabase:", directData);
+        }
+      } catch (error) {
+        console.error("Erreur lors du diagnostic:", error);
+      }
+    };
+    
+    diagnoseMissionData();
+  }, []);
+
+  const { data: missions = [], isLoading } = useQuery({
+    queryKey: ['missions', 'admin'],
+    queryFn: async () => {
+      try {
+        console.log("Chargement des missions pour l'administrateur");
+        const allMissions = await getAllMissions();
+        console.log("Missions récupérées:", allMissions);
+        allMissions.forEach(mission => {
+          console.log(`Mission ${mission.id}:`, {
+            name: mission.name,
+            sdrId: mission.sdrId,
+            sdrName: mission.sdrName || "Non assigné"
+          });
+        });
+        return allMissions;
+      } catch (error) {
+        console.error("Erreur lors du chargement des missions:", error);
+        toast.error("Erreur lors du chargement des missions");
+        return [];
+      }
+    }
+  });
 
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
@@ -44,8 +95,8 @@ const AdminMissions = () => {
   };
 
   const handleViewMission = (mission: Mission) => {
-    console.log("Navigation vers la page de détail de la mission:", mission.id);
-    navigate(`/admin/missions/${mission.id}`);
+    console.log("Affichage de la mission:", mission);
+    setSelectedMission(mission);
   };
   
   const handleDeleteMission = (mission: Mission) => {
@@ -64,6 +115,16 @@ const AdminMissions = () => {
     setIsEditModalOpen(true);
   };
 
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <p>Chargement des missions...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -74,19 +135,33 @@ const AdminMissions = () => {
           </Button>
         </div>
         
-        <MissionsListView
-          isAdmin={true}
-          onCreateMission={handleCreateMissionClick}
-          onViewMission={handleViewMission}
-          onEditMission={handleEditMission}
-          onDeleteMission={handleDeleteMission}
-          onMissionUpdated={refreshMissionsData}
-        />
+        {missions.length === 0 ? (
+          <EmptyMissionState 
+            isSdr={false} 
+            onCreateMission={handleCreateMissionClick} 
+          />
+        ) : (
+          <MissionsTable 
+            missions={missions} 
+            isAdmin={true} 
+            onViewMission={handleViewMission}
+            onDeleteMission={handleDeleteMission}
+            onEditMission={handleEditMission}
+            onMissionUpdated={refreshMissionsData}
+          />
+        )}
         
         <CreateMissionDialog 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
           onSuccess={refreshMissionsData} 
+        />
+        
+        <MissionDetailsDialog 
+          mission={selectedMission} 
+          open={!!selectedMission} 
+          onOpenChange={(open) => !open && setSelectedMission(null)} 
+          isSdr={false} 
         />
         
         {missionToDelete && (

@@ -1,56 +1,24 @@
-
-
+// User roles
 export type UserRole = "admin" | "sdr" | "growth";
 
+// User model
 export interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
   role: UserRole;
   avatar?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
 }
 
-export interface GrowthDashboardData {
-  totalMissions: number;
-  activeMissions: number;
-  completedMissions: number;
-  totalSDRs: number;
-}
-
-export interface DashboardRequest {
-  id: string;
-  type: string;
-  description: string;
-  status: "pending" | "approved" | "rejected";
-  createdAt?: Date;
-}
-
-export type MissionType = "Full" | "Part";
-export type MissionStatus = "En cours" | "Terminé";
-
-export interface Mission {
-  id: string;
-  name: string;
-  description?: string;
-  sdrId: string;
-  sdrName?: string;
-  startDate: Date | null;
-  endDate: Date | null;
-  type: MissionType;
-  status: MissionStatus;
-  requests?: Request[];
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-// Types pour les requêtes
+// Status for requests
 export type RequestStatus = "pending" | "inprogress" | "completed";
 
-export interface Request {
+// Mission type
+export type MissionType = "Full" | "Part";
+
+// Base request interface
+export interface BaseRequest {
   id: string;
-  type: string;
   title: string;
   missionId: string;
   createdBy: string;
@@ -59,100 +27,102 @@ export interface Request {
   dueDate: Date;
   lastUpdated: Date;
   isLate?: boolean;
-  sdrName?: string;
-  template?: {
-    content?: string;
-    webLink?: string;
-    fileUrl?: string;
-  };
-  database?: {
-    notes?: string;
-    webLink?: string;
-    fileUrl?: string;
-  };
-  blacklist?: {
-    accounts?: { notes: string; fileUrl?: string };
-    emails?: { notes: string; fileUrl?: string };
-  };
-  platform?: string;
-  statistics?: {
-    sent?: number;
-    opened?: number;
-    clicked?: number;
-    bounced?: number;
-  };
-  targeting?: {
-    jobTitles?: string[];
-    industries?: string[];
-    companySize?: string[];
-    locations?: string[];
-    otherCriteria?: string;
-  };
-  tool?: string;
-  contactsCreated?: number;
-  profilesScraped?: number;
-  resultFileUrl?: string;
+  sdrName?: string; // SDR responsable
 }
 
-export interface EmailCampaignRequest extends Request {
+// Email campaign request
+export interface EmailCampaignRequest extends BaseRequest {
   type: "email";
   template: {
     content?: string;
-    webLink?: string;
     fileUrl?: string;
+    webLink?: string;
   };
   database: {
-    notes: string;
-    webLink?: string;
     fileUrl?: string;
+    webLink?: string;
+    notes?: string;
   };
-  blacklist?: {
-    accounts?: { notes: string; fileUrl?: string };
-    emails?: { notes: string; fileUrl?: string };
+  blacklist: {
+    accounts?: {
+      fileUrl?: string;
+      notes?: string;
+    };
+    emails?: {
+      fileUrl?: string;
+      notes?: string;
+    };
   };
-  platform?: string;
+  // Added when completed by Growth team
+  platform?: "Acelmail" | "Bevo" | "Postyman" | "Direct IQ" | "Mindbaz";
   statistics?: {
-    sent?: number;
-    opened?: number;
-    clicked?: number;
-    bounced?: number;
+    sent: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
   };
 }
 
-export interface DatabaseRequest extends Request {
+// Database creation request
+export interface DatabaseRequest extends BaseRequest {
   type: "database";
-  tool: string;
+  tool: "Hubspot" | "Apollo";
   targeting: {
-    jobTitles: string[];
-    industries: string[];
-    companySize: string[];
+    jobTitles?: string[];
+    industries?: string[];
+    companySize?: string[];
     otherCriteria?: string;
   };
   blacklist: {
-    accounts: { notes: string; fileUrl?: string };
+    accounts?: {
+      fileUrl?: string;
+      notes?: string;
+    };
+    contacts?: {
+      fileUrl?: string;
+      notes?: string;
+    };
   };
+  // Added when completed by Growth team
   contactsCreated?: number;
 }
 
-export interface LinkedInScrapingRequest extends Request {
+// LinkedIn scraping request
+export interface LinkedInScrapingRequest extends BaseRequest {
   type: "linkedin";
   targeting: {
-    jobTitles: string[];
+    jobTitles?: string[];
     locations?: string[];
-    industries: string[];
-    companySize: string[];
+    industries?: string[];
+    companySize?: string[];
+    otherCriteria?: string;
   };
+  // Added when completed by Growth team
   profilesScraped?: number;
   resultFileUrl?: string;
 }
 
-// Interface pour l'ensemble des données de l'application
+// Union type for all request types
+export type Request = EmailCampaignRequest | DatabaseRequest | LinkedInScrapingRequest;
+
+// Client mission
+export interface Mission {
+  id: string;
+  name: string;
+  sdrId: string;
+  createdAt: Date;
+  description?: string;
+  sdrName?: string; // Added for UI display
+  requests: Request[];
+  // Nouveaux champs
+  startDate: Date | null;
+  endDate: Date | null;
+  type: MissionType;
+}
+
+// Mock data type
 export interface AppData {
   users: User[];
   missions: Mission[];
   requests: Request[];
 }
-
-// On réexporte également les types du formulaire de mission pour compatibilité
-export type { MissionFormValues } from "@/components/missions/schemas/missionFormSchema";
-
