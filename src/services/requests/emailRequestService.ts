@@ -79,44 +79,54 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     // Mettre à jour template si présent dans les updates
     if (updates.template) {
-      const currentTemplate = dbUpdates.details.template || {};
+      const currentTemplateObj = dbUpdates.details.template || {};
+      const updatesTemplateObj = updates.template || {};
+      
       dbUpdates.details.template = {
-        ...currentTemplate,
-        ...(updates.template || {})
+        ...currentTemplateObj,
+        ...updatesTemplateObj
       };
     }
     
     // Mettre à jour database si présent dans les updates
     if (updates.database) {
-      const currentDatabase = dbUpdates.details.database || {};
+      const currentDatabaseObj = dbUpdates.details.database || {};
+      const updatesDatabaseObj = updates.database || {};
+      
       dbUpdates.details.database = {
-        ...currentDatabase,
-        ...(updates.database || {})
+        ...currentDatabaseObj,
+        ...updatesDatabaseObj
       };
     }
     
     // Mettre à jour blacklist si présent dans les updates
     if (updates.blacklist) {
-      const currentBlacklist = dbUpdates.details.blacklist || {};
+      const currentBlacklistObj = dbUpdates.details.blacklist || {};
+      const updatesBlacklistObj = updates.blacklist || {};
+      
       dbUpdates.details.blacklist = {
-        ...currentBlacklist,
-        ...(updates.blacklist || {})
+        ...currentBlacklistObj,
+        ...updatesBlacklistObj
       };
       
       // Gérer spécifiquement les sous-objets de blacklist
       if (updates.blacklist.accounts) {
-        const currentAccounts = (dbUpdates.details.blacklist.accounts || {});
+        const currentAccountsObj = (dbUpdates.details.blacklist.accounts || {});
+        const updatesAccountsObj = (updates.blacklist.accounts || {});
+        
         dbUpdates.details.blacklist.accounts = {
-          ...currentAccounts,
-          ...(updates.blacklist.accounts || {})
+          ...currentAccountsObj,
+          ...updatesAccountsObj
         };
       }
       
       if (updates.blacklist.emails) {
-        const currentEmails = (dbUpdates.details.blacklist.emails || {});
+        const currentEmailsObj = (dbUpdates.details.blacklist.emails || {});
+        const updatesEmailsObj = (updates.blacklist.emails || {});
+        
         dbUpdates.details.blacklist.emails = {
-          ...currentEmails,
-          ...(updates.blacklist.emails || {})
+          ...currentEmailsObj,
+          ...updatesEmailsObj
         };
       }
     }
