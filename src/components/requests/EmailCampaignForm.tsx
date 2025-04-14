@@ -34,8 +34,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   const getInitialValues = () => {
     if (editMode && initialData) {
       // Ensure all objects exist with safe defaults
-      const template = initialData.template || {};
-      const database = initialData.database || {};
+      const template = initialData.template || { content: "", fileUrl: "", webLink: "" };
+      const database = initialData.database || { notes: "", fileUrl: "", webLink: "" };
       const blacklist = initialData.blacklist || {};
       const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
       const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "" };
