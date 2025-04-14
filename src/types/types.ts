@@ -1,128 +1,93 @@
-// User roles
-export type UserRole = "admin" | "sdr" | "growth";
-
-// User model
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  role: "admin" | "sdr" | "growth";
   avatar?: string;
 }
 
-// Status for requests
-export type RequestStatus = "pending" | "inprogress" | "completed";
-
-// Mission type
-export type MissionType = "Full" | "Part";
-
-// Base request interface
-export interface BaseRequest {
+export interface Request {
   id: string;
   title: string;
+  type: "email" | "database" | "linkedin";
   missionId: string;
+  missionName?: string | null;
   createdBy: string;
+  sdrName?: string;
   createdAt: Date;
-  status: RequestStatus;
   dueDate: Date;
+  status: "pending" | "inprogress" | "completed" | "rejected";
   lastUpdated: Date;
   isLate?: boolean;
-  sdrName?: string; // SDR responsable
-}
-
-// Email campaign request
-export interface EmailCampaignRequest extends BaseRequest {
-  type: "email";
-  template: {
-    content?: string;
-    fileUrl?: string;
-    webLink?: string;
-  };
-  database: {
-    fileUrl?: string;
-    webLink?: string;
-    notes?: string;
-  };
-  blacklist: {
-    accounts?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-    emails?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-  };
-  // Added when completed by Growth team
-  platform?: "Acelmail" | "Bevo" | "Postyman" | "Direct IQ" | "Mindbaz";
-  statistics?: {
-    sent: number;
-    opened: number;
-    clicked: number;
-    bounced: number;
-  };
-}
-
-// Database creation request
-export interface DatabaseRequest extends BaseRequest {
-  type: "database";
-  tool: "Hubspot" | "Apollo";
-  targeting: {
-    jobTitles?: string[];
-    industries?: string[];
-    companySize?: string[];
-    otherCriteria?: string;
-  };
-  blacklist: {
-    accounts?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-    contacts?: {
-      fileUrl?: string;
-      notes?: string;
-    };
-  };
-  // Added when completed by Growth team
+  statistics?: EmailCampaignStatistics;
   contactsCreated?: number;
 }
 
-// LinkedIn scraping request
-export interface LinkedInScrapingRequest extends BaseRequest {
-  type: "linkedin";
-  targeting: {
-    jobTitles?: string[];
-    locations?: string[];
-    industries?: string[];
-    companySize?: string[];
-    otherCriteria?: string;
-  };
-  // Added when completed by Growth team
-  profilesScraped?: number;
-  resultFileUrl?: string;
+export interface EmailCampaignRequest extends Request {
+  type: "email";
+  template: EmailTemplate;
+  database?: DatabaseDetails;
+  blacklist?: Blacklist;
+  platform: string;
+  statistics: EmailCampaignStatistics;
 }
 
-// Union type for all request types
-export type Request = EmailCampaignRequest | DatabaseRequest | LinkedInScrapingRequest;
+export interface DatabaseRequest extends Request {
+  type: "database";
+  tool: string;
+  targeting: TargetingCriteria;
+  blacklist?: Blacklist;
+  contactsCreated?: number;
+  otherCriteria?: string;
+}
 
-// Client mission
+export interface LinkedInScrapingRequest extends Request {
+  type: "linkedin";
+  targeting: TargetingCriteria;
+}
+
+export interface EmailTemplate {
+  subject?: string;
+  content: string;
+  webLink?: string;
+}
+
+export interface DatabaseDetails {
+  notes: string;
+}
+
+export interface Blacklist {
+  accounts?: { notes: string };
+  emails?: { notes: string };
+}
+
+export interface TargetingCriteria {
+  jobTitles: string[];
+  locations?: string[];
+  industries: string[];
+  companySize: string[];
+  otherCriteria?: string;
+}
+
+export interface EmailCampaignStatistics {
+  sent: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+}
+
+export type MissionType = "Full" | "Part";
+
 export interface Mission {
   id: string;
   name: string;
   sdrId: string;
-  createdAt: Date;
-  description?: string;
   sdrName?: string;
-  requests: Request[];
+  description?: string;
+  createdAt: Date;
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType;
   status: "En cours" | "Fin";
-}
-
-// Mock data type
-export interface AppData {
-  users: User[];
-  missions: Mission[];
   requests: Request[];
 }

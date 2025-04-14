@@ -62,7 +62,7 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
         <div className="text-xs text-muted-foreground">{getTypeLabel(request.type)}</div>
       </TableCell>
       {!missionView && (
-        <TableCell>Mission {request.missionId}</TableCell>
+        <TableCell>{request.missionName || request.missionId}</TableCell>
       )}
       {showSdr && (
         <TableCell>
