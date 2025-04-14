@@ -33,7 +33,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
     if (editMode && initialData) {
-      // Accéder directement aux propriétés de l'EmailCampaignRequest
+      // Accéder directement aux propriétés de l'EmailCampaignRequest avec des valeurs par défaut
       const template = initialData.template || {
         content: "",
         fileUrl: "",

@@ -122,6 +122,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       }
     }
     
+    // Toujours mettre à jour le timestamp last_updated
     dbUpdates.last_updated = new Date().toISOString();
 
     console.log("Données formatées pour Supabase:", dbUpdates);
