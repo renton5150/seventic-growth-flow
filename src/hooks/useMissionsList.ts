@@ -53,8 +53,19 @@ export const useMissionsList = () => {
   // Appliquer filtrage et tri
   useEffect(() => {
     // Ensure missionsData is treated as Mission[] and not Mission[][]
-    const missions: Mission[] = Array.isArray(missionsData) ? 
-      (Array.isArray(missionsData[0]) ? [] : missionsData as Mission[]) : [];
+    let missions: Mission[] = [];
+    
+    // Make sure we're working with a proper Mission array
+    if (Array.isArray(missionsData)) {
+      // If it's an array of arrays, flatten it
+      if (missionsData.length > 0 && Array.isArray(missionsData[0])) {
+        // Flatten array of arrays
+        missions = (missionsData as unknown as Mission[][]).flat();
+      } else {
+        // It's already a simple array
+        missions = missionsData as Mission[];
+      }
+    }
 
     let result = [...missions];
     
@@ -165,7 +176,11 @@ export const useMissionsList = () => {
   
   return {
     missions: paginatedMissions,
-    allMissions: missionsData as Mission[],
+    allMissions: Array.isArray(missionsData) ? 
+      (Array.isArray(missionsData[0]) ? 
+        (missionsData as unknown as Mission[][]).flat() : 
+        missionsData as Mission[]) : 
+      [],
     isLoading,
     isError,
     error,

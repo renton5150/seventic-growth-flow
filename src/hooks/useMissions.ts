@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as apiService from "@/services/apiService";
 import { Mission } from "@/types/types";
@@ -14,10 +13,12 @@ export const useAllMissions = (filters: Record<string, any> = {}) => {
     queryKey: ['missions', filters],
     queryFn: async () => {
       console.log("Fetching all missions with filters:", filters);
-      return apiService.get<Mission[]>('missions', {
+      const result = await apiService.get<Mission[]>('missions', {
         query: filters,
         order: { column: 'created_at', ascending: false }
       });
+      
+      return Array.isArray(result) ? result : [];
     }
   });
 };
