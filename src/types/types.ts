@@ -1,10 +1,15 @@
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "sdr" | "growth";
+  role: UserRole;
   avatar?: string;
 }
+
+export type UserRole = "admin" | "sdr" | "growth";
+
+export type RequestStatus = "pending" | "inprogress" | "completed" | "rejected";
 
 export interface Request {
   id: string;
@@ -16,11 +21,18 @@ export interface Request {
   sdrName?: string;
   createdAt: Date;
   dueDate: Date;
-  status: "pending" | "inprogress" | "completed" | "rejected";
+  status: RequestStatus;
   lastUpdated: Date;
   isLate?: boolean;
   statistics?: EmailCampaignStatistics;
   contactsCreated?: number;
+  template?: EmailTemplate;
+  database?: DatabaseDetails;
+  blacklist?: Blacklist;
+  targeting?: TargetingCriteria;
+  platform?: string;
+  profilesScraped?: number;
+  resultFileUrl?: string;
 }
 
 export interface EmailCampaignRequest extends Request {
@@ -44,21 +56,32 @@ export interface DatabaseRequest extends Request {
 export interface LinkedInScrapingRequest extends Request {
   type: "linkedin";
   targeting: TargetingCriteria;
+  profilesScraped?: number;
+  resultFileUrl?: string;
 }
 
 export interface EmailTemplate {
   subject?: string;
   content: string;
   webLink?: string;
+  fileUrl?: string;
 }
 
 export interface DatabaseDetails {
   notes: string;
+  fileUrl?: string;
+  webLink?: string;
 }
 
 export interface Blacklist {
-  accounts?: { notes: string };
-  emails?: { notes: string };
+  accounts?: { 
+    notes: string;
+    fileUrl?: string;
+  };
+  emails?: { 
+    notes: string;
+    fileUrl?: string;
+  };
 }
 
 export interface TargetingCriteria {
@@ -89,5 +112,12 @@ export interface Mission {
   endDate: Date | null;
   type: MissionType;
   status: "En cours" | "Fin";
+  requests: Request[];
+}
+
+// AppData interface for mock data
+export interface AppData {
+  users: User[];
+  missions: Mission[];
   requests: Request[];
 }
