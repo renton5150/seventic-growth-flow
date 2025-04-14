@@ -33,7 +33,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
     if (editMode && initialData) {
-      // Accéder directement aux propriétés de l'EmailCampaignRequest avec des valeurs par défaut
+      // S'assurer que toutes les propriétés ont des valeurs par défaut
       const template = initialData.template || {
         content: "",
         fileUrl: "",
@@ -51,17 +51,17 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
         emails: { notes: "", fileUrl: "" }
       };
       
-      // Ensure these objects exist with default empty objects
+      // S'assurer que ces objets existent avec des valeurs par défaut
       const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
       const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "" };
 
       // Adapter la date pour le format de l'input date
-      const dueDate = new Date(initialData.dueDate);
+      const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
       const formattedDueDate = dueDate.toISOString().split('T')[0];
 
       return {
-        title: initialData.title,
-        missionId: initialData.missionId,
+        title: initialData.title || "",
+        missionId: initialData.missionId || "",
         dueDate: formattedDueDate,
         templateContent: template.content || "",
         templateFileUrl: template.fileUrl || "",
@@ -85,7 +85,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
 
   // Initialiser les onglets actifs en fonction des données
   useEffect(() => {
-    if (editMode && initialData) {
+    if (editMode && initialData && initialData.blacklist) {
       const blacklist = initialData.blacklist || {
         accounts: { notes: "", fileUrl: "" },
         emails: { notes: "", fileUrl: "" }
@@ -150,23 +150,23 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
         missionId: data.missionId,
         createdBy: user.id,
         template: {
-          content: data.templateContent,
-          fileUrl: data.templateFileUrl,
-          webLink: data.templateWebLink
+          content: data.templateContent || "",
+          fileUrl: data.templateFileUrl || "",
+          webLink: data.templateWebLink || ""
         },
         database: {
-          fileUrl: data.databaseFileUrl,
-          webLink: data.databaseWebLink,
-          notes: data.databaseNotes
+          fileUrl: data.databaseFileUrl || "",
+          webLink: data.databaseWebLink || "",
+          notes: data.databaseNotes || ""
         },
         blacklist: {
           accounts: {
-            fileUrl: data.blacklistAccountsFileUrl,
-            notes: data.blacklistAccountsNotes
+            fileUrl: data.blacklistAccountsFileUrl || "",
+            notes: data.blacklistAccountsNotes || ""
           },
           emails: {
-            fileUrl: data.blacklistEmailsFileUrl,
-            notes: data.blacklistEmailsNotes
+            fileUrl: data.blacklistEmailsFileUrl || "",
+            notes: data.blacklistEmailsNotes || ""
           }
         },
         dueDate: dueDate

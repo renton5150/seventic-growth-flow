@@ -61,64 +61,58 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     if (updates.dueDate) dbUpdates.due_date = updates.dueDate.toISOString();
     if (updates.status) dbUpdates.status = updates.status;
 
-    // Gérer les détails spécifiques au type email
-    if (updates.template || updates.database || updates.blacklist) {
-      // Récupérer les détails actuels pour les mettre à jour correctement
-      const { data: currentRequest } = await supabase
-        .from('requests')
-        .select('details')
-        .eq('id', requestId)
-        .single();
-        
-      // S'assurer que currentRequest.details est un objet et non une primitive
-      let currentDetails: Record<string, any> = {};
-      if (currentRequest && typeof currentRequest.details === 'object' && currentRequest.details !== null) {
-        currentDetails = currentRequest.details as Record<string, any>;
+    // Récupérer d'abord la requête actuelle pour fusionner correctement les détails
+    const { data: currentRequest } = await supabase
+      .from('requests')
+      .select('details')
+      .eq('id', requestId)
+      .single();
+      
+    if (!currentRequest) {
+      console.error("La requête à mettre à jour n'existe pas");
+      return undefined;
+    }
+
+    // Initialiser l'objet details à partir des données actuelles
+    const currentDetails = currentRequest.details || {};
+    dbUpdates.details = { ...currentDetails };
+    
+    // Mettre à jour template si présent dans les updates
+    if (updates.template) {
+      dbUpdates.details.template = {
+        ...dbUpdates.details.template || {},
+        ...updates.template
+      };
+    }
+    
+    // Mettre à jour database si présent dans les updates
+    if (updates.database) {
+      dbUpdates.details.database = {
+        ...dbUpdates.details.database || {},
+        ...updates.database
+      };
+    }
+    
+    // Mettre à jour blacklist si présent dans les updates
+    if (updates.blacklist) {
+      dbUpdates.details.blacklist = {
+        ...dbUpdates.details.blacklist || {},
+        ...updates.blacklist
+      };
+      
+      // Gérer spécifiquement les sous-objets de blacklist
+      if (updates.blacklist.accounts) {
+        dbUpdates.details.blacklist.accounts = {
+          ...((dbUpdates.details.blacklist.accounts || {})),
+          ...updates.blacklist.accounts
+        };
       }
       
-      // Initialiser l'objet details s'il n'existe pas encore
-      dbUpdates.details = {};
-      
-      // Mettre à jour les propriétés du template
-      if (updates.template) {
-        const currentTemplate = (currentDetails.template && typeof currentDetails.template === 'object') 
-          ? currentDetails.template as Record<string, any>
-          : {};
-          
-        dbUpdates.details.template = {
-          ...currentTemplate,
-          ...updates.template
+      if (updates.blacklist.emails) {
+        dbUpdates.details.blacklist.emails = {
+          ...((dbUpdates.details.blacklist.emails || {})),
+          ...updates.blacklist.emails
         };
-      } else if (currentDetails.template && typeof currentDetails.template === 'object') {
-        dbUpdates.details.template = currentDetails.template;
-      }
-      
-      // Mettre à jour les propriétés de la base de données
-      if (updates.database) {
-        const currentDatabase = (currentDetails.database && typeof currentDetails.database === 'object') 
-          ? currentDetails.database as Record<string, any>
-          : {};
-          
-        dbUpdates.details.database = {
-          ...currentDatabase,
-          ...updates.database
-        };
-      } else if (currentDetails.database && typeof currentDetails.database === 'object') {
-        dbUpdates.details.database = currentDetails.database;
-      }
-      
-      // Mettre à jour les propriétés de la blacklist
-      if (updates.blacklist) {
-        const currentBlacklist = (currentDetails.blacklist && typeof currentDetails.blacklist === 'object') 
-          ? currentDetails.blacklist as Record<string, any>
-          : {};
-          
-        dbUpdates.details.blacklist = {
-          ...currentBlacklist,
-          ...updates.blacklist
-        };
-      } else if (currentDetails.blacklist && typeof currentDetails.blacklist === 'object') {
-        dbUpdates.details.blacklist = currentDetails.blacklist;
       }
     }
     
