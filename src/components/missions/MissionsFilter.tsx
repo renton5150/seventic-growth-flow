@@ -79,14 +79,14 @@ export const MissionsFilter = ({
         <div className="grid grid-cols-2 md:flex gap-2">
           <div className="w-full md:w-40">
             <Select
-              value={filters.status || ""}
-              onValueChange={(value) => updateFilters({ status: value ? value as MissionStatus : undefined })}
+              value={filters.status || "all"}
+              onValueChange={(value) => updateFilters({ status: value !== "all" ? value as MissionStatus : undefined })}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les statuts</SelectItem>
+                <SelectItem value="all">Tous les statuts</SelectItem>
                 <SelectItem value="En cours">En cours</SelectItem>
                 <SelectItem value="Terminé">Terminé</SelectItem>
               </SelectContent>
@@ -95,14 +95,14 @@ export const MissionsFilter = ({
           
           <div className="w-full md:w-40">
             <Select
-              value={filters.type || ""}
-              onValueChange={(value) => updateFilters({ type: value ? value as MissionType : undefined })}
+              value={filters.type || "all"}
+              onValueChange={(value) => updateFilters({ type: value !== "all" ? value as MissionType : undefined })}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les types</SelectItem>
+                <SelectItem value="all">Tous les types</SelectItem>
                 <SelectItem value="Full">Full</SelectItem>
                 <SelectItem value="Part">Part</SelectItem>
               </SelectContent>
