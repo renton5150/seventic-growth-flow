@@ -1,4 +1,3 @@
-
 import { Mission } from "@/types/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +14,7 @@ import {
 import { useState, useMemo, useEffect } from "react";
 import { DateFilterPopover } from "./DateFilterPopover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CheckboxFilterPopover } from "./filters/CheckboxFilterPopover";
 
 interface MissionsTableProps {
   missions: Mission[];
@@ -69,6 +69,11 @@ export const MissionsTable = ({
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [dateFilters, setDateFilters] = useState<{[key in DateField]?: { type: DateFilterType, values: DateFilterValues }}>({});
   
+  // Add new state for checkbox filters
+  const [nameFilter, setNameFilter] = useState<string[]>([]);
+  const [sdrFilter, setSdrFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  
   // Fonction de formatage de date
   const formatDate = (date: Date | null) => {
     if (!date) return "-";
@@ -103,6 +108,11 @@ export const MissionsTable = ({
       return newFilters;
     });
   };
+  
+    // Get unique options for filters
+    const uniqueNames = useMemo(() => [...new Set(missions.map(m => m.name))], [missions]);
+    const uniqueSdrs = useMemo(() => [...new Set(missions.map(m => m.sdrName || ""))], [missions]);
+    const uniqueStatuses = useMemo(() => [...new Set(missions.map(m => m.status))], [missions]);
   
   // Récupération des préférences de tri depuis le localStorage
   useEffect(() => {
@@ -174,10 +184,23 @@ export const MissionsTable = ({
   
   // Tri et filtrage des missions avec useMemo pour éviter des re-rendus inutiles
   const sortedAndFilteredMissions = useMemo(() => {
-    // D'abord filtrer par date
-    let result = filterMissionsByDate([...missions]);
+    let result = [...missions];
     
-    // Ensuite trier
+    // Apply checkbox filters
+    if (nameFilter.length > 0) {
+      result = result.filter(mission => nameFilter.includes(mission.name));
+    }
+    if (sdrFilter.length > 0) {
+      result = result.filter(mission => sdrFilter.includes(mission.sdrName || ""));
+    }
+    if (statusFilter.length > 0) {
+      result = result.filter(mission => statusFilter.includes(mission.status));
+    }
+    
+    // Apply date filters
+    result = filterMissionsByDate(result);
+    
+    // Apply sorting
     if (sortColumn) {
       result.sort((a, b) => {
         let comparison = 0;
@@ -220,7 +243,7 @@ export const MissionsTable = ({
     }
     
     return result;
-  }, [missions, sortColumn, sortDirection, dateFilters]);
+  }, [missions, nameFilter, sdrFilter, statusFilter, sortColumn, sortDirection, dateFilters]);
   
   // Rendu des indicateurs de tri
   const renderSortIndicator = (column: SortColumn) => {
@@ -268,12 +291,48 @@ export const MissionsTable = ({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>{renderSortableHeader('name', 'Nom de la mission')}</TableHead>
+          <TableHead>
+            <div className="flex items-center justify-between">
+              {renderSortableHeader('name', 'Nom de la mission')}
+              <CheckboxFilterPopover
+                column="Nom"
+                options={uniqueNames}
+                selectedValues={nameFilter}
+                onFilterChange={setNameFilter}
+                hasFilter={nameFilter.length > 0}
+                onClearFilter={() => setNameFilter([])}
+              />
+            </div>
+          </TableHead>
           <TableHead>{renderSortableHeader('type', 'Type')}</TableHead>
-          <TableHead>{renderSortableHeader('sdr', 'SDR responsable')}</TableHead>
+          <TableHead>
+            <div className="flex items-center justify-between">
+              {renderSortableHeader('sdr', 'SDR responsable')}
+              <CheckboxFilterPopover
+                column="SDR"
+                options={uniqueSdrs}
+                selectedValues={sdrFilter}
+                onFilterChange={setSdrFilter}
+                hasFilter={sdrFilter.length > 0}
+                onClearFilter={() => setSdrFilter([])}
+              />
+            </div>
+          </TableHead>
           <TableHead>{renderDateHeader('startDate', 'Date de démarrage')}</TableHead>
           <TableHead>{renderDateHeader('endDate', 'Date de fin')}</TableHead>
-          <TableHead>{renderSortableHeader('status', 'Statut Mission')}</TableHead>
+          <TableHead>
+            <div className="flex items-center justify-between">
+              {renderSortableHeader('status', 'Statut Mission')}
+              <CheckboxFilterPopover
+                column="Statut"
+                options={uniqueStatuses}
+                selectedValues={statusFilter}
+                onFilterChange={setStatusFilter}
+                hasFilter={statusFilter.length > 0}
+                onClearFilter={() => setStatusFilter([])}
+              />
+            </div>
+          </TableHead>
           <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
