@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -7,64 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "sonner";
 
 interface DatabaseSectionProps {
   control: Control<any>;
-  handleFileUpload: (field: string, files: FileList | null | string) => void;
+  handleFileUpload: (files: FileList | null) => void;
 }
 
 export const DatabaseSection = ({ 
   control, 
   handleFileUpload 
 }: DatabaseSectionProps) => {
-  const [uploading, setUploading] = useState(false);
-
-  const handleDatabaseFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) {
-      handleFileUpload("databaseFileUrl", null);
-      return;
-    }
-
-    const file = files[0];
-    
-    // Vérifier l'extension du fichier
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    const validExtensions = ['csv', 'xls', 'xlsx'];
-    
-    if (!fileExtension || !validExtensions.includes(fileExtension)) {
-      toast.error("Format de fichier non supporté. Utilisez CSV, XLS ou XLSX.");
-      return;
-    }
-
-    // Vérifier la taille du fichier (max 50Mo)
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Le fichier est trop volumineux (max 50Mo)");
-      return;
-    }
-
-    try {
-      setUploading(true);
-      
-      // Mode démo - simulation d'un téléchargement réussi
-      setTimeout(() => {
-        const fileName = file.name;
-        const fakeUrl = `uploads/${fileName}`;
-        
-        toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
-        handleFileUpload("databaseFileUrl", fakeUrl);
-        
-        // Déclencher l'événement pour actualiser la liste des bases de données
-        window.dispatchEvent(new CustomEvent('database-uploaded'));
-        setUploading(false);
-      }, 1000);
-    } catch (error) {
-      console.error("Erreur lors du téléchargement:", error);
-      toast.error("Erreur lors du téléchargement du fichier");
-      setUploading(false);
-    }
-  };
-
   return (
     <Card className="border-t-4 border-t-seventic-500">
       <CardContent className="pt-6">
@@ -81,13 +32,12 @@ export const DatabaseSection = ({
                   <FormControl>
                     <FileUploader
                       icon={<Upload className="h-6 w-6 text-muted-foreground" />}
-                      title={uploading ? "Téléchargement en cours..." : "Importer votre base de données"}
+                      title="Importer votre base de données"
                       description="Formats acceptés : XLS, XLSX, CSV (Max 50 Mo)"
                       value={field.value}
-                      onChange={handleDatabaseFileUpload}
+                      onChange={handleFileUpload}
                       accept=".xls,.xlsx,.csv"
                       maxSize={50}
-                      disabled={uploading}
                     />
                   </FormControl>
                   <FormMessage />

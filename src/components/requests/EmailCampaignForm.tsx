@@ -16,6 +16,7 @@ import { formSchema, FormData, defaultValues } from "./email-campaign/schema";
 import { createEmailCampaignRequest, updateRequest } from "@/services/requestService";
 import { supabase } from "@/integrations/supabase/client";
 import { EmailCampaignRequest } from "@/types/types";
+import { useFileUpload } from "@/hooks";
 
 interface EmailCampaignFormProps {
   editMode?: boolean;
@@ -28,7 +29,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   const [submitting, setSubmitting] = useState(false);
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistEmailsTab, setBlacklistEmailsTab] = useState("file");
-  const [fileUploading, setFileUploading] = useState(false);
+  const { uploading: fileUploading, handleFileUpload } = useFileUpload();
 
   // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
@@ -199,43 +200,24 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
     }
   };
 
-  const handleFileUpload = (field: string, files: FileList | null | string) => {
-    setFileUploading(true);
-    console.log("Téléchargement du fichier pour le champ:", field, files);
-    try {
-      // Cas où files est une chaîne (URL directe)
-      if (typeof files === 'string') {
-        console.log("URL directe fournie:", files);
-        form.setValue(field as any, files);
-        return;
-      }
-      
-      // Cas où files est une FileList
-      if (files && files.length > 0) {
-        const file = files[0];
-        console.log("Fichier sélectionné:", file.name);
-        const fakeUrl = `uploads/${file.name}`;
-        form.setValue(field as any, fakeUrl);
-        return;
-      }
-      
-      // Cas où files est null (effacement)
-      console.log("Effacement du fichier");
-      form.setValue(field as any, "");
-    } finally {
-      // Toujours remettre fileUploading à false après traitement
-      setTimeout(() => setFileUploading(false), 100);
-    }
-  };
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormHeader control={form.control} user={user} editMode={editMode} />
-        <TemplateSection control={form.control} handleFileUpload={handleFileUpload} />
+        <TemplateSection control={form.control} handleFileUpload={(files) => 
+          handleFileUpload(form.setValue, "templateFileUrl", files, { 
+            acceptedFormats: ["doc", "docx", "html", "htm"], 
+            maxSize: 10 
+          })
+        } />
         <DatabaseSection 
           control={form.control} 
-          handleFileUpload={handleFileUpload}
+          handleFileUpload={(files) => 
+            handleFileUpload(form.setValue, "databaseFileUrl", files, { 
+              acceptedFormats: ["csv", "xls", "xlsx"], 
+              maxSize: 50 
+            })
+          }
         />
         <BlacklistSection 
           control={form.control} 
@@ -243,7 +225,16 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
           setBlacklistAccountsTab={setBlacklistAccountsTab}
           blacklistEmailsTab={blacklistEmailsTab}
           setBlacklistEmailsTab={setBlacklistEmailsTab}
-          handleFileUpload={handleFileUpload}
+          handleFileUpload={{
+            accounts: (files) => handleFileUpload(form.setValue, "blacklistAccountsFileUrl", files, { 
+              acceptedFormats: ["csv", "xls", "xlsx"], 
+              maxSize: 10 
+            }),
+            emails: (files) => handleFileUpload(form.setValue, "blacklistEmailsFileUrl", files, { 
+              acceptedFormats: ["csv", "xls", "xlsx"], 
+              maxSize: 10 
+            })
+          }}
         />
         <FormFooter submitting={submitting || fileUploading} editMode={editMode} />
       </form>
