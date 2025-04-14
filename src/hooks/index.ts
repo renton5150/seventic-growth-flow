@@ -10,3 +10,4 @@ export * from "./use-mobile";
 export * from "./useMissionsList";
 export * from "./useMissionFormDraft";
 export * from "./useFileUpload";
+export * from "./useEmailCampaignSubmit";
