@@ -15,14 +15,13 @@ export const updateSupaMission = async (mission: {
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType | string;
-}, userRole?: string): Promise<Mission> => {
+}): Promise<Mission> => {
   console.log("updateSupaMission reçoit:", mission);
-  console.log("Rôle de l'utilisateur pour la mise à jour:", userRole);
   
   // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
     .from("missions")
-    .select("id, sdr_id, type")
+    .select("id")
     .eq("id", mission.id)
     .maybeSingle();
   
@@ -36,27 +35,22 @@ export const updateSupaMission = async (mission: {
     throw new Error("La mission n'existe pas");
   }
   
-  // Préparation des données pour Supabase avec protection des champs selon le rôle
-  let supabaseData: any = {
+  // Validate sdrId
+  if (!mission.sdrId) {
+    console.error("SDR ID manquant lors de la mise à jour!");
+    throw new Error("Le SDR est requis pour mettre à jour une mission");
+  }
+  
+  // Prepare data for Supabase
+  const supabaseData = {
     name: mission.name,
+    sdr_id: mission.sdrId,
     description: mission.description || "",
     start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
     end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
+    type: mission.type || "Full",
     client: mission.name // Utilise le nom comme valeur pour client (requis par le schéma)
   };
-  
-  // Protection côté serveur: si l'utilisateur est SDR, conserver les valeurs originales pour les champs restreints
-  if (userRole === 'sdr') {
-    // Utiliser les valeurs existantes pour les champs restreints
-    supabaseData.sdr_id = existingMission.sdr_id;
-    supabaseData.type = existingMission.type;
-    
-    console.log("Utilisateur SDR: conservation des valeurs originales pour sdr_id et type");
-  } else {
-    // Admin peut modifier tous les champs
-    supabaseData.sdr_id = mission.sdrId;
-    supabaseData.type = mission.type || "Full";
-  }
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
   console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);

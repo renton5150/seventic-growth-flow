@@ -8,7 +8,6 @@ import { MissionForm } from "./form/MissionForm";
 import { MissionFormValues } from "./schemas/missionFormSchema";
 import { ErrorBoundary } from "react-error-boundary";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface EditMissionDialogProps {
   mission: Mission | null;
@@ -43,7 +42,6 @@ export function EditMissionDialog({
 }: EditMissionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
   
   // Function to close the dialog and reset state
   const handleClose = () => {
@@ -74,8 +72,8 @@ export function EditMissionDialog({
       
       console.log("Données préparées pour la mise à jour:", updatedMissionData);
       
-      // Appel API pour mettre à jour avec timeout de sécurité et transmission du rôle utilisateur
-      const updatePromise = updateMission(updatedMissionData, user?.role);
+      // Appel API pour mettre à jour avec timeout de sécurité
+      const updatePromise = updateMission(updatedMissionData);
       
       // Ajouter un timeout pour éviter que l'UI ne se bloque indéfiniment
       const timeoutPromise = new Promise((_, reject) => {
