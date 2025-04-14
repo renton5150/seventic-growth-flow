@@ -1,7 +1,7 @@
-
 import { Mission, MissionType } from "@/types/types";
 import { v4 as uuidv4 } from "uuid";
 import { getRequestsByMissionId } from "@/data/requests";
+import { getMockUser } from "./mockMissions";
 
 // Mock users for testing
 const mockUsers = [
@@ -115,7 +115,7 @@ export const updateMockMission = async (data: {
   startDate: Date | null;
   endDate: Date | null;
   type: string;
-  status?: string;
+  status?: "En cours" | "Fin";
 }): Promise<Mission> => {
   // Chercher la mission à mettre à jour
   const missionIndex = mockMissions.findIndex(mission => mission.id === data.id);
