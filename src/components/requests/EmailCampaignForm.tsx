@@ -34,9 +34,22 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   const getInitialValues = () => {
     if (editMode && initialData) {
       // Accéder directement aux propriétés de l'EmailCampaignRequest
-      const template = initialData.template || {};
-      const database = initialData.database || {};
-      const blacklist = initialData.blacklist || {};
+      const template = initialData.template || {
+        content: "",
+        fileUrl: "",
+        webLink: ""
+      };
+      
+      const database = initialData.database || {
+        notes: "",
+        fileUrl: "",
+        webLink: ""
+      };
+      
+      const blacklist = initialData.blacklist || {
+        accounts: { notes: "", fileUrl: "" },
+        emails: { notes: "", fileUrl: "" }
+      };
       
       // Ensure these objects exist with default empty objects
       const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
@@ -73,7 +86,11 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   // Initialiser les onglets actifs en fonction des données
   useEffect(() => {
     if (editMode && initialData) {
-      const blacklist = initialData.blacklist || {};
+      const blacklist = initialData.blacklist || {
+        accounts: { notes: "", fileUrl: "" },
+        emails: { notes: "", fileUrl: "" }
+      };
+      
       const accounts = blacklist.accounts || { notes: "", fileUrl: "" };
       const emails = blacklist.emails || { notes: "", fileUrl: "" };
 
