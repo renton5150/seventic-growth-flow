@@ -155,17 +155,20 @@ export const MissionsTable = ({ missions, isLoading, sort, onSort }: MissionsTab
                       <Eye className="h-4 w-4" />
                       <span className="sr-only">Voir</span>
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      asChild
-                    >
-                      <Link to={`/admin/missions/${mission.id}/edit`}>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/admin/missions/${mission.id}/edit`);
+                        }}
+                      >
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">Modifier</span>
-                      </Link>
-                    </Button>
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

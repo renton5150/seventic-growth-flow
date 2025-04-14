@@ -91,7 +91,10 @@ export const updateSupaMission = async (mission: {
       .from("missions")
       .update(supabaseData)
       .eq("id", mission.id)
-      .select()
+      .select(`
+        *,
+        profiles:sdr_id (id, name, email)
+      `)
       .single();
     
     if (updateResponse.error) {
