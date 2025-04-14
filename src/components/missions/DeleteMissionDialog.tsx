@@ -11,7 +11,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteMission, checkMissionExists } from "@/services/missions-service"; // Updated import path
+import { deleteMission } from "@/services/missions-service"; 
+import { checkMissionExists } from "@/services/missions"; // Updated import path - importing directly from missions
 import { toast } from "sonner";
 
 interface DeleteMissionDialogProps {
