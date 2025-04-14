@@ -170,7 +170,7 @@ export const put = async <T>(
 /**
  * Supprimer une ressource via l'API
  */
-export const remove = async (endpoint: string, id: string): Promise<void> => {
+export const deleteResource = async (endpoint: string, id: string): Promise<void> => {
   try {
     console.log(`API DELETE ${endpoint}/${id}`);
 

@@ -2,7 +2,7 @@ import { Mission, MissionType, MissionStatus } from "@/types/types";
 import { safeSupabase } from "@/integrations/supabase/safeClient";
 import { mapSupaMissionToMission } from "./utils";
 import { checkMissionExists } from "./getMissions";
-import { remove } from "@/services/apiService"; // Import the renamed function
+import { deleteResource } from "@/services/apiService"; // Updated import
 
 // Type d'aide pour contourner les erreurs TypeScript avec les retours Supabase
 interface SupabaseMissionData {
@@ -147,8 +147,8 @@ export const deleteSupaMission = async (missionId: string): Promise<boolean> => 
       throw new Error("La mission n'existe pas");
     }
     
-    // Use the remove function from apiService
-    await remove("missions", missionId);
+    // Use the deleteResource function from apiService
+    await deleteResource("missions", missionId);
     
     // Verify deletion
     const verificationResponse = await safeSupabase

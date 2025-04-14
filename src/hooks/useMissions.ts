@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as apiService from "@/services/apiService";
 import { Mission } from "@/types/types";
@@ -165,7 +166,7 @@ export const useDeleteMission = () => {
   return useMutation({
     mutationFn: async (missionId: string) => {
       console.log("Deleting mission with ID:", missionId);
-      return apiService.remove('missions', missionId);
+      return apiService.deleteResource('missions', missionId); // Updated function name
     },
     onSuccess: (_, missionId) => {
       // Invalider les requêtes concernées
