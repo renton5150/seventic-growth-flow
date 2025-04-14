@@ -80,7 +80,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     // Mettre à jour template si présent dans les updates
     if (updates.template) {
       dbUpdates.details.template = {
-        ...dbUpdates.details.template || {},
+        ...(dbUpdates.details.template || {}),
         ...updates.template
       };
     }
@@ -88,29 +88,30 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     // Mettre à jour database si présent dans les updates
     if (updates.database) {
       dbUpdates.details.database = {
-        ...dbUpdates.details.database || {},
+        ...(dbUpdates.details.database || {}),
         ...updates.database
       };
     }
     
     // Mettre à jour blacklist si présent dans les updates
     if (updates.blacklist) {
+      // Ensure blacklist exists in the current details before spreading
       dbUpdates.details.blacklist = {
-        ...dbUpdates.details.blacklist || {},
-        ...updates.blacklist
+        ...(dbUpdates.details.blacklist || {}),
+        ...(updates.blacklist || {})
       };
       
       // Gérer spécifiquement les sous-objets de blacklist
       if (updates.blacklist.accounts) {
         dbUpdates.details.blacklist.accounts = {
-          ...((dbUpdates.details.blacklist.accounts || {})),
+          ...(dbUpdates.details.blacklist.accounts || {}),
           ...updates.blacklist.accounts
         };
       }
       
       if (updates.blacklist.emails) {
         dbUpdates.details.blacklist.emails = {
-          ...((dbUpdates.details.blacklist.emails || {})),
+          ...(dbUpdates.details.blacklist.emails || {}),
           ...updates.blacklist.emails
         };
       }
