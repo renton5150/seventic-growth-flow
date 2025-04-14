@@ -79,54 +79,57 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     // Mettre à jour template si présent dans les updates
     if (updates.template) {
+      // Créer des variables temporaires pour s'assurer qu'elles sont des objets
+      const template = updates.template || {};
       const currentTemplateObj = dbUpdates.details.template || {};
-      const updatesTemplateObj = updates.template || {};
       
       dbUpdates.details.template = {
         ...currentTemplateObj,
-        ...updatesTemplateObj
+        ...template
       };
     }
     
     // Mettre à jour database si présent dans les updates
     if (updates.database) {
+      // Créer des variables temporaires pour s'assurer qu'elles sont des objets
+      const database = updates.database || {};
       const currentDatabaseObj = dbUpdates.details.database || {};
-      const updatesDatabaseObj = updates.database || {};
       
       dbUpdates.details.database = {
         ...currentDatabaseObj,
-        ...updatesDatabaseObj
+        ...database
       };
     }
     
     // Mettre à jour blacklist si présent dans les updates
     if (updates.blacklist) {
+      // Créer des variables temporaires pour s'assurer qu'elles sont des objets
+      const blacklist = updates.blacklist || {};
       const currentBlacklistObj = dbUpdates.details.blacklist || {};
-      const updatesBlacklistObj = updates.blacklist || {};
       
       dbUpdates.details.blacklist = {
         ...currentBlacklistObj,
-        ...updatesBlacklistObj
+        ...blacklist
       };
       
       // Gérer spécifiquement les sous-objets de blacklist
       if (updates.blacklist.accounts) {
+        const accounts = updates.blacklist.accounts || {};
         const currentAccountsObj = (dbUpdates.details.blacklist.accounts || {});
-        const updatesAccountsObj = (updates.blacklist.accounts || {});
         
         dbUpdates.details.blacklist.accounts = {
           ...currentAccountsObj,
-          ...updatesAccountsObj
+          ...accounts
         };
       }
       
       if (updates.blacklist.emails) {
+        const emails = updates.blacklist.emails || {};
         const currentEmailsObj = (dbUpdates.details.blacklist.emails || {});
-        const updatesEmailsObj = (updates.blacklist.emails || {});
         
         dbUpdates.details.blacklist.emails = {
           ...currentEmailsObj,
-          ...updatesEmailsObj
+          ...emails
         };
       }
     }
