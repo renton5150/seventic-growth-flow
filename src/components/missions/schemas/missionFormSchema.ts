@@ -10,6 +10,7 @@ export const missionFormSchema = z.object({
   startDate: z.date().nullable(),
   endDate: z.date().nullable(),
   type: z.enum(["Full", "Part"]),
+  status: z.enum(["En cours", "Fin"]).default("En cours"),
 }).refine((data) => {
   // Si les deux dates sont définies, vérifier que la date de fin est après la date de début
   if (data.startDate && data.endDate) {

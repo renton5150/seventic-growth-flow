@@ -112,12 +112,12 @@ export interface Mission {
   sdrId: string;
   createdAt: Date;
   description?: string;
-  sdrName?: string; // Added for UI display
+  sdrName?: string;
   requests: Request[];
-  // Nouveaux champs
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType;
+  status: "En cours" | "Fin";
 }
 
 // Mock data type

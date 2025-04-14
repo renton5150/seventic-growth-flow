@@ -12,6 +12,14 @@ import { MissionFormValues, missionFormSchema } from "../schemas/missionFormSche
 import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
 import { MissionTypeSelector } from "../form-fields/MissionTypeSelector";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/auth";
 
 interface MissionFormProps {
   mission: Mission | null;
@@ -20,8 +28,15 @@ interface MissionFormProps {
   onCancel: () => void;
 }
 
-export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: MissionFormProps) {
+export function MissionForm({ 
+  mission, 
+  isSubmitting, 
+  onSubmit, 
+  onCancel 
+}: MissionFormProps) {
   const [formInitialized, setFormInitialized] = useState(false);
+  const { isAdmin } = useAuth();
+  
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
@@ -31,6 +46,7 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
       startDate: null,
       endDate: null,
       type: "Full",
+      status: "En cours",
     },
   });
 
@@ -106,6 +122,32 @@ export function MissionForm({ mission, isSubmitting, onSubmit, onCancel }: Missi
         />
 
         <MissionTypeSelector control={form.control} disabled={isSubmitting} />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Statut mission</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+                disabled={!isAdmin || isSubmitting}
+              >
+                <FormControl>
+                  <SelectTrigger className={!isAdmin ? "bg-gray-100" : ""}>
+                    <SelectValue placeholder="Sélectionner un statut" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="En cours">En cours</SelectItem>
+                  <SelectItem value="Fin">Fin</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
