@@ -1,6 +1,6 @@
 
 import { Mission } from "@/types/types";
-import { Table, TableBody, TableHeader } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow as UITableRow } from "@/components/ui/table";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { useMissionsTable } from "./hooks/useMissionsTable";
 import { TableHeader } from "./table/TableHeader";
@@ -48,7 +48,7 @@ export const MissionsTable = ({
 
   return (
     <Table>
-      <TableHeader>
+      <thead>
         <TableHeader
           uniqueNames={uniqueNames}
           uniqueSdrs={uniqueSdrs}
@@ -67,14 +67,14 @@ export const MissionsTable = ({
           clearDateFilter={clearDateFilter}
           renderSortIndicator={renderSortIndicator}
         />
-      </TableHeader>
+      </thead>
       <TableBody>
         {sortedAndFilteredMissions.length === 0 ? (
-          <TableRow>
+          <UITableRow>
             <TableCell colSpan={7} className="text-center py-8 text-gray-500">
               Aucune mission ne correspond aux critères de filtre sélectionnés
             </TableCell>
-          </TableRow>
+          </UITableRow>
         ) : (
           sortedAndFilteredMissions.map((mission) => (
             <TableRow
