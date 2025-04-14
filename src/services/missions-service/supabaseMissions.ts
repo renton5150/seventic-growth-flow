@@ -132,6 +132,7 @@ export const updateSupabaseMission = async (data: {
   startDate: Date | null;
   endDate: Date | null;
   type: string;
+  status?: "En cours" | "Fin";
 }): Promise<Mission | undefined> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
@@ -150,9 +151,13 @@ export const updateSupabaseMission = async (data: {
     // Ensure type is a valid MissionType
     const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
     
+    // Log the status value to help with debugging
+    console.log("Status being passed to updateSupaMission:", data.status);
+    
     return await updateSupaMission({
       ...data,
-      type: missionType
+      type: missionType,
+      status: data.status || "En cours"
     });
   } catch (error) {
     console.error("Error updating mission in Supabase:", error);

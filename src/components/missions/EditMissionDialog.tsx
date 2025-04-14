@@ -57,6 +57,7 @@ export function EditMissionDialog({
     try {
       console.log("Formulaire de mise à jour soumis avec les valeurs:", values);
       console.log("SDR ID sélectionné pour mise à jour:", values.sdrId);
+      console.log("Status sélectionné pour mise à jour:", values.status);
       
       setIsSubmitting(true);
       
@@ -68,6 +69,7 @@ export function EditMissionDialog({
         startDate: values.startDate,
         endDate: values.endDate,
         type: values.type,
+        status: values.status
       };
       
       console.log("Données préparées pour la mise à jour:", updatedMissionData);
@@ -80,13 +82,15 @@ export function EditMissionDialog({
         setTimeout(() => reject(new Error("Délai d'attente dépassé")), 10000);
       });
       
-      await Promise.race([updatePromise, timeoutPromise]);
+      const result = await Promise.race([updatePromise, timeoutPromise]);
+      
+      console.log("Résultat de la mise à jour:", result);
       
       handleClose();
       
       // Utiliser toast.success mais immédiatement rediriger après
       toast.success("Mission mise à jour", {
-        description: "La mission a été mise à jour avec succès",
+        description: `La mission a été mise à jour avec succès. Statut: ${values.status}`,
         onDismiss: () => {
           // Rediriger vers la liste des missions avec paramètre timestamp pour éviter les problèmes de cache
           window.location.href = `/missions?t=${Date.now()}`;

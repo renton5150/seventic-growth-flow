@@ -108,8 +108,10 @@ export const updateMission = async (data: {
   startDate: Date | null;
   endDate: Date | null;
   type: string;
+  status?: "En cours" | "Fin";
 }): Promise<Mission | undefined> => {
   console.log("Updating mission:", data);
+  console.log("Status value:", data.status);
   
   try {
     const isAuthenticated = await isSupabaseAuthenticated();

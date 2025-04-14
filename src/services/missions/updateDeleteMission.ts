@@ -15,8 +15,10 @@ export const updateSupaMission = async (mission: {
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType | string;
+  status?: "En cours" | "Fin";
 }): Promise<Mission> => {
   console.log("updateSupaMission reçoit:", mission);
+  console.log("Status à mettre à jour:", mission.status);
   
   // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
@@ -49,11 +51,13 @@ export const updateSupaMission = async (mission: {
     start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
     end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
     type: mission.type || "Full",
+    status: mission.status || "En cours",
     client: mission.name // Utilise le nom comme valeur pour client (requis par le schéma)
   };
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
   console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);
+  console.log("Status qui sera mis à jour:", supabaseData.status);
   
   const { data, error } = await supabase
     .from("missions")
@@ -77,6 +81,7 @@ export const updateSupaMission = async (mission: {
   }
   
   console.log("Réponse de Supabase après mise à jour:", data);
+  console.log("Status retourné après mise à jour:", data.status);
   
   // Verify sdr_id was properly saved
   if (!data.sdr_id) {

@@ -54,6 +54,7 @@ export function MissionForm({
   useEffect(() => {
     if (mission) {
       console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", mission);
+      console.log("Status actuel de la mission:", mission.status);
       try {
         form.reset({
           name: mission.name,
@@ -62,6 +63,7 @@ export function MissionForm({
           startDate: mission.startDate ? new Date(mission.startDate) : null,
           endDate: mission.endDate ? new Date(mission.endDate) : null,
           type: mission.type,
+          status: mission.status || "En cours",
         });
         setFormInitialized(true);
       } catch (error) {
@@ -71,6 +73,12 @@ export function MissionForm({
   }, [mission, form]);
 
   const startDate = form.watch("startDate");
+  const currentStatus = form.watch("status");
+
+  useEffect(() => {
+    // Log lorsque le statut change dans le formulaire
+    console.log("Statut actuel dans le formulaire:", currentStatus);
+  }, [currentStatus]);
 
   if (!formInitialized && mission) {
     return (
@@ -130,9 +138,13 @@ export function MissionForm({
             <FormItem>
               <FormLabel>Statut mission</FormLabel>
               <Select
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  console.log("Changement de statut sélectionné:", value);
+                  field.onChange(value);
+                }}
                 defaultValue={field.value}
                 disabled={!isAdmin || isSubmitting}
+                value={field.value}
               >
                 <FormControl>
                   <SelectTrigger className={!isAdmin ? "bg-gray-100" : ""}>
@@ -141,7 +153,7 @@ export function MissionForm({
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="En cours">En cours</SelectItem>
-                  <SelectItem value="Fin">Fin</SelectItem>
+                  <SelectItem value="Fin">Terminée</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
