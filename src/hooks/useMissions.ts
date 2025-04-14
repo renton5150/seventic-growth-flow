@@ -61,7 +61,7 @@ export const useMission = (missionId: string | undefined) => {
       
       console.log("Fetching single mission with ID:", missionId);
       return apiService.get<Mission>('missions', {
-        id: missionId,
+        query: { id: missionId },  // Changed this to use query instead of id
         maybeSingle: true
       });
     },
@@ -166,7 +166,7 @@ export const useDeleteMission = () => {
   return useMutation({
     mutationFn: async (missionId: string) => {
       console.log("Deleting mission with ID:", missionId);
-      return apiService.deleteResource('missions', missionId); // Updated function name
+      return apiService.deleteResource('missions', missionId);
     },
     onSuccess: (_, missionId) => {
       // Invalider les requêtes concernées

@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 import { MissionFormValues } from "@/types/types";
 import { missionFormSchema } from "@/components/missions/schemas/missionFormSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +40,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       return "Le nom de la mission est obligatoire";
     }
     
+    // Vérifier si une mission avec ce nom existe déjà
     const exists = existingMissions.some(mission => 
       mission.name.trim().toLowerCase() === trimmedName.toLowerCase()
     );

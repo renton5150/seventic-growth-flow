@@ -23,7 +23,7 @@ export type MissionFilters = {
 
 // Fonction de filtrage de missions
 export const useMissionsList = () => {
-  const { data: missions = [], isLoading, isError, error, refetch } = useAllMissions();
+  const { data: missionsData = [], isLoading, isError, error, refetch } = useAllMissions();
   const [filteredMissions, setFilteredMissions] = useState<Mission[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -52,6 +52,10 @@ export const useMissionsList = () => {
 
   // Appliquer filtrage et tri
   useEffect(() => {
+    // Ensure missionsData is treated as Mission[] and not Mission[][]
+    const missions: Mission[] = Array.isArray(missionsData) ? 
+      (Array.isArray(missionsData[0]) ? [] : missionsData as Mission[]) : [];
+
     let result = [...missions];
     
     // Filtrer par recherche
@@ -113,7 +117,7 @@ export const useMissionsList = () => {
     setFilteredMissions(result);
     // Retourner à la première page lors du changement de filtre
     setCurrentPage(1);
-  }, [missions, filters, sort]);
+  }, [missionsData, filters, sort]);
   
   // Fonctions pour la pagination
   const goToPage = (page: number) => {
@@ -161,7 +165,7 @@ export const useMissionsList = () => {
   
   return {
     missions: paginatedMissions,
-    allMissions: missions,
+    allMissions: missionsData as Mission[],
     isLoading,
     isError,
     error,
