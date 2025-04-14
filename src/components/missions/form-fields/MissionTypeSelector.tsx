@@ -3,6 +3,7 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Control } from "react-hook-form";
 import { MissionFormValues } from "../schemas/missionFormSchema";
+import { useAuth } from "@/contexts/auth";
 
 interface MissionTypeSelectorProps {
   control: Control<MissionFormValues>;
@@ -10,6 +11,8 @@ interface MissionTypeSelectorProps {
 }
 
 export function MissionTypeSelector({ control, disabled = false }: MissionTypeSelectorProps) {
+  const { isAdmin } = useAuth();
+  
   return (
     <FormField
       control={control}
@@ -23,10 +26,10 @@ export function MissionTypeSelector({ control, disabled = false }: MissionTypeSe
             onValueChange={field.onChange}
             value={field.value}
             defaultValue={field.value}
-            disabled={disabled}
+            disabled={!isAdmin || disabled}
           >
             <FormControl>
-              <SelectTrigger>
+              <SelectTrigger className={!isAdmin ? "bg-gray-100" : ""}>
                 <SelectValue placeholder="Sélectionner un type" />
               </SelectTrigger>
             </FormControl>
