@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as apiService from "@/services/apiService";
 import { Mission } from "@/types/types";
@@ -18,6 +19,7 @@ export const useAllMissions = (filters: Record<string, any> = {}) => {
         order: { column: 'created_at', ascending: false }
       });
       
+      // Always ensure we return a proper Mission[]
       return Array.isArray(result) ? result : [];
     }
   });

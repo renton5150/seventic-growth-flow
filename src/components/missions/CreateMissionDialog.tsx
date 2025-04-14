@@ -7,6 +7,7 @@ import { missionFormSchema } from "@/components/missions/schemas/missionFormSche
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MissionForm } from "./form/MissionForm";
 import { useAllMissions, useCreateMission } from "@/hooks/useMissions";
+import { Mission } from "@/types/types";
 
 interface CreateMissionDialogProps {
   open: boolean;
@@ -41,7 +42,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
     }
     
     // Vérifier si une mission avec ce nom existe déjà
-    const exists = existingMissions.some(mission => 
+    const exists = existingMissions.some((mission: Mission) => 
       mission.name.trim().toLowerCase() === trimmedName.toLowerCase()
     );
     

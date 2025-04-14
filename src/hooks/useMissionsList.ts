@@ -59,8 +59,9 @@ export const useMissionsList = () => {
     if (Array.isArray(missionsData)) {
       // If it's an array of arrays, flatten it
       if (missionsData.length > 0 && Array.isArray(missionsData[0])) {
-        // Flatten array of arrays
-        missions = (missionsData as unknown as Mission[][]).flat();
+        // Safely flatten array of arrays with type assertion
+        const flattenedMissions = (missionsData as any).flat();
+        missions = flattenedMissions as Mission[];
       } else {
         // It's already a simple array
         missions = missionsData as Mission[];
@@ -178,7 +179,7 @@ export const useMissionsList = () => {
     missions: paginatedMissions,
     allMissions: Array.isArray(missionsData) ? 
       (Array.isArray(missionsData[0]) ? 
-        (missionsData as unknown as Mission[][]).flat() : 
+        (missionsData as any).flat() as Mission[] : 
         missionsData as Mission[]) : 
       [],
     isLoading,
