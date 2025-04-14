@@ -33,12 +33,12 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
     if (editMode && initialData) {
-      // Accéder directement aux propriétés de l'EmailCampaignRequest
+      // Ensure all objects exist with safe defaults
       const template = initialData.template || {};
       const database = initialData.database || {};
       const blacklist = initialData.blacklist || {};
-      const blacklistAccounts = blacklist.accounts || {};
-      const blacklistEmails = blacklist.emails || {};
+      const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
+      const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "" };
 
       // Adapter la date pour le format de l'input date
       const dueDate = new Date(initialData.dueDate);
@@ -72,8 +72,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   useEffect(() => {
     if (editMode && initialData) {
       const blacklist = initialData.blacklist || {};
-      const accounts = blacklist.accounts || {};
-      const emails = blacklist.emails || {};
+      const accounts = blacklist.accounts || { notes: "", fileUrl: "" };
+      const emails = blacklist.emails || { notes: "", fileUrl: "" };
 
       // Définir l'onglet actif pour les comptes blacklist
       if (accounts.notes && !accounts.fileUrl) {
