@@ -5,6 +5,7 @@ import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { RequestEditDialog } from "@/components/growth/RequestEditDialog";
 import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDialog";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
+import { useEffect } from "react";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
@@ -26,6 +27,12 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     assignRequestToMe,
     updateRequestWorkflowStatus
   } = useGrowthDashboard(defaultTab);
+
+  // Log for debugging
+  useEffect(() => {
+    console.log("GrowthDashboard rendered with defaultTab:", defaultTab);
+    console.log("Active tab is:", activeTab);
+  }, [defaultTab, activeTab]);
 
   return (
     <AppLayout>

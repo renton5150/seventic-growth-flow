@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -115,6 +116,15 @@ function App() {
                     <Missions />
                   </ProtectedRoute>
                 } 
+              />
+              {/* Growth routes */}
+              <Route
+                path="/growth"
+                element={
+                  <ProtectedRoute allowedRoles={["admin", "growth"]}>
+                    <GrowthDashboard />
+                  </ProtectedRoute>
+                }
               />
               <Route 
                 path="/growth/to-assign" 

@@ -64,6 +64,11 @@ export const GrowthNavigation = () => {
     </span>
   );
 
+  // Added console log for debugging
+  console.log("Current pathname:", pathname);
+  console.log("Is to-assign active?", pathname.includes("/growth/to-assign"));
+  console.log("Is my-requests active?", pathname.includes("/growth/my-requests"));
+
   return (
     <SidebarMenu>
       {/* Tableau de bord */}
@@ -76,9 +81,9 @@ export const GrowthNavigation = () => {
         </SidebarMenuButton>
       </SidebarMenuItem>
 
-      {/* Demandes avec sous-menu */}
+      {/* Demandes */}
       <SidebarMenuItem>
-        <SidebarMenuButton asChild className={
+        <SidebarMenuButton className={
           pathname.includes("/growth/to-assign") || pathname.includes("/growth/my-requests")
             ? "bg-green-100 text-green-700" 
             : "hover:bg-green-50 hover:text-green-600"
@@ -96,7 +101,7 @@ export const GrowthNavigation = () => {
           <Link to="/growth/to-assign" className="flex items-center gap-2 w-full">
             <ListTodo className="h-4 w-4" />
             <span>À affecter</span>
-            <CountBadge count={pendingCount} />
+            {pendingCount > 0 && <CountBadge count={pendingCount} />}
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -106,14 +111,14 @@ export const GrowthNavigation = () => {
           <Link to="/growth/my-requests" className="flex items-center gap-2 w-full">
             <UserSquare2 className="h-4 w-4" />
             <span>Mes demandes</span>
-            <CountBadge count={myRequestsCount} />
+            {myRequestsCount > 0 && <CountBadge count={myRequestsCount} />}
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
 
       {/* Missions */}
       <SidebarMenuItem>
-        <SidebarMenuButton asChild className={pathname === "/missions" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+        <SidebarMenuButton asChild className={pathname.includes("/missions") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
           <Link to="/missions" className="flex items-center gap-2 w-full">
             <Briefcase className="h-4 w-4" />
             <span>Missions</span>
@@ -123,7 +128,7 @@ export const GrowthNavigation = () => {
 
       {/* Calendrier */}
       <SidebarMenuItem>
-        <SidebarMenuButton asChild className={pathname === "/calendar" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+        <SidebarMenuButton asChild className={pathname.includes("/calendar") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
           <Link to="/calendar" className="flex items-center gap-2 w-full">
             <Calendar className="h-4 w-4" />
             <span>Calendrier</span>
