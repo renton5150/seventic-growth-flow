@@ -58,15 +58,6 @@ export const GrowthNavigation = () => {
     refetchInterval: 30000
   });
 
-  const getLinkClass = (path: string) => {
-    const isActive = pathname === path;
-    return `flex items-center gap-2 w-full p-2 rounded-md transition-colors ${
-      isActive 
-        ? "bg-green-100 text-green-700" 
-        : "hover:bg-green-50 hover:text-green-600"
-    }`;
-  };
-
   const CountBadge = ({ count }: { count: number }) => (
     <span className="ml-auto bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
       {count}
@@ -88,20 +79,20 @@ export const GrowthNavigation = () => {
       {/* Demandes avec sous-menu */}
       <SidebarMenuItem>
         <SidebarMenuButton asChild className={
-          pathname === "/growth/to-assign" || pathname === "/growth/my-requests"
+          pathname.includes("/growth/to-assign") || pathname.includes("/growth/my-requests")
             ? "bg-green-100 text-green-700" 
             : "hover:bg-green-50 hover:text-green-600"
         }>
-          <Link to="#" className="flex items-center gap-2 w-full">
+          <div className="flex items-center gap-2 w-full">
             <ListChecks className="h-4 w-4" />
             <span>Demandes</span>
-          </Link>
+          </div>
         </SidebarMenuButton>
       </SidebarMenuItem>
 
       {/* Sous-menu pour Demandes */}
       <SidebarMenuItem className="pl-6">
-        <SidebarMenuButton asChild className={pathname === "/growth/to-assign" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+        <SidebarMenuButton asChild className={pathname.includes("/growth/to-assign") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
           <Link to="/growth/to-assign" className="flex items-center gap-2 w-full">
             <ListTodo className="h-4 w-4" />
             <span>À affecter</span>
@@ -111,7 +102,7 @@ export const GrowthNavigation = () => {
       </SidebarMenuItem>
 
       <SidebarMenuItem className="pl-6">
-        <SidebarMenuButton asChild className={pathname === "/growth/my-requests" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+        <SidebarMenuButton asChild className={pathname.includes("/growth/my-requests") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
           <Link to="/growth/my-requests" className="flex items-center gap-2 w-full">
             <UserSquare2 className="h-4 w-4" />
             <span>Mes demandes</span>
