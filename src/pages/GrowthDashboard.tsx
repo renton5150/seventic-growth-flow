@@ -28,19 +28,10 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     updateRequestWorkflowStatus
   } = useGrowthDashboard(defaultTab);
 
-  // Log for debugging
+  // Log simplifié pour le débogage
   useEffect(() => {
-    console.log("GrowthDashboard rendered with defaultTab:", defaultTab);
-    console.log("Active tab is:", activeTab);
+    console.log("GrowthDashboard - defaultTab:", defaultTab, "activeTab:", activeTab);
   }, [defaultTab, activeTab]);
-
-  // Effet pour mettre à jour l'onglet actif lorsque la prop defaultTab change
-  useEffect(() => {
-    if (defaultTab && defaultTab !== activeTab) {
-      console.log("Setting active tab to:", defaultTab);
-      setActiveTab(defaultTab);
-    }
-  }, [defaultTab, setActiveTab, activeTab]);
 
   return (
     <AppLayout>
