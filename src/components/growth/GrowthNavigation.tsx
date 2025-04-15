@@ -3,14 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuContent,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
 import { 
   LayoutDashboard, 
   ListTodo, 
@@ -19,6 +11,11 @@ import {
   Calendar,
   ListChecks 
 } from "lucide-react";
+import {
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from "@/components/ui/sidebar";
 
 export const GrowthNavigation = () => {
   const { pathname } = useLocation();
@@ -77,57 +74,71 @@ export const GrowthNavigation = () => {
   );
 
   return (
-    <NavigationMenu orientation="vertical" className="w-full max-w-none">
-      <NavigationMenuList className="flex-col items-start w-full space-y-1">
-        <NavigationMenuItem className="w-full">
-          <Link to="/growth" className={getLinkClass("/growth")}>
+    <SidebarMenu>
+      {/* Tableau de bord */}
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild className={pathname === "/growth" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+          <Link to="/growth" className="flex items-center gap-2 w-full">
             <LayoutDashboard className="h-4 w-4" />
             <span>Tableau de bord</span>
           </Link>
-        </NavigationMenuItem>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
 
-        {/* Menu Demandes - Repositionné en haut après Tableau de bord */}
-        <NavigationMenuItem className="w-full">
-          <NavigationMenuTrigger className="w-full justify-start gap-2 data-[state=open]:bg-green-50">
+      {/* Demandes avec sous-menu */}
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild className={
+          pathname === "/growth/to-assign" || pathname === "/growth/my-requests"
+            ? "bg-green-100 text-green-700" 
+            : "hover:bg-green-50 hover:text-green-600"
+        }>
+          <Link to="#" className="flex items-center gap-2 w-full">
             <ListChecks className="h-4 w-4" />
             <span>Demandes</span>
-          </NavigationMenuTrigger>
-          <NavigationMenuContent className="w-48 bg-white rounded-md shadow-md border border-gray-200">
-            <div className="w-full space-y-1 p-2">
-              <Link 
-                to="/growth/to-assign" 
-                className={getLinkClass("/growth/to-assign")}
-              >
-                <ListTodo className="h-4 w-4" />
-                <span>À affecter</span>
-                <CountBadge count={pendingCount} />
-              </Link>
-              <Link 
-                to="/growth/my-requests" 
-                className={getLinkClass("/growth/my-requests")}
-              >
-                <UserSquare2 className="h-4 w-4" />
-                <span>Mes demandes</span>
-                <CountBadge count={myRequestsCount} />
-              </Link>
-            </div>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
 
-        <NavigationMenuItem className="w-full">
-          <Link to="/missions" className={getLinkClass("/missions")}>
+      {/* Sous-menu pour Demandes */}
+      <SidebarMenuItem className="pl-6">
+        <SidebarMenuButton asChild className={pathname === "/growth/to-assign" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+          <Link to="/growth/to-assign" className="flex items-center gap-2 w-full">
+            <ListTodo className="h-4 w-4" />
+            <span>À affecter</span>
+            <CountBadge count={pendingCount} />
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+
+      <SidebarMenuItem className="pl-6">
+        <SidebarMenuButton asChild className={pathname === "/growth/my-requests" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+          <Link to="/growth/my-requests" className="flex items-center gap-2 w-full">
+            <UserSquare2 className="h-4 w-4" />
+            <span>Mes demandes</span>
+            <CountBadge count={myRequestsCount} />
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+
+      {/* Missions */}
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild className={pathname === "/missions" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+          <Link to="/missions" className="flex items-center gap-2 w-full">
             <Briefcase className="h-4 w-4" />
             <span>Missions</span>
           </Link>
-        </NavigationMenuItem>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
 
-        <NavigationMenuItem className="w-full">
-          <Link to="/calendar" className={getLinkClass("/calendar")}>
+      {/* Calendrier */}
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild className={pathname === "/calendar" ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+          <Link to="/calendar" className="flex items-center gap-2 w-full">
             <Calendar className="h-4 w-4" />
             <span>Calendrier</span>
           </Link>
-        </NavigationMenuItem>
-      </NavigationMenuList>
-    </NavigationMenu>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 };
