@@ -119,7 +119,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       // Gérer spécifiquement les sous-objets de blacklist
       if (updates.blacklist.accounts) {
         const accounts = updates.blacklist.accounts || {};
-        const currentAccountsObj = dbUpdates.details.blacklist.accounts || {};
+        const currentAccountsObj = dbUpdates.details.blacklist?.accounts || {};
         
         dbUpdates.details.blacklist.accounts = {
           ...currentAccountsObj,
@@ -129,7 +129,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       
       if (updates.blacklist.emails) {
         const emails = updates.blacklist.emails || {};
-        const currentEmailsObj = dbUpdates.details.blacklist.emails || {};
+        const currentEmailsObj = dbUpdates.details.blacklist?.emails || {};
         
         dbUpdates.details.blacklist.emails = {
           ...currentEmailsObj,
