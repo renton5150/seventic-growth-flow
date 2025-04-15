@@ -110,12 +110,12 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
         ...currentBlacklistObj,
         ...blacklist,
         accounts: {
-          ...(currentBlacklistObj?.accounts || {}),
-          ...(blacklist?.accounts || {})
+          ...((currentBlacklistObj && currentBlacklistObj.accounts) || {}),
+          ...((blacklist && blacklist.accounts) || {})
         },
         emails: {
-          ...(currentBlacklistObj?.emails || {}),
-          ...(blacklist?.emails || {})
+          ...((currentBlacklistObj && currentBlacklistObj.emails) || {}),
+          ...((blacklist && blacklist.emails) || {})
         }
       };
     }
