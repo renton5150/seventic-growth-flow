@@ -34,6 +34,14 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     console.log("Active tab is:", activeTab);
   }, [defaultTab, activeTab]);
 
+  // Effet pour mettre à jour l'onglet actif lorsque la prop defaultTab change
+  useEffect(() => {
+    if (defaultTab && defaultTab !== activeTab) {
+      console.log("Setting active tab to:", defaultTab);
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab, setActiveTab, activeTab]);
+
   return (
     <AppLayout>
       <div className="space-y-6">

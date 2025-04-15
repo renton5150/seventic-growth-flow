@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
@@ -7,10 +8,18 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function useGrowthDashboard(defaultTab?: string) {
   const { user } = useAuth();
+  // Utiliser le defaultTab fourni ou "to_assign" par défaut
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "to_assign");
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
+  
+  // Mise à jour de l'activeTab lorsque defaultTab change
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
   
   const { data: requests = [], isLoading, refetch } = useQuery({
     queryKey: ['growth-requests'],
