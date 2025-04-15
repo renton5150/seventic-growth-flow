@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,7 +27,6 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminMissions from "./pages/AdminMissions";
 import PermissionsDebug from "./pages/PermissionsDebug";
 
-// Configuration optimisée du client de requête
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -119,10 +117,18 @@ function App() {
                 } 
               />
               <Route 
-                path="/growth" 
+                path="/growth/to-assign" 
                 element={
                   <ProtectedRoute allowedRoles={["admin", "growth"]}>
-                    <GrowthDashboard />
+                    <GrowthDashboard defaultTab="to_assign" />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/growth/my-requests" 
+                element={
+                  <ProtectedRoute allowedRoles={["admin", "growth"]}>
+                    <GrowthDashboard defaultTab="my_assignments" />
                   </ProtectedRoute>
                 } 
               />

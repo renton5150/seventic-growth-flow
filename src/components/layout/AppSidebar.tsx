@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import { CalendarDays, Layers, LineChart, LogOut, Mail, PanelLeft, User, Users, BarChart3, Briefcase } from "lucide-react";
@@ -56,82 +55,87 @@ export const AppSidebar = () => {
         </h2>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarMenu>
-          {/* Montrer le tableau de bord approprié selon le rôle */}
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className={getLinkClass(isAdmin ? "/admin/dashboard" : "/dashboard")}>
-              <Link to={isAdmin ? "/admin/dashboard" : "/dashboard"}>
-                <Layers className="h-5 w-5 mr-3" />
-                {isAdmin ? "Dashboard Admin" : "Dashboard"}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-          {/* Éléments communs pour tous les utilisateurs */}
-          {!isAdmin && (
+        {isGrowth ? (
+          <GrowthNavigation />
+        ) : (
+          <SidebarMenu>
+            {/* Montrer le tableau de bord approprié selon le rôle */}
             <SidebarMenuItem>
-              <SidebarMenuButton asChild className={getLinkClass("/missions")}>
-                <Link to="/missions">
-                  <User className="h-5 w-5 mr-3" />
-                  Missions
+              <SidebarMenuButton asChild className={getLinkClass(isAdmin ? "/admin/dashboard" : "/dashboard")}>
+                <Link to={isAdmin ? "/admin/dashboard" : "/dashboard"}>
+                  <Layers className="h-5 w-5 mr-3" />
+                  {isAdmin ? "Dashboard Admin" : "Dashboard"}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          )}
-          
-          {!isAdmin && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild className={getLinkClass("/calendar")}>
-                <Link to="/calendar">
-                  <CalendarDays className="h-5 w-5 mr-3" />
-                  Calendrier
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-          
-          {/* Liens pour Growth et Admin */}
-          {(isAdmin || isGrowth) && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild className={getLinkClass("/growth")}>
-                <Link to="/growth">
-                  <LineChart className="h-5 w-5 mr-3" />
-                  {isAdmin ? "Gestion Growth" : "Tableau de bord Growth"}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-          
-          {/* Liens pour l'administrateur */}
-          {isAdmin && (
-            <>
+            
+            {/* Éléments communs pour tous les utilisateurs */}
+            {!isAdmin && (
               <SidebarMenuItem>
-                <SidebarMenuButton asChild className={getLinkClass("/admin/dashboard")}>
-                  <Link to="/admin/dashboard">
-                    <BarChart3 className="h-5 w-5 mr-3" />
-                    Tableau Admin
+                <SidebarMenuButton asChild className={getLinkClass("/missions")}>
+                  <Link to="/missions">
+                    <User className="h-5 w-5 mr-3" />
+                    Missions
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            )}
+            
+            {!isAdmin && (
               <SidebarMenuItem>
-                <SidebarMenuButton asChild className={getLinkClass("/admin/missions")}>
-                  <Link to="/admin/missions">
-                    <Briefcase className="h-5 w-5 mr-3" />
-                    Gestion Missions
+                <SidebarMenuButton asChild className={getLinkClass("/calendar")}>
+                  <Link to="/calendar">
+                    <CalendarDays className="h-5 w-5 mr-3" />
+                    Calendrier
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            )}
+            
+            {/* Liens pour Growth et Admin */}
+            {(isAdmin || isGrowth) && (
               <SidebarMenuItem>
-                <SidebarMenuButton asChild className={getLinkClass("/admin/users")}>
-                  <Link to="/admin/users">
-                    <Users className="h-5 w-5 mr-3" />
-                    Gestion Utilisateurs
+                <SidebarMenuButton asChild className={getLinkClass("/growth")}>
+                  <Link to="/growth">
+                    <LineChart className="h-5 w-5 mr-3" />
+                    {isAdmin ? "Gestion Growth" : "Tableau de bord Growth"}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            </>
-          )}
-        </SidebarMenu>
+            )}
+            
+            {/* Liens pour l'administrateur */}
+            {isAdmin && (
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild className={getLinkClass("/admin/dashboard")}>
+                    <Link to="/admin/dashboard">
+                      <BarChart3 className="h-5 w-5 mr-3" />
+                      Tableau Admin
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild className={getLinkClass("/admin/missions")}>
+                    <Link to="/admin/missions">
+                      <Briefcase className="h-5 w-5 mr-3" />
+                      Gestion Missions
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild className={getLinkClass("/admin/users")}>
+                    <Link to="/admin/users">
+                      <Users className="h-5 w-5 mr-3" />
+                      Gestion Utilisateurs
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
+            )}
+          </SidebarMenu>
+        )}
+
         <div className="mt-auto p-4">
           <Button 
             variant="ghost" 

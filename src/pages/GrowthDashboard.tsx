@@ -6,7 +6,11 @@ import { RequestEditDialog } from "@/components/growth/RequestEditDialog";
 import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDialog";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
 
-const GrowthDashboard = () => {
+interface GrowthDashboardProps {
+  defaultTab?: string;
+}
+
+const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   const {
     filteredRequests,
     activeTab,
@@ -21,7 +25,7 @@ const GrowthDashboard = () => {
     handleRequestUpdated,
     assignRequestToMe,
     updateRequestWorkflowStatus
-  } = useGrowthDashboard();
+  } = useGrowthDashboard(defaultTab);
 
   return (
     <AppLayout>

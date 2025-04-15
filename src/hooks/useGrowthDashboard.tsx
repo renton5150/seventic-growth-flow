@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
@@ -6,9 +5,9 @@ import { Request } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export function useGrowthDashboard() {
+export function useGrowthDashboard(defaultTab?: string) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>("to_assign");
+  const [activeTab, setActiveTab] = useState<string>(defaultTab || "to_assign");
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
