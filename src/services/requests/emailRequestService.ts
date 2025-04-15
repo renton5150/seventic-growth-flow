@@ -81,8 +81,9 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     // Mettre à jour template si présent dans les updates
     if (updates.template) {
       const template = updates.template || {};
-      const currentTemplateObj = typeof dbUpdates.details.template === 'object' ? 
-        dbUpdates.details.template || {} : {};
+      const currentTemplateObj = typeof dbUpdates.details.template === 'object' && dbUpdates.details.template 
+        ? dbUpdates.details.template 
+        : {};
       
       dbUpdates.details.template = {
         ...currentTemplateObj,
@@ -93,8 +94,9 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     // Mettre à jour database si présent dans les updates
     if (updates.database) {
       const database = updates.database || {};
-      const currentDatabaseObj = typeof dbUpdates.details.database === 'object' ? 
-        dbUpdates.details.database || {} : {};
+      const currentDatabaseObj = typeof dbUpdates.details.database === 'object' && dbUpdates.details.database
+        ? dbUpdates.details.database
+        : {};
       
       dbUpdates.details.database = {
         ...currentDatabaseObj,
@@ -105,8 +107,9 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     // Mettre à jour blacklist si présent dans les updates
     if (updates.blacklist) {
       const blacklist = updates.blacklist || {};
-      const currentBlacklistObj = typeof dbUpdates.details.blacklist === 'object' ? 
-        dbUpdates.details.blacklist || {} : {};
+      const currentBlacklistObj = typeof dbUpdates.details.blacklist === 'object' && dbUpdates.details.blacklist
+        ? dbUpdates.details.blacklist
+        : {};
       
       // Ensure blacklist is always an object
       dbUpdates.details.blacklist = {

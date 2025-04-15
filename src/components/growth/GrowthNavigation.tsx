@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,13 +86,14 @@ export const GrowthNavigation = () => {
           </Link>
         </NavigationMenuItem>
 
-        <NavigationMenuItem className="w-full relative">
+        {/* Menu Demandes - Repositionné en haut après Tableau de bord */}
+        <NavigationMenuItem className="w-full">
           <NavigationMenuTrigger className="w-full justify-start gap-2 data-[state=open]:bg-green-50">
             <ListChecks className="h-4 w-4" />
             <span>Demandes</span>
           </NavigationMenuTrigger>
-          <NavigationMenuContent className="absolute left-0 w-full min-w-[200px] p-1 bg-white border rounded-md shadow-md">
-            <div className="w-full space-y-1">
+          <NavigationMenuContent className="w-48 bg-white rounded-md shadow-md border border-gray-200">
+            <div className="w-full space-y-1 p-2">
               <Link 
                 to="/growth/to-assign" 
                 className={getLinkClass("/growth/to-assign")}
