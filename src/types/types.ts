@@ -10,6 +10,7 @@ export interface User {
 export type UserRole = "admin" | "sdr" | "growth";
 
 export type RequestStatus = "pending" | "inprogress" | "completed" | "rejected";
+export type WorkflowStatus = "pending_assignment" | "in_progress" | "completed" | "canceled";
 
 export interface Request {
   id: string;
@@ -22,6 +23,10 @@ export interface Request {
   createdAt: Date;
   dueDate: Date;
   status: RequestStatus;
+  workflow_status?: WorkflowStatus;
+  target_role?: string;
+  assigned_to?: string | null;
+  assignedToName?: string | null;
   lastUpdated: Date;
   isLate?: boolean;
   statistics?: EmailCampaignStatistics;

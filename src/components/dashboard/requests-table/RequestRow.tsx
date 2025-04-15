@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Eye, MoreHorizontal, Users } from "lucide-react";
+import { Eye, MoreHorizontal, Users, User } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
@@ -76,7 +76,18 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
         {formatDate(request.dueDate)}
       </TableCell>
       <TableCell>
-        <RequestStatusBadge status={request.status} isLate={request.isLate} />
+        <RequestStatusBadge status={request.status} workflow_status={request.workflow_status} isLate={request.isLate} />
+      </TableCell>
+      {/* Nouvelle colonne pour afficher le Growth assigné */}
+      <TableCell>
+        {request.assignedToName ? (
+          <div className="flex items-center">
+            <User className="mr-2 h-4 w-4 text-green-500" />
+            {request.assignedToName}
+          </div>
+        ) : (
+          <div className="text-gray-400 text-sm italic">Non assigné</div>
+        )}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end">
@@ -112,4 +123,4 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
       </TableCell>
     </TableRow>
   );
-};
+}

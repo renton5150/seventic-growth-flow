@@ -135,6 +135,7 @@ export type Database = {
       }
       requests: {
         Row: {
+          assigned_to: string | null
           created_at: string
           created_by: string | null
           details: Json
@@ -143,10 +144,14 @@ export type Database = {
           last_updated: string
           mission_id: string | null
           status: string
+          target_role: string | null
           title: string
           type: string
+          updated_at: string | null
+          workflow_status: string | null
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
           created_by?: string | null
           details?: Json
@@ -155,10 +160,14 @@ export type Database = {
           last_updated?: string
           mission_id?: string | null
           status?: string
+          target_role?: string | null
           title: string
           type: string
+          updated_at?: string | null
+          workflow_status?: string | null
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
           created_by?: string | null
           details?: Json
@@ -167,10 +176,20 @@ export type Database = {
           last_updated?: string
           mission_id?: string | null
           status?: string
+          target_role?: string | null
           title?: string
           type?: string
+          updated_at?: string | null
+          workflow_status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "requests_created_by_fkey"
             columns: ["created_by"]

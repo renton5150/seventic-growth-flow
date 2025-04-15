@@ -18,7 +18,9 @@ const GrowthDashboard = () => {
     setIsCompletionDialogOpen,
     handleOpenEditDialog,
     handleOpenCompletionDialog,
-    handleRequestUpdated
+    handleRequestUpdated,
+    assignRequestToMe,
+    updateRequestWorkflowStatus
   } = useGrowthDashboard();
 
   return (
@@ -38,6 +40,9 @@ const GrowthDashboard = () => {
           onEditRequest={handleOpenEditDialog}
           onCompleteRequest={handleOpenCompletionDialog}
           onRequestUpdated={handleRequestUpdated}
+          assignRequestToMe={assignRequestToMe}
+          updateRequestWorkflowStatus={updateRequestWorkflowStatus}
+          activeTab={activeTab}
         />
       </div>
       

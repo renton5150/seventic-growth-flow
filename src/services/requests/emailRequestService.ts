@@ -17,6 +17,8 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       created_by: requestData.createdBy,
       created_at: new Date().toISOString(),
       status: "pending",
+      workflow_status: "pending_assignment",
+      target_role: "growth",
       due_date: requestData.dueDate.toISOString(),
       last_updated: new Date().toISOString(),
       details: {
@@ -60,6 +62,8 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     if (updates.title) dbUpdates.title = updates.title;
     if (updates.dueDate) dbUpdates.due_date = updates.dueDate.toISOString();
     if (updates.status) dbUpdates.status = updates.status;
+    if (updates.workflow_status) dbUpdates.workflow_status = updates.workflow_status;
+    if (updates.assigned_to) dbUpdates.assigned_to = updates.assigned_to;
 
     // Récupérer d'abord la requête actuelle pour fusionner correctement les détails
     const { data: currentRequest } = await supabase

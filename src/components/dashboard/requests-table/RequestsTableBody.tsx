@@ -10,27 +10,25 @@ interface RequestsTableBodyProps {
   showSdr?: boolean;
 }
 
-export const RequestsTableBody = ({ 
-  sortedRequests, 
-  missionView = false,
-  showSdr = false
-}: RequestsTableBodyProps) => {
+export const RequestsTableBody = ({ sortedRequests, missionView = false, showSdr = false }: RequestsTableBodyProps) => {
+  if (sortedRequests.length === 0) {
+    return (
+      <TableBody>
+        <EmptyRequestsRow colSpan={missionView ? 7 : (showSdr ? 9 : 8)} />
+      </TableBody>
+    );
+  }
+
   return (
     <TableBody>
-      {sortedRequests.length === 0 ? (
-        <EmptyRequestsRow 
-          colSpan={missionView ? 5 : (showSdr ? 7 : 6)} 
-          missionView={missionView} 
+      {sortedRequests.map((request) => (
+        <RequestRow
+          key={request.id}
+          request={request}
+          missionView={missionView}
+          showSdr={showSdr}
         />
-      ) : (
-        sortedRequests.map((request) => (
-          <RequestRow 
-            key={request.id} 
-            request={request} 
-            missionView={missionView} 
-          />
-        ))
-      )}
+      ))}
     </TableBody>
   );
 };
