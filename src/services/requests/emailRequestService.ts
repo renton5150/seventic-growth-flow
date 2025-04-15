@@ -75,53 +75,53 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     }
 
     // Initialiser l'objet details à partir des données actuelles
-    const currentDetails = currentRequest.details || {};
+    const currentDetails = typeof currentRequest.details === 'object' && currentRequest.details !== null ? currentRequest.details : {};
     dbUpdates.details = { ...currentDetails };
     
     // Mettre à jour template si présent dans les updates
     if (updates.template) {
       const template = updates.template || {};
-      const currentTemplateObj = typeof dbUpdates.details.template === 'object' && dbUpdates.details.template 
+      const currentTemplateObj = typeof dbUpdates.details.template === 'object' && dbUpdates.details.template !== null
         ? dbUpdates.details.template 
         : {};
       
       dbUpdates.details.template = {
         ...currentTemplateObj,
-        ...(template && typeof template === 'object' ? template : {})
+        ...(typeof template === 'object' && template !== null ? template : {})
       };
     }
     
     // Mettre à jour database si présent dans les updates
     if (updates.database) {
       const database = updates.database || {};
-      const currentDatabaseObj = typeof dbUpdates.details.database === 'object' && dbUpdates.details.database
+      const currentDatabaseObj = typeof dbUpdates.details.database === 'object' && dbUpdates.details.database !== null
         ? dbUpdates.details.database
         : {};
       
       dbUpdates.details.database = {
         ...currentDatabaseObj,
-        ...(database && typeof database === 'object' ? database : {})
+        ...(typeof database === 'object' && database !== null ? database : {})
       };
     }
     
     // Mettre à jour blacklist si présent dans les updates
     if (updates.blacklist) {
       const blacklist = updates.blacklist || {};
-      const currentBlacklistObj = typeof dbUpdates.details.blacklist === 'object' && dbUpdates.details.blacklist
+      const currentBlacklistObj = typeof dbUpdates.details.blacklist === 'object' && dbUpdates.details.blacklist !== null
         ? dbUpdates.details.blacklist
         : {};
       
       // Ensure blacklist is always an object
       dbUpdates.details.blacklist = {
         ...currentBlacklistObj,
-        ...(blacklist && typeof blacklist === 'object' ? blacklist : {}),
+        ...(typeof blacklist === 'object' && blacklist !== null ? blacklist : {}),
         accounts: {
-          ...((currentBlacklistObj && typeof currentBlacklistObj.accounts === 'object') ? currentBlacklistObj.accounts : {}),
-          ...((blacklist && typeof blacklist.accounts === 'object') ? blacklist.accounts : {})
+          ...((currentBlacklistObj && typeof currentBlacklistObj.accounts === 'object' && currentBlacklistObj.accounts !== null) ? currentBlacklistObj.accounts : {}),
+          ...((blacklist && typeof blacklist.accounts === 'object' && blacklist.accounts !== null) ? blacklist.accounts : {})
         },
         emails: {
-          ...((currentBlacklistObj && typeof currentBlacklistObj.emails === 'object') ? currentBlacklistObj.emails : {}),
-          ...((blacklist && typeof blacklist.emails === 'object') ? blacklist.emails : {})
+          ...((currentBlacklistObj && typeof currentBlacklistObj.emails === 'object' && currentBlacklistObj.emails !== null) ? currentBlacklistObj.emails : {}),
+          ...((blacklist && typeof blacklist.emails === 'object' && blacklist.emails !== null) ? blacklist.emails : {})
         }
       };
     }
