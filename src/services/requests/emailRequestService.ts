@@ -3,6 +3,52 @@ import { EmailCampaignRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
 
+/**
+ * Créer une requête de campagne email
+ */
+export const createEmailCampaignRequest = async (requestData: any): Promise<EmailCampaignRequest | undefined> => {
+  try {
+    console.log("Préparation des données pour la création de la requête:", requestData);
+    
+    const dbRequest = {
+      type: "email",
+      title: requestData.title,
+      mission_id: requestData.missionId,
+      created_by: requestData.createdBy,
+      created_at: new Date().toISOString(),
+      status: "pending",
+      workflow_status: "pending_assignment",
+      target_role: "growth",
+      due_date: requestData.dueDate.toISOString(),
+      last_updated: new Date().toISOString(),
+      details: {
+        template: requestData.template,
+        database: requestData.database,
+        blacklist: requestData.blacklist
+      }
+    };
+    
+    console.log("Données formatées pour l'insertion:", dbRequest);
+
+    const { data: newRequest, error } = await supabase
+      .from('requests')
+      .insert(dbRequest)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erreur lors de la création de la requête de campagne email:", error);
+      return undefined;
+    }
+
+    console.log("Nouvelle requête créée avec succès:", newRequest);
+    return formatRequestFromDb(newRequest) as EmailCampaignRequest;
+  } catch (error) {
+    console.error("Erreur inattendue lors de la création de la requête de campagne email:", error);
+    return undefined;
+  }
+};
+
 export const updateEmailRequest = async (requestId: string, updates: Partial<EmailCampaignRequest>): Promise<EmailCampaignRequest | undefined> => {
   try {
     console.log("Mise à jour de la requête email:", requestId, "avec les données:", updates);
@@ -64,12 +110,12 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
         ...currentBlacklistObj,
         ...blacklist,
         accounts: {
-          ...(currentBlacklistObj.accounts || {}),
-          ...(blacklist.accounts || {})
+          ...(currentBlacklistObj?.accounts || {}),
+          ...(blacklist?.accounts || {})
         },
         emails: {
-          ...(currentBlacklistObj.emails || {}),
-          ...(blacklist.emails || {})
+          ...(currentBlacklistObj?.emails || {}),
+          ...(blacklist?.emails || {})
         }
       };
     }

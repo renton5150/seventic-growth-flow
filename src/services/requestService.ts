@@ -4,7 +4,7 @@ export * from './requests';
 
 // Pour la compatibilité avec l'ancien code
 import { Request } from "@/types/types";
-import { getAllRequests as getAll, getRequestById as getById } from "./requests";
+import { getAllRequests as getAll, getRequestById as getById, createEmailCampaignRequest } from "./requests";
 import { getMissionById } from "./missionService";
 
 export const getAllRequests = async (): Promise<Request[]> => {
@@ -28,3 +28,4 @@ export const getAllRequests = async (): Promise<Request[]> => {
 };
 
 export const getRequestById = getById;
+export { createEmailCampaignRequest };
