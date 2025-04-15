@@ -86,7 +86,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       
       dbUpdates.details.template = {
         ...currentTemplateObj,
-        ...template
+        ...(template && typeof template === 'object' ? template : {})
       };
     }
     
@@ -98,7 +98,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       
       dbUpdates.details.database = {
         ...currentDatabaseObj,
-        ...database
+        ...(database && typeof database === 'object' ? database : {})
       };
     }
     
@@ -111,7 +111,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       // Ensure blacklist is always an object
       dbUpdates.details.blacklist = {
         ...currentBlacklistObj,
-        ...blacklist,
+        ...(blacklist && typeof blacklist === 'object' ? blacklist : {}),
         accounts: {
           ...((currentBlacklistObj && typeof currentBlacklistObj.accounts === 'object') ? currentBlacklistObj.accounts : {}),
           ...((blacklist && typeof blacklist.accounts === 'object') ? blacklist.accounts : {})
