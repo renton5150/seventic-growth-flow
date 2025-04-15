@@ -3,55 +3,6 @@ import { EmailCampaignRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
 
-/**
- * Créer une requête de campagne email
- */
-export const createEmailCampaignRequest = async (requestData: any): Promise<EmailCampaignRequest | undefined> => {
-  try {
-    console.log("Préparation des données pour la création de la requête:", requestData);
-    
-    const dbRequest = {
-      type: "email",
-      title: requestData.title,
-      mission_id: requestData.missionId,
-      created_by: requestData.createdBy,
-      created_at: new Date().toISOString(),
-      status: "pending",
-      workflow_status: "pending_assignment",
-      target_role: "growth",
-      due_date: requestData.dueDate.toISOString(),
-      last_updated: new Date().toISOString(),
-      details: {
-        template: requestData.template,
-        database: requestData.database,
-        blacklist: requestData.blacklist
-      }
-    };
-    
-    console.log("Données formatées pour l'insertion:", dbRequest);
-
-    const { data: newRequest, error } = await supabase
-      .from('requests')
-      .insert(dbRequest)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Erreur lors de la création de la requête de campagne email:", error);
-      return undefined;
-    }
-
-    console.log("Nouvelle requête créée avec succès:", newRequest);
-    return formatRequestFromDb(newRequest) as EmailCampaignRequest;
-  } catch (error) {
-    console.error("Erreur inattendue lors de la création de la requête de campagne email:", error);
-    return undefined;
-  }
-};
-
-/**
- * Update an email request with specific fields
- */
 export const updateEmailRequest = async (requestId: string, updates: Partial<EmailCampaignRequest>): Promise<EmailCampaignRequest | undefined> => {
   try {
     console.log("Mise à jour de la requête email:", requestId, "avec les données:", updates);
@@ -83,7 +34,6 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     // Mettre à jour template si présent dans les updates
     if (updates.template) {
-      // Créer des variables temporaires pour s'assurer qu'elles sont des objets
       const template = updates.template || {};
       const currentTemplateObj = dbUpdates.details.template || {};
       
@@ -95,7 +45,6 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     // Mettre à jour database si présent dans les updates
     if (updates.database) {
-      // Créer des variables temporaires pour s'assurer qu'elles sont des objets
       const database = updates.database || {};
       const currentDatabaseObj = dbUpdates.details.database || {};
       
@@ -107,35 +56,22 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     // Mettre à jour blacklist si présent dans les updates
     if (updates.blacklist) {
-      // Créer des variables temporaires pour s'assurer qu'elles sont des objets
       const blacklist = updates.blacklist || {};
       const currentBlacklistObj = dbUpdates.details.blacklist || {};
       
+      // Ensure blacklist is always an object
       dbUpdates.details.blacklist = {
         ...currentBlacklistObj,
-        ...blacklist
+        ...blacklist,
+        accounts: {
+          ...(currentBlacklistObj.accounts || {}),
+          ...(blacklist.accounts || {})
+        },
+        emails: {
+          ...(currentBlacklistObj.emails || {}),
+          ...(blacklist.emails || {})
+        }
       };
-      
-      // Gérer spécifiquement les sous-objets de blacklist
-      if (updates.blacklist.accounts) {
-        const accounts = updates.blacklist.accounts || {};
-        const currentAccountsObj = dbUpdates.details.blacklist?.accounts || {};
-        
-        dbUpdates.details.blacklist.accounts = {
-          ...currentAccountsObj,
-          ...accounts
-        };
-      }
-      
-      if (updates.blacklist.emails) {
-        const emails = updates.blacklist.emails || {};
-        const currentEmailsObj = dbUpdates.details.blacklist?.emails || {};
-        
-        dbUpdates.details.blacklist.emails = {
-          ...currentEmailsObj,
-          ...emails
-        };
-      }
     }
     
     // Toujours mettre à jour le timestamp last_updated
