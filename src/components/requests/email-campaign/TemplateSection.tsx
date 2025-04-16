@@ -1,4 +1,3 @@
-
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
@@ -20,19 +19,21 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
   const [editorLoading, setEditorLoading] = useState(true);
   
   useEffect(() => {
-    // Vérifie si le script TinyMCE est bien disponible
     const checkTinyMceScript = () => {
-      const tinyScript = document.querySelector('script[src="/tinymce/tinymce.min.js"]');
+      const tinyScript = document.querySelector('script[src*="tinymce.min.js"]');
       if (!tinyScript) {
-        console.log("Script TinyMCE non trouvé, ajout dynamique...");
+        console.log("Chargement du script TinyMCE depuis CDN...");
         const script = document.createElement('script');
-        script.src = "/tinymce/tinymce.min.js";
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.6.0/tinymce.min.js";
+        script.integrity = "sha512-JX0/9Qqp8YoYm4P3LP1C8INHrtxDuTxj/S9hANLxVhsJ4RgPQJfvMHF5kWKYz0qgTCl2Hl2cKA8vGf6YQ7Cpw==";
+        script.crossOrigin = "anonymous";
+        script.referrerPolicy = "no-referrer";
         script.onload = () => {
-          console.log("Script TinyMCE chargé avec succès");
+          console.log("Script TinyMCE chargé avec succès depuis CDN");
           setEditorLoading(false);
         };
         script.onerror = () => {
-          console.error("Erreur de chargement du script TinyMCE");
+          console.error("Erreur de chargement du script TinyMCE depuis CDN");
           setEditorLoading(false);
         };
         document.head.appendChild(script);
@@ -45,7 +46,6 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
     checkTinyMceScript();
 
     return () => {
-      // Nettoyage si nécessaire
       if (editorRef.current) {
         editorRef.current.remove();
       }
@@ -75,7 +75,6 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                     <div className="relative border rounded-md overflow-hidden min-h-[400px]">
                       {!editorLoading && (
                         <Editor
-                          tinymceScriptSrc="/tinymce/tinymce.min.js"
                           onInit={handleEditorInit}
                           initialValue={field.value}
                           value={field.value}
@@ -88,7 +87,7 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                             plugins: [
                               'advlist', 'autolink', 'link', 'image', 'lists', 'charmap', 'preview', 'anchor', 
                               'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 
-                              'media', 'table', 'help', 'wordcount', 'emoticons'
+                              'media', 'table', 'help', 'wordcount', 'emoticons', 'paste'
                             ],
                             toolbar: 'undo redo | formatselect | ' +
                               'bold italic forecolor backcolor | alignleft aligncenter ' +
@@ -96,6 +95,8 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                               'removeformat | image link | help',
                             content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; font-size: 14px }',
                             paste_data_images: true,
+                            paste_retain_style_properties: 'all',
+                            paste_word_valid_elements: 'b,strong,i,em,h1,h2,h3,h4,h5,h6,p,div,span,ul,ol,li,table,tr,td,th,tbody,thead,a,img',
                             convert_urls: false,
                             branding: false,
                             promotion: false,
@@ -119,9 +120,6 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                             <Spinner className="h-5 w-5" />
                             <span>Chargement de l'éditeur...</span>
                           </div>
-                          <p className="text-xs text-gray-500 text-center">
-                            Si le chargement persiste, vérifiez que le dossier /public/tinymce contient les fichiers de l'éditeur
-                          </p>
                         </div>
                       )}
                     </div>
