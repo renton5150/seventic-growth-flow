@@ -60,7 +60,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
               <Select 
                 value={field.value} 
                 onValueChange={field.onChange}
-                disabled={field.disabled}
+                disabled={field.disabled || editMode}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionnez une mission" />

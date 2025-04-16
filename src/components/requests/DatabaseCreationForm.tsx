@@ -51,7 +51,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         title: initialData.title || "",
         missionId: initialData.missionId || "",
         dueDate: dueDate,
-        tool: initialData.tool || "Hubspot",
+        tool: (initialData.tool as "Hubspot" | "Apollo") || "Hubspot",
         jobTitles: targeting.jobTitles.join(", ") || "",
         industries: targeting.industries.join(", ") || "",
         locations: targeting.locations?.join(", ") || "",
@@ -131,9 +131,6 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     try {
       console.log("Données soumises:", data);
       
-      // Convertir la date string en objet Date
-      const dueDate = new Date(data.dueDate);
-      
       // Format the data for the request
       const requestData = {
         title: data.title,
@@ -157,7 +154,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
             notes: data.blacklistContactsNotes || ""
           }
         },
-        dueDate: dueDate
+        dueDate: data.dueDate
       };
       
       let result;
@@ -167,7 +164,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         console.log("Mise à jour de la demande avec:", requestData);
         result = await updateRequest(initialData.id, {
           title: data.title,
-          dueDate: dueDate,
+          dueDate: data.dueDate,
           tool: data.tool,
           targeting: requestData.targeting,
           blacklist: requestData.blacklist

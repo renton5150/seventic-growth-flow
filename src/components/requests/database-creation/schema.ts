@@ -25,7 +25,7 @@ export const formSchema = z.object({
 
 export type FormData = z.infer<typeof formSchema>;
 
-export const defaultValues = {
+export const defaultValues: FormData = {
   title: "",
   missionId: "",
   dueDate: new Date(),
