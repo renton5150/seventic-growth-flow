@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { deleteRequest } from "@/services/requestService";
+import { deleteRequest } from "@/services/requests/deleteRequestService";
 
 interface RequestRowProps {
   request: Request;
@@ -110,7 +109,6 @@ export const RequestRow = ({
       <TableCell>
         <RequestStatusBadge status={request.status} workflow_status={request.workflow_status} isLate={request.isLate} />
       </TableCell>
-      {/* Nouvelle colonne pour afficher le Growth assigné */}
       <TableCell>
         {request.assignedToName ? (
           <div className="flex items-center">
