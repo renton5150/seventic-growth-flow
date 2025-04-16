@@ -5,11 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   LayoutDashboard, 
-  ListTodo, 
+  ListTodo,
   UserSquare2,
-  Briefcase,
-  Calendar,
-  ListChecks 
+  Calendar
 } from "lucide-react";
 import {
   SidebarMenu,
@@ -64,11 +62,6 @@ export const GrowthNavigation = () => {
     </span>
   );
 
-  // Added console log for debugging
-  console.log("Current pathname:", pathname);
-  console.log("Is to-assign active?", pathname.includes("/growth/to-assign"));
-  console.log("Is my-requests active?", pathname.includes("/growth/my-requests"));
-
   return (
     <SidebarMenu>
       {/* Tableau de bord */}
@@ -89,7 +82,7 @@ export const GrowthNavigation = () => {
             : "hover:bg-green-50 hover:text-green-600"
         }>
           <div className="flex items-center gap-2 w-full">
-            <ListChecks className="h-4 w-4" />
+            <ListTodo className="h-4 w-4" />
             <span>Demandes</span>
           </div>
         </SidebarMenuButton>
@@ -112,16 +105,6 @@ export const GrowthNavigation = () => {
             <UserSquare2 className="h-4 w-4" />
             <span>Mes demandes</span>
             {myRequestsCount > 0 && <CountBadge count={myRequestsCount} />}
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-
-      {/* Missions */}
-      <SidebarMenuItem>
-        <SidebarMenuButton asChild className={pathname.includes("/missions") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
-          <Link to="/missions" className="flex items-center gap-2 w-full">
-            <Briefcase className="h-4 w-4" />
-            <span>Missions</span>
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
