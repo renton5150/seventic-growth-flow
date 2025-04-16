@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -20,9 +19,10 @@ import { EmailCampaignRequest } from "@/types/types";
 interface EmailCampaignFormProps {
   editMode?: boolean;
   initialData?: EmailCampaignRequest;
+  onSuccess?: () => void;
 }
 
-export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampaignFormProps) => {
+export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: EmailCampaignFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -30,10 +30,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
   const [blacklistEmailsTab, setBlacklistEmailsTab] = useState("file");
   const [fileUploading, setFileUploading] = useState(false);
 
-  // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
     if (editMode && initialData) {
-      // S'assurer que toutes les propriétés ont des valeurs par défaut
       const template = initialData.template || {
         content: "",
         fileUrl: "",
@@ -51,11 +49,9 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
         emails: { notes: "", fileUrl: "" }
       };
       
-      // S'assurer que ces objets existent avec des valeurs par défaut
       const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
       const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "" };
 
-      // Adapter la date pour le format de l'input date
       const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
       const formattedDueDate = dueDate.toISOString().split('T')[0];
 
@@ -83,7 +79,6 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
     defaultValues: getInitialValues()
   });
 
-  // Initialiser les onglets actifs en fonction des données
   useEffect(() => {
     if (editMode && initialData && initialData.blacklist) {
       const blacklist = initialData.blacklist || {
@@ -94,19 +89,16 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
       const accounts = blacklist.accounts || { notes: "", fileUrl: "" };
       const emails = blacklist.emails || { notes: "", fileUrl: "" };
 
-      // Définir l'onglet actif pour les comptes blacklist
       if (accounts.notes && !accounts.fileUrl) {
         setBlacklistAccountsTab("notes");
       }
 
-      // Définir l'onglet actif pour les emails blacklist
       if (emails.notes && !emails.fileUrl) {
         setBlacklistEmailsTab("notes");
       }
     }
   }, [editMode, initialData]);
 
-  // Vérifier que le client Supabase est correctement initialisé
   useEffect(() => {
     const checkSupabaseConnection = async () => {
       try {
@@ -141,10 +133,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
     try {
       console.log("Données soumises:", data);
       
-      // Convertir la date string en objet Date
       const dueDate = new Date(data.dueDate);
       
-      // Format the data for the request
       const requestData = {
         title: data.title,
         missionId: data.missionId,
@@ -175,12 +165,10 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
       let result;
       
       if (editMode && initialData) {
-        // Mode édition - Mettre à jour la demande existante
         console.log("Mise à jour de la demande avec:", requestData);
         result = await updateRequest(initialData.id, {
           title: data.title,
           dueDate: dueDate,
-          // Mise à jour directe des propriétés au lieu d'utiliser details
           template: requestData.template,
           database: requestData.database,
           blacklist: requestData.blacklist
@@ -188,27 +176,33 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
         
         if (result) {
           console.log("Demande mise à jour:", result);
-          toast.success("Demande de campagne email mise à jour avec succès");
-          navigate("/requests/email/" + initialData.id);
+          toast.success(editMode ? "Demande mise à jour avec succès" : "Demande créée avec succès");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/dashboard");
+          }
         } else {
           throw new Error("Erreur lors de la mise à jour de la demande");
         }
       } else {
-        // Mode création - Créer une nouvelle demande
         console.log("Création de la demande avec:", requestData);
         const newRequest = await createEmailCampaignRequest(requestData);
         
         if (newRequest) {
           console.log("Nouvelle demande créée:", newRequest);
-          toast.success("Demande de campagne email créée avec succès");
-          navigate("/dashboard");
+          toast.success(editMode ? "Demande mise à jour avec succès" : "Demande créée avec succès");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/dashboard");
+          }
         } else {
           throw new Error("Erreur lors de la création de la demande");
         }
       }
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
-      // Afficher plus de détails sur l'erreur
       const errorMessage = error instanceof Error 
         ? error.message 
         : "Erreur inconnue lors de la création/modification de la demande";
@@ -222,14 +216,12 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
     setFileUploading(true);
     console.log("Téléchargement du fichier pour le champ:", field, files);
     try {
-      // Cas où files est une chaîne (URL directe)
       if (typeof files === 'string') {
         console.log("URL directe fournie:", files);
         form.setValue(field as any, files);
         return;
       }
       
-      // Cas où files est une FileList
       if (files && files.length > 0) {
         const file = files[0];
         console.log("Fichier sélectionné:", file.name);
@@ -238,11 +230,9 @@ export const EmailCampaignForm = ({ editMode = false, initialData }: EmailCampai
         return;
       }
       
-      // Cas où files est null (effacement)
       console.log("Effacement du fichier");
       form.setValue(field as any, "");
     } finally {
-      // Toujours remettre fileUploading à false après traitement
       setTimeout(() => setFileUploading(false), 100);
     }
   };

@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,49 +10,123 @@ import { FormHeader } from "./linkedin-scraping/FormHeader";
 import { TargetingSection } from "./linkedin-scraping/TargetingSection";
 import { FormFooter } from "./linkedin-scraping/FormFooter";
 import { formSchema, FormData, defaultValues } from "./linkedin-scraping/schema";
-import { createLinkedInScrapingRequest } from "@/services/requestService";
+import { createLinkedInScrapingRequest, updateRequest } from "@/services/requestService";
+import { LinkedInScrapingRequest } from "@/types/types";
 
-export const LinkedInScrapingForm = () => {
+interface LinkedInScrapingFormProps {
+  editMode?: boolean;
+  initialData?: LinkedInScrapingRequest;
+  onSuccess?: () => void;
+}
+
+export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess }: LinkedInScrapingFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
+  const getInitialValues = () => {
+    if (editMode && initialData) {
+      const targeting = initialData.targeting || {
+        jobTitles: [],
+        industries: [],
+        locations: [],
+        companySize: [],
+        otherCriteria: ""
+      };
+
+      const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
+      const formattedDueDate = dueDate.toISOString().split('T')[0];
+
+      return {
+        title: initialData.title || "",
+        missionId: initialData.missionId || "",
+        dueDate: formattedDueDate,
+        jobTitles: targeting.jobTitles || [],
+        industries: targeting.industries || [],
+        locations: targeting.locations || [],
+        companySize: targeting.companySize || [],
+        otherCriteria: targeting.otherCriteria || ""
+      };
+    }
+    return defaultValues;
+  };
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues
+    defaultValues: getInitialValues()
   });
 
+  useEffect(() => {
+    // Mettre à jour les valeurs du formulaire lorsque initialData change
+    if (editMode && initialData) {
+      form.reset(getInitialValues());
+    }
+  }, [initialData, editMode, form]);
+
   const onSubmit = async (data: FormData) => {
+    if (!user) {
+      toast.error("Vous devez être connecté pour créer une requête");
+      return;
+    }
+
     setSubmitting(true);
-    
+
     try {
-      console.log("Données soumises:", data);
-      
-      // Format the data for the LinkedIn scraping request
+      const dueDate = new Date(data.dueDate);
+
       const requestData = {
         title: data.title,
         missionId: data.missionId,
-        createdBy: user?.id,
+        createdBy: user.id,
+        dueDate: dueDate,
         targeting: {
-          jobTitles: data.jobTitles ? data.jobTitles.split('\n') : undefined,
-          locations: data.locations ? data.locations.split('\n') : undefined,
-          industries: data.industries ? data.industries.split('\n') : undefined,
-          companySize: data.companySize ? data.companySize.split('\n') : undefined,
-          otherCriteria: data.otherCriteria
-        },
-        dueDate: data.dueDate
+          jobTitles: data.jobTitles || [],
+          industries: data.industries || [],
+          locations: data.locations || [],
+          companySize: data.companySize || [],
+          otherCriteria: data.otherCriteria || ""
+        }
       };
-      
-      // Créer une nouvelle demande LinkedIn dans le mock data
-      const newRequest = createLinkedInScrapingRequest(requestData);
-      
-      console.log("Nouvelle demande créée:", newRequest);
-      
-      toast.success("Demande de scrapping LinkedIn créée avec succès");
-      navigate("/dashboard");
+
+      let result;
+
+      if (editMode && initialData) {
+        result = await updateRequest(initialData.id, {
+          title: data.title,
+          dueDate: dueDate,
+          targeting: requestData.targeting
+        });
+
+        if (result) {
+          toast.success("Demande de scraping LinkedIn mise à jour avec succès");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/requests/linkedin/" + initialData.id);
+          }
+        } else {
+          throw new Error("Erreur lors de la mise à jour de la demande");
+        }
+      } else {
+        const newRequest = await createLinkedInScrapingRequest(requestData);
+
+        if (newRequest) {
+          toast.success("Demande de scraping LinkedIn créée avec succès");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/dashboard");
+          }
+        } else {
+          throw new Error("Erreur lors de la création de la demande");
+        }
+      }
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
-      toast.error("Erreur lors de la création de la demande");
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Erreur inconnue lors de la création/modification de la demande";
+      toast.error(`Erreur: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
@@ -62,9 +135,9 @@ export const LinkedInScrapingForm = () => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormHeader control={form.control} user={user} />
+        <FormHeader control={form.control} user={user} editMode={editMode} />
         <TargetingSection control={form.control} />
-        <FormFooter submitting={submitting} />
+        <FormFooter submitting={submitting} editMode={editMode} />
       </form>
     </Form>
   );

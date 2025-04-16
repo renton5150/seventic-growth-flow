@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, PenSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request, Mission, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
+import { RequestCompleteEditDialog } from "@/components/request-details/RequestCompleteEditDialog";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,12 +33,13 @@ function isLinkedInRequest(request: Request): request is LinkedInScrapingRequest
 const RequestDetails = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isGrowth } = useAuth();
   const [request, setRequest] = useState<Request | null>(null);
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchRequestDetails = async () => {
@@ -170,11 +172,24 @@ const RequestDetails = () => {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-2xl font-bold">{request?.title}</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-2xl font-bold">{request?.title}</h1>
+          </div>
+          
+          {isGrowth && (
+            <Button 
+              variant="default"
+              onClick={() => setIsEditDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <PenSquare className="h-4 w-4" />
+              Modifier la demande
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 mb-6">
@@ -223,6 +238,17 @@ const RequestDetails = () => {
             <RequestInfo request={request} mission={mission} />
           </div>
         </div>
+
+        {request && (
+          <RequestCompleteEditDialog
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            request={request}
+            onRequestUpdated={() => {
+              fetchRequestDetails();
+            }}
+          />
+        )}
       </div>
     </AppLayout>
   );

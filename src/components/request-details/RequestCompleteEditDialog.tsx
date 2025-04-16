@@ -1,0 +1,73 @@
+
+import { useState } from "react";
+import { Request, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { EmailCampaignForm } from "@/components/requests/EmailCampaignForm";
+import { DatabaseCreationForm } from "@/components/requests/DatabaseCreationForm";
+import { LinkedInScrapingForm } from "@/components/requests/LinkedInScrapingForm";
+
+interface RequestCompleteEditDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  request: Request | null;
+  onRequestUpdated: () => void;
+}
+
+export function RequestCompleteEditDialog({
+  open,
+  onOpenChange,
+  request,
+  onRequestUpdated,
+}: RequestCompleteEditDialogProps) {
+  if (!request) return null;
+
+  const handleRequestUpdated = () => {
+    onOpenChange(false);
+    onRequestUpdated();
+    toast.success("Demande mise à jour avec succès");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Modifier la demande</DialogTitle>
+          <DialogDescription>
+            Modifiez tous les aspects de cette demande.
+          </DialogDescription>
+        </DialogHeader>
+
+        {request.type === "email" && (
+          <EmailCampaignForm 
+            editMode={true}
+            initialData={request as EmailCampaignRequest}
+            onSuccess={handleRequestUpdated}
+          />
+        )}
+
+        {request.type === "database" && (
+          <DatabaseCreationForm
+            editMode={true}
+            initialData={request as DatabaseRequest}
+            onSuccess={handleRequestUpdated}
+          />
+        )}
+
+        {request.type === "linkedin" && (
+          <LinkedInScrapingForm
+            editMode={true}
+            initialData={request as LinkedInScrapingRequest}
+            onSuccess={handleRequestUpdated}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

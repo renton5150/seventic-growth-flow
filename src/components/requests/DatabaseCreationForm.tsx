@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,88 +11,211 @@ import { TargetingSection } from "./database-creation/TargetingSection";
 import { BlacklistSection } from "./database-creation/BlacklistSection";
 import { FormFooter } from "./database-creation/FormFooter";
 import { formSchema, FormData, defaultValues } from "./database-creation/schema";
-import { createDatabaseRequest } from "@/services/requestService";
+import { createDatabaseRequest, updateRequest } from "@/services/requestService";
+import { supabase } from "@/integrations/supabase/client";
+import { DatabaseRequest } from "@/types/types";
 
-export const DatabaseCreationForm = () => {
+interface DatabaseCreationFormProps {
+  editMode?: boolean;
+  initialData?: DatabaseRequest;
+  onSuccess?: () => void;
+}
+
+export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess }: DatabaseCreationFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
-  const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
+
+  // Préparer les valeurs initiales en mode édition
+  const getInitialValues = () => {
+    if (editMode && initialData) {
+      const targeting = initialData.targeting || {
+        jobTitles: [],
+        industries: [],
+        locations: [],
+        companySize: [],
+        otherCriteria: ""
+      };
+      
+      const blacklist = initialData.blacklist || {
+        accounts: { notes: "", fileUrl: "" }
+      };
+
+      const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
+      const formattedDueDate = dueDate.toISOString().split('T')[0];
+
+      return {
+        title: initialData.title || "",
+        missionId: initialData.missionId || "",
+        dueDate: formattedDueDate,
+        tool: initialData.tool || "",
+        jobTitles: targeting.jobTitles || [],
+        industries: targeting.industries || [],
+        locations: targeting.locations || [],
+        companySize: targeting.companySize || [],
+        otherCriteria: targeting.otherCriteria || "",
+        blacklistAccountsFileUrl: blacklist.accounts.fileUrl || "",
+        blacklistAccountsNotes: blacklist.accounts.notes || "",
+      };
+    }
+    return defaultValues;
+  };
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues
+    defaultValues: getInitialValues()
   });
 
+  // Initialiser les onglets actifs en fonction des données
+  useEffect(() => {
+    if (editMode && initialData && initialData.blacklist) {
+      const blacklist = initialData.blacklist || {
+        accounts: { notes: "", fileUrl: "" }
+      };
+      
+      const accounts = blacklist.accounts || { notes: "", fileUrl: "" };
+
+      // Définir l'onglet actif pour les comptes blacklist
+      if (accounts.notes && !accounts.fileUrl) {
+        setBlacklistAccountsTab("notes");
+      }
+    }
+  }, [editMode, initialData]);
+
+  // Vérifier que le client Supabase est correctement initialisé
+  useEffect(() => {
+    const checkSupabaseConnection = async () => {
+      try {
+        console.log("Vérification de la connexion Supabase...");
+        const { data, error } = await supabase.from("missions").select("count").limit(1);
+        if (error) {
+          console.error("Erreur de connexion Supabase:", error);
+        } else {
+          console.log("Connexion Supabase OK");
+        }
+      } catch (err) {
+        console.error("Erreur lors de la vérification de la connexion Supabase:", err);
+      }
+    };
+    
+    checkSupabaseConnection();
+  }, []);
+
   const onSubmit = async (data: FormData) => {
+    if (!user) {
+      toast.error("Vous devez être connecté pour créer une requête");
+      return;
+    }
+
     setSubmitting(true);
     
     try {
       console.log("Données soumises:", data);
       
-      // Format the data for the database request
+      // Convertir la date string en objet Date
+      const dueDate = new Date(data.dueDate);
+      
+      // Format the data for the request
       const requestData = {
         title: data.title,
         missionId: data.missionId,
-        createdBy: user?.id,
+        createdBy: user.id,
         tool: data.tool,
         targeting: {
-          jobTitles: data.jobTitles ? data.jobTitles.split('\n') : undefined,
-          industries: data.industries ? data.industries.split('\n') : undefined,
-          companySize: data.companySize ? data.companySize.split('\n') : undefined,
+          jobTitles: data.jobTitles,
+          industries: data.industries,
+          locations: data.locations,
+          companySize: data.companySize,
           otherCriteria: data.otherCriteria
         },
         blacklist: {
           accounts: {
-            fileUrl: data.blacklistAccountsFileUrl,
-            notes: data.blacklistAccountsNotes
-          },
-          contacts: {
-            fileUrl: data.blacklistContactsFileUrl,
-            notes: data.blacklistContactsNotes
+            fileUrl: data.blacklistAccountsFileUrl || "",
+            notes: data.blacklistAccountsNotes || ""
           }
         },
-        dueDate: data.dueDate
+        dueDate: dueDate
       };
       
-      // Créer une nouvelle demande de base dans le mock data
-      const newRequest = createDatabaseRequest(requestData);
+      let result;
       
-      console.log("Nouvelle demande créée:", newRequest);
-      
-      toast.success("Demande de création de base créée avec succès");
-      navigate("/dashboard");
+      if (editMode && initialData) {
+        // Mode édition - Mettre à jour la demande existante
+        console.log("Mise à jour de la demande avec:", requestData);
+        result = await updateRequest(initialData.id, {
+          title: data.title,
+          dueDate: dueDate,
+          tool: data.tool,
+          targeting: requestData.targeting,
+          blacklist: requestData.blacklist
+        });
+        
+        if (result) {
+          toast.success(editMode ? "Demande mise à jour avec succès" : "Demande créée avec succès");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/dashboard");
+          }
+        } else {
+          throw new Error("Erreur lors de la mise à jour de la demande");
+        }
+      } else {
+        // Mode création - Créer une nouvelle demande
+        console.log("Création de la demande avec:", requestData);
+        const newRequest = await createDatabaseRequest(requestData);
+        
+        if (newRequest) {
+          toast.success(editMode ? "Demande mise à jour avec succès" : "Demande créée avec succès");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/dashboard");
+          }
+        } else {
+          throw new Error("Erreur lors de la création de la demande");
+        }
+      }
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
-      toast.error("Erreur lors de la création de la demande");
+      // Afficher plus de détails sur l'erreur
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Erreur inconnue lors de la création/modification de la demande";
+      toast.error(`Erreur: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleFileUpload = (field: string, files: FileList | null) => {
-    if (files && files.length > 0) {
-      const file = files[0];
-      const fakeUrl = `uploads/${file.name}`;
-      form.setValue(field as any, fakeUrl);
+  const handleFileUpload = async (field: string, files: FileList | null) => {
+    try {
+      if (files && files.length > 0) {
+        const file = files[0];
+        // Simuler un téléchargement réussi
+        const fakeUrl = `uploads/${file.name}`;
+        form.setValue(field as any, fakeUrl);
+      } else {
+        form.setValue(field as any, "");
+      }
+    } finally {
+      // Pas besoin de setTimeout ici car c'est une simulation
     }
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormHeader control={form.control} user={user} />
+        <FormHeader control={form.control} user={user} editMode={editMode} />
         <TargetingSection control={form.control} />
         <BlacklistSection 
           control={form.control} 
           blacklistAccountsTab={blacklistAccountsTab}
           setBlacklistAccountsTab={setBlacklistAccountsTab}
-          blacklistContactsTab={blacklistContactsTab}
-          setBlacklistContactsTab={setBlacklistContactsTab}
           handleFileUpload={handleFileUpload}
         />
-        <FormFooter submitting={submitting} />
+        <FormFooter submitting={submitting} editMode={editMode} />
       </form>
     </Form>
   );
