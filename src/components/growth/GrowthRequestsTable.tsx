@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Mail, Database, Linkedin } from "lucide-react";
+import { Users } from "lucide-react";
 import { EmptyRequestsRow } from "../dashboard/requests-table/EmptyRequestsRow";
 import { GrowthRequestStatusBadge } from "./table/GrowthRequestStatusBadge";
 import { GrowthRequestActions } from "./table/GrowthRequestActions";

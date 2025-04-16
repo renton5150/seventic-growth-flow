@@ -21,22 +21,27 @@ export function formatRequestFromDb(dbRequest: any): Request {
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
-  // Récupération du nom de la mission - Amélioration pour le profil Growth
+  // Récupération du nom de la mission
   let missionName = "Mission sans nom";
   
-  // Vérifier et traiter les données de mission selon leur structure
+  // Analyse et traitement des données de la mission selon la structure renvoyée par Supabase
   if (dbRequest.missions) {
-    // Pour le profil Growth, missions est un objet direct (pas un tableau)
-    if (dbRequest.missions && typeof dbRequest.missions === 'object') {
-      // Si c'est un objet avec propriété name ou client, l'utiliser
-      if (dbRequest.missions.name || dbRequest.missions.client) {
-        missionName = dbRequest.missions.name || dbRequest.missions.client;
-        console.log("Nom de mission récupéré depuis l'objet missions pour Growth:", missionName);
+    console.log("Structure des données de mission récupérées:", dbRequest.missions);
+    
+    // Si missions est un objet direct (cas du profil Growth)
+    if (typeof dbRequest.missions === 'object' && !Array.isArray(dbRequest.missions)) {
+      if (dbRequest.missions.name) {
+        missionName = dbRequest.missions.name;
+        console.log("Nom de mission récupéré depuis l'objet missions:", missionName);
+      } else if (dbRequest.missions.client) {
+        missionName = dbRequest.missions.client;
+        console.log("Nom de client récupéré depuis l'objet missions:", missionName);
       }
     }
-    // Si missions est un tableau (cas du profil SDR)
+    // Si missions est un tableau (cas possible pour certaines requêtes)
     else if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
-      missionName = dbRequest.missions[0].name || dbRequest.missions[0].client || "Mission sans nom";
+      const firstMission = dbRequest.missions[0];
+      missionName = firstMission.name || firstMission.client || "Mission sans nom";
       console.log("Nom de mission récupéré d'un tableau:", missionName);
     }
   } else if (dbRequest.mission_name) {

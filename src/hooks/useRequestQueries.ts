@@ -16,9 +16,9 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          created_by_profile:profiles!created_by(name, avatar),
-          assigned_profile:profiles!assigned_to(name, avatar),
-          missions!mission_id(name, client)
+          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
+          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
+          missions(name, client)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -30,7 +30,9 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Requêtes à affecter récupérées:", data);
-      console.log("Structure de données des missions récupérées:", data.length > 0 ? data[0].missions : "Aucune mission");
+      if (data && data.length > 0) {
+        console.log("Structure missions dans requêtes à affecter:", data[0].missions);
+      }
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -47,9 +49,9 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          created_by_profile:profiles!created_by(name, avatar),
-          assigned_profile:profiles!assigned_to(name, avatar),
-          missions!mission_id(name, client)
+          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
+          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
+          missions(name, client)
         `)
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
@@ -60,7 +62,9 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Mes assignations récupérées:", data);
-      console.log("Structure de données des missions récupérées (assignations):", data.length > 0 ? data[0].missions : "Aucune mission");
+      if (data && data.length > 0) {
+        console.log("Structure missions dans assignations:", data[0].missions);
+      }
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -77,9 +81,9 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          created_by_profile:profiles!created_by(name, avatar),
-          assigned_profile:profiles!assigned_to(name, avatar),
-          missions!mission_id(name, client)
+          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
+          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
+          missions(name, client)
         `)
         .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
@@ -92,7 +96,7 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("Toutes les requêtes récupérées:", data);
       if (data && data.length > 0) {
         console.log("Exemple de requête récupérée avec mission:", data[0]);
-        console.log("Structure de données des missions récupérées (toutes):", data[0].missions);
+        console.log("Structure missions dans toutes les requêtes:", data[0].missions);
       }
       
       return data.map(request => formatRequestFromDb(request));
@@ -108,9 +112,9 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          created_by_profile:profiles!created_by(name, avatar),
-          assigned_profile:profiles!assigned_to(name, avatar),
-          missions!mission_id(name, client, description)
+          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
+          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
+          missions(name, client, description)
         `)
         .eq('id', requestId)
         .single();
@@ -121,7 +125,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
 
       console.log("Détails de la demande récupérés:", data);
-      console.log("Structure de données de la mission récupérée (détails):", data?.missions);
+      console.log("Structure missions dans les détails:", data?.missions);
       return formatRequestFromDb(data);
     } catch (err) {
       console.error("Erreur lors de la récupération des détails:", err);
