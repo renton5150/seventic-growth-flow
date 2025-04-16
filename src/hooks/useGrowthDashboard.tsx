@@ -31,14 +31,14 @@ export function useGrowthDashboard(defaultTab?: string) {
       
       console.log("Fetching all growth requests...");
       
-      // Récupérer toutes les requêtes pour la vue générale avec jointure sur missions
+      // Récupérer toutes les requêtes avec jointure sur missions et profils
       const { data: allRequests, error } = await supabase
         .from('requests')
         .select(`
-          *, 
-          profiles:created_by(name, avatar), 
+          *,
+          profiles:created_by(name, avatar),
           assigned_profile:assigned_to(name, avatar),
-          missions(name, id)
+          missions(name, id, client)
         `)
         .order('due_date', { ascending: true });
       
@@ -47,7 +47,7 @@ export function useGrowthDashboard(defaultTab?: string) {
         return [];
       }
       
-      console.log("Requests with missions data:", allRequests);
+      console.log("Requests with full data:", allRequests);
       
       return allRequests.map(formatRequestFromDb);
     },
@@ -205,7 +205,7 @@ export function useGrowthDashboard(defaultTab?: string) {
     refetchMyAssignments();
   };
   
-  // Fonction utilitaire pour formater les requêtes provenant de Supabase
+  // Mise à jour de la fonction de formatage pour utiliser correctement les données de mission
   function formatRequestFromDb(dbRequest: any): Request {
     // Convertit les dates en objets Date
     const createdAt = new Date(dbRequest.created_at);
@@ -222,25 +222,16 @@ export function useGrowthDashboard(defaultTab?: string) {
     // Récupère les détails du Growth assigné si disponibles
     const assignedToName = dbRequest.assigned_profile?.name || null;
     
-    // Récupère le nom de la mission s'il est disponible
+    // Récupération du nom de la mission
     let missionName = "Mission sans nom";
-    
-    // Logging pour déboguer les données de mission
-    console.log("Mission data in request:", dbRequest.mission_id, dbRequest.missions);
-    
-    // Vérifier si les missions sont disponibles et récupérer le nom
     if (dbRequest.missions) {
-      // Si missions est un tableau (jointure multiple)
       if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
-        missionName = dbRequest.missions[0].name || "Mission sans nom";
-      } 
-      // Si missions est un objet simple (jointure simple)
-      else if (typeof dbRequest.missions === 'object' && dbRequest.missions !== null) {
-        missionName = dbRequest.missions.name || "Mission sans nom";
+        const mission = dbRequest.missions[0];
+        missionName = mission.client ? `${mission.name} - ${mission.client}` : mission.name;
       }
     }
     
-    // Construit l'objet requête formaté
+    // Construct the request object
     return {
       id: dbRequest.id,
       title: dbRequest.title,
@@ -248,16 +239,17 @@ export function useGrowthDashboard(defaultTab?: string) {
       missionId: dbRequest.mission_id,
       missionName: missionName,
       createdBy: dbRequest.created_by,
-      sdrName: sdrName,
-      createdAt: createdAt,
-      dueDate: dueDate,
+      sdrName: dbRequest.profiles?.name || "Non assigné",
+      createdAt: new Date(dbRequest.created_at),
+      dueDate: new Date(dbRequest.due_date),
       status: dbRequest.status,
       workflow_status: dbRequest.workflow_status || 'pending_assignment',
       target_role: dbRequest.target_role || 'growth',
       assigned_to: dbRequest.assigned_to || null,
-      assignedToName: assignedToName,
-      lastUpdated: lastUpdated,
-      isLate: isLate,
+      assignedToName: dbRequest.assigned_profile?.name || null,
+      lastUpdated: new Date(dbRequest.last_updated),
+      isLate: new Date(dbRequest.due_date) < new Date() && 
+              (dbRequest.workflow_status !== 'completed' && dbRequest.workflow_status !== 'canceled'),
       ...dbRequest.details
     };
   }
