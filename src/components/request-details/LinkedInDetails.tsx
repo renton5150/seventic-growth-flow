@@ -52,7 +52,7 @@ interface TargetingSectionProps {
   targeting: {
     jobTitles: string[];
     industries: string[];
-    locations: string[];
+    locations?: string[];
     companySize: string[];
     otherCriteria?: string;
   };
