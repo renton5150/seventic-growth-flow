@@ -9,9 +9,15 @@ interface RequestsTableProps {
   requests: Request[];
   missionView?: boolean;
   showSdr?: boolean;
+  onRequestDeleted?: () => void;
 }
 
-export const RequestsTable = ({ requests, missionView = false, showSdr = false }: RequestsTableProps) => {
+export const RequestsTable = ({ 
+  requests, 
+  missionView = false, 
+  showSdr = false,
+  onRequestDeleted
+}: RequestsTableProps) => {
   const [sortColumn, setSortColumn] = useState<string>("dueDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -63,6 +69,7 @@ export const RequestsTable = ({ requests, missionView = false, showSdr = false }
           sortedRequests={sortedRequests} 
           missionView={missionView}
           showSdr={showSdr}
+          onRequestDeleted={onRequestDeleted}
         />
       </Table>
     </div>

@@ -1,6 +1,7 @@
 
 // Export all request service functionality from the refactored modules
 export * from './requests';
+export { deleteRequest } from './requests/deleteRequestService';
 
 // Pour la compatibilité avec l'ancien code
 import { Request } from "@/types/types";

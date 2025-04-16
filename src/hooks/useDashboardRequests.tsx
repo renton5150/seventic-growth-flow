@@ -47,14 +47,14 @@ export const useDashboardRequests = () => {
       // Filtrer les requêtes pour un SDR selon ses missions
       const missionIds = userMissions.map(mission => mission.id);
       const filteredRequests = allRequests.filter(request => 
-        missionIds.includes(request.missionId)
+        missionIds.includes(request.missionId) || request.createdBy === user?.id
       );
       setRequests(filteredRequests);
     } else {
       // Admin et Growth voient toutes les requêtes
       setRequests(allRequests);
     }
-  }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions]);
+  }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id]);
 
   const filteredRequests = requests.filter((request) => {
     if (activeTab === "all") return true;

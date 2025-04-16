@@ -15,17 +15,26 @@ import { Request } from "@/types/types";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { deleteRequest } from "@/services/requestService";
 
 interface RequestRowProps {
   request: Request;
   missionView?: boolean;
   showSdr?: boolean;
+  onRequestDeleted?: () => void;
 }
 
-export const RequestRow = ({ request, missionView = false, showSdr = false }: RequestRowProps) => {
+export const RequestRow = ({ 
+  request, 
+  missionView = false, 
+  showSdr = false,
+  onRequestDeleted
+}: RequestRowProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const isOwner = user?.id === request.createdBy;
 
   const formatDate = (date: Date) => {
     return format(new Date(date), "d MMM yyyy", { locale: fr });
@@ -50,6 +59,29 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
 
   const editRequest = (request: Request) => {
     navigate(`/requests/${request.type}/${request.id}/edit`);
+  };
+  
+  const handleDeleteRequest = async () => {
+    try {
+      // Confirmer avant suppression
+      if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la demande "${request.title}" ?`)) {
+        return;
+      }
+      
+      const success = await deleteRequest(request.id);
+      
+      if (success) {
+        toast.success("La demande a été supprimée avec succès");
+        if (onRequestDeleted) {
+          onRequestDeleted();
+        }
+      } else {
+        toast.error("Erreur lors de la suppression de la demande");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression de la demande:", error);
+      toast.error("Une erreur s'est produite lors de la suppression");
+    }
   };
 
   return (
@@ -114,7 +146,10 @@ export const RequestRow = ({ request, missionView = false, showSdr = false }: Re
                 Voir les détails
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => editRequest(request)}>Modifier</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem 
+                className="text-destructive"
+                onClick={handleDeleteRequest}
+              >
                 Supprimer
               </DropdownMenuItem>
             </DropdownMenuContent>
