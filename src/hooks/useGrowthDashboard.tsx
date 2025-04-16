@@ -67,7 +67,7 @@ export function useGrowthDashboard(defaultTab?: string) {
         .select(`
           *,
           profiles:created_by(name, avatar),
-          missions(name, id)
+          missions(name, id, client)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -98,7 +98,7 @@ export function useGrowthDashboard(defaultTab?: string) {
         .select(`
           *,
           profiles:created_by(name, avatar),
-          missions(name, id)
+          missions(name, id, client)
         `)
         .eq('assigned_to', user.id)
         .order('due_date', { ascending: true });
