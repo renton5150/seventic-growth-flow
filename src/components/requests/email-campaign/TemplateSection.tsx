@@ -2,11 +2,11 @@
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Editor } from '@tinymce/tinymce-react';
 
 interface TemplateSectionProps {
   control: Control<any>;
@@ -14,8 +14,14 @@ interface TemplateSectionProps {
 }
 
 export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionProps) => {
-  const [showPreview, setShowPreview] = useState(false);
+  const editorRef = useRef<any>(null);
+  const [isEditorReady, setIsEditorReady] = useState(false);
   
+  const handleEditorInit = (evt: any, editor: any) => {
+    editorRef.current = editor;
+    setIsEditorReady(true);
+  };
+
   return (
     <Card className="border-t-4 border-t-seventic-500">
       <CardContent className="pt-6">
@@ -30,40 +36,37 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <div className="relative">
-                      {showPreview ? (
-                        <div className="relative">
-                          <div 
-                            className="min-h-[200px] border rounded-md p-4 overflow-auto bg-white"
-                            dangerouslySetInnerHTML={{ __html: field.value || '' }}
-                          />
-                          <button 
-                            type="button"
-                            className="absolute top-2 right-2 bg-primary text-white px-2 py-1 rounded text-xs"
-                            onClick={() => setShowPreview(false)}
-                          >
-                            Éditer
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <Textarea 
-                            placeholder="Collez ici le contenu de votre template (HTML ou texte)" 
-                            className="min-h-[200px] font-mono"
-                            {...field}
-                          />
-                          <div className="absolute right-2 bottom-2 flex items-center gap-2">
-                            <button
-                              type="button"
-                              className="text-xs bg-primary text-white px-2 py-1 rounded"
-                              onClick={() => setShowPreview(true)}
-                            >
-                              Aperçu
-                            </button>
-                            <span className="text-xs text-muted-foreground">
-                              HTML autorisé
-                            </span>
-                          </div>
+                    <div className="relative border rounded-md overflow-hidden">
+                      <Editor
+                        apiKey="no-api-key" // Vous pouvez obtenir une clé API gratuite sur https://www.tiny.cloud/
+                        onInit={handleEditorInit}
+                        initialValue={field.value}
+                        value={field.value}
+                        onEditorChange={(content) => {
+                          field.onChange(content);
+                        }}
+                        init={{
+                          height: 400,
+                          menubar: true,
+                          plugins: [
+                            'advlist', 'autolink', 'link', 'image', 'lists', 'charmap', 'preview', 'anchor', 
+                            'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 
+                            'media', 'table', 'help', 'wordcount', 'emoticons', 'paste'
+                          ],
+                          toolbar: 'undo redo | formatselect | ' +
+                            'bold italic forecolor backcolor | alignleft aligncenter ' +
+                            'alignright alignjustify | bullist numlist outdent indent | ' +
+                            'removeformat | image link | help',
+                          content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; font-size: 14px }',
+                          paste_data_images: true,
+                          convert_urls: false,
+                          branding: false,
+                          promotion: false,
+                        }}
+                      />
+                      {!isEditorReady && (
+                        <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
+                          Chargement de l'éditeur...
                         </div>
                       )}
                     </div>

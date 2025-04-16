@@ -25,7 +25,10 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {template.content && (
             <div className="mb-4">
               <h4 className="font-semibold text-sm">Contenu</h4>
-              <div className="p-4 border rounded-md bg-gray-50 mt-1" dangerouslySetInnerHTML={{ __html: template.content }} />
+              <div 
+                className="border rounded-md p-4 bg-white mt-1 overflow-auto max-h-[500px]"
+                dangerouslySetInnerHTML={{ __html: template.content }}
+              />
             </div>
           )}
           {template.webLink && (
