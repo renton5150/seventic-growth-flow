@@ -32,8 +32,11 @@ export function useGrowthDashboard(defaultTab?: string) {
   } = useRequestQueries(user?.id);
   
   useEffect(() => {
-    // Maintenir la liste complète de toutes les requêtes pour l'onglet "all"
-    setAllRequests(allGrowthRequests);
+    if (allGrowthRequests && allGrowthRequests.length > 0) {
+      console.log("Mise à jour des requêtes dans useGrowthDashboard:", allGrowthRequests);
+      // Maintenir la liste complète de toutes les requêtes pour tous les onglets
+      setAllRequests(allGrowthRequests);
+    }
   }, [allGrowthRequests]);
   
   const handleRequestUpdated = () => {
@@ -45,11 +48,13 @@ export function useGrowthDashboard(defaultTab?: string) {
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);
   
   const handleOpenEditDialog = (request: Request) => {
+    console.log("Ouverture du dialogue d'édition avec la requête:", request);
     setSelectedRequest(request);
     setIsEditDialogOpen(true);
   };
   
   const handleOpenCompletionDialog = (request: Request) => {
+    console.log("Ouverture du dialogue de complétion avec la requête:", request);
     setSelectedRequest(request);
     setIsCompletionDialogOpen(true);
   };
@@ -60,9 +65,11 @@ export function useGrowthDashboard(defaultTab?: string) {
   
   // Utiliser useMemo pour filtrer les requêtes en fonction de l'onglet actif
   const filteredRequests = useMemo(() => {
+    console.log("Filtrage des requêtes pour l'onglet:", activeTab, "avec", allRequests.length, "requêtes");
+    
     switch (activeTab) {
       case "all":
-        return allRequests;
+        return allGrowthRequests; // Utiliser directement allGrowthRequests pour l'onglet "all"
       case "to_assign":
         return toAssignRequests;
       case "my_assignments":
@@ -80,13 +87,13 @@ export function useGrowthDashboard(defaultTab?: string) {
       case "completed":
         return allRequests.filter(req => req.workflow_status === "completed");
       default:
-        return allRequests;
+        return allGrowthRequests;
     }
-  }, [activeTab, allRequests, toAssignRequests, myAssignmentsRequests]);
+  }, [activeTab, allRequests, toAssignRequests, myAssignmentsRequests, allGrowthRequests]);
   
   return {
     filteredRequests,
-    allRequests,
+    allRequests: allGrowthRequests, // Utiliser allGrowthRequests pour garantir que les données sont à jour
     isLoading: false,
     activeTab,
     setActiveTab,

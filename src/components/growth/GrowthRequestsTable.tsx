@@ -41,6 +41,9 @@ export function GrowthRequestsTable({
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
 
+  // Log pour vérifier les noms des missions
+  console.log("Affichage des requêtes dans GrowthRequestsTable:", requests);
+
   return (
     <div className="border rounded-md">
       <Table>

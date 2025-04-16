@@ -30,7 +30,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Requêtes à affecter récupérées:", data);
-      return data.map(formatRequestFromDb);
+      return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
   });
@@ -59,7 +59,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Mes assignations récupérées:", data);
-      return data.map(formatRequestFromDb);
+      return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
   });
@@ -88,7 +88,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Toutes les requêtes récupérées:", data);
-      return data.map(formatRequestFromDb);
+      return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
   });

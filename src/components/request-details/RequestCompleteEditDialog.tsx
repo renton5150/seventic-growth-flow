@@ -28,6 +28,9 @@ export function RequestCompleteEditDialog({
 }: RequestCompleteEditDialogProps) {
   if (!request) return null;
 
+  // Log pour déboguer le problème de nom de mission
+  console.log("Mission dans RequestCompleteEditDialog:", request.missionName, request);
+
   const handleRequestUpdated = () => {
     onOpenChange(false);
     onRequestUpdated();
@@ -43,6 +46,12 @@ export function RequestCompleteEditDialog({
             Modifiez tous les aspects de cette demande.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="mb-4">
+          <p className="text-sm text-muted-foreground">
+            <strong>Mission:</strong> {request.missionName || "Non assignée"}
+          </p>
+        </div>
 
         {request.type === "email" && (
           <EmailCampaignForm 

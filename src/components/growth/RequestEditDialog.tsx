@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Request, RequestStatus } from "@/types/types";
 import { updateRequest } from "@/services/requestService";
@@ -36,6 +36,17 @@ export function RequestEditDialog({
   selectedRequest, 
   onRequestUpdated 
 }: RequestEditDialogProps) {
+  useEffect(() => {
+    if (selectedRequest) {
+      console.log("Mission dans RequestEditDialog:", selectedRequest.missionName);
+      form.reset({
+        title: selectedRequest.title,
+        dueDate: new Date(selectedRequest.dueDate).toISOString().split('T')[0],
+        status: selectedRequest.status || "pending"
+      });
+    }
+  }, [selectedRequest]);
+
   const form = useForm<{
     title: string;
     dueDate: string;
@@ -82,6 +93,14 @@ export function RequestEditDialog({
             Modifiez les détails de cette demande.
           </DialogDescription>
         </DialogHeader>
+        
+        {selectedRequest && (
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground">
+              <strong>Mission:</strong> {selectedRequest.missionName || "Non assignée"}
+            </p>
+          </div>
+        )}
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSaveEdit)} className="space-y-4">

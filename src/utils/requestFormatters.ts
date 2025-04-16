@@ -21,21 +21,25 @@ export function formatRequestFromDb(dbRequest: any): Request {
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
-  // Récupération prioritaire du nom de la mission
-  let missionName = null;
+  // Récupération du nom de la mission
+  let missionName = "Mission sans nom";
   
   // Vérifier et traiter les données de mission selon leur structure
   if (dbRequest.missions) {
     // Cas 1: Si missions est un tableau (relation many)
     if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
-      missionName = dbRequest.missions[0].name || dbRequest.missions[0].client;
+      missionName = dbRequest.missions[0].name || dbRequest.missions[0].client || "Mission sans nom";
       console.log("Nom de mission récupéré d'un tableau:", missionName);
     }
     // Cas 2: Si missions est un objet unique (relation one-to-one)
-    else if (typeof dbRequest.missions === 'object') {
-      missionName = dbRequest.missions.name || dbRequest.missions.client;
+    else if (typeof dbRequest.missions === 'object' && dbRequest.missions !== null) {
+      missionName = dbRequest.missions.name || dbRequest.missions.client || "Mission sans nom";
       console.log("Nom de mission récupéré d'un objet:", missionName);
     }
+  } else if (dbRequest.mission_name) {
+    // Cas 3: Si le nom de mission est directement dans la requête
+    missionName = dbRequest.mission_name || "Mission sans nom";
+    console.log("Nom de mission récupéré directement:", missionName);
   }
   
   console.log("Mission name final pour la requête", dbRequest.id, ":", missionName);
@@ -46,7 +50,7 @@ export function formatRequestFromDb(dbRequest: any): Request {
     title: dbRequest.title,
     type: dbRequest.type,
     missionId: dbRequest.mission_id,
-    missionName: missionName || "Mission sans nom",
+    missionName: missionName,
     createdBy: dbRequest.created_by,
     sdrName,
     createdAt,
