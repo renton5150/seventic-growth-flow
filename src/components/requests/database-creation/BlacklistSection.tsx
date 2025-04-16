@@ -1,10 +1,12 @@
 
+import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload } from "lucide-react";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
-import { FileUploader } from "@/components/requests/FileUploader";
 import { Textarea } from "@/components/ui/textarea";
+import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface BlacklistSectionProps {
   control: Control<any>;
@@ -12,7 +14,7 @@ interface BlacklistSectionProps {
   setBlacklistAccountsTab: (tab: string) => void;
   blacklistContactsTab: string;
   setBlacklistContactsTab: (tab: string) => void;
-  handleFileUpload: (field: string, files: FileList | null) => void;
+  handleFileUpload: (field: string, files: FileList | null | string) => void;
 }
 
 export const BlacklistSection = ({
@@ -23,17 +25,34 @@ export const BlacklistSection = ({
   setBlacklistContactsTab,
   handleFileUpload
 }: BlacklistSectionProps) => {
+  const [uploading, setUploading] = useState(false);
+
+  const handleBlacklistFileUpload = async (field: string, files: FileList | null) => {
+    setUploading(true);
+    try {
+      await handleFileUpload(field, files);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <Card className="border-t-4 border-t-seventic-500">
+    <Card className="border-t-4 border-t-red-500">
       <CardContent className="pt-6">
         <h3 className="text-lg font-semibold mb-4">Blacklist</h3>
         
-        <div className="space-y-8">
+        <div className="space-y-6">
+          {/* Blacklist d'entreprises */}
           <div>
-            <h4 className="font-medium mb-4">Comptes</h4>
-            <div className="space-y-4">
-              <div>
-                <h5 className="font-medium text-sm mb-2">Fichier</h5>
+            <h4 className="font-medium mb-2">Entreprises à exclure</h4>
+            
+            <Tabs value={blacklistAccountsTab} onValueChange={setBlacklistAccountsTab}>
+              <TabsList className="mb-4 grid w-[400px] grid-cols-2">
+                <TabsTrigger value="file">Fichier</TabsTrigger>
+                <TabsTrigger value="notes">Notes</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="file">
                 <FormField
                   control={control}
                   name="blacklistAccountsFileUrl"
@@ -42,47 +61,53 @@ export const BlacklistSection = ({
                       <FormControl>
                         <FileUploader
                           icon={<Upload className="h-6 w-6 text-muted-foreground" />}
-                          title="Importer la liste d'entreprises à exclure"
-                          description="Formats acceptés : XLS, XLSX, CSV (Max 50 Mo)"
+                          title={uploading ? "Téléchargement en cours..." : "Importer votre fichier d'exclusions"}
+                          description="Formats acceptés : XLS, XLSX, CSV (Max 10 Mo)"
                           value={field.value}
-                          onChange={(files) => handleFileUpload("blacklistAccountsFileUrl", files)}
+                          onChange={(files) => handleBlacklistFileUpload("blacklistAccountsFileUrl", files)}
                           accept=".xls,.xlsx,.csv"
-                          maxSize={50}
+                          maxSize={10}
+                          disabled={uploading}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-
-              <div>
-                <h5 className="font-medium text-sm mb-2">Notes</h5>
+              </TabsContent>
+              
+              <TabsContent value="notes">
                 <FormField
                   control={control}
                   name="blacklistAccountsNotes"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <Textarea 
-                          placeholder="Listez les entreprises à exclure (une par ligne) ou donnez des instructions spécifiques" 
-                          className="min-h-[100px]"
-                          {...field} 
+                        <Textarea
+                          placeholder="Entrez les noms des entreprises à exclure, un par ligne"
+                          className="min-h-[200px]"
+                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           </div>
-
+          
+          {/* Blacklist de contacts */}
           <div>
-            <h4 className="font-medium mb-4">Contacts</h4>
-            <div className="space-y-4">
-              <div>
-                <h5 className="font-medium text-sm mb-2">Fichier</h5>
+            <h4 className="font-medium mb-2">Contacts à exclure</h4>
+            
+            <Tabs value={blacklistContactsTab} onValueChange={setBlacklistContactsTab}>
+              <TabsList className="mb-4 grid w-[400px] grid-cols-2">
+                <TabsTrigger value="file">Fichier</TabsTrigger>
+                <TabsTrigger value="notes">Notes</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="file">
                 <FormField
                   control={control}
                   name="blacklistContactsFileUrl"
@@ -91,40 +116,40 @@ export const BlacklistSection = ({
                       <FormControl>
                         <FileUploader
                           icon={<Upload className="h-6 w-6 text-muted-foreground" />}
-                          title="Importer la liste de contacts à exclure"
-                          description="Formats acceptés : XLS, XLSX, CSV (Max 50 Mo)"
+                          title={uploading ? "Téléchargement en cours..." : "Importer votre fichier d'exclusions"}
+                          description="Formats acceptés : XLS, XLSX, CSV (Max 10 Mo)"
                           value={field.value}
-                          onChange={(files) => handleFileUpload("blacklistContactsFileUrl", files)}
+                          onChange={(files) => handleBlacklistFileUpload("blacklistContactsFileUrl", files)}
                           accept=".xls,.xlsx,.csv"
-                          maxSize={50}
+                          maxSize={10}
+                          disabled={uploading}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-
-              <div>
-                <h5 className="font-medium text-sm mb-2">Notes</h5>
+              </TabsContent>
+              
+              <TabsContent value="notes">
                 <FormField
                   control={control}
                   name="blacklistContactsNotes"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <Textarea 
-                          placeholder="Listez les contacts à exclure (un par ligne) ou donnez des instructions spécifiques" 
-                          className="min-h-[100px]"
-                          {...field} 
+                        <Textarea
+                          placeholder="Entrez les emails des contacts à exclure, un par ligne"
+                          className="min-h-[200px]"
+                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </CardContent>

@@ -23,9 +23,10 @@ import { getMissionsByUserId } from "@/services/missionService";
 interface FormHeaderProps {
   control: Control<any>;
   user: User | null;
+  editMode?: boolean;
 }
 
-export const FormHeader = ({ control, user }: FormHeaderProps) => {
+export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps) => {
   // Récupérer les missions de l'utilisateur connecté
   const { data: userMissions = [] } = useQuery({
     queryKey: ['missions', user?.id],

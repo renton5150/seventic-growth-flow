@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +27,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
+  const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
 
   // Préparer les valeurs initiales en mode édition
   const getInitialValues = () => {
@@ -42,21 +44,23 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         accounts: { notes: "", fileUrl: "" }
       };
 
+      // Convert string date to Date object
       const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
-      const formattedDueDate = dueDate.toISOString().split('T')[0];
 
       return {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
-        dueDate: formattedDueDate,
-        tool: initialData.tool || "",
-        jobTitles: targeting.jobTitles || [],
-        industries: targeting.industries || [],
-        locations: targeting.locations || [],
-        companySize: targeting.companySize || [],
+        dueDate: dueDate,
+        tool: initialData.tool || "Hubspot",
+        jobTitles: targeting.jobTitles.join(", ") || "",
+        industries: targeting.industries.join(", ") || "",
+        locations: targeting.locations?.join(", ") || "",
+        companySize: targeting.companySize.join(", ") || "",
         otherCriteria: targeting.otherCriteria || "",
-        blacklistAccountsFileUrl: blacklist.accounts.fileUrl || "",
-        blacklistAccountsNotes: blacklist.accounts.notes || "",
+        blacklistAccountsFileUrl: blacklist.accounts?.fileUrl || "",
+        blacklistAccountsNotes: blacklist.accounts?.notes || "",
+        blacklistContactsFileUrl: blacklist.emails?.fileUrl || "",
+        blacklistContactsNotes: blacklist.emails?.notes || "",
       };
     }
     return defaultValues;
@@ -71,17 +75,31 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   useEffect(() => {
     if (editMode && initialData && initialData.blacklist) {
       const blacklist = initialData.blacklist || {
-        accounts: { notes: "", fileUrl: "" }
+        accounts: { notes: "", fileUrl: "" },
+        emails: { notes: "", fileUrl: "" }
       };
       
       const accounts = blacklist.accounts || { notes: "", fileUrl: "" };
+      const emails = blacklist.emails || { notes: "", fileUrl: "" };
 
       // Définir l'onglet actif pour les comptes blacklist
       if (accounts.notes && !accounts.fileUrl) {
         setBlacklistAccountsTab("notes");
       }
+      
+      // Définir l'onglet actif pour les contacts blacklist
+      if (emails?.notes && !emails.fileUrl) {
+        setBlacklistContactsTab("notes");
+      }
     }
   }, [editMode, initialData]);
+  
+  // Update form values when initialData changes
+  useEffect(() => {
+    if (editMode && initialData) {
+      form.reset(getInitialValues());
+    }
+  }, [initialData, editMode, form]);
 
   // Vérifier que le client Supabase est correctement initialisé
   useEffect(() => {
@@ -123,16 +141,20 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         createdBy: user.id,
         tool: data.tool,
         targeting: {
-          jobTitles: data.jobTitles,
-          industries: data.industries,
-          locations: data.locations,
-          companySize: data.companySize,
-          otherCriteria: data.otherCriteria
+          jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()) : [],
+          industries: data.industries ? data.industries.split(",").map(item => item.trim()) : [],
+          locations: data.locations ? data.locations.split(",").map(item => item.trim()) : [],
+          companySize: data.companySize ? data.companySize.split(",").map(item => item.trim()) : [],
+          otherCriteria: data.otherCriteria || ""
         },
         blacklist: {
           accounts: {
             fileUrl: data.blacklistAccountsFileUrl || "",
             notes: data.blacklistAccountsNotes || ""
+          },
+          emails: {
+            fileUrl: data.blacklistContactsFileUrl || "",
+            notes: data.blacklistContactsNotes || ""
           }
         },
         dueDate: dueDate
@@ -213,6 +235,8 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
           control={form.control} 
           blacklistAccountsTab={blacklistAccountsTab}
           setBlacklistAccountsTab={setBlacklistAccountsTab}
+          blacklistContactsTab={blacklistContactsTab}
+          setBlacklistContactsTab={setBlacklistContactsTab}
           handleFileUpload={handleFileUpload}
         />
         <FormFooter submitting={submitting} editMode={editMode} />

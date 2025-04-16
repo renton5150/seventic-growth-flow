@@ -9,6 +9,7 @@ export const formSchema = z.object({
   jobTitles: z.string().optional(),
   industries: z.string().optional(),
   companySize: z.string().optional(),
+  locations: z.string().optional(),
   otherCriteria: z.string().optional(),
   blacklistAccountsFileUrl: z.string().optional(),
   blacklistAccountsNotes: z.string().optional(),
@@ -16,7 +17,7 @@ export const formSchema = z.object({
   blacklistContactsNotes: z.string().optional(),
 }).refine(data => {
   // Au moins un des critères de ciblage doit être rempli
-  return !!data.jobTitles || !!data.industries || !!data.companySize || !!data.otherCriteria;
+  return !!data.jobTitles || !!data.industries || !!data.companySize || !!data.locations || !!data.otherCriteria;
 }, {
   message: "Veuillez fournir au moins un critère de ciblage",
   path: ["jobTitles"],
@@ -27,9 +28,11 @@ export type FormData = z.infer<typeof formSchema>;
 export const defaultValues = {
   title: "",
   missionId: "",
+  dueDate: new Date(),
   tool: "Hubspot" as const,
   jobTitles: "",
   industries: "",
+  locations: "",
   companySize: "",
   otherCriteria: "",
   blacklistAccountsFileUrl: "",

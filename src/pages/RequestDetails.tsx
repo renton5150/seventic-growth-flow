@@ -41,56 +41,56 @@ const RequestDetails = () => {
   const [commentLoading, setCommentLoading] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchRequestDetails = async () => {
-      if (id) {
-        try {
-          setLoading(true);
-          const { data, error } = await supabase
-            .from('requests')
-            .select(`
-              *,
-              created_by_profile:profiles!requests_created_by_fkey(name, avatar),
-              assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
-              missions:mission_id(name, description)
-            `)
-            .eq('id', id)
-            .single();
-            
-          if (error) {
-            console.error("Erreur lors de la récupération des détails de la demande:", error);
-            toast.error("Erreur lors de la récupération des détails de la demande");
-            navigate(-1);
-            return;
-          }
+  const fetchRequestDetails = async () => {
+    if (id) {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('requests')
+          .select(`
+            *,
+            created_by_profile:profiles!requests_created_by_fkey(name, avatar),
+            assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
+            missions:mission_id(name, description)
+          `)
+          .eq('id', id)
+          .single();
           
-          const formattedRequest = formatRequestFromDb(data);
-          setRequest(formattedRequest);
-          
-          if (data.missions) {
-            setMission({
-              id: data.mission_id,
-              name: data.missions.name,
-              description: data.missions.description,
-              sdrId: data.created_by,
-              sdrName: data.created_by_profile?.name,
-              createdAt: new Date(data.created_at),
-              startDate: null,
-              endDate: null,
-              type: "Full",
-              status: "En cours",
-              requests: []
-            });
-          }
-        } catch (error) {
+        if (error) {
           console.error("Erreur lors de la récupération des détails de la demande:", error);
           toast.error("Erreur lors de la récupération des détails de la demande");
-        } finally {
-          setLoading(false);
+          navigate(-1);
+          return;
         }
+        
+        const formattedRequest = formatRequestFromDb(data);
+        setRequest(formattedRequest);
+        
+        if (data.missions) {
+          setMission({
+            id: data.mission_id,
+            name: data.missions.name,
+            description: data.missions.description,
+            sdrId: data.created_by,
+            sdrName: data.created_by_profile?.name,
+            createdAt: new Date(data.created_at),
+            startDate: null,
+            endDate: null,
+            type: "Full",
+            status: "En cours",
+            requests: []
+          });
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération des détails de la demande:", error);
+        toast.error("Erreur lors de la récupération des détails de la demande");
+      } finally {
+        setLoading(false);
       }
-    };
+    }
+  };
 
+  useEffect(() => {
     fetchRequestDetails();
   }, [id, navigate]);
 

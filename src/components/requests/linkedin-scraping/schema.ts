@@ -23,6 +23,7 @@ export type FormData = z.infer<typeof formSchema>;
 export const defaultValues = {
   title: "",
   missionId: "",
+  dueDate: new Date(),
   jobTitles: "",
   locations: "",
   industries: "",

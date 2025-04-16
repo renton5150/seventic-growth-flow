@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -34,17 +35,17 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         otherCriteria: ""
       };
 
+      // Convert string date to Date object
       const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
-      const formattedDueDate = dueDate.toISOString().split('T')[0];
 
       return {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
-        dueDate: formattedDueDate,
-        jobTitles: targeting.jobTitles || [],
-        industries: targeting.industries || [],
-        locations: targeting.locations || [],
-        companySize: targeting.companySize || [],
+        dueDate: dueDate,
+        jobTitles: targeting.jobTitles.join(", ") || "",
+        industries: targeting.industries.join(", ") || "",
+        locations: targeting.locations?.join(", ") || "",
+        companySize: targeting.companySize.join(", ") || "",
         otherCriteria: targeting.otherCriteria || ""
       };
     }
@@ -80,10 +81,10 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         createdBy: user.id,
         dueDate: dueDate,
         targeting: {
-          jobTitles: data.jobTitles || [],
-          industries: data.industries || [],
-          locations: data.locations || [],
-          companySize: data.companySize || [],
+          jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()) : [],
+          industries: data.industries ? data.industries.split(",").map(item => item.trim()) : [],
+          locations: data.locations ? data.locations.split(",").map(item => item.trim()) : [],
+          companySize: data.companySize ? data.companySize.split(",").map(item => item.trim()) : [],
           otherCriteria: data.otherCriteria || ""
         }
       };
