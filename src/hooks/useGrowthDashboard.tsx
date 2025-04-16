@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request } from "@/types/types";
@@ -29,10 +30,15 @@ export function useGrowthDashboard(defaultTab?: string) {
     queryFn: async () => {
       if (!user) return [];
       
-      // Récupérer toutes les requêtes pour la vue générale
+      // Récupérer toutes les requêtes pour la vue générale avec jointure sur missions
       const { data: allRequests, error } = await supabase
         .from('requests')
-        .select('*, profiles:created_by(name, avatar), assigned_profile:assigned_to(name, avatar)')
+        .select(`
+          *, 
+          profiles:created_by(name, avatar), 
+          assigned_profile:assigned_to(name, avatar),
+          missions:mission_id(name, id)
+        `)
         .order('due_date', { ascending: true });
       
       if (error) {
@@ -53,7 +59,11 @@ export function useGrowthDashboard(defaultTab?: string) {
       
       const { data, error } = await supabase
         .from('requests')
-        .select('*, profiles:created_by(name, avatar)')
+        .select(`
+          *,
+          profiles:created_by(name, avatar),
+          missions:mission_id(name, id)
+        `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
@@ -76,7 +86,11 @@ export function useGrowthDashboard(defaultTab?: string) {
       
       const { data, error } = await supabase
         .from('requests')
-        .select('*, profiles:created_by(name, avatar)')
+        .select(`
+          *,
+          profiles:created_by(name, avatar),
+          missions:mission_id(name, id)
+        `)
         .eq('assigned_to', user.id)
         .order('due_date', { ascending: true });
       
@@ -197,12 +211,16 @@ export function useGrowthDashboard(defaultTab?: string) {
     // Récupère les détails du Growth assigné si disponibles
     const assignedToName = dbRequest.assigned_profile?.name || null;
     
+    // Récupère le nom de la mission s'il est disponible
+    const missionName = dbRequest.missions?.name || "Mission sans nom";
+    
     // Construit l'objet requête formaté
     return {
       id: dbRequest.id,
       title: dbRequest.title,
       type: dbRequest.type,
       missionId: dbRequest.mission_id,
+      missionName: missionName,
       createdBy: dbRequest.created_by,
       sdrName: sdrName,
       createdAt: createdAt,

@@ -25,7 +25,8 @@ import {
   ArrowRightLeft,
   Pencil,
   Check,
-  XCircle
+  XCircle,
+  Briefcase
 } from "lucide-react";
 import { EmptyRequestsRow } from "../dashboard/requests-table/EmptyRequestsRow";
 import {
@@ -181,7 +182,12 @@ export function GrowthRequestsTable({
                 <TableCell>
                   <div className="font-medium">{request.title}</div>
                 </TableCell>
-                <TableCell>Mission {request.missionId}</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <Briefcase className="mr-2 h-4 w-4 text-gray-500" />
+                    {request.missionName || "Mission sans nom"}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center">
                     <Users className="mr-1 h-4 w-4 text-muted-foreground" />
