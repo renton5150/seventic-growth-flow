@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { RequestsTable } from "./requests-table";
 import { Request } from "@/types/types";
 
@@ -13,7 +13,6 @@ interface DashboardTabsProps {
   filteredRequests: Request[];
   isAdmin: boolean;
   onRequestDeleted?: () => void;
-  isLoading?: boolean;
 }
 
 export const DashboardTabs = ({ 
@@ -21,8 +20,7 @@ export const DashboardTabs = ({
   setActiveTab, 
   filteredRequests,
   isAdmin = false,
-  onRequestDeleted,
-  isLoading = false
+  onRequestDeleted
 }: DashboardTabsProps) => {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
@@ -38,7 +36,7 @@ export const DashboardTabs = ({
           <TabsTrigger value="all">
             Toutes
             <span className="ml-2 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
-              {isLoading ? '...' : filteredRequests.length}
+              {filteredRequests.length}
             </span>
           </TabsTrigger>
           <TabsTrigger value="email">Emailing</TabsTrigger>
@@ -53,20 +51,14 @@ export const DashboardTabs = ({
         </Button>
       </div>
       
-      {isLoading ? (
-        <div className="flex justify-center items-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Chargement des demandes...</span>
-        </div>
-      ) : (
-        <TabsContent value={activeTab} className="space-y-4">
-          <RequestsTable 
-            requests={filteredRequests}
-            showSdr={isAdmin}
-            onRequestDeleted={onRequestDeleted}
-          />
-        </TabsContent>
-      )}
+      {/* On utilise le même contenu pour tous les onglets car le filtrage est déjà géré par le parent */}
+      <TabsContent value={activeTab} className="space-y-4">
+        <RequestsTable 
+          requests={filteredRequests}
+          showSdr={isAdmin}
+          onRequestDeleted={onRequestDeleted}
+        />
+      </TabsContent>
     </Tabs>
   );
 };
