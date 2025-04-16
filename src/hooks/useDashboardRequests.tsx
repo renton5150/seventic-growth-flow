@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
@@ -26,15 +25,10 @@ export const useDashboardRequests = () => {
       
       console.log("Récupération des requêtes pour le tableau de bord");
       try {
-        // Récupérer les requêtes avec les relations
+        // Utilisation de la vue requests_with_missions
         const { data, error } = await supabase
-          .from('requests')
-          .select(`
-            *,
-            created_by_profile:profiles!created_by(name, avatar),
-            assigned_profile:profiles!assigned_to(name, avatar),
-            missions(name, client)
-          `);
+          .from('requests_with_missions')
+          .select('*');
           
         if (error) {
           console.error("Erreur lors de la récupération des requêtes:", error);

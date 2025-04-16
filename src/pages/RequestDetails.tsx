@@ -46,13 +46,8 @@ const RequestDetails = () => {
       try {
         setLoading(true);
         const { data, error } = await supabase
-          .from('requests')
-          .select(`
-            *,
-            created_by_profile:profiles!requests_created_by_fkey(name, avatar),
-            assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
-            missions:mission_id(name, client, description)
-          `)
+          .from('requests_with_missions')
+          .select('*')
           .eq('id', id)
           .single();
           
@@ -64,20 +59,19 @@ const RequestDetails = () => {
         }
         
         console.log("Données brutes de la requête récupérée:", data);
-        console.log("Relation mission dans la requête:", data.missions);
         
         const formattedRequest = formatRequestFromDb(data);
         setRequest(formattedRequest);
         
-        if (data.missions) {
-          const missionName = data.missions.name || data.missions.client || "Mission sans nom";
+        if (data.mission_id) {
+          const missionName = data.mission_name || "Mission sans nom";
           
           setMission({
             id: data.mission_id,
             name: missionName,
-            description: data.missions.description,
+            description: data.mission_client ? `Client: ${data.mission_client}` : "",
             sdrId: data.created_by,
-            sdrName: data.created_by_profile?.name,
+            sdrName: data.sdr_name,
             createdAt: new Date(data.created_at),
             startDate: null,
             endDate: null,

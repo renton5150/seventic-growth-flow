@@ -12,14 +12,10 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("Récupération des requêtes à affecter pour Growth avec userId:", userId);
+      // Utilisation de la vue requests_with_missions
       const { data, error } = await supabase
-        .from('requests')
-        .select(`
-          *,
-          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
-          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
-          missions(name, client)
-        `)
+        .from('requests_with_missions')
+        .select('*')
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
@@ -30,9 +26,6 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Requêtes à affecter récupérées:", data);
-      if (data && data.length > 0) {
-        console.log("Structure missions dans requêtes à affecter:", data[0].missions);
-      }
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -45,14 +38,10 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("Récupération de mes assignations pour Growth avec userId:", userId);
+      // Utilisation de la vue requests_with_missions
       const { data, error } = await supabase
-        .from('requests')
-        .select(`
-          *,
-          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
-          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
-          missions(name, client)
-        `)
+        .from('requests_with_missions')
+        .select('*')
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
       
@@ -62,9 +51,6 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Mes assignations récupérées:", data);
-      if (data && data.length > 0) {
-        console.log("Structure missions dans assignations:", data[0].missions);
-      }
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -77,14 +63,10 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("Récupération de toutes les requêtes growth avec userId:", userId);
+      // Utilisation de la vue requests_with_missions
       const { data, error } = await supabase
-        .from('requests')
-        .select(`
-          *,
-          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
-          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
-          missions(name, client)
-        `)
+        .from('requests_with_missions')
+        .select('*')
         .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
       
@@ -94,10 +76,6 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Toutes les requêtes récupérées:", data);
-      if (data && data.length > 0) {
-        console.log("Exemple de requête récupérée avec mission:", data[0]);
-        console.log("Structure missions dans toutes les requêtes:", data[0].missions);
-      }
       
       return data.map(request => formatRequestFromDb(request));
     },
@@ -108,14 +86,10 @@ export function useRequestQueries(userId: string | undefined) {
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
       console.log("Récupération des détails pour la demande:", requestId);
+      // Utilisation de la vue requests_with_missions
       const { data, error } = await supabase
-        .from('requests')
-        .select(`
-          *,
-          created_by_profile:profiles!requests_created_by_fkey(name, avatar),
-          assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
-          missions(name, client, description)
-        `)
+        .from('requests_with_missions')
+        .select('*')
         .eq('id', requestId)
         .single();
 
@@ -125,7 +99,6 @@ export function useRequestQueries(userId: string | undefined) {
       }
 
       console.log("Détails de la demande récupérés:", data);
-      console.log("Structure missions dans les détails:", data?.missions);
       return formatRequestFromDb(data);
     } catch (err) {
       console.error("Erreur lors de la récupération des détails:", err);

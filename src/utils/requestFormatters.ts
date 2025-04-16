@@ -12,43 +12,17 @@ export function formatRequestFromDb(dbRequest: any): Request {
   const isLate = dueDate < new Date() && 
                  (dbRequest.workflow_status !== 'completed' && dbRequest.workflow_status !== 'canceled');
   
-  // Get SDR name from relationships
-  const sdrName = dbRequest.created_by_profile?.name || "Non assigné";
+  // Get SDR name from relationships or directly from the view
+  const sdrName = dbRequest.sdr_name || dbRequest.created_by_profile?.name || "Non assigné";
   
-  // Get assigned person name
-  const assignedToName = dbRequest.assigned_profile?.name || null;
+  // Get assigned person name from view or relationships
+  const assignedToName = dbRequest.assigned_to_name || dbRequest.assigned_profile?.name || null;
   
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
   // Récupération du nom de la mission
-  let missionName = "Mission sans nom";
-  
-  // Analyse et traitement des données de la mission selon la structure renvoyée par Supabase
-  if (dbRequest.missions) {
-    console.log("Structure des données de mission récupérées:", dbRequest.missions);
-    
-    // Si missions est un objet direct (cas du profil Growth)
-    if (typeof dbRequest.missions === 'object' && !Array.isArray(dbRequest.missions)) {
-      if (dbRequest.missions.name) {
-        missionName = dbRequest.missions.name;
-        console.log("Nom de mission récupéré depuis l'objet missions:", missionName);
-      } else if (dbRequest.missions.client) {
-        missionName = dbRequest.missions.client;
-        console.log("Nom de client récupéré depuis l'objet missions:", missionName);
-      }
-    }
-    // Si missions est un tableau (cas possible pour certaines requêtes)
-    else if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
-      const firstMission = dbRequest.missions[0];
-      missionName = firstMission.name || firstMission.client || "Mission sans nom";
-      console.log("Nom de mission récupéré d'un tableau:", missionName);
-    }
-  } else if (dbRequest.mission_name) {
-    // Cas où le nom de mission est directement dans la requête
-    missionName = dbRequest.mission_name;
-    console.log("Nom de mission récupéré directement:", missionName);
-  }
+  let missionName = dbRequest.mission_name || "Mission sans nom";
   
   console.log("Mission name final pour la requête", dbRequest.id, ":", missionName);
   

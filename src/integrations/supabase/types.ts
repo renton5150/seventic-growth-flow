@@ -208,7 +208,51 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      requests_with_missions: {
+        Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
+          created_at: string | null
+          created_by: string | null
+          details: Json | null
+          due_date: string | null
+          id: string | null
+          last_updated: string | null
+          mission_client: string | null
+          mission_id: string | null
+          mission_name: string | null
+          sdr_name: string | null
+          status: string | null
+          target_role: string | null
+          title: string | null
+          type: string | null
+          updated_at: string | null
+          workflow_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requests_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       create_user_profile: {
