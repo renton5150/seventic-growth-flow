@@ -2,17 +2,20 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Calendar, Users, Clock, Check, AlertCircle } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request, Mission, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { GrowthRequestStatusBadge } from "@/components/growth/table/GrowthRequestStatusBadge";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
+import { EmailCampaignDetails } from "@/components/request-details/EmailCampaignDetails";
+import { DatabaseDetails } from "@/components/request-details/DatabaseDetails";
+import { LinkedInDetails } from "@/components/request-details/LinkedInDetails";
+import { RequestComments } from "@/components/request-details/RequestComments";
+import { RequestInfo } from "@/components/request-details/RequestInfo";
 
 function isEmailRequest(request: Request): request is EmailCampaignRequest {
   return request.type === "email";
@@ -45,8 +48,8 @@ const RequestDetails = () => {
             .from('requests')
             .select(`
               *,
-              created_by_profile:profiles!created_by(name, avatar),
-              assigned_profile:assigned_to(name, avatar),
+              created_by_profile:profiles!requests_created_by_fkey(name, avatar),
+              assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
               missions:mission_id(name, description)
             `)
             .eq('id', id)
@@ -59,11 +62,9 @@ const RequestDetails = () => {
             return;
           }
           
-          // Format the request using our utility
           const formattedRequest = formatRequestFromDb(data);
           setRequest(formattedRequest);
           
-          // Get mission details if needed
           if (data.missions) {
             setMission({
               id: data.mission_id,
@@ -97,11 +98,9 @@ const RequestDetails = () => {
     try {
       setCommentLoading(true);
       
-      // Get existing comments or create an empty array
       const currentDetails = request.details || {};
       const currentComments = currentDetails.comments || [];
       
-      // Add the new comment
       const newComment = {
         id: Date.now().toString(),
         text: comment,
@@ -112,7 +111,6 @@ const RequestDetails = () => {
       
       const newComments = [...currentComments, newComment];
       
-      // Update the request with the new comment
       const { error } = await supabase
         .from('requests')
         .update({
@@ -130,7 +128,6 @@ const RequestDetails = () => {
         return;
       }
       
-      // Update the UI
       setRequest({
         ...request,
         details: {
@@ -148,370 +145,6 @@ const RequestDetails = () => {
     } finally {
       setCommentLoading(false);
     }
-  };
-
-  const renderEmailCampaignDetails = () => {
-    if (!request || !isEmailRequest(request)) return null;
-
-    // Safely access email campaign specific fields
-    const template = request.template || { content: "", webLink: "", fileUrl: "" };
-    const database = request.database || { notes: "", webLink: "", fileUrl: "" };
-    const blacklist = request.blacklist || { 
-      accounts: { notes: "", fileUrl: "" },
-      emails: { notes: "", fileUrl: "" }
-    };
-
-    return (
-      <>
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle>Template Email</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {template && template.content && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Contenu</h4>
-                <div className="p-4 border rounded-md bg-gray-50 mt-1" dangerouslySetInnerHTML={{ __html: template.content }} />
-              </div>
-            )}
-            {template && template.webLink && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Lien web</h4>
-                <a href={template.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                  {template.webLink}
-                </a>
-              </div>
-            )}
-            {template && template.fileUrl && (
-              <div>
-                <h4 className="font-semibold text-sm">Fichier attaché</h4>
-                <a href={template.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                  Télécharger le fichier
-                </a>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle>Base de données</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {database && database.notes && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Notes</h4>
-                <p>{database.notes}</p>
-              </div>
-            )}
-            {database && database.fileUrl && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Fichier</h4>
-                <a href={database.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                  Télécharger la base de données
-                </a>
-              </div>
-            )}
-            {database && database.webLink && (
-              <div>
-                <h4 className="font-semibold text-sm">Lien web</h4>
-                <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                  {database.webLink}
-                </a>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {blacklist && (blacklist.accounts || blacklist.emails) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Liste noire</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {blacklist.accounts && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Comptes exclus</h4>
-                  <p>{blacklist.accounts.notes}</p>
-                  {blacklist.accounts.fileUrl && (
-                    <a href={blacklist.accounts.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                      Télécharger la liste de comptes
-                    </a>
-                  )}
-                </div>
-              )}
-              {blacklist.emails && (
-                <div>
-                  <h4 className="font-semibold text-sm">Emails exclus</h4>
-                  <p>{blacklist.emails.notes}</p>
-                  {blacklist.emails.fileUrl && (
-                    <a href={blacklist.emails.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                      Télécharger la liste d'emails
-                    </a>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </>
-    );
-  };
-
-  const renderDatabaseDetails = () => {
-    if (!request || !isDatabaseRequest(request)) return null;
-
-    // Access database-specific fields
-    const tool = request.tool || "";
-    const targeting = request.targeting || {
-      jobTitles: [],
-      industries: [],
-      locations: [],
-      companySize: [],
-      otherCriteria: ""
-    };
-    const blacklist = request.blacklist || { accounts: { notes: "", fileUrl: "" } };
-    const contactsCreated = request.contactsCreated || 0;
-
-    return (
-      <>
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle>Informations de base</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {tool && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Outil utilisé</h4>
-                <p>{tool}</p>
-              </div>
-            )}
-            {contactsCreated > 0 && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Contacts créés</h4>
-                <p>{contactsCreated}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {targeting && (
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle>Critères de ciblage</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {targeting.jobTitles && targeting.jobTitles.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Titres de poste</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.jobTitles.map((title: string, index: number) => (
-                      <Badge key={index} variant="outline">{title}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.industries && targeting.industries.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Industries</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.industries.map((industry: string, index: number) => (
-                      <Badge key={index} variant="outline">{industry}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.locations && targeting.locations.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Localisations</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.locations.map((location: string, index: number) => (
-                      <Badge key={index} variant="outline">{location}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.companySize && targeting.companySize.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Taille d'entreprise</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.companySize.map((size: string, index: number) => (
-                      <Badge key={index} variant="outline">{size}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.otherCriteria && (
-                <div>
-                  <h4 className="font-semibold text-sm">Autres critères</h4>
-                  <p>{targeting.otherCriteria}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {blacklist && blacklist.accounts && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Liste noire</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {blacklist.accounts.notes && (
-                <p>{blacklist.accounts.notes}</p>
-              )}
-              {blacklist.accounts.fileUrl && (
-                <a href={blacklist.accounts.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                  Télécharger la liste d'exclusions
-                </a>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </>
-    );
-  };
-
-  const renderLinkedInDetails = () => {
-    if (!request || !isLinkedInRequest(request)) return null;
-
-    // Access LinkedIn-specific fields
-    const targeting = request.targeting || {
-      jobTitles: [],
-      industries: [],
-      locations: [],
-      companySize: [],
-      otherCriteria: ""
-    };
-    const profilesScraped = request.profilesScraped || 0;
-    const resultFileUrl = request.resultFileUrl || "";
-
-    return (
-      <>
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle>Résultats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {profilesScraped > 0 && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Profils récupérés</h4>
-                <p>{profilesScraped}</p>
-              </div>
-            )}
-            {resultFileUrl && (
-              <div>
-                <h4 className="font-semibold text-sm">Fichier de résultats</h4>
-                <a href={resultFileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                  Télécharger les résultats
-                </a>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {targeting && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Critères de ciblage</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {targeting.jobTitles && targeting.jobTitles.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Titres de poste</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.jobTitles.map((title: string, index: number) => (
-                      <Badge key={index} variant="outline">{title}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.industries && targeting.industries.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Industries</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.industries.map((industry: string, index: number) => (
-                      <Badge key={index} variant="outline">{industry}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.locations && targeting.locations.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Localisations</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.locations.map((location: string, index: number) => (
-                      <Badge key={index} variant="outline">{location}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.companySize && targeting.companySize.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Taille d'entreprise</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {targeting.companySize.map((size: string, index: number) => (
-                      <Badge key={index} variant="outline">{size}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {targeting.otherCriteria && (
-                <div>
-                  <h4 className="font-semibold text-sm">Autres critères</h4>
-                  <p>{targeting.otherCriteria}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </>
-    );
-  };
-
-  const renderComments = () => {
-    if (!request || !request.details) return null;
-
-    const comments = request.details.comments || [];
-
-    return (
-      <div className="space-y-4">
-        <div className="space-y-4">
-          {comments.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              Aucun commentaire pour le moment
-            </div>
-          ) : (
-            comments.map((comment: any) => (
-              <div key={comment.id} className="p-4 border rounded-md">
-                <div className="flex justify-between mb-2">
-                  <div className="font-semibold">{comment.user}</div>
-                  <div className="text-sm text-gray-500">
-                    {new Date(comment.timestamp).toLocaleString()}
-                  </div>
-                </div>
-                <p>{comment.text}</p>
-              </div>
-            ))
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          <Textarea
-            placeholder="Ajouter un commentaire..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <Button 
-            onClick={addComment} 
-            disabled={!comment.trim() || commentLoading}
-            className="w-full"
-          >
-            {commentLoading ? "Envoi en cours..." : "Ajouter un commentaire"}
-          </Button>
-        </div>
-      </div>
-    );
   };
 
   if (loading) {
@@ -568,88 +201,26 @@ const RequestDetails = () => {
                 <TabsTrigger value="comments">Commentaires</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="details" className="space-y-4">
-                {request?.type === "email" && renderEmailCampaignDetails()}
-                {request?.type === "database" && renderDatabaseDetails()}
-                {request?.type === "linkedin" && renderLinkedInDetails()}
+              <TabsContent value="details">
+                {isEmailRequest(request) && <EmailCampaignDetails request={request} />}
+                {isDatabaseRequest(request) && <DatabaseDetails request={request} />}
+                {isLinkedInRequest(request) && <LinkedInDetails request={request} />}
               </TabsContent>
               
               <TabsContent value="comments">
-                {renderComments()}
+                <RequestComments
+                  comments={request.details?.comments || []}
+                  comment={comment}
+                  commentLoading={commentLoading}
+                  onCommentChange={setComment}
+                  onAddComment={addComment}
+                />
               </TabsContent>
             </Tabs>
           </div>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Informations</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {request && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      <div>
-                        <div className="text-sm text-gray-500">Créée le</div>
-                        <div>{new Date(request.createdAt).toLocaleDateString()}</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      <div>
-                        <div className="text-sm text-gray-500">Date d'échéance</div>
-                        <div>{new Date(request.dueDate).toLocaleDateString()}</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      <div>
-                        <div className="text-sm text-gray-500">Dernière mise à jour</div>
-                        <div>{new Date(request.lastUpdated).toLocaleDateString()}</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <div>
-                        <div className="text-sm text-gray-500">Créée par</div>
-                        <div>{request.sdrName || "Inconnu"}</div>
-                      </div>
-                    </div>
-
-                    {request.assignedToName && (
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-green-500" />
-                        <div>
-                          <div className="text-sm text-gray-500">Assignée à</div>
-                          <div>{request.assignedToName}</div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {request.isLate && (
-                      <div className="flex items-center gap-2 text-red-500">
-                        <AlertCircle className="h-4 w-4" />
-                        <div>En retard</div>
-                      </div>
-                    )}
-                  </>
-                )}
-                
-                {mission && (
-                  <div className="pt-2 border-t">
-                    <h3 className="font-medium mb-1">Mission</h3>
-                    <p>{mission.name}</p>
-                    {mission.description && (
-                      <p className="text-sm text-gray-500 mt-1">{mission.description}</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <div>
+            <RequestInfo request={request} mission={mission} />
           </div>
         </div>
       </div>
