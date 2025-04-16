@@ -11,6 +11,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { mockData } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/types";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -45,21 +52,22 @@ export const FormHeader = ({ control, user }: FormHeaderProps) => {
           <FormItem>
             <FormLabel>Mission client</FormLabel>
             <FormControl>
-              <select
-                className={cn(
-                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                )}
-                {...field}
+              <Select 
+                value={field.value} 
+                onValueChange={field.onChange}
+                disabled={field.disabled}
               >
-                <option value="" disabled>
-                  Sélectionnez une mission
-                </option>
-                {userMissions.map((mission) => (
-                  <option key={mission.id} value={mission.id}>
-                    {mission.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez une mission" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userMissions.map((mission) => (
+                    <SelectItem key={mission.id} value={mission.id}>
+                      {mission.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -114,15 +122,19 @@ export const FormHeader = ({ control, user }: FormHeaderProps) => {
           <FormItem>
             <FormLabel>Outil</FormLabel>
             <FormControl>
-              <select
-                className={cn(
-                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                )}
-                {...field}
+              <Select 
+                value={field.value} 
+                onValueChange={field.onChange}
+                disabled={field.disabled}
               >
-                <option value="Hubspot">Hubspot</option>
-                <option value="Apollo">Apollo</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez un outil" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Hubspot">Hubspot</SelectItem>
+                  <SelectItem value="Apollo">Apollo</SelectItem>
+                </SelectContent>
+              </Select>
             </FormControl>
             <FormMessage />
           </FormItem>
