@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Calendar, Users, Clock, Check, AlertCircle, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Request, Mission } from "@/types/types";
+import { Request, Mission, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +13,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { GrowthRequestStatusBadge } from "@/components/growth/table/GrowthRequestStatusBadge";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
+
+function isEmailRequest(request: Request): request is EmailCampaignRequest {
+  return request.type === "email";
+}
+
+function isDatabaseRequest(request: Request): request is DatabaseRequest {
+  return request.type === "database";
+}
+
+function isLinkedInRequest(request: Request): request is LinkedInScrapingRequest {
+  return request.type === "linkedin";
+}
 
 const RequestDetails = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -33,7 +45,7 @@ const RequestDetails = () => {
             .from('requests')
             .select(`
               *,
-              created_by_profile:created_by(name, avatar),
+              profiles:created_by(name, avatar),
               assigned_profile:assigned_to(name, avatar),
               missions:mission_id(name, description)
             `)
@@ -47,18 +59,18 @@ const RequestDetails = () => {
             return;
           }
           
-          // Formater la demande en utilisant notre utilitaire
+          // Format the request using our utility
           const formattedRequest = formatRequestFromDb(data);
           setRequest(formattedRequest);
           
-          // Récupérer les détails de la mission associée si besoin
+          // Get mission details if needed
           if (data.missions) {
             setMission({
               id: data.mission_id,
               name: data.missions.name,
               description: data.missions.description,
               sdrId: data.created_by,
-              sdrName: data.created_by_profile?.name,
+              sdrName: data.profiles?.name,
               createdAt: new Date(data.created_at),
               startDate: null,
               endDate: null,
@@ -85,11 +97,11 @@ const RequestDetails = () => {
     try {
       setCommentLoading(true);
       
-      // Récupérer les commentaires existants ou créer un tableau vide
+      // Get existing comments or create an empty array
       const currentDetails = request.details || {};
       const currentComments = currentDetails.comments || [];
       
-      // Ajouter le nouveau commentaire
+      // Add the new comment
       const newComment = {
         id: Date.now().toString(),
         text: comment,
@@ -100,7 +112,7 @@ const RequestDetails = () => {
       
       const newComments = [...currentComments, newComment];
       
-      // Mettre à jour la demande avec le nouveau commentaire
+      // Update the request with the new comment
       const { error } = await supabase
         .from('requests')
         .update({
@@ -118,17 +130,15 @@ const RequestDetails = () => {
         return;
       }
       
-      // Mettre à jour l'interface utilisateur
-      if (request && request.details) {
-        setRequest({
-          ...request,
-          details: {
-            ...request.details,
-            comments: newComments
-          },
-          lastUpdated: new Date()
-        });
-      }
+      // Update the UI
+      setRequest({
+        ...request,
+        details: {
+          ...request.details,
+          comments: newComments
+        },
+        lastUpdated: new Date()
+      });
       
       setComment("");
       toast.success("Commentaire ajouté avec succès");
@@ -141,12 +151,15 @@ const RequestDetails = () => {
   };
 
   const renderEmailCampaignDetails = () => {
-    if (!request) return null;
+    if (!request || !isEmailRequest(request)) return null;
 
-    // Accéder aux champs spécifiques à une campagne email
-    const template = request.template || {};
-    const database = request.database || {};
-    const blacklist = request.blacklist || {};
+    // Access email campaign specific fields
+    const template = request.template || { content: "", webLink: "", fileUrl: "" };
+    const database = request.database || { notes: "", webLink: "", fileUrl: "" };
+    const blacklist = request.blacklist || { 
+      accounts: { notes: "", fileUrl: "" },
+      emails: { notes: "", fileUrl: "" }
+    };
 
     return (
       <>
@@ -246,12 +259,18 @@ const RequestDetails = () => {
   };
 
   const renderDatabaseDetails = () => {
-    if (!request) return null;
+    if (!request || !isDatabaseRequest(request)) return null;
 
-    // Accéder aux champs spécifiques à une base de données
+    // Access database-specific fields
     const tool = request.tool || "";
-    const targeting = request.targeting || {};
-    const blacklist = request.blacklist || {};
+    const targeting = request.targeting || {
+      jobTitles: [],
+      industries: [],
+      locations: [],
+      companySize: [],
+      otherCriteria: ""
+    };
+    const blacklist = request.blacklist || { accounts: { notes: "", fileUrl: "" } };
     const contactsCreated = request.contactsCreated || 0;
 
     return (
@@ -354,10 +373,16 @@ const RequestDetails = () => {
   };
 
   const renderLinkedInDetails = () => {
-    if (!request) return null;
+    if (!request || !isLinkedInRequest(request)) return null;
 
-    // Accéder aux champs spécifiques au scraping LinkedIn
-    const targeting = request.targeting || {};
+    // Access LinkedIn-specific fields
+    const targeting = request.targeting || {
+      jobTitles: [],
+      industries: [],
+      locations: [],
+      companySize: [],
+      otherCriteria: ""
+    };
     const profilesScraped = request.profilesScraped || 0;
     const resultFileUrl = request.resultFileUrl || "";
 

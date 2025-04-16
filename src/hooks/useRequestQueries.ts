@@ -14,7 +14,7 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          created_by_profile:created_by(name, avatar),
+          profiles:created_by(name, avatar),
           assigned_profile:assigned_to(name, avatar)
         `)
         .eq('workflow_status', 'pending_assignment')
@@ -40,7 +40,7 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          created_by_profile:created_by(name, avatar),
+          profiles:created_by(name, avatar),
           assigned_profile:assigned_to(name, avatar),
           missions:mission_id(name)
         `)
@@ -64,7 +64,7 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          created_by_profile:created_by(name, avatar),
+          profiles:created_by(name, avatar),
           assigned_profile:assigned_to(name, avatar),
           missions:mission_id(name)
         `)

@@ -9,18 +9,16 @@ export function formatRequestFromDb(dbRequest: any): Request {
   const isLate = dueDate < new Date() && 
                  (dbRequest.workflow_status !== 'completed' && dbRequest.workflow_status !== 'canceled');
   
-  // Obtenir le nom du SDR à partir des relations
-  const sdrName = dbRequest.profiles?.name || 
-                  dbRequest.created_by_profile?.name || 
-                  "Non assigné";
+  // Get SDR name from relationships
+  const sdrName = dbRequest.profiles?.name || "Non assigné";
   
-  // Obtenir le nom de la personne assignée
+  // Get assigned person name
   const assignedToName = dbRequest.assigned_profile?.name || null;
   
-  // Récupérer les détails spécifiques au type de requête
+  // Get specific details for the request type
   const details = dbRequest.details || {};
   
-  // Construire la requête de base
+  // Build the base request
   const baseRequest: Request = {
     id: dbRequest.id,
     title: dbRequest.title,
@@ -41,31 +39,48 @@ export function formatRequestFromDb(dbRequest: any): Request {
     details
   };
 
-  // Ajouter les champs spécifiques au type
+  // Add type-specific fields
   switch(dbRequest.type) {
     case 'email':
       return {
         ...baseRequest,
-        template: details.template || {},
-        database: details.database || {},
-        blacklist: details.blacklist || {},
-        platform: details.platform,
-        statistics: details.statistics
+        template: details.template || { content: "", fileUrl: "", webLink: "" },
+        database: details.database || { notes: "", fileUrl: "", webLink: "" },
+        blacklist: details.blacklist || {
+          accounts: { notes: "", fileUrl: "" },
+          emails: { notes: "", fileUrl: "" }
+        },
+        platform: details.platform || "",
+        statistics: details.statistics || { sent: 0, opened: 0, clicked: 0, bounced: 0 }
       };
     case 'database':
       return {
         ...baseRequest,
-        tool: details.tool,
-        targeting: details.targeting || {},
-        blacklist: details.blacklist || {},
-        contactsCreated: details.contactsCreated
+        tool: details.tool || "",
+        targeting: details.targeting || {
+          jobTitles: [],
+          industries: [],
+          locations: [],
+          companySize: [],
+          otherCriteria: ""
+        },
+        blacklist: details.blacklist || {
+          accounts: { notes: "", fileUrl: "" }
+        },
+        contactsCreated: details.contactsCreated || 0
       };
     case 'linkedin':
       return {
         ...baseRequest,
-        targeting: details.targeting || {},
-        profilesScraped: details.profilesScraped,
-        resultFileUrl: details.resultFileUrl
+        targeting: details.targeting || {
+          jobTitles: [],
+          industries: [],
+          locations: [],
+          companySize: [],
+          otherCriteria: ""
+        },
+        profilesScraped: details.profilesScraped || 0,
+        resultFileUrl: details.resultFileUrl || ""
       };
     default:
       return baseRequest;
