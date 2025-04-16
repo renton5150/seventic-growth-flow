@@ -70,14 +70,14 @@ export const DashboardTabs = ({
               <Plus className="mr-2 h-4 w-4" /> Nouvelle demande
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => handleCreateRequest("email")}>
+          <DropdownMenuContent align="end" className="bg-white border rounded-md shadow-md z-50 min-w-[200px]">
+            <DropdownMenuItem onSelect={() => handleCreateRequest("email")} className="cursor-pointer">
               <Mail className="mr-2 h-4 w-4" /> Campagne Email
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleCreateRequest("database")}>
+            <DropdownMenuItem onSelect={() => handleCreateRequest("database")} className="cursor-pointer">
               <Database className="mr-2 h-4 w-4" /> Base de données
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleCreateRequest("linkedin")}>
+            <DropdownMenuItem onSelect={() => handleCreateRequest("linkedin")} className="cursor-pointer">
               <User className="mr-2 h-4 w-4" /> Scraping LinkedIn
             </DropdownMenuItem>
           </DropdownMenuContent>
