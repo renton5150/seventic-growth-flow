@@ -23,6 +23,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     setIsCompletionDialogOpen,
     handleOpenEditDialog,
     handleOpenCompletionDialog,
+    handleViewDetails,
     handleRequestUpdated,
     assignRequestToMe,
     updateRequestWorkflowStatus
@@ -49,6 +50,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           requests={filteredRequests}
           onEditRequest={handleOpenEditDialog}
           onCompleteRequest={handleOpenCompletionDialog}
+          onViewDetails={handleViewDetails}
           onRequestUpdated={handleRequestUpdated}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}

@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "./useRequestQueries";
@@ -7,6 +8,7 @@ import { useRequestAssignment } from "./useRequestAssignment";
 
 export function useGrowthDashboard(defaultTab?: string) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "to_assign");
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -22,7 +24,8 @@ export function useGrowthDashboard(defaultTab?: string) {
     toAssignRequests, 
     myAssignmentsRequests, 
     refetchToAssign, 
-    refetchMyAssignments 
+    refetchMyAssignments,
+    getRequestDetails
   } = useRequestQueries(user?.id);
   
   const handleRequestUpdated = () => {
@@ -42,6 +45,10 @@ export function useGrowthDashboard(defaultTab?: string) {
     setIsCompletionDialogOpen(true);
   };
   
+  const handleViewDetails = (request: Request) => {
+    navigate(`/requests/${request.type}/${request.id}`);
+  };
+  
   const filteredRequests = activeTab === "to_assign" ? toAssignRequests : 
                           activeTab === "my_assignments" ? myAssignmentsRequests : 
                           [];
@@ -59,8 +66,10 @@ export function useGrowthDashboard(defaultTab?: string) {
     setIsCompletionDialogOpen,
     handleOpenEditDialog,
     handleOpenCompletionDialog,
+    handleViewDetails,
     handleRequestUpdated,
     assignRequestToMe,
-    updateRequestWorkflowStatus
+    updateRequestWorkflowStatus,
+    getRequestDetails
   };
 }

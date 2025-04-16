@@ -7,12 +7,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Pencil, Check, CheckCircle, XCircle, ArrowRightLeft, FileCheck } from "lucide-react";
+import { Pencil, Check, CheckCircle, XCircle, ArrowRightLeft, FileCheck, Eye } from "lucide-react";
 
 interface GrowthRequestActionsProps {
   request: Request;
   onEditRequest: (request: Request) => void;
   onCompleteRequest: (request: Request) => void;
+  onViewDetails?: (request: Request) => void;
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
@@ -22,12 +23,24 @@ export function GrowthRequestActions({
   request,
   onEditRequest,
   onCompleteRequest,
+  onViewDetails,
   assignRequestToMe,
   updateRequestWorkflowStatus,
   activeTab
 }: GrowthRequestActionsProps) {
   return (
     <div className="flex justify-end space-x-2">
+      {/* Bouton pour voir les détails */}
+      {onViewDetails && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onViewDetails(request)}
+        >
+          <Eye size={14} className="mr-1" /> Voir
+        </Button>
+      )}
+      
       <Button
         variant="ghost"
         size="sm"

@@ -20,6 +20,7 @@ interface GrowthRequestsTableProps {
   requests: Request[];
   onEditRequest: (request: Request) => void;
   onCompleteRequest: (request: Request) => void;
+  onViewDetails: (request: Request) => void;
   onRequestUpdated: () => void;
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
@@ -30,6 +31,7 @@ export function GrowthRequestsTable({
   requests,
   onEditRequest,
   onCompleteRequest,
+  onViewDetails,
   onRequestUpdated,
   assignRequestToMe,
   updateRequestWorkflowStatus,
@@ -84,6 +86,7 @@ export function GrowthRequestsTable({
                     request={request}
                     onEditRequest={onEditRequest}
                     onCompleteRequest={onCompleteRequest}
+                    onViewDetails={onViewDetails}
                     assignRequestToMe={assignRequestToMe}
                     updateRequestWorkflowStatus={updateRequestWorkflowStatus}
                     activeTab={activeTab}

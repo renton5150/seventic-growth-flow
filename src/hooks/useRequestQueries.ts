@@ -14,7 +14,8 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          profiles:created_by(name, avatar)
+          profiles:created_by(name, avatar),
+          assigned_profile:assigned_to(name, avatar)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -39,7 +40,9 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          profiles:created_by(name, avatar)
+          profiles:created_by(name, avatar),
+          assigned_profile:assigned_to(name, avatar),
+          missions:mission_id(name)
         `)
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
@@ -54,10 +57,37 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
 
+  // Récupération des détails d'une demande spécifique
+  const getRequestDetails = async (requestId: string): Promise<Request | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('requests')
+        .select(`
+          *,
+          profiles:created_by(name, avatar),
+          assigned_profile:assigned_to(name, avatar),
+          missions:mission_id(name)
+        `)
+        .eq('id', requestId)
+        .single();
+
+      if (error) {
+        console.error("Erreur lors de la récupération des détails de la demande:", error);
+        return null;
+      }
+
+      return formatRequestFromDb(data);
+    } catch (err) {
+      console.error("Erreur lors de la récupération des détails:", err);
+      return null;
+    }
+  };
+
   return {
     toAssignRequests,
     myAssignmentsRequests,
     refetchToAssign,
-    refetchMyAssignments
+    refetchMyAssignments,
+    getRequestDetails
   };
 }
