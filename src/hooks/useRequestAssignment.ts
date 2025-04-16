@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Request } from "@/types/types";
+import { toast } from "sonner";
 
 export function useRequestAssignment(onRequestUpdated: () => void) {
   const assignRequestToMe = async (requestId: string) => {
@@ -18,6 +19,17 @@ export function useRequestAssignment(onRequestUpdated: () => void) {
       if (error) {
         console.error("Erreur lors de la prise en charge de la requête:", error);
         return false;
+      }
+      
+      // Notify the SDR
+      const { data: request } = await supabase
+        .from('requests')
+        .select('*, profiles:created_by(email)')
+        .eq('id', requestId)
+        .single();
+
+      if (request?.profiles?.email) {
+        toast.success("Le SDR a été notifié du changement de statut");
       }
       
       onRequestUpdated();
@@ -41,6 +53,17 @@ export function useRequestAssignment(onRequestUpdated: () => void) {
       if (error) {
         console.error("Erreur lors de la mise à jour du statut de la requête:", error);
         return false;
+      }
+
+      // Notify the SDR about the status change
+      const { data: request } = await supabase
+        .from('requests')
+        .select('*, profiles:created_by(email)')
+        .eq('id', requestId)
+        .single();
+
+      if (request?.profiles?.email) {
+        toast.success("Le SDR a été notifié du changement de statut");
       }
       
       onRequestUpdated();

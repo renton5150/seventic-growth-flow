@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Request } from "@/types/types";
 import {
@@ -8,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Pencil, Check, CheckCircle, XCircle, ArrowRightLeft, FileCheck, Eye } from "lucide-react";
+import { toast } from "sonner";
 
 interface GrowthRequestActionsProps {
   request: Request;
@@ -28,6 +28,17 @@ export function GrowthRequestActions({
   updateRequestWorkflowStatus,
   activeTab
 }: GrowthRequestActionsProps) {
+  const handleStatusChange = async (newStatus: string) => {
+    if (!updateRequestWorkflowStatus) return;
+    
+    const success = await updateRequestWorkflowStatus(request.id, newStatus);
+    if (success) {
+      toast.success(`Statut mis à jour : ${newStatus}`);
+    } else {
+      toast.error("Erreur lors de la mise à jour du statut");
+    }
+  };
+
   return (
     <div className="flex justify-end space-x-2">
       {/* Bouton pour voir les détails */}
@@ -61,44 +72,31 @@ export function GrowthRequestActions({
       )}
       
       {activeTab === "my_assignments" && updateRequestWorkflowStatus && (
-        request.workflow_status === "in_progress" ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline"
-                size="sm"
-                className="bg-blue-50 border-blue-200"
-              >
-                <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-500" /> Statut
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => updateRequestWorkflowStatus(request.id, "completed")}>
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Terminée
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateRequestWorkflowStatus(request.id, "canceled")}>
-                <XCircle className="mr-2 h-4 w-4 text-gray-500" /> Annulée
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button 
-            variant="ghost"
-            size="sm"
-            disabled
-          >
-            {request.workflow_status === "completed" && (
-              <>
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Terminée
-              </>
-            )}
-            {request.workflow_status === "canceled" && (
-              <>
-                <XCircle className="mr-2 h-4 w-4 text-gray-500" /> Annulée
-              </>
-            )}
-          </Button>
-        )
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline"
+              size="sm"
+              className="bg-blue-50 border-blue-200"
+            >
+              <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-500" /> Statut
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleStatusChange("in_progress")}>
+              <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-500" /> En cours
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleStatusChange("pending_assignment")}>
+              <Check className="mr-2 h-4 w-4 text-yellow-500" /> En attente
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleStatusChange("completed")}>
+              <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Terminée
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleStatusChange("canceled")}>
+              <XCircle className="mr-2 h-4 w-4 text-gray-500" /> Annulée
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       
       {activeTab !== "to_assign" && activeTab !== "my_assignments" && (
