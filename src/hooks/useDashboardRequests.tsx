@@ -11,20 +11,21 @@ export const useDashboardRequests = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const isSDR = user?.role === "sdr";
   const isGrowth = user?.role === "growth";
   const isAdmin = user?.role === "admin";
 
   // Récupérer toutes les requêtes
-  const { data: allRequests = [], isLoading: isLoadingRequests, refetch: refetchRequests } = useQuery({
+  const { data: allRequests = [], isLoading: isLoadingRequests, refetch: refetchRequests, error: requestsError } = useQuery({
     queryKey: ['requests'],
     queryFn: getAllRequests,
     enabled: !!user
   });
 
   // Récupérer les missions de l'utilisateur s'il est SDR
-  const { data: userMissions = [], isLoading: isLoadingMissions } = useQuery({
+  const { data: userMissions = [], isLoading: isLoadingMissions, error: missionsError } = useQuery({
     queryKey: ['missions', user?.id],
     queryFn: async () => user?.id ? await getMissionsByUserId(user.id) : [],
     enabled: !!user && isSDR
@@ -38,23 +39,42 @@ export const useDashboardRequests = () => {
 
     setLoading(false);
 
+    // Gérer les erreurs
+    if (requestsError) {
+      setError(requestsError instanceof Error ? requestsError : new Error('Erreur lors du chargement des demandes'));
+      return;
+    }
+
+    if (missionsError && isSDR) {
+      setError(missionsError instanceof Error ? missionsError : new Error('Erreur lors du chargement des missions'));
+      return;
+    }
+
     if (!allRequests.length) {
       setRequests([]);
       return;
     }
 
-    if (isSDR && userMissions.length) {
-      // Filtrer les requêtes pour un SDR selon ses missions
+    if (isSDR) {
+      console.log(`Filtering requests for SDR user ${user?.id}. ${userMissions.length} missions available.`);
+      console.log(`User created requests: ${allRequests.filter(request => request.createdBy === user?.id).length}`);
+      
+      // Filtrer les requêtes pour un SDR selon ses missions ET ses propres créations
       const missionIds = userMissions.map(mission => mission.id);
       const filteredRequests = allRequests.filter(request => 
-        missionIds.includes(request.missionId) || request.createdBy === user?.id
+        // Requêtes liées aux missions de l'utilisateur
+        missionIds.includes(request.missionId) || 
+        // OU requêtes créées par l'utilisateur lui-même
+        request.createdBy === user?.id
       );
+      
+      console.log(`Filtered ${filteredRequests.length} requests for SDR user`);
       setRequests(filteredRequests);
     } else {
       // Admin et Growth voient toutes les requêtes
       setRequests(allRequests);
     }
-  }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id]);
+  }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id, requestsError, missionsError]);
 
   const filteredRequests = requests.filter((request) => {
     if (activeTab === "all") return true;
@@ -66,6 +86,17 @@ export const useDashboardRequests = () => {
     return false;
   });
 
+  const refetch = async () => {
+    console.log("Refetching requests and missions data");
+    try {
+      await refetchRequests();
+      console.log("Data refetched successfully");
+    } catch (err) {
+      console.error("Error refetching data:", err);
+      setError(err instanceof Error ? err : new Error('Erreur lors du rechargement des données'));
+    }
+  };
+
   return {
     requests,
     filteredRequests,
@@ -75,6 +106,7 @@ export const useDashboardRequests = () => {
     isGrowth,
     isAdmin,
     loading,
-    refetch: refetchRequests
+    error,
+    refetch
   };
 };
