@@ -32,13 +32,17 @@ export function RequestCompleteEditDialog({
   // Logs détaillés pour déboguer le problème de nom de mission
   console.log("Mission dans RequestCompleteEditDialog:", request.missionName, request);
   console.log("Request mission ID:", request.missionId);
+  console.log("Type de missionId:", typeof request.missionId);
   console.log("Données complètes de la requête:", JSON.stringify(request, null, 2));
 
   // S'assurer que missionId est une chaîne de caractères valide
   const preparedRequest = {
     ...request,
-    missionId: request.missionId || "", // Garantir que missionId n'est jamais undefined
+    missionId: request.missionId ? String(request.missionId) : "", // Conversion explicite en string
   };
+
+  console.log("Prepared request missionId:", preparedRequest.missionId);
+  console.log("Type du missionId préparé:", typeof preparedRequest.missionId);
 
   const handleRequestUpdated = () => {
     onOpenChange(false);

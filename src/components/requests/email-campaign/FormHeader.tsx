@@ -61,16 +61,20 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             control={control}
             name="missionId"
             render={({ field }) => {
-              // Log pour débogage
-              console.log("Valeur actuelle du champ mission:", field.value);
-              console.log("Type de la valeur:", typeof field.value);
+              // Logs pour déboguer
+              console.log("FormHeader - Valeur actuelle du champ mission:", field.value);
+              console.log("FormHeader - Type de la valeur:", typeof field.value);
+              
+              // S'assurer que la valeur est une chaîne de caractères
+              const missionValue = field.value ? String(field.value) : "";
+              console.log("FormHeader - Valeur après conversion:", missionValue);
               
               return (
                 <FormItem>
                   <FormLabel>Mission*</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
-                    value={field.value?.toString() || ""}
+                    value={missionValue}
                     disabled={editMode} // Désactiver le changement de mission en mode édition
                   >
                     <FormControl>

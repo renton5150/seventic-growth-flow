@@ -22,11 +22,13 @@ export function formatRequestFromDb(dbRequest: any): Request {
   const details = dbRequest.details || {};
   
   // Récupération du nom de la mission - s'assurer qu'il n'est jamais null/undefined
-  const missionId = dbRequest.mission_id || ""; // Standardiser à chaîne vide plutôt que null/undefined
+  // Conversion explicite en string pour garantir la cohérence du type
+  const missionId = dbRequest.mission_id ? String(dbRequest.mission_id) : "";
   let missionName = dbRequest.mission_name || "Mission sans nom";
   
   console.log("Mission name final pour la requête", dbRequest.id, ":", missionName);
   console.log("Mission ID final pour la requête", dbRequest.id, ":", missionId);
+  console.log("Type du mission ID:", typeof missionId);
   
   // Build the base request
   const baseRequest: Request = {
