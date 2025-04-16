@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 interface TemplateSectionProps {
   control: Control<any>;
-  handleFileUpload: (field: string, files: FileList | null) => void;
+  handleFileUpload: (field: string, files: FileList | null | string) => void;
 }
 
 export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionProps) => {
