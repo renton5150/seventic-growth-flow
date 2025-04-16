@@ -33,27 +33,15 @@ export function RequestCompleteEditDialog({
   console.log("Mission dans RequestCompleteEditDialog:", request.missionName, request);
   console.log("Request mission ID:", request.missionId);
   console.log("Type de missionId:", typeof request.missionId);
-  console.log("Données complètes de la requête:", JSON.stringify(request, null, 2));
 
   // S'assurer que missionId est une chaîne de caractères valide
   const preparedRequest = {
     ...request,
-    missionId: request.missionId ? String(request.missionId) : "", // Conversion explicite en string
+    missionId: request.missionId ? String(request.missionId) : "",
   };
 
   console.log("Prepared request missionId:", preparedRequest.missionId);
   console.log("Type du missionId préparé:", typeof preparedRequest.missionId);
-
-  // Pour déboguer l'objet initialData avant qu'il ne soit passé aux formulaires
-  const logInitialData = () => {
-    console.log("InitialData préparée pour le formulaire:");
-    console.log("missionId:", preparedRequest.missionId);
-    console.log("missionName:", preparedRequest.missionName);
-    console.log("Autre validation missionId est une chaîne:", typeof preparedRequest.missionId === 'string');
-  };
-  
-  // Exécuter les logs immédiatement
-  logInitialData();
 
   const handleRequestUpdated = () => {
     onOpenChange(false);

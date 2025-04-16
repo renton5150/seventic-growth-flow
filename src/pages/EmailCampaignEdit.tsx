@@ -24,7 +24,16 @@ const EmailCampaignEdit = () => {
         const fetchedRequest = await getRequestById(id);
         
         if (fetchedRequest && fetchedRequest.type === "email") {
-          setRequest(fetchedRequest as EmailCampaignRequest);
+          // Explicitement convertir missionId en string pour éviter les problèmes de type
+          const preparedRequest = {
+            ...fetchedRequest,
+            missionId: fetchedRequest.missionId ? String(fetchedRequest.missionId) : "",
+          };
+          setRequest(preparedRequest as EmailCampaignRequest);
+          
+          console.log("EmailCampaignEdit - Requête récupérée:", preparedRequest);
+          console.log("EmailCampaignEdit - Mission ID:", preparedRequest.missionId);
+          console.log("EmailCampaignEdit - Type de mission ID:", typeof preparedRequest.missionId);
         } else {
           toast.error("La demande n'existe pas ou n'est pas une campagne email");
           navigate("/dashboard");
