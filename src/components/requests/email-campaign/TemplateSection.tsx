@@ -1,11 +1,13 @@
+
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
-import { useState, useRef, useEffect } from "react";
-import { Editor } from '@tinymce/tinymce-react';
+import { useState, useEffect } from "react";
+import ReactQuill from 'react-quill';
+import 'quill/dist/quill.snow.css';
 import { Spinner } from "@/components/ui/spinner";
 
 interface TemplateSectionProps {
@@ -14,49 +16,44 @@ interface TemplateSectionProps {
 }
 
 export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionProps) => {
-  const editorRef = useRef<any>(null);
-  const [isEditorReady, setIsEditorReady] = useState(false);
   const [editorLoading, setEditorLoading] = useState(true);
   
+  // Modules pour configurer Quill
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'align': [] }],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      ['link', 'image'],
+      ['clean']
+    ],
+    clipboard: {
+      // Toggle to add extra line breaks when pasting HTML:
+      matchVisual: false,
+    }
+  };
+  
+  const formats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'align',
+    'list', 'bullet',
+    'link', 'image'
+  ];
+  
   useEffect(() => {
-    const checkTinyMceScript = () => {
-      const tinyScript = document.querySelector('script[src*="tinymce.min.js"]');
-      if (!tinyScript) {
-        console.log("Chargement du script TinyMCE depuis CDN...");
-        const script = document.createElement('script');
-        script.src = "https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.6.0/tinymce.min.js";
-        script.integrity = "sha512-JX0/9Qqp8YoYm4P3LP1C8INHrtxDuTxj/S9hANLxVhsJ4RgPQJfvMHF5kWKYz0qgTCl2Hl2cKA8vGf6YQ7Cpw==";
-        script.crossOrigin = "anonymous";
-        script.referrerPolicy = "no-referrer";
-        script.onload = () => {
-          console.log("Script TinyMCE chargé avec succès depuis CDN");
-          setEditorLoading(false);
-        };
-        script.onerror = () => {
-          console.error("Erreur de chargement du script TinyMCE depuis CDN");
-          setEditorLoading(false);
-        };
-        document.head.appendChild(script);
-      } else {
-        console.log("Script TinyMCE déjà présent");
-        setEditorLoading(false);
-      }
-    };
-
-    checkTinyMceScript();
-
+    // Simuler un temps de chargement court pour l'interface utilisateur
+    const timer = setTimeout(() => {
+      setEditorLoading(false);
+    }, 500);
+    
     return () => {
-      if (editorRef.current) {
-        editorRef.current.remove();
-      }
+      clearTimeout(timer);
     };
   }, []);
-  
-  const handleEditorInit = (evt: any, editor: any) => {
-    editorRef.current = editor;
-    setIsEditorReady(true);
-    console.log("Éditeur TinyMCE initialisé avec succès");
-  };
 
   return (
     <Card className="border-t-4 border-t-seventic-500">
@@ -73,48 +70,17 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                 <FormItem>
                   <FormControl>
                     <div className="relative border rounded-md overflow-hidden min-h-[400px]">
-                      {!editorLoading && (
-                        <Editor
-                          onInit={handleEditorInit}
-                          initialValue={field.value}
+                      {!editorLoading ? (
+                        <ReactQuill
+                          theme="snow"
                           value={field.value}
-                          onEditorChange={(content) => {
-                            field.onChange(content);
-                          }}
-                          init={{
-                            height: 400,
-                            menubar: true,
-                            plugins: [
-                              'advlist', 'autolink', 'link', 'image', 'lists', 'charmap', 'preview', 'anchor', 
-                              'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 
-                              'media', 'table', 'help', 'wordcount', 'emoticons', 'paste'
-                            ],
-                            toolbar: 'undo redo | formatselect | ' +
-                              'bold italic forecolor backcolor | alignleft aligncenter ' +
-                              'alignright alignjustify | bullist numlist outdent indent | ' +
-                              'removeformat | image link | help',
-                            content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; font-size: 14px }',
-                            paste_data_images: true,
-                            paste_retain_style_properties: 'all',
-                            paste_word_valid_elements: 'b,strong,i,em,h1,h2,h3,h4,h5,h6,p,div,span,ul,ol,li,table,tr,td,th,tbody,thead,a,img',
-                            convert_urls: false,
-                            branding: false,
-                            promotion: false,
-                            images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
-                              const reader = new FileReader();
-                              reader.onload = (e) => {
-                                if (e.target) {
-                                  resolve(e.target.result as string);
-                                } else {
-                                  reject('Erreur de lecture de l\'image');
-                                }
-                              };
-                              reader.readAsDataURL(blobInfo.blob());
-                            })
-                          }}
+                          onChange={field.onChange}
+                          modules={modules}
+                          formats={formats}
+                          className="min-h-[370px]"
+                          placeholder="Rédigez votre email ici..."
                         />
-                      )}
-                      {(editorLoading || !isEditorReady) && (
+                      ) : (
                         <div className="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center p-4">
                           <div className="flex items-center space-x-2 mb-2">
                             <Spinner className="h-5 w-5" />
