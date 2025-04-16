@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -13,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { GrowthRequestStatusBadge } from "@/components/growth/table/GrowthRequestStatusBadge";
+import { formatRequestFromDb } from "@/utils/requestFormatters";
 
 const RequestDetails = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -33,7 +33,7 @@ const RequestDetails = () => {
             .from('requests')
             .select(`
               *,
-              profiles:created_by(name, avatar),
+              created_by_profile:created_by(name, avatar),
               assigned_profile:assigned_to(name, avatar),
               missions:mission_id(name, description)
             `)
@@ -47,29 +47,8 @@ const RequestDetails = () => {
             return;
           }
           
-          // Formater la demande
-          const formattedRequest = {
-            ...data,
-            id: data.id,
-            title: data.title,
-            type: data.type,
-            missionId: data.mission_id,
-            missionName: data.missions?.name,
-            createdBy: data.created_by,
-            sdrName: data.profiles?.name || "Non assigné",
-            createdAt: new Date(data.created_at),
-            dueDate: new Date(data.due_date),
-            status: data.status,
-            workflow_status: data.workflow_status || 'pending_assignment',
-            target_role: data.target_role || 'growth',
-            assigned_to: data.assigned_to,
-            assignedToName: data.assigned_profile?.name,
-            lastUpdated: new Date(data.last_updated || data.created_at),
-            isLate: new Date(data.due_date) < new Date() && 
-                    (data.workflow_status !== 'completed' && data.workflow_status !== 'canceled'),
-            ...data.details
-          };
-
+          // Formater la demande en utilisant notre utilitaire
+          const formattedRequest = formatRequestFromDb(data);
           setRequest(formattedRequest);
           
           // Récupérer les détails de la mission associée si besoin
@@ -79,7 +58,7 @@ const RequestDetails = () => {
               name: data.missions.name,
               description: data.missions.description,
               sdrId: data.created_by,
-              sdrName: data.profiles?.name,
+              sdrName: data.created_by_profile?.name,
               createdAt: new Date(data.created_at),
               startDate: null,
               endDate: null,
@@ -107,7 +86,7 @@ const RequestDetails = () => {
       setCommentLoading(true);
       
       // Récupérer les commentaires existants ou créer un tableau vide
-      const currentDetails = request?.details || {};
+      const currentDetails = request.details || {};
       const currentComments = currentDetails.comments || [];
       
       // Ajouter le nouveau commentaire
@@ -140,14 +119,16 @@ const RequestDetails = () => {
       }
       
       // Mettre à jour l'interface utilisateur
-      setRequest({
-        ...request,
-        details: {
-          ...currentDetails,
-          comments: newComments
-        },
-        lastUpdated: new Date()
-      });
+      if (request && request.details) {
+        setRequest({
+          ...request,
+          details: {
+            ...request.details,
+            comments: newComments
+          },
+          lastUpdated: new Date()
+        });
+      }
       
       setComment("");
       toast.success("Commentaire ajouté avec succès");
@@ -174,13 +155,13 @@ const RequestDetails = () => {
             <CardTitle>Template Email</CardTitle>
           </CardHeader>
           <CardContent>
-            {template.content && (
+            {template && template.content && (
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Contenu</h4>
                 <div className="p-4 border rounded-md bg-gray-50 mt-1" dangerouslySetInnerHTML={{ __html: template.content }} />
               </div>
             )}
-            {template.webLink && (
+            {template && template.webLink && (
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Lien web</h4>
                 <a href={template.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
@@ -188,7 +169,7 @@ const RequestDetails = () => {
                 </a>
               </div>
             )}
-            {template.fileUrl && (
+            {template && template.fileUrl && (
               <div>
                 <h4 className="font-semibold text-sm">Fichier attaché</h4>
                 <a href={template.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
@@ -204,13 +185,13 @@ const RequestDetails = () => {
             <CardTitle>Base de données</CardTitle>
           </CardHeader>
           <CardContent>
-            {database.notes && (
+            {database && database.notes && (
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Notes</h4>
                 <p>{database.notes}</p>
               </div>
             )}
-            {database.fileUrl && (
+            {database && database.fileUrl && (
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Fichier</h4>
                 <a href={database.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
@@ -218,7 +199,7 @@ const RequestDetails = () => {
                 </a>
               </div>
             )}
-            {database.webLink && (
+            {database && database.webLink && (
               <div>
                 <h4 className="font-semibold text-sm">Lien web</h4>
                 <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
@@ -535,21 +516,23 @@ const RequestDetails = () => {
           <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">{request.title}</h1>
+          <h1 className="text-2xl font-bold">{request?.title}</h1>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-6">
           <Badge className="px-2 py-1">
-            {request.type === "email"
+            {request?.type === "email"
               ? "Campagne Email"
-              : request.type === "database"
+              : request?.type === "database"
               ? "Base de données"
               : "Scraping LinkedIn"}
           </Badge>
-          <GrowthRequestStatusBadge 
-            status={request.workflow_status || "pending_assignment"} 
-            isLate={request.isLate}
-          />
+          {request && (
+            <GrowthRequestStatusBadge 
+              status={request.workflow_status || "pending_assignment"} 
+              isLate={request.isLate}
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -561,9 +544,9 @@ const RequestDetails = () => {
               </TabsList>
               
               <TabsContent value="details" className="space-y-4">
-                {request.type === "email" && renderEmailCampaignDetails()}
-                {request.type === "database" && renderDatabaseDetails()}
-                {request.type === "linkedin" && renderLinkedInDetails()}
+                {request?.type === "email" && renderEmailCampaignDetails()}
+                {request?.type === "database" && renderDatabaseDetails()}
+                {request?.type === "linkedin" && renderLinkedInDetails()}
               </TabsContent>
               
               <TabsContent value="comments">
@@ -578,55 +561,59 @@ const RequestDetails = () => {
                 <CardTitle>Informations</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <div>
-                    <div className="text-sm text-gray-500">Créée le</div>
-                    <div>{new Date(request.createdAt).toLocaleDateString()}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <div>
-                    <div className="text-sm text-gray-500">Date d'échéance</div>
-                    <div>{new Date(request.dueDate).toLocaleDateString()}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  <div>
-                    <div className="text-sm text-gray-500">Dernière mise à jour</div>
-                    <div>{new Date(request.lastUpdated).toLocaleDateString()}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-gray-500" />
-                  <div>
-                    <div className="text-sm text-gray-500">Créée par</div>
-                    <div>{request.sdrName || "Inconnu"}</div>
-                  </div>
-                </div>
-
-                {request.assignedToName && (
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500" />
-                    <div>
-                      <div className="text-sm text-gray-500">Assignée à</div>
-                      <div>{request.assignedToName}</div>
+                {request && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="text-sm text-gray-500">Créée le</div>
+                        <div>{new Date(request.createdAt).toLocaleDateString()}</div>
+                      </div>
                     </div>
-                  </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="text-sm text-gray-500">Date d'échéance</div>
+                        <div>{new Date(request.dueDate).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="text-sm text-gray-500">Dernière mise à jour</div>
+                        <div>{new Date(request.lastUpdated).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="text-sm text-gray-500">Créée par</div>
+                        <div>{request.sdrName || "Inconnu"}</div>
+                      </div>
+                    </div>
+
+                    {request.assignedToName && (
+                      <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-500" />
+                        <div>
+                          <div className="text-sm text-gray-500">Assignée à</div>
+                          <div>{request.assignedToName}</div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {request.isLate && (
+                      <div className="flex items-center gap-2 text-red-500">
+                        <AlertCircle className="h-4 w-4" />
+                        <div>En retard</div>
+                      </div>
+                    )}
+                  </>
                 )}
                 
-                {request.isLate && (
-                  <div className="flex items-center gap-2 text-red-500">
-                    <AlertCircle className="h-4 w-4" />
-                    <div>En retard</div>
-                  </div>
-                )}
-
                 {mission && (
                   <div className="pt-2 border-t">
                     <h3 className="font-medium mb-1">Mission</h3>

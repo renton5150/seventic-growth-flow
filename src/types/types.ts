@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -29,6 +28,7 @@ export interface Request {
   assignedToName?: string | null;
   lastUpdated: Date;
   isLate?: boolean;
+  details?: any;
   statistics?: EmailCampaignStatistics;
   contactsCreated?: number;
   template?: EmailTemplate;
@@ -38,6 +38,7 @@ export interface Request {
   platform?: string;
   profilesScraped?: number;
   resultFileUrl?: string;
+  tool?: string;
 }
 
 export interface EmailCampaignRequest extends Request {
@@ -120,7 +121,6 @@ export interface Mission {
   requests: Request[];
 }
 
-// AppData interface for mock data
 export interface AppData {
   users: User[];
   missions: Mission[];
