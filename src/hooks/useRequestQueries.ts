@@ -17,7 +17,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions:mission_id(name, client)
+          missions(name, client)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -46,7 +46,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions:mission_id(name, client)
+          missions(name, client)
         `)
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
@@ -72,7 +72,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions:mission_id(name, client, description)
+          missions(name, client, description)
         `)
         .eq('id', requestId)
         .single();

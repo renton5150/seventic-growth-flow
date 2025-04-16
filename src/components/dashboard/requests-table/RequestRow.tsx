@@ -98,7 +98,7 @@ export const RequestRow = ({
       </TableCell>
       {!missionView && (
         <TableCell>
-          {request.missionName || "Mission sans nom"}
+          {request.missionName}
         </TableCell>
       )}
       {showSdr && (

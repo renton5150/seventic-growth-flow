@@ -4,7 +4,6 @@ import { Request } from "@/types/types";
 export function formatRequestFromDb(dbRequest: any): Request {
   // Ajouter des logs pour voir les données exactes reçues de Supabase
   console.log("Données brutes de la requête reçue de Supabase:", dbRequest);
-  console.log("Relation mission:", dbRequest.missions);
   
   const createdAt = new Date(dbRequest.created_at);
   const dueDate = new Date(dbRequest.due_date);
@@ -22,15 +21,24 @@ export function formatRequestFromDb(dbRequest: any): Request {
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
-  // Récupération prioritaire du nom de la mission depuis la relation
-  // Utiliser prioritairement le champ 'name' de la mission liée, avec fallbacks
+  // Récupération prioritaire du nom de la mission
   let missionName = null;
+  
+  // Vérifier et traiter les données de mission selon leur structure
   if (dbRequest.missions) {
-    missionName = dbRequest.missions.name || dbRequest.missions.client;
-    console.log("Nom de mission récupéré:", missionName);
-  } else {
-    console.log("Aucune relation mission trouvée pour la requête:", dbRequest.id);
+    // Cas 1: Si missions est un tableau (relation many)
+    if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
+      missionName = dbRequest.missions[0].name || dbRequest.missions[0].client;
+      console.log("Nom de mission récupéré d'un tableau:", missionName);
+    }
+    // Cas 2: Si missions est un objet unique (relation one-to-one)
+    else if (typeof dbRequest.missions === 'object') {
+      missionName = dbRequest.missions.name || dbRequest.missions.client;
+      console.log("Nom de mission récupéré d'un objet:", missionName);
+    }
   }
+  
+  console.log("Mission name final pour la requête", dbRequest.id, ":", missionName);
   
   // Build the base request
   const baseRequest: Request = {
@@ -38,7 +46,7 @@ export function formatRequestFromDb(dbRequest: any): Request {
     title: dbRequest.title,
     type: dbRequest.type,
     missionId: dbRequest.mission_id,
-    missionName: missionName,
+    missionName: missionName || "Mission sans nom",
     createdBy: dbRequest.created_by,
     sdrName,
     createdAt,
@@ -70,6 +78,7 @@ export function formatRequestFromDb(dbRequest: any): Request {
     case 'database':
       return {
         ...baseRequest,
+        type: "database",
         tool: details.tool || "",
         targeting: details.targeting || {
           jobTitles: [],
@@ -86,6 +95,7 @@ export function formatRequestFromDb(dbRequest: any): Request {
     case 'linkedin':
       return {
         ...baseRequest,
+        type: "linkedin",
         targeting: details.targeting || {
           jobTitles: [],
           industries: [],

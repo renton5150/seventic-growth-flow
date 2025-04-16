@@ -5,6 +5,8 @@ import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 import { getMissionsByUserId } from "@/services/missionService";
+import { supabase } from "@/integrations/supabase/client";
+import { formatRequestFromDb } from "@/utils/requestFormatters";
 
 export const useDashboardRequests = () => {
   const { user } = useAuth();
@@ -16,10 +18,38 @@ export const useDashboardRequests = () => {
   const isGrowth = user?.role === "growth";
   const isAdmin = user?.role === "admin";
 
-  // Récupérer toutes les requêtes
+  // Récupérer toutes les requêtes avec les relations
   const { data: allRequests = [], isLoading: isLoadingRequests, refetch: refetchRequests } = useQuery({
-    queryKey: ['requests'],
-    queryFn: getAllRequests,
+    queryKey: ['dashboard-requests-with-missions'],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      console.log("Récupération des requêtes pour le tableau de bord");
+      try {
+        // Récupérer les requêtes avec les relations
+        const { data, error } = await supabase
+          .from('requests')
+          .select(`
+            *,
+            created_by_profile:profiles!created_by(name, avatar),
+            assigned_profile:profiles!assigned_to(name, avatar),
+            missions(name, client)
+          `);
+          
+        if (error) {
+          console.error("Erreur lors de la récupération des requêtes:", error);
+          return [];
+        }
+        
+        console.log("Requêtes récupérées pour le tableau de bord:", data);
+        
+        // Traiter les données avec formatRequestFromDb
+        return data.map((req: any) => formatRequestFromDb(req));
+      } catch (err) {
+        console.error("Exception lors de la récupération des requêtes:", err);
+        return [];
+      }
+    },
     enabled: !!user
   });
 
