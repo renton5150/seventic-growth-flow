@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { RequestsTable } from "./requests-table";
 import { Request } from "@/types/types";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { Mail, Database, User } from "lucide-react";
 
 interface DashboardTabsProps {
   activeTab: string;
@@ -22,11 +29,22 @@ export const DashboardTabs = ({
   isAdmin = false,
   onRequestDeleted
 }: DashboardTabsProps) => {
-  const [search, setSearch] = useState("");
   const navigate = useNavigate();
   
-  const handleNewRequest = () => {
-    navigate("/requests/new");
+  const handleCreateRequest = (type: string) => {
+    switch (type) {
+      case "email":
+        navigate("/requests/email/new");
+        break;
+      case "database":
+        navigate("/requests/database/new");
+        break;
+      case "linkedin":
+        navigate("/requests/linkedin/new");
+        break;
+      default:
+        break;
+    }
   };
   
   return (
@@ -46,12 +64,26 @@ export const DashboardTabs = ({
           <TabsTrigger value="late">En retard</TabsTrigger>
         </TabsList>
         
-        <Button onClick={handleNewRequest}>
-          <Plus className="mr-2 h-4 w-4" /> Nouvelle demande
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> Nouvelle demande
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => handleCreateRequest("email")}>
+              <Mail className="mr-2 h-4 w-4" /> Campagne Email
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => handleCreateRequest("database")}>
+              <Database className="mr-2 h-4 w-4" /> Base de données
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => handleCreateRequest("linkedin")}>
+              <User className="mr-2 h-4 w-4" /> Scraping LinkedIn
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       
-      {/* On utilise le même contenu pour tous les onglets car le filtrage est déjà géré par le parent */}
       <TabsContent value={activeTab} className="space-y-4">
         <RequestsTable 
           requests={filteredRequests}
