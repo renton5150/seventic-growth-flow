@@ -1,12 +1,11 @@
 
-import { User } from "@/types/types";
+import { User, Mission } from "@/types/types";
 import { Control } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
-import { Mission } from "@/types/types";
 import { getAllMissions } from "@/services/missionService";
 
 interface FormHeaderProps {
@@ -22,7 +21,9 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
   useEffect(() => {
     const fetchMissions = async () => {
       try {
+        setLoading(true);
         const data = await getAllMissions();
+        console.log("Missions récupérées:", data);
         setMissions(data || []);
       } catch (error) {
         console.error("Erreur lors de la récupération des missions:", error);
@@ -64,7 +65,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                 <FormLabel>Mission*</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
-                  defaultValue={field.value}
+                  value={field.value || ""}
                   disabled={editMode} // Désactiver le changement de mission en mode édition
                 >
                   <FormControl>

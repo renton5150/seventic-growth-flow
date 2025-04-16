@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +33,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
 
   const getInitialValues = () => {
     if (editMode && initialData) {
+      console.log("Initialisation du formulaire avec les données:", initialData);
+      
       const template = initialData.template || {
         content: "",
         fileUrl: "",
@@ -54,6 +57,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
 
       const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
       const formattedDueDate = dueDate.toISOString().split('T')[0];
+
+      console.log("ID de mission utilisé:", initialData.missionId);
 
       return {
         title: initialData.title || "",
@@ -78,6 +83,14 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     resolver: zodResolver(formSchema),
     defaultValues: getInitialValues()
   });
+  
+  // Réinitialiser le formulaire si initialData change
+  useEffect(() => {
+    if (editMode && initialData) {
+      const values = getInitialValues();
+      form.reset(values);
+    }
+  }, [editMode, initialData, form]);
 
   useEffect(() => {
     if (editMode && initialData && initialData.blacklist) {
@@ -116,6 +129,14 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     
     checkSupabaseConnection();
   }, []);
+  
+  // Afficher les valeurs du formulaire pour débogage
+  useEffect(() => {
+    if (editMode) {
+      console.log("Valeurs actuelles du formulaire:", form.getValues());
+      console.log("Mission ID dans le formulaire:", form.getValues("missionId"));
+    }
+  }, [editMode, form]);
 
   const onSubmit = async (data: FormData) => {
     if (fileUploading) {

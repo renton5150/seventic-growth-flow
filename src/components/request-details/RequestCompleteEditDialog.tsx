@@ -31,6 +31,7 @@ export function RequestCompleteEditDialog({
 
   // Log pour déboguer le problème de nom de mission
   console.log("Mission dans RequestCompleteEditDialog:", request.missionName, request);
+  console.log("Request mission ID:", request.missionId);
 
   const handleRequestUpdated = () => {
     onOpenChange(false);
