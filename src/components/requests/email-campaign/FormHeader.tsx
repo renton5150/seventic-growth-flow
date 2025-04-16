@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
-import { getAllMissions } from "@/services/missionService";
 import { supabase } from "@/integrations/supabase/client";
 
 interface FormHeaderProps {
@@ -35,7 +34,22 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
         if (error) throw error;
         
         if (missionsData) {
-          setMissions(missionsData);
+          // Correctly map the data to match the Mission type
+          const mappedMissions: Mission[] = missionsData.map((mission: any) => ({
+            id: mission.id,
+            name: mission.name,
+            client: mission.client,
+            sdrId: "", // Default values for required fields
+            createdAt: new Date(),
+            startDate: null,
+            endDate: null,
+            type: "Full" as const,
+            status: mission.status,
+            requests: []
+          }));
+          
+          console.log("FormHeader - Missions mappées:", mappedMissions);
+          setMissions(mappedMissions);
         }
       } catch (error) {
         console.error("Erreur lors de la récupération des missions:", error);
