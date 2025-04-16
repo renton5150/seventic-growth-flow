@@ -48,6 +48,7 @@ export function GrowthRequestsTable({
           <TableRow>
             <TableHead className="w-[50px]">Type</TableHead>
             <TableHead>Titre</TableHead>
+            <TableHead>Mission</TableHead>
             <TableHead>SDR</TableHead>
             <TableHead>Créée le</TableHead>
             <TableHead>Date prévue</TableHead>
@@ -57,7 +58,7 @@ export function GrowthRequestsTable({
         </TableHeader>
         <TableBody>
           {requests.length === 0 ? (
-            <EmptyRequestsRow colSpan={7} />
+            <EmptyRequestsRow colSpan={8} />
           ) : (
             requests.map((request) => (
               <TableRow key={request.id}>
@@ -66,6 +67,11 @@ export function GrowthRequestsTable({
                 </TableCell>
                 <TableCell>
                   <div className="font-medium">{request.title}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="font-medium text-sm">
+                    {request.missionName || "Sans mission"}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center">

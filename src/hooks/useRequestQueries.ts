@@ -5,6 +5,7 @@ import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 
 export function useRequestQueries(userId: string | undefined) {
+  // Requêtes à affecter
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
     queryKey: ['growth-requests-to-assign'],
     queryFn: async () => {
@@ -34,6 +35,7 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
+  // Mes assignations
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
     queryKey: ['growth-requests-my-assignments'],
     queryFn: async () => {
@@ -57,6 +59,35 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Mes assignations récupérées:", data);
+      return data.map(formatRequestFromDb);
+    },
+    enabled: !!userId
+  });
+  
+  // Toutes les requêtes pour le rôle growth
+  const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
+    queryKey: ['growth-all-requests'],
+    queryFn: async () => {
+      if (!userId) return [];
+      
+      console.log("Récupération de toutes les requêtes growth");
+      const { data, error } = await supabase
+        .from('requests')
+        .select(`
+          *,
+          created_by_profile:profiles!created_by(name, avatar),
+          assigned_profile:profiles!assigned_to(name, avatar),
+          missions(name, client)
+        `)
+        .eq('target_role', 'growth')
+        .order('due_date', { ascending: true });
+      
+      if (error) {
+        console.error("Erreur lors de la récupération de toutes les requêtes:", error);
+        return [];
+      }
+      
+      console.log("Toutes les requêtes récupérées:", data);
       return data.map(formatRequestFromDb);
     },
     enabled: !!userId
@@ -93,8 +124,10 @@ export function useRequestQueries(userId: string | undefined) {
   return {
     toAssignRequests,
     myAssignmentsRequests,
+    allGrowthRequests,
     refetchToAssign,
     refetchMyAssignments,
+    refetchAllRequests,
     getRequestDetails
   };
 }

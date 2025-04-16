@@ -29,7 +29,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     updateRequestWorkflowStatus
   } = useGrowthDashboard(defaultTab);
 
-  // Log for debugging mission data
+  // Log pour debugging des données
   useEffect(() => {
     console.log("GrowthDashboard - filteredRequests with mission data:", filteredRequests);
   }, [filteredRequests]);
