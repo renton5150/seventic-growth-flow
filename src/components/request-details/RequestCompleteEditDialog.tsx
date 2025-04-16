@@ -29,9 +29,16 @@ export function RequestCompleteEditDialog({
 }: RequestCompleteEditDialogProps) {
   if (!request) return null;
 
-  // Log pour déboguer le problème de nom de mission
+  // Logs détaillés pour déboguer le problème de nom de mission
   console.log("Mission dans RequestCompleteEditDialog:", request.missionName, request);
   console.log("Request mission ID:", request.missionId);
+  console.log("Données complètes de la requête:", JSON.stringify(request, null, 2));
+
+  // S'assurer que missionId est une chaîne de caractères valide
+  const preparedRequest = {
+    ...request,
+    missionId: request.missionId || "", // Garantir que missionId n'est jamais undefined
+  };
 
   const handleRequestUpdated = () => {
     onOpenChange(false);
@@ -83,7 +90,7 @@ export function RequestCompleteEditDialog({
         {request.type === "email" && (
           <EmailCampaignForm 
             editMode={true}
-            initialData={request as EmailCampaignRequest}
+            initialData={preparedRequest as EmailCampaignRequest}
             onSuccess={handleRequestUpdated}
           />
         )}
@@ -91,7 +98,7 @@ export function RequestCompleteEditDialog({
         {request.type === "database" && (
           <DatabaseCreationForm
             editMode={true}
-            initialData={request as DatabaseRequest}
+            initialData={preparedRequest as DatabaseRequest}
             onSuccess={handleRequestUpdated}
           />
         )}
@@ -99,7 +106,7 @@ export function RequestCompleteEditDialog({
         {request.type === "linkedin" && (
           <LinkedInScrapingForm
             editMode={true}
-            initialData={request as LinkedInScrapingRequest}
+            initialData={preparedRequest as LinkedInScrapingRequest}
             onSuccess={handleRequestUpdated}
           />
         )}

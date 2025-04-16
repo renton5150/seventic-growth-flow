@@ -60,32 +60,38 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
           <FormField
             control={control}
             name="missionId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Mission*</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  value={field.value || ""}
-                  disabled={editMode} // Désactiver le changement de mission en mode édition
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue 
-                        placeholder={loading ? "Chargement des missions..." : "Sélectionner une mission"} 
-                      />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {missions.map((mission) => (
-                      <SelectItem key={mission.id} value={mission.id}>
-                        {mission.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              // Log pour débogage
+              console.log("Valeur actuelle du champ mission:", field.value);
+              console.log("Type de la valeur:", typeof field.value);
+              
+              return (
+                <FormItem>
+                  <FormLabel>Mission*</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value?.toString() || ""}
+                    disabled={editMode} // Désactiver le changement de mission en mode édition
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue 
+                          placeholder={loading ? "Chargement des missions..." : "Sélectionner une mission"} 
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {missions.map((mission) => (
+                        <SelectItem key={mission.id} value={mission.id}>
+                          {mission.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
           
           {/* Date prévue */}
