@@ -19,6 +19,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { getMissionsByUserId } from "@/services/missionService";
+import { useState, useEffect } from "react";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -33,6 +34,21 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
     queryFn: () => user?.id ? getMissionsByUserId(user.id) : [],
     enabled: !!user?.id,
   });
+
+  // Pour le débogage - vérifier les valeurs au chargement du composant
+  useEffect(() => {
+    try {
+      // @ts-ignore - Accès aux valeurs actuelles du formulaire pour le débogage
+      const currentValues = control._formValues;
+      if (currentValues) {
+        console.log("DatabaseFormHeader - Valeurs actuelles du formulaire:", currentValues);
+        console.log("DatabaseFormHeader - Mission ID dans les valeurs du form:", currentValues.missionId);
+        console.log("DatabaseFormHeader - Type de la mission ID:", typeof currentValues.missionId);
+      }
+    } catch (err) {
+      console.log("Impossible d'accéder aux valeurs du formulaire pour le débogage");
+    }
+  }, [control]);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -53,36 +69,50 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
       <FormField
         control={control}
         name="missionId"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Mission client</FormLabel>
-            <FormControl>
-              <Select 
-                value={field.value} 
-                onValueChange={field.onChange}
-                disabled={field.disabled || editMode}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez une mission" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userMissions.length > 0 ? (
-                    userMissions.map((mission) => (
-                      <SelectItem key={mission.id} value={mission.id}>
-                        {mission.name}
+        render={({ field }) => {
+          // Logs pour déboguer
+          console.log("DatabaseFormHeader - Valeur brute du champ mission:", field.value);
+          console.log("DatabaseFormHeader - Type de la valeur:", typeof field.value);
+          
+          // S'assurer que la valeur est une chaîne de caractères
+          const missionValue = field.value ? String(field.value) : "";
+          console.log("DatabaseFormHeader - Valeur après conversion:", missionValue);
+          console.log("DatabaseFormHeader - Missions disponibles:", userMissions);
+          
+          return (
+            <FormItem>
+              <FormLabel>Mission client</FormLabel>
+              <FormControl>
+                <Select 
+                  value={missionValue}
+                  onValueChange={(value) => {
+                    console.log("DatabaseFormHeader - Nouvelle valeur sélectionnée:", value);
+                    field.onChange(value);
+                  }}
+                  disabled={field.disabled || editMode}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez une mission" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    {userMissions.length > 0 ? (
+                      userMissions.map((mission) => (
+                        <SelectItem key={mission.id} value={String(mission.id)}>
+                          {mission.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-missions" disabled>
+                        Aucune mission disponible
                       </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="no-missions" disabled>
-                      Aucune mission disponible
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+                    )}
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          );
+        }}
       />
 
       <FormField
@@ -141,7 +171,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionnez un outil" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="Hubspot">Hubspot</SelectItem>
                   <SelectItem value="Apollo">Apollo</SelectItem>
                 </SelectContent>

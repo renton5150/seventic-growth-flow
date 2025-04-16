@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { getAllMissions } from "@/services/missionService";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -22,9 +23,20 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
     const fetchMissions = async () => {
       try {
         setLoading(true);
-        const data = await getAllMissions();
-        console.log("Missions récupérées:", data);
-        setMissions(data || []);
+        
+        // Utiliser la vue requests_with_missions pour obtenir des données cohérentes
+        let { data: missionsData, error } = await supabase
+          .from('missions')
+          .select('id, name, client, status')
+          .order('name', { ascending: true });
+        
+        console.log("FormHeader - Missions récupérées:", missionsData);
+        
+        if (error) throw error;
+        
+        if (missionsData) {
+          setMissions(missionsData);
+        }
       } catch (error) {
         console.error("Erreur lors de la récupération des missions:", error);
       } finally {
@@ -34,6 +46,21 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
 
     fetchMissions();
   }, []);
+
+  // Extraire la valeur de mission de control.getValues pour le débogage
+  useEffect(() => {
+    try {
+      // @ts-ignore - Accès aux valeurs actuelles du formulaire pour le débogage
+      const currentValues = control._formValues;
+      if (currentValues) {
+        console.log("FormHeader - Valeurs actuelles du formulaire:", currentValues);
+        console.log("FormHeader - Mission ID dans les valeurs du form:", currentValues.missionId);
+        console.log("FormHeader - Type de la mission ID dans le form:", typeof currentValues.missionId);
+      }
+    } catch (err) {
+      console.log("Impossible d'accéder aux valeurs du formulaire pour le débogage");
+    }
+  }, [control]);
 
   return (
     <Card className="border-t-4 border-t-seventic-500">
@@ -61,32 +88,41 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             control={control}
             name="missionId"
             render={({ field }) => {
-              // Logs pour déboguer
-              console.log("FormHeader - Valeur actuelle du champ mission:", field.value);
+              // Logs exhaustifs pour déboguer
+              console.log("FormHeader - Rendu du champ mission");
+              console.log("FormHeader - Valeur brute actuelle:", field.value);
               console.log("FormHeader - Type de la valeur:", typeof field.value);
               
-              // S'assurer que la valeur est une chaîne de caractères
+              // S'assurer que la valeur est une chaîne de caractères valide
               const missionValue = field.value ? String(field.value) : "";
               console.log("FormHeader - Valeur après conversion:", missionValue);
+              console.log("FormHeader - Missions disponibles:", missions.map(m => ({ id: m.id, name: m.name })));
+              
+              // Vérifier si la mission existe dans la liste des options
+              const missionExists = missions.some(m => String(m.id) === missionValue);
+              console.log("FormHeader - Mission trouvée dans les options:", missionExists);
               
               return (
                 <FormItem>
                   <FormLabel>Mission*</FormLabel>
                   <Select 
-                    onValueChange={field.onChange} 
+                    onValueChange={(value) => {
+                      console.log("FormHeader - Nouvelle valeur sélectionnée:", value);
+                      field.onChange(value);
+                    }}
                     value={missionValue}
-                    disabled={editMode} // Désactiver le changement de mission en mode édition
+                    disabled={loading || editMode} // Désactiver pendant le chargement ou en mode édition
                   >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue 
-                          placeholder={loading ? "Chargement des missions..." : "Sélectionner une mission"} 
+                          placeholder={loading ? "Chargement des missions..." : "Sélectionner une mission"}
                         />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       {missions.map((mission) => (
-                        <SelectItem key={mission.id} value={mission.id}>
+                        <SelectItem key={mission.id} value={String(mission.id)}>
                           {mission.name}
                         </SelectItem>
                       ))}
