@@ -1,4 +1,3 @@
-
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
@@ -25,8 +24,7 @@ import {
   ArrowRightLeft,
   Pencil,
   Check,
-  XCircle,
-  Briefcase
+  XCircle
 } from "lucide-react";
 import { EmptyRequestsRow } from "../dashboard/requests-table/EmptyRequestsRow";
 import {
@@ -155,7 +153,6 @@ export function GrowthRequestsTable({
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
 
-  // Debug log to see what mission data we're receiving
   console.log('GrowthRequestsTable - requests with mission data:', requests);
 
   return (
@@ -165,7 +162,6 @@ export function GrowthRequestsTable({
           <TableRow>
             <TableHead className="w-[50px]">Type</TableHead>
             <TableHead>Titre</TableHead>
-            <TableHead>Mission</TableHead>
             <TableHead>SDR</TableHead>
             <TableHead>Créée le</TableHead>
             <TableHead>Date prévue</TableHead>
@@ -175,7 +171,7 @@ export function GrowthRequestsTable({
         </TableHeader>
         <TableBody>
           {requests.length === 0 ? (
-            <EmptyRequestsRow colSpan={8} />
+            <EmptyRequestsRow colSpan={7} />
           ) : (
             requests.map((request) => (
               <TableRow key={request.id}>
@@ -184,12 +180,6 @@ export function GrowthRequestsTable({
                 </TableCell>
                 <TableCell>
                   <div className="font-medium">{request.title}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center">
-                    <Briefcase className="mr-2 h-4 w-4 text-gray-500" />
-                    {request.missionName || "Mission sans nom"}
-                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center">
@@ -210,7 +200,6 @@ export function GrowthRequestsTable({
                       <Pencil size={14} className="mr-1" /> Éditer
                     </Button>
                     
-                    {/* Bouton "Prendre en charge" pour l'onglet "À affecter" */}
                     {activeTab === "to_assign" && request.workflow_status === "pending_assignment" && assignRequestToMe && (
                       <Button 
                         variant="default"
@@ -222,7 +211,6 @@ export function GrowthRequestsTable({
                       </Button>
                     )}
                     
-                    {/* Gestion des statuts pour "Mes assignations" */}
                     {activeTab === "my_assignments" && updateRequestWorkflowStatus && (
                       request.workflow_status === "in_progress" ? (
                         <DropdownMenu>
@@ -264,7 +252,6 @@ export function GrowthRequestsTable({
                       )
                     )}
                     
-                    {/* Boutons existants pour les autres onglets */}
                     {activeTab !== "to_assign" && activeTab !== "my_assignments" && (
                       <>
                         {request.status === "pending" && (
