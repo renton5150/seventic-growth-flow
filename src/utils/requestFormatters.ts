@@ -9,10 +9,10 @@ export function formatRequestFromDb(dbRequest: any): Request {
   const isLate = dueDate < new Date() && 
                  (dbRequest.workflow_status !== 'completed' && dbRequest.workflow_status !== 'canceled');
   
-  // Get SDR name from relationships
-  const sdrName = dbRequest.profiles?.name || "Non assigné";
+  // Get SDR name from relationships with the new query format
+  const sdrName = dbRequest.created_by_profile?.name || "Non assigné";
   
-  // Get assigned person name
+  // Get assigned person name with the new query format
   const assignedToName = dbRequest.assigned_profile?.name || null;
   
   // Get specific details for the request type

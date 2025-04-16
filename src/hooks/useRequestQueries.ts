@@ -14,8 +14,9 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          profiles:created_by(name, avatar),
-          assigned_profile:assigned_to(name, avatar)
+          created_by_profile:profiles!created_by(name, avatar),
+          assigned_profile:assigned_to(name, avatar),
+          missions:mission_id(name)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -40,7 +41,7 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          profiles:created_by(name, avatar),
+          created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:assigned_to(name, avatar),
           missions:mission_id(name)
         `)
@@ -64,9 +65,9 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests')
         .select(`
           *,
-          profiles:created_by(name, avatar),
+          created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:assigned_to(name, avatar),
-          missions:mission_id(name)
+          missions:mission_id(name, description)
         `)
         .eq('id', requestId)
         .single();

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Calendar, Users, Clock, Check, AlertCircle, FileText } from "lucide-react";
+import { ChevronLeft, Calendar, Users, Clock, Check, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request, Mission, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { toast } from "sonner";
@@ -45,7 +45,7 @@ const RequestDetails = () => {
             .from('requests')
             .select(`
               *,
-              profiles:created_by(name, avatar),
+              created_by_profile:profiles!created_by(name, avatar),
               assigned_profile:assigned_to(name, avatar),
               missions:mission_id(name, description)
             `)
@@ -70,7 +70,7 @@ const RequestDetails = () => {
               name: data.missions.name,
               description: data.missions.description,
               sdrId: data.created_by,
-              sdrName: data.profiles?.name,
+              sdrName: data.created_by_profile?.name,
               createdAt: new Date(data.created_at),
               startDate: null,
               endDate: null,
@@ -153,7 +153,7 @@ const RequestDetails = () => {
   const renderEmailCampaignDetails = () => {
     if (!request || !isEmailRequest(request)) return null;
 
-    // Access email campaign specific fields
+    // Safely access email campaign specific fields
     const template = request.template || { content: "", webLink: "", fileUrl: "" };
     const database = request.database || { notes: "", webLink: "", fileUrl: "" };
     const blacklist = request.blacklist || { 

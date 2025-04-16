@@ -21,14 +21,17 @@ export function useRequestAssignment(onRequestUpdated: () => void) {
         return false;
       }
       
-      // Notify the SDR
+      // Notify the SDR - using proper column specification
       const { data: request } = await supabase
         .from('requests')
-        .select('*, profiles:created_by(email)')
+        .select(`
+          *,
+          created_by_profile:profiles!created_by(email)
+        `)
         .eq('id', requestId)
         .single();
 
-      if (request && request.profiles && request.profiles.email) {
+      if (request && request.created_by_profile && request.created_by_profile.email) {
         toast.success("Le SDR a été notifié du changement de statut");
       }
       
@@ -55,14 +58,17 @@ export function useRequestAssignment(onRequestUpdated: () => void) {
         return false;
       }
 
-      // Notify the SDR about the status change
+      // Notify the SDR about the status change - using proper column specification
       const { data: request } = await supabase
         .from('requests')
-        .select('*, profiles:created_by(email)')
+        .select(`
+          *,
+          created_by_profile:profiles!created_by(email)
+        `)
         .eq('id', requestId)
         .single();
 
-      if (request && request.profiles && request.profiles.email) {
+      if (request && request.created_by_profile && request.created_by_profile.email) {
         toast.success("Le SDR a été notifié du changement de statut");
       }
       
