@@ -18,7 +18,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions:missions!mission_id(name, client)
+          missions!mission_id(name, client)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -30,7 +30,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Requêtes à affecter récupérées:", data);
-      console.log("Structure de données des missions récupérées:", data[0]?.missions);
+      console.log("Structure de données des missions récupérées:", data.length > 0 ? data[0].missions : "Aucune mission");
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -49,7 +49,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions:missions!mission_id(name, client)
+          missions!mission_id(name, client)
         `)
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
@@ -60,7 +60,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Mes assignations récupérées:", data);
-      console.log("Structure de données des missions récupérées (assignations):", data[0]?.missions);
+      console.log("Structure de données des missions récupérées (assignations):", data.length > 0 ? data[0].missions : "Aucune mission");
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -79,7 +79,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions:missions!mission_id(name, client)
+          missions!mission_id(name, client)
         `)
         .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
@@ -90,7 +90,11 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Toutes les requêtes récupérées:", data);
-      console.log("Structure de données des missions récupérées (toutes):", data[0]?.missions);
+      if (data && data.length > 0) {
+        console.log("Exemple de requête récupérée avec mission:", data[0]);
+        console.log("Structure de données des missions récupérées (toutes):", data[0].missions);
+      }
+      
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -106,7 +110,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions:missions!mission_id(name, client, description)
+          missions!mission_id(name, client, description)
         `)
         .eq('id', requestId)
         .single();

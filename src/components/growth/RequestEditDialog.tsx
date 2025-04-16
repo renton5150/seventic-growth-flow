@@ -84,6 +84,18 @@ export function RequestEditDialog({
     }
   };
 
+  // Calcul du type de demande pour l'affichage
+  const getRequestTypeLabel = (type?: string): string => {
+    if (!type) return "";
+    
+    switch(type) {
+      case "email": return "Campagne Email";
+      case "database": return "Base de données";
+      case "linkedin": return "Scraping LinkedIn";
+      default: return type;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
@@ -95,9 +107,17 @@ export function RequestEditDialog({
         </DialogHeader>
         
         {selectedRequest && (
-          <div className="mb-4">
-            <p className="text-sm text-muted-foreground">
-              <strong>Mission:</strong> {selectedRequest.missionName || "Non assignée"}
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">
+                <span className="text-muted-foreground">Mission:</span> {selectedRequest.missionName || "Non assignée"}
+              </p>
+              <p className="text-sm font-medium">
+                <span className="text-muted-foreground">SDR:</span> {selectedRequest.sdrName || "Non assigné"}
+              </p>
+            </div>
+            <p className="text-sm font-medium">
+              <span className="text-muted-foreground">Type:</span> {getRequestTypeLabel(selectedRequest.type)}
             </p>
           </div>
         )}

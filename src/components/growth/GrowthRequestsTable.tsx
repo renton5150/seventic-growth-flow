@@ -10,11 +10,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users } from "lucide-react";
+import { Users, Mail, Database, Linkedin } from "lucide-react";
 import { EmptyRequestsRow } from "../dashboard/requests-table/EmptyRequestsRow";
 import { GrowthRequestStatusBadge } from "./table/GrowthRequestStatusBadge";
 import { GrowthRequestActions } from "./table/GrowthRequestActions";
 import { GrowthRequestTypeIcon } from "./table/GrowthRequestTypeIcon";
+import { Badge } from "@/components/ui/badge";
 
 interface GrowthRequestsTableProps {
   requests: Request[];
@@ -41,6 +42,16 @@ export function GrowthRequestsTable({
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
 
+  // Fonction pour obtenir l'intitulé complet du type de demande
+  const getRequestTypeLabel = (type: string): string => {
+    switch(type) {
+      case "email": return "Campagne Email";
+      case "database": return "Base de données";
+      case "linkedin": return "Scraping LinkedIn";
+      default: return type;
+    }
+  };
+
   // Log pour vérifier les noms des missions
   console.log("Affichage des requêtes dans GrowthRequestsTable:", requests);
   if (requests && requests.length > 0) {
@@ -54,6 +65,7 @@ export function GrowthRequestsTable({
           <TableRow>
             <TableHead className="w-[50px]">Type</TableHead>
             <TableHead>Titre</TableHead>
+            <TableHead>Type de demande</TableHead>
             <TableHead>Mission</TableHead>
             <TableHead>SDR</TableHead>
             <TableHead>Créée le</TableHead>
@@ -64,7 +76,7 @@ export function GrowthRequestsTable({
         </TableHeader>
         <TableBody>
           {requests.length === 0 ? (
-            <EmptyRequestsRow colSpan={8} />
+            <EmptyRequestsRow colSpan={9} />
           ) : (
             requests.map((request) => (
               <TableRow key={request.id}>
@@ -73,6 +85,11 @@ export function GrowthRequestsTable({
                 </TableCell>
                 <TableCell>
                   <div className="font-medium">{request.title}</div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="bg-gray-100">
+                    {getRequestTypeLabel(request.type)}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="font-medium text-sm">

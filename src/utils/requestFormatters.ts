@@ -4,7 +4,6 @@ import { Request } from "@/types/types";
 export function formatRequestFromDb(dbRequest: any): Request {
   // Ajouter des logs pour voir les données exactes reçues de Supabase
   console.log("Données brutes de la requête reçue de Supabase:", dbRequest);
-  console.log("Données de mission dans formatRequestFromDb:", dbRequest.missions);
   
   const createdAt = new Date(dbRequest.created_at);
   const dueDate = new Date(dbRequest.due_date);
@@ -13,33 +12,36 @@ export function formatRequestFromDb(dbRequest: any): Request {
   const isLate = dueDate < new Date() && 
                  (dbRequest.workflow_status !== 'completed' && dbRequest.workflow_status !== 'canceled');
   
-  // Get SDR name from relationships with the new query format
+  // Get SDR name from relationships
   const sdrName = dbRequest.created_by_profile?.name || "Non assigné";
   
-  // Get assigned person name with the new query format
+  // Get assigned person name
   const assignedToName = dbRequest.assigned_profile?.name || null;
   
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
-  // Récupération du nom de la mission
+  // Récupération du nom de la mission - Amélioration pour le profil Growth
   let missionName = "Mission sans nom";
   
   // Vérifier et traiter les données de mission selon leur structure
   if (dbRequest.missions) {
-    // Cas 1: Si missions est un tableau (relation many)
-    if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
+    // Pour le profil Growth, missions est un objet direct (pas un tableau)
+    if (dbRequest.missions && typeof dbRequest.missions === 'object') {
+      // Si c'est un objet avec propriété name ou client, l'utiliser
+      if (dbRequest.missions.name || dbRequest.missions.client) {
+        missionName = dbRequest.missions.name || dbRequest.missions.client;
+        console.log("Nom de mission récupéré depuis l'objet missions pour Growth:", missionName);
+      }
+    }
+    // Si missions est un tableau (cas du profil SDR)
+    else if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
       missionName = dbRequest.missions[0].name || dbRequest.missions[0].client || "Mission sans nom";
       console.log("Nom de mission récupéré d'un tableau:", missionName);
     }
-    // Cas 2: Si missions est un objet unique (relation one-to-one)
-    else if (typeof dbRequest.missions === 'object' && dbRequest.missions !== null) {
-      missionName = dbRequest.missions.name || dbRequest.missions.client || "Mission sans nom";
-      console.log("Nom de mission récupéré d'un objet:", missionName);
-    }
   } else if (dbRequest.mission_name) {
-    // Cas 3: Si le nom de mission est directement dans la requête
-    missionName = dbRequest.mission_name || "Mission sans nom";
+    // Cas où le nom de mission est directement dans la requête
+    missionName = dbRequest.mission_name;
     console.log("Nom de mission récupéré directement:", missionName);
   }
   
