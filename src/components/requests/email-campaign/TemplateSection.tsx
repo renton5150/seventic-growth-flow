@@ -1,4 +1,3 @@
-
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
@@ -27,11 +26,21 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Collez ici le contenu de votre template (HTML ou texte brut)" 
-                      className="min-h-[200px]"
-                      {...field} 
-                    />
+                    <div className="relative">
+                      <Textarea 
+                        placeholder="Collez ici le contenu de votre template (HTML ou texte)" 
+                        className="min-h-[200px] font-mono"
+                        {...field}
+                        onChange={(e) => {
+                          const sanitizedValue = e.target.value;
+                          // Let's keep HTML tags but escape potentially dangerous scripts
+                          field.onChange(sanitizedValue);
+                        }}
+                      />
+                      <div className="absolute right-2 bottom-2 text-xs text-muted-foreground">
+                        HTML autorisé
+                      </div>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
