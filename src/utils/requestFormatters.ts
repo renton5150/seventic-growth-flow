@@ -18,13 +18,16 @@ export function formatRequestFromDb(dbRequest: any): Request {
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
+  // Get mission name directly from the missions relationship
+  const missionName = dbRequest.missions?.name || null;
+  
   // Build the base request
   const baseRequest: Request = {
     id: dbRequest.id,
     title: dbRequest.title,
     type: dbRequest.type,
     missionId: dbRequest.mission_id,
-    missionName: dbRequest.missions?.name,
+    missionName: missionName,
     createdBy: dbRequest.created_by,
     sdrName,
     createdAt,

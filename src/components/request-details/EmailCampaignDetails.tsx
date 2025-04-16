@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmailCampaignRequest } from '@/types/types';
@@ -17,14 +18,17 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
   const ensureValidUrl = (url: string | undefined): string | null => {
     if (!url) return null;
     
+    // Si c'est déjà une URL complète, la retourner telle quelle
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
     
+    // Pour les chemins Supabase Storage
     if (url.includes('storage/v1/object')) {
       return url;
     }
     
+    // Pour les chemins relatifs, on les retourne tels quels
     return url;
   };
 

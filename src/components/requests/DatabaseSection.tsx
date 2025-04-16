@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 interface DatabaseSectionProps {
   control: Control<any>;
@@ -47,41 +46,20 @@ export const DatabaseSection = ({
     try {
       setUploading(true);
       
-      // Vérifier si les variables d'environnement Supabase sont configurées
-      const hasSupabaseConfig = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (hasSupabaseConfig) {
-        // Téléchargement réel vers Supabase (non implémenté dans cet exemple)
-        // Cette partie serait remplacée par un vrai code de téléchargement
-        console.log("Configuration Supabase trouvée, tentative de téléchargement réel...");
+      // En mode démo, nous simulons un téléchargement réussi
+      setTimeout(() => {
+        const fileName = file.name;
+        // Créer une URL fictive sous forme de chaîne pour le mode démo
+        const fakeUrl = `uploads/${fileName}`;
         
-        // Simuler un téléchargement réussi pour l'instant
-        setTimeout(() => {
-          const fileName = file.name;
-          const fakeUrl = `uploads/${fileName}`;
-          
-          toast.success(`Fichier ${fileName} téléchargé avec succès`);
-          handleFileUpload("databaseFileUrl", fakeUrl);
-          
-          // Déclencher l'événement pour actualiser la liste des bases de données
-          window.dispatchEvent(new CustomEvent('database-uploaded'));
-          setUploading(false);
-        }, 1000);
-      } else {
-        // Mode démo - simulation d'un téléchargement réussi
-        console.log("Configuration Supabase NON trouvée, utilisation du mode démo");
-        setTimeout(() => {
-          const fileName = file.name;
-          const fakeUrl = `uploads/${fileName}`;
-          
-          toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
-          handleFileUpload("databaseFileUrl", fakeUrl);
-          
-          // Déclencher l'événement pour actualiser la liste des bases de données
-          window.dispatchEvent(new CustomEvent('database-uploaded'));
-          setUploading(false);
-        }, 1000);
-      }
+        toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
+        // Passer l'URL directement comme une chaîne
+        handleFileUpload("databaseFileUrl", fakeUrl);
+        
+        // Déclencher l'événement pour actualiser la liste des bases de données
+        window.dispatchEvent(new CustomEvent('database-uploaded'));
+        setUploading(false);
+      }, 1000);
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast.error("Erreur lors du téléchargement du fichier");
