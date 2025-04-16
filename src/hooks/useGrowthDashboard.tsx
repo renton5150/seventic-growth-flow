@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request } from "@/types/types";
@@ -30,6 +29,8 @@ export function useGrowthDashboard(defaultTab?: string) {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching all growth requests...");
+      
       // Récupérer toutes les requêtes pour la vue générale avec jointure sur missions
       const { data: allRequests, error } = await supabase
         .from('requests')
@@ -37,7 +38,7 @@ export function useGrowthDashboard(defaultTab?: string) {
           *, 
           profiles:created_by(name, avatar), 
           assigned_profile:assigned_to(name, avatar),
-          missions:mission_id(name, id)
+          missions(name, id)
         `)
         .order('due_date', { ascending: true });
       
@@ -45,6 +46,8 @@ export function useGrowthDashboard(defaultTab?: string) {
         console.error("Erreur lors de la récupération des requêtes:", error);
         return [];
       }
+      
+      console.log("Requests with missions data:", allRequests);
       
       return allRequests.map(formatRequestFromDb);
     },
@@ -57,12 +60,14 @@ export function useGrowthDashboard(defaultTab?: string) {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching to-assign growth requests...");
+      
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           profiles:created_by(name, avatar),
-          missions:mission_id(name, id)
+          missions(name, id)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -72,6 +77,8 @@ export function useGrowthDashboard(defaultTab?: string) {
         console.error("Erreur lors de la récupération des requêtes à affecter:", error);
         return [];
       }
+      
+      console.log("To-assign requests with missions data:", data);
       
       return data.map(formatRequestFromDb);
     },
@@ -84,12 +91,14 @@ export function useGrowthDashboard(defaultTab?: string) {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching my-assignments growth requests...");
+      
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           profiles:created_by(name, avatar),
-          missions:mission_id(name, id)
+          missions(name, id)
         `)
         .eq('assigned_to', user.id)
         .order('due_date', { ascending: true });
@@ -98,6 +107,8 @@ export function useGrowthDashboard(defaultTab?: string) {
         console.error("Erreur lors de la récupération de mes assignations:", error);
         return [];
       }
+      
+      console.log("My assignments with missions data:", data);
       
       return data.map(formatRequestFromDb);
     },
@@ -212,7 +223,22 @@ export function useGrowthDashboard(defaultTab?: string) {
     const assignedToName = dbRequest.assigned_profile?.name || null;
     
     // Récupère le nom de la mission s'il est disponible
-    const missionName = dbRequest.missions?.name || "Mission sans nom";
+    let missionName = "Mission sans nom";
+    
+    // Logging pour déboguer les données de mission
+    console.log("Mission data in request:", dbRequest.mission_id, dbRequest.missions);
+    
+    // Vérifier si les missions sont disponibles et récupérer le nom
+    if (dbRequest.missions) {
+      // Si missions est un tableau (jointure multiple)
+      if (Array.isArray(dbRequest.missions) && dbRequest.missions.length > 0) {
+        missionName = dbRequest.missions[0].name || "Mission sans nom";
+      } 
+      // Si missions est un objet simple (jointure simple)
+      else if (typeof dbRequest.missions === 'object' && dbRequest.missions !== null) {
+        missionName = dbRequest.missions.name || "Mission sans nom";
+      }
+    }
     
     // Construit l'objet requête formaté
     return {

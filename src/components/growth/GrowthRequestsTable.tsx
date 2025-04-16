@@ -155,6 +155,9 @@ export function GrowthRequestsTable({
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
 
+  // Debug log to see what mission data we're receiving
+  console.log('GrowthRequestsTable - requests with mission data:', requests);
+
   return (
     <div className="border rounded-md">
       <Table>
