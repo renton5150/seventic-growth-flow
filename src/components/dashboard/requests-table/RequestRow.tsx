@@ -24,10 +24,8 @@ import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { deleteRequest } from "@/services/requestService";
 import { useState } from "react";
+import { deleteRequest } from "@/services/requests/deleteRequestService";
 
 interface RequestRowProps {
   request: Request;
@@ -43,9 +41,6 @@ export const RequestRow = ({
   onRequestDeleted
 }: RequestRowProps) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
-  const isOwner = user?.id === request.createdBy;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -74,11 +69,13 @@ export const RequestRow = ({
     navigate(`/requests/${request.type}/${request.id}/edit`);
   };
   
-  const handleDeleteRequest = async () => {
+  const handleDeleteRequest = () => {
     setIsDeleteDialogOpen(true);
   };
   
   const confirmDelete = async () => {
+    if (isDeleting) return; // Éviter les clics multiples
+    
     try {
       setIsDeleting(true);
       console.log(`Confirmation de suppression pour la demande ${request.id}`);
@@ -86,17 +83,14 @@ export const RequestRow = ({
       const success = await deleteRequest(request.id);
       
       if (success) {
-        toast.success("La demande a été supprimée avec succès");
-        console.log("Suppression réussie, appel du callback onRequestDeleted");
+        console.log("Suppression réussie, notification de mise à jour");
+        // Notification au parent pour rafraîchir les données
         if (onRequestDeleted) {
           onRequestDeleted();
         }
-      } else {
-        toast.error("Erreur lors de la suppression de la demande");
       }
     } catch (error) {
-      console.error("Erreur lors de la suppression de la demande:", error);
-      toast.error("Une erreur s'est produite lors de la suppression");
+      console.error("Erreur lors de la suppression:", error);
     } finally {
       setIsDeleting(false);
       setIsDeleteDialogOpen(false);
@@ -119,7 +113,7 @@ export const RequestRow = ({
         {showSdr && (
           <TableCell>
             <div className="flex items-center">
-              <Users className={`mr-2 h-4 w-4 ${isAdmin ? "text-blue-500" : "text-muted-foreground"}`} />
+              <Users className="mr-2 h-4 w-4 text-muted-foreground" />
               {request.sdrName || "Non assigné"}
             </div>
           </TableCell>
@@ -130,7 +124,6 @@ export const RequestRow = ({
         <TableCell>
           <RequestStatusBadge status={request.status} workflow_status={request.workflow_status} isLate={request.isLate} />
         </TableCell>
-        {/* Nouvelle colonne pour afficher le Growth assigné */}
         <TableCell>
           {request.assignedToName ? (
             <div className="flex items-center">
@@ -147,7 +140,6 @@ export const RequestRow = ({
               variant="ghost" 
               size="icon" 
               onClick={() => viewRequest(request)}
-              className={isAdmin ? "hover:bg-blue-100" : ""}
             >
               <Eye size={16} />
             </Button>
@@ -156,12 +148,11 @@ export const RequestRow = ({
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className={isAdmin ? "hover:bg-blue-100" : ""}
                 >
                   <MoreHorizontal size={16} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className={isAdmin ? "border-blue-200" : ""}>
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => viewRequest(request)}>
                   Voir les détails
                 </DropdownMenuItem>

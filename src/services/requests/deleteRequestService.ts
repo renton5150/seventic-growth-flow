@@ -11,40 +11,33 @@ export const deleteRequest = async (requestId: string): Promise<boolean> => {
   try {
     console.log(`Tentative de suppression de la demande ${requestId}`);
     
-    // Récupérer d'abord les informations de l'utilisateur actuel
+    // Vérifier que l'utilisateur est authentifié
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (userError) {
-      console.error("Erreur lors de la récupération de l'utilisateur:", userError);
-      toast.error("Erreur d'authentification");
-      return false;
-    }
-    
-    if (!user) {
-      console.error("Utilisateur non authentifié");
+    if (userError || !user) {
+      console.error("Erreur d'authentification:", userError);
       toast.error("Vous devez être connecté pour supprimer une demande");
       return false;
     }
     
-    console.log(`Utilisateur ${user.id} tente de supprimer la demande ${requestId}`);
-    
-    // Exécuter la suppression
+    // Supprimer la demande - simplement par ID, sans conditions supplémentaires
+    // La RLS de Supabase s'assurera que l'utilisateur ne peut supprimer que ses propres demandes
     const { error } = await supabase
       .from('requests')
       .delete()
-      .eq('id', requestId)
-      .or(`created_by.eq.${user.id}`); // S'assurer que l'utilisateur ne peut supprimer que ses propres demandes
-      
+      .eq('id', requestId);
+    
     if (error) {
-      console.error("Erreur lors de la suppression de la demande:", error);
+      console.error("Erreur lors de la suppression:", error);
       toast.error(`Échec de la suppression: ${error.message}`);
       return false;
     }
     
     console.log(`Demande ${requestId} supprimée avec succès`);
+    toast.success("Demande supprimée avec succès");
     return true;
   } catch (error) {
-    console.error("Exception lors de la suppression de la demande:", error);
+    console.error("Exception lors de la suppression:", error);
     toast.error("Une erreur inattendue s'est produite");
     return false;
   }

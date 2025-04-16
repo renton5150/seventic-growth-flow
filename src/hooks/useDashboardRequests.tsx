@@ -1,9 +1,9 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
+import { getAllRequests } from "@/services/requestService";
 import { getMissionsByUserId } from "@/services/missionService";
 
 export const useDashboardRequests = () => {
@@ -21,6 +21,7 @@ export const useDashboardRequests = () => {
   const { data: allRequests = [], isLoading: isLoadingRequests, refetch: refetchRequests, error: requestsError } = useQuery({
     queryKey: ['requests'],
     queryFn: getAllRequests,
+    staleTime: 5000, // Réduire la durée de mise en cache pour un rafraîchissement plus fréquent
     enabled: !!user
   });
 
@@ -28,6 +29,7 @@ export const useDashboardRequests = () => {
   const { data: userMissions = [], isLoading: isLoadingMissions, error: missionsError } = useQuery({
     queryKey: ['missions', user?.id],
     queryFn: async () => user?.id ? await getMissionsByUserId(user.id) : [],
+    staleTime: 5000, // Réduire la durée de mise en cache pour un rafraîchissement plus fréquent
     enabled: !!user && isSDR
   });
 
