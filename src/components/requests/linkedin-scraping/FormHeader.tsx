@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { mockData } from "@/data/mockData";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/types";
 import { 
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { getMissionsByUserId } from "@/services/missionService";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -25,9 +26,12 @@ interface FormHeaderProps {
 }
 
 export const FormHeader = ({ control, user }: FormHeaderProps) => {
-  const userMissions = mockData.missions.filter(
-    mission => mission.sdrId === user?.id
-  );
+  // Récupérer les missions de l'utilisateur connecté
+  const { data: userMissions = [] } = useQuery({
+    queryKey: ['missions', user?.id],
+    queryFn: () => user?.id ? getMissionsByUserId(user.id) : [],
+    enabled: !!user?.id,
+  });
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -61,11 +65,17 @@ export const FormHeader = ({ control, user }: FormHeaderProps) => {
                   <SelectValue placeholder="Sélectionnez une mission" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userMissions.map((mission) => (
-                    <SelectItem key={mission.id} value={mission.id}>
-                      {mission.name}
+                  {userMissions.length > 0 ? (
+                    userMissions.map((mission) => (
+                      <SelectItem key={mission.id} value={mission.id}>
+                        {mission.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-missions" disabled>
+                      Aucune mission disponible
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </FormControl>
