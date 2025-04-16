@@ -38,7 +38,7 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                   <FormControl>
                     <div className="relative border rounded-md overflow-hidden">
                       <Editor
-                        apiKey="no-api-key" // Vous pouvez obtenir une clé API gratuite sur https://www.tiny.cloud/
+                        tinymceScriptSrc="/tinymce/tinymce.min.js"
                         onInit={handleEditorInit}
                         initialValue={field.value}
                         value={field.value}
@@ -51,7 +51,7 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                           plugins: [
                             'advlist', 'autolink', 'link', 'image', 'lists', 'charmap', 'preview', 'anchor', 
                             'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 
-                            'media', 'table', 'help', 'wordcount', 'emoticons', 'paste'
+                            'media', 'table', 'help', 'wordcount', 'emoticons'
                           ],
                           toolbar: 'undo redo | formatselect | ' +
                             'bold italic forecolor backcolor | alignleft aligncenter ' +
@@ -62,6 +62,17 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
                           convert_urls: false,
                           branding: false,
                           promotion: false,
+                          images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                              if (e.target) {
+                                resolve(e.target.result as string);
+                              } else {
+                                reject('Erreur de lecture de l\'image');
+                              }
+                            };
+                            reader.readAsDataURL(blobInfo.blob());
+                          })
                         }}
                       />
                       {!isEditorReady && (
