@@ -43,6 +43,9 @@ export function GrowthRequestsTable({
 
   // Log pour vérifier les noms des missions
   console.log("Affichage des requêtes dans GrowthRequestsTable:", requests);
+  if (requests && requests.length > 0) {
+    console.log("Premier élément avec nom de mission:", requests[0].missionName);
+  }
 
   return (
     <div className="border rounded-md">

@@ -38,7 +38,7 @@ export function RequestEditDialog({
 }: RequestEditDialogProps) {
   useEffect(() => {
     if (selectedRequest) {
-      console.log("Mission dans RequestEditDialog:", selectedRequest.missionName);
+      console.log("Mission dans RequestEditDialog:", selectedRequest.missionName, selectedRequest);
       form.reset({
         title: selectedRequest.title,
         dueDate: new Date(selectedRequest.dueDate).toISOString().split('T')[0],

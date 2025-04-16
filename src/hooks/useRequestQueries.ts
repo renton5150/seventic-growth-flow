@@ -11,14 +11,14 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération des requêtes à affecter");
+      console.log("Récupération des requêtes à affecter pour Growth avec userId:", userId);
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions(name, client)
+          missions:missions!mission_id(name, client)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -30,6 +30,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Requêtes à affecter récupérées:", data);
+      console.log("Structure de données des missions récupérées:", data[0]?.missions);
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -41,14 +42,14 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération de mes assignations");
+      console.log("Récupération de mes assignations pour Growth avec userId:", userId);
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions(name, client)
+          missions:missions!mission_id(name, client)
         `)
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
@@ -59,6 +60,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Mes assignations récupérées:", data);
+      console.log("Structure de données des missions récupérées (assignations):", data[0]?.missions);
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -70,14 +72,14 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération de toutes les requêtes growth");
+      console.log("Récupération de toutes les requêtes growth avec userId:", userId);
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions(name, client)
+          missions:missions!mission_id(name, client)
         `)
         .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
@@ -88,6 +90,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log("Toutes les requêtes récupérées:", data);
+      console.log("Structure de données des missions récupérées (toutes):", data[0]?.missions);
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -103,7 +106,7 @@ export function useRequestQueries(userId: string | undefined) {
           *,
           created_by_profile:profiles!created_by(name, avatar),
           assigned_profile:profiles!assigned_to(name, avatar),
-          missions(name, client, description)
+          missions:missions!mission_id(name, client, description)
         `)
         .eq('id', requestId)
         .single();
@@ -114,6 +117,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
 
       console.log("Détails de la demande récupérés:", data);
+      console.log("Structure de données de la mission récupérée (détails):", data?.missions);
       return formatRequestFromDb(data);
     } catch (err) {
       console.error("Erreur lors de la récupération des détails:", err);

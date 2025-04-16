@@ -4,6 +4,7 @@ import { Request } from "@/types/types";
 export function formatRequestFromDb(dbRequest: any): Request {
   // Ajouter des logs pour voir les données exactes reçues de Supabase
   console.log("Données brutes de la requête reçue de Supabase:", dbRequest);
+  console.log("Données de mission dans formatRequestFromDb:", dbRequest.missions);
   
   const createdAt = new Date(dbRequest.created_at);
   const dueDate = new Date(dbRequest.due_date);
