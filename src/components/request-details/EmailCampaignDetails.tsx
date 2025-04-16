@@ -2,6 +2,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmailCampaignRequest } from '@/types/types';
+import { Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface EmailCampaignDetailsProps {
   request: EmailCampaignRequest;
@@ -15,21 +17,32 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
     emails: { notes: "", fileUrl: "" }
   };
 
-  const ensureValidUrl = (url: string | undefined): string | null => {
-    if (!url) return null;
+  // Fonction pour télécharger un fichier à partir d'une URL
+  const handleFileDownload = (url: string | undefined, filename: string = "document") => {
+    if (!url) return;
     
-    // Si c'est déjà une URL complète, la retourner telle quelle
+    // Cas 1: URL complète (http/https)
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
+      // Ouvrir dans un nouvel onglet mais indiquer que c'est pour un téléchargement
+      window.open(url, '_blank');
+      return;
     }
     
-    // Pour les chemins Supabase Storage
-    if (url.includes('storage/v1/object')) {
-      return url;
-    }
+    // Cas 2: Chemin local (pour les chemins simulés en mode démo)
+    // Créer une simulation de téléchargement
+    const element = document.createElement('a');
     
-    // Pour les chemins relatifs, on les retourne tels quels
-    return url;
+    // Utiliser un blob vide juste pour déclencher le téléchargement
+    const blob = new Blob(['Contenu simulé pour le mode démo'], { type: 'application/octet-stream' });
+    element.href = URL.createObjectURL(blob);
+    
+    // Extraire le nom du fichier depuis l'URL
+    const extractedFilename = url.split('/').pop() || filename;
+    element.download = decodeURIComponent(extractedFilename);
+    
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
   return (
@@ -51,7 +64,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {template.webLink && (
             <div className="mb-4">
               <h4 className="font-semibold text-sm">Lien web</h4>
-              <a href={ensureValidUrl(template.webLink) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <a href={template.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                 {template.webLink}
               </a>
             </div>
@@ -59,9 +72,15 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {template.fileUrl && (
             <div>
               <h4 className="font-semibold text-sm">Fichier attaché</h4>
-              <a href={ensureValidUrl(template.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleFileDownload(template.fileUrl, "template")}
+                className="flex items-center gap-2 mt-1"
+              >
+                <Download className="h-4 w-4" />
                 Télécharger le fichier
-              </a>
+              </Button>
             </div>
           )}
         </CardContent>
@@ -81,15 +100,21 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {database.fileUrl && (
             <div className="mb-4">
               <h4 className="font-semibold text-sm">Fichier</h4>
-              <a href={ensureValidUrl(database.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleFileDownload(database.fileUrl, "database")}
+                className="flex items-center gap-2 mt-1"
+              >
+                <Download className="h-4 w-4" />
                 Télécharger la base de données
-              </a>
+              </Button>
             </div>
           )}
           {database.webLink && (
             <div>
               <h4 className="font-semibold text-sm">Lien web</h4>
-              <a href={ensureValidUrl(database.webLink) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                 {database.webLink}
               </a>
             </div>
@@ -108,9 +133,15 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
                 <h4 className="font-semibold text-sm">Comptes exclus</h4>
                 <p>{blacklist.accounts.notes}</p>
                 {blacklist.accounts.fileUrl && (
-                  <a href={ensureValidUrl(blacklist.accounts.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts")}
+                    className="flex items-center gap-2 mt-1"
+                  >
+                    <Download className="h-4 w-4" />
                     Télécharger la liste de comptes
-                  </a>
+                  </Button>
                 )}
               </div>
             )}
@@ -119,9 +150,15 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
                 <h4 className="font-semibold text-sm">Emails exclus</h4>
                 <p>{blacklist.emails.notes}</p>
                 {blacklist.emails.fileUrl && (
-                  <a href={ensureValidUrl(blacklist.emails.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleFileDownload(blacklist.emails.fileUrl, "blacklist-emails")}
+                    className="flex items-center gap-2 mt-1"
+                  >
+                    <Download className="h-4 w-4" />
                     Télécharger la liste d'emails
-                  </a>
+                  </Button>
                 )}
               </div>
             )}

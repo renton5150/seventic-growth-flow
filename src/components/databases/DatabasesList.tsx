@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Database, Trash2 } from "lucide-react";
+import { Database, Download, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -48,6 +48,26 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
       toast.error("Erreur lors de la suppression");
     }
   };
+
+  // Fonction pour télécharger un fichier
+  const handleFileDownload = (fileUrl: string, fileName: string) => {
+    if (!fileUrl) return;
+    
+    // Cas 1: URL complète (http/https)
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      window.open(fileUrl, '_blank');
+      return;
+    }
+    
+    // Cas 2: Chemin local (pour les chemins simulés en mode démo)
+    const element = document.createElement('a');
+    const blob = new Blob(['Contenu simulé pour le mode démo'], { type: 'application/octet-stream' });
+    element.href = URL.createObjectURL(blob);
+    element.download = fileName || fileUrl.split('/').pop() || "database.xlsx";
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
   
   return (
     <Card className={getRoleColor()}>
@@ -84,13 +104,24 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
                   <TableCell>{formatDate(file.createdAt)}</TableCell>
                   <TableCell>{file.uploaderName || "Utilisateur"}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteFile(file.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleFileDownload(file.fileUrl, file.name)}
+                        title="Télécharger"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteFile(file.id)}
+                        title="Supprimer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

@@ -1,165 +1,138 @@
-
-import { useState, DragEvent, ChangeEvent, ReactNode, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import React from "react";
+import { Upload } from "lucide-react";
 
 interface FileUploaderProps {
-  icon: ReactNode;
+  icon: React.ReactNode;
   title: string;
   description: string;
-  value?: string;
-  onChange: (files: FileList | null) => void;
+  value: string | null | undefined;
+  onChange: (files: FileList | null | string) => void;
   accept?: string;
-  maxSize?: number; // in MB
+  maxSize?: number;
   disabled?: boolean;
 }
 
-export const FileUploader = ({
+export const FileUploader = ({ 
   icon,
   title,
   description,
   value,
   onChange,
-  accept = ".csv,.xls,.xlsx",
-  maxSize = 10,
-  disabled = false,
+  accept,
+  maxSize,
+  disabled
 }: FileUploaderProps) => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
-
-  // Update fileName when value changes
-  useEffect(() => {
-    if (value) {
-      const nameFromPath = typeof value === 'string' ? value.split('/').pop() : null;
-      if (nameFromPath) setFileName(nameFromPath);
-    } else {
-      setFileName(null);
-    }
-  }, [value]);
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    onChange(e.target.files);
+  };
+  
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     if (disabled) return;
     e.preventDefault();
-    setIsDragging(true);
+    e.stopPropagation();
+    
+    if (e.dataTransfer.files) {
+      onChange(e.dataTransfer.files);
+    }
   };
-
-  const handleDragLeave = () => {
-    if (disabled) return;
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     if (disabled) return;
     e.preventDefault();
-    setIsDragging(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      validateAndProcessFiles(e.dataTransfer.files);
-    }
+    e.stopPropagation();
   };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  
+  const handleClick = () => {
     if (disabled) return;
-    console.log("Fichier sélectionné:", e.target.files);
-    if (e.target.files && e.target.files.length > 0) {
-      validateAndProcessFiles(e.target.files);
-    }
+    fileInputRef.current?.click();
   };
 
-  const validateAndProcessFiles = (files: FileList) => {
-    const file = files[0];
-    console.log("Validation du fichier:", file.name, file.type, file.size);
+  // Fonction pour télécharger un fichier existant
+  const handleDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     
-    // Validation d'extension
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    const acceptValues = accept.split(',').map(ext => ext.trim().replace('.', ''));
+    if (!value || disabled || typeof value !== 'string') return;
     
-    console.log("Extensions acceptées:", acceptValues);
-    console.log("Extension du fichier:", fileExtension);
-    
-    if (!fileExtension || !acceptValues.includes(fileExtension)) {
-      console.error("Format de fichier non supporté");
+    // Pour les URLs complètes (http/https)
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      window.open(value, '_blank');
       return;
     }
     
-    // Validation de taille
-    if (maxSize && file.size > maxSize * 1024 * 1024) {
-      console.error("Fichier trop volumineux");
-      return;
-    }
-    
-    // Mise à jour du nom de fichier et appel au callback onChange
-    console.log("Fichier validé avec succès");
-    setFileName(file.name);
-    onChange(files);
+    // Pour les chemins locaux (mode démo)
+    const element = document.createElement('a');
+    const blob = new Blob(['Contenu simulé pour le mode démo'], { type: 'application/octet-stream' });
+    element.href = URL.createObjectURL(blob);
+    const filename = value.split('/').pop() || "document";
+    element.download = decodeURIComponent(filename);
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
-
-  const clearFile = () => {
-    setFileName(null);
-    onChange(null);
-  };
-
-  return (
-    <div
-      className={cn(
-        "border-2 border-dashed rounded-md p-6 transition-colors",
-        isDragging ? "border-seventic-500 bg-seventic-50" : "border-input",
-        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"
-      )}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={() => {
-        if (!disabled) {
-          const fileInput = document.getElementById(`file-input-${title.replace(/\s+/g, '-')}`);
-          if (fileInput) fileInput.click();
-        }
-      }}
-    >
-      <div className="flex flex-col items-center justify-center space-y-2 text-center">
-        <div className="p-3 rounded-full bg-muted">
-          {icon}
+  
+  const renderFilePreview = () => {
+    // Si valeur est une chaîne (URL ou chemin de fichier)
+    if (typeof value === 'string' && value) {
+      const fileName = value.split('/').pop() || value;
+      
+      return (
+        <div className="flex flex-col items-center">
+          <div className="flex items-center space-x-2">
+            {icon}
+            <span className="text-sm font-medium">{decodeURIComponent(fileName)}</span>
+          </div>
+          <button 
+            onClick={handleDownload}
+            className="mt-2 text-sm text-blue-600 hover:underline focus:outline-none"
+          >
+            Télécharger
+          </button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(null);
+            }}
+            className="mt-1 text-xs text-red-500 hover:underline focus:outline-none"
+            disabled={disabled}
+          >
+            Supprimer
+          </button>
         </div>
-        
-        <div className="space-y-1">
-          <h3 className="text-sm font-medium">{title}</h3>
+      );
+    }
+    
+    return (
+      <>
+        {icon}
+        <div className="space-y-1 text-center">
+          <p className="text-sm font-medium">{title}</p>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
-
-        {fileName ? (
-          <div className="flex items-center justify-between w-full bg-accent/50 p-2 rounded mt-2">
-            <span className="text-sm truncate max-w-[200px]">{fileName}</span>
-            <Button 
-              type="button" 
-              variant="ghost" 
-              size="sm" 
-              onClick={(e) => {
-                if (!disabled) {
-                  e.stopPropagation();
-                  clearFile();
-                }
-              }}
-              disabled={disabled}
-            >
-              X
-            </Button>
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground mt-2">
-            {disabled ? "Téléchargement en cours..." : "Glissez-déposez ou cliquez pour sélectionner"}
-          </div>
-        )}
-        
-        <input
-          id={`file-input-${title.replace(/\s+/g, '-')}`}
-          type="file"
-          className="hidden"
-          accept={accept}
-          onChange={handleFileChange}
-          disabled={disabled}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
+      </>
+    );
+  };
+  
+  return (
+    <div
+      className={`border-2 border-dashed rounded-lg px-6 py-8 flex flex-col items-center justify-center cursor-pointer
+        ${disabled ? 'bg-gray-50 border-gray-200 cursor-not-allowed' : 'hover:border-muted-foreground/20'}`}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onClick={handleClick}
+    >
+      {renderFilePreview()}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelect}
+        accept={accept}
+        disabled={disabled}
+      />
     </div>
   );
 };
