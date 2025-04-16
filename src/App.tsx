@@ -17,7 +17,9 @@ import Unauthorized from "./pages/Unauthorized";
 import EmailCampaignRequest from "./pages/EmailCampaignRequest";
 import EmailCampaignEdit from "./pages/EmailCampaignEdit";
 import DatabaseCreationRequest from "./pages/DatabaseCreationRequest";
+import DatabaseCreationEdit from "./pages/DatabaseCreationEdit";
 import LinkedInScrapingRequest from "./pages/LinkedInScrapingRequest";
+import LinkedInScrapingEdit from "./pages/LinkedInScrapingEdit";
 import RequestDetails from "./pages/RequestDetails";
 import Calendar from "./pages/Calendar";
 import Missions from "./pages/Missions";
@@ -86,10 +88,26 @@ function App() {
                 } 
               />
               <Route 
+                path="/requests/database/:id/edit" 
+                element={
+                  <ProtectedRoute>
+                    <DatabaseCreationEdit />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
                 path="/requests/linkedin/new" 
                 element={
                   <ProtectedRoute>
                     <LinkedInScrapingRequest />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/requests/linkedin/:id/edit" 
+                element={
+                  <ProtectedRoute>
+                    <LinkedInScrapingEdit />
                   </ProtectedRoute>
                 } 
               />

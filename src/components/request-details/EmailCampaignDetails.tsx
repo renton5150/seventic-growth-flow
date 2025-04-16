@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmailCampaignRequest } from '@/types/types';
@@ -13,6 +12,20 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
   const blacklist = request.blacklist || {
     accounts: { notes: "", fileUrl: "" },
     emails: { notes: "", fileUrl: "" }
+  };
+
+  const ensureValidUrl = (url: string | undefined): string | null => {
+    if (!url) return null;
+    
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    if (url.includes('storage/v1/object')) {
+      return url;
+    }
+    
+    return url;
   };
 
   return (
@@ -34,7 +47,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {template.webLink && (
             <div className="mb-4">
               <h4 className="font-semibold text-sm">Lien web</h4>
-              <a href={template.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <a href={ensureValidUrl(template.webLink) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                 {template.webLink}
               </a>
             </div>
@@ -42,7 +55,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {template.fileUrl && (
             <div>
               <h4 className="font-semibold text-sm">Fichier attaché</h4>
-              <a href={template.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <a href={ensureValidUrl(template.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                 Télécharger le fichier
               </a>
             </div>
@@ -64,7 +77,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {database.fileUrl && (
             <div className="mb-4">
               <h4 className="font-semibold text-sm">Fichier</h4>
-              <a href={database.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <a href={ensureValidUrl(database.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                 Télécharger la base de données
               </a>
             </div>
@@ -72,7 +85,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
           {database.webLink && (
             <div>
               <h4 className="font-semibold text-sm">Lien web</h4>
-              <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              <a href={ensureValidUrl(database.webLink) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                 {database.webLink}
               </a>
             </div>
@@ -91,7 +104,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
                 <h4 className="font-semibold text-sm">Comptes exclus</h4>
                 <p>{blacklist.accounts.notes}</p>
                 {blacklist.accounts.fileUrl && (
-                  <a href={blacklist.accounts.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                  <a href={ensureValidUrl(blacklist.accounts.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                     Télécharger la liste de comptes
                   </a>
                 )}
@@ -102,7 +115,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
                 <h4 className="font-semibold text-sm">Emails exclus</h4>
                 <p>{blacklist.emails.notes}</p>
                 {blacklist.emails.fileUrl && (
-                  <a href={blacklist.emails.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                  <a href={ensureValidUrl(blacklist.emails.fileUrl) || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                     Télécharger la liste d'emails
                   </a>
                 )}

@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,9 @@ export const RequestRow = ({
         <div className="text-xs text-muted-foreground">{getTypeLabel(request.type)}</div>
       </TableCell>
       {!missionView && (
-        <TableCell>{request.missionName || request.missionId}</TableCell>
+        <TableCell>
+          {request.missionName || "Mission sans nom"}
+        </TableCell>
       )}
       {showSdr && (
         <TableCell>
