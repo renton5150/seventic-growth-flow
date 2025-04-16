@@ -10,13 +10,14 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
+      console.log("Récupération des requêtes à affecter");
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           created_by_profile:profiles!created_by(name, avatar),
-          assigned_profile:assigned_to(name, avatar),
-          missions:mission_id(name)
+          assigned_profile:profiles!assigned_to(name, avatar),
+          missions:mission_id(name, client)
         `)
         .eq('workflow_status', 'pending_assignment')
         .eq('target_role', 'growth')
@@ -27,6 +28,7 @@ export function useRequestQueries(userId: string | undefined) {
         return [];
       }
       
+      console.log("Requêtes à affecter récupérées:", data);
       return data.map(formatRequestFromDb);
     },
     enabled: !!userId
@@ -37,13 +39,14 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
+      console.log("Récupération de mes assignations");
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           created_by_profile:profiles!created_by(name, avatar),
-          assigned_profile:assigned_to(name, avatar),
-          missions:mission_id(name)
+          assigned_profile:profiles!assigned_to(name, avatar),
+          missions:mission_id(name, client)
         `)
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
@@ -53,6 +56,7 @@ export function useRequestQueries(userId: string | undefined) {
         return [];
       }
       
+      console.log("Mes assignations récupérées:", data);
       return data.map(formatRequestFromDb);
     },
     enabled: !!userId
@@ -61,13 +65,14 @@ export function useRequestQueries(userId: string | undefined) {
   // Récupération des détails d'une demande spécifique
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
+      console.log("Récupération des détails pour la demande:", requestId);
       const { data, error } = await supabase
         .from('requests')
         .select(`
           *,
           created_by_profile:profiles!created_by(name, avatar),
-          assigned_profile:assigned_to(name, avatar),
-          missions:mission_id(name, description)
+          assigned_profile:profiles!assigned_to(name, avatar),
+          missions:mission_id(name, client, description)
         `)
         .eq('id', requestId)
         .single();
@@ -77,6 +82,7 @@ export function useRequestQueries(userId: string | undefined) {
         return null;
       }
 
+      console.log("Détails de la demande récupérés:", data);
       return formatRequestFromDb(data);
     } catch (err) {
       console.error("Erreur lors de la récupération des détails:", err);

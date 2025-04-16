@@ -36,6 +36,9 @@ export const RequestRow = ({
   const isAdmin = user?.role === "admin";
   const isOwner = user?.id === request.createdBy;
 
+  // Ajouter un log pour voir la valeur de missionName
+  console.log("Requête dans RequestRow:", request.id, "Mission name:", request.missionName);
+
   const formatDate = (date: Date) => {
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };

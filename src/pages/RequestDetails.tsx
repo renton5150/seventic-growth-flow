@@ -51,7 +51,7 @@ const RequestDetails = () => {
             *,
             created_by_profile:profiles!requests_created_by_fkey(name, avatar),
             assigned_profile:profiles!requests_assigned_to_fkey(name, avatar),
-            missions:mission_id(name, description)
+            missions:mission_id(name, client, description)
           `)
           .eq('id', id)
           .single();
@@ -63,13 +63,18 @@ const RequestDetails = () => {
           return;
         }
         
+        console.log("Données brutes de la requête récupérée:", data);
+        console.log("Relation mission dans la requête:", data.missions);
+        
         const formattedRequest = formatRequestFromDb(data);
         setRequest(formattedRequest);
         
         if (data.missions) {
+          const missionName = data.missions.name || data.missions.client || "Mission sans nom";
+          
           setMission({
             id: data.mission_id,
-            name: data.missions.name,
+            name: missionName,
             description: data.missions.description,
             sdrId: data.created_by,
             sdrName: data.created_by_profile?.name,

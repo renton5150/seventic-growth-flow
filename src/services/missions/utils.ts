@@ -7,7 +7,7 @@ import { getRequestsByMissionId } from "@/data/requests";
  * Maps a mission record from Supabase to our Mission type
  */
 export function mapSupaMissionToMission(mission: any): Mission {
-  console.log("Données reçues de Supabase à mapper:", mission);
+  console.log("Données mission à mapper:", mission);
   
   // Check for sdr_id
   if (!mission.sdr_id) {
@@ -26,9 +26,11 @@ export function mapSupaMissionToMission(mission: any): Mission {
     sdrName = sdr?.name || "Non assigné";
   }
   
+  const missionName = mission.name || mission.client || "Mission sans nom";
+  
   return {
     id: mission.id,
-    name: mission.name,
+    name: missionName,
     sdrId: mission.sdr_id,
     description: mission.description || "",
     createdAt: new Date(mission.created_at),

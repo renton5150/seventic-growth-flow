@@ -2,6 +2,10 @@
 import { Request } from "@/types/types";
 
 export function formatRequestFromDb(dbRequest: any): Request {
+  // Ajouter des logs pour voir les données exactes reçues de Supabase
+  console.log("Données brutes de la requête reçue de Supabase:", dbRequest);
+  console.log("Relation mission:", dbRequest.missions);
+  
   const createdAt = new Date(dbRequest.created_at);
   const dueDate = new Date(dbRequest.due_date);
   const lastUpdated = new Date(dbRequest.last_updated || dbRequest.created_at);
@@ -18,8 +22,15 @@ export function formatRequestFromDb(dbRequest: any): Request {
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
-  // Get mission name directly from the missions relationship
-  const missionName = dbRequest.missions?.name || null;
+  // Récupération prioritaire du nom de la mission depuis la relation
+  // Utiliser prioritairement le champ 'name' de la mission liée, avec fallbacks
+  let missionName = null;
+  if (dbRequest.missions) {
+    missionName = dbRequest.missions.name || dbRequest.missions.client;
+    console.log("Nom de mission récupéré:", missionName);
+  } else {
+    console.log("Aucune relation mission trouvée pour la requête:", dbRequest.id);
+  }
   
   // Build the base request
   const baseRequest: Request = {
