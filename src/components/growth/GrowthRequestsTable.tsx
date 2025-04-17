@@ -1,4 +1,3 @@
-
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
@@ -42,7 +41,6 @@ export function GrowthRequestsTable({
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
 
-  // Fonction pour obtenir l'intitulé complet du type de demande
   const getRequestTypeLabel = (type: string): string => {
     switch(type) {
       case "email": return "Campagne Email";
@@ -52,7 +50,6 @@ export function GrowthRequestsTable({
     }
   };
 
-  // Log pour vérifier les noms des missions
   console.log("Affichage des requêtes dans GrowthRequestsTable:", requests);
   if (requests && requests.length > 0) {
     console.log("Premier élément avec nom de mission:", requests[0].missionName);
@@ -67,9 +64,9 @@ export function GrowthRequestsTable({
             <TableHead>Titre</TableHead>
             <TableHead>Type de demande</TableHead>
             <TableHead>Mission</TableHead>
-            <TableHead>SDR</TableHead>
-            <TableHead>Créée le</TableHead>
-            <TableHead>Date prévue</TableHead>
+            <TableHead>Assigné à</TableHead>
+            <TableCell>Créée le</TableCell>
+            <TableCell>Date prévue</TableCell>
             <TableHead>Statut</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -99,7 +96,7 @@ export function GrowthRequestsTable({
                 <TableCell>
                   <div className="flex items-center">
                     <Users className="mr-1 h-4 w-4 text-muted-foreground" />
-                    {request.sdrName || "Non assigné"}
+                    {request.assignedToName || "Non assigné"}
                   </div>
                 </TableCell>
                 <TableCell>{formatDate(request.createdAt)}</TableCell>

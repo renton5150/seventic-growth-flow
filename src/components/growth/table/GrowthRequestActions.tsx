@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Request } from "@/types/types";
 import {
@@ -6,8 +7,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Pencil, Check, CheckCircle, XCircle, ArrowRightLeft, FileCheck, Eye } from "lucide-react";
+import { Pencil, CheckCircle, XCircle, ArrowRightLeft, FileCheck, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
 
 interface GrowthRequestActionsProps {
   request: Request;
@@ -41,7 +43,6 @@ export function GrowthRequestActions({
 
   return (
     <div className="flex justify-end space-x-2">
-      {/* Bouton pour voir les détails */}
       {onViewDetails && (
         <Button
           variant="ghost"
@@ -59,19 +60,19 @@ export function GrowthRequestActions({
       >
         <Pencil size={14} className="mr-1" /> Éditer
       </Button>
-      
-      {activeTab === "to_assign" && request.workflow_status === "pending_assignment" && assignRequestToMe && (
-        <Button 
-          variant="default"
-          size="sm"
-          onClick={() => assignRequestToMe(request.id)}
-          className="bg-blue-500 hover:bg-blue-600"
-        >
-          <Check className="mr-2 h-4 w-4" /> Prendre en charge
-        </Button>
+
+      {!request.assigned_to && (
+        <GrowthRequestAssignMenu 
+          request={request}
+          onRequestUpdated={() => {
+            if (updateRequestWorkflowStatus) {
+              updateRequestWorkflowStatus(request.id, "in_progress");
+            }
+          }}
+        />
       )}
       
-      {activeTab === "my_assignments" && updateRequestWorkflowStatus && (
+      {request.assigned_to && updateRequestWorkflowStatus && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
@@ -87,7 +88,7 @@ export function GrowthRequestActions({
               <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-500" /> En cours
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleStatusChange("pending_assignment")}>
-              <Check className="mr-2 h-4 w-4 text-yellow-500" /> En attente
+              <ArrowRightLeft className="mr-2 h-4 w-4 text-yellow-500" /> En attente
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleStatusChange("completed")}>
               <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Terminée
@@ -97,38 +98,6 @@ export function GrowthRequestActions({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
-      
-      {activeTab !== "to_assign" && activeTab !== "my_assignments" && (
-        <>
-          {request.status === "pending" && (
-            <Button 
-              variant="outline"
-              size="sm"
-              onClick={() => onCompleteRequest(request)}
-            >
-              <ArrowRightLeft className="mr-2 h-4 w-4" /> Commencer
-            </Button>
-          )}
-          {request.status === "inprogress" && (
-            <Button 
-              variant="outline"
-              size="sm"
-              onClick={() => onCompleteRequest(request)}
-            >
-              <FileCheck className="mr-2 h-4 w-4" /> Terminer
-            </Button>
-          )}
-          {request.status === "completed" && (
-            <Button 
-              variant="ghost"
-              size="sm"
-              disabled
-            >
-              <CheckCircle className="mr-2 h-4 w-4 text-status-completed" /> Terminée
-            </Button>
-          )}
-        </>
       )}
     </div>
   );
