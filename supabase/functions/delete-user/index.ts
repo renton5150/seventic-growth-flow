@@ -26,7 +26,13 @@ serve(async (req) => {
     );
 
     // Récupérer les données de la requête
-    const { userId } = await req.json();
+    const requestData = await req.json().catch(err => {
+      console.error("Erreur lors de la lecture du corps de la requête:", err);
+      return {};
+    });
+    
+    const { userId } = requestData;
+    
     if (!userId) {
       console.error("ID utilisateur manquant dans la requête");
       return new Response(
@@ -38,35 +44,59 @@ serve(async (req) => {
     console.log(`Tentative de suppression de l'utilisateur avec l'ID: ${userId}`);
 
     try {
-      // Supprimer directement le profil d'abord
-      console.log("Suppression du profil de l'utilisateur...");
-      const { error: profileDeleteError } = await supabaseClient
-        .from("profiles")
-        .delete()
-        .eq("id", userId);
+      // Utiliser EdgeRuntime.waitUntil pour les opérations longues
+      const deleteProfile = async () => {
+        try {
+          // Supprimer directement le profil d'abord
+          console.log("Suppression du profil de l'utilisateur...");
+          const { error: profileDeleteError } = await supabaseClient
+            .from("profiles")
+            .delete()
+            .eq("id", userId);
 
-      if (profileDeleteError) {
-        console.warn("Avertissement lors de la suppression du profil:", profileDeleteError);
-      } else {
-        console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
-      }
-
-      // Lancer la suppression de l'utilisateur en arrière-plan
+          if (profileDeleteError) {
+            console.warn("Avertissement lors de la suppression du profil:", profileDeleteError);
+            return { warning: "Suppression partielle possible, le profil n'a pas pu être complètement supprimé" };
+          } else {
+            console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
+            return { success: true };
+          }
+        } catch (err) {
+          console.error("Erreur dans la tâche de suppression du profil:", err);
+          return { error: "Erreur lors de la suppression du profil" };
+        }
+      };
+      
+      // Exécuter la suppression du profil et attendre le résultat
+      const profileResult = await deleteProfile();
+      
+      // Lancer la suppression de l'utilisateur
       console.log("Suppression de l'utilisateur de auth.users...");
       const { error: userDeleteError } = await supabaseClient.auth.admin.deleteUser(userId);
       
       if (userDeleteError) {
         console.error("Erreur lors de la suppression de l'utilisateur:", userDeleteError);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: userDeleteError.message 
-          }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        // Si le profil a été supprimé mais pas l'utilisateur
+        if (profileResult.success) {
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              warning: "Le profil a été supprimé mais il y a eu une erreur lors de la suppression du compte d'authentification." 
+            }),
+            { status: 207, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } else {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: userDeleteError.message 
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
-      // Réponse de succès
+      // Si nous arrivons ici, tout s'est bien passé
       console.log(`Utilisateur ${userId} supprimé avec succès`);
       return new Response(
         JSON.stringify({ 

@@ -47,14 +47,14 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
     const redirectUrl = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection complète:", redirectUrl);
     
-    // Implémenter un timeout côté client
+    // Implémenter un timeout côté client plus court (5 secondes)
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 
           success: true, 
-          warning: "L'opération a pris plus de 8 secondes. L'email a peut-être été envoyé, veuillez vérifier."
+          warning: "L'opération a pris plus de 5 secondes. L'email a peut-être été envoyé, veuillez vérifier."
         });
-      }, 8000);
+      }, 5000);
     });
     
     // Ajout de logging détaillé
@@ -65,7 +65,7 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
       checkSmtpConfig: true 
     });
     
-    // Appel à la fonction Edge avec l'email (pas l'ID)
+    // Appel à la fonction Edge avec l'email
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
         email,
@@ -77,6 +77,9 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
           expireIn: 604800 // 7 jours en secondes
         }
       }
+    }).catch(error => {
+      console.error("Erreur lors de l'appel à la fonction Edge:", error);
+      return { error: { message: error.message || "Erreur de connexion" } };
     });
     
     // Race entre le timeout et l'appel à la fonction
@@ -98,13 +101,21 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
     // Journaliser la réponse complète
     console.log("Réponse complète de la fonction Edge:", JSON.stringify(result, null, 2));
     
-    // Vérifier les erreurs
-    if (error) {
-      console.error("Erreur lors de l'envoi de l'email:", error, "Corps de l'erreur:", error.message);
-      return { success: false, error: error.message || "Erreur lors de l'envoi de l'invitation" };
+    // Vérifier les erreurs dans plusieurs formats possibles
+    const errorMessage = error?.message || error?.error || (typeof error === 'string' ? error : null);
+    
+    if (errorMessage) {
+      console.error("Erreur lors de l'envoi de l'email:", errorMessage);
+      return { success: false, error: errorMessage || "Erreur lors de l'envoi de l'invitation" };
     }
 
-    if (!data || !data.success) {
+    // Vérifier si la réponse contient des erreurs spécifiques
+    if (data?.error) {
+      console.error("Erreur dans les données de réponse:", data.error);
+      return { success: false, error: data.error };
+    }
+    
+    if (!data || data.success === false) {
       console.error("Réponse négative lors de l'envoi de l'email:", data);
       return { success: false, error: data?.error || "Échec de l'envoi de l'email" };
     }

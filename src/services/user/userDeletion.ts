@@ -20,7 +20,7 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
           success: true, 
           warning: "L'opération prend plus de temps que prévu. La suppression continue en arrière-plan."
         });
-      }, 5000); // Réduit à 5 secondes pour une meilleure réactivité
+      }, 3000); // Réduit à 3 secondes pour une meilleure réactivité
     });
     
     // Appel à la fonction Edge delete-user
@@ -43,12 +43,15 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
     }
     
     // Sinon c'est la réponse de la fonction
-    const response = result as any; // Cast to any pour gérer différentes formes de réponses
-    const error = response.error;
+    const response = result as any;
+    
+    // Vérifier si la réponse contient une propriété error ou data.error
+    const error = response.error || (response.data && response.data.error);
     
     if (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
-      return { success: false, error: error.message || "Erreur lors de la suppression" };
+      const errorMessage = typeof error === 'object' ? error.message : error;
+      return { success: false, error: errorMessage || "Erreur lors de la suppression" };
     }
     
     // Récupérer les données de manière sécurisée

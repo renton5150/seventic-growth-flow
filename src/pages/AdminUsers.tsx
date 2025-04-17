@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth";
 import { Navigate } from "react-router-dom";
 import { invalidateUserCache } from "@/services/user/userQueries";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const AdminUsers = () => {
   const { isAdmin } = useAuth();
@@ -15,10 +16,16 @@ const AdminUsers = () => {
   const refreshUserData = useCallback(() => {
     console.log("Rafraîchissement des données utilisateur depuis AdminUsers");
     
-    // Invalider le cache local d'abord
-    invalidateUserCache();
-    
     try {
+      // Invalider le cache local d'abord
+      invalidateUserCache();
+      
+      // Toast pour indiquer le raffraichissement
+      toast.info("Rafraîchissement des données...", {
+        duration: 1000,
+        position: "bottom-right"
+      });
+      
       // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
       queryClient.invalidateQueries({ 
         queryKey: ['users'],

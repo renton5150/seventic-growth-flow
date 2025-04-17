@@ -33,7 +33,8 @@ export const UserActionMenuItems = ({
     
     try {
       console.log("Envoi d'invitation à:", user.email);
-      // Utiliser l'email de l'utilisateur pour envoyer l'invitation
+      
+      // Utiliser explicitement l'email de l'utilisateur pour le renvoi
       const result = await resendInvitation(user.email);
       
       console.log("Résultat du renvoi d'invitation:", result);
@@ -41,7 +42,8 @@ export const UserActionMenuItems = ({
       if (result.success) {
         toast.success("Invitation envoyée", {
           id: toastId,
-          description: `Une nouvelle invitation a été envoyée à ${user.email}`
+          description: `Une nouvelle invitation a été envoyée à ${user.email}`,
+          duration: 5000
         });
         
         // Attendre un court instant avant de rafraîchir
@@ -51,7 +53,8 @@ export const UserActionMenuItems = ({
       } else {
         toast.error("Erreur", {
           id: toastId, 
-          description: result.error || "Une erreur est survenue lors de l'envoi de l'invitation"
+          description: result.error || "Une erreur est survenue lors de l'envoi de l'invitation",
+          duration: 8000
         });
       }
     } catch (error) {

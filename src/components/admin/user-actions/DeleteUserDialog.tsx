@@ -24,11 +24,19 @@ export const DeleteUserDialog = ({
 }: DeleteUserDialogProps) => {
   
   const handleDeleteUser = async () => {
+    if (isDeleting) return; // Éviter les doubles clics
+    
     try {
       setIsDeleting(true);
       
       // Afficher un toast de chargement persistant avec ID
       const toastId = toast.loading(`Suppression de l'utilisateur ${user.name}...`);
+      
+      // Fermer d'abord la boîte de dialogue pour éviter le blocage de l'interface
+      onOpenChange(false);
+      
+      // Délai minimal pour permettre la fermeture de la boîte de dialogue
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const { success, error, warning } = await deleteUser(user.id);
       
@@ -46,13 +54,11 @@ export const DeleteUserDialog = ({
           toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
         }
         
-        // Fermer d'abord la boîte de dialogue
-        onOpenChange(false);
-        
         // Attendre un court délai avant de rafraîchir les données
-        // pour éviter le blocage de l'interface
         setTimeout(() => {
           onUserDeleted();
+          // S'assurer que isDeleting est remis à false
+          setIsDeleting(false);
         }, 300);
       } else {
         toast.error(`Erreur: ${error || "Une erreur est survenue lors de la suppression de l'utilisateur"}`);
@@ -62,6 +68,11 @@ export const DeleteUserDialog = ({
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
       toast.error("Une erreur est survenue lors de la suppression de l'utilisateur");
       setIsDeleting(false);
+      
+      // S'assurer que la boîte de dialogue est fermée en cas d'erreur
+      if (isOpen) {
+        onOpenChange(false);
+      }
     }
   };
   
