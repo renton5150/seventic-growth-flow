@@ -52,11 +52,16 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
 
   const handleUserInvited = async () => {
     console.log("Utilisateur invité, rafraîchissement des données");
-    await refetch();
     
-    // Notify parent component if callback exists
-    if (onUserDataChange) {
-      onUserDataChange();
+    try {
+      await refetch();
+      
+      // Notify parent component if callback exists
+      if (onUserDataChange) {
+        onUserDataChange();
+      }
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement des données après invitation:", error);
     }
   };
   

@@ -5,6 +5,14 @@ import { ActionResponse } from "./types";
 // Renvoyer une invitation
 export const resendInvitation = async (userIdentifier: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
   try {
+    // Vérifier que l'identifiant est non vide
+    if (!userIdentifier) {
+      console.error("Identifiant utilisateur vide");
+      return { success: false, error: "L'identifiant de l'utilisateur est vide" };
+    }
+    
+    console.log("Tentative de renvoi d'invitation pour:", userIdentifier);
+    
     // Puisque nous avons besoin d'un email, vérifions si l'identifiant est un email
     let email = userIdentifier;
     
@@ -93,7 +101,7 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
     // Vérifier les erreurs
     if (error) {
       console.error("Erreur lors de l'envoi de l'email:", error, "Corps de l'erreur:", error.message);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || "Erreur lors de l'envoi de l'invitation" };
     }
 
     if (!data || !data.success) {

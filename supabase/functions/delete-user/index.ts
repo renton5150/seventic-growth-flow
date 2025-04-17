@@ -37,55 +37,54 @@ serve(async (req) => {
 
     console.log(`Tentative de suppression de l'utilisateur avec l'ID: ${userId}`);
 
-    // Supprimer directement le profil
-    console.log("Suppression du profil de l'utilisateur...");
-    const { error: profileDeleteError } = await supabaseClient
-      .from("profiles")
-      .delete()
-      .eq("id", userId);
-
-    if (profileDeleteError) {
-      console.warn("Avertissement lors de la suppression du profil:", profileDeleteError);
-    } else {
-      console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
-    }
-
-    // Lancer la suppression de l'utilisateur en parallèle mais ne pas l'attendre
-    console.log("Lancement de la suppression de l'utilisateur en arrière-plan...");
-    
-    // Utiliser EdgeRuntime.waitUntil pour exécuter la suppression en tâche de fond
-    const deleteUserPromise = async () => {
-      try {
-        const { error } = await supabaseClient.auth.admin.deleteUser(userId);
-        if (error) {
-          console.error("Erreur en arrière-plan lors de la suppression de l'utilisateur:", error);
-        } else {
-          console.log(`Utilisateur ${userId} supprimé avec succès en arrière-plan`);
-        }
-      } catch (e) {
-        console.error("Exception en arrière-plan lors de la suppression de l'utilisateur:", e);
-      }
-    };
-
-    // Utiliser waitUntil pour exécuter en arrière-plan
     try {
-      // @ts-ignore - Deno.env is available in Supabase Edge Functions
-      EdgeRuntime.waitUntil(deleteUserPromise());
-    } catch (err) {
-      console.warn("Échec de la tâche en arrière-plan, suppression manuelle:", err);
-      // Fallback si waitUntil n'est pas supporté
-      deleteUserPromise().catch(e => console.error("Erreur dans le fallback:", e));
-    }
+      // Supprimer directement le profil d'abord
+      console.log("Suppression du profil de l'utilisateur...");
+      const { error: profileDeleteError } = await supabaseClient
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
 
-    // Retourner une réponse rapide
-    console.log(`Processus de suppression initié pour l'utilisateur ${userId}`);
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Suppression initiée, l'utilisateur sera complètement retiré sous peu",
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      if (profileDeleteError) {
+        console.warn("Avertissement lors de la suppression du profil:", profileDeleteError);
+      } else {
+        console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
+      }
+
+      // Lancer la suppression de l'utilisateur en arrière-plan
+      console.log("Suppression de l'utilisateur de auth.users...");
+      const { error: userDeleteError } = await supabaseClient.auth.admin.deleteUser(userId);
+      
+      if (userDeleteError) {
+        console.error("Erreur lors de la suppression de l'utilisateur:", userDeleteError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: userDeleteError.message 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Réponse de succès
+      console.log(`Utilisateur ${userId} supprimé avec succès`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "Utilisateur supprimé avec succès"
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (innerError) {
+      console.error("Erreur interne lors de la suppression:", innerError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: innerError instanceof Error ? innerError.message : String(innerError)
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   } catch (error) {
     console.error("Erreur inattendue lors de la suppression de l'utilisateur:", error);
     

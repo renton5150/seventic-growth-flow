@@ -18,13 +18,21 @@ const AdminUsers = () => {
     // Invalider le cache local d'abord
     invalidateUserCache();
     
-    // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
-    setTimeout(() => {
+    try {
+      // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
       queryClient.invalidateQueries({ 
         queryKey: ['users'],
         refetchType: 'all' 
       });
-    }, 100);
+      
+      // Garantir que les données admin-users sont aussi rafraîchies
+      queryClient.invalidateQueries({ 
+        queryKey: ['admin-users'],
+        refetchType: 'all' 
+      });
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement des données:", error);
+    }
   }, [queryClient]);
   
   if (!isAdmin) {

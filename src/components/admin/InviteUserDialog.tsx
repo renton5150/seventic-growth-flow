@@ -56,16 +56,14 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
         // Réinitialiser les champs
         resetForm();
         
-        // Fermer le dialogue et notifier le parent avec un délai
+        // Fermer le dialogue après avoir notifié le parent
+        onOpenChange(false);
+        
+        // Attendre un court délai avant de rafraîchir les données
+        // pour éviter le blocage de l'interface
         setTimeout(() => {
-          // Déclencher plusieurs actualisations des données
           onUserInvited();
-          
-          setTimeout(() => {
-            onUserInvited();
-            onOpenChange(false);
-          }, 500);
-        }, 300);
+        }, 500);
       } else {
         const errorMsg = result.error || "Une erreur est survenue lors de l'ajout de l'utilisateur";
         console.error("Erreur lors de l'invitation:", errorMsg);

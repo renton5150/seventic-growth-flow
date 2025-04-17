@@ -13,14 +13,14 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
       return { success: false, error: "ID d'utilisateur invalide" };
     }
     
-    // Implémenter un timeout côté client
+    // Implémenter un timeout côté client plus court
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 
           success: true, 
           warning: "L'opération prend plus de temps que prévu. La suppression continue en arrière-plan."
         });
-      }, 10000); // 10 secondes de timeout
+      }, 5000); // Réduit à 5 secondes pour une meilleure réactivité
     });
     
     // Appel à la fonction Edge delete-user
@@ -43,12 +43,12 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
     }
     
     // Sinon c'est la réponse de la fonction
-    const response = result as any; // Cast to any to handle different response shapes
+    const response = result as any; // Cast to any pour gérer différentes formes de réponses
     const error = response.error;
     
     if (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || "Erreur lors de la suppression" };
     }
     
     // Récupérer les données de manière sécurisée

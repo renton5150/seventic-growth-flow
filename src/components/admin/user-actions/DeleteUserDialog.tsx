@@ -45,22 +45,33 @@ export const DeleteUserDialog = ({
         } else {
           toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
         }
-        // Dans tous les cas, considérer l'opération comme réussie pour l'interface
-        onUserDeleted();
+        
+        // Fermer d'abord la boîte de dialogue
+        onOpenChange(false);
+        
+        // Attendre un court délai avant de rafraîchir les données
+        // pour éviter le blocage de l'interface
+        setTimeout(() => {
+          onUserDeleted();
+        }, 300);
       } else {
         toast.error(`Erreur: ${error || "Une erreur est survenue lors de la suppression de l'utilisateur"}`);
+        setIsDeleting(false);
       }
     } catch (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
       toast.error("Une erreur est survenue lors de la suppression de l'utilisateur");
-    } finally {
       setIsDeleting(false);
-      onOpenChange(false);
     }
   };
   
   return (
-    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+    <AlertDialog open={isOpen} onOpenChange={(open) => {
+      // Empêcher la fermeture pendant la suppression
+      if (!isDeleting) {
+        onOpenChange(open);
+      }
+    }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
