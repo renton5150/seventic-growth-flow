@@ -65,8 +65,8 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log("Récupération de toutes les requêtes growth avec userId:", userId);
       
-      // Activer le debug pour voir la requête SQL exacte
-      const debugSupabase = supabase.debug();
+      // Utiliser logQuery pour enregistrer la requête SQL exacte
+      console.log("Tentative de récupération de toutes les requêtes depuis la vue growth_requests_view");
       
       // Obtenir d'abord le nombre total de requêtes dans la table requests
       const { count: totalRequestsCount } = await supabase
@@ -104,13 +104,11 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       // Récupérer toutes les requêtes de la vue growth_requests_view
-      const { data, error, count } = await debugSupabase
+      console.log("Exécution de la requête pour récupérer toutes les demandes growth");
+      const { data, error, count } = await supabase
         .from('growth_requests_view')
         .select('*', { count: 'exact' })
         .order('due_date', { ascending: true });
-      
-      // Désactiver le debug
-      debugSupabase.end();
       
       if (error) {
         console.error("Erreur lors de la récupération de toutes les requêtes:", error);
