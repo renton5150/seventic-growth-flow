@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -64,8 +63,7 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log("Récupération de toutes les requêtes growth avec userId:", userId);
       
-      // Utiliser la vue requests_with_missions et récupérer toutes les requêtes ciblées pour le rôle growth
-      // Nous ne filtrons plus par assigned_to pour voir toutes les demandes
+      // Récupérer toutes les requêtes ciblées pour le rôle growth sans filtrage supplémentaire
       const { data, error } = await supabase
         .from('requests_with_missions')
         .select('*')
@@ -77,8 +75,7 @@ export function useRequestQueries(userId: string | undefined) {
         return [];
       }
       
-      console.log("Toutes les requêtes récupérées:", data?.length || 0);
-      
+      console.log("Nombre total de requêtes récupérées:", data?.length || 0);
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId

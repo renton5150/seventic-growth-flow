@@ -1,4 +1,3 @@
-
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
@@ -58,7 +57,10 @@ export function GrowthRequestsTable({
     uniqueTypes,
     uniqueMissions,
     uniqueAssignees,
-    uniqueStatuses
+    uniqueStatuses,
+    uniqueSdrs,
+    sdrFilter,
+    setSdrFilter
   } = useGrowthRequestsFilters(requests);
 
   const formatDate = (date: Date) => {
@@ -109,6 +111,19 @@ export function GrowthRequestsTable({
                   onFilterChange={setMissionFilter}
                   hasFilter={missionFilter.length > 0}
                   onClearFilter={() => setMissionFilter([])}
+                />
+              </div>
+            </TableHead>
+            <TableHead>
+              <div className="flex items-center justify-between">
+                SDR
+                <CheckboxColumnFilter
+                  columnName="SDR"
+                  options={uniqueSdrs}
+                  selectedValues={sdrFilter}
+                  onFilterChange={setSdrFilter}
+                  hasFilter={sdrFilter.length > 0}
+                  onClearFilter={() => setSdrFilter([])}
                 />
               </div>
             </TableHead>
@@ -173,7 +188,7 @@ export function GrowthRequestsTable({
         </TableHeader>
         <TableBody>
           {filteredRequests.length === 0 ? (
-            <EmptyRequestsRow colSpan={9} />
+            <EmptyRequestsRow colSpan={10} />
           ) : (
             filteredRequests.map((request) => (
               <TableRow key={request.id}>
@@ -191,6 +206,12 @@ export function GrowthRequestsTable({
                 <TableCell>
                   <div className="font-medium text-sm">
                     {request.missionName || "Sans mission"}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {request.sdrName || "Non assigné"}
                   </div>
                 </TableCell>
                 <TableCell>

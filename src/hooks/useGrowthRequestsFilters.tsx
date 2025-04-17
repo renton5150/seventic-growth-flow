@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Request } from '@/types/types';
 
@@ -21,6 +20,7 @@ export function useGrowthRequestsFilters(requests: Request[]) {
   const [missionFilter, setMissionFilter] = useState<string[]>([]);
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [sdrFilter, setSdrFilter] = useState<string[]>([]);
   
   // Date filters
   const [createdDateFilter, setCreatedDateFilter] = useState<DateFilter | null>(null);
@@ -57,6 +57,10 @@ export function useGrowthRequestsFilters(requests: Request[]) {
         default: return r.workflow_status || "En attente";
       }
     }))];
+  }, [requests]);
+
+  const uniqueSdrs = useMemo(() => {
+    return [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
   }, [requests]);
 
   // Handle date filtering
@@ -128,13 +132,19 @@ export function useGrowthRequestsFilters(requests: Request[]) {
         if (!statusFilter.includes(statusLabel)) return false;
       }
 
+      // Apply SDR filter
+      if (sdrFilter.length > 0) {
+        const sdrName = request.sdrName || "Non assigné";
+        if (!sdrFilter.includes(sdrName)) return false;
+      }
+
       // Apply date filters
       if (!applyDateFilter(request, 'createdAt', createdDateFilter)) return false;
-      if (!applyDateFilter(request, 'dueDate', dueDateFilter)) return false;
+      if (!applyDateFilter(request, 'dueDate', dueDateFilter));
 
       return true;
     });
-  }, [requests, typeFilter, missionFilter, assigneeFilter, statusFilter, createdDateFilter, dueDateFilter]);
+  }, [requests, typeFilter, missionFilter, assigneeFilter, statusFilter, sdrFilter, createdDateFilter, dueDateFilter]);
 
   // Handle date filter changes
   const handleCreatedDateFilterChange = (type: DateFilterType, values: DateFilterValues) => {
@@ -151,17 +161,20 @@ export function useGrowthRequestsFilters(requests: Request[]) {
     missionFilter,
     assigneeFilter,
     statusFilter,
+    sdrFilter,
     createdDateFilter,
     dueDateFilter,
     setTypeFilter,
     setMissionFilter,
     setAssigneeFilter,
     setStatusFilter,
+    setSdrFilter,
     handleCreatedDateFilterChange,
     handleDueDateFilterChange,
     uniqueTypes,
     uniqueMissions,
     uniqueAssignees,
-    uniqueStatuses
+    uniqueStatuses,
+    uniqueSdrs
   };
 }
