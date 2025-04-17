@@ -3,7 +3,8 @@ import { Edit, Mail, Trash2, User as UserIcon, Shield, LineChart, HeadsetIcon, L
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";
 import { toast } from "sonner";
-import { resendInvitation, updateUserRole } from "@/services/user/userManagement";
+import { updateUserRole } from "@/services/user/userManagement";
+import { resendInvitation } from "@/services/user";
 
 interface UserActionMenuItemsProps {
   user: User;

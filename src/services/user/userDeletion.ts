@@ -43,18 +43,22 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
     }
     
     // Sinon c'est la réponse de la fonction
-    const { data, error } = result;
+    const response = result as any; // Cast to any to handle different response shapes
+    const error = response.error;
     
     if (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
       return { success: false, error: error.message };
     }
     
+    // Récupérer les données de manière sécurisée
+    const responseData = response.data || {};
+    
     // Si la réponse contient un avertissement, le transmettre
-    if (data && data.warning) {
+    if (responseData.warning) {
       return { 
         success: true,
-        warning: data.warning
+        warning: responseData.warning
       };
     }
     
