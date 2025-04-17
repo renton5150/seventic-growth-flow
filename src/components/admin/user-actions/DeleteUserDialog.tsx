@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { User } from "@/types/types";
 import { deleteUser } from "@/services/user";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DeleteUserDialogProps {
   isOpen: boolean;
@@ -22,57 +23,60 @@ export const DeleteUserDialog = ({
   setIsDeleting,
   onUserDeleted
 }: DeleteUserDialogProps) => {
+  const queryClient = useQueryClient();
   
   const handleDeleteUser = async () => {
     if (isDeleting) return; // Éviter les doubles clics
     
+    // Afficher un toast de chargement persistant avec ID
+    const toastId = toast.loading(`Suppression de l'utilisateur ${user.name}...`);
+    
     try {
       setIsDeleting(true);
       
-      // Afficher un toast de chargement persistant avec ID
-      const toastId = toast.loading(`Suppression de l'utilisateur ${user.name}...`);
-      
-      // Fermer d'abord la boîte de dialogue pour éviter le blocage de l'interface
+      // IMPORTANT: Fermer d'abord la boîte de dialogue pour éviter le gel de l'interface
       onOpenChange(false);
       
-      // Délai minimal pour permettre la fermeture de la boîte de dialogue
+      // Délai minimal pour s'assurer que la boîte de dialogue est fermée avant de continuer
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      // Effectuer la suppression après la fermeture de la boîte de dialogue
+      console.log(`Tentative de suppression de l'utilisateur: ${user.id}`);
       const { success, error, warning } = await deleteUser(user.id);
       
-      // Fermer le toast de chargement
-      toast.dismiss(toastId);
-      
       if (success) {
+        // Supprimer le toast de chargement et afficher un succès
+        toast.dismiss(toastId);
+        
         if (warning) {
-          // Afficher un avertissement si la suppression a des problèmes mineurs
-          toast.success(`L'utilisateur ${user.name} a été marqué pour suppression`, {
+          toast.success(`Utilisateur ${user.name} marqué pour suppression`, {
             description: warning,
             duration: 5000
           });
         } else {
-          toast.success(`L'utilisateur ${user.name} a été supprimé avec succès`);
+          toast.success(`Utilisateur ${user.name} supprimé avec succès`);
         }
         
-        // Attendre un court délai avant de rafraîchir les données
+        // Garantir que toutes les requêtes utilisateurs sont invalidées
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+        
+        // Utiliser un délai plus long pour s'assurer que les états sont mis à jour
         setTimeout(() => {
           onUserDeleted();
-          // S'assurer que isDeleting est remis à false
           setIsDeleting(false);
-        }, 300);
+        }, 500);
       } else {
-        toast.error(`Erreur: ${error || "Une erreur est survenue lors de la suppression de l'utilisateur"}`);
+        toast.dismiss(toastId);
+        toast.error(`Erreur: ${error || "Une erreur est survenue lors de la suppression"}`);
         setIsDeleting(false);
       }
     } catch (error) {
-      console.error("Erreur lors de la suppression de l'utilisateur:", error);
-      toast.error("Une erreur est survenue lors de la suppression de l'utilisateur");
+      // En cas d'erreur, s'assurer que l'interface reste utilisable
+      console.error("Erreur critique lors de la suppression:", error);
+      toast.dismiss(toastId);
+      toast.error("Une erreur inattendue est survenue");
       setIsDeleting(false);
-      
-      // S'assurer que la boîte de dialogue est fermée en cas d'erreur
-      if (isOpen) {
-        onOpenChange(false);
-      }
     }
   };
   

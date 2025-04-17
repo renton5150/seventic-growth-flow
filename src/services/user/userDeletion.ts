@@ -20,7 +20,7 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
           success: true, 
           warning: "L'opération prend plus de temps que prévu. La suppression continue en arrière-plan."
         });
-      }, 3000); // Réduit à 3 secondes pour une meilleure réactivité
+      }, 2500); // Réduit à 2.5 secondes pour une meilleure réactivité
     });
     
     // Appel à la fonction Edge delete-user
@@ -42,34 +42,38 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
       return result;
     }
     
-    // Sinon c'est la réponse de la fonction
-    const response = result as any;
+    // Vérifier les propriétés de la réponse avec sécurité
+    console.log("Réponse complète de delete-user:", JSON.stringify(result, null, 2));
     
-    // Vérifier si la réponse contient une propriété error ou data.error
-    const error = response.error || (response.data && response.data.error);
-    
-    if (error) {
-      console.error("Erreur lors de la suppression de l'utilisateur:", error);
-      const errorMessage = typeof error === 'object' ? error.message : error;
-      return { success: false, error: errorMessage || "Erreur lors de la suppression" };
+    // Extraire l'erreur de façon sécurisée, quelle que soit la structure
+    let errorMessage = null;
+    if ('error' in result) {
+      const error = result.error;
+      errorMessage = error?.message || error?.error || (typeof error === 'string' ? error : null);
     }
     
-    // Récupérer les données de manière sécurisée
-    const responseData = response.data || {};
+    if (errorMessage) {
+      console.error("Erreur lors de la suppression de l'utilisateur:", errorMessage);
+      return { success: false, error: errorMessage };
+    }
+    
+    // Accéder aux données de façon sécurisée
+    const responseData = 'data' in result ? result.data : null;
+    
+    // Si la réponse contient une erreur dans les données
+    if (responseData && responseData.error) {
+      return { success: false, error: responseData.error };
+    }
     
     // Si la réponse contient un avertissement, le transmettre
-    if (responseData.warning) {
-      return { 
-        success: true,
-        warning: responseData.warning
-      };
+    if (responseData && responseData.warning) {
+      return { success: true, warning: responseData.warning };
     }
     
     console.log("Utilisateur supprimé avec succès:", userId);
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-    
     console.error("Exception lors de la suppression de l'utilisateur:", error);
     return { success: false, error: errorMessage };
   }

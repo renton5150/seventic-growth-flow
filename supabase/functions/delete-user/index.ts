@@ -44,40 +44,29 @@ serve(async (req) => {
     console.log(`Tentative de suppression de l'utilisateur avec l'ID: ${userId}`);
 
     try {
-      // Utiliser EdgeRuntime.waitUntil pour les opérations longues
-      const deleteProfile = async () => {
-        try {
-          // Supprimer directement le profil d'abord
-          console.log("Suppression du profil de l'utilisateur...");
-          const { error: profileDeleteError } = await supabaseClient
-            .from("profiles")
-            .delete()
-            .eq("id", userId);
+      // Supprimer d'abord le profil de l'utilisateur
+      console.log("1. Suppression du profil de l'utilisateur...");
+      const { error: profileDeleteError } = await supabaseClient
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
 
-          if (profileDeleteError) {
-            console.warn("Avertissement lors de la suppression du profil:", profileDeleteError);
-            return { warning: "Suppression partielle possible, le profil n'a pas pu être complètement supprimé" };
-          } else {
-            console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
-            return { success: true };
-          }
-        } catch (err) {
-          console.error("Erreur dans la tâche de suppression du profil:", err);
-          return { error: "Erreur lors de la suppression du profil" };
-        }
-      };
+      if (profileDeleteError) {
+        console.warn("Avertissement lors de la suppression du profil:", profileDeleteError);
+        // Continuer avec la suppression de l'utilisateur même si la suppression du profil échoue
+      } else {
+        console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
+      }
       
-      // Exécuter la suppression du profil et attendre le résultat
-      const profileResult = await deleteProfile();
-      
-      // Lancer la suppression de l'utilisateur
-      console.log("Suppression de l'utilisateur de auth.users...");
+      // Ensuite, supprimer l'utilisateur de auth.users
+      console.log("2. Suppression de l'utilisateur de auth.users...");
       const { error: userDeleteError } = await supabaseClient.auth.admin.deleteUser(userId);
       
       if (userDeleteError) {
         console.error("Erreur lors de la suppression de l'utilisateur:", userDeleteError);
-        // Si le profil a été supprimé mais pas l'utilisateur
-        if (profileResult.success) {
+        
+        // Si le profil a été supprimé mais pas l'utilisateur, renvoyer un avertissement
+        if (!profileDeleteError) {
           return new Response(
             JSON.stringify({ 
               success: true, 

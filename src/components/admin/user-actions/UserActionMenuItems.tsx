@@ -5,6 +5,7 @@ import { User } from "@/types/types";
 import { toast } from "sonner";
 import { updateUserRole } from "@/services/user/userManagement";
 import { resendInvitation } from "@/services/user";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface UserActionMenuItemsProps {
   user: User;
@@ -24,44 +25,50 @@ export const UserActionMenuItems = ({
   setIsSendingInvite,
   onActionComplete
 }: UserActionMenuItemsProps) => {
+  const queryClient = useQueryClient();
   
   const handleResendInvitation = async () => {
     if (isSendingInvite) return;
     
-    setIsSendingInvite(true);
     const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
     
     try {
-      console.log("Envoi d'invitation à:", user.email);
+      setIsSendingInvite(true);
       
-      // Utiliser explicitement l'email de l'utilisateur pour le renvoi
+      console.log("Envoi d'invitation explicitement à l'email:", user.email);
+      
+      // Utiliser TOUJOURS et EXPLICITEMENT l'email de l'utilisateur pour le renvoi
       const result = await resendInvitation(user.email);
       
-      console.log("Résultat du renvoi d'invitation:", result);
+      console.log("Résultat du renvoi d'invitation:", JSON.stringify(result, null, 2));
       
       if (result.success) {
         toast.success("Invitation envoyée", {
           id: toastId,
-          description: `Une nouvelle invitation a été envoyée à ${user.email}`,
+          description: `Une invitation a été envoyée à ${user.email}`,
           duration: 5000
         });
         
-        // Attendre un court instant avant de rafraîchir
+        // Forcer le rafraîchissement des données utilisateur
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+        
+        // Attendre un court instant avant de rafraîchir pour éviter les problèmes d'état
         setTimeout(() => {
           onActionComplete();
-        }, 300);
+        }, 500);
       } else {
-        toast.error("Erreur", {
+        toast.error("Erreur lors de l'envoi", {
           id: toastId, 
           description: result.error || "Une erreur est survenue lors de l'envoi de l'invitation",
           duration: 8000
         });
       }
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'invitation:", error);
-      toast.error("Erreur", {
+      console.error("Exception lors de l'envoi de l'invitation:", error);
+      toast.error("Erreur système", {
         id: toastId, 
-        description: "Une erreur est survenue lors de l'envoi de l'invitation"
+        description: "Une erreur système est survenue lors de l'envoi de l'invitation"
       });
     } finally {
       setIsSendingInvite(false);
@@ -83,10 +90,14 @@ export const UserActionMenuItems = ({
           description: `Le rôle de ${user.email} a été modifié en ${newRole}`
         });
         
+        // Forcer le rafraîchissement des données
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+        
         // Délai pour permettre à l'UI de se mettre à jour
         setTimeout(() => {
           onActionComplete();
-        }, 300);
+        }, 500);
       } else {
         toast.error("Erreur", {
           id: toastId,

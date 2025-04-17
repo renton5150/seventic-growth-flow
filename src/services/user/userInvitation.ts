@@ -3,41 +3,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActionResponse } from "./types";
 
 // Renvoyer une invitation
-export const resendInvitation = async (userIdentifier: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
+export const resendInvitation = async (userEmail: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
   try {
-    // Vérifier que l'identifiant est non vide
-    if (!userIdentifier) {
-      console.error("Identifiant utilisateur vide");
-      return { success: false, error: "L'identifiant de l'utilisateur est vide" };
+    // Vérifier que l'email est non vide
+    if (!userEmail) {
+      console.error("Email utilisateur vide");
+      return { success: false, error: "L'email de l'utilisateur est vide" };
     }
     
-    console.log("Tentative de renvoi d'invitation pour:", userIdentifier);
-    
-    // Puisque nous avons besoin d'un email, vérifions si l'identifiant est un email
-    let email = userIdentifier;
-    
-    // Si l'identifiant ressemble à un UUID, cherchons l'email associé
-    if (userIdentifier.includes("-") && userIdentifier.length > 30) {
-      console.log("Identifiant détecté comme UUID, recherche de l'email associé");
-      
-      const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('id', userIdentifier)
-        .single();
-      
-      if (userError || !userData || !userData.email) {
-        console.error("Erreur lors de la récupération de l'email:", userError);
-        return { success: false, error: `Impossible de trouver l'email de l'utilisateur avec l'ID ${userIdentifier}` };
-      }
-      
-      email = userData.email;
-      console.log(`Email trouvé pour l'utilisateur ${userIdentifier}: ${email}`);
-    } else if (!email.includes('@')) {
-      // Si ce n'est pas un UUID et ce n'est pas un email valide, retourner une erreur
-      console.error("L'identifiant fourni n'est ni un email valide ni un UUID");
-      return { success: false, error: `L'identifiant fourni n'est pas valide: ${userIdentifier}` };
+    // Vérifier que l'email est valide
+    if (!userEmail.includes('@')) {
+      console.error("Format d'email invalide:", userEmail);
+      return { success: false, error: `Format d'email invalide: ${userEmail}` };
     }
+    
+    console.log("Tentative de renvoi d'invitation pour:", userEmail);
     
     // Obtenir l'URL de base actuelle de l'application
     const origin = window.location.origin;
@@ -57,26 +37,25 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
       }, 5000);
     });
     
-    // Ajout de logging détaillé
-    console.log("Appel à la fonction Edge resend-invitation avec:", { 
-      email, 
+    // Paramètres de requête étendus avec plus de détails pour le débogage
+    const requestParams = { 
+      email: userEmail,
       redirectUrl,
+      checkSmtpConfig: true,
+      debug: true,
       timestamp: new Date().toISOString(),
-      checkSmtpConfig: true 
-    });
+      // Ajouter une durée de validité plus longue pour l'invitation
+      inviteOptions: {
+        expireIn: 604800 // 7 jours en secondes
+      }
+    };
+    
+    // Ajout de logging détaillé
+    console.log("Appel à la fonction Edge resend-invitation avec:", JSON.stringify(requestParams, null, 2));
     
     // Appel à la fonction Edge avec l'email
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
-      body: { 
-        email,
-        redirectUrl,
-        checkSmtpConfig: true,
-        debug: true,
-        // Ajouter une durée de validité plus longue pour l'invitation
-        inviteOptions: {
-          expireIn: 604800 // 7 jours en secondes
-        }
-      }
+      body: requestParams
     }).catch(error => {
       console.error("Erreur lors de l'appel à la fonction Edge:", error);
       return { error: { message: error.message || "Erreur de connexion" } };
@@ -88,17 +67,15 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
     // Si c'est le timeout qui a gagné
     if ('warning' in result) {
       console.warn("Délai dépassé lors de l'envoi de l'email:", {
-        email,
+        email: userEmail,
         redirectUrl,
         timestamp: new Date().toISOString()
       });
       return result;
     }
     
-    // Sinon c'est la réponse de la fonction
-    // Fix: Vérifier correctement si 'result' est de type FunctionsResponse et a une propriété 'data'
-    // Journaliser la réponse complète
-    console.log("Réponse complète de la fonction Edge:", JSON.stringify(result, null, 2));
+    // Journaliser la réponse complète pour le débogage
+    console.log("Réponse complète de resend-invitation:", JSON.stringify(result, null, 2));
     
     // Vérifier les erreurs dans plusieurs formats possibles
     let errorMessage = null;
@@ -113,7 +90,7 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
       return { success: false, error: errorMessage || "Erreur lors de l'envoi de l'invitation" };
     }
 
-    // Utiliser un opérateur de coalescence pour accéder à data de façon sécurisée
+    // Accéder aux données de façon sécurisée
     const data = 'data' in result ? result.data : null;
     
     // Vérifier si la réponse contient des erreurs spécifiques
@@ -127,7 +104,7 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
       return { success: false, error: data?.error || "Échec de l'envoi de l'email" };
     }
     
-    console.log("Email envoyé avec succès à:", email, "Données de réponse:", data);
+    console.log("Email envoyé avec succès à:", userEmail, "Données de réponse:", data);
     return { 
       success: true,
       userExists: data.userExists || false,
