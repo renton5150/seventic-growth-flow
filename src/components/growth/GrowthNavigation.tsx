@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   LayoutDashboard, 
-  ListTodo,
   UserSquare2,
   Calendar
 } from "lucide-react";
@@ -18,25 +17,6 @@ import {
 export const GrowthNavigation = () => {
   const { pathname } = useLocation();
   const { user } = useAuth();
-
-  // Query for pending assignments count
-  const { data: pendingCount = 0 } = useQuery({
-    queryKey: ['growth-pending-count'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('workflow_status', 'pending_assignment')
-        .eq('target_role', 'growth');
-      
-      if (error) {
-        console.error('Error fetching pending count:', error);
-        return 0;
-      }
-      return count || 0;
-    },
-    refetchInterval: 30000 // Refresh every 30 seconds
-  });
 
   // Query for my assignments count
   const { data: myRequestsCount = 0 } = useQuery({
@@ -74,32 +54,8 @@ export const GrowthNavigation = () => {
         </SidebarMenuButton>
       </SidebarMenuItem>
 
-      {/* Demandes */}
+      {/* Mes demandes */}
       <SidebarMenuItem>
-        <SidebarMenuButton className={
-          pathname.includes("/growth/to-assign") || pathname.includes("/growth/my-requests")
-            ? "bg-green-100 text-green-700" 
-            : "hover:bg-green-50 hover:text-green-600"
-        }>
-          <div className="flex items-center gap-2 w-full">
-            <ListTodo className="h-4 w-4" />
-            <span>Demandes</span>
-          </div>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-
-      {/* Sous-menu pour Demandes */}
-      <SidebarMenuItem className="pl-6">
-        <SidebarMenuButton asChild className={pathname.includes("/growth/to-assign") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
-          <Link to="/growth/to-assign" className="flex items-center gap-2 w-full">
-            <ListTodo className="h-4 w-4" />
-            <span>À affecter</span>
-            {pendingCount > 0 && <CountBadge count={pendingCount} />}
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-
-      <SidebarMenuItem className="pl-6">
         <SidebarMenuButton asChild className={pathname.includes("/growth/my-requests") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
           <Link to="/growth/my-requests" className="flex items-center gap-2 w-full">
             <UserSquare2 className="h-4 w-4" />
