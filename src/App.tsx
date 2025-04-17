@@ -28,6 +28,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminMissions from "./pages/AdminMissions";
 import PermissionsDebug from "./pages/PermissionsDebug";
+import { DashboardWithRedirect } from "./components/dashboard/DashboardWithRedirect";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,7 +56,6 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               
-              {/* Dashboard route with conditional redirect for Growth users */}
               <Route 
                 path="/dashboard" 
                 element={
@@ -138,7 +138,6 @@ function App() {
                 } 
               />
               
-              {/* Growth routes */}
               <Route
                 path="/growth"
                 element={

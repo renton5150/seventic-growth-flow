@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import Dashboard from "@/pages/Dashboard";
 
 export const DashboardWithRedirect = () => {
-  const { isGrowth } = useAuth();
+  const { user } = useAuth();
+  const isGrowth = user?.role === "growth";
 
   if (isGrowth) {
     return <Navigate to="/growth" replace />;
