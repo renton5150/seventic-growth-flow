@@ -96,19 +96,26 @@ export const resendInvitation = async (userIdentifier: string): Promise<ActionRe
     }
     
     // Sinon c'est la réponse de la fonction
-    const { data, error } = result;
-    
+    // Fix: Vérifier correctement si 'result' est de type FunctionsResponse et a une propriété 'data'
     // Journaliser la réponse complète
     console.log("Réponse complète de la fonction Edge:", JSON.stringify(result, null, 2));
     
     // Vérifier les erreurs dans plusieurs formats possibles
-    const errorMessage = error?.message || error?.error || (typeof error === 'string' ? error : null);
+    let errorMessage = null;
+    
+    if ('error' in result) {
+      const error = result.error;
+      errorMessage = error?.message || error?.error || (typeof error === 'string' ? error : null);
+    }
     
     if (errorMessage) {
       console.error("Erreur lors de l'envoi de l'email:", errorMessage);
       return { success: false, error: errorMessage || "Erreur lors de l'envoi de l'invitation" };
     }
 
+    // Utiliser un opérateur de coalescence pour accéder à data de façon sécurisée
+    const data = 'data' in result ? result.data : null;
+    
     // Vérifier si la réponse contient des erreurs spécifiques
     if (data?.error) {
       console.error("Erreur dans les données de réponse:", data.error);
