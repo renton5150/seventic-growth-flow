@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,9 +15,6 @@ import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { deleteRequest } from "@/services/requests/deleteRequestService";
 
 interface RequestRowProps {
   request: Request;
@@ -27,18 +25,12 @@ interface RequestRowProps {
 
 export const RequestRow = ({ 
   request, 
-  missionView = false, 
+  missionView = false,
   showSdr = false,
   onRequestDeleted
 }: RequestRowProps) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
-  const isOwner = user?.id === request.createdBy;
-
-  // Ajouter un log pour voir la valeur de missionName
-  console.log("Requête dans RequestRow:", request.id, "Mission name:", request.missionName);
-
+  
   const formatDate = (date: Date) => {
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
@@ -46,44 +38,13 @@ export const RequestRow = ({
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "email":
-        return "Emailing";
+        return "Campagne Email";
       case "database":
         return "Base de données";
       case "linkedin":
-        return "LinkedIn";
+        return "Scraping LinkedIn";
       default:
         return type;
-    }
-  };
-
-  const viewRequest = (request: Request) => {
-    navigate(`/requests/${request.type}/${request.id}`);
-  };
-
-  const editRequest = (request: Request) => {
-    navigate(`/requests/${request.type}/${request.id}/edit`);
-  };
-  
-  const handleDeleteRequest = async () => {
-    try {
-      // Confirmer avant suppression
-      if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la demande "${request.title}" ?`)) {
-        return;
-      }
-      
-      const success = await deleteRequest(request.id);
-      
-      if (success) {
-        toast.success("La demande a été supprimée avec succès");
-        if (onRequestDeleted) {
-          onRequestDeleted();
-        }
-      } else {
-        toast.error("Erreur lors de la suppression de la demande");
-      }
-    } catch (error) {
-      console.error("Erreur lors de la suppression de la demande:", error);
-      toast.error("Une erreur s'est produite lors de la suppression");
     }
   };
 
@@ -94,67 +55,57 @@ export const RequestRow = ({
       </TableCell>
       <TableCell>
         <div className="font-medium">{request.title}</div>
-        <div className="text-xs text-muted-foreground">{getTypeLabel(request.type)}</div>
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline" className="bg-gray-100">
+          {getTypeLabel(request.type)}
+        </Badge>
       </TableCell>
       {!missionView && (
         <TableCell>
-          {request.missionName}
+          {request.missionName || "Sans mission"}
         </TableCell>
       )}
       {showSdr && (
         <TableCell>
           <div className="flex items-center">
-            <Users className={`mr-2 h-4 w-4 ${isAdmin ? "text-blue-500" : "text-muted-foreground"}`} />
+            <Users className="mr-2 h-4 w-4 text-muted-foreground" />
             {request.sdrName || "Non assigné"}
           </div>
         </TableCell>
       )}
-      <TableCell>
-        {formatDate(request.dueDate)}
-      </TableCell>
+      <TableCell>{formatDate(request.dueDate)}</TableCell>
       <TableCell>
         <RequestStatusBadge status={request.status} workflow_status={request.workflow_status} isLate={request.isLate} />
       </TableCell>
       <TableCell>
-        {request.assignedToName ? (
-          <div className="flex items-center">
-            <User className="mr-2 h-4 w-4 text-green-500" />
-            {request.assignedToName}
-          </div>
-        ) : (
-          <div className="text-gray-400 text-sm italic">Non assigné</div>
-        )}
+        <div className="flex items-center">
+          <User className="mr-2 h-4 w-4 text-muted-foreground" />
+          {request.assignedToName || "Non assigné"}
+        </div>
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex justify-end">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => viewRequest(request)}
-            className={isAdmin ? "hover:bg-blue-100" : ""}
+        <div className="flex justify-end space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(`/requests/${request.type}/${request.id}`)}
           >
-            <Eye size={16} />
+            <Eye className="h-4 w-4" />
+            <span className="sr-only">Voir les détails</span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className={isAdmin ? "hover:bg-blue-100" : ""}
-              >
-                <MoreHorizontal size={16} />
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">Plus d'actions</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className={isAdmin ? "border-blue-200" : ""}>
-              <DropdownMenuItem onClick={() => viewRequest(request)}>
-                Voir les détails
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => editRequest(request)}>Modifier</DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-destructive"
-                onClick={handleDeleteRequest}
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => navigate(`/requests/${request.type}/${request.id}/edit`)}
               >
-                Supprimer
+                Modifier
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -162,4 +113,4 @@ export const RequestRow = ({
       </TableCell>
     </TableRow>
   );
-}
+};

@@ -26,6 +26,7 @@ export const RequestsTableHeader = ({ missionView = false, handleSort, showSdr =
         <TableHead className="w-[220px]">
           Titre {renderSortArrow("title")}
         </TableHead>
+        <TableHead className="w-[150px]">Demandes</TableHead>
         {!missionView && <TableHead>Mission</TableHead>}
         {showSdr && <TableHead>SDR</TableHead>}
         <TableHead className="w-[120px]">

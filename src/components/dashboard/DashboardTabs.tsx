@@ -1,5 +1,3 @@
-
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -57,9 +55,6 @@ export const DashboardTabs = ({
               {filteredRequests.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="email">Emailing</TabsTrigger>
-          <TabsTrigger value="database">Base de données</TabsTrigger>
-          <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
           <TabsTrigger value="pending">En attente</TabsTrigger>
           <TabsTrigger value="late">En retard</TabsTrigger>
         </TabsList>
