@@ -6,20 +6,30 @@ export async function sendResetLink(
   redirectUrl: string, 
   profile: { role: string, name: string },
   emailConfig: { smtpConfigured: boolean, emailProvider: string, smtpDetails?: any },
-  corsHeaders: Record<string, string>
+  corsHeaders: Record<string, string>,
+  inviteOptions: Record<string, any> = {}
 ) {
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
   
   try {
+    // Configurer les options avec la durée d'expiration plus longue si spécifiée
+    const options: any = {
+      emailRedirectTo: redirectUrl,
+      data: {
+        role: profile.role,
+        name: profile.name
+      }
+    };
+    
+    // Ajouter expireIn si spécifié
+    if (inviteOptions.expireIn) {
+      options.expireIn = inviteOptions.expireIn;
+      console.log(`Durée d'expiration configurée pour le lien: ${inviteOptions.expireIn} secondes`);
+    }
+    
     const emailSettings = {
       email,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          role: profile.role,
-          name: profile.name
-        }
-      }
+      options
     };
     
     console.log("Informations pour le lien de réinitialisation:", JSON.stringify(emailSettings));
@@ -41,13 +51,7 @@ export async function sendResetLink(
     const resetResult = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email,
-      options: {
-        redirectTo: redirectUrl,
-        data: {
-          role: profile.role,
-          name: profile.name
-        }
-      }
+      options
     });
     
     if (resetResult.error) {
@@ -101,20 +105,30 @@ export async function sendInvitationLink(
   redirectUrl: string, 
   profile: { role: string, name: string },
   emailConfig: { smtpConfigured: boolean, emailProvider: string, smtpDetails?: any },
-  corsHeaders: Record<string, string>
+  corsHeaders: Record<string, string>,
+  inviteOptions: Record<string, any> = {}
 ) {
   console.log("Nouvel utilisateur, envoi d'une invitation");
   
   try {
+    // Configurer les options avec la durée d'expiration plus longue si spécifiée
+    const options: any = {
+      emailRedirectTo: redirectUrl,
+      data: {
+        role: profile.role,
+        name: profile.name
+      }
+    };
+    
+    // Ajouter expireIn si spécifié
+    if (inviteOptions.expireIn) {
+      options.expireIn = inviteOptions.expireIn;
+      console.log(`Durée d'expiration configurée pour l'invitation: ${inviteOptions.expireIn} secondes`);
+    }
+    
     const emailSettings = {
       email,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          role: profile.role,
-          name: profile.name
-        }
-      }
+      options
     };
     
     console.log("Informations pour l'invitation:", JSON.stringify(emailSettings));
@@ -133,13 +147,7 @@ export async function sendInvitationLink(
       exigence: "laura.decoster@7tic.fr DOIT être l'expéditeur"
     });
     
-    const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: redirectUrl,
-      data: {
-        role: profile.role,
-        name: profile.name
-      }
-    });
+    const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, options);
     
     if (inviteResult.error) {
       console.error("ERREUR lors de l'envoi de l'invitation:", inviteResult.error);

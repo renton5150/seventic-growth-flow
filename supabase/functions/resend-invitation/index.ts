@@ -27,10 +27,18 @@ serve(async (req) => {
       });
     }
     
-    const { email, redirectUrl, checkSmtpConfig = false, debug = false } = requestBody;
+    const { 
+      email, 
+      redirectUrl, 
+      checkSmtpConfig = false, 
+      debug = false, 
+      inviteOptions = {} 
+    } = requestBody;
+    
     console.log(`Tentative d'envoi d'invitation à: ${email}`);
     console.log(`URL de redirection: ${redirectUrl}`);
     console.log(`Mode debug: ${debug ? "activé" : "désactivé"}`);
+    console.log("Options d'invitation:", JSON.stringify(inviteOptions));
     
     // Get Supabase admin client
     const supabaseAdmin = await getSupabaseAdmin();
@@ -84,7 +92,8 @@ serve(async (req) => {
         redirectUrl, 
         profileResult.profile, 
         emailConfig,
-        corsHeaders
+        corsHeaders,
+        inviteOptions
       );
     } else {
       return await sendInvitationLink(
@@ -93,7 +102,8 @@ serve(async (req) => {
         redirectUrl, 
         profileResult.profile, 
         emailConfig,
-        corsHeaders
+        corsHeaders,
+        inviteOptions
       );
     }
   } catch (error) {

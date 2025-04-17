@@ -40,11 +40,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         )) || (window.location.search && (
           window.location.search.includes("type=") || 
           window.location.search.includes("error=") ||
-          window.location.search.includes("access_token=")
+          window.location.search.includes("access_token=") ||
+          window.location.search.includes("error_code=")
         ));
         
         console.log("Paramètres d'authentification détectés:", hasAuthParams);
         console.log("Page reset-password détectée:", isOnResetPasswordPage);
+        
+        // Gérer directement les erreurs connues
+        if (window.location.hash && 
+            (window.location.hash.includes("error=") || window.location.hash.includes("error_code="))) {
+          
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const errorCode = hashParams.get("error_code");
+          const errorDesc = hashParams.get("error_description");
+          
+          console.log("Erreur d'authentification détectée:", errorCode, errorDesc);
+          
+          if (errorCode === "otp_expired" || errorCode === "access_denied") {
+            // Rediriger vers la page de réinitialisation avec des paramètres d'erreur
+            const redirectUrl = `/reset-password?error_code=${errorCode}&error_description=${encodeURIComponent(errorDesc || "")}`;
+            console.log("Redirection vers la page de réinitialisation avec erreur:", redirectUrl);
+            window.location.href = redirectUrl;
+            return;
+          }
+        }
+        
+        // Même vérification dans les query parameters
+        if (window.location.search && 
+            (window.location.search.includes("error=") || window.location.search.includes("error_code="))) {
+          
+          const searchParams = new URLSearchParams(window.location.search);
+          const errorCode = searchParams.get("error_code");
+          const errorDesc = searchParams.get("error_description");
+          
+          if (!isOnResetPasswordPage && (errorCode === "otp_expired" || errorCode === "access_denied")) {
+            // Nous ne sommes pas sur la page de réinitialisation mais avons une erreur liée à l'OTP
+            const redirectUrl = `/reset-password?error_code=${errorCode}&error_description=${encodeURIComponent(errorDesc || "")}`;
+            console.log("Redirection vers la page de réinitialisation avec erreur:", redirectUrl);
+            window.location.href = redirectUrl;
+            return;
+          }
+        }
         
         // Si nous avons des paramètres d'authentification mais ne sommes pas sur la page reset-password
         if (hasAuthParams && !isOnResetPasswordPage) {

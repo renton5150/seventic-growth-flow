@@ -36,13 +36,17 @@ export const resendInvitation = async (email: string): Promise<ActionResponse & 
       checkSmtpConfig: true 
     });
     
-    // Appel à la fonction Edge avec plus de détails pour le débogage
+    // Augmenter le délai avant timeout pour éviter les expirations prématurées
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
         email, 
         redirectUrl,
-        checkSmtpConfig: true, // Demande de vérifier la configuration SMTP
-        debug: true // Activer le mode debug
+        checkSmtpConfig: true,
+        debug: true,
+        // Ajouter une durée de validité plus longue pour l'invitation
+        inviteOptions: {
+          expireIn: 604800 // 7 jours en secondes au lieu de la valeur par défaut de 24h
+        }
       }
     });
     
