@@ -12,7 +12,7 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("Récupération des requêtes à affecter pour Growth avec userId:", userId);
-      // Utilisation de la vue requests_with_missions
+      
       const { data, error } = await supabase
         .from('requests_with_missions')
         .select('*')
@@ -38,7 +38,7 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("Récupération de mes assignations pour Growth avec userId:", userId);
-      // Utilisation de la vue requests_with_missions
+      
       const { data, error } = await supabase
         .from('requests_with_missions')
         .select('*')
@@ -56,14 +56,16 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Toutes les requêtes pour le rôle growth
+  // Toutes les requêtes pour le rôle growth - modification pour voir TOUTES les requêtes ciblées pour Growth
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
     queryKey: ['growth-all-requests'],
     queryFn: async () => {
       if (!userId) return [];
       
       console.log("Récupération de toutes les requêtes growth avec userId:", userId);
-      // Utilisation de la vue requests_with_missions
+      
+      // Utiliser la vue requests_with_missions et récupérer toutes les requêtes ciblées pour le rôle growth
+      // Nous ne filtrons plus par assigned_to pour voir toutes les demandes
       const { data, error } = await supabase
         .from('requests_with_missions')
         .select('*')
@@ -75,7 +77,7 @@ export function useRequestQueries(userId: string | undefined) {
         return [];
       }
       
-      console.log("Toutes les requêtes récupérées:", data);
+      console.log("Toutes les requêtes récupérées:", data?.length || 0);
       
       return data.map(request => formatRequestFromDb(request));
     },
@@ -86,7 +88,7 @@ export function useRequestQueries(userId: string | undefined) {
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
       console.log("Récupération des détails pour la demande:", requestId);
-      // Utilisation de la vue requests_with_missions
+      
       const { data, error } = await supabase
         .from('requests_with_missions')
         .select('*')

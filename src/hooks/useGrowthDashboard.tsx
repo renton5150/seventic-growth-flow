@@ -90,7 +90,7 @@ export function useGrowthDashboard(defaultTab?: string) {
   
   return {
     filteredRequests,
-    allRequests: allGrowthRequests,
+    allRequests: allGrowthRequests || [],
     isLoading: false,
     activeTab,
     setActiveTab,
