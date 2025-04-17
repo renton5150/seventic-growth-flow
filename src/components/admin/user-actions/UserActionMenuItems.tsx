@@ -1,5 +1,5 @@
 
-import { Edit, Mail, Trash2, User as UserIcon, Shield, LineChart, HeadsetIcon } from "lucide-react";
+import { Edit, Mail, Trash2, User as UserIcon, Shield, LineChart, HeadsetIcon, Loader2 } from "lucide-react";
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { User } from "@/types/types";
 import { toast } from "sonner";
@@ -31,14 +31,22 @@ export const UserActionMenuItems = ({
     const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
     
     try {
-      await resendInvitation(user.id);
+      // Utiliser l'email de l'utilisateur au lieu de l'ID
+      const result = await resendInvitation(user.email);
       
-      toast.success("Invitation envoyée", {
-        id: toastId,
-        description: `Une nouvelle invitation a été envoyée à ${user.email}`
-      });
-      
-      onActionComplete();
+      if (result.success) {
+        toast.success("Invitation envoyée", {
+          id: toastId,
+          description: `Une nouvelle invitation a été envoyée à ${user.email}`
+        });
+        
+        onActionComplete();
+      } else {
+        toast.error("Erreur", {
+          id: toastId, 
+          description: result.error || "Une erreur est survenue lors de l'envoi de l'invitation"
+        });
+      }
     } catch (error) {
       console.error("Erreur lors de l'envoi de l'invitation:", error);
       toast.error("Erreur", {
@@ -129,8 +137,12 @@ export const UserActionMenuItems = ({
         disabled={isSendingInvite}
         className="gap-2"
       >
-        <Mail className="h-4 w-4" />
-        <span>Renvoyer l'invitation</span>
+        {isSendingInvite ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Mail className="h-4 w-4" />
+        )}
+        <span>{isSendingInvite ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
       </DropdownMenuItem>
       
       <DropdownMenuSeparator />

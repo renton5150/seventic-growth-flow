@@ -3,10 +3,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActionResponse } from "./types";
 
 // Renvoyer une invitation
-export const resendInvitation = async (email: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
-  console.log("Tentative de renvoi d'invitation à:", email);
-  
+export const resendInvitation = async (userId: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
   try {
+    // Vérifier d'abord si nous avons un email ou un ID d'utilisateur
+    let email = userId;
+    
+    // Si cela ressemble à un UUID, cherchons l'email associé
+    if (userId.includes("-") && userId.length > 30) {
+      console.log("Identifiant détecté comme UUID, recherche de l'email associé");
+      
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .single();
+      
+      if (userError || !userData) {
+        console.error("Erreur lors de la récupération de l'email:", userError);
+        return { success: false, error: `Impossible de trouver l'utilisateur avec l'ID ${userId}` };
+      }
+      
+      email = userData.email;
+      console.log(`Email trouvé pour l'utilisateur ${userId}: ${email}`);
+    }
+    
     // Obtenir l'URL de base actuelle de l'application (fonctionne en dev et prod)
     const origin = window.location.origin;
     console.log("URL de base pour redirection:", origin);
@@ -39,7 +59,7 @@ export const resendInvitation = async (email: string): Promise<ActionResponse & 
     // Augmenter le délai avant timeout pour éviter les expirations prématurées
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
-        email, 
+        email, // Utiliser l'email au lieu de l'ID
         redirectUrl,
         checkSmtpConfig: true,
         debug: true,

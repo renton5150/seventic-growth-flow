@@ -35,6 +35,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
       // Afficher un toast de chargement persistant
       const toastId = toast.loading(`Envoi de l'invitation à ${user.email}...`);
       
+      // Utiliser l'email de l'utilisateur au lieu de l'ID
       const { success, error, warning } = await resendInvitation(user.email);
       
       // Fermer le toast de chargement
