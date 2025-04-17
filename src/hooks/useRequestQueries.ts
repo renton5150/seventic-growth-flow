@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -13,10 +14,9 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("Récupération des requêtes à affecter pour Growth avec userId:", userId);
       
       const { data, error } = await supabase
-        .from('requests_with_missions')
+        .from('growth_requests_view')
         .select('*')
         .eq('workflow_status', 'pending_assignment')
-        .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
       
       if (error) {
@@ -39,7 +39,7 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("Récupération de mes assignations pour Growth avec userId:", userId);
       
       const { data, error } = await supabase
-        .from('requests_with_missions')
+        .from('growth_requests_view')
         .select('*')
         .eq('assigned_to', userId)
         .order('due_date', { ascending: true });
@@ -63,11 +63,10 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log("Récupération de toutes les requêtes growth avec userId:", userId);
       
-      // Récupérer toutes les requêtes ciblées pour le rôle growth sans filtrage supplémentaire
+      // Utiliser la nouvelle vue growth_requests_view
       const { data, error } = await supabase
-        .from('requests_with_missions')
+        .from('growth_requests_view')
         .select('*')
-        .eq('target_role', 'growth')
         .order('due_date', { ascending: true });
       
       if (error) {
@@ -87,7 +86,7 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("Récupération des détails pour la demande:", requestId);
       
       const { data, error } = await supabase
-        .from('requests_with_missions')
+        .from('growth_requests_view')
         .select('*')
         .eq('id', requestId)
         .single();

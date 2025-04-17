@@ -59,6 +59,7 @@ export type Database = {
           created_at: string
           description: string | null
           end_date: string | null
+          growth_id: string | null
           id: string
           name: string
           sdr_id: string | null
@@ -72,6 +73,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date?: string | null
+          growth_id?: string | null
           id?: string
           name: string
           sdr_id?: string | null
@@ -85,6 +87,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date?: string | null
+          growth_id?: string | null
           id?: string
           name?: string
           sdr_id?: string | null
@@ -94,6 +97,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "missions_growth_id_fkey"
+            columns: ["growth_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "missions_sdr_id_fkey"
             columns: ["sdr_id"]
@@ -206,8 +216,89 @@ export type Database = {
           },
         ]
       }
+      team_relations: {
+        Row: {
+          created_at: string
+          id: string
+          manager_id: string
+          member_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          manager_id: string
+          member_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          manager_id?: string
+          member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_relations_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_relations_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
+      growth_requests_view: {
+        Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
+          created_at: string | null
+          created_by: string | null
+          details: Json | null
+          due_date: string | null
+          id: string | null
+          last_updated: string | null
+          mission_client: string | null
+          mission_id: string | null
+          mission_name: string | null
+          sdr_name: string | null
+          status: string | null
+          target_role: string | null
+          title: string | null
+          type: string | null
+          updated_at: string | null
+          workflow_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requests_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       requests_with_missions: {
         Row: {
           assigned_to: string | null
