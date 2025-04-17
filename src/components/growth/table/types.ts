@@ -1,4 +1,3 @@
-
 import { DateFilter } from "@/hooks/useGrowthRequestsFilters";
 
 export interface TableFilterProps {

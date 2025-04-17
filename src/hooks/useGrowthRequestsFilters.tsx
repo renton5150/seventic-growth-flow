@@ -2,15 +2,17 @@
 import { useState, useMemo } from 'react';
 import { Request } from '@/types/types';
 
-type DateFilterType = 'equals' | 'before' | 'after' | 'between' | null;
+// Export the DateFilterType and DateFilterValues types
+export type DateFilterType = 'equals' | 'before' | 'after' | 'between' | null;
 
-interface DateFilterValues {
+export interface DateFilterValues {
   date?: Date | null;
   startDate?: Date | null;
   endDate?: Date | null;
 }
 
-interface DateFilter {
+// Export the DateFilter interface
+export interface DateFilter {
   type: DateFilterType;
   values: DateFilterValues;
 }
