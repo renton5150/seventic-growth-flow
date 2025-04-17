@@ -1,44 +1,16 @@
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserManagementTabs } from "@/components/admin/UserManagementTabs";
 import { useAuth } from "@/contexts/auth";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { invalidateUserCache } from "@/services/user/userQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 const AdminUsers = () => {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const location = useLocation();
-  
-  // Détecter si on arrive par une redirection de suppression
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const refresh = params.get('refresh');
-    
-    if (refresh) {
-      // Force un rafraîchissement complet des données à l'arrivée sur la page
-      console.log("Détection de paramètre refresh, rafraîchissement forcé des données");
-      invalidateUserCache();
-      
-      // Forcer un refetch de toutes les requêtes
-      queryClient.invalidateQueries({ 
-        queryKey: ['users'],
-        refetchType: 'all' 
-      });
-      
-      queryClient.invalidateQueries({ 
-        queryKey: ['admin-users'],
-        refetchType: 'all' 
-      });
-      
-      // Afficher un toast de confirmation
-      toast.success("La liste des utilisateurs a été rafraîchie");
-    }
-  }, [location.search, queryClient]);
   
   // Fonction pour rafraîchir les données utilisateur - optimisée pour limiter les appels
   const refreshUserData = useCallback(() => {

@@ -4,7 +4,7 @@ import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuS
 import { User } from "@/types/types";
 import { toast } from "sonner";
 import { updateUserRole } from "@/services/user/userManagement";
-import { supabase } from "@/integrations/supabase/client";
+import { resendInvitation } from "@/services/user";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface UserActionMenuItemsProps {
@@ -27,7 +27,6 @@ export const UserActionMenuItems = ({
 }: UserActionMenuItemsProps) => {
   const queryClient = useQueryClient();
   
-  // SOLUTION RADICALE : Approche directe pour le renvoi d'invitation
   const handleResendInvitation = async () => {
     if (isSendingInvite) return;
     
@@ -36,21 +35,14 @@ export const UserActionMenuItems = ({
     try {
       setIsSendingInvite(true);
       
-      console.log("Envoi d'invitation directement via l'API Supabase à:", user.email);
+      console.log("Envoi d'invitation explicitement à l'email:", user.email);
       
-      // SOLUTION RADICALE : Appel direct à la fonction Edge avec seulement l'email
-      // Solution directe : appel à la fonction edge avec uniquement les données essentielles
-      const result = await supabase.functions.invoke('resend-invitation', {
-        body: { 
-          email: user.email,
-          redirectUrl: window.location.origin + '/reset-password?type=invite',
-          timestamp: new Date().toISOString()
-        }
-      });
+      // Utiliser TOUJOURS et EXPLICITEMENT l'email de l'utilisateur pour le renvoi
+      const result = await resendInvitation(user.email);
       
-      console.log("Résultat direct du renvoi d'invitation:", result);
+      console.log("Résultat du renvoi d'invitation:", JSON.stringify(result, null, 2));
       
-      if (!result.error) {
+      if (result.success) {
         toast.success("Invitation envoyée", {
           id: toastId,
           description: `Une invitation a été envoyée à ${user.email}`,
@@ -58,18 +50,19 @@ export const UserActionMenuItems = ({
         });
         
         // Forcer le rafraîchissement des données utilisateur
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+        
+        // Attendre un court instant avant de rafraîchir pour éviter les problèmes d'état
         setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['users'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-users'] });
           onActionComplete();
         }, 500);
       } else {
         toast.error("Erreur lors de l'envoi", {
           id: toastId, 
-          description: result.error?.message || "Une erreur est survenue lors de l'envoi de l'invitation",
+          description: result.error || "Une erreur est survenue lors de l'envoi de l'invitation",
           duration: 8000
         });
-        console.error("Erreur détaillée:", result.error);
       }
     } catch (error) {
       console.error("Exception lors de l'envoi de l'invitation:", error);

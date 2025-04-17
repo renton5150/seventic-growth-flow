@@ -26,65 +26,44 @@ serve(async (req) => {
     );
 
     // Récupérer les données de la requête
-    let requestData = {};
-    try {
-      requestData = await req.json();
-      console.log("Corps de la requête:", JSON.stringify(requestData, null, 2));
-    } catch (err) {
-      console.error("Erreur lors de l'analyse du corps de la requête:", err);
-      return new Response(
-        JSON.stringify({ success: false, error: "Erreur d'analyse du corps de la requête" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const requestData = await req.json().catch(err => {
+      console.error("Erreur lors de la lecture du corps de la requête:", err);
+      return {};
+    });
     
     const { userId } = requestData;
     
     if (!userId) {
       console.error("ID utilisateur manquant dans la requête");
       return new Response(
-        JSON.stringify({ success: false, error: "ID utilisateur requis" }),
+        JSON.stringify({ error: "ID utilisateur requis" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[delete-user] Début de la suppression de l'utilisateur avec l'ID: ${userId}`);
+    console.log(`Tentative de suppression de l'utilisateur avec l'ID: ${userId}`);
 
     try {
-      // Essayons d'abord de récupérer l'utilisateur pour vérifier qu'il existe
-      console.log(`[delete-user] Vérification de l'existence de l'utilisateur ${userId}`);
-      const { data: userData, error: userCheckError } = await supabaseClient.auth.admin.getUserById(userId);
-      
-      if (userCheckError || !userData) {
-        console.error("[delete-user] L'utilisateur n'existe pas:", userCheckError);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: userCheckError?.message || "L'utilisateur n'existe pas" 
-          }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
       // Supprimer d'abord le profil de l'utilisateur
-      console.log("[delete-user] 1. Suppression du profil de l'utilisateur...");
+      console.log("1. Suppression du profil de l'utilisateur...");
       const { error: profileDeleteError } = await supabaseClient
         .from("profiles")
         .delete()
         .eq("id", userId);
 
       if (profileDeleteError) {
-        console.warn("[delete-user] Avertissement lors de la suppression du profil:", profileDeleteError);
+        console.warn("Avertissement lors de la suppression du profil:", profileDeleteError);
+        // Continuer avec la suppression de l'utilisateur même si la suppression du profil échoue
       } else {
-        console.log(`[delete-user] Profil de l'utilisateur ${userId} supprimé avec succès`);
+        console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
       }
       
       // Ensuite, supprimer l'utilisateur de auth.users
-      console.log("[delete-user] 2. Suppression de l'utilisateur de auth.users...");
+      console.log("2. Suppression de l'utilisateur de auth.users...");
       const { error: userDeleteError } = await supabaseClient.auth.admin.deleteUser(userId);
       
       if (userDeleteError) {
-        console.error("[delete-user] Erreur lors de la suppression de l'utilisateur:", userDeleteError);
+        console.error("Erreur lors de la suppression de l'utilisateur:", userDeleteError);
         
         // Si le profil a été supprimé mais pas l'utilisateur, renvoyer un avertissement
         if (!profileDeleteError) {
@@ -107,7 +86,7 @@ serve(async (req) => {
       }
 
       // Si nous arrivons ici, tout s'est bien passé
-      console.log(`[delete-user] Utilisateur ${userId} supprimé avec succès`);
+      console.log(`Utilisateur ${userId} supprimé avec succès`);
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -116,7 +95,7 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (innerError) {
-      console.error("[delete-user] Erreur interne lors de la suppression:", innerError);
+      console.error("Erreur interne lors de la suppression:", innerError);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -126,7 +105,7 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error("[delete-user] Erreur inattendue lors de la suppression de l'utilisateur:", error);
+    console.error("Erreur inattendue lors de la suppression de l'utilisateur:", error);
     
     return new Response(
       JSON.stringify({ 
