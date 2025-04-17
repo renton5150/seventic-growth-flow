@@ -7,18 +7,30 @@ export const deleteUser = async (userId: string): Promise<ActionResponse> => {
   console.log("Tentative de suppression de l'utilisateur:", userId);
   
   try {
-    // Implémenter un timeout côté client sans utiliser AbortController/signal
+    // Vérifier d'abord que l'ID est bien un UUID
+    if (!userId || !userId.includes("-") || userId.length < 30) {
+      console.error("ID d'utilisateur invalide:", userId);
+      return { success: false, error: "ID d'utilisateur invalide" };
+    }
+    
+    // Implémenter un timeout côté client
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 
           success: true, 
           warning: "L'opération prend plus de temps que prévu. La suppression continue en arrière-plan."
         });
-      }, 10000);
+      }, 10000); // 10 secondes de timeout
     });
     
+    // Appel à la fonction Edge delete-user
+    console.log("Appel à la fonction Edge delete-user avec userId:", userId);
     const deletePromise = supabase.functions.invoke('delete-user', {
       body: { userId }
+    }).catch(error => {
+      // Capturer les erreurs réseau ou d'API ici
+      console.error("Erreur lors de l'appel à la fonction Edge:", error);
+      return { error: { message: error.message || "Erreur de connexion" } };
     });
     
     // Race entre le timeout et l'appel à la fonction

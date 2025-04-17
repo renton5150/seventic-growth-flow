@@ -3,36 +3,39 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActionResponse } from "./types";
 
 // Renvoyer une invitation
-export const resendInvitation = async (userId: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
+export const resendInvitation = async (userIdentifier: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
   try {
-    // Vérifier d'abord si nous avons un email ou un ID d'utilisateur
-    let email = userId;
+    // Puisque nous avons besoin d'un email, vérifions si l'identifiant est un email
+    let email = userIdentifier;
     
-    // Si cela ressemble à un UUID, cherchons l'email associé
-    if (userId.includes("-") && userId.length > 30) {
+    // Si l'identifiant ressemble à un UUID, cherchons l'email associé
+    if (userIdentifier.includes("-") && userIdentifier.length > 30) {
       console.log("Identifiant détecté comme UUID, recherche de l'email associé");
       
       const { data: userData, error: userError } = await supabase
         .from('profiles')
         .select('email')
-        .eq('id', userId)
+        .eq('id', userIdentifier)
         .single();
       
-      if (userError || !userData) {
+      if (userError || !userData || !userData.email) {
         console.error("Erreur lors de la récupération de l'email:", userError);
-        return { success: false, error: `Impossible de trouver l'utilisateur avec l'ID ${userId}` };
+        return { success: false, error: `Impossible de trouver l'email de l'utilisateur avec l'ID ${userIdentifier}` };
       }
       
       email = userData.email;
-      console.log(`Email trouvé pour l'utilisateur ${userId}: ${email}`);
+      console.log(`Email trouvé pour l'utilisateur ${userIdentifier}: ${email}`);
+    } else if (!email.includes('@')) {
+      // Si ce n'est pas un UUID et ce n'est pas un email valide, retourner une erreur
+      console.error("L'identifiant fourni n'est ni un email valide ni un UUID");
+      return { success: false, error: `L'identifiant fourni n'est pas valide: ${userIdentifier}` };
     }
     
-    // Obtenir l'URL de base actuelle de l'application (fonctionne en dev et prod)
+    // Obtenir l'URL de base actuelle de l'application
     const origin = window.location.origin;
     console.log("URL de base pour redirection:", origin);
     
     // URL de redirection pour la page de réinitialisation de mot de passe
-    // Assurons-nous d'avoir ?type=invite pour une meilleure détection du mode
     const redirectUrl = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection complète:", redirectUrl);
     
@@ -46,26 +49,24 @@ export const resendInvitation = async (userId: string): Promise<ActionResponse &
       }, 8000);
     });
     
-    // Ajout de logging détaillé pour le débogage
-    console.log("Appel à la fonction Edge resend-invitation avec plus de détails:", { 
+    // Ajout de logging détaillé
+    console.log("Appel à la fonction Edge resend-invitation avec:", { 
       email, 
       redirectUrl,
       timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      windowLocation: window.location.href,
       checkSmtpConfig: true 
     });
     
-    // Augmenter le délai avant timeout pour éviter les expirations prématurées
+    // Appel à la fonction Edge avec l'email (pas l'ID)
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: { 
-        email, // Utiliser l'email au lieu de l'ID
+        email,
         redirectUrl,
         checkSmtpConfig: true,
         debug: true,
         // Ajouter une durée de validité plus longue pour l'invitation
         inviteOptions: {
-          expireIn: 604800 // 7 jours en secondes au lieu de la valeur par défaut de 24h
+          expireIn: 604800 // 7 jours en secondes
         }
       }
     });

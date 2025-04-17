@@ -1,11 +1,10 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { invalidateUserCache } from "./userQueries";
 
-// Re-export user management functions from modularized files
-export { deleteUser } from "./userDeletion";
-export { resendInvitation } from "./userInvitation";
+// Ne pas re-exporter deleteUser et resendInvitation ici pour éviter les imports circulaires
+// export { deleteUser } from "./userDeletion";
+// export { resendInvitation } from "./userInvitation";
 
 // Export the cache invalidation function
 export { invalidateUserCache };

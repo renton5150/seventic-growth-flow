@@ -31,7 +31,7 @@ export const UserActionMenuItems = ({
     const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
     
     try {
-      // Utiliser l'email de l'utilisateur au lieu de l'ID
+      // Utiliser l'email de l'utilisateur pour envoyer l'invitation
       const result = await resendInvitation(user.email);
       
       if (result.success) {
@@ -58,7 +58,7 @@ export const UserActionMenuItems = ({
     }
   };
   
-  // Nouvelle fonction pour changer directement le rôle sans boîte de dialogue
+  // Fonction pour changer directement le rôle sans boîte de dialogue
   const handleDirectRoleChange = async (newRole: string) => {
     if (newRole === user.role) return;
     

@@ -15,6 +15,15 @@ export async function getUserProfile(supabaseClient, email) {
       };
     }
 
+    // Vérifier si l'email contient un @
+    if (!email.includes('@')) {
+      console.error(`Erreur: La valeur ${email} ne semble pas être un email valide (pas de @).`);
+      return {
+        error: `La valeur fournie (${email}) n'est pas un email valide.`,
+        status: 400
+      };
+    }
+
     // Rechercher le profil par email
     const { data: profiles, error } = await supabaseClient
       .from('profiles')
