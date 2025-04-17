@@ -1,0 +1,14 @@
+
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Dashboard from "@/pages/Dashboard";
+
+export const DashboardWithRedirect = () => {
+  const { isGrowth } = useAuth();
+
+  if (isGrowth) {
+    return <Navigate to="/growth" replace />;
+  }
+
+  return <Dashboard />;
+};
