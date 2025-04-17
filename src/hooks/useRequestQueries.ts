@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -65,16 +66,20 @@ export function useRequestQueries(userId: string | undefined) {
       console.log('Fetching ALL requests for Growth dashboard');
       
       // Solution radicale : récupérer TOUTES les demandes sans exception
+      // Utiliser la méthode .from au lieu de .rpc pour contourner le problème de typage
       const { data, error } = await supabase
-        .rpc('get_all_requests');
+        .from('requests_with_missions')
+        .select('*');
       
       if (error) {
         console.error('Error fetching all requests:', error);
         throw error;
       }
       
-      console.log(`Retrieved ${data?.length} total requests`);
-      return data.map(request => formatRequestFromDb(request)) || [];
+      // Vérifier que data est bien un tableau avant d'appeler length ou map
+      const requestsArray = Array.isArray(data) ? data : [];
+      console.log(`Retrieved ${requestsArray.length} total requests`);
+      return requestsArray.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
   });
