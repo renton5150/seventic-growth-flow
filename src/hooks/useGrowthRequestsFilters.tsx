@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import { Request } from '@/types/types';
 
@@ -140,7 +141,7 @@ export function useGrowthRequestsFilters(requests: Request[]) {
 
       // Apply date filters
       if (!applyDateFilter(request, 'createdAt', createdDateFilter)) return false;
-      if (!applyDateFilter(request, 'dueDate', dueDateFilter));
+      if (!applyDateFilter(request, 'dueDate', dueDateFilter)) return false; // Fixed this line by adding "return false"
 
       return true;
     });
