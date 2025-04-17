@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -63,80 +62,19 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération de toutes les requêtes growth avec userId:", userId);
+      console.log('Fetching ALL requests for Growth dashboard');
       
-      // Utiliser logQuery pour enregistrer la requête SQL exacte
-      console.log("Tentative de récupération de toutes les requêtes depuis la vue growth_requests_view");
-      
-      // Obtenir d'abord le nombre total de requêtes dans la table requests
-      const { count: totalRequestsCount } = await supabase
-        .from('requests')
-        .select('*', { count: 'exact', head: true });
-      
-      console.log(`Nombre total de requêtes dans la table 'requests': ${totalRequestsCount}`);
-      
-      // Obtenir le nombre total de requêtes dans la vue growth_requests_view
-      const { count: totalGrowthRequestsCount } = await supabase
-        .from('growth_requests_view')
-        .select('*', { count: 'exact', head: true });
-      
-      console.log(`Nombre total de requêtes dans la vue 'growth_requests_view': ${totalGrowthRequestsCount}`);
-      
-      // Vérifier si team_relations contient des données
-      const { data: teamRelations, count: teamRelationsCount } = await supabase
-        .from('team_relations')
-        .select('*', { count: 'exact' });
-      
-      console.log(`Relations d'équipe trouvées: ${teamRelationsCount}`);
-      if (teamRelationsCount && teamRelationsCount > 0) {
-        console.log("Exemple de relations d'équipe:", teamRelations?.[0]);
-      }
-      
-      // Vérifier si les missions ont des growth_id assignés
-      const { data: missionsWithGrowth, count: missionsWithGrowthCount } = await supabase
-        .from('missions')
-        .select('id, name, growth_id', { count: 'exact' })
-        .not('growth_id', 'is', null);
-      
-      console.log(`Missions avec growth_id assigné: ${missionsWithGrowthCount}`);
-      if (missionsWithGrowthCount && missionsWithGrowthCount > 0) {
-        console.log("Exemple de mission avec growth_id:", missionsWithGrowth?.[0]);
-      }
-      
-      // Récupérer toutes les requêtes de la vue growth_requests_view
-      console.log("Exécution de la requête pour récupérer toutes les demandes growth");
-      const { data, error, count } = await supabase
-        .from('growth_requests_view')
-        .select('*', { count: 'exact' })
-        .order('due_date', { ascending: true });
+      // Solution radicale : récupérer TOUTES les demandes sans exception
+      const { data, error } = await supabase
+        .rpc('get_all_requests');
       
       if (error) {
-        console.error("Erreur lors de la récupération de toutes les requêtes:", error);
-        return [];
+        console.error('Error fetching all requests:', error);
+        throw error;
       }
       
-      console.log(`Nombre total de requêtes récupérées: ${data?.length || 0} sur ${count} requêtes dans la vue`);
-      
-      // SOLUTION TEMPORAIRE: Si la vue ne retourne pas de données, récupérer toutes les requêtes directement de la table requests
-      if (!data || data.length === 0) {
-        console.log("SOLUTION TEMPORAIRE: Récupération de toutes les requêtes de la table requests");
-        
-        const { data: allRequests, error: allRequestsError } = await supabase
-          .from('requests_with_missions')
-          .select('*')
-          .order('due_date', { ascending: true });
-        
-        if (allRequestsError) {
-          console.error("Erreur lors de la récupération de toutes les requêtes (fallback):", allRequestsError);
-          return [];
-        }
-        
-        console.log(`SOLUTION TEMPORAIRE: ${allRequests?.length || 0} requêtes récupérées directement de la table requests`);
-        return (allRequests || []).map(request => formatRequestFromDb(request));
-      }
-      
-      console.log("IDs des requêtes récupérées:", data.map(r => r.id));
-      return data.map(request => formatRequestFromDb(request));
+      console.log(`Retrieved ${data?.length} total requests`);
+      return data.map(request => formatRequestFromDb(request)) || [];
     },
     enabled: !!userId
   });
