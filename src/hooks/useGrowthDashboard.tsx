@@ -15,9 +15,12 @@ export function useGrowthDashboard(defaultTab?: string) {
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   const [allRequests, setAllRequests] = useState<Request[]>([]);
   
+  // Assure que la valeur par défaut de l'onglet est "all" si non spécifiée
   useEffect(() => {
     if (defaultTab) {
       setActiveTab(defaultTab);
+    } else {
+      setActiveTab("all");
     }
   }, [defaultTab]);
   

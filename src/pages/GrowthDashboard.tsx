@@ -6,6 +6,7 @@ import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHe
 import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { RequestEditDialog } from "@/components/growth/RequestEditDialog";
 import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDialog";
+import { useEffect } from "react";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
@@ -29,6 +30,13 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     assignRequestToMe,
     updateRequestWorkflowStatus
   } = useGrowthDashboard(defaultTab);
+
+  // Assure que le tableau de bord revienne par défaut sur "Toutes"
+  useEffect(() => {
+    if (!defaultTab && activeTab !== "all") {
+      setActiveTab("all");
+    }
+  }, [defaultTab, activeTab, setActiveTab]);
 
   return (
     <AppLayout>

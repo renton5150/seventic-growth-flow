@@ -1,3 +1,4 @@
+
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Request } from "@/types/types";
@@ -9,12 +10,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users } from "lucide-react";
+import { Users, Calendar } from "lucide-react";
 import { EmptyRequestsRow } from "../dashboard/requests-table/EmptyRequestsRow";
 import { GrowthRequestStatusBadge } from "./table/GrowthRequestStatusBadge";
 import { GrowthRequestActions } from "./table/GrowthRequestActions";
 import { GrowthRequestTypeIcon } from "./table/GrowthRequestTypeIcon";
 import { Badge } from "@/components/ui/badge";
+import { CheckboxColumnFilter } from "./filters/CheckboxColumnFilter";
+import { DateColumnFilter } from "./filters/DateColumnFilter";
+import { useGrowthRequestsFilters } from "@/hooks/useGrowthRequestsFilters";
 
 interface GrowthRequestsTableProps {
   requests: Request[];
@@ -37,6 +41,26 @@ export function GrowthRequestsTable({
   updateRequestWorkflowStatus,
   activeTab = "all"
 }: GrowthRequestsTableProps) {
+  const {
+    filteredRequests,
+    typeFilter,
+    missionFilter,
+    assigneeFilter,
+    statusFilter,
+    createdDateFilter,
+    dueDateFilter,
+    setTypeFilter,
+    setMissionFilter,
+    setAssigneeFilter,
+    setStatusFilter,
+    handleCreatedDateFilterChange,
+    handleDueDateFilterChange,
+    uniqueTypes,
+    uniqueMissions,
+    uniqueAssignees,
+    uniqueStatuses
+  } = useGrowthRequestsFilters(requests);
+
   const formatDate = (date: Date) => {
     return format(new Date(date), "d MMM yyyy", { locale: fr });
   };
@@ -50,9 +74,9 @@ export function GrowthRequestsTable({
     }
   };
 
-  console.log("Affichage des requêtes dans GrowthRequestsTable:", requests);
-  if (requests && requests.length > 0) {
-    console.log("Premier élément avec nom de mission:", requests[0].missionName);
+  console.log("Affichage des requêtes dans GrowthRequestsTable:", filteredRequests);
+  if (filteredRequests && filteredRequests.length > 0) {
+    console.log("Premier élément avec nom de mission:", filteredRequests[0].missionName);
   }
 
   return (
@@ -62,20 +86,96 @@ export function GrowthRequestsTable({
           <TableRow>
             <TableHead className="w-[50px]">Type</TableHead>
             <TableHead>Titre</TableHead>
-            <TableHead>Type de demande</TableHead>
-            <TableHead>Mission</TableHead>
-            <TableHead>Assigné à</TableHead>
-            <TableCell>Créée le</TableCell>
-            <TableCell>Date prévue</TableCell>
-            <TableHead>Statut</TableHead>
+            <TableHead>
+              <div className="flex items-center justify-between">
+                Type de demande
+                <CheckboxColumnFilter
+                  columnName="Type"
+                  options={uniqueTypes}
+                  selectedValues={typeFilter}
+                  onFilterChange={setTypeFilter}
+                  hasFilter={typeFilter.length > 0}
+                  onClearFilter={() => setTypeFilter([])}
+                />
+              </div>
+            </TableHead>
+            <TableHead>
+              <div className="flex items-center justify-between">
+                Mission
+                <CheckboxColumnFilter
+                  columnName="Mission"
+                  options={uniqueMissions}
+                  selectedValues={missionFilter}
+                  onFilterChange={setMissionFilter}
+                  hasFilter={missionFilter.length > 0}
+                  onClearFilter={() => setMissionFilter([])}
+                />
+              </div>
+            </TableHead>
+            <TableHead>
+              <div className="flex items-center justify-between">
+                Assigné à
+                <CheckboxColumnFilter
+                  columnName="Assigné à"
+                  options={uniqueAssignees}
+                  selectedValues={assigneeFilter}
+                  onFilterChange={setAssigneeFilter}
+                  hasFilter={assigneeFilter.length > 0}
+                  onClearFilter={() => setAssigneeFilter([])}
+                />
+              </div>
+            </TableHead>
+            <TableCell>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                  Créée le
+                </div>
+                <DateColumnFilter
+                  columnName="Date de création"
+                  hasFilter={!!createdDateFilter}
+                  onFilterChange={handleCreatedDateFilterChange}
+                  onClearFilter={() => handleCreatedDateFilterChange(null, {})}
+                  currentFilter={createdDateFilter || undefined}
+                />
+              </div>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                  Date prévue
+                </div>
+                <DateColumnFilter
+                  columnName="Date prévue"
+                  hasFilter={!!dueDateFilter}
+                  onFilterChange={handleDueDateFilterChange}
+                  onClearFilter={() => handleDueDateFilterChange(null, {})}
+                  currentFilter={dueDateFilter || undefined}
+                />
+              </div>
+            </TableCell>
+            <TableHead>
+              <div className="flex items-center justify-between">
+                Statut
+                <CheckboxColumnFilter
+                  columnName="Statut"
+                  options={uniqueStatuses}
+                  selectedValues={statusFilter}
+                  onFilterChange={setStatusFilter}
+                  hasFilter={statusFilter.length > 0}
+                  onClearFilter={() => setStatusFilter([])}
+                />
+              </div>
+            </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {requests.length === 0 ? (
+          {filteredRequests.length === 0 ? (
             <EmptyRequestsRow colSpan={9} />
           ) : (
-            requests.map((request) => (
+            filteredRequests.map((request) => (
               <TableRow key={request.id}>
                 <TableCell className="text-center">
                   <GrowthRequestTypeIcon type={request.type} />
