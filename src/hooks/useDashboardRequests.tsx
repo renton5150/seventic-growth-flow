@@ -89,16 +89,16 @@ export const useDashboardRequests = () => {
     if (activeTab === "database") return request.type === "database";
     if (activeTab === "linkedin") return request.type === "linkedin";
     if (activeTab === "pending") {
-      console.log("Filtering pending requests:", request.status, request.workflow_status);
+      // Le filtre pour les requêtes en attente doit regarder le workflow_status
       return request.status === "pending" || request.workflow_status === "pending_assignment";
     }
     if (activeTab === "completed") {
-      console.log("Filtering completed requests:", request.workflow_status);
+      // Le filtre pour les requêtes terminées doit regarder le workflow_status
       return request.workflow_status === "completed";
     }
     if (activeTab === "late") {
-      console.log("Filtering late requests:", request.isLate);
-      return !!request.isLate;
+      // Le filtre pour les requêtes en retard doit vérifier la propriété isLate
+      return request.isLate === true;
     }
     return false;
   });
