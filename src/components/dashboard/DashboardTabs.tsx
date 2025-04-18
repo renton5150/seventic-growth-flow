@@ -29,6 +29,8 @@ export const DashboardTabs = ({
   onRequestDeleted
 }: DashboardTabsProps) => {
   const navigate = useNavigate();
+  console.log("DashboardTabs - activeTab:", activeTab); // Debug log
+  console.log("DashboardTabs - filteredRequests:", filteredRequests); // Debug log
   
   const handleCreateRequest = (type: string) => {
     switch (type) {

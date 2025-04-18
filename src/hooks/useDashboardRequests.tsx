@@ -82,13 +82,24 @@ export const useDashboardRequests = () => {
   }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id]);
 
   const filteredRequests = requests.filter((request) => {
+    console.log(`Filtering requests with activeTab: ${activeTab}`); // Debug log
+
     if (activeTab === "all") return true;
     if (activeTab === "email") return request.type === "email";
     if (activeTab === "database") return request.type === "database";
     if (activeTab === "linkedin") return request.type === "linkedin";
-    if (activeTab === "pending") return request.status === "pending" || request.workflow_status === "pending_assignment";
-    if (activeTab === "completed") return request.workflow_status === "completed";
-    if (activeTab === "late") return request.isLate;
+    if (activeTab === "pending") {
+      console.log("Filtering pending requests:", request.status, request.workflow_status);
+      return request.status === "pending" || request.workflow_status === "pending_assignment";
+    }
+    if (activeTab === "completed") {
+      console.log("Filtering completed requests:", request.workflow_status);
+      return request.workflow_status === "completed";
+    }
+    if (activeTab === "late") {
+      console.log("Filtering late requests:", request.isLate);
+      return !!request.isLate;
+    }
     return false;
   });
 
