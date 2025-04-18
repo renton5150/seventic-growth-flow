@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 interface MenuItem {
   title: string;
   path: string;
-  icon: React.ComponentType;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 interface MenuSectionProps {

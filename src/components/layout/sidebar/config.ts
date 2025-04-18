@@ -1,4 +1,15 @@
 
+import { 
+  Building2, 
+  Calendar, 
+  FileText, 
+  Database, 
+  LayoutDashboard, 
+  Users,
+  BrainCircuit
+} from "lucide-react";
+import React from "react";
+
 interface MenuItem {
   title: string;
   path: string;
