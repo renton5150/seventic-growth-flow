@@ -46,6 +46,7 @@ export function GrowthFilterTabs({ activeTab, setActiveTab }: GrowthFilterTabsPr
         variant={activeTab === "pending" ? "default" : "outline"}
         size="sm"
         onClick={() => setActiveTab("pending")}
+        style={{ display: 'none' }} // Masquer ce bouton au lieu de le supprimer
       >
         <AlertCircle className="mr-1 h-4 w-4" /> En attente
       </Button>

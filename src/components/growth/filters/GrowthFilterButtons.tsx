@@ -17,20 +17,6 @@ export const GrowthFilterButtons = ({ activeTab, setActiveTab, totalRequests }: 
       >
         Toutes <span className="ml-1 bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full text-xs">{totalRequests}</span>
       </Button>
-      <Button 
-        variant={activeTab === "pending" ? "default" : "outline"} 
-        onClick={() => setActiveTab("pending")}
-        className="text-sm"
-      >
-        En attente
-      </Button>
-      <Button 
-        variant={activeTab === "late" ? "default" : "outline"} 
-        onClick={() => setActiveTab("late")}
-        className="text-sm"
-      >
-        En retard
-      </Button>
     </div>
   );
 };
