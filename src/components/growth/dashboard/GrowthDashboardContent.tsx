@@ -1,6 +1,5 @@
 
 import { Request } from "@/types/types";
-import { GrowthStatsCards } from "@/components/growth/stats/GrowthStatsCards";
 import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
 import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { useLocation } from "react-router-dom";
@@ -35,31 +34,9 @@ export const GrowthDashboardContent = ({
   const { user } = useAuth();
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
-
-  // Function to handle stat card clicks
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    switch (filterType) {
-      case "pending":
-        setActiveTab("pending");
-        break;
-      case "completed":
-        setActiveTab("completed");
-        break;
-      case "late":
-        setActiveTab("late");
-        break;
-      default:
-        setActiveTab("all");
-    }
-  };
   
   return (
     <>
-      <GrowthStatsCards 
-        allRequests={allRequests} 
-        onStatClick={handleStatCardClick}
-      />
-      
       <GrowthActionsHeader
         activeTab={activeTab}
         setActiveTab={setActiveTab}

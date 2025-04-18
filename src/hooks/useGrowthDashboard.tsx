@@ -65,14 +65,14 @@ export function useGrowthDashboard(defaultTab?: string) {
     navigate(`/requests/${request.type}/${request.id}`);
   };
   
-  // Mise à jour du filtrage pour respecter la page courante (Mes demandes ou Tableau de bord)
+  // Filtrage selon l'onglet actif
   const filteredRequests = useMemo(() => {
     // Base de requêtes selon la page courante
     const baseRequests = isMyRequestsPage 
       ? myAssignmentsRequests
       : allGrowthRequests || [];
     
-    // Filtrage selon l'onglet actif
+    // Filtrage selon l'onglet actif sans logique de filtrage des cartes
     switch (activeTab) {
       case "all":
         return baseRequests;
