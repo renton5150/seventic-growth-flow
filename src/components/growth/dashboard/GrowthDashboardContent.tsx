@@ -11,7 +11,7 @@ interface GrowthDashboardContentProps {
   allRequests: Request[];
   filteredRequests: Request[];
   activeTab: string;
-  activeFilter?: string | null;
+  activeFilter: string | null;
   setActiveTab: (tab: string) => void;
   onEditRequest: (request: Request) => void;
   onCompleteRequest: (request: Request) => void;
@@ -26,7 +26,7 @@ export const GrowthDashboardContent = ({
   allRequests,
   filteredRequests,
   activeTab,
-  activeFilter = null,
+  activeFilter,
   setActiveTab,
   onEditRequest,
   onCompleteRequest,
@@ -84,7 +84,7 @@ export const GrowthDashboardContent = ({
       <GrowthStatsCards 
         allRequests={allRequests} 
         onStatClick={handleStatCardClick}
-        activeFilter={activeFilter || activeTab}
+        activeFilter={activeFilter}
       />
       
       <GrowthActionsHeader
