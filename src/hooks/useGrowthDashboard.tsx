@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -20,7 +21,12 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     refetchAllRequests: refetchRequests 
   } = useRequestQueries(user?.id);
 
-  const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment();
+  // Create the onRequestUpdated callback before passing it to useRequestAssignment
+  const handleRequestUpdated = useCallback(() => {
+    refetchRequests();
+  }, [refetchRequests]);
+
+  const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);
 
   // Filter requests based on activeTab and activeFilter
   const getFilteredRequests = useCallback(() => {
@@ -128,10 +134,6 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     // Implement navigation to details page
     console.log("View details for request:", request);
   }, []);
-
-  const handleRequestUpdated = useCallback(() => {
-    refetchRequests();
-  }, [refetchRequests]);
 
   return {
     filteredRequests,
