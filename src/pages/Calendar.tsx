@@ -54,10 +54,12 @@ const Calendar = () => {
     }
   }, [selectedDate, requests]);
 
-  // Trouve une mission par ID pour afficher son nom dans les événements
+  // Trouver une mission par ID pour afficher son nom dans les événements
   const findMissionName = (missionId: string) => {
+    if (!missionId) return "Sans mission";
+    
     const mission = missions.find(m => m.id === missionId);
-    return mission ? mission.name : missionId;
+    return mission ? mission.name : "Mission inconnue";
   };
 
   const renderEventIcon = (type: string) => {
