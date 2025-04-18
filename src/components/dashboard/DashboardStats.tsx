@@ -16,22 +16,15 @@ export const DashboardStats = ({ requests, onStatClick, activeTab }: DashboardSt
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
 
-  // Log pour debug des stats et de l'état actif
   useEffect(() => {
-    console.log("[ULTRA FIX] DashboardStats - État actuel:", {
+    console.log("[DEBUG] DashboardStats - Current state:", {
+      activeTab,
       total: totalRequests,
-      pending: pendingRequests, 
-      completed: completedRequests, 
-      late: lateRequests,
-      activeTab
+      pending: pendingRequests,
+      completed: completedRequests,
+      late: lateRequests
     });
-  }, [totalRequests, pendingRequests, completedRequests, lateRequests, activeTab]);
-
-  // Implémentation ultra simple sans état local
-  const handleCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("[ULTRA FIX] DashboardStats - Carte cliquée directement:", filterType);
-    onStatClick(filterType);
-  };
+  }, [activeTab, totalRequests, pendingRequests, completedRequests, lateRequests]);
 
   return (
     <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
@@ -39,29 +32,37 @@ export const DashboardStats = ({ requests, onStatClick, activeTab }: DashboardSt
         title="Total des demandes"
         value={totalRequests}
         icon={<Mail size={24} className="text-seventic-500" />}
-        onClick={() => handleCardClick("all")}
-        className={`cursor-pointer hover:bg-gray-50 transition-colors ${activeTab === 'all' ? 'bg-gray-100 border-blue-500 border-2' : ''}`}
+        onClick={() => onStatClick("all")}
+        className={`cursor-pointer transition-all hover:shadow-md ${
+          activeTab === "all" ? "border-2 border-primary bg-accent/50" : "hover:bg-accent/10"
+        }`}
       />
       <StatCard
         title="En attente"
         value={pendingRequests}
         icon={<Clock size={24} className="text-status-pending" />}
-        onClick={() => handleCardClick("pending")}
-        className={`cursor-pointer hover:bg-gray-50 transition-colors ${activeTab === 'pending' ? 'bg-gray-100 border-blue-500 border-2' : ''}`}
+        onClick={() => onStatClick("pending")}
+        className={`cursor-pointer transition-all hover:shadow-md ${
+          activeTab === "pending" ? "border-2 border-primary bg-accent/50" : "hover:bg-accent/10"
+        }`}
       />
       <StatCard
         title="Terminées"
         value={completedRequests}
         icon={<CheckCircle size={24} className="text-status-completed" />}
-        onClick={() => handleCardClick("completed")}
-        className={`cursor-pointer hover:bg-gray-50 transition-colors ${activeTab === 'completed' ? 'bg-gray-100 border-blue-500 border-2' : ''}`}
+        onClick={() => onStatClick("completed")}
+        className={`cursor-pointer transition-all hover:shadow-md ${
+          activeTab === "completed" ? "border-2 border-primary bg-accent/50" : "hover:bg-accent/10"
+        }`}
       />
       <StatCard
         title="En retard"
         value={lateRequests}
         icon={<AlertCircle size={24} className="text-status-late" />}
-        onClick={() => handleCardClick("late")}
-        className={`cursor-pointer hover:bg-gray-50 transition-colors ${activeTab === 'late' ? 'bg-gray-100 border-blue-500 border-2' : ''}`}
+        onClick={() => onStatClick("late")}
+        className={`cursor-pointer transition-all hover:shadow-md ${
+          activeTab === "late" ? "border-2 border-primary bg-accent/50" : "hover:bg-accent/10"
+        }`}
       />
     </div>
   );

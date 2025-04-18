@@ -6,6 +6,7 @@ import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
 import { useEffect } from "react";
 import { Toaster } from "sonner";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const { 
@@ -19,9 +20,8 @@ const Dashboard = () => {
     handleStatCardClick
   } = useDashboardRequests();
 
-  // Log pour le débogage avec meilleure visibilité
   useEffect(() => {
-    console.log("[ULTRA FIX] Dashboard - État actuel:", {
+    console.log("[DEBUG] Dashboard - Current state:", {
       activeTab,
       requestsCount: requests.length,
       filteredCount: filteredRequests.length
@@ -29,8 +29,20 @@ const Dashboard = () => {
   }, [activeTab, filteredRequests, requests]);
 
   const handleRequestDeleted = () => {
-    // Recharger les données après suppression
     refetch();
+  };
+
+  const handleFilterClick = (filterType: "all" | "pending" | "completed" | "late") => {
+    handleStatCardClick(filterType);
+    
+    const filterMessages = {
+      all: "Affichage de toutes les demandes",
+      pending: "Filtrage par demandes en attente",
+      completed: "Filtrage par demandes terminées",
+      late: "Filtrage par demandes en retard"
+    };
+    
+    toast.success(filterMessages[filterType]);
   };
 
   return (
@@ -40,7 +52,7 @@ const Dashboard = () => {
         <DashboardHeader isSDR={isSDR} />
         <DashboardStats 
           requests={requests} 
-          onStatClick={handleStatCardClick}
+          onStatClick={handleFilterClick}
           activeTab={activeTab}
         />
         <DashboardTabs 
