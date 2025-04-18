@@ -1,9 +1,9 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
 import { useRequestAssignment } from "@/hooks/useRequestAssignment";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "react-router-dom";
 
 export const useGrowthDashboard = (defaultTab?: string) => {
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "all");
@@ -12,8 +12,9 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   const { user } = useAuth();
+  const location = useLocation();
 
-  // Fetch requests data - correctly using the returned object structure
+  // Fetch requests data
   const { 
     allGrowthRequests: allRequests = [], 
     refetchAllRequests: refetchRequests 
@@ -23,47 +24,52 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   // Filter requests based on activeTab and activeFilter
   const getFilteredRequests = useCallback(() => {
+    // First, filter to only show growth requests on the my-requests page
+    let requests = allRequests;
+    if (location.pathname.includes("/my-requests")) {
+      requests = allRequests.filter(req => {
+        return req.target_role === "growth" || req.assigned_to === user?.id;
+      });
+    }
+
     // If we have an activeFilter from stat cards, it takes precedence
     if (activeFilter) {
-      console.log("Filtering by activeFilter:", activeFilter);
       switch (activeFilter) {
         case "all":
-          return allRequests;
+          return requests;
         case "pending":
-          return allRequests.filter(req => req.workflow_status === "pending_assignment");
+          return requests.filter(req => req.workflow_status === "pending_assignment");
         case "completed":
-          return allRequests.filter(req => req.workflow_status === "completed");
+          return requests.filter(req => req.workflow_status === "completed");
         case "late":
-          return allRequests.filter(req => req.isLate);
+          return requests.filter(req => req.isLate);
         default:
-          return allRequests;
+          return requests;
       }
-    } 
+    }
     
     // Otherwise, filter by the activeTab
-    console.log("Filtering by activeTab:", activeTab);
     switch (activeTab) {
       case "all":
-        return allRequests;
+        return requests;
       case "to_assign":
-        return allRequests.filter(req => req.workflow_status === "pending_assignment");
+        return requests.filter(req => req.workflow_status === "pending_assignment");
       case "my_assignments":
-        // Add logic to filter by user's assignments
-        return allRequests.filter(req => req.assigned_to === user?.id);
+        return requests.filter(req => req.assigned_to === user?.id);
       case "inprogress":
-        return allRequests.filter(req => req.workflow_status === "in_progress");
+        return requests.filter(req => req.workflow_status === "in_progress");
       case "completed":
-        return allRequests.filter(req => req.workflow_status === "completed");
+        return requests.filter(req => req.workflow_status === "completed");
       case "email":
-        return allRequests.filter(req => req.type === "email");
+        return requests.filter(req => req.type === "email");
       case "database":
-        return allRequests.filter(req => req.type === "database");
+        return requests.filter(req => req.type === "database");
       case "linkedin":
-        return allRequests.filter(req => req.type === "linkedin");
+        return requests.filter(req => req.type === "linkedin");
       default:
-        return allRequests;
+        return requests;
     }
-  }, [allRequests, activeTab, activeFilter, user?.id]);
+  }, [allRequests, activeTab, activeFilter, user?.id, location.pathname]);
 
   // Get filtered requests based on active tab
   const filteredRequests = getFilteredRequests();
