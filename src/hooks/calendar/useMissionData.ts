@@ -10,36 +10,40 @@ export const useMissionData = (userId: string | undefined) => {
     queryFn: async () => {
       try {
         console.log("[DIAGNOSTIC] Récupération directe des missions depuis Supabase");
+        
+        // Récupération complète des missions sans filtre
         const { data, error } = await supabase
           .from("missions")
           .select("*");
         
         if (error) {
-          console.error("[DIAGNOSTIC] Erreur lors de la récupération directe des missions:", error);
+          console.error("[DIAGNOSTIC] Erreur lors de la récupération des missions:", error);
           return [];
         }
         
         console.log("[DIAGNOSTIC] Données brutes des missions:", data);
         
+        // Assurons-nous que le mappage est correct
         const mappedMissions = data.map(mission => {
           const mappedMission = mapSupaMissionToMission(mission);
-          console.log("[DIAGNOSTIC] Mission mappée:", mission.id, "→", mappedMission.name);
+          console.log(`[DIAGNOSTIC] Mission mappée: ID=${mission.id} → Nom=${mappedMission.name}`);
           return mappedMission;
         });
         
-        console.log(`[DIAGNOSTIC] ${mappedMissions.length} missions récupérées et mappées`);
+        console.log(`[DIAGNOSTIC] Total: ${mappedMissions.length} missions récupérées`);
         
+        // Affichons en détail chaque mission pour le débogage
         mappedMissions.forEach(mission => {
-          console.log(`[DIAGNOSTIC] Mission: ID=${mission.id} (${typeof mission.id}), Nom=${mission.name}`);
+          console.log(`[DIAGNOSTIC] Mission détaillée: ID=${mission.id} (${typeof mission.id}), Nom=${mission.name}`);
         });
         
         return mappedMissions;
       } catch (err) {
-        console.error("[DIAGNOSTIC] Exception lors de la récupération directe des missions:", err);
+        console.error("[DIAGNOSTIC] Exception lors de la récupération des missions:", err);
         return [];
       }
     },
-    enabled: !!userId
+    enabled: true // On récupère toujours les missions, même sans userId
   });
 
   return { missions, isLoadingMissions };
