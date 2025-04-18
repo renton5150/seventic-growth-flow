@@ -1,20 +1,17 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
-import { GrowthStatsCards } from "@/components/growth/stats/GrowthStatsCards";
-import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
-import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { RequestEditDialog } from "@/components/growth/RequestEditDialog";
 import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDialog";
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { GrowthDashboardHeader } from "@/components/growth/dashboard/GrowthDashboardHeader";
+import { GrowthDashboardContent } from "@/components/growth/dashboard/GrowthDashboardContent";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
 }
 
 const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
-  const location = useLocation();
   const {
     filteredRequests,
     allRequests,
@@ -40,34 +37,22 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     }
   }, [defaultTab, activeTab, setActiveTab]);
 
-  const pageTitle = location.pathname.includes("/my-requests") 
-    ? "Mes opérations à traiter" 
-    : "Tableau de bord";
-
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">{pageTitle}</h1>
-        </div>
+        <GrowthDashboardHeader totalRequests={allRequests.length} />
         
-        <GrowthStatsCards allRequests={allRequests} />
-        
-        <GrowthActionsHeader
+        <GrowthDashboardContent
+          allRequests={allRequests}
+          filteredRequests={filteredRequests}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          totalRequests={allRequests.length}
-        />
-        
-        <GrowthRequestsTable
-          requests={filteredRequests}
           onEditRequest={handleOpenEditDialog}
           onCompleteRequest={handleOpenCompletionDialog}
           onViewDetails={handleViewDetails}
           onRequestUpdated={handleRequestUpdated}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
-          activeTab={activeTab}
         />
       </div>
       
@@ -89,4 +74,3 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
 };
 
 export default GrowthDashboard;
-
