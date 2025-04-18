@@ -51,7 +51,9 @@ export const AIActivitySummary = ({ requests }: AIActivitySummaryProps) => {
         missionName: r.missionName,
         workflow_status: r.workflow_status,
         assignedToName: r.assignedToName || null,
-        lastUpdated: r.lastUpdated
+        lastUpdated: r.lastUpdated,
+        missionId: r.missionId,
+        dueDate: r.dueDate
       }));
       
       if (filteredRequests.length === 0) {
@@ -60,8 +62,8 @@ export const AIActivitySummary = ({ requests }: AIActivitySummaryProps) => {
       }
       
       // Group requests by mission or by SDR
-      const requestsByMission: Record<string, Request[]> = {};
-      const requestsBySDR: Record<string, Request[]> = {};
+      const requestsByMission: Record<string, any[]> = {};
+      const requestsBySDR: Record<string, any[]> = {};
       
       filteredRequests.forEach(r => {
         // Group by mission

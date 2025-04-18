@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -135,4 +134,20 @@ export const compareIds = (id1: string | null | undefined, id2: string | null | 
       }
     }
   };
+};
+
+/**
+ * Get user initials from their full name
+ */
+export const getUserInitials = (name: string | null | undefined): string => {
+  if (!name) return "??";
+  
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length === 0) return "??";
+  
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+  
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
