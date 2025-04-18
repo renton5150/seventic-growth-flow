@@ -42,10 +42,16 @@ export const GrowthDashboardContent = ({
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   
+  // Filtrer les demandes pour le comptage dans les cartes de statistiques
+  // Sur la page "Mes demandes", on ne montre que les stats des demandes assignées à l'utilisateur
+  const statsRequests = isMyRequestsPage 
+    ? allRequests.filter(req => req.assigned_to === user?.id)
+    : allRequests;
+  
   return (
     <>
       <GrowthStatsCards 
-        allRequests={allRequests} 
+        allRequests={statsRequests} 
         onStatClick={handleStatCardClick}
         activeFilter={activeFilter}
       />
@@ -53,7 +59,7 @@ export const GrowthDashboardContent = ({
       <GrowthActionsHeader
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        totalRequests={allRequests.length}
+        totalRequests={filteredRequests.length}
       />
       
       <GrowthRequestsTable
