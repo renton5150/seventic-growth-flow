@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllRequests } from "@/services/requestService";
 import { getAllSupaMissions } from "@/services/missions";
 import { Request, Mission } from "@/types/types";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useCalendarEvents = (userId: string | undefined) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [eventsForDate, setEventsForDate] = useState<Request[]>([]);
   const [datesWithEvents, setDatesWithEvents] = useState<Date[]>([]);
   const [missionNames, setMissionNames] = useState<Record<string, string>>({});
+  const [missionsLoaded, setMissionsLoaded] = useState<boolean>(false);
 
   // Récupérer toutes les requêtes
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
@@ -18,10 +20,28 @@ export const useCalendarEvents = (userId: string | undefined) => {
     enabled: !!userId
   });
 
-  // Récupérer toutes les missions depuis Supabase
+  // Récupérer toutes les missions directement depuis Supabase
   const { data: missions = [], isLoading: isLoadingMissions } = useQuery<Mission[]>({
     queryKey: ['calendar-missions'],
-    queryFn: getAllSupaMissions,
+    queryFn: async () => {
+      try {
+        console.log("DEBUG - Récupération directe des missions depuis Supabase");
+        const { data, error } = await supabase
+          .from("missions")
+          .select("*");
+        
+        if (error) {
+          console.error("Erreur lors de la récupération directe des missions:", error);
+          return [];
+        }
+        
+        console.log(`DEBUG - ${data.length} missions récupérées directement:`, data);
+        return data;
+      } catch (err) {
+        console.error("Exception lors de la récupération directe des missions:", err);
+        return [];
+      }
+    },
     enabled: !!userId
   });
 
@@ -47,6 +67,7 @@ export const useCalendarEvents = (userId: string | undefined) => {
       });
       
       setMissionNames(missionMap);
+      setMissionsLoaded(true);
       console.log("DEBUG - Mission map créée:", missionMap);
     } else {
       console.log("DEBUG - Aucune mission récupérée ou tableau vide");
@@ -75,13 +96,18 @@ export const useCalendarEvents = (userId: string | undefined) => {
       console.log(`DEBUG - ${requestsForDate.length} événements pour la date sélectionnée:`, requestsForDate);
       if (requestsForDate.length > 0) {
         requestsForDate.forEach(req => {
-          console.log(`DEBUG - Requête ${req.id}, Type: ${req.type}, Mission ID: ${req.missionId} (${typeof req.missionId})`);
+          console.log(`DEBUG - Requête ${req.id}, Type: ${req.type}, Mission ID: ${req.missionId} (${typeof req.missionId}), Mission Name: ${req.missionName || 'non défini'}`);
+          if (req.missionId) {
+            // Vérifier si la mission existe dans notre map
+            const missionName = findMissionName(req.missionId);
+            console.log(`DEBUG - Nom de mission trouvé pour ${req.id}: ${missionName}`);
+          }
         });
       }
     }
-  }, [selectedDate, requests]);
+  }, [selectedDate, requests, missionsLoaded]);
 
-  // Fonction pour trouver le nom d'une mission à partir de son ID
+  // Fonction améliorée pour trouver le nom d'une mission à partir de son ID
   const findMissionName = (missionId: string | undefined) => {
     // Vérification et normalisation de l'ID de mission
     if (!missionId) {
@@ -90,8 +116,8 @@ export const useCalendarEvents = (userId: string | undefined) => {
     }
     
     // Toujours convertir en chaîne pour être cohérent
-    const missionIdStr = String(missionId);
-    console.log(`DEBUG - findMissionName: Recherche de mission avec ID: ${missionIdStr} (type: ${typeof missionIdStr})`);
+    const missionIdStr = String(missionId).trim();
+    console.log(`DEBUG - findMissionName: Recherche de mission avec ID: "${missionIdStr}" (type: ${typeof missionIdStr})`);
     
     // 1. Vérifier d'abord notre cache de noms de mission
     if (missionNames[missionIdStr]) {
@@ -102,13 +128,24 @@ export const useCalendarEvents = (userId: string | undefined) => {
     // 2. Ensuite, chercher dans le tableau de missions
     if (missions && missions.length > 0) {
       console.log(`DEBUG - findMissionName: Recherche parmi ${missions.length} missions`);
+      console.log(`DEBUG - findMissionName: Liste des IDs disponibles: ${missions.map(m => String(m.id)).join(', ')}`);
       
       // D'abord essayer une correspondance exacte
       const exactMatch = missions.find(m => String(m.id) === missionIdStr);
       if (exactMatch) {
         console.log(`DEBUG - findMissionName: Correspondance exacte trouvée: ${exactMatch.name}`);
+        // Mettre à jour le cache
         setMissionNames(prev => ({...prev, [missionIdStr]: exactMatch.name}));
         return exactMatch.name;
+      }
+      
+      // Essayer de comparer les UUID sans les tirets
+      const normalizedMissionId = missionIdStr.replace(/-/g, '');
+      const normalizedMatch = missions.find(m => String(m.id).replace(/-/g, '') === normalizedMissionId);
+      if (normalizedMatch) {
+        console.log(`DEBUG - findMissionName: Correspondance normalisée trouvée: ${normalizedMatch.name}`);
+        setMissionNames(prev => ({...prev, [missionIdStr]: normalizedMatch.name}));
+        return normalizedMatch.name;
       }
       
       // Ensuite essayer une correspondance partielle (au cas où)
@@ -141,14 +178,42 @@ export const useCalendarEvents = (userId: string | undefined) => {
     }
     
     // 4. Vérifier si la requête a déjà un nom de mission défini directement
-    // (certaines implémentations peuvent stocker le nom directement dans la requête)
-    const requestWithMission = requests.find(req => req.missionId === missionIdStr && req.missionName);
-    if (requestWithMission && requestWithMission.missionName) {
-      console.log(`DEBUG - findMissionName: Nom trouvé dans la requête: ${requestWithMission.missionName}`);
-      return requestWithMission.missionName;
+    if (requests && requests.length > 0) {
+      const requestWithMission = requests.find(req => 
+        req.missionId === missionIdStr && req.missionName
+      );
+      
+      if (requestWithMission && requestWithMission.missionName) {
+        console.log(`DEBUG - findMissionName: Nom trouvé dans la requête: ${requestWithMission.missionName}`);
+        return requestWithMission.missionName;
+      }
     }
     
-    // 5. Cas de repli
+    // 5. Cas de repli - essayer une dernière requête directe à Supabase
+    (async () => {
+      try {
+        console.log(`DEBUG - findMissionName: Tentative de requête directe pour ID: ${missionIdStr}`);
+        const { data, error } = await supabase
+          .from("missions")
+          .select("name")
+          .eq("id", missionIdStr)
+          .single();
+          
+        if (error) {
+          console.error("Erreur lors de la requête directe:", error);
+          return;
+        }
+        
+        if (data && data.name) {
+          console.log(`DEBUG - findMissionName: Trouvé via requête directe: ${data.name}`);
+          setMissionNames(prev => ({...prev, [missionIdStr]: data.name}));
+        }
+      } catch (err) {
+        console.error("Exception lors de la requête directe:", err);
+      }
+    })();
+    
+    // 6. Cas de repli
     console.warn(`DEBUG - findMissionName: Mission ID non trouvée: ${missionIdStr}`);
     return "Mission inconnue";
   };
@@ -159,6 +224,7 @@ export const useCalendarEvents = (userId: string | undefined) => {
     eventsForDate,
     datesWithEvents,
     findMissionName,
-    isLoadingRequests
+    isLoadingRequests,
+    missions
   };
 };

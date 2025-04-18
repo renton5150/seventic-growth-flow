@@ -1,31 +1,61 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Database, User } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Request } from "@/types/types";
+import { Request, Mission } from "@/types/types";
 
 interface EventsListProps {
   selectedDate: Date | undefined;
   events: Request[];
   isLoading: boolean;
   findMissionName: (missionId: string | undefined) => string;
+  missions?: Mission[];
 }
 
 export const EventsList = ({
   selectedDate,
   events,
   isLoading,
-  findMissionName
+  findMissionName,
+  missions
 }: EventsListProps) => {
+  const [missionNameMap, setMissionNameMap] = useState<Record<string, string>>({});
+
+  // Construire un map des noms de mission pour un accès rapide
+  useEffect(() => {
+    if (missions && missions.length > 0) {
+      const map: Record<string, string> = {};
+      missions.forEach(mission => {
+        if (mission && mission.id) {
+          map[String(mission.id)] = mission.name;
+        }
+      });
+      setMissionNameMap(map);
+      console.log("DEBUG - EventsList - Map des noms de mission créée:", map);
+    }
+  }, [missions]);
+  
   // Log pour debug
   useEffect(() => {
     if (events.length > 0) {
       console.log("DEBUG - EventsList - Événements reçus:", events);
       events.forEach(event => {
-        const missionName = findMissionName(event.missionId);
-        console.log(`DEBUG - EventsList - Événement ${event.id}, Mission ID: ${event.missionId} (${typeof event.missionId}), Nom mission: ${missionName}`);
+        // Convertir missionId en chaîne si défini
+        const missionId = event.missionId ? String(event.missionId) : undefined;
+        
+        // Rechercher le nom de la mission de plusieurs façons
+        const missionNameFromMap = missionId ? missionNameMap[missionId] : undefined;
+        const missionNameFromFunction = missionId ? findMissionName(missionId) : undefined;
+        const missionNameFromEvent = event.missionName;
+        
+        console.log(`DEBUG - EventsList - Événement ${event.id}, Mission ID: ${missionId} (${typeof event.missionId})`);
+        console.log(`DEBUG - EventsList - Noms de mission disponibles pour ${event.id}:`, {
+          missionNameFromMap,
+          missionNameFromFunction,
+          missionNameFromEvent
+        });
         
         // Afficher toutes les propriétés de l'événement pour voir ce qui est disponible
         console.log(`DEBUG - EventsList - Propriétés de l'événement:`, {
@@ -33,14 +63,14 @@ export const EventsList = ({
           title: event.title,
           type: event.type,
           missionId: event.missionId,
-          missionName: event.missionName, // Vérifier si cette propriété existe déjà
+          missionName: event.missionName,
           status: event.status
         });
       });
     } else {
       console.log("DEBUG - EventsList - Aucun événement à afficher");
     }
-  }, [events, findMissionName]);
+  }, [events, findMissionName, missionNameMap]);
 
   const renderEventIcon = (type: string) => {
     switch (type) {
@@ -66,6 +96,29 @@ export const EventsList = ({
     }
   };
 
+  // Fonction pour obtenir le meilleur nom de mission disponible
+  const getBestMissionName = (event: Request): string => {
+    // Si l'événement a directement un nom de mission, on l'utilise
+    if (event.missionName) {
+      return event.missionName;
+    }
+    
+    // Sinon, on utilise l'ID pour chercher dans notre map local
+    if (event.missionId) {
+      const missionId = String(event.missionId);
+      
+      // Essayer d'abord notre map local
+      if (missionNameMap[missionId]) {
+        return missionNameMap[missionId];
+      }
+      
+      // Sinon utiliser la fonction de recherche
+      return findMissionName(missionId);
+    }
+    
+    return "Sans mission";
+  };
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -81,8 +134,7 @@ export const EventsList = ({
         ) : (
           <ul className="space-y-3">
             {events.map((event) => {
-              // Calculer le nom de la mission à l'avance pour le débogage
-              const missionName = findMissionName(event.missionId);
+              const missionName = getBestMissionName(event);
               console.log(`DEBUG - EventsList - Rendu de l'événement ${event.id}, Mission: ${missionName}`);
               
               return (

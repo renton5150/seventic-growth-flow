@@ -14,7 +14,8 @@ const Calendar = () => {
     eventsForDate,
     datesWithEvents,
     findMissionName,
-    isLoadingRequests
+    isLoadingRequests,
+    missions
   } = useCalendarEvents(user?.id);
 
   return (
@@ -35,6 +36,7 @@ const Calendar = () => {
               events={eventsForDate}
               isLoading={isLoadingRequests}
               findMissionName={findMissionName}
+              missions={missions}
             />
           </div>
         </div>
