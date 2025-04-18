@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import { toast } from "sonner"; // Si vous utilisez sonner, sinon utilisez votre librairie de toast
 import { useState, useEffect, useMemo } from "react";
@@ -66,35 +65,33 @@ export function useGrowthDashboard(defaultTab?: string) {
   const handleViewDetails = (request: Request) => {
     navigate(`/requests/${request.type}/${request.id}`);
   };
-  
   const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late") => {
-    console.log(`Stat card clicked: ${filterType}`);
-    
-    // Si on clique sur le filtre déjà actif, on le désactive
-    if (activeFilter === filterType) {
-      setActiveFilter(null);
-      toast.info("Filtres réinitialisés");
-    } else {
-      setActiveFilter(filterType);
-      
-      // Message selon le type de filtre
-      switch (filterType) {
-        case "all":
-          toast.info("Affichage de toutes les demandes");
-          break;
-        case "pending":
-          toast.info("Filtrage par demandes en attente");
-          break;
-        case "completed":
-          toast.info("Filtrage par demandes terminées");
-          break;
-        case "late":
-          toast.info("Filtrage par demandes en retard");
-          break;
-      }
-    }
-  }, [activeFilter]);
+  console.log(`Stat card clicked: ${filterType}`);
   
+  // Si on clique sur le filtre déjà actif, on le désactive
+  if (activeFilter === filterType) {
+    setActiveFilter(null);
+    toast.info("Filtres réinitialisés");
+  } else {
+    setActiveFilter(filterType);
+    
+    // Message selon le type de filtre
+    switch (filterType) {
+      case "all":
+        toast.info("Affichage de toutes les demandes");
+        break;
+      case "pending":
+        toast.info("Filtrage par demandes en attente");
+        break;
+      case "completed":
+        toast.info("Filtrage par demandes terminées");
+        break;
+      case "late":
+        toast.info("Filtrage par demandes en retard");
+        break;
+    }
+  }
+}, [activeFilter]);
   // Mise à jour du filtrage pour respecter la page courante (Mes demandes ou Tableau de bord)
   const filteredRequests = useMemo(() => {
     // Base de requêtes selon la page courante
@@ -153,8 +150,9 @@ export function useGrowthDashboard(defaultTab?: string) {
     handleRequestUpdated,
     assignRequestToMe,
     updateRequestWorkflowStatus,
-    getRequestDetails,
+    getRequestDetails
+    activeFilter,
+    setActiveFilter,
     handleStatCardClick,
-    activeFilter
   };
 }
