@@ -132,6 +132,12 @@
   }
 }
 
+@layer utilities {
+  .grid-cols-31 {
+    grid-template-columns: repeat(31, minmax(0, 1fr));
+  }
+}
+
 @layer components {
   .seventic-card {
     @apply bg-white dark:bg-seventic-900/50 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300;
