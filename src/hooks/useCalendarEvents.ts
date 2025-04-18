@@ -6,17 +6,18 @@ import { useMissionData } from "./calendar/useMissionData";
 import { useMissionNameUtils } from "./calendar/useMissionNames";
 
 export const useCalendarEvents = (userId: string | undefined) => {
-  // Récupérer toutes les requêtes
+  // Fetch all requests
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
     queryKey: ['calendar-requests'],
     queryFn: getAllRequests,
-    enabled: !!userId
+    enabled: true, // Always fetch requests for calendar
+    staleTime: 60000 // Cache for 1 minute
   });
 
-  // Utiliser les hooks séparés
-  const { missions } = useMissionData(userId);
+  // Use our separate hooks for different concerns
+  const { missions, isLoadingMissions } = useMissionData(userId);
   const { selectedDate, setSelectedDate, eventsForDate, datesWithEvents } = useCalendarDates(requests);
-  const { findMissionName } = useMissionNameUtils(missions);
+  const { findMissionName, missionNameMap } = useMissionNameUtils(missions || []);
 
   return {
     selectedDate,
@@ -25,6 +26,8 @@ export const useCalendarEvents = (userId: string | undefined) => {
     datesWithEvents,
     findMissionName,
     isLoadingRequests,
-    missions
+    missions,
+    isLoadingMissions,
+    missionNameMap
   };
 };

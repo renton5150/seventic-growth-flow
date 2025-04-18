@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Database, User } from "lucide-react";
@@ -21,66 +21,26 @@ export const EventsList = ({
   findMissionName,
   missions
 }: EventsListProps) => {
-  const [missionNameMap, setMissionNameMap] = useState<Record<string, string>>({});
-
-  // Construire un map des noms de mission pour un accès rapide
-  useEffect(() => {
+  // Create a memoized map for quick mission name lookups
+  const missionNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    
+    // Add all missions to the map
     if (missions && missions.length > 0) {
-      console.log("[DIAGNOSTIC - EventsList] Construction du cache des noms de missions:");
-      console.log("[DIAGNOSTIC - EventsList] Missions reçues:", missions);
-      
-      const map: Record<string, string> = {};
       missions.forEach(mission => {
         if (mission && mission.id) {
           const missionId = String(mission.id);
           map[missionId] = mission.name;
-          console.log(`[DIAGNOSTIC - EventsList] Cache: ID=${missionId}, Nom=${mission.name}`);
         }
       });
-      
-      // Ajouter manuellement l'ID spécifique
-      map["124ea847-cf3f-44af-becb-75641ebf0ef1"] = "Datalit";
-      console.log("[DIAGNOSTIC - EventsList] Ajout manuel: ID=124ea847-cf3f-44af-becb-75641ebf0ef1, Nom=Datalit");
-      
-      map["bdb6b562-f9ef-49cd-b035-b48d7df054e8"] = "Seventic";
-      console.log("[DIAGNOSTIC - EventsList] Ajout manuel: ID=bdb6b562-f9ef-49cd-b035-b48d7df054e8, Nom=Seventic");
-      
-      setMissionNameMap(map);
-      console.log("[DIAGNOSTIC - EventsList] Cache complet des noms de mission:", map);
     }
+    
+    // Add known mission IDs manually
+    map["124ea847-cf3f-44af-becb-75641ebf0ef1"] = "Datalit";
+    map["bdb6b562-f9ef-49cd-b035-b48d7df054e8"] = "Seventic";
+    
+    return map;
   }, [missions]);
-  
-  // Log détaillé pour debug
-  useEffect(() => {
-    if (events.length > 0) {
-      console.log("[DIAGNOSTIC - EventsList] ÉVÉNEMENTS COMPLETS (BRUTS):", events);
-      
-      events.forEach(event => {
-        const eventMissionId = event.missionId ? String(event.missionId) : "undefined";
-        console.log(`[DIAGNOSTIC - EventsList] Événement ${event.id}:`, {
-          title: event.title,
-          type: event.type,
-          missionId: eventMissionId,
-          missionIdType: typeof event.missionId
-        });
-        
-        // Afficher le résultat de chaque méthode de recherche du nom de mission
-        if (event.missionId) {
-          const idStr = String(event.missionId);
-          console.log(`[DIAGNOSTIC - EventsList] Recherche de nom pour mission ID ${idStr}:`);
-          console.log(`  - Dans le cache local: ${missionNameMap[idStr] || "non trouvé"}`);
-          console.log(`  - Via findMissionName(): ${findMissionName(idStr)}`);
-          console.log(`  - Directement dans missions: ${missions.find(m => String(m.id) === idStr)?.name || "non trouvé"}`);
-          
-          // Comparaison manuelle des IDs pour l'événement courant
-          console.log(`[DIAGNOSTIC - EventsList] Comparaisons manuelles pour ${idStr}:`);
-          missions.forEach(m => {
-            console.log(`  - Mission ${m.id} (${typeof m.id}) == ${idStr} : ${String(m.id) === idStr}`);
-          });
-        }
-      });
-    }
-  }, [events, findMissionName, missionNameMap, missions]);
 
   const renderEventIcon = (type: string) => {
     switch (type) {
@@ -106,41 +66,23 @@ export const EventsList = ({
     }
   };
 
-  // Fonction pour obtenir le meilleur nom de mission disponible
-  const getBestMissionName = (event: Request): string => {
-    const missionId = event.missionId;
-    if (!missionId) return "Sans mission";
-    
-    const missionIdStr = String(missionId);
-    console.log(`[DIAGNOSTIC - EventsList] getBestMissionName: ID=${missionIdStr}`);
-    
-    // Cas particuliers pour les IDs que nous avons identifiés
-    if (missionIdStr === "bdb6b562-f9ef-49cd-b035-b48d7df054e8") {
-      return "Seventic";
-    }
-    
-    if (missionIdStr === "124ea847-cf3f-44af-becb-75641ebf0ef1") {
-      return "Datalit";
-    }
-    
-    // Vérifier d'abord dans notre cache local (le plus rapide)
-    if (missionNameMap[missionIdStr]) {
-      return missionNameMap[missionIdStr];
-    }
-    
-    // Si l'événement a un nom de mission direct, l'utiliser
+  // Function to get the best mission name using multiple strategies
+  const getMissionName = (event: Request): string => {
+    // Strategy 1: Use missionName property if available
     if (event.missionName) {
       return event.missionName;
     }
     
-    // Recherche directe dans le tableau des missions
-    const mission = missions.find(m => String(m.id) === missionIdStr);
-    if (mission) {
-      return mission.name;
+    // Strategy 2: Use our mission map for quick lookup
+    if (event.missionId) {
+      const idStr = String(event.missionId);
+      if (missionNameMap[idStr]) {
+        return missionNameMap[idStr];
+      }
     }
     
-    // En dernier recours, utiliser la fonction de recherche
-    return findMissionName(missionIdStr);
+    // Strategy 3: Use the provided findMissionName function
+    return findMissionName(event.missionId);
   };
 
   return (
@@ -158,8 +100,7 @@ export const EventsList = ({
         ) : (
           <ul className="space-y-3">
             {events.map((event) => {
-              const missionName = getBestMissionName(event);
-              console.log(`[AFFICHAGE] Événement ${event.id}: Mission=${missionName}`);
+              const missionName = getMissionName(event);
               
               return (
                 <li

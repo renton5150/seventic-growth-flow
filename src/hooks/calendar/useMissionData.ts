@@ -9,41 +9,39 @@ export const useMissionData = (userId: string | undefined) => {
     queryKey: ['calendar-missions'],
     queryFn: async () => {
       try {
-        console.log("[DIAGNOSTIC] Récupération directe des missions depuis Supabase");
+        console.log("[useMissionData] Fetching missions from Supabase");
         
-        // Récupération complète des missions sans filtre
         const { data, error } = await supabase
           .from("missions")
           .select("*");
         
         if (error) {
-          console.error("[DIAGNOSTIC] Erreur lors de la récupération des missions:", error);
+          console.error("[useMissionData] Error fetching missions:", error);
           return [];
         }
         
-        console.log("[DIAGNOSTIC] Données brutes des missions:", data);
+        if (!data || data.length === 0) {
+          console.log("[useMissionData] No missions found in database");
+          return [];
+        }
         
-        // Assurons-nous que le mappage est correct
-        const mappedMissions = data.map(mission => {
-          const mappedMission = mapSupaMissionToMission(mission);
-          console.log(`[DIAGNOSTIC] Mission mappée: ID=${mission.id} → Nom=${mappedMission.name}`);
-          return mappedMission;
-        });
+        console.log(`[useMissionData] Found ${data.length} missions in database`);
         
-        console.log(`[DIAGNOSTIC] Total: ${mappedMissions.length} missions récupérées`);
+        const mappedMissions = data.map(mission => mapSupaMissionToMission(mission));
         
-        // Affichons en détail chaque mission pour le débogage
+        // Log each mission ID for debugging
         mappedMissions.forEach(mission => {
-          console.log(`[DIAGNOSTIC] Mission détaillée: ID=${mission.id} (${typeof mission.id}), Nom=${mission.name}`);
+          console.log(`[useMissionData] Mapped mission: ID=${mission.id}, Name=${mission.name}`);
         });
         
         return mappedMissions;
       } catch (err) {
-        console.error("[DIAGNOSTIC] Exception lors de la récupération des missions:", err);
+        console.error("[useMissionData] Exception during mission fetch:", err);
         return [];
       }
     },
-    enabled: true // On récupère toujours les missions, même sans userId
+    enabled: true,
+    staleTime: 60000 // Cache missions for 1 minute
   });
 
   return { missions, isLoadingMissions };

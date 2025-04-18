@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarCard } from "@/components/calendar/CalendarCard";
@@ -17,19 +17,6 @@ const Calendar = () => {
     isLoadingRequests,
     missions
   } = useCalendarEvents(user?.id);
-
-  // Log de diagnostic pour vérifier les missions disponibles
-  useEffect(() => {
-    console.log("[DIAGNOSTIC - Calendar] Affichage des missions disponibles:");
-    if (Array.isArray(missions) && missions.length > 0) {
-      console.log("[DIAGNOSTIC - Calendar]", missions.length, "missions trouvées:");
-      missions.forEach(mission => {
-        console.log(`[DIAGNOSTIC - Calendar] Mission: ID=${mission.id}, Nom=${mission.name}`);
-      });
-    } else {
-      console.log("[DIAGNOSTIC - Calendar] Aucune mission trouvée ou tableau vide");
-    }
-  }, [missions]);
 
   return (
     <AppLayout>
