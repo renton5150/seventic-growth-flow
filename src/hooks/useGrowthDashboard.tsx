@@ -5,14 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "./useRequestQueries";
 import { useRequestAssignment } from "./useRequestAssignment";
-import { toast } from "sonner";
 
 export function useGrowthDashboard(defaultTab?: string) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "all");
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
@@ -20,7 +18,7 @@ export function useGrowthDashboard(defaultTab?: string) {
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   
-  // Set default tab if not specified
+  // Assure que la valeur par défaut de l'onglet est "all" si non spécifiée
   useEffect(() => {
     if (defaultTab) {
       setActiveTab(defaultTab);
@@ -67,37 +65,14 @@ export function useGrowthDashboard(defaultTab?: string) {
     navigate(`/requests/${request.type}/${request.id}`);
   };
   
-  // Handle stat card click to filter data
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => {
-    console.log("[DEBUG] useGrowthDashboard - Stat card clicked:", filterType);
-    
-    if (activeFilter === filterType) {
-      console.log("[DEBUG] useGrowthDashboard - Resetting filter (was already active)");
-      setActiveFilter(null);
-      setActiveTab("all");
-      toast.success("Filtres réinitialisés");
-    } else {
-      console.log("[DEBUG] useGrowthDashboard - Setting new filter:", filterType);
-      setActiveFilter(filterType);
-      setActiveTab(filterType);
-      toast.success(`Filtrage par ${
-        filterType === "all" ? "toutes les demandes" :
-        filterType === "pending" ? "demandes en attente" :
-        filterType === "completed" ? "demandes terminées" :
-        filterType === "inprogress" ? "demandes en cours" :
-        "demandes en retard"
-      }`);
-    }
-  };
-  
-  // Update filtering based on current page and active filters
+  // Mise à jour du filtrage pour respecter la page courante (Mes demandes ou Tableau de bord)
   const filteredRequests = useMemo(() => {
-    // Base requests depending on current page
+    // Base de requêtes selon la page courante
     const baseRequests = isMyRequestsPage 
       ? myAssignmentsRequests
       : allGrowthRequests || [];
     
-    // Filter based on active tab
+    // Filtrage selon l'onglet actif
     switch (activeTab) {
       case "all":
         return baseRequests;
@@ -123,10 +98,10 @@ export function useGrowthDashboard(defaultTab?: string) {
         return baseRequests;
     }
   }, [
-    activeTab,
-    allGrowthRequests,
-    toAssignRequests,
-    myAssignmentsRequests,
+    activeTab, 
+    allGrowthRequests, 
+    toAssignRequests, 
+    myAssignmentsRequests, 
     isMyRequestsPage
   ]);
   
@@ -135,7 +110,6 @@ export function useGrowthDashboard(defaultTab?: string) {
     allRequests: isMyRequestsPage ? myAssignmentsRequests : (allGrowthRequests || []),
     isLoading: false,
     activeTab,
-    activeFilter,
     setActiveTab,
     selectedRequest,
     setSelectedRequest,
@@ -149,7 +123,6 @@ export function useGrowthDashboard(defaultTab?: string) {
     handleRequestUpdated,
     assignRequestToMe,
     updateRequestWorkflowStatus,
-    getRequestDetails,
-    handleStatCardClick
+    getRequestDetails
   };
 }
