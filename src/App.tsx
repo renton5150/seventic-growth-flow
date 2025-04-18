@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,6 +30,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminMissions from "./pages/AdminMissions";
 import PermissionsDebug from "./pages/PermissionsDebug";
 import { DashboardWithRedirect } from "./components/dashboard/DashboardWithRedirect";
+import AIDashboard from "./pages/AIDashboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -193,6 +195,14 @@ function App() {
                     <AdminMissions />
                   </ProtectedRoute>
                 } 
+              />
+              <Route
+                path="/admin/ai-dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={["admin"]}>
+                    <AIDashboard />
+                  </ProtectedRoute>
+                }
               />
               <Route
                 path="/debug/permissions"
