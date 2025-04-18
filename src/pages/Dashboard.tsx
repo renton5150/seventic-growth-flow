@@ -29,15 +29,17 @@ const Dashboard = () => {
     refetch();
   };
 
-  // Gestionnaire de clic sur les cartes qui force la mise à jour de l'onglet actif
+  // Solution radicale: Implémentation directe qui force la mise à jour
   const handleStatClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("[DEBUG] Dashboard - StatCard clicked, setting tab to:", filterType);
+    console.log("[RADICAL FIX] Dashboard - StatCard clicked:", filterType);
+    
+    // Appel direct à la fonction du hook
     handleStatCardClick(filterType);
     
-    // Forcer la mise à jour de l'interface utilisateur
-    setTimeout(() => {
-      console.log("[DEBUG] Dashboard - Tab should now be:", filterType);
-    }, 100);
+    // Force l'onglet actif à changer de manière synchrone
+    setActiveTab(filterType);
+    
+    console.log("[RADICAL FIX] Dashboard - Tab set to:", filterType);
   };
 
   return (
@@ -47,6 +49,7 @@ const Dashboard = () => {
         <DashboardStats 
           requests={requests} 
           onStatClick={handleStatClick}
+          activeTab={activeTab}
         />
         <DashboardTabs 
           activeTab={activeTab}

@@ -33,8 +33,8 @@ export const DashboardTabs = ({
   
   // Log pour le débogage avec meilleure visibilité
   useEffect(() => {
-    console.log("[DEBUG] DashboardTabs - activeTab:", activeTab);
-    console.log("[DEBUG] DashboardTabs - filteredRequests count:", filteredRequests.length);
+    console.log("[RADICAL FIX] DashboardTabs - activeTab:", activeTab);
+    console.log("[RADICAL FIX] DashboardTabs - filteredRequests count:", filteredRequests.length);
   }, [activeTab, filteredRequests]);
   
   const handleCreateRequest = (type: string) => {
@@ -53,9 +53,9 @@ export const DashboardTabs = ({
     }
   };
 
-  // Gestionnaire de clic sur les onglets qui notifie explicitement le parent
+  // Solution radicale: Implémentation directe et simplifiée
   const handleTabChange = (value: string) => {
-    console.log("[DEBUG] DashboardTabs - Tab clicked:", value);
+    console.log("[RADICAL FIX] DashboardTabs - Tab clicked:", value);
     setActiveTab(value);
   };
   
@@ -63,18 +63,18 @@ export const DashboardTabs = ({
     <Tabs value={activeTab} onValueChange={handleTabChange}>
       <div className="flex justify-between items-center mb-4">
         <TabsList>
-          <TabsTrigger value="all">
+          <TabsTrigger value="all" onClick={() => handleTabChange("all")}>
             Toutes
             <span className="ml-2 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
               {filteredRequests.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="pending">En attente</TabsTrigger>
-          <TabsTrigger value="completed">Terminées</TabsTrigger>
-          <TabsTrigger value="late">En retard</TabsTrigger>
-          <TabsTrigger value="email">Email</TabsTrigger>
-          <TabsTrigger value="database">Database</TabsTrigger>
-          <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
+          <TabsTrigger value="pending" onClick={() => handleTabChange("pending")}>En attente</TabsTrigger>
+          <TabsTrigger value="completed" onClick={() => handleTabChange("completed")}>Terminées</TabsTrigger>
+          <TabsTrigger value="late" onClick={() => handleTabChange("late")}>En retard</TabsTrigger>
+          <TabsTrigger value="email" onClick={() => handleTabChange("email")}>Email</TabsTrigger>
+          <TabsTrigger value="database" onClick={() => handleTabChange("database")}>Database</TabsTrigger>
+          <TabsTrigger value="linkedin" onClick={() => handleTabChange("linkedin")}>LinkedIn</TabsTrigger>
         </TabsList>
         
         <DropdownMenu>

@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMissionsByUserId } from "@/services/missionService";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
+import { toast } from "sonner";
 
 export const useDashboardRequests = () => {
   const { user } = useAuth();
@@ -106,11 +107,18 @@ export const useDashboardRequests = () => {
   // Calcul des requêtes filtrées en fonction de l'onglet actif
   const filteredRequests = getFilteredRequests();
 
-  // Implémentation améliorée du changement d'onglet pour les statistiques avec useCallback
-  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("[DEBUG] useDashboardRequests - handleStatCardClick:", filterType);
-    setActiveTab(filterType);
-  }, []);
+  // Solution radicale: Implémentation directe qui force la mise à jour
+  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
+    console.log("[RADICAL FIX] useDashboardRequests - handleStatCardClick appelé avec:", filterType);
+    
+    // Changement d'approche: mettre à jour directement l'onglet actif avec un timeout pour s'assurer
+    // que le changement soit pris en compte par le cycle de rendu React
+    setTimeout(() => {
+      setActiveTab(filterType);
+      console.log("[RADICAL FIX] useDashboardRequests - activeTab mis à jour:", filterType);
+      toast.success(`Filtrage appliqué: ${filterType}`);
+    }, 0);
+  };
 
   return {
     requests,
