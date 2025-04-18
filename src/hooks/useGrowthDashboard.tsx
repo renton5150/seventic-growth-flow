@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -32,10 +31,10 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const getFilteredRequests = useCallback(() => {
     // First, filter to only show growth requests on the my-requests page
     let requests = allRequests;
+    
+    // Si on est sur la page my-requests, ne montrer que les demandes assignées à l'utilisateur connecté
     if (location.pathname.includes("/my-requests")) {
-      requests = allRequests.filter(req => {
-        return req.target_role === "growth" || req.assigned_to === user?.id;
-      });
+      requests = allRequests.filter(req => req.assigned_to === user?.id);
     }
 
     // If we have an activeFilter from stat cards, it takes precedence
