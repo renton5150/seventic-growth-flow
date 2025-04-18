@@ -4,45 +4,44 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
-import { useEffect } from "react";
+import { useState } from "react";
 import { Toaster } from "sonner";
 import { toast } from "sonner";
 
 const Dashboard = () => {
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  
   const { 
     filteredRequests, 
-    activeTab, 
+    activeTab,
     setActiveTab, 
     isSDR, 
     isAdmin, 
     requests,
     refetch,
-    handleStatCardClick
   } = useDashboardRequests();
-
-  useEffect(() => {
-    console.log("[DEBUG] Dashboard - Current state:", {
-      activeTab,
-      requestsCount: requests.length,
-      filteredCount: filteredRequests.length
-    });
-  }, [activeTab, filteredRequests, requests]);
 
   const handleRequestDeleted = () => {
     refetch();
   };
 
   const handleFilterClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    handleStatCardClick(filterType);
+    console.log("[DEBUG] Dashboard - Filter clicked:", filterType);
     
-    const filterMessages = {
-      all: "Affichage de toutes les demandes",
-      pending: "Filtrage par demandes en attente",
-      completed: "Filtrage par demandes terminées",
-      late: "Filtrage par demandes en retard"
-    };
-    
-    toast.success(filterMessages[filterType]);
+    if (activeFilter === filterType) {
+      setActiveFilter(null);
+      setActiveTab("all");
+      toast.success("Filtres réinitialisés");
+    } else {
+      setActiveFilter(filterType);
+      setActiveTab(filterType);
+      toast.success(`Filtrage par ${
+        filterType === "all" ? "toutes les demandes" :
+        filterType === "pending" ? "demandes en attente" :
+        filterType === "completed" ? "demandes terminées" :
+        "demandes en retard"
+      }`);
+    }
   };
 
   return (
@@ -53,7 +52,7 @@ const Dashboard = () => {
         <DashboardStats 
           requests={requests} 
           onStatClick={handleFilterClick}
-          activeTab={activeTab}
+          activeFilter={activeFilter}
         />
         <DashboardTabs 
           activeTab={activeTab}
