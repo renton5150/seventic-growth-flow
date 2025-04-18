@@ -1,7 +1,9 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
 import { useRequestAssignment } from "@/hooks/useRequestAssignment";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const useGrowthDashboard = (defaultTab?: string) => {
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "all");
@@ -9,9 +11,14 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
+  const { user } = useAuth();
 
-  // Fetch requests data
-  const { data: allRequests = [], refetch: refetchRequests } = useRequestQueries();
+  // Fetch requests data - correctly using the returned object structure
+  const { 
+    allGrowthRequests: allRequests = [], 
+    refetchAllRequests: refetchRequests 
+  } = useRequestQueries(user?.id);
+
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment();
 
   // Filter requests based on activeTab and activeFilter
@@ -42,7 +49,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
         return allRequests.filter(req => req.workflow_status === "pending_assignment");
       case "my_assignments":
         // Add logic to filter by user's assignments
-        return allRequests.filter(req => req.assigned_to?.id === "current-user-id");
+        return allRequests.filter(req => req.assigned_to === user?.id);
       case "inprogress":
         return allRequests.filter(req => req.workflow_status === "in_progress");
       case "completed":
@@ -56,7 +63,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       default:
         return allRequests;
     }
-  }, [allRequests, activeTab, activeFilter]);
+  }, [allRequests, activeTab, activeFilter, user?.id]);
 
   // Get filtered requests based on active tab
   const filteredRequests = getFilteredRequests();
