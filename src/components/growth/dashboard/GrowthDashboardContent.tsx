@@ -1,3 +1,4 @@
+
 import { Request } from "@/types/types";
 import { GrowthStatsCards } from "@/components/growth/stats/GrowthStatsCards";
 import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
@@ -49,40 +50,12 @@ export const GrowthDashboardContent = ({
       allRequestsCount: allRequests.length
     });
   }, [activeTab, activeFilter, filteredRequests, allRequests]);
-
-  // Function to handle stat card clicks
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => {
-    console.log("[DEBUG] GrowthDashboardContent - Stat card clicked:", filterType);
-    
-    if (onStatClick) {
-      onStatClick(filterType);
-    } else {
-      // Default behavior if no onStatClick provided
-      switch (filterType) {
-        case "pending":
-          setActiveTab("pending");
-          break;
-        case "completed":
-          setActiveTab("completed");
-          break;
-        case "late":
-          setActiveTab("late");
-          break;
-        case "inprogress":
-          setActiveTab("inprogress");
-          break;
-        default:
-          setActiveTab("all");
-      }
-      console.log("[DEBUG] GrowthDashboardContent - Set active tab to:", filterType);
-    }
-  };
   
   return (
     <>
       <GrowthStatsCards 
         allRequests={allRequests} 
-        onStatClick={handleStatCardClick}
+        onStatClick={onStatClick!}
         activeFilter={activeFilter}
       />
       

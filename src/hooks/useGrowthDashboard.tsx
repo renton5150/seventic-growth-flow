@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +20,7 @@ export function useGrowthDashboard(defaultTab?: string) {
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   
-  // Assure que la valeur par défaut de l'onglet est "all" si non spécifiée
+  // Set default tab if not specified
   useEffect(() => {
     if (defaultTab) {
       setActiveTab(defaultTab);
@@ -89,14 +90,14 @@ export function useGrowthDashboard(defaultTab?: string) {
     }
   };
   
-  // Mise à jour du filtrage pour respecter la page courante (Mes demandes ou Tableau de bord)
+  // Update filtering based on current page and active filters
   const filteredRequests = useMemo(() => {
-    // Base de requêtes selon la page courante
+    // Base requests depending on current page
     const baseRequests = isMyRequestsPage 
       ? myAssignmentsRequests
       : allGrowthRequests || [];
     
-    // Filtrage selon l'onglet actif
+    // Filter based on active tab
     switch (activeTab) {
       case "all":
         return baseRequests;
@@ -122,10 +123,10 @@ export function useGrowthDashboard(defaultTab?: string) {
         return baseRequests;
     }
   }, [
-    activeTab, 
-    allGrowthRequests, 
-    toAssignRequests, 
-    myAssignmentsRequests, 
+    activeTab,
+    allGrowthRequests,
+    toAssignRequests,
+    myAssignmentsRequests,
     isMyRequestsPage
   ]);
   
