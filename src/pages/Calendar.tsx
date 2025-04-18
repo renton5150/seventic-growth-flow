@@ -8,14 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Mail, Database, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
-import { getAllMissions, getSupaMissionById } from "@/services/missions";
-import { Request } from "@/types/types";
+import { getAllSupaMissions, getSupaMissionById } from "@/services/missions";
+import { Request, Mission } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 
 const Calendar = () => {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [eventsForDate, setEventsForDate] = useState<any[]>([]);
+  const [eventsForDate, setEventsForDate] = useState<Request[]>([]);
   const [datesWithEvents, setDatesWithEvents] = useState<Date[]>([]);
   const [missionNames, setMissionNames] = useState<Record<string, string>>({});
 
@@ -26,15 +26,15 @@ const Calendar = () => {
     enabled: !!user
   });
 
-  const { data: missions = [], isLoading: isLoadingMissions } = useQuery({
+  const { data: missions = [], isLoading: isLoadingMissions } = useQuery<Mission[]>({
     queryKey: ['calendar-missions'],
-    queryFn: getAllMissions,
+    queryFn: getAllSupaMissions,
     enabled: !!user
   });
 
   // Create a map of mission IDs to mission names for faster lookup
   useEffect(() => {
-    if (missions.length > 0) {
+    if (missions && missions.length > 0) {
       const missionMap: Record<string, string> = {};
       missions.forEach(mission => {
         missionMap[mission.id] = mission.name;
@@ -77,7 +77,7 @@ const Calendar = () => {
     }
     
     // Fallback to searching the missions array if the map doesn't have it
-    const mission = missions.find(m => m.id === missionId);
+    const mission = missions && missions.find(m => m.id === missionId);
     
     // If found in array, add to the map for future lookups
     if (mission) {
