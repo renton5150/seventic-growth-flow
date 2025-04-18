@@ -6,6 +6,16 @@ import { DateRangePicker } from "./DateRangePicker";
 export const PlanningHeader = () => {
   const [view, setView] = useState("month");
 
+  const handleViewChange = (newView: string) => {
+    setView(newView);
+    
+    // Déclencher un événement personnalisé pour communiquer avec PlanningGrid
+    const event = new CustomEvent('planningViewChange', { 
+      detail: { view: newView } 
+    });
+    document.dispatchEvent(event);
+  };
+
   return (
     <div className="flex items-center justify-between pb-4 border-b">
       <div className="space-y-1">
@@ -16,7 +26,7 @@ export const PlanningHeader = () => {
       </div>
       <div className="flex items-center gap-4">
         <DateRangePicker />
-        <Select value={view} onValueChange={setView}>
+        <Select value={view} onValueChange={handleViewChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Sélectionner la vue" />
           </SelectTrigger>
