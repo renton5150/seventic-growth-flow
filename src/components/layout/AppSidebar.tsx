@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getUserInitials } from "@/utils/permissionUtils";
 import { MenuSection } from "./sidebar/MenuSection";
 import { UserProfile } from "./sidebar/UserProfile";
-import { adminMenuItems, growthMenuItems, sdrMenuItems, planningMenuItem } from "./sidebar/config";
+import { adminMenuItems, growthMenuItems, sdrMenuItems } from "./sidebar/config";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
