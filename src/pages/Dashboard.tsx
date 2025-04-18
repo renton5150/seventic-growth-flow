@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
+import { useEffect } from "react";
 
 const Dashboard = () => {
   const { 
@@ -12,14 +13,16 @@ const Dashboard = () => {
     setActiveTab, 
     isSDR, 
     isAdmin, 
-    requests, 
-    refetch 
+    requests,
+    refetch,
+    handleStatCardClick // Récupération directe de la fonction de gestion des clics
   } = useDashboardRequests();
 
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("Dashboard - Clicked stat card:", filterType); // Debug log
-    setActiveTab(filterType);
-  };
+  // Log pour le débogage
+  useEffect(() => {
+    console.log("Dashboard - activeTab changed:", activeTab);
+    console.log("Dashboard - filteredRequests count:", filteredRequests.length);
+  }, [activeTab, filteredRequests]);
 
   const handleRequestDeleted = () => {
     // Recharger les données après suppression
@@ -32,7 +35,7 @@ const Dashboard = () => {
         <DashboardHeader isSDR={isSDR} />
         <DashboardStats 
           requests={requests} 
-          onStatClick={handleStatCardClick}
+          onStatClick={handleStatCardClick} // Utilisation directe de la fonction du hook
         />
         <DashboardTabs 
           activeTab={activeTab}

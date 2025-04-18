@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Mail, Database, User } from "lucide-react";
+import { useEffect } from "react";
 
 interface DashboardTabsProps {
   activeTab: string;
@@ -29,8 +30,12 @@ export const DashboardTabs = ({
   onRequestDeleted
 }: DashboardTabsProps) => {
   const navigate = useNavigate();
-  console.log("DashboardTabs - activeTab:", activeTab); // Debug log
-  console.log("DashboardTabs - filteredRequests:", filteredRequests); // Debug log
+  
+  // Log pour le débogage
+  useEffect(() => {
+    console.log("DashboardTabs - activeTab:", activeTab);
+    console.log("DashboardTabs - filteredRequests:", filteredRequests);
+  }, [activeTab, filteredRequests]);
   
   const handleCreateRequest = (type: string) => {
     switch (type) {
@@ -52,12 +57,18 @@ export const DashboardTabs = ({
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <div className="flex justify-between items-center mb-4">
         <TabsList>
-          <TabsTrigger value="all">
+          <TabsTrigger value="all" onClick={() => setActiveTab("all")}>
             Toutes
             <span className="ml-2 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
               {filteredRequests.length}
             </span>
           </TabsTrigger>
+          <TabsTrigger value="pending" onClick={() => setActiveTab("pending")}>En attente</TabsTrigger>
+          <TabsTrigger value="completed" onClick={() => setActiveTab("completed")}>Terminées</TabsTrigger>
+          <TabsTrigger value="late" onClick={() => setActiveTab("late")}>En retard</TabsTrigger>
+          <TabsTrigger value="email" onClick={() => setActiveTab("email")}>Email</TabsTrigger>
+          <TabsTrigger value="database" onClick={() => setActiveTab("database")}>Database</TabsTrigger>
+          <TabsTrigger value="linkedin" onClick={() => setActiveTab("linkedin")}>LinkedIn</TabsTrigger>
         </TabsList>
         
         <DropdownMenu>

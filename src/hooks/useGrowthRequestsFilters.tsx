@@ -50,16 +50,37 @@ export function useGrowthRequestsFilters(requests: Request[]) {
     return [...new Set(requests.map(r => r.assignedToName || "Non assigné"))];
   }, [requests]);
 
+  // Correction pour extraire tous les statuts possibles
   const uniqueStatuses = useMemo(() => {
-    return [...new Set(requests.map(r => {
-      switch(r.workflow_status) {
-        case "pending_assignment": return "En attente";
-        case "in_progress": return "En cours";
-        case "completed": return "Terminée";
-        case "canceled": return "Annulée";
-        default: return r.workflow_status || "En attente";
+    // Collecter tous les statuts de workflow possibles
+    const allStatuses = requests.map(r => {
+      let status = "";
+      
+      // Déterminer le statut à afficher en priorité
+      if (r.isLate && (r.workflow_status === "pending_assignment" || r.workflow_status === "in_progress")) {
+        status = "En retard";
+      } else {
+        switch(r.workflow_status) {
+          case "pending_assignment": status = "En attente"; break;
+          case "in_progress": status = "En cours"; break;
+          case "completed": status = "Terminée"; break;
+          case "canceled": status = "Annulée"; break;
+          default: status = r.workflow_status || "En attente";
+        }
       }
-    }))];
+      
+      return status;
+    });
+    
+    // Log pour le débogage
+    console.log("Statuts extraits des requêtes:", allStatuses);
+    
+    // S'assurer d'inclure tous les statuts possibles même s'ils ne sont pas présents
+    const possibleStatuses = ["En attente", "En cours", "Terminée", "Annulée", "En retard"];
+    const combinedStatuses = [...allStatuses, ...possibleStatuses];
+    
+    // Retourner un ensemble unique et trié
+    return [...new Set(combinedStatuses)].sort();
   }, [requests]);
 
   const uniqueSdrs = useMemo(() => {
@@ -121,17 +142,23 @@ export function useGrowthRequestsFilters(requests: Request[]) {
         if (!assigneeFilter.includes(assigneeName)) return false;
       }
 
-      // Apply status filter
+      // Apply status filter - avec correction pour prendre en compte tous les statuts
       if (statusFilter.length > 0) {
-        const statusLabel = (() => {
+        let statusLabel = "";
+        
+        // Déterminer le statut à afficher en priorité
+        if (request.isLate && (request.workflow_status === "pending_assignment" || request.workflow_status === "in_progress")) {
+          statusLabel = "En retard";
+        } else {
           switch(request.workflow_status) {
-            case "pending_assignment": return "En attente";
-            case "in_progress": return "En cours";
-            case "completed": return "Terminée";
-            case "canceled": return "Annulée";
-            default: return request.workflow_status || "En attente";
+            case "pending_assignment": statusLabel = "En attente"; break;
+            case "in_progress": statusLabel = "En cours"; break;
+            case "completed": statusLabel = "Terminée"; break;
+            case "canceled": statusLabel = "Annulée"; break;
+            default: statusLabel = request.workflow_status || "En attente";
           }
-        })();
+        }
+        
         if (!statusFilter.includes(statusLabel)) return false;
       }
 
@@ -143,7 +170,7 @@ export function useGrowthRequestsFilters(requests: Request[]) {
 
       // Apply date filters
       if (!applyDateFilter(request, 'createdAt', createdDateFilter)) return false;
-      if (!applyDateFilter(request, 'dueDate', dueDateFilter)) return false; // Fixed this line by adding "return false"
+      if (!applyDateFilter(request, 'dueDate', dueDateFilter)) return false;
 
       return true;
     });

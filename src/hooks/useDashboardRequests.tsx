@@ -81,27 +81,36 @@ export const useDashboardRequests = () => {
     }
   }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id]);
 
-  const filteredRequests = requests.filter((request) => {
-    console.log(`Filtering requests with activeTab: ${activeTab}`); // Debug log
+  // MODIFICATION IMPORTANTE : Fonction pour filtrer les requêtes en fonction de l'onglet actif
+  const getFilteredRequests = () => {
+    console.log(`Filtrage des requêtes avec activeTab: ${activeTab}`);
+    
+    return requests.filter((request) => {
+      if (activeTab === "all") return true;
+      if (activeTab === "email") return request.type === "email";
+      if (activeTab === "database") return request.type === "database";
+      if (activeTab === "linkedin") return request.type === "linkedin";
+      if (activeTab === "pending") {
+        return request.status === "pending" || request.workflow_status === "pending_assignment";
+      }
+      if (activeTab === "completed") {
+        return request.workflow_status === "completed";
+      }
+      if (activeTab === "late") {
+        return request.isLate === true;
+      }
+      return false;
+    });
+  };
 
-    if (activeTab === "all") return true;
-    if (activeTab === "email") return request.type === "email";
-    if (activeTab === "database") return request.type === "database";
-    if (activeTab === "linkedin") return request.type === "linkedin";
-    if (activeTab === "pending") {
-      // Le filtre pour les requêtes en attente doit regarder le workflow_status
-      return request.status === "pending" || request.workflow_status === "pending_assignment";
-    }
-    if (activeTab === "completed") {
-      // Le filtre pour les requêtes terminées doit regarder le workflow_status
-      return request.workflow_status === "completed";
-    }
-    if (activeTab === "late") {
-      // Le filtre pour les requêtes en retard doit vérifier la propriété isLate
-      return request.isLate === true;
-    }
-    return false;
-  });
+  // Calcul des requêtes filtrées en fonction de l'onglet actif
+  const filteredRequests = getFilteredRequests();
+
+  // Implémentation directe du changement d'onglet pour les statistiques
+  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
+    console.log("useDashboardRequests - handleStatCardClick:", filterType);
+    setActiveTab(filterType);
+  };
 
   return {
     requests,
@@ -112,6 +121,7 @@ export const useDashboardRequests = () => {
     isGrowth,
     isAdmin,
     loading,
-    refetch: refetchRequests
+    refetch: refetchRequests,
+    handleStatCardClick, // Nouvelle fonction exposée pour le clic sur les stat cards
   };
 };

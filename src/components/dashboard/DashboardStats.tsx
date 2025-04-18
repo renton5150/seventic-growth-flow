@@ -14,8 +14,11 @@ export const DashboardStats = ({ requests, onStatClick }: DashboardStatsProps) =
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
 
+  // Implémentation robuste avec logging
   const handleStatClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("DashboardStats - Stat card clicked:", filterType); // Debug log
+    console.log("DashboardStats - StatCard clicked:", filterType);
+    
+    // Appel direct à la fonction parent
     onStatClick(filterType);
   };
 

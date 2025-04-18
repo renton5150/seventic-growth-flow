@@ -36,23 +36,40 @@ export function CheckboxColumnFilter({
     setSelected(selectedValues);
   }, [selectedValues]);
 
+  useEffect(() => {
+    // Log pour déboguer les options disponibles
+    console.log(`CheckboxColumnFilter - ${columnName} options:`, options);
+  }, [options, columnName]);
+
   const handleCheckboxChange = (value: string) => {
     const newSelected = selected.includes(value)
       ? selected.filter(v => v !== value)
       : [...selected, value];
+    
+    console.log(`CheckboxColumnFilter - Changing selection for ${columnName}:`, {
+      value,
+      currentSelected: selected,
+      newSelected
+    });
+    
     setSelected(newSelected);
   };
 
   const handleApplyFilter = () => {
+    console.log(`CheckboxColumnFilter - Applying filter for ${columnName}:`, selected);
     onFilterChange(selected);
     setOpen(false);
   };
 
   const handleClearFilter = () => {
+    console.log(`CheckboxColumnFilter - Clearing filter for ${columnName}`);
     setSelected([]);
     onClearFilter();
     setOpen(false);
   };
+
+  // S'assurer que les options sont uniques et triées
+  const uniqueOptions = [...new Set(options)].sort();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -87,7 +104,7 @@ export function CheckboxColumnFilter({
           
           <ScrollArea className="h-[200px] pr-4">
             <div className="space-y-4">
-              {options.map((option) => (
+              {uniqueOptions.map((option) => (
                 <div key={option} className="flex items-center space-x-2">
                   <Checkbox
                     id={`${columnName}-${option}`}
