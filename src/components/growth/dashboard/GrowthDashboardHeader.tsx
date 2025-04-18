@@ -1,5 +1,7 @@
 
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Request } from "@/types/types";
 
 interface GrowthDashboardHeaderProps {
   totalRequests: number;
