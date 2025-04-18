@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
@@ -81,9 +81,9 @@ export const useDashboardRequests = () => {
     }
   }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id]);
 
-  // MODIFICATION IMPORTANTE : Fonction pour filtrer les requêtes en fonction de l'onglet actif
-  const getFilteredRequests = () => {
-    console.log(`Filtrage des requêtes avec activeTab: ${activeTab}`);
+  // Fonction pour filtrer les requêtes en fonction de l'onglet actif - OPTIMISÉE avec useCallback
+  const getFilteredRequests = useCallback(() => {
+    console.log(`[DEBUG] useDashboardRequests - Filtrage des requêtes avec activeTab: ${activeTab}`);
     
     return requests.filter((request) => {
       if (activeTab === "all") return true;
@@ -101,16 +101,16 @@ export const useDashboardRequests = () => {
       }
       return false;
     });
-  };
+  }, [activeTab, requests]);
 
   // Calcul des requêtes filtrées en fonction de l'onglet actif
   const filteredRequests = getFilteredRequests();
 
-  // Implémentation directe du changement d'onglet pour les statistiques
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("useDashboardRequests - handleStatCardClick:", filterType);
+  // Implémentation améliorée du changement d'onglet pour les statistiques avec useCallback
+  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late") => {
+    console.log("[DEBUG] useDashboardRequests - handleStatCardClick:", filterType);
     setActiveTab(filterType);
-  };
+  }, []);
 
   return {
     requests,
@@ -122,6 +122,6 @@ export const useDashboardRequests = () => {
     isAdmin,
     loading,
     refetch: refetchRequests,
-    handleStatCardClick, // Nouvelle fonction exposée pour le clic sur les stat cards
+    handleStatCardClick,
   };
 };

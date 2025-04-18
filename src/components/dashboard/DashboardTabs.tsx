@@ -31,10 +31,10 @@ export const DashboardTabs = ({
 }: DashboardTabsProps) => {
   const navigate = useNavigate();
   
-  // Log pour le débogage
+  // Log pour le débogage avec meilleure visibilité
   useEffect(() => {
-    console.log("DashboardTabs - activeTab:", activeTab);
-    console.log("DashboardTabs - filteredRequests:", filteredRequests);
+    console.log("[DEBUG] DashboardTabs - activeTab:", activeTab);
+    console.log("[DEBUG] DashboardTabs - filteredRequests count:", filteredRequests.length);
   }, [activeTab, filteredRequests]);
   
   const handleCreateRequest = (type: string) => {
@@ -52,23 +52,29 @@ export const DashboardTabs = ({
         break;
     }
   };
+
+  // Gestionnaire de clic sur les onglets qui notifie explicitement le parent
+  const handleTabChange = (value: string) => {
+    console.log("[DEBUG] DashboardTabs - Tab clicked:", value);
+    setActiveTab(value);
+  };
   
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab}>
+    <Tabs value={activeTab} onValueChange={handleTabChange}>
       <div className="flex justify-between items-center mb-4">
         <TabsList>
-          <TabsTrigger value="all" onClick={() => setActiveTab("all")}>
+          <TabsTrigger value="all">
             Toutes
             <span className="ml-2 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
               {filteredRequests.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="pending" onClick={() => setActiveTab("pending")}>En attente</TabsTrigger>
-          <TabsTrigger value="completed" onClick={() => setActiveTab("completed")}>Terminées</TabsTrigger>
-          <TabsTrigger value="late" onClick={() => setActiveTab("late")}>En retard</TabsTrigger>
-          <TabsTrigger value="email" onClick={() => setActiveTab("email")}>Email</TabsTrigger>
-          <TabsTrigger value="database" onClick={() => setActiveTab("database")}>Database</TabsTrigger>
-          <TabsTrigger value="linkedin" onClick={() => setActiveTab("linkedin")}>LinkedIn</TabsTrigger>
+          <TabsTrigger value="pending">En attente</TabsTrigger>
+          <TabsTrigger value="completed">Terminées</TabsTrigger>
+          <TabsTrigger value="late">En retard</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="database">Database</TabsTrigger>
+          <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
         </TabsList>
         
         <DropdownMenu>

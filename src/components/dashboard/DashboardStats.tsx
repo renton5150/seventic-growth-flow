@@ -2,6 +2,7 @@
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Mail, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Request } from "@/types/types";
+import { useEffect } from "react";
 
 interface DashboardStatsProps {
   requests: Request[];
@@ -14,12 +15,22 @@ export const DashboardStats = ({ requests, onStatClick }: DashboardStatsProps) =
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
 
+  // Log pour debug des stats
+  useEffect(() => {
+    console.log("[DEBUG] DashboardStats - Stats calculées:", {
+      total: totalRequests,
+      pending: pendingRequests,
+      completed: completedRequests,
+      late: lateRequests
+    });
+  }, [totalRequests, pendingRequests, completedRequests, lateRequests]);
+
   // Implémentation robuste avec logging
   const handleStatClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("DashboardStats - StatCard clicked:", filterType);
+    console.log("[DEBUG] DashboardStats - StatCard clicked:", filterType);
     
-    // Appel direct à la fonction parent
-    onStatClick(filterType);
+    // Appel direct à la fonction parent avec un délai pour assurer l'exécution
+    setTimeout(() => onStatClick(filterType), 0);
   };
 
   return (

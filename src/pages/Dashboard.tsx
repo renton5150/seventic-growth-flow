@@ -15,18 +15,29 @@ const Dashboard = () => {
     isAdmin, 
     requests,
     refetch,
-    handleStatCardClick // Récupération directe de la fonction de gestion des clics
+    handleStatCardClick
   } = useDashboardRequests();
 
-  // Log pour le débogage
+  // Log pour le débogage avec meilleure visibilité
   useEffect(() => {
-    console.log("Dashboard - activeTab changed:", activeTab);
-    console.log("Dashboard - filteredRequests count:", filteredRequests.length);
+    console.log("[DEBUG] Dashboard - activeTab changed:", activeTab);
+    console.log("[DEBUG] Dashboard - filteredRequests count:", filteredRequests.length);
   }, [activeTab, filteredRequests]);
 
   const handleRequestDeleted = () => {
     // Recharger les données après suppression
     refetch();
+  };
+
+  // Gestionnaire de clic sur les cartes qui force la mise à jour de l'onglet actif
+  const handleStatClick = (filterType: "all" | "pending" | "completed" | "late") => {
+    console.log("[DEBUG] Dashboard - StatCard clicked, setting tab to:", filterType);
+    handleStatCardClick(filterType);
+    
+    // Forcer la mise à jour de l'interface utilisateur
+    setTimeout(() => {
+      console.log("[DEBUG] Dashboard - Tab should now be:", filterType);
+    }, 100);
   };
 
   return (
@@ -35,7 +46,7 @@ const Dashboard = () => {
         <DashboardHeader isSDR={isSDR} />
         <DashboardStats 
           requests={requests} 
-          onStatClick={handleStatCardClick} // Utilisation directe de la fonction du hook
+          onStatClick={handleStatClick}
         />
         <DashboardTabs 
           activeTab={activeTab}
