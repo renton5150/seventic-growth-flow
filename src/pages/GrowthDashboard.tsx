@@ -7,12 +7,14 @@ import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { RequestEditDialog } from "@/components/growth/RequestEditDialog";
 import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDialog";
 import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
 }
 
 const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
+  const location = useLocation();
   const {
     filteredRequests,
     allRequests,
@@ -38,11 +40,15 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     }
   }, [defaultTab, activeTab, setActiveTab]);
 
+  const pageTitle = location.pathname.includes("/my-requests") 
+    ? "Mes opérations à traiter" 
+    : "Tableau de bord";
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Tableau de bord</h1>
+          <h1 className="text-2xl font-bold">{pageTitle}</h1>
         </div>
         
         <GrowthStatsCards allRequests={allRequests} />
@@ -83,3 +89,4 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
 };
 
 export default GrowthDashboard;
+
