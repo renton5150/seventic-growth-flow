@@ -18,6 +18,7 @@ const Dashboard = () => {
 
   const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
     setActiveTab(filterType);
+    console.log("Dashboard - Clicked stat card:", filterType); // Debug log
   };
 
   const handleRequestDeleted = () => {
