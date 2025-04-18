@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
 import { RequestEditDialog } from "@/components/growth/RequestEditDialog";
@@ -33,7 +32,6 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     handleStatCardClick
   } = useGrowthDashboard(defaultTab);
 
-  // Assure que le tableau de bord revienne par défaut sur "Toutes"
   useEffect(() => {
     if (!defaultTab && activeTab !== "all") {
       setActiveTab("all");
