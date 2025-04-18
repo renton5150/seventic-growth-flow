@@ -6,6 +6,7 @@ import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDi
 import { useEffect } from "react";
 import { GrowthDashboardHeader } from "@/components/growth/dashboard/GrowthDashboardHeader";
 import { GrowthDashboardContent } from "@/components/growth/dashboard/GrowthDashboardContent";
+import { Toaster } from "sonner";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
@@ -16,6 +17,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     filteredRequests,
     allRequests,
     activeTab,
+    activeFilter,
     setActiveTab,
     selectedRequest,
     isEditDialogOpen,
@@ -27,7 +29,8 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     handleViewDetails,
     handleRequestUpdated,
     assignRequestToMe,
-    updateRequestWorkflowStatus
+    updateRequestWorkflowStatus,
+    handleStatCardClick
   } = useGrowthDashboard(defaultTab);
 
   // Assure que le tableau de bord revienne par défaut sur "Toutes"
@@ -39,6 +42,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
 
   return (
     <AppLayout>
+      <Toaster position="top-center" />
       <div className="space-y-6">
         <GrowthDashboardHeader totalRequests={allRequests.length} />
         
@@ -46,6 +50,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           allRequests={allRequests}
           filteredRequests={filteredRequests}
           activeTab={activeTab}
+          activeFilter={activeFilter}
           setActiveTab={setActiveTab}
           onEditRequest={handleOpenEditDialog}
           onCompleteRequest={handleOpenCompletionDialog}
@@ -53,6 +58,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           onRequestUpdated={handleRequestUpdated}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
+          onStatClick={handleStatCardClick}
         />
       </div>
       

@@ -4,7 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Toaster } from "sonner";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ const Dashboard = () => {
     isAdmin, 
     requests,
     refetch,
+    handleStatCardClick
   } = useDashboardRequests();
 
   const handleRequestDeleted = () => {
@@ -29,10 +30,12 @@ const Dashboard = () => {
     console.log("[DEBUG] Dashboard - Filter clicked:", filterType);
     
     if (activeFilter === filterType) {
+      console.log("[DEBUG] Dashboard - Resetting filter (was already active)");
       setActiveFilter(null);
       setActiveTab("all");
       toast.success("Filtres réinitialisés");
     } else {
+      console.log("[DEBUG] Dashboard - Setting new filter:", filterType);
       setActiveFilter(filterType);
       setActiveTab(filterType);
       toast.success(`Filtrage par ${
@@ -44,6 +47,11 @@ const Dashboard = () => {
     }
   };
 
+  // Log whenever activeTab changes
+  useEffect(() => {
+    console.log("[DEBUG] Dashboard - Active tab changed to:", activeTab);
+  }, [activeTab]);
+
   return (
     <AppLayout>
       <Toaster position="top-center" />
@@ -51,7 +59,7 @@ const Dashboard = () => {
         <DashboardHeader isSDR={isSDR} />
         <DashboardStats 
           requests={requests} 
-          onStatClick={handleFilterClick}
+          onStatClick={handleStatCardClick || handleFilterClick}
           activeFilter={activeFilter}
         />
         <DashboardTabs 

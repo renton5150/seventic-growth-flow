@@ -1,24 +1,36 @@
 
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Mail, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Mail, Clock, CheckCircle, AlertCircle, Activity } from "lucide-react";
 import { Request } from "@/types/types";
+import { useEffect } from "react";
 
 interface DashboardStatsProps {
   requests: Request[];
-  onStatClick: (filterType: "all" | "pending" | "completed" | "late") => void;
+  onStatClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => void;
   activeFilter: string | null;
 }
 
 export const DashboardStats = ({ requests, onStatClick, activeFilter }: DashboardStatsProps) => {
   const totalRequests = requests.length;
   const pendingRequests = requests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
+  const inProgressRequests = requests.filter((r) => r.workflow_status === "in_progress").length;
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
 
-  console.log("[DEBUG] DashboardStats - Active filter:", activeFilter);
+  // Log for debugging
+  useEffect(() => {
+    console.log("[DEBUG] DashboardStats - Active filter:", activeFilter);
+    console.log("[DEBUG] DashboardStats - Request counts:", {
+      total: totalRequests,
+      pending: pendingRequests,
+      inProgress: inProgressRequests,
+      completed: completedRequests,
+      late: lateRequests
+    });
+  }, [activeFilter, totalRequests, pendingRequests, inProgressRequests, completedRequests, lateRequests]);
 
   return (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-5 lg:grid-cols-5">
       <StatCard
         title="Total des demandes"
         value={totalRequests}
@@ -32,6 +44,13 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
         icon={<Clock size={24} className="text-status-pending" />}
         onClick={() => onStatClick("pending")}
         isActive={activeFilter === "pending"}
+      />
+      <StatCard
+        title="En cours" 
+        value={inProgressRequests}
+        icon={<Activity size={24} className="text-blue-500" />}
+        onClick={() => onStatClick("inprogress")}
+        isActive={activeFilter === "inprogress"}
       />
       <StatCard
         title="Terminées"

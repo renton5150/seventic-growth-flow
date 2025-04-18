@@ -5,11 +5,13 @@ import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHe
 import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 
 interface GrowthDashboardContentProps {
   allRequests: Request[];
   filteredRequests: Request[];
   activeTab: string;
+  activeFilter?: string | null;
   setActiveTab: (tab: string) => void;
   onEditRequest: (request: Request) => void;
   onCompleteRequest: (request: Request) => void;
@@ -17,39 +19,63 @@ interface GrowthDashboardContentProps {
   onRequestUpdated: () => void;
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
+  onStatClick?: (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => void;
 }
 
 export const GrowthDashboardContent = ({
   allRequests,
   filteredRequests,
   activeTab,
+  activeFilter = null,
   setActiveTab,
   onEditRequest,
   onCompleteRequest,
   onViewDetails,
   onRequestUpdated,
   assignRequestToMe,
-  updateRequestWorkflowStatus
+  updateRequestWorkflowStatus,
+  onStatClick
 }: GrowthDashboardContentProps) => {
   const location = useLocation();
   const { user } = useAuth();
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
 
+  // Log current state for debugging
+  useEffect(() => {
+    console.log("[DEBUG] GrowthDashboardContent - Current state:", {
+      activeTab,
+      activeFilter,
+      requestsCount: filteredRequests.length,
+      allRequestsCount: allRequests.length
+    });
+  }, [activeTab, activeFilter, filteredRequests, allRequests]);
+
   // Function to handle stat card clicks
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    switch (filterType) {
-      case "pending":
-        setActiveTab("pending");
-        break;
-      case "completed":
-        setActiveTab("completed");
-        break;
-      case "late":
-        setActiveTab("late");
-        break;
-      default:
-        setActiveTab("all");
+  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => {
+    console.log("[DEBUG] GrowthDashboardContent - Stat card clicked:", filterType);
+    
+    if (onStatClick) {
+      onStatClick(filterType);
+    } else {
+      // Default behavior if no onStatClick provided
+      switch (filterType) {
+        case "pending":
+          setActiveTab("pending");
+          break;
+        case "completed":
+          setActiveTab("completed");
+          break;
+        case "late":
+          setActiveTab("late");
+          break;
+        case "inprogress":
+          setActiveTab("inprogress");
+          break;
+        default:
+          setActiveTab("all");
+      }
+      console.log("[DEBUG] GrowthDashboardContent - Set active tab to:", filterType);
     }
   };
   
@@ -58,6 +84,7 @@ export const GrowthDashboardContent = ({
       <GrowthStatsCards 
         allRequests={allRequests} 
         onStatClick={handleStatCardClick}
+        activeFilter={activeFilter || activeTab}
       />
       
       <GrowthActionsHeader
