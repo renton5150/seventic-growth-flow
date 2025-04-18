@@ -9,6 +9,8 @@ import { getAllMissions, getMissionsByUserId } from "@/services/missions-service
 const Planning = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const isSDR = user?.role === "sdr";
+  const isGrowth = user?.role === "growth";
 
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions', user?.id, isAdmin],
