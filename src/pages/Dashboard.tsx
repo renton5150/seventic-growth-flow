@@ -11,6 +11,8 @@ const Dashboard = () => {
     refetch
   } = useDashboardRequests();
 
+  console.log('Dashboard rendering with requests:', requests);
+
   const handleRequestDeleted = () => {
     refetch();
   };
