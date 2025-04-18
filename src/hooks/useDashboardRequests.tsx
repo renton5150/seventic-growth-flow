@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllRequests } from "@/services/requestService";
@@ -85,7 +86,8 @@ export const useDashboardRequests = () => {
     if (activeTab === "email") return request.type === "email";
     if (activeTab === "database") return request.type === "database";
     if (activeTab === "linkedin") return request.type === "linkedin";
-    if (activeTab === "pending") return request.status === "pending";
+    if (activeTab === "pending") return request.status === "pending" || request.workflow_status === "pending_assignment";
+    if (activeTab === "completed") return request.workflow_status === "completed";
     if (activeTab === "late") return request.isLate;
     return false;
   });

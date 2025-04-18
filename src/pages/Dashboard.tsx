@@ -6,7 +6,19 @@ import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
 
 const Dashboard = () => {
-  const { filteredRequests, activeTab, setActiveTab, isSDR, isAdmin, requests, refetch } = useDashboardRequests();
+  const { 
+    filteredRequests, 
+    activeTab, 
+    setActiveTab, 
+    isSDR, 
+    isAdmin, 
+    requests, 
+    refetch 
+  } = useDashboardRequests();
+
+  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
+    setActiveTab(filterType);
+  };
 
   const handleRequestDeleted = () => {
     // Recharger les données après suppression
@@ -17,7 +29,10 @@ const Dashboard = () => {
     <AppLayout>
       <div className="space-y-6">
         <DashboardHeader isSDR={isSDR} />
-        <DashboardStats requests={requests} />
+        <DashboardStats 
+          requests={requests} 
+          onStatClick={handleStatCardClick}
+        />
         <DashboardTabs 
           activeTab={activeTab}
           setActiveTab={setActiveTab}
