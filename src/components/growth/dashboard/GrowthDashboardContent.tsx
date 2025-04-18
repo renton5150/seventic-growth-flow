@@ -17,7 +17,7 @@ interface GrowthDashboardContentProps {
   onRequestUpdated: () => void;
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
-  activeFilter?: string | null;
+  activeFilter: string | null;
   setActiveFilter: (filter: string | null) => void;
   handleStatCardClick: (filterType: "all" | "pending" | "completed" | "late") => void;
 }

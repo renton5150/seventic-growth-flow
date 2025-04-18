@@ -66,41 +66,65 @@ export function useGrowthDashboard(defaultTab?: string) {
   const handleViewDetails = (request: Request) => {
     navigate(`/requests/${request.type}/${request.id}`);
   };
-  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late") => {
-  console.log(`Stat card clicked: ${filterType}`);
   
-  // Si on clique sur le filtre déjà actif, on le désactive
-  if (activeFilter === filterType) {
-    setActiveFilter(null);
-    toast.info("Filtres réinitialisés");
-  } else {
-    setActiveFilter(filterType);
+  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late") => {
+    console.log(`Stat card clicked: ${filterType}`);
     
-    // Message selon le type de filtre
-    switch (filterType) {
-      case "all":
-        toast.info("Affichage de toutes les demandes");
-        break;
-      case "pending":
-        toast.info("Filtrage par demandes en attente");
-        break;
-      case "completed":
-        toast.info("Filtrage par demandes terminées");
-        break;
-      case "late":
-        toast.info("Filtrage par demandes en retard");
-        break;
+    // Si on clique sur le filtre déjà actif, on le désactive
+    if (activeFilter === filterType) {
+      setActiveFilter(null);
+      toast.info("Filtres réinitialisés");
+      // Réinitialiser l'onglet à "all" pour afficher toutes les requêtes
+      setActiveTab("all");
+    } else {
+      setActiveFilter(filterType);
+      
+      // Appliquer le filtre correspondant
+      switch (filterType) {
+        case "all":
+          setActiveTab("all");
+          toast.info("Affichage de toutes les demandes");
+          break;
+        case "pending":
+          setActiveTab("pending");
+          toast.info("Filtrage par demandes en attente");
+          break;
+        case "completed":
+          setActiveTab("completed");
+          toast.info("Filtrage par demandes terminées");
+          break;
+        case "late":
+          setActiveTab("late");
+          toast.info("Filtrage par demandes en retard");
+          break;
+      }
     }
-  }
-}, [activeFilter]);
+  }, [activeFilter, setActiveTab]);
+
   // Mise à jour du filtrage pour respecter la page courante (Mes demandes ou Tableau de bord)
   const filteredRequests = useMemo(() => {
+    console.log("Applying filters - activeTab:", activeTab, "activeFilter:", activeFilter);
+    
     // Base de requêtes selon la page courante
     const baseRequests = isMyRequestsPage 
       ? myAssignmentsRequests
       : allGrowthRequests || [];
     
-    // Filtrage selon l'onglet actif
+    // Si un filtre actif est défini depuis les cartes statistiques, il prend priorité
+    if (activeFilter) {
+      switch (activeFilter) {
+        case "all":
+          return baseRequests;
+        case "pending":
+          return baseRequests.filter(req => req.workflow_status === "pending_assignment");
+        case "completed":
+          return baseRequests.filter(req => req.workflow_status === "completed");
+        case "late":
+          return baseRequests.filter(req => req.isLate);
+      }
+    }
+    
+    // Sinon, filtrage selon l'onglet actif
     switch (activeTab) {
       case "all":
         return baseRequests;
@@ -126,7 +150,8 @@ export function useGrowthDashboard(defaultTab?: string) {
         return baseRequests;
     }
   }, [
-    activeTab, 
+    activeTab,
+    activeFilter,
     allGrowthRequests, 
     toAssignRequests, 
     myAssignmentsRequests, 
@@ -151,9 +176,8 @@ export function useGrowthDashboard(defaultTab?: string) {
     handleRequestUpdated,
     assignRequestToMe,
     updateRequestWorkflowStatus,
-    getRequestDetails,
-    handleStatCardClick,
     activeFilter,
-    setActiveFilter
+    setActiveFilter,
+    handleStatCardClick
   };
 }
