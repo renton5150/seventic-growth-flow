@@ -17,7 +17,10 @@ interface GrowthDashboardContentProps {
   onRequestUpdated: () => void;
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
+  activeTab?: string;
   activeFilter?: string | null;
+  setActiveFilter: (filter: string | null) => void;
+  handleStatCardClick: (filterType: "all" | "pending" | "completed" | "late") => void;
 }
 
 export const GrowthDashboardContent = ({
@@ -31,29 +34,14 @@ export const GrowthDashboardContent = ({
   onRequestUpdated,
   assignRequestToMe,
   updateRequestWorkflowStatus,
-  activeFilter
+  activeFilter,
+  setActiveFilter,
+  handleStatCardClick
 }: GrowthDashboardContentProps) => {
   const location = useLocation();
   const { user } = useAuth();
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
-
-  // Function to handle stat card clicks
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    switch (filterType) {
-      case "pending":
-        setActiveTab("pending");
-        break;
-      case "completed":
-        setActiveTab("completed");
-        break;
-      case "late":
-        setActiveTab("late");
-        break;
-      default:
-        setActiveTab("all");
-    }
-  };
   
   return (
     <>
