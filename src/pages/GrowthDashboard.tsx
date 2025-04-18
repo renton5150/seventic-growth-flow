@@ -27,7 +27,9 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     handleViewDetails,
     handleRequestUpdated,
     assignRequestToMe,
-    updateRequestWorkflowStatus
+    updateRequestWorkflowStatus,
+    handleStatCardClick,
+    activeFilter
   } = useGrowthDashboard(defaultTab);
 
   // Assure que le tableau de bord revienne par défaut sur "Toutes"
@@ -53,6 +55,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           onRequestUpdated={handleRequestUpdated}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
+          activeFilter={activeFilter}
         />
       </div>
       

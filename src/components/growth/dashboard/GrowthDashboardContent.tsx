@@ -17,6 +17,7 @@ interface GrowthDashboardContentProps {
   onRequestUpdated: () => void;
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
+  activeFilter?: string | null;
 }
 
 export const GrowthDashboardContent = ({
@@ -29,7 +30,8 @@ export const GrowthDashboardContent = ({
   onViewDetails,
   onRequestUpdated,
   assignRequestToMe,
-  updateRequestWorkflowStatus
+  updateRequestWorkflowStatus,
+  activeFilter
 }: GrowthDashboardContentProps) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -58,6 +60,7 @@ export const GrowthDashboardContent = ({
       <GrowthStatsCards 
         allRequests={allRequests} 
         onStatClick={handleStatCardClick}
+        activeFilter={activeFilter}
       />
       
       <GrowthActionsHeader
