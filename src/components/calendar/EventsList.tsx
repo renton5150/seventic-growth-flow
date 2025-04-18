@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Database, User } from "lucide-react";
@@ -10,7 +10,7 @@ interface EventsListProps {
   selectedDate: Date | undefined;
   events: Request[];
   isLoading: boolean;
-  findMissionName: (missionId: string) => string;
+  findMissionName: (missionId: string | undefined) => string;
 }
 
 export const EventsList = ({
@@ -19,6 +19,16 @@ export const EventsList = ({
   isLoading,
   findMissionName
 }: EventsListProps) => {
+  // Log pour debug
+  useEffect(() => {
+    if (events.length > 0) {
+      console.log("Événements reçus dans EventsList:", events);
+      events.forEach(event => {
+        console.log(`Événement ${event.id}, Mission ID: ${event.missionId}, Nom mission: ${findMissionName(event.missionId)}`);
+      });
+    }
+  }, [events, findMissionName]);
+
   const renderEventIcon = (type: string) => {
     switch (type) {
       case "email":
