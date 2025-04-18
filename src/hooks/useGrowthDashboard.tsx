@@ -1,3 +1,4 @@
+
 import { useCallback } from "react";
 import { toast } from "sonner"; // Si vous utilisez sonner, sinon utilisez votre librairie de toast
 import { useState, useEffect, useMemo } from "react";
@@ -150,6 +151,7 @@ export function useGrowthDashboard(defaultTab?: string) {
     handleRequestUpdated,
     assignRequestToMe,
     updateRequestWorkflowStatus,
-  getRequestDetails,
-  handleStatCardClick
-};
+    getRequestDetails,
+    handleStatCardClick
+  };
+}
