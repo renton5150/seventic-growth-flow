@@ -8,8 +8,8 @@ interface StatCardProps {
   icon: ReactNode;
   onClick?: () => void;
   isActive?: boolean;
-  details?: string;        // Added this property
-  className?: string;      // Added this property
+  details?: string;
+  className?: string;
 }
 
 export const StatCard = ({ title, value, icon, onClick, isActive, details, className }: StatCardProps) => {
