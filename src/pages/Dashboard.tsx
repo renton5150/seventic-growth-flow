@@ -1,42 +1,67 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
-import { DashboardContent } from "@/components/dashboard/DashboardContent";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { DashboardStats } from "@/components/dashboard/DashboardStats";
+import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
+import { useState } from "react";
 import { Toaster } from "sonner";
+import { toast } from "sonner";
 
 const Dashboard = () => {
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  
   const { 
+    filteredRequests, 
+    activeTab,
+    setActiveTab, 
+    isSDR, 
+    isAdmin, 
     requests,
-    isAdmin,
-    refetch
+    refetch,
   } = useDashboardRequests();
-
-  console.log('Dashboard rendering with requests:', requests);
 
   const handleRequestDeleted = () => {
     refetch();
   };
 
-  const handleFilterChange = (filterType: string | null) => {
-    console.log("Filter changed in Dashboard to:", filterType);
-    // La logique de filtrage est déjà gérée dans DashboardContent
+  const handleFilterClick = (filterType: "all" | "pending" | "completed" | "late") => {
+    console.log("[DEBUG] Dashboard - Filter clicked:", filterType);
+    
+    if (activeFilter === filterType) {
+      setActiveFilter(null);
+      setActiveTab("all");
+      toast.success("Filtres réinitialisés");
+    } else {
+      setActiveFilter(filterType);
+      setActiveTab(filterType);
+      toast.success(`Filtrage par ${
+        filterType === "all" ? "toutes les demandes" :
+        filterType === "pending" ? "demandes en attente" :
+        filterType === "completed" ? "demandes terminées" :
+        "demandes en retard"
+      }`);
+    }
   };
 
   return (
     <AppLayout>
-      {/* TEST VISUEL EXPLICITE - DOIT ÊTRE VISIBLE */}
-      <div className="bg-red-500 p-4 mb-4 rounded-lg">
-        <h2 className="text-white font-bold text-xl">TEST VISUEL - SI VOUS VOYEZ CECI, LE RENDU FONCTIONNE</h2>
-        <p className="text-white">Nombre de requêtes: {requests?.length || 0}</p>
-      </div>
-
       <Toaster position="top-center" />
-      <DashboardContent
-        requests={requests}
-        isAdmin={isAdmin}
-        onRequestDeleted={handleRequestDeleted}
-        onFilterChange={handleFilterChange}
-      />
+      <div className="space-y-6">
+        <DashboardHeader isSDR={isSDR} />
+        <DashboardStats 
+          requests={requests} 
+          onStatClick={handleFilterClick}
+          activeFilter={activeFilter}
+        />
+        <DashboardTabs 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          filteredRequests={filteredRequests}
+          isAdmin={isAdmin}
+          onRequestDeleted={handleRequestDeleted}
+        />
+      </div>
     </AppLayout>
   );
 };
