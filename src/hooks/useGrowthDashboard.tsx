@@ -1,5 +1,6 @@
+
 import { useCallback } from "react";
-import { toast } from "sonner"; // Si vous utilisez sonner, sinon utilisez votre librairie de toast
+import { toast } from "sonner";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -151,5 +152,8 @@ export function useGrowthDashboard(defaultTab?: string) {
     assignRequestToMe,
     updateRequestWorkflowStatus,
     getRequestDetails,
+    handleStatCardClick,
+    activeFilter,
+    setActiveFilter
   };
 }
