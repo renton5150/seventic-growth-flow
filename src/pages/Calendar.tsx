@@ -36,7 +36,7 @@ const Calendar = () => {
               events={eventsForDate}
               isLoading={isLoadingRequests}
               findMissionName={findMissionName}
-              missions={missions}
+              missions={missions || []}
             />
           </div>
         </div>

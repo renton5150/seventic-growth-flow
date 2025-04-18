@@ -11,7 +11,7 @@ interface EventsListProps {
   events: Request[];
   isLoading: boolean;
   findMissionName: (missionId: string | undefined) => string;
-  missions?: Mission[];
+  missions: Mission[];
 }
 
 export const EventsList = ({

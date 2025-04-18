@@ -5,6 +5,7 @@ import { getAllRequests } from "@/services/requestService";
 import { getAllSupaMissions } from "@/services/missions";
 import { Request, Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
+import { mapSupaMissionToMission } from "@/services/missions/utils";
 
 export const useCalendarEvents = (userId: string | undefined) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -20,8 +21,8 @@ export const useCalendarEvents = (userId: string | undefined) => {
     enabled: !!userId
   });
 
-  // Récupérer toutes les missions directement depuis Supabase
-  const { data: missions = [], isLoading: isLoadingMissions } = useQuery<Mission[]>({
+  // Récupérer toutes les missions
+  const { data: missionsRaw = [], isLoading: isLoadingMissions } = useQuery<Mission[]>({
     queryKey: ['calendar-missions'],
     queryFn: async () => {
       try {
@@ -35,8 +36,10 @@ export const useCalendarEvents = (userId: string | undefined) => {
           return [];
         }
         
-        console.log(`DEBUG - ${data.length} missions récupérées directement:`, data);
-        return data;
+        // Mapper les données brutes au format Mission attendu par l'application
+        const mappedMissions = data.map(mission => mapSupaMissionToMission(mission));
+        console.log(`DEBUG - ${mappedMissions.length} missions récupérées et mappées:`, mappedMissions);
+        return mappedMissions;
       } catch (err) {
         console.error("Exception lors de la récupération directe des missions:", err);
         return [];
@@ -47,17 +50,17 @@ export const useCalendarEvents = (userId: string | undefined) => {
 
   // Construire un map des noms de mission à partir des données récupérées
   useEffect(() => {
-    if (missions && missions.length > 0) {
-      console.log("DEBUG - Missions récupérées pour le calendrier:", missions);
-      console.log("DEBUG - Nombre total de missions:", missions.length);
+    if (missionsRaw && missionsRaw.length > 0) {
+      console.log("DEBUG - Missions récupérées pour le calendrier:", missionsRaw);
+      console.log("DEBUG - Nombre total de missions:", missionsRaw.length);
       
       // Afficher les IDs et noms de toutes les missions pour vérifier
-      missions.forEach(mission => {
+      missionsRaw.forEach(mission => {
         console.log(`DEBUG - Mission ID: ${mission.id} (${typeof mission.id}), Nom: ${mission.name}`);
       });
       
       const missionMap: Record<string, string> = {};
-      missions.forEach(mission => {
+      missionsRaw.forEach(mission => {
         if (mission && mission.id) {
           // Toujours stocker les IDs sous forme de chaînes
           const missionId = String(mission.id);
@@ -72,7 +75,7 @@ export const useCalendarEvents = (userId: string | undefined) => {
     } else {
       console.log("DEBUG - Aucune mission récupérée ou tableau vide");
     }
-  }, [missions]);
+  }, [missionsRaw]);
 
   // Définir les dates avec des événements
   useEffect(() => {
@@ -126,12 +129,12 @@ export const useCalendarEvents = (userId: string | undefined) => {
     }
     
     // 2. Ensuite, chercher dans le tableau de missions
-    if (missions && missions.length > 0) {
-      console.log(`DEBUG - findMissionName: Recherche parmi ${missions.length} missions`);
-      console.log(`DEBUG - findMissionName: Liste des IDs disponibles: ${missions.map(m => String(m.id)).join(', ')}`);
+    if (missionsRaw && missionsRaw.length > 0) {
+      console.log(`DEBUG - findMissionName: Recherche parmi ${missionsRaw.length} missions`);
+      console.log(`DEBUG - findMissionName: Liste des IDs disponibles: ${missionsRaw.map(m => String(m.id)).join(', ')}`);
       
       // D'abord essayer une correspondance exacte
-      const exactMatch = missions.find(m => String(m.id) === missionIdStr);
+      const exactMatch = missionsRaw.find(m => String(m.id) === missionIdStr);
       if (exactMatch) {
         console.log(`DEBUG - findMissionName: Correspondance exacte trouvée: ${exactMatch.name}`);
         // Mettre à jour le cache
@@ -141,7 +144,7 @@ export const useCalendarEvents = (userId: string | undefined) => {
       
       // Essayer de comparer les UUID sans les tirets
       const normalizedMissionId = missionIdStr.replace(/-/g, '');
-      const normalizedMatch = missions.find(m => String(m.id).replace(/-/g, '') === normalizedMissionId);
+      const normalizedMatch = missionsRaw.find(m => String(m.id).replace(/-/g, '') === normalizedMissionId);
       if (normalizedMatch) {
         console.log(`DEBUG - findMissionName: Correspondance normalisée trouvée: ${normalizedMatch.name}`);
         setMissionNames(prev => ({...prev, [missionIdStr]: normalizedMatch.name}));
@@ -149,7 +152,7 @@ export const useCalendarEvents = (userId: string | undefined) => {
       }
       
       // Ensuite essayer une correspondance partielle (au cas où)
-      const partialMatch = missions.find(m => 
+      const partialMatch = missionsRaw.find(m => 
         String(m.id).includes(missionIdStr) || missionIdStr.includes(String(m.id))
       );
       if (partialMatch) {
@@ -197,7 +200,7 @@ export const useCalendarEvents = (userId: string | undefined) => {
           .from("missions")
           .select("name")
           .eq("id", missionIdStr)
-          .single();
+          .maybeSingle();
           
         if (error) {
           console.error("Erreur lors de la requête directe:", error);
@@ -225,6 +228,6 @@ export const useCalendarEvents = (userId: string | undefined) => {
     datesWithEvents,
     findMissionName,
     isLoadingRequests,
-    missions
+    missions: missionsRaw
   };
 };
