@@ -150,6 +150,6 @@ export function useGrowthDashboard(defaultTab?: string) {
     handleRequestUpdated,
     assignRequestToMe,
     updateRequestWorkflowStatus,
-    getRequestDetails
-  };
-}
+  getRequestDetails,
+  handleStatCardClick
+};
