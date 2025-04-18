@@ -1,4 +1,3 @@
-
 import { 
   Building2, 
   Calendar, 
@@ -23,14 +22,14 @@ interface MenuSection {
 
 export const sdrMenuItems: MenuItem[] = [
   {
+    title: "Planning",
+    path: "/planning",
+    icon: Calendar
+  },
+  {
     title: "Missions",
     path: "/missions",
     icon: Building2
-  },
-  {
-    title: "Calendrier",
-    path: "/calendar",
-    icon: Calendar
   }
 ];
 
