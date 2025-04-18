@@ -22,10 +22,23 @@ export const EventsList = ({
   // Log pour debug
   useEffect(() => {
     if (events.length > 0) {
-      console.log("Événements reçus dans EventsList:", events);
+      console.log("DEBUG - EventsList - Événements reçus:", events);
       events.forEach(event => {
-        console.log(`Événement ${event.id}, Mission ID: ${event.missionId}, Nom mission: ${findMissionName(event.missionId)}`);
+        const missionName = findMissionName(event.missionId);
+        console.log(`DEBUG - EventsList - Événement ${event.id}, Mission ID: ${event.missionId} (${typeof event.missionId}), Nom mission: ${missionName}`);
+        
+        // Afficher toutes les propriétés de l'événement pour voir ce qui est disponible
+        console.log(`DEBUG - EventsList - Propriétés de l'événement:`, {
+          id: event.id,
+          title: event.title,
+          type: event.type,
+          missionId: event.missionId,
+          missionName: event.missionName, // Vérifier si cette propriété existe déjà
+          status: event.status
+        });
       });
+    } else {
+      console.log("DEBUG - EventsList - Aucun événement à afficher");
     }
   }, [events, findMissionName]);
 
@@ -67,37 +80,43 @@ export const EventsList = ({
           <p className="text-muted-foreground">Aucun événement à cette date</p>
         ) : (
           <ul className="space-y-3">
-            {events.map((event) => (
-              <li
-                key={event.id}
-                className="flex items-center p-3 border rounded-md hover:bg-accent"
-              >
-                {renderEventIcon(event.type)}
-                <div className="flex-grow">
-                  <p className="font-medium">{event.title}</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <Badge variant="outline" className={getStatusColor(event.status)}>
-                      {event.status === "completed"
-                        ? "Terminé"
-                        : event.status === "inprogress"
-                          ? "En cours"
-                          : "En attente"}
-                    </Badge>
-                    {event.missionId && (
-                      <p className="text-sm text-muted-foreground">
-                        Mission: {findMissionName(event.missionId)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Link
-                  to={`/requests/${event.type}/${event.id}`}
-                  className="ml-2 text-blue-600 hover:underline text-sm whitespace-nowrap"
+            {events.map((event) => {
+              // Calculer le nom de la mission à l'avance pour le débogage
+              const missionName = findMissionName(event.missionId);
+              console.log(`DEBUG - EventsList - Rendu de l'événement ${event.id}, Mission: ${missionName}`);
+              
+              return (
+                <li
+                  key={event.id}
+                  className="flex items-center p-3 border rounded-md hover:bg-accent"
                 >
-                  Voir
-                </Link>
-              </li>
-            ))}
+                  {renderEventIcon(event.type)}
+                  <div className="flex-grow">
+                    <p className="font-medium">{event.title}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <Badge variant="outline" className={getStatusColor(event.status)}>
+                        {event.status === "completed"
+                          ? "Terminé"
+                          : event.status === "inprogress"
+                            ? "En cours"
+                            : "En attente"}
+                      </Badge>
+                      {event.missionId && (
+                        <p className="text-sm text-muted-foreground">
+                          Mission: {missionName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Link
+                    to={`/requests/${event.type}/${event.id}`}
+                    className="ml-2 text-blue-600 hover:underline text-sm whitespace-nowrap"
+                  >
+                    Voir
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>
