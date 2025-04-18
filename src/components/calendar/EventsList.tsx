@@ -36,7 +36,8 @@ export const EventsList = ({
       missions.forEach(mission => {
         if (mission && mission.id) {
           const missionId = String(mission.id);
-          map[missionId] = mission.name || mission.client || "Mission sans nom";
+          // Use mission.name instead of mission.client
+          map[missionId] = mission.name || "Mission sans nom";
         }
       });
     }

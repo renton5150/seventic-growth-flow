@@ -1,6 +1,6 @@
 
 import { useQuery } from "@tanstack/react-query";
-import { Mission } from "@/types/types";
+import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "@/services/missions/utils";
 import { getAllMissions } from "@/services/missionService";
@@ -34,7 +34,7 @@ export const useMissionData = (userId: string | undefined) => {
         const mappedMissions = data.map(mission => mapSupaMissionToMission(mission));
         
         // Add hardcoded missions for testing if needed
-        const hardcodedMissions = [
+        const hardcodedMissions: Mission[] = [
           {
             id: "bdb6b562-f9ef-49cd-b035-b48d7df054e8",
             name: "Seventic",
@@ -45,7 +45,7 @@ export const useMissionData = (userId: string | undefined) => {
             requests: [],
             startDate: new Date(),
             endDate: null,
-            type: "Full",
+            type: "Full" as MissionType, // Explicitly cast as MissionType
             status: "En cours"
           },
           {
@@ -58,7 +58,7 @@ export const useMissionData = (userId: string | undefined) => {
             requests: [],
             startDate: new Date(),
             endDate: null,
-            type: "Full",
+            type: "Full" as MissionType,
             status: "En cours"
           },
           {
@@ -71,7 +71,7 @@ export const useMissionData = (userId: string | undefined) => {
             requests: [],
             startDate: new Date(),
             endDate: null,
-            type: "Full",
+            type: "Full" as MissionType,
             status: "En cours"
           },
           {
@@ -84,7 +84,7 @@ export const useMissionData = (userId: string | undefined) => {
             requests: [],
             startDate: new Date(),
             endDate: null,
-            type: "Full",
+            type: "Full" as MissionType,
             status: "En cours"
           }
         ];

@@ -18,7 +18,8 @@ export const useMissionNameUtils = (missions: Mission[]) => {
       missions.forEach(mission => {
         if (mission && mission.id) {
           const missionId = String(mission.id).trim();
-          map[missionId] = mission.name || mission.client || "Mission sans nom";
+          // Use mission.name directly instead of trying to access client property
+          map[missionId] = mission.name || "Mission sans nom";
         }
       });
     }
