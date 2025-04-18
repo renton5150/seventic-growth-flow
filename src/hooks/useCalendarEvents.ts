@@ -53,21 +53,26 @@ export const useCalendarEvents = (userId: string | undefined) => {
   const findMissionName = (missionId: string) => {
     if (!missionId) return "Sans mission";
     
+    // First check our cached mission names
     if (missionNames[missionId]) {
       return missionNames[missionId];
     }
     
+    // Then look for it in missions array
     const mission = missions && missions.find(m => m.id === missionId);
     
     if (mission) {
+      // Cache this mission name for future lookups
       setMissionNames(prev => ({...prev, [missionId]: mission.name}));
       return mission.name;
     }
     
-    if (missionId === "mission1" || missionId === "mission2" || missionId === "mission3") {
-      return "Seventic";
-    }
+    // Special handling for mock mission IDs
+    if (missionId === "mission1") return "Acme Corp";
+    if (missionId === "mission2") return "TechStart";
+    if (missionId === "mission3") return "Global Finance";
     
+    // Fallback case
     return "Mission inconnue";
   };
 

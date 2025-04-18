@@ -73,9 +73,11 @@ export const EventsList = ({
                           ? "En cours"
                           : "En attente"}
                     </Badge>
-                    <p className="text-sm text-muted-foreground">
-                      Mission: {findMissionName(event.missionId)}
-                    </p>
+                    {event.missionId && (
+                      <p className="text-sm text-muted-foreground">
+                        Mission: {findMissionName(event.missionId)}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Link
