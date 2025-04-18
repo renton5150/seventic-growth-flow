@@ -2,7 +2,7 @@
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Mail, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Request } from "@/types/types";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 interface DashboardStatsProps {
   requests: Request[];
@@ -16,29 +16,21 @@ export const DashboardStats = ({ requests, onStatClick, activeTab }: DashboardSt
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
 
-  // État pour forcer le rendu
-  const [, forceUpdate] = useState({});
-
-  // Log pour debug des stats
+  // Log pour debug des stats et de l'état actif
   useEffect(() => {
-    console.log("[DEBUG] DashboardStats - Stats calculées:", {
+    console.log("[ULTRA FIX] DashboardStats - État actuel:", {
       total: totalRequests,
-      pending: pendingRequests,
-      completed: completedRequests,
-      late: lateRequests
+      pending: pendingRequests, 
+      completed: completedRequests, 
+      late: lateRequests,
+      activeTab
     });
-    console.log("[DEBUG] DashboardStats - ActiveTab:", activeTab);
   }, [totalRequests, pendingRequests, completedRequests, lateRequests, activeTab]);
 
-  // Solution radicale: Implémentation directe et simplifiée
+  // Implémentation ultra simple sans état local
   const handleCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("[RADICAL FIX] DashboardStats - Carte cliquée:", filterType);
-    
-    // Appel direct à la fonction parent
+    console.log("[ULTRA FIX] DashboardStats - Carte cliquée directement:", filterType);
     onStatClick(filterType);
-    
-    // Force un rendu pour s'assurer que l'UI est mise à jour
-    setTimeout(() => forceUpdate({}), 0);
   };
 
   return (

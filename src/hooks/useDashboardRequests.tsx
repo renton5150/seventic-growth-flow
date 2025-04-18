@@ -82,7 +82,7 @@ export const useDashboardRequests = () => {
     }
   }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id]);
 
-  // Fonction pour filtrer les requêtes en fonction de l'onglet actif - OPTIMISÉE avec useCallback
+  // Fonction pour filtrer les requêtes en fonction de l'onglet actif
   const getFilteredRequests = useCallback(() => {
     console.log(`[DEBUG] useDashboardRequests - Filtrage des requêtes avec activeTab: ${activeTab}`);
     
@@ -107,17 +107,20 @@ export const useDashboardRequests = () => {
   // Calcul des requêtes filtrées en fonction de l'onglet actif
   const filteredRequests = getFilteredRequests();
 
-  // Solution radicale: Implémentation directe qui force la mise à jour
+  // Solution radicale: Implémentation directe avec un forçage du rendu complet
   const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
-    console.log("[RADICAL FIX] useDashboardRequests - handleStatCardClick appelé avec:", filterType);
+    console.log("[ULTRA FIX] useDashboardRequests - handleStatCardClick appelé avec:", filterType);
     
-    // Changement d'approche: mettre à jour directement l'onglet actif avec un timeout pour s'assurer
-    // que le changement soit pris en compte par le cycle de rendu React
-    setTimeout(() => {
-      setActiveTab(filterType);
-      console.log("[RADICAL FIX] useDashboardRequests - activeTab mis à jour:", filterType);
-      toast.success(`Filtrage appliqué: ${filterType}`);
-    }, 0);
+    // Application immédiate du filtre
+    setActiveTab(filterType);
+    
+    // Notification visuelle
+    toast.success(`Filtrage appliqué: ${filterType}`, {
+      duration: 2000,
+      position: "top-center"
+    });
+    
+    console.log("[ULTRA FIX] useDashboardRequests - activeTab mis à jour:", filterType);
   };
 
   return {

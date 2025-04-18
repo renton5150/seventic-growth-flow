@@ -33,8 +33,10 @@ export const DashboardTabs = ({
   
   // Log pour le débogage avec meilleure visibilité
   useEffect(() => {
-    console.log("[RADICAL FIX] DashboardTabs - activeTab:", activeTab);
-    console.log("[RADICAL FIX] DashboardTabs - filteredRequests count:", filteredRequests.length);
+    console.log("[ULTRA FIX] DashboardTabs - État actuel:", {
+      activeTab,
+      filteredCount: filteredRequests.length
+    });
   }, [activeTab, filteredRequests]);
   
   const handleCreateRequest = (type: string) => {
@@ -52,29 +54,23 @@ export const DashboardTabs = ({
         break;
     }
   };
-
-  // Solution radicale: Implémentation directe et simplifiée
-  const handleTabChange = (value: string) => {
-    console.log("[RADICAL FIX] DashboardTabs - Tab clicked:", value);
-    setActiveTab(value);
-  };
   
   return (
-    <Tabs value={activeTab} onValueChange={handleTabChange}>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
       <div className="flex justify-between items-center mb-4">
         <TabsList>
-          <TabsTrigger value="all" onClick={() => handleTabChange("all")}>
+          <TabsTrigger value="all">
             Toutes
             <span className="ml-2 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
               {filteredRequests.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="pending" onClick={() => handleTabChange("pending")}>En attente</TabsTrigger>
-          <TabsTrigger value="completed" onClick={() => handleTabChange("completed")}>Terminées</TabsTrigger>
-          <TabsTrigger value="late" onClick={() => handleTabChange("late")}>En retard</TabsTrigger>
-          <TabsTrigger value="email" onClick={() => handleTabChange("email")}>Email</TabsTrigger>
-          <TabsTrigger value="database" onClick={() => handleTabChange("database")}>Database</TabsTrigger>
-          <TabsTrigger value="linkedin" onClick={() => handleTabChange("linkedin")}>LinkedIn</TabsTrigger>
+          <TabsTrigger value="pending">En attente</TabsTrigger>
+          <TabsTrigger value="completed">Terminées</TabsTrigger>
+          <TabsTrigger value="late">En retard</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="database">Database</TabsTrigger>
+          <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
         </TabsList>
         
         <DropdownMenu>
