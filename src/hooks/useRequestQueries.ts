@@ -31,7 +31,7 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Mes assignations
+  // Mes assignations - Correction pour ne montrer que les demandes assignées au Growth connecté
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
     queryKey: ['growth-requests-my-assignments'],
     queryFn: async () => {

@@ -62,11 +62,11 @@ export function useGrowthDashboard(defaultTab?: string) {
     navigate(`/requests/${request.type}/${request.id}`);
   };
   
-  // Updated filteredRequests logic to show all Growth requests when "all" tab is selected
+  // Mise à jour du filtrage pour utiliser directement myAssignmentsRequests pour l'onglet my_assignments
   const filteredRequests = useMemo(() => {
     switch (activeTab) {
       case "all":
-        return allGrowthRequests || []; // Show all requests for Growth role
+        return allGrowthRequests || [];
       case "to_assign":
         return toAssignRequests;
       case "my_assignments":
