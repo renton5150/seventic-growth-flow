@@ -1,34 +1,23 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { NewDashboardFilters } from "@/components/dashboard/NewDashboardFilters";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
 import { useState } from "react";
 import { Toaster } from "sonner";
+import { DashboardStatsCards } from "@/components/growth/stats/DashboardStatsCards";
 
 const Dashboard = () => {
   const [filterType, setFilterType] = useState<string | null>(null);
   
   const { 
     requests,
-    filteredRequests, 
     activeTab,
     setActiveTab, 
     isSDR, 
     isAdmin,
     refetch,
   } = useDashboardRequests();
-
-  const pendingCount = requests.filter(r => 
-    r.status === "pending" || r.workflow_status === "pending_assignment"
-  ).length;
-
-  const completedCount = requests.filter(r => 
-    r.workflow_status === "completed"
-  ).length;
-
-  const lateCount = requests.filter(r => r.isLate).length;
 
   const getFilteredData = () => {
     if (!requests) return [];
@@ -64,12 +53,9 @@ const Dashboard = () => {
       <Toaster position="top-center" />
       <div className="space-y-6">
         <DashboardHeader isSDR={isSDR} />
-        <NewDashboardFilters 
-          allRequests={requests}
+        <DashboardStatsCards 
+          requestsData={requests}
           onFilterChange={handleFilterChange}
-          pendingCount={pendingCount}
-          completedCount={completedCount}
-          overdueCount={lateCount}
         />
         <DashboardTabs 
           activeTab={activeTab}
