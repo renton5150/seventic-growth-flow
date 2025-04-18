@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,6 +30,7 @@ import AdminMissions from "./pages/AdminMissions";
 import PermissionsDebug from "./pages/PermissionsDebug";
 import { DashboardWithRedirect } from "./components/dashboard/DashboardWithRedirect";
 import AIDashboard from "./pages/AIDashboard";
+import Planning from "./pages/Planning";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -136,6 +136,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Missions />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/planning" 
+                element={
+                  <ProtectedRoute>
+                    <Planning />
                   </ProtectedRoute>
                 } 
               />

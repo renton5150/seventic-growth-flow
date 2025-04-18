@@ -5,7 +5,8 @@ import {
   LayoutDashboard, 
   Users,
   BrainCircuit,
-  LogOut
+  LogOut,
+  CalendarDays
 } from "lucide-react";
 import React from "react";
 
@@ -24,7 +25,7 @@ export const sdrMenuItems: MenuItem[] = [
   {
     title: "Planning",
     path: "/planning",
-    icon: Calendar
+    icon: CalendarDays
   },
   {
     title: "Missions",
@@ -73,3 +74,9 @@ export const adminMenuItems: MenuItem[] = [
     icon: BrainCircuit
   }
 ];
+
+export const planningMenuItem: MenuItem = {
+  title: "Planning",
+  path: "/planning",
+  icon: CalendarDays
+};
