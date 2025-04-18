@@ -102,34 +102,23 @@ export const useAuthOperations = (
   const logout = async () => {
     try {
       setLoading(true);
-      console.log("Tentative de déconnexion...");
 
+      // Gestion du timeout pour la déconnexion
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 5000);
+      
       try {
-        // Vérifier d'abord si une session existe
-        const { data: sessionData } = await supabase.auth.getSession();
-        
-        if (!sessionData?.session) {
-          console.log("Aucune session active trouvée pour déconnexion");
-          // Forcer la déconnexion locale même sans session active
-          setUser(null);
-          localStorage.removeItem('sb-dupguifqyjchlmzbadav-auth-token');
-          toast.info("Déconnexion effectuée");
-          setLoading(false);
-          return true;
-        }
-        
-        // Session active trouvée, procéder à la déconnexion
-        console.log("Session active trouvée, tentative de déconnexion");
         const { error } = await supabase.auth.signOut();
+        
+        clearTimeout(timeoutId);
 
         if (error) {
           console.error("Erreur de déconnexion:", error.message);
-          // Même en cas d'erreur, forcer la déconnexion côté client
-          setUser(null);
-          localStorage.removeItem('sb-dupguifqyjchlmzbadav-auth-token');
-          toast.warning("Problème côté serveur mais déconnexion locale effectuée");
+          toast.error("Échec de la déconnexion");
           setLoading(false);
-          return true;
+          return false;
         }
 
         console.log("Déconnexion réussie");
@@ -140,26 +129,18 @@ export const useAuthOperations = (
         setLoading(false);
         return true;
       } catch (err) {
-        console.error("Exception lors de la déconnexion:", err);
-        
-        // Forcer la déconnexion locale même en cas d'erreur
-        setUser(null);
-        localStorage.removeItem('sb-dupguifqyjchlmzbadav-auth-token');
-        
-        toast.warning("Problème lors de la déconnexion, mais session terminée localement");
-        setLoading(false);
-        return true;
+        clearTimeout(timeoutId);
+        throw err;
       }
     } catch (error) {
-      console.error("Exception externe lors de la déconnexion:", error);
+      console.error("Exception lors de la déconnexion:", error);
       
-      // Forcer la déconnexion locale dans tous les cas
+      // Forcer la déconnexion locale même en cas d'erreur
       setUser(null);
-      localStorage.removeItem('sb-dupguifqyjchlmzbadav-auth-token');
+      localStorage.removeItem('supabase.auth.token');
       
-      toast.info("Session terminée localement");
       setLoading(false);
-      return true;
+      return false;
     }
   };
 

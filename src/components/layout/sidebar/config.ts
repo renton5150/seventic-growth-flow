@@ -1,4 +1,3 @@
-
 import { 
   Building2, 
   Calendar, 
@@ -50,11 +49,6 @@ export const growthMenuItems: MenuItem[] = [
     title: "Mes demandes",
     path: "/growth/my-requests",
     icon: FileText
-  },
-  {
-    title: "Planning",
-    path: "/planning",
-    icon: CalendarDays
   }
 ];
 
@@ -78,11 +72,6 @@ export const adminMenuItems: MenuItem[] = [
     title: "AI Insights",
     path: "/admin/ai-dashboard",
     icon: BrainCircuit
-  },
-  {
-    title: "Planning",
-    path: "/planning",
-    icon: CalendarDays
   }
 ];
 
