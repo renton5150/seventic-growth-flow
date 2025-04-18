@@ -28,7 +28,11 @@ export function GrowthStatsCards({ data, onFilterChange }: GrowthStatsCardsProps
   };
   
   return (
-    <div className="mb-6 bg-white rounded-lg p-2">
+    <div data-testid="stats-cards" className="mb-6 bg-white rounded-lg p-2" style={{
+      border: '2px solid blue',
+      position: 'relative',
+      zIndex: 100
+    }}>
       <h2 className="text-lg font-semibold mb-3 px-2">Statistiques</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <button
@@ -88,3 +92,6 @@ export function GrowthStatsCards({ data, onFilterChange }: GrowthStatsCardsProps
     </div>
   );
 }
+
+// Export default aussi pour être sûr
+export default GrowthStatsCards;

@@ -3,19 +3,33 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { Request } from "@/types/types";
 import { GrowthStatsCards } from "@/components/growth/GrowthStatsCards";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface DashboardContentProps {
   requests: Request[];
   isAdmin: boolean;
   onRequestDeleted: () => void;
+  onFilterChange?: (filter: string | null) => void;
 }
 
-export const DashboardContent = ({ requests, isAdmin, onRequestDeleted }: DashboardContentProps) => {
+export const DashboardContent = ({ 
+  requests, 
+  isAdmin, 
+  onRequestDeleted,
+  onFilterChange
+}: DashboardContentProps) => {
   const [filterType, setFilterType] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   
   console.log('DashboardContent rendering with requests:', requests);
+
+  useEffect(() => {
+    console.log("DashboardContent mounted");
+    
+    // Inspecter le DOM
+    const statsCards = document.querySelector('[data-testid="stats-cards"]');
+    console.log("Stats cards element found:", !!statsCards);
+  }, []);
 
   // Filter requests based on type
   const getFilteredRequests = () => {
@@ -35,15 +49,25 @@ export const DashboardContent = ({ requests, isAdmin, onRequestDeleted }: Dashbo
     }
   };
 
+  const handleLocalFilterChange = (newFilter: string | null) => {
+    console.log("Filter changed in DashboardContent to:", newFilter);
+    setFilterType(newFilter);
+    if (onFilterChange) {
+      onFilterChange(newFilter);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <DashboardHeader isSDR={!isAdmin} />
       
-      {/* Explicit stats cards inclusion */}
-      <GrowthStatsCards 
-        data={requests}
-        onFilterChange={setFilterType}
-      />
+      {/* Explicit stats cards inclusion with forced visibility */}
+      <div style={{ position: 'relative', zIndex: 50 }}>
+        <GrowthStatsCards 
+          data={requests}
+          onFilterChange={handleLocalFilterChange}
+        />
+      </div>
       
       <DashboardTabs 
         activeTab={activeTab}
