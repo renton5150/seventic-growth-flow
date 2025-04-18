@@ -35,10 +35,6 @@ export const GrowthDashboardContent = ({
   const { user } = useAuth();
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
-  
-  const statsRequests = isMyRequestsPage
-    ? allRequests.filter(req => req.assigned_to === user?.id)
-    : allRequests;
 
   // Function to handle stat card clicks
   const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
@@ -50,7 +46,6 @@ export const GrowthDashboardContent = ({
         setActiveTab("completed");
         break;
       case "late":
-        // For late requests, we'll set a custom tab that will be handled in the filteredRequests logic
         setActiveTab("late");
         break;
       default:
@@ -61,7 +56,7 @@ export const GrowthDashboardContent = ({
   return (
     <>
       <GrowthStatsCards 
-        allRequests={statsRequests} 
+        allRequests={allRequests} 
         onStatClick={handleStatCardClick}
       />
       
@@ -84,4 +79,3 @@ export const GrowthDashboardContent = ({
     </>
   );
 };
-
