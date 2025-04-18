@@ -1,17 +1,20 @@
 
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Building2, Calendar, LayoutDashboard, Users, FileText, Database, BrainCircuit } from "lucide-react";
+import { LogOut, LayoutDashboard } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getUserInitials } from "@/utils/permissionUtils";
 import { MenuSection } from "./sidebar/MenuSection";
 import { UserProfile } from "./sidebar/UserProfile";
 import { adminMenuItems, growthMenuItems, sdrMenuItems } from "./sidebar/config";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 export const AppSidebar = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setIsMounted(true);
@@ -20,6 +23,15 @@ export const AppSidebar = () => {
   const isAdmin = user?.role === "admin";
   const isGrowth = user?.role === "growth";
   const isSDR = user?.role === "sdr";
+
+  const handleLogout = async () => {
+    if (await logout()) {
+      toast.success("Déconnexion réussie");
+      navigate("/login");
+    } else {
+      toast.error("Échec de la déconnexion");
+    }
+  };
 
   return (
     <div className="h-full min-h-screen w-64 border-r bg-background flex flex-col">
@@ -51,6 +63,14 @@ export const AppSidebar = () => {
 
           <div className="mt-auto pt-4 border-t">
             <UserProfile user={user} />
+            <Button 
+              variant="ghost" 
+              onClick={handleLogout} 
+              className="w-full mt-2 text-muted-foreground hover:text-foreground flex items-center justify-start"
+            >
+              <LogOut className="mr-3 h-4 w-4" />
+              Déconnexion
+            </Button>
           </div>
         </div>
       )}

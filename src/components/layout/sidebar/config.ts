@@ -3,17 +3,17 @@ import {
   Building2, 
   Calendar, 
   FileText, 
-  Database, 
   LayoutDashboard, 
   Users,
-  BrainCircuit
+  BrainCircuit,
+  LogOut
 } from "lucide-react";
 import React from "react";
 
 interface MenuItem {
   title: string;
   path: string;
-  icon: React.ComponentType;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 interface MenuSection {
@@ -49,11 +49,6 @@ export const growthMenuItems: MenuItem[] = [
     title: "Mes demandes",
     path: "/growth/my-requests",
     icon: FileText
-  },
-  {
-    title: "Bases de données",
-    path: "/databases",
-    icon: Database
   }
 ];
 
