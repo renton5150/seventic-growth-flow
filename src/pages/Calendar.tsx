@@ -15,8 +15,17 @@ const Calendar = () => {
     datesWithEvents,
     findMissionName,
     isLoadingRequests,
-    missions
+    missions,
+    missionNameMap
   } = useCalendarEvents(user?.id);
+
+  // Log missions for debugging
+  React.useEffect(() => {
+    if (missions) {
+      console.log(`Calendar page - Missions loaded: ${missions.length}`);
+      missions.forEach(m => console.log(`Mission: ${m.id} - ${m.name}`));
+    }
+  }, [missions]);
 
   return (
     <AppLayout>

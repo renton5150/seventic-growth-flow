@@ -25,19 +25,21 @@ export const EventsList = ({
   const missionNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     
+    // Add hardcoded missions first (highest priority)
+    map["bdb6b562-f9ef-49cd-b035-b48d7df054e8"] = "Seventic";
+    map["124ea847-cf3f-44af-becb-75641ebf0ef1"] = "Datalit";
+    map["f34e4f08-34c6-4419-b79e-83b6f519f8cf"] = "Sames";
+    map["2180c854-4d88-4d53-88c3-f2efc9d251af"] = "HSBC";
+    
     // Add all missions to the map
     if (missions && missions.length > 0) {
       missions.forEach(mission => {
         if (mission && mission.id) {
           const missionId = String(mission.id);
-          map[missionId] = mission.name;
+          map[missionId] = mission.name || mission.client || "Mission sans nom";
         }
       });
     }
-    
-    // Add known mission IDs manually
-    map["124ea847-cf3f-44af-becb-75641ebf0ef1"] = "Datalit";
-    map["bdb6b562-f9ef-49cd-b035-b48d7df054e8"] = "Seventic";
     
     return map;
   }, [missions]);
@@ -76,6 +78,25 @@ export const EventsList = ({
     // Strategy 2: Use our mission map for quick lookup
     if (event.missionId) {
       const idStr = String(event.missionId);
+      
+      // Check hardcoded IDs first
+      if (idStr === "bdb6b562-f9ef-49cd-b035-b48d7df054e8") {
+        return "Seventic";
+      }
+      
+      if (idStr === "124ea847-cf3f-44af-becb-75641ebf0ef1") {
+        return "Datalit";
+      }
+
+      if (idStr === "f34e4f08-34c6-4419-b79e-83b6f519f8cf") {
+        return "Sames";
+      }
+
+      if (idStr === "2180c854-4d88-4d53-88c3-f2efc9d251af") {
+        return "HSBC";
+      }
+      
+      // Then check our map
       if (missionNameMap[idStr]) {
         return missionNameMap[idStr];
       }
@@ -137,4 +158,4 @@ export const EventsList = ({
       </CardContent>
     </Card>
   );
-};
+}

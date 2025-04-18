@@ -19,6 +19,17 @@ export const useCalendarEvents = (userId: string | undefined) => {
   const { selectedDate, setSelectedDate, eventsForDate, datesWithEvents } = useCalendarDates(requests);
   const { findMissionName, missionNameMap } = useMissionNameUtils(missions || []);
 
+  // Log mission data for debugging
+  console.log(`[useCalendarEvents] Loaded ${missions?.length || 0} missions`);
+  if (missions?.length) {
+    missions.forEach(mission => {
+      console.log(`[useCalendarEvents] Mission: ${mission.id} - ${mission.name}`);
+    });
+  }
+
+  // Log mission name map for debugging
+  console.log(`[useCalendarEvents] Mission map has ${Object.keys(missionNameMap || {}).length} entries`);
+
   return {
     selectedDate,
     setSelectedDate,
