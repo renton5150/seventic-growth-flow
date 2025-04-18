@@ -1,13 +1,13 @@
 
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, LayoutDashboard } from "lucide-react";
+import { LogOut, LayoutDashboard, CalendarDays } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getUserInitials } from "@/utils/permissionUtils";
 import { MenuSection } from "./sidebar/MenuSection";
 import { UserProfile } from "./sidebar/UserProfile";
-import { adminMenuItems, growthMenuItems, sdrMenuItems } from "./sidebar/config";
+import { adminMenuItems, growthMenuItems, sdrMenuItems, planningMenuItem } from "./sidebar/config";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +15,7 @@ export const AppSidebar = () => {
   const { user, logout } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     setIsMounted(true);
@@ -25,12 +26,22 @@ export const AppSidebar = () => {
   const isSDR = user?.role === "sdr";
 
   const handleLogout = async () => {
-    if (await logout()) {
-      toast.success("Déconnexion réussie");
-      navigate("/login");
-    } else {
-      toast.error("Échec de la déconnexion");
+    try {
+      const success = await logout();
+      if (success) {
+        toast.success("Déconnexion réussie");
+        navigate("/login");
+      } else {
+        toast.error("Échec de la déconnexion");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+      toast.error("Erreur inattendue lors de la déconnexion");
     }
+  };
+
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
   return (
@@ -49,10 +60,29 @@ export const AppSidebar = () => {
             <div className="mb-4">
               <Link
                 to="/dashboard"
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  isActive("/dashboard")
+                    ? "bg-accent text-accent-foreground" 
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
               >
                 <LayoutDashboard className="mr-3 h-4 w-4" />
                 Tableau de bord
+              </Link>
+            </div>
+
+            {/* Élément de menu Planning pour tous les utilisateurs */}
+            <div className="mb-4">
+              <Link
+                to="/planning"
+                className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  isActive("/planning")
+                    ? "bg-accent text-accent-foreground" 
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                <CalendarDays className="mr-3 h-4 w-4" />
+                Planning
               </Link>
             </div>
 

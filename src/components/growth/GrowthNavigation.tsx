@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { 
   LayoutDashboard, 
   UserSquare2,
-  Calendar
+  Calendar,
+  CalendarDays
 } from "lucide-react";
 import {
   SidebarMenu,
@@ -61,6 +62,16 @@ export const GrowthNavigation = () => {
             <UserSquare2 className="h-4 w-4" />
             <span>Mes demandes</span>
             {myRequestsCount > 0 && <CountBadge count={myRequestsCount} />}
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+
+      {/* Planning */}
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild className={pathname.includes("/planning") ? "bg-green-100 text-green-700" : "hover:bg-green-50 hover:text-green-600"}>
+          <Link to="/planning" className="flex items-center gap-2 w-full">
+            <CalendarDays className="h-4 w-4" />
+            <span>Planning</span>
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
