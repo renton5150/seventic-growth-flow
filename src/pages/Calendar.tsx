@@ -18,6 +18,11 @@ const Calendar = () => {
     missions
   } = useCalendarEvents(user?.id);
 
+  // Log de diagnostic pour vérifier les missions disponibles au niveau du calendrier
+  console.log("[DIAGNOSTIC - Calendar] Missions disponibles:", 
+    Array.isArray(missions) ? missions.length : "Aucune mission", 
+    Array.isArray(missions) ? missions.map(m => ({id: m.id, name: m.name})) : "[]");
+
   return (
     <AppLayout>
       <div className="space-y-6">
