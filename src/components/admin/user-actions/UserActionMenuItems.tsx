@@ -1,12 +1,11 @@
-
 import { Edit, Mail, Trash2, Shield, LineChart, HeadsetIcon, Loader2 } from "lucide-react";
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { User, UserRole } from "@/types/types";
 import { toast } from "sonner";
 import { updateUserRole } from "@/services/user/userManagement";
-import { resendInvitation } from "@/services/user";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserActionMenuItemsProps {
   user: User;
@@ -31,55 +30,51 @@ export const UserActionMenuItems = ({
     
     try {
       setIsSendingInvite(true);
-      console.log("Starting invitation process for:", user.email);
+      console.log("Starting password reset process for:", user.email);
       
-      // Send invitation with a proper delay to allow the UI to update
-      setTimeout(async () => {
-        // Send invitation
-        console.log("Making resendInvitation call for:", user.email);
-        const result = await resendInvitation(user.email);
-        console.log("resendInvitation result:", result);
+      // Utiliser directement resetPasswordForEmail au lieu de la fonction Edge
+      const origin = window.location.origin;
+      const redirectUrl = `${origin}/reset-password?type=invite&email=${encodeURIComponent(user.email)}`;
+      
+      console.log("Reset password redirect URL:", redirectUrl);
+      
+      const { data, error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: redirectUrl
+      });
+      
+      console.log("resetPasswordForEmail result:", { data, error });
+      
+      if (error) {
+        toast.error("Erreur lors de l'envoi", {
+          id: toastId,
+          description: error.message || "Une erreur est survenue"
+        });
         
-        if (result.success) {
-          // Update toast to success
-          toast.success("Invitation envoyée", {
-            id: toastId,
-            description: `Une invitation a été envoyée à ${user.email}`
-          });
-          
-          // Provide detailed console info for debugging
-          console.log("Invitation sent successfully:", {
-            email: user.email,
-            userExists: result.userExists,
-            emailProvider: result.emailProvider,
-            smtpConfigured: result.smtpConfigured
-          });
-          
-          // Wait before notifying parent
-          setTimeout(() => onActionComplete(), 300);
-        } else {
-          toast.error("Erreur lors de l'envoi", {
-            id: toastId,
-            description: result.error || "Une erreur est survenue"
-          });
-          
-          console.error("Failed to send invitation:", {
-            email: user.email,
-            error: result.error
-          });
-        }
+        console.error("Failed to send reset password email:", {
+          email: user.email,
+          error: error
+        });
+      } else {
+        // Update toast to success
+        toast.success("Invitation envoyée", {
+          id: toastId,
+          description: `Un email de réinitialisation a été envoyé à ${user.email}`
+        });
         
-        // Reset sending state after a short delay
-        setTimeout(() => setIsSendingInvite(false), 300);
-      }, 100);
+        // Provide detailed console info for debugging
+        console.log("Reset password email sent successfully to:", user.email);
+        
+        // Wait before notifying parent
+        setTimeout(() => onActionComplete(), 300);
+      }
     } catch (error) {
-      console.error("Exception lors de l'envoi de l'invitation:", error);
+      console.error("Exception lors de l'envoi de l'email de réinitialisation:", error);
       toast.error("Erreur système", {
         id: toastId,
         description: "Une erreur système est survenue lors de l'envoi"
       });
-      
-      // Reset sending state
+    } finally {
+      // Reset sending state after a short delay
       setTimeout(() => setIsSendingInvite(false), 300);
     }
   };

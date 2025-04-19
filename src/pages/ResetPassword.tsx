@@ -82,12 +82,10 @@ const ResetPassword = () => {
         return;
       }
 
-      // Utilisation correcte de l'API Supabase
-      // La méthode updateUser et la propriété password existent sur UserAttributes
-      // mais token doit être passé comme second argument
+      // Correction de l'appel à updateUser pour utiliser correctement le token
       const { error } = await supabase.auth.updateUser(
         { password: newPassword },
-        { token }
+        { emailRedirectTo: window.location.origin + '/login' }
       );
 
       if (error) {
@@ -125,6 +123,48 @@ const ResetPassword = () => {
     }
   };
 
+  // Fonction pour demander un nouveau lien de réinitialisation
+  const handleRequestNewLink = async () => {
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Email manquant. Veuillez contacter un administrateur.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+
+      if (error) {
+        console.error("Erreur lors de l'envoi du lien:", error);
+        toast({
+          variant: "destructive",
+          title: "Erreur",
+          description: "Impossible d'envoyer un nouveau lien de réinitialisation.",
+        });
+      } else {
+        toast({
+          title: "Email envoyé",
+          description: "Un nouveau lien de réinitialisation a été envoyé à votre adresse email.",
+        });
+      }
+    } catch (err) {
+      console.error("Exception lors de l'envoi du lien:", err);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'envoi du lien.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <Card className="w-full max-w-md p-4">
@@ -140,10 +180,30 @@ const ResetPassword = () => {
         </CardHeader>
         <CardContent>
           {expiredLink ? (
-            <Alert variant="default" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{expiredLinkMessage}</AlertDescription>
-            </Alert>
+            <>
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Lien d'invitation expiré</AlertTitle>
+                <AlertDescription>{expiredLinkMessage}</AlertDescription>
+              </Alert>
+              {email && (
+                <div className="mt-4 text-center">
+                  <p className="mb-4">Souhaitez-vous recevoir un nouveau lien ?</p>
+                  <Button 
+                    onClick={handleRequestNewLink} 
+                    disabled={loading} 
+                    className="w-full"
+                  >
+                    {loading ? "Envoi en cours..." : "Demander un nouveau lien"}
+                  </Button>
+                </div>
+              )}
+              {!email && (
+                <div className="mt-4 text-center">
+                  <p>Veuillez contacter un administrateur pour obtenir une nouvelle invitation.</p>
+                </div>
+              )}
+            </>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
