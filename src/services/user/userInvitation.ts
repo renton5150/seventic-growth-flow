@@ -19,20 +19,20 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     
     console.log("Attempting to resend invitation for:", userEmail);
     
-    // Get current application base URL
+    // Get current application base URL - use window.location.origin to get the full URL
     const origin = window.location.origin;
     
     // Redirect URL for password reset page
     const redirectUrl = `${origin}/reset-password?type=invite`;
     
-    // Set up a shorter client-side timeout (8 seconds)
+    // Set up a shorter client-side timeout (15 seconds)
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 
           success: true, 
           warning: "L'opération a pris plus de temps que prévu mais l'email a probablement été envoyé."
         });
-      }, 8000);
+      }, 15000);
     });
     
     // Request params with explicit invitation options

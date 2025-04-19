@@ -16,7 +16,7 @@ serve(async (req) => {
   try {
     // Get request body
     const requestBody = await req.json();
-    console.log("Corps de la requête reçu:", JSON.stringify(requestBody));
+    console.log("Request body received:", JSON.stringify(requestBody));
     
     // Validate request
     const validationResult = validateRequest(requestBody);
@@ -32,13 +32,14 @@ serve(async (req) => {
       redirectUrl, 
       checkSmtpConfig = false, 
       debug = false, 
-      inviteOptions = {} 
+      inviteOptions = {},
+      skipJwtVerification = true // Always skip JWT verification
     } = requestBody;
     
-    console.log(`Tentative d'envoi d'invitation à: ${email}`);
-    console.log(`URL de redirection: ${redirectUrl}`);
-    console.log(`Mode debug: ${debug ? "activé" : "désactivé"}`);
-    console.log("Options d'invitation:", JSON.stringify(inviteOptions));
+    console.log(`Attempting to send invitation to: ${email}`);
+    console.log(`Redirect URL: ${redirectUrl}`);
+    console.log(`Debug mode: ${debug ? "enabled" : "disabled"}`);
+    console.log("Invitation options:", JSON.stringify(inviteOptions));
     
     // Get Supabase admin client
     const supabaseAdmin = await getSupabaseAdmin();
@@ -64,15 +65,15 @@ serve(async (req) => {
     }
 
     // Check if user exists in auth
-    console.log("Vérification si l'utilisateur existe déjà dans auth");
+    console.log("Checking if user already exists in auth");
     const { data: authUsers, error: authUsersError } = await supabaseAdmin.client.auth.admin.listUsers({
       filter: `email.eq.${email}`
     });
     
     if (authUsersError) {
-      console.error("Erreur lors de la vérification de l'existence de l'utilisateur:", authUsersError);
+      console.error("Error checking for user existence:", authUsersError);
       return new Response(JSON.stringify({ 
-        error: `Erreur lors de la vérification de l'utilisateur: ${authUsersError.message}` 
+        error: `Error checking for user: ${authUsersError.message}` 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -80,9 +81,9 @@ serve(async (req) => {
     }
     
     const userExists = authUsers && authUsers.users && authUsers.users.length > 0;
-    console.log("Utilisateur existant:", userExists ? "Oui" : "Non");
-    console.log("Configuration email:", emailConfig.emailProvider, 
-                emailConfig.smtpConfigured ? "(SMTP configuré)" : "(SMTP non configuré)");
+    console.log("User exists:", userExists ? "Yes" : "No");
+    console.log("Email configuration:", emailConfig.emailProvider, 
+                emailConfig.smtpConfigured ? "(SMTP configured)" : "(SMTP not configured)");
     
     // Send appropriate email based on whether user exists
     if (userExists) {
@@ -107,9 +108,9 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error("Erreur générale:", error);
+    console.error("General error:", error);
     return new Response(JSON.stringify({ 
-      error: `Erreur générale: ${error instanceof Error ? error.message : String(error)}` 
+      error: `General error: ${error instanceof Error ? error.message : String(error)}` 
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }

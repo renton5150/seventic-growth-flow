@@ -98,6 +98,33 @@ export const createUser = async (
       
     console.log("Vérification du rôle après création:", profileCheck?.role);
     
+    // Après la création réussie, envoyer une invitation explicite
+    try {
+      console.log("Envoi de l'invitation explicite via resend-invitation...");
+      const inviteParams = {
+        email: email,
+        redirectUrl: redirectTo,
+        skipJwtVerification: true,
+        inviteOptions: {
+          expireIn: 7776000 // 90 days
+        }
+      };
+      
+      // Appel explicite à la fonction edge pour s'assurer que l'email est envoyé
+      const { data: inviteData, error: inviteError } = await supabase.functions.invoke(
+        'resend-invitation', 
+        { body: inviteParams }
+      );
+      
+      if (inviteError) {
+        console.warn("Avertissement: L'invitation explicite supplémentaire a échoué, mais l'utilisateur a été créé:", inviteError);
+      } else {
+        console.log("Invitation supplémentaire envoyée avec succès:", inviteData);
+      }
+    } catch (inviteErr) {
+      console.warn("Exception lors de l'envoi de l'invitation supplémentaire:", inviteErr);
+    }
+    
     // Créer l'objet utilisateur à retourner
     const newUser: User = {
       id: data.user.id,

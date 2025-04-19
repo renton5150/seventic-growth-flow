@@ -32,32 +32,38 @@ export const UserActionMenuItems = ({
     try {
       setIsSendingInvite(true);
       
-      // Send invitation
-      const result = await resendInvitation(user.email);
-      
-      if (result.success) {
-        // Update toast to success
-        toast.success("Invitation envoyée", {
-          id: toastId,
-          description: `Une invitation a été envoyée à ${user.email}`
-        });
+      // Send invitation with a proper delay to allow the UI to update
+      setTimeout(async () => {
+        // Send invitation
+        const result = await resendInvitation(user.email);
         
-        // Wait before notifying parent
-        setTimeout(() => onActionComplete(), 300);
-      } else {
-        toast.error("Erreur lors de l'envoi", {
-          id: toastId,
-          description: result.error || "Une erreur est survenue"
-        });
-      }
+        if (result.success) {
+          // Update toast to success
+          toast.success("Invitation envoyée", {
+            id: toastId,
+            description: `Une invitation a été envoyée à ${user.email}`
+          });
+          
+          // Wait before notifying parent
+          setTimeout(() => onActionComplete(), 300);
+        } else {
+          toast.error("Erreur lors de l'envoi", {
+            id: toastId,
+            description: result.error || "Une erreur est survenue"
+          });
+        }
+        
+        // Reset sending state after a short delay
+        setTimeout(() => setIsSendingInvite(false), 300);
+      }, 100);
     } catch (error) {
       console.error("Exception lors de l'envoi de l'invitation:", error);
       toast.error("Erreur système", {
         id: toastId,
         description: "Une erreur système est survenue lors de l'envoi"
       });
-    } finally {
-      // Reset sending state after a short delay
+      
+      // Reset sending state
       setTimeout(() => setIsSendingInvite(false), 300);
     }
   };

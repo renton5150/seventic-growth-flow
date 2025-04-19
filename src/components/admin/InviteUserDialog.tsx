@@ -40,7 +40,9 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
     setErrorMessage(null);
   };
 
-  const handleInvite = async () => {
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent default form submission
+    
     if (!name || !email) {
       setErrorMessage("Veuillez remplir tous les champs");
       return;
@@ -82,6 +84,8 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
           id: toastId,
           description: errorMsg 
         });
+        
+        // Since the dialog was already closed, don't try to show the error in the dialog
       }
     } catch (error) {
       console.error("Exception lors de l'invitation:", error);
@@ -115,72 +119,76 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
           </DialogDescription>
         </DialogHeader>
         
-        {errorMessage && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-        )}
-        
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nom</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Entrez le nom complet"
-            />
+        <form onSubmit={handleInvite}>
+          {errorMessage && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nom</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Entrez le nom complet"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Entrez l'adresse email"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="role">Rôle</Label>
+              <Select 
+                value={role} 
+                onValueChange={(value) => {
+                  if (value === "admin" || value === "growth" || value === "sdr") {
+                    setRole(value as UserRole);
+                  }
+                }}
+              >
+                <SelectTrigger id="role">
+                  <SelectValue placeholder="Sélectionner un rôle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="growth">Growth</SelectItem>
+                  <SelectItem value="sdr">SDR</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Entrez l'adresse email"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="role">Rôle</Label>
-            <Select 
-              value={role} 
-              onValueChange={(value) => {
-                if (value === "admin" || value === "growth" || value === "sdr") {
-                  setRole(value as UserRole);
-                }
-              }}
-            >
-              <SelectTrigger id="role">
-                <SelectValue placeholder="Sélectionner un rôle" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="growth">Growth</SelectItem>
-                <SelectItem value="sdr">SDR</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Annuler
-          </Button>
-          <Button onClick={handleInvite} disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Ajout en cours...
-              </>
-            ) : (
-              "Ajouter l'utilisateur"
-            )}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isLoading}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Ajout en cours...
+                </>
+              ) : (
+                "Ajouter l'utilisateur"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
