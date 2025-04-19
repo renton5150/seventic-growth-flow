@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
 import { InviteUserDialog } from "./InviteUserDialog";
@@ -23,6 +23,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   const [activeTab, setActiveTab] = useState<string>("all");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
@@ -32,13 +33,47 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
     retry: 2,
   });
 
-  // Moins d'appels à refetch pour éviter de surcharger l'API
+  // Optimized refetch that prevents concurrent refreshes
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) {
+      console.log("Rafraîchissement déjà en cours, ignoré");
+      return;
+    }
+    
+    console.log("Rafraîchissement manuel des utilisateurs");
+    setIsRefreshing(true);
+    
+    try {
+      await refetch();
+      
+      // Notify parent component if callback exists
+      if (onUserDataChange) {
+        setTimeout(() => {
+          onUserDataChange();
+        }, 300);
+      }
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement des données:", error);
+    } finally {
+      // Reset the refreshing state after a delay
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 800);
+    }
+  }, [refetch, onUserDataChange, isRefreshing]);
+
+  // Less frequent calls to refetch for better performance
   useEffect(() => {
     if (onUserDataChange) {
       console.log("UserManagementTabs monté - rafraîchissement initial");
-      refetch();
+      handleRefresh();
     }
-  }, [refetch, onUserDataChange]);
+    
+    // Cleanup function
+    return () => {
+      setIsRefreshing(false);
+    };
+  }, [handleRefresh, onUserDataChange]);
 
   const filteredUsers = users.filter(user => {
     if (activeTab === "all") return true;
@@ -53,21 +88,10 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   const handleUserInvited = async () => {
     console.log("Utilisateur invité, rafraîchissement des données");
     
-    try {
-      await refetch();
-      
-      // Notify parent component if callback exists
-      if (onUserDataChange) {
-        onUserDataChange();
-      }
-    } catch (error) {
-      console.error("Erreur lors du rafraîchissement des données après invitation:", error);
-    }
-  };
-  
-  const handleRefresh = () => {
-    console.log("Rafraîchissement manuel des utilisateurs");
-    refetch();
+    // Wait a moment before refreshing to avoid UI freeze
+    setTimeout(() => {
+      handleRefresh();
+    }, 500);
   };
 
   return (
@@ -92,7 +116,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
           <div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="flex items-center gap-2">
+                <Button className="flex items-center gap-2" disabled={isRefreshing}>
                   <PlusCircle className="h-4 w-4" />
                   <span>Inviter un collaborateur</span>
                   <ChevronDown className="h-4 w-4 ml-1" />
@@ -114,7 +138,11 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
         </div>
 
         <TabsContent value={activeTab} className="mt-4">
-          <UsersTable users={filteredUsers} isLoading={isLoading} onRefresh={handleRefresh} />
+          <UsersTable 
+            users={filteredUsers} 
+            isLoading={isLoading || isRefreshing} 
+            onRefresh={handleRefresh} 
+          />
         </TabsContent>
       </Tabs>
 

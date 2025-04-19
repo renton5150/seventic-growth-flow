@@ -47,35 +47,36 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
       const result = await createUser(email, name, role);
       
       if (result.success) {
-        toast.success("Utilisateur ajouté avec succès", {
-          description: `${name} (${email}) a été ajouté en tant que ${role}`
-        });
-        
-        console.log("Utilisateur créé:", result.user);
-        
-        // Réinitialiser les champs
-        resetForm();
-        
-        // Fermer le dialogue après avoir notifié le parent
+        // Close the dialog first, before showing the toast and notifying the parent
         onOpenChange(false);
         
-        // Attendre un court délai avant de rafraîchir les données
-        // pour éviter le blocage de l'interface
+        // Small delay to allow dialog animation to complete
         setTimeout(() => {
-          onUserInvited();
-        }, 500);
+          // Notify success after dialog closes
+          toast.success("Utilisateur ajouté avec succès", {
+            description: `${name} (${email}) a été ajouté en tant que ${role}`
+          });
+          
+          // Reset form fields
+          resetForm();
+          
+          // Wait a bit more before refreshing data to avoid UI freeze
+          setTimeout(() => {
+            onUserInvited();
+          }, 300);
+        }, 300);
       } else {
         const errorMsg = result.error || "Une erreur est survenue lors de l'ajout de l'utilisateur";
         console.error("Erreur lors de l'invitation:", errorMsg);
         setErrorMessage(errorMsg);
         toast.error("Échec de l'ajout", { description: errorMsg });
+        setIsLoading(false);
       }
     } catch (error) {
       console.error("Exception lors de l'invitation:", error);
       const errorMsg = error instanceof Error ? error.message : "Une erreur inattendue est survenue";
       setErrorMessage(errorMsg);
       toast.error("Erreur", { description: errorMsg });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -83,12 +84,15 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       if (!isLoading) {
-        onOpenChange(isOpen);
         if (!isOpen) {
-          resetForm();
+          // Allow time for potential toast messages to show before resetting the form
+          setTimeout(() => {
+            resetForm();
+          }, 300);
         } else {
           setRole(defaultRole);
         }
+        onOpenChange(isOpen);
       }
     }}>
       <DialogContent>

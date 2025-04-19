@@ -27,14 +27,14 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     const redirectUrl = `${origin}/reset-password?type=invite`;
     console.log("URL de redirection complète:", redirectUrl);
     
-    // Implémenter un timeout côté client plus court (5 secondes)
+    // Implémenter un timeout côté client plus court (8 secondes)
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 
           success: true, 
-          warning: "L'opération a pris plus de 5 secondes. L'email a peut-être été envoyé, veuillez vérifier."
+          warning: "L'opération a pris plus de 8 secondes. L'email a peut-être été envoyé, veuillez vérifier."
         });
-      }, 5000);
+      }, 8000);
     });
     
     // Paramètres de requête étendus avec plus de détails pour le débogage
@@ -44,9 +44,9 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       checkSmtpConfig: true,
       debug: true,
       timestamp: new Date().toISOString(),
-      // Ajouter une durée de validité plus longue pour l'invitation (14 jours)
+      // Ajouter une durée de validité plus longue pour l'invitation (30 jours)
       inviteOptions: {
-        expireIn: 1209600 // 14 jours en secondes
+        expireIn: 2592000 // 30 jours en secondes
       }
     };
     

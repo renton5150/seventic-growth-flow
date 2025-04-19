@@ -1,5 +1,5 @@
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserManagementTabs } from "@/components/admin/UserManagementTabs";
 import { useAuth } from "@/contexts/auth";
@@ -12,17 +12,32 @@ const AdminUsers = () => {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Fonction pour rafraîchir les données utilisateur - optimisée pour limiter les appels
+  // Clean up any pending operations when component unmounts
+  useEffect(() => {
+    return () => {
+      console.log("AdminUsers unmounting - nettoyage des opérations en cours");
+      setIsRefreshing(false);
+    };
+  }, []);
+  
+  // Optimized refresh function with debounce
   const refreshUserData = useCallback(() => {
+    if (isRefreshing) {
+      console.log("Refresh déjà en cours, ignoré");
+      return;
+    }
+    
     console.log("Rafraîchissement des données utilisateur depuis AdminUsers");
+    setIsRefreshing(true);
     
     try {
       // Invalider le cache local d'abord
       invalidateUserCache();
       
       // Toast pour indiquer le rafraichissement
-      toast.info("Rafraîchissement des données...", {
+      const toastId = toast.loading("Rafraîchissement des données...", {
         duration: 1000,
         position: "bottom-right"
       });
@@ -42,11 +57,19 @@ const AdminUsers = () => {
           queryKey: ['admin-users'],
           refetchType: 'all' 
         });
+        
+        // Assez de temps pour que les données soient rechargées
+        setTimeout(() => {
+          toast.success("Données rafraîchies", { id: toastId });
+          setIsRefreshing(false);
+        }, 500);
       }, 300);
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des données:", error);
+      setIsRefreshing(false);
+      toast.error("Erreur lors du rafraîchissement");
     }
-  }, [queryClient]);
+  }, [queryClient, isRefreshing]);
   
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;

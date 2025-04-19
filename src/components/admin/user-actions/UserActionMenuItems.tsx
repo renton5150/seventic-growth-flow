@@ -32,7 +32,10 @@ export const UserActionMenuItems = ({
   const handleResendInvitation = async () => {
     if (isSendingInvite || localSending) return;
     
-    const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
+    // Create a persistent toast that will be updated with results
+    const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`, {
+      duration: 10000 // Longer duration to ensure visibility
+    });
     
     try {
       setIsSendingInvite(true);
@@ -40,23 +43,28 @@ export const UserActionMenuItems = ({
       
       console.log("Envoi d'invitation explicitement à l'email:", user.email);
       
-      // Fermer d'abord le menu dropdown si possible
-      // Note: en pratique, cela se fermera quand l'utilisateur clique
+      // Using explicit email string for clarity
+      const userEmail = user.email.trim();
+      console.log("Email après trim:", userEmail);
       
-      // Utiliser TOUJOURS et EXPLICITEMENT l'email de l'utilisateur pour le renvoi
-      const result = await resendInvitation(user.email);
+      // Send the invitation with extended expiration
+      const result = await resendInvitation(userEmail);
       
       console.log("Résultat du renvoi d'invitation:", JSON.stringify(result, null, 2));
       
       if (result.success) {
+        // Close any open menus first (done by parent component)
+        
+        // Update toast to success and show for a bit longer
         toast.success("Invitation envoyée", {
           id: toastId,
-          description: `Une invitation a été envoyée à ${user.email}`,
+          description: `Une invitation a été envoyée à ${userEmail}`,
           duration: 5000
         });
         
-        // Forcer le rafraîchissement des données utilisateur avec un délai
+        // Allow some time to show success message before refreshing
         setTimeout(() => {
+          // Force refresh of user data with aggressive invalidation
           queryClient.invalidateQueries({ 
             queryKey: ['users'],
             refetchType: 'all'
@@ -66,14 +74,14 @@ export const UserActionMenuItems = ({
             refetchType: 'all'
           });
           
-          // Attendre un court instant avant de rafraîchir pour éviter les problèmes d'état
+          // Notify parent after a short delay
           setTimeout(() => {
             onActionComplete();
           }, 300);
-        }, 300);
+        }, 500);
       } else {
         toast.error("Erreur lors de l'envoi", {
-          id: toastId, 
+          id: toastId,
           description: result.error || "Une erreur est survenue lors de l'envoi de l'invitation",
           duration: 8000
         });
@@ -82,13 +90,15 @@ export const UserActionMenuItems = ({
       console.error("Exception lors de l'envoi de l'invitation:", error);
       toast.error("Erreur système", {
         id: toastId, 
-        description: "Une erreur système est survenue lors de l'envoi de l'invitation"
+        description: "Une erreur système est survenue lors de l'envoi de l'invitation",
+        duration: 8000
       });
     } finally {
+      // Reset sending state after a short delay to prevent rapid re-clicks
       setTimeout(() => {
         setIsSendingInvite(false);
         setLocalSending(false);
-      }, 500);
+      }, 800);
     }
   };
   
@@ -107,7 +117,7 @@ export const UserActionMenuItems = ({
           description: `Le rôle de ${user.email} a été modifié en ${newRole}`
         });
         
-        // Forcer le rafraîchissement des données avec un délai
+        // Force refresh of data
         setTimeout(() => {
           queryClient.invalidateQueries({ 
             queryKey: ['users'],
@@ -118,7 +128,7 @@ export const UserActionMenuItems = ({
             refetchType: 'all'
           });
           
-          // Délai pour permettre à l'UI de se mettre à jour
+          // Notify parent
           setTimeout(() => {
             onActionComplete();
           }, 300);
