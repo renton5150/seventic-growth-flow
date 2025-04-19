@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Mission } from "@/types/types";
@@ -41,24 +41,19 @@ export function EditMissionDialog({
 }: EditMissionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Function to close the dialog and reset state
+  // Fonction simplifiée de fermeture de la boite de dialogue
   const handleClose = () => {
     if (!isSubmitting) {
       onOpenChange(false);
     }
   };
   
-  // Fonction de soumission du formulaire avec gestion d'erreurs améliorée
   const onSubmit = async (values: MissionFormValues) => {
     if (!mission) return;
     
+    setIsSubmitting(true);
+    
     try {
-      console.log("Formulaire de mise à jour soumis avec les valeurs:", values);
-      console.log("SDR ID sélectionné pour mise à jour:", values.sdrId);
-      console.log("Status sélectionné pour mise à jour:", values.status);
-      
-      setIsSubmitting(true);
-      
       const updatedMissionData = {
         id: mission.id,
         name: values.name,
@@ -70,36 +65,29 @@ export function EditMissionDialog({
         status: values.status
       };
       
-      console.log("Données préparées pour la mise à jour:", updatedMissionData);
-      
-      // Appel API pour mettre à jour avec timeout de sécurité
-      const result = await updateMission(updatedMissionData);
-      
-      console.log("Résultat de la mise à jour:", result);
-      
-      // Fermer le dialogue AVANT de déclencher la mise à jour
-      setIsSubmitting(false);
+      // Étape 1: Fermer la boîte de dialogue immédiatement pour éviter les problèmes de rendu
       handleClose();
       
-      // Délai court pour s'assurer que le dialogue est fermé
+      // Étape 2: Appel API pour mettre à jour - après la fermeture pour éviter les conflits d'état
+      await updateMission(updatedMissionData);
+      
+      // Étape 3: Notification et rafraichissement des données
       setTimeout(() => {
-        // Afficher le toast de succès
         toast.success("Mission mise à jour", {
           description: `La mission "${values.name}" a été mise à jour avec succès.`
         });
         
-        // Appeler la fonction de rappel pour mettre à jour la liste
         if (onMissionUpdated) {
           onMissionUpdated();
         }
       }, 100);
-      
     } catch (error) {
       console.error("Erreur lors de la mise à jour:", error);
-      setIsSubmitting(false);
       toast.error("Erreur lors de la mise à jour", {
         description: "Une erreur est survenue lors de la mise à jour de la mission"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -112,7 +100,10 @@ export function EditMissionDialog({
   
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]" aria-describedby="mission-edit-description">
+      <DialogContent 
+        className="sm:max-w-[500px]" 
+        aria-describedby="mission-edit-description"
+      >
         <DialogHeader>
           <DialogTitle>Modifier la mission</DialogTitle>
           <p id="mission-edit-description" className="sr-only">Formulaire de modification d'une mission</p>

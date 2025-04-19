@@ -1,8 +1,8 @@
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { Mission } from "@/types/types";
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog
 import { DeleteMissionDialog } from "@/components/missions/DeleteMissionDialog";
 import { getAllMissions } from "@/services/missions-service";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
-import { invalidateUserCache } from "@/services/user/userQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -20,15 +19,15 @@ import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0); // Clé de rafraîchissement pour forcer la requête
+  const [refreshKey, setRefreshKey] = useState(0); 
   
+  // Fonction optimisée de rafraîchissement des données
   const refreshMissionsData = useCallback(() => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
     
@@ -37,10 +36,11 @@ const AdminMissions = () => {
       queryKey: ['missions', 'admin'],
     });
     
-    // Forcer un nouveau rendu en incrémentant la clé de rafraîchissement
+    // Déclencher un nouveau rendu en forçant une nouvelle requête
     setRefreshKey(prev => prev + 1);
   }, [queryClient]);
 
+  // Requête optimisée avec clé de dépendance pour forcer le rafraîchissement
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions', 'admin', refreshKey],
     queryFn: async () => {
@@ -62,44 +62,41 @@ const AdminMissions = () => {
   }
 
   const handleCreateMissionClick = () => {
-    console.log("Ouverture de la modal de création de mission");
     setIsCreateModalOpen(true);
   };
 
   const handleViewMission = (mission: Mission) => {
-    console.log("Affichage de la mission:", mission);
     setSelectedMission(mission);
   };
   
   const handleDeleteMission = (mission: Mission) => {
-    console.log("Demande de suppression de la mission:", mission);
     setMissionToDelete(mission);
   };
   
   const handleDeleteSuccess = () => {
-    console.log("Mission supprimée avec succès, rafraîchissement des données");
     refreshMissionsData();
   };
 
   const handleEditMission = (mission: Mission) => {
-    console.log("Demande d'édition de la mission:", mission);
     setMissionToEdit(mission);
     setIsEditModalOpen(true);
   };
   
+  // Fonction de rafraîchissement avec délai pour garantir la mise à jour complète
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour, rafraîchissement des données");
-    refreshMissionsData();
+    // Ajout d'un délai pour garantir que la base de données a bien été mise à jour
+    setTimeout(() => {
+      refreshMissionsData();
+    }, 300);
   };
   
-  // Fonction pour gérer la fermeture de la boîte de dialogue d'édition
+  // Gestion optimisée de la fermeture de la boîte de dialogue d'édition
   const handleEditDialogChange = (open: boolean) => {
-    console.log("Changement d'état de la boîte de dialogue d'édition:", open);
     setIsEditModalOpen(open);
     
     if (!open) {
-      // Réinitialiser missionToEdit lorsque la boîte de dialogue est fermée
-      // pour éviter des problèmes de données obsolètes
+      // Réinitialiser missionToEdit avec un délai pour éviter les problèmes de rendu
       setTimeout(() => {
         setMissionToEdit(null);
       }, 200);
