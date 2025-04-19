@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { updateUserRole } from "@/services/user/userManagement";
 import { resendInvitation } from "@/services/user";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 interface UserActionMenuItemsProps {
   user: User;
@@ -26,16 +27,21 @@ export const UserActionMenuItems = ({
   onActionComplete
 }: UserActionMenuItemsProps) => {
   const queryClient = useQueryClient();
+  const [localSending, setLocalSending] = useState(false);
   
   const handleResendInvitation = async () => {
-    if (isSendingInvite) return;
+    if (isSendingInvite || localSending) return;
     
     const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
     
     try {
       setIsSendingInvite(true);
+      setLocalSending(true);
       
       console.log("Envoi d'invitation explicitement à l'email:", user.email);
+      
+      // Fermer d'abord le menu dropdown si possible
+      // Note: en pratique, cela se fermera quand l'utilisateur clique
       
       // Utiliser TOUJOURS et EXPLICITEMENT l'email de l'utilisateur pour le renvoi
       const result = await resendInvitation(user.email);
@@ -49,14 +55,22 @@ export const UserActionMenuItems = ({
           duration: 5000
         });
         
-        // Forcer le rafraîchissement des données utilisateur
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-        
-        // Attendre un court instant avant de rafraîchir pour éviter les problèmes d'état
+        // Forcer le rafraîchissement des données utilisateur avec un délai
         setTimeout(() => {
-          onActionComplete();
-        }, 500);
+          queryClient.invalidateQueries({ 
+            queryKey: ['users'],
+            refetchType: 'all'
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ['admin-users'],
+            refetchType: 'all'
+          });
+          
+          // Attendre un court instant avant de rafraîchir pour éviter les problèmes d'état
+          setTimeout(() => {
+            onActionComplete();
+          }, 300);
+        }, 300);
       } else {
         toast.error("Erreur lors de l'envoi", {
           id: toastId, 
@@ -71,7 +85,10 @@ export const UserActionMenuItems = ({
         description: "Une erreur système est survenue lors de l'envoi de l'invitation"
       });
     } finally {
-      setIsSendingInvite(false);
+      setTimeout(() => {
+        setIsSendingInvite(false);
+        setLocalSending(false);
+      }, 500);
     }
   };
   
@@ -90,14 +107,22 @@ export const UserActionMenuItems = ({
           description: `Le rôle de ${user.email} a été modifié en ${newRole}`
         });
         
-        // Forcer le rafraîchissement des données
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-        
-        // Délai pour permettre à l'UI de se mettre à jour
+        // Forcer le rafraîchissement des données avec un délai
         setTimeout(() => {
-          onActionComplete();
-        }, 500);
+          queryClient.invalidateQueries({ 
+            queryKey: ['users'],
+            refetchType: 'all'
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ['admin-users'],
+            refetchType: 'all'
+          });
+          
+          // Délai pour permettre à l'UI de se mettre à jour
+          setTimeout(() => {
+            onActionComplete();
+          }, 300);
+        }, 300);
       } else {
         toast.error("Erreur", {
           id: toastId,
@@ -155,15 +180,15 @@ export const UserActionMenuItems = ({
       
       <DropdownMenuItem 
         onClick={handleResendInvitation} 
-        disabled={isSendingInvite}
+        disabled={isSendingInvite || localSending}
         className="gap-2"
       >
-        {isSendingInvite ? (
+        {(isSendingInvite || localSending) ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <Mail className="h-4 w-4" />
         )}
-        <span>{isSendingInvite ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
+        <span>{(isSendingInvite || localSending) ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
       </DropdownMenuItem>
       
       <DropdownMenuSeparator />

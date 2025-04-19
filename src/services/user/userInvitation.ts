@@ -44,9 +44,9 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       checkSmtpConfig: true,
       debug: true,
       timestamp: new Date().toISOString(),
-      // Ajouter une durée de validité plus longue pour l'invitation
+      // Ajouter une durée de validité plus longue pour l'invitation (14 jours)
       inviteOptions: {
-        expireIn: 604800 // 7 jours en secondes
+        expireIn: 1209600 // 14 jours en secondes
       }
     };
     

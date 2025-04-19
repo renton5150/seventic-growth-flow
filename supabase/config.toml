@@ -56,3 +56,9 @@ port = 54325
 
 [functions.anthropic-ai]
 verify_jwt = true
+
+[functions.resend-invitation]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = false

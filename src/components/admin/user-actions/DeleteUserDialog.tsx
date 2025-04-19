@@ -5,6 +5,7 @@ import { User } from "@/types/types";
 import { deleteUser } from "@/services/user";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 
 interface DeleteUserDialogProps {
   isOpen: boolean;
@@ -24,6 +25,23 @@ export const DeleteUserDialog = ({
   onUserDeleted
 }: DeleteUserDialogProps) => {
   const queryClient = useQueryClient();
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Synchroniser l'état interne avec l'état externe
+  useEffect(() => {
+    setInternalOpen(isOpen);
+  }, [isOpen]);
+  
+  // Nettoyer l'état lors du démontage pour éviter les fuites mémoire
+  useEffect(() => {
+    return () => {
+      // Nettoyage de l'état lors du démontage du composant
+      if (isDeleting) {
+        console.log("Composant démonté pendant la suppression, nettoyage de l'état");
+        setTimeout(() => setIsDeleting(false), 100);
+      }
+    };
+  }, [isDeleting, setIsDeleting]);
   
   const handleDeleteUser = async () => {
     if (isDeleting) return; // Éviter les doubles clics
@@ -35,10 +53,11 @@ export const DeleteUserDialog = ({
       setIsDeleting(true);
       
       // IMPORTANT: Fermer d'abord la boîte de dialogue pour éviter le gel de l'interface
+      setInternalOpen(false);
       onOpenChange(false);
       
-      // Délai minimal pour s'assurer que la boîte de dialogue est fermée avant de continuer
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Délai minimum pour s'assurer que la boîte de dialogue est fermée avant de continuer
+      await new Promise(resolve => setTimeout(resolve, 150));
       
       // Effectuer la suppression après la fermeture de la boîte de dialogue
       console.log(`Tentative de suppression de l'utilisateur: ${user.id}`);
@@ -57,15 +76,23 @@ export const DeleteUserDialog = ({
           toast.success(`Utilisateur ${user.name} supprimé avec succès`);
         }
         
-        // Garantir que toutes les requêtes utilisateurs sont invalidées
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-        
-        // Utiliser un délai plus long pour s'assurer que les états sont mis à jour
+        // Garantir que toutes les requêtes utilisateurs sont invalidées avec un délai
         setTimeout(() => {
-          onUserDeleted();
-          setIsDeleting(false);
-        }, 500);
+          queryClient.invalidateQueries({ 
+            queryKey: ['users'],
+            refetchType: 'all'
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ['admin-users'],
+            refetchType: 'all'
+          });
+          
+          // Utiliser un délai plus long pour s'assurer que les états sont mis à jour
+          setTimeout(() => {
+            onUserDeleted();
+            setIsDeleting(false);
+          }, 300);
+        }, 300);
       } else {
         toast.dismiss(toastId);
         toast.error(`Erreur: ${error || "Une erreur est survenue lors de la suppression"}`);
@@ -81,12 +108,16 @@ export const DeleteUserDialog = ({
   };
   
   return (
-    <AlertDialog open={isOpen} onOpenChange={(open) => {
-      // Empêcher la fermeture pendant la suppression
-      if (!isDeleting) {
-        onOpenChange(open);
-      }
-    }}>
+    <AlertDialog 
+      open={internalOpen} 
+      onOpenChange={(open) => {
+        // Empêcher la fermeture pendant la suppression
+        if (!isDeleting) {
+          setInternalOpen(open);
+          onOpenChange(open);
+        }
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>

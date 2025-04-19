@@ -1,5 +1,5 @@
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserManagementTabs } from "@/components/admin/UserManagementTabs";
 import { useAuth } from "@/contexts/auth";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 const AdminUsers = () => {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // Fonction pour rafraîchir les données utilisateur - optimisée pour limiter les appels
   const refreshUserData = useCallback(() => {
@@ -20,23 +21,28 @@ const AdminUsers = () => {
       // Invalider le cache local d'abord
       invalidateUserCache();
       
-      // Toast pour indiquer le raffraichissement
+      // Toast pour indiquer le rafraichissement
       toast.info("Rafraîchissement des données...", {
         duration: 1000,
         position: "bottom-right"
       });
       
-      // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
-      queryClient.invalidateQueries({ 
-        queryKey: ['users'],
-        refetchType: 'all' 
-      });
+      // Mettre à jour la clé de rafraîchissement pour forcer la mise à jour des composants
+      setRefreshKey(prev => prev + 1);
       
-      // Garantir que les données admin-users sont aussi rafraîchies
-      queryClient.invalidateQueries({ 
-        queryKey: ['admin-users'],
-        refetchType: 'all' 
-      });
+      // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
+      setTimeout(() => {
+        queryClient.invalidateQueries({ 
+          queryKey: ['users'],
+          refetchType: 'all' 
+        });
+        
+        // Garantir que les données admin-users sont aussi rafraîchies
+        queryClient.invalidateQueries({ 
+          queryKey: ['admin-users'],
+          refetchType: 'all' 
+        });
+      }, 300);
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des données:", error);
     }
@@ -53,7 +59,10 @@ const AdminUsers = () => {
           <h1 className="text-2xl font-bold">Gestion des utilisateurs</h1>
         </div>
         
-        <UserManagementTabs onUserDataChange={refreshUserData} />
+        <UserManagementTabs 
+          key={`user-management-${refreshKey}`} 
+          onUserDataChange={refreshUserData} 
+        />
       </div>
     </AppLayout>
   );
