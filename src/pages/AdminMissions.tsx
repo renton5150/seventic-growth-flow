@@ -32,35 +32,12 @@ const AdminMissions = () => {
   const refreshMissionsData = useCallback(() => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
     
-    // Invalidate the query cache and force a refetch with a slight delay
-    // to ensure the cache is properly cleared
-    setTimeout(() => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['missions'],
-        refetchType: 'all' 
-      });
-    }, 100);
+    // Invalider le cache de requête et forcer une récupération
+    queryClient.invalidateQueries({ 
+      queryKey: ['missions'],
+      refetchType: 'all' 
+    });
   }, [queryClient]);
-
-  useEffect(() => {
-    const diagnoseMissionData = async () => {
-      try {
-        const { data: directData, error: directError } = await supabase
-          .from('missions')
-          .select('id, name, sdr_id');
-        
-        if (directError) {
-          console.error("Erreur lors de la vérification directe:", directError);
-        } else {
-          console.log("Données directes de Supabase:", directData);
-        }
-      } catch (error) {
-        console.error("Erreur lors du diagnostic:", error);
-      }
-    };
-    
-    diagnoseMissionData();
-  }, []);
 
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions', 'admin'],
@@ -69,13 +46,6 @@ const AdminMissions = () => {
         console.log("Chargement des missions pour l'administrateur");
         const allMissions = await getAllMissions();
         console.log("Missions récupérées:", allMissions);
-        allMissions.forEach(mission => {
-          console.log(`Mission ${mission.id}:`, {
-            name: mission.name,
-            sdrId: mission.sdrId,
-            sdrName: mission.sdrName || "Non assigné"
-          });
-        });
         return allMissions;
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
@@ -113,6 +83,14 @@ const AdminMissions = () => {
     console.log("Demande d'édition de la mission:", mission);
     setMissionToEdit(mission);
     setIsEditModalOpen(true);
+  };
+  
+  const handleMissionUpdated = () => {
+    console.log("Mission mise à jour, rafraîchissement des données");
+    // Attendre un court moment avant de rafraîchir pour permettre à la base de données de se mettre à jour
+    setTimeout(() => {
+      refreshMissionsData();
+    }, 500);
   };
 
   if (isLoading) {
@@ -178,7 +156,7 @@ const AdminMissions = () => {
           mission={missionToEdit}
           open={isEditModalOpen}
           onOpenChange={setIsEditModalOpen}
-          onMissionUpdated={refreshMissionsData}
+          onMissionUpdated={handleMissionUpdated}
         />
       </div>
     </AppLayout>

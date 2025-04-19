@@ -86,24 +86,15 @@ export function EditMissionDialog({
       
       console.log("Résultat de la mise à jour:", result);
       
+      // Important: Fermer le dialogue AVANT d'afficher le toast ou de rediriger
       handleClose();
       
-      // Utiliser toast.success mais immédiatement rediriger après
+      // Afficher le toast de succès sans redirection automatique
       toast.success("Mission mise à jour", {
-        description: `La mission a été mise à jour avec succès. Statut: ${values.status}`,
-        onDismiss: () => {
-          // Rediriger vers la liste des missions avec paramètre timestamp pour éviter les problèmes de cache
-          window.location.href = `/missions?t=${Date.now()}`;
-        },
-        // Fermer automatiquement après un court délai pour éviter de bloquer l'interface
-        duration: 1500,
+        description: `La mission "${values.name}" a été mise à jour avec succès.`
       });
       
-      // Alternative: rediriger immédiatement sans attendre la fermeture du toast
-      setTimeout(() => {
-        window.location.href = `/missions?t=${Date.now()}`;
-      }, 2000);
-      
+      // Appeler la fonction de rappel pour mettre à jour la liste
       if (onMissionUpdated) {
         onMissionUpdated();
       }
