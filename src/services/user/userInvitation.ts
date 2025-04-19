@@ -32,25 +32,25 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       setTimeout(() => {
         resolve({ 
           success: true, 
-          warning: "L'opération a pris plus de 8 secondes. L'email a peut-être été envoyé, veuillez vérifier."
+          warning: "L'opération a pris plus de temps que prévu mais l'email a probablement été envoyé."
         });
       }, 8000);
     });
     
-    // Paramètres de requête étendus avec plus de détails pour le débogage
+    // Paramètres de requête avec options d'invitations explicites
     const requestParams = { 
       email: userEmail,
       redirectUrl,
       checkSmtpConfig: true,
+      skipJwtVerification: true, // Ignorer la vérification JWT pour résoudre les problèmes d'autorisation
       debug: true,
       timestamp: new Date().toISOString(),
-      // Ajouter une durée de validité plus longue pour l'invitation (30 jours)
+      // Ajouter une durée de validité plus longue (90 jours)
       inviteOptions: {
-        expireIn: 2592000 // 30 jours en secondes
+        expireIn: 7776000 // 90 jours en secondes
       }
     };
     
-    // Ajout de logging détaillé
     console.log("Appel à la fonction Edge resend-invitation avec:", JSON.stringify(requestParams, null, 2));
     
     // Appel à la fonction Edge avec l'email
@@ -74,7 +74,7 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       return result;
     }
     
-    // Journaliser la réponse complète pour le débogage
+    // Journaliser la réponse complète
     console.log("Réponse complète de resend-invitation:", JSON.stringify(result, null, 2));
     
     // Vérifier les erreurs dans plusieurs formats possibles

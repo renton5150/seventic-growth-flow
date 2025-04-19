@@ -24,12 +24,22 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
   const [role, setRole] = useState<UserRole>(defaultRole);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Synchroniser avec l'état externe
+  useState(() => {
+    setInternalOpen(open);
+    if (open) {
+      setRole(defaultRole);
+    }
+  });
 
   const resetForm = () => {
     setName("");
     setEmail("");
     setRole(defaultRole);
     setErrorMessage(null);
+    setIsLoading(false);
   };
 
   const handleInvite = async () => {
@@ -44,58 +54,74 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
     try {
       console.log(`Envoi de l'invitation pour ${email} avec le rôle ${role}`);
       
+      // Fermer d'abord la boîte de dialogue
+      setInternalOpen(false);
+      onOpenChange(false);
+      
+      // Afficher un toast de chargement
+      const toastId = toast.loading(`Ajout de l'utilisateur ${name}...`);
+      
+      // Attendre un court délai pour s'assurer que la boîte de dialogue est fermée
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Créer l'utilisateur
       const result = await createUser(email, name, role);
       
       if (result.success) {
-        // Close the dialog first, before showing the toast and notifying the parent
-        onOpenChange(false);
+        // Mettre à jour le toast
+        toast.success("Utilisateur ajouté avec succès", {
+          id: toastId,
+          description: `${name} (${email}) a été ajouté en tant que ${role}`
+        });
         
-        // Small delay to allow dialog animation to complete
-        setTimeout(() => {
-          // Notify success after dialog closes
-          toast.success("Utilisateur ajouté avec succès", {
-            description: `${name} (${email}) a été ajouté en tant que ${role}`
-          });
-          
-          // Reset form fields
-          resetForm();
-          
-          // Wait a bit more before refreshing data to avoid UI freeze
-          setTimeout(() => {
-            onUserInvited();
-          }, 300);
-        }, 300);
+        // Réinitialiser le formulaire
+        resetForm();
+        
+        // Notifier le composant parent
+        onUserInvited();
       } else {
         const errorMsg = result.error || "Une erreur est survenue lors de l'ajout de l'utilisateur";
         console.error("Erreur lors de l'invitation:", errorMsg);
-        setErrorMessage(errorMsg);
-        toast.error("Échec de l'ajout", { description: errorMsg });
+        
+        toast.error("Échec de l'ajout", { 
+          id: toastId,
+          description: errorMsg 
+        });
+        
+        // Rétablir l'état du formulaire
         setIsLoading(false);
       }
     } catch (error) {
       console.error("Exception lors de l'invitation:", error);
       const errorMsg = error instanceof Error ? error.message : "Une erreur inattendue est survenue";
-      setErrorMessage(errorMsg);
+      
       toast.error("Erreur", { description: errorMsg });
       setIsLoading(false);
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isLoading) {
-        if (!isOpen) {
-          // Allow time for potential toast messages to show before resetting the form
-          setTimeout(() => {
-            resetForm();
-          }, 300);
-        } else {
-          setRole(defaultRole);
-        }
-        onOpenChange(isOpen);
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isLoading) {
+      setInternalOpen(isOpen);
+      onOpenChange(isOpen);
+      
+      if (!isOpen) {
+        // Réinitialiser le formulaire après fermeture
+        setTimeout(resetForm, 300);
+      } else {
+        // Réinitialiser seulement le rôle à l'ouverture
+        setRole(defaultRole);
       }
-    }}>
-      <DialogContent>
+    }
+  };
+
+  return (
+    <Dialog open={internalOpen} onOpenChange={handleOpenChange}>
+      <DialogContent onEscapeKeyDown={(e) => {
+        if (isLoading) {
+          e.preventDefault();
+        }
+      }}>
         <DialogHeader>
           <DialogTitle>Inviter un utilisateur</DialogTitle>
           <DialogDescription>
@@ -137,12 +163,10 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
             <Select 
               value={role} 
               onValueChange={(value) => {
-                // Restriction explicite à des valeurs de type UserRole
                 if (value === "admin" || value === "growth" || value === "sdr") {
                   setRole(value as UserRole);
                 } else {
-                  console.error("Valeur de rôle invalide:", value);
-                  setRole("sdr"); // Valeur par défaut
+                  setRole("sdr");
                 }
               }}
             >
@@ -159,7 +183,7 @@ export const InviteUserDialog = ({ open, onOpenChange, defaultRole, onUserInvite
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Annuler
           </Button>
           <Button onClick={handleInvite} disabled={isLoading}>

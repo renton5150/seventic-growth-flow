@@ -1,7 +1,7 @@
 
-import { Edit, Mail, Trash2, User as UserIcon, Shield, LineChart, HeadsetIcon, Loader2 } from "lucide-react";
+import { Edit, Mail, Trash2, Shield, LineChart, HeadsetIcon, Loader2 } from "lucide-react";
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
-import { User } from "@/types/types";
+import { User, UserRole } from "@/types/types";
 import { toast } from "sonner";
 import { updateUserRole } from "@/services/user/userManagement";
 import { resendInvitation } from "@/services/user";
@@ -12,7 +12,6 @@ interface UserActionMenuItemsProps {
   user: User;
   isSendingInvite: boolean;
   isDeleting: boolean;
-  onChangeRole: () => void;
   onDelete: () => void;
   setIsSendingInvite: (value: boolean) => void;
   onActionComplete: () => void;
@@ -27,160 +26,143 @@ export const UserActionMenuItems = ({
   onActionComplete
 }: UserActionMenuItemsProps) => {
   const queryClient = useQueryClient();
-  const [localSending, setLocalSending] = useState(false);
+  const [isChangingRole, setIsChangingRole] = useState(false);
   
   const handleResendInvitation = async () => {
-    if (isSendingInvite || localSending) return;
+    if (isSendingInvite || isDeleting || isChangingRole) return;
     
-    // Create a persistent toast that will be updated with results
-    const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`, {
-      duration: 10000 // Longer duration to ensure visibility
-    });
+    // Toast persistant qui sera mis à jour
+    const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
     
     try {
       setIsSendingInvite(true);
-      setLocalSending(true);
       
-      console.log("Envoi d'invitation explicitement à l'email:", user.email);
-      
-      // Using explicit email string for clarity
+      // Utilisation explicite de l'email
       const userEmail = user.email.trim();
-      console.log("Email après trim:", userEmail);
       
-      // Send the invitation with extended expiration
+      // Envoyer l'invitation
       const result = await resendInvitation(userEmail);
       
-      console.log("Résultat du renvoi d'invitation:", JSON.stringify(result, null, 2));
-      
       if (result.success) {
-        // Close any open menus first (done by parent component)
-        
-        // Update toast to success and show for a bit longer
+        // Mise à jour du toast en succès
         toast.success("Invitation envoyée", {
           id: toastId,
-          description: `Une invitation a été envoyée à ${userEmail}`,
-          duration: 5000
+          description: `Une invitation a été envoyée à ${userEmail}`
         });
         
-        // Allow some time to show success message before refreshing
-        setTimeout(() => {
-          // Force refresh of user data with aggressive invalidation
-          queryClient.invalidateQueries({ 
-            queryKey: ['users'],
-            refetchType: 'all'
-          });
-          queryClient.invalidateQueries({ 
-            queryKey: ['admin-users'],
-            refetchType: 'all'
-          });
-          
-          // Notify parent after a short delay
-          setTimeout(() => {
-            onActionComplete();
-          }, 300);
-        }, 500);
+        // Forcer le rafraîchissement des données
+        queryClient.invalidateQueries({ 
+          queryKey: ['users'],
+          refetchType: 'all'
+        });
+        
+        // Notifier le composant parent
+        onActionComplete();
       } else {
         toast.error("Erreur lors de l'envoi", {
           id: toastId,
-          description: result.error || "Une erreur est survenue lors de l'envoi de l'invitation",
-          duration: 8000
+          description: result.error || "Une erreur est survenue"
         });
       }
     } catch (error) {
       console.error("Exception lors de l'envoi de l'invitation:", error);
       toast.error("Erreur système", {
-        id: toastId, 
-        description: "Une erreur système est survenue lors de l'envoi de l'invitation",
-        duration: 8000
+        id: toastId
       });
     } finally {
-      // Reset sending state after a short delay to prevent rapid re-clicks
+      // Reset de l'état d'envoi
       setTimeout(() => {
         setIsSendingInvite(false);
-        setLocalSending(false);
-      }, 800);
+      }, 300);
     }
   };
   
-  // Fonction pour changer directement le rôle sans boîte de dialogue
-  const handleDirectRoleChange = async (newRole: string) => {
-    if (newRole === user.role) return;
+  // Fonction pour changer le rôle directement
+  const handleDirectRoleChange = async (newRole: UserRole) => {
+    if (newRole === user.role || isDeleting || isSendingInvite || isChangingRole) return;
     
     const toastId = toast.loading(`Modification du rôle pour ${user.email}...`);
     
     try {
+      setIsChangingRole(true);
+      
       const { success, error } = await updateUserRole(user.id, newRole);
       
       if (success) {
+        // Mise à jour du toast en succès
         toast.success("Rôle modifié", {
           id: toastId,
           description: `Le rôle de ${user.email} a été modifié en ${newRole}`
         });
         
-        // Force refresh of data
-        setTimeout(() => {
-          queryClient.invalidateQueries({ 
-            queryKey: ['users'],
-            refetchType: 'all'
-          });
-          queryClient.invalidateQueries({ 
-            queryKey: ['admin-users'],
-            refetchType: 'all'
-          });
-          
-          // Notify parent
-          setTimeout(() => {
-            onActionComplete();
-          }, 300);
-        }, 300);
+        // Rafraîchir les données et notifier
+        queryClient.invalidateQueries({ 
+          queryKey: ['users'],
+          refetchType: 'all'
+        });
+        
+        // Notifier le composant parent
+        onActionComplete();
       } else {
         toast.error("Erreur", {
           id: toastId,
-          description: error || "Une erreur est survenue lors du changement de rôle"
+          description: error || "Une erreur est survenue"
         });
       }
     } catch (error) {
       console.error("Erreur lors du changement de rôle:", error);
-      toast.error("Erreur", {
-        id: toastId,
-        description: "Une erreur est survenue lors du changement de rôle"
-      });
+      toast.error("Erreur", { id: toastId });
+    } finally {
+      // Reset de l'état
+      setTimeout(() => {
+        setIsChangingRole(false);
+      }, 300);
     }
   };
   
-  // Fonction pour obtenir l'icône appropriée pour chaque rôle
-  const getRoleIcon = (role: string) => {
+  // Obtenir l'icône appropriée pour chaque rôle
+  const getRoleIcon = (role: UserRole) => {
     switch (role) {
       case "admin": return <Shield className="h-4 w-4 mr-2" />;
       case "growth": return <LineChart className="h-4 w-4 mr-2" />;
       case "sdr": return <HeadsetIcon className="h-4 w-4 mr-2" />;
-      default: return <UserIcon className="h-4 w-4 mr-2" />;
+      default: return <Edit className="h-4 w-4 mr-2" />;
     }
   };
   
+  const isButtonDisabled = isSendingInvite || isDeleting || isChangingRole;
+  
   return (
     <>
-      {/* Remplacer le bouton "Modifier le rôle" par un sous-menu */}
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger className="gap-2">
+        <DropdownMenuSubTrigger disabled={isButtonDisabled} className="gap-2">
           <Edit className="h-4 w-4" />
           <span>Modifier le rôle</span>
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
           {user.role !== "admin" && (
-            <DropdownMenuItem onClick={() => handleDirectRoleChange("admin")}>
+            <DropdownMenuItem 
+              onClick={() => handleDirectRoleChange("admin")}
+              disabled={isButtonDisabled}
+            >
               {getRoleIcon("admin")}
               <span>Admin</span>
             </DropdownMenuItem>
           )}
           {user.role !== "growth" && (
-            <DropdownMenuItem onClick={() => handleDirectRoleChange("growth")}>
+            <DropdownMenuItem 
+              onClick={() => handleDirectRoleChange("growth")}
+              disabled={isButtonDisabled}
+            >
               {getRoleIcon("growth")}
               <span>Growth</span>
             </DropdownMenuItem>
           )}
           {user.role !== "sdr" && (
-            <DropdownMenuItem onClick={() => handleDirectRoleChange("sdr")}>
+            <DropdownMenuItem 
+              onClick={() => handleDirectRoleChange("sdr")}
+              disabled={isButtonDisabled}
+            >
               {getRoleIcon("sdr")}
               <span>SDR</span>
             </DropdownMenuItem>
@@ -190,22 +172,22 @@ export const UserActionMenuItems = ({
       
       <DropdownMenuItem 
         onClick={handleResendInvitation} 
-        disabled={isSendingInvite || localSending}
+        disabled={isButtonDisabled}
         className="gap-2"
       >
-        {(isSendingInvite || localSending) ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        {isSendingInvite ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <Mail className="h-4 w-4" />
         )}
-        <span>{(isSendingInvite || localSending) ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
+        <span>{isSendingInvite ? "Envoi en cours..." : "Renvoyer l'invitation"}</span>
       </DropdownMenuItem>
       
       <DropdownMenuSeparator />
       
       <DropdownMenuItem 
         onClick={onDelete} 
-        disabled={isDeleting}
+        disabled={isButtonDisabled}
         className="text-destructive gap-2 focus:text-destructive"
       >
         <Trash2 className="h-4 w-4" />

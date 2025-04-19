@@ -6,7 +6,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/compon
 import { User } from "@/types/types";
 import { DeleteUserDialog } from "./DeleteUserDialog";
 import { UserActionMenuItems } from "./UserActionMenuItems";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface UserActionsMenuProps {
   user: User;
@@ -18,41 +17,31 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const queryClient = useQueryClient();
-
+  
   // Nettoyer l'état lors du démontage pour éviter les fuites mémoire
   useEffect(() => {
     return () => {
-      if (isDeleting || isSendingInvite) {
-        console.log("Composant UserActionsMenu démonté pendant une opération, nettoyage de l'état");
-        // Nettoyage sécurisé asynchrone
-        setTimeout(() => {
-          setIsDeleting(false);
-          setIsSendingInvite(false);
-        }, 100);
-      }
+      setIsDeleting(false);
+      setIsSendingInvite(false);
+      setIsDropdownOpen(false);
     };
-  }, [isDeleting, isSendingInvite]);
+  }, []);
 
   const handleActionComplete = () => {
-    // Fermer le dropdown après une action
+    // Fermer le dropdown immédiatement
     setIsDropdownOpen(false);
     
-    // Invalider les requêtes pertinentes pour garantir que les données sont à jour
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      
-      // Notifier le composant parent
-      setTimeout(() => {
-        onActionComplete();
-      }, 200);
-    }, 300);
+    // Notifier le composant parent sans délai
+    onActionComplete();
   };
 
   return (
     <>
-      <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+      <DropdownMenu open={isDropdownOpen} onOpenChange={(open) => {
+        if (!isDeleting && !isSendingInvite) {
+          setIsDropdownOpen(open);
+        }
+      }}>
         <DropdownMenuTrigger asChild>
           <Button 
             variant="ghost" 
@@ -64,20 +53,24 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
             <span className="sr-only">Menu d'actions</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <UserActionMenuItems 
-            user={user}
-            isSendingInvite={isSendingInvite}
-            isDeleting={isDeleting}
-            onChangeRole={() => {}} // Fonction vide car nous n'ouvrons plus de dialogue
-            onDelete={() => {
-              setIsDropdownOpen(false); // Fermer d'abord le dropdown
-              setTimeout(() => setIsDeleteDialogOpen(true), 100); // Puis ouvrir la boîte de dialogue avec un léger délai
-            }}
-            setIsSendingInvite={setIsSendingInvite}
-            onActionComplete={handleActionComplete}
-          />
-        </DropdownMenuContent>
+        {isDropdownOpen && (
+          <DropdownMenuContent align="end" onCloseAutoFocus={(e) => {
+            // Empêcher les problèmes de focus qui peuvent causer des gelures d'UI
+            e.preventDefault();
+          }}>
+            <UserActionMenuItems 
+              user={user}
+              isSendingInvite={isSendingInvite}
+              isDeleting={isDeleting}
+              onDelete={() => {
+                setIsDropdownOpen(false); // Fermer d'abord le dropdown
+                setTimeout(() => setIsDeleteDialogOpen(true), 50);
+              }}
+              setIsSendingInvite={setIsSendingInvite}
+              onActionComplete={handleActionComplete}
+            />
+          </DropdownMenuContent>
+        )}
       </DropdownMenu>
 
       <DeleteUserDialog
@@ -86,7 +79,7 @@ export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps
         user={user}
         isDeleting={isDeleting}
         setIsDeleting={setIsDeleting}
-        onUserDeleted={handleActionComplete}
+        onUserDeleted={onActionComplete}
       />
     </>
   );

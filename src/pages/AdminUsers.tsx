@@ -14,7 +14,7 @@ const AdminUsers = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Clean up any pending operations when component unmounts
+  // Nettoyer les opérations en cours lors du démontage
   useEffect(() => {
     return () => {
       console.log("AdminUsers unmounting - nettoyage des opérations en cours");
@@ -22,7 +22,7 @@ const AdminUsers = () => {
     };
   }, []);
   
-  // Optimized refresh function with debounce
+  // Fonction optimisée pour rafraîchir les données
   const refreshUserData = useCallback(() => {
     if (isRefreshing) {
       console.log("Refresh déjà en cours, ignoré");
@@ -33,37 +33,38 @@ const AdminUsers = () => {
     setIsRefreshing(true);
     
     try {
-      // Invalider le cache local d'abord
+      // Invalider le cache local
       invalidateUserCache();
       
       // Toast pour indiquer le rafraichissement
       const toastId = toast.loading("Rafraîchissement des données...", {
-        duration: 1000,
+        duration: 1500,
         position: "bottom-right"
       });
       
-      // Mettre à jour la clé de rafraîchissement pour forcer la mise à jour des composants
+      // Mettre à jour la clé de rafraîchissement
       setRefreshKey(prev => prev + 1);
       
-      // Utiliser une seule invalidation avec refetchType: 'all' pour forcer un re-fetch complet
+      // Invalider les requêtes avec un délai pour éviter les problèmes de concurrence
       setTimeout(() => {
+        // Invalider les requêtes utilisateurs
         queryClient.invalidateQueries({ 
           queryKey: ['users'],
           refetchType: 'all' 
         });
         
-        // Garantir que les données admin-users sont aussi rafraîchies
+        // Invalider spécifiquement les données admin-users
         queryClient.invalidateQueries({ 
           queryKey: ['admin-users'],
-          refetchType: 'all' 
+          refetchType: 'all'
         });
         
-        // Assez de temps pour que les données soient rechargées
+        // Attendre que les données soient rechargées
         setTimeout(() => {
           toast.success("Données rafraîchies", { id: toastId });
           setIsRefreshing(false);
         }, 500);
-      }, 300);
+      }, 200);
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des données:", error);
       setIsRefreshing(false);
