@@ -65,7 +65,7 @@ export const RequestRow = ({
     navigate(`/requests/${request.type}/${request.id}`);
   };
 
-  // Formatter la date d'échéance
+  // Formatter la date d'échéance - Fix: ensure we're passing a string to the Date constructor
   const formatDueDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('fr-FR', { 
@@ -163,3 +163,4 @@ export const RequestRow = ({
     </>
   );
 };
+

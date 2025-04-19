@@ -36,7 +36,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             )}
           />
           
-          {/* Mission associée - Utilisation du nouveau composant MissionSelect */}
+          {/* Mission associée - Utilisation du composant MissionSelect qui a été mis à jour */}
           <FormField
             control={control}
             name="missionId"
@@ -49,12 +49,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                 <FormItem>
                   <FormLabel>Mission*</FormLabel>
                   <FormControl>
-                    <MissionSelect
-                      value={field.value ? String(field.value) : ""}
-                      onChange={field.onChange}
-                      disabled={editMode}
-                      placeholder="Sélectionner une mission"
-                    />
+                    <MissionSelect />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
