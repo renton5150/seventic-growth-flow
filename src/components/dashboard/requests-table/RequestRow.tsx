@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Request } from "@/types/types";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -65,9 +64,9 @@ export const RequestRow = ({
     navigate(`/requests/${request.type}/${request.id}`);
   };
 
-  // Formatter la date d'échéance - Fix: ensure we're passing a string to the Date constructor
-  const formatDueDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDueDate = (dateInput: Date | string) => {
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    
     return new Intl.DateTimeFormat('fr-FR', { 
       day: 'numeric', 
       month: 'short', 
@@ -163,4 +162,3 @@ export const RequestRow = ({
     </>
   );
 };
-
