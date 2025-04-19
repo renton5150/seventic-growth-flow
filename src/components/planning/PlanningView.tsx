@@ -4,7 +4,7 @@ import FullCalendar from "@fullcalendar/react";
 import resourceTimelinePlugin from "@fullcalendar/resource-timeline";
 import interactionPlugin from "@fullcalendar/interaction";
 import { Mission } from "@/types/types";
-import { CalendarApi, EventClickArg, EventSourceInput } from "@fullcalendar/core";
+import { EventClickArg, EventSourceInput } from "@fullcalendar/core";
 import frLocale from "@fullcalendar/core/locales/fr";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Card } from "@/components/ui/card";
@@ -22,7 +22,7 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
   const calendarRef = useRef<FullCalendar | null>(null);
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [calendarApi, setCalendarApi] = useState<CalendarApi | null>(null);
+  const [calendarApi, setCalendarApi] = useState<any | null>(null);
 
   // Transformer les missions en événements pour FullCalendar
   const transformMissionsToEvents = (missions: Mission[]): EventSourceInput => {
@@ -100,6 +100,8 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
           // Vous pouvez ajouter du style aux labels des ressources ici
           info.el.style.fontWeight = 'bold';
         }}
+        droppable={isAdmin}
+        // Use eventDrop as part of the droppable interactions
         eventDrop={isAdmin ? (info) => {
           toast.success(`Mission ${info.event.title} déplacée`);
           // Ici, vous pourriez appeler votre API pour mettre à jour la mission
@@ -110,6 +112,7 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
             newResourceId: info.newResource?.id
           });
         } : undefined}
+        // Use eventResize as part of the resizable interactions
         eventResize={isAdmin ? (info) => {
           toast.success(`Dates de la mission ${info.event.title} modifiées`);
           // Ici, vous pourriez appeler votre API pour mettre à jour la mission

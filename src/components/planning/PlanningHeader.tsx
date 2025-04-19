@@ -8,12 +8,13 @@ import { Check, ChevronsUpDown, Filter } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Mission } from "@/types/types";
+import { DateRange } from "react-day-picker";
 
 export interface PlanningFilters {
   view: string;
   sdrIds: string[];
   missionTypes: string[];
-  dateRange?: { from: Date; to: Date };
+  dateRange?: { from: Date; to?: Date };
 }
 
 interface PlanningHeaderProps {
@@ -25,7 +26,7 @@ export const PlanningHeader = ({ missions, onFiltersChange }: PlanningHeaderProp
   const [view, setView] = useState("resourceTimelineMonth");
   const [selectedSdrIds, setSelectedSdrIds] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<{ from: Date; to?: Date } | undefined>(undefined);
 
   // Extraire les SDRs uniques des missions
   const uniqueSdrs = Array.from(
@@ -77,13 +78,20 @@ export const PlanningHeader = ({ missions, onFiltersChange }: PlanningHeaderProp
     });
   };
 
-  const handleDateRangeChange = (range?: { from: Date; to: Date }) => {
-    setDateRange(range);
+  const handleDateRangeChange = (range?: DateRange) => {
+    // Make sure the dateRange is compatible with the PlanningFilters type
+    // Convert from DateRange to the expected format
+    const formattedRange = range?.from ? {
+      from: range.from,
+      to: range.to
+    } : undefined;
+    
+    setDateRange(formattedRange);
     onFiltersChange({
       view,
       sdrIds: selectedSdrIds,
       missionTypes: selectedTypes,
-      dateRange: range
+      dateRange: formattedRange
     });
   };
 
@@ -152,10 +160,8 @@ export const PlanningHeader = ({ missions, onFiltersChange }: PlanningHeaderProp
           </PopoverContent>
         </Popover>
 
-        {/* Sélecteur de plage de dates - Fixed the onChange prop to match expected type */}
-        <DateRangePicker 
-          onChange={(range) => handleDateRangeChange(range)} 
-        />
+        {/* Sélecteur de plage de dates */}
+        <DateRangePicker onChange={handleDateRangeChange} />
         
         {/* Sélecteur de vue */}
         <Select value={view} onValueChange={handleViewChange}>
