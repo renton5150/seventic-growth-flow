@@ -2,32 +2,30 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ActionResponse } from "./types";
 
-// Renvoyer une invitation
+// Resend invitation
 export const resendInvitation = async (userEmail: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
   try {
-    // Vérifier que l'email est non vide
+    // Check for empty email
     if (!userEmail) {
-      console.error("Email utilisateur vide");
+      console.error("Empty user email");
       return { success: false, error: "L'email de l'utilisateur est vide" };
     }
     
-    // Vérifier que l'email est valide
+    // Validate email format
     if (!userEmail.includes('@')) {
-      console.error("Format d'email invalide:", userEmail);
+      console.error("Invalid email format:", userEmail);
       return { success: false, error: `Format d'email invalide: ${userEmail}` };
     }
     
-    console.log("Tentative de renvoi d'invitation pour:", userEmail);
+    console.log("Attempting to resend invitation for:", userEmail);
     
-    // Obtenir l'URL de base actuelle de l'application
+    // Get current application base URL
     const origin = window.location.origin;
-    console.log("URL de base pour redirection:", origin);
     
-    // URL de redirection pour la page de réinitialisation de mot de passe
+    // Redirect URL for password reset page
     const redirectUrl = `${origin}/reset-password?type=invite`;
-    console.log("URL de redirection complète:", redirectUrl);
     
-    // Implémenter un timeout côté client plus court (8 secondes)
+    // Set up a shorter client-side timeout (8 seconds)
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 
@@ -37,36 +35,36 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       }, 8000);
     });
     
-    // Paramètres de requête avec options d'invitations explicites
+    // Request params with explicit invitation options
     const requestParams = { 
       email: userEmail,
       redirectUrl,
       checkSmtpConfig: true,
-      skipJwtVerification: true, // Ignorer la vérification JWT pour résoudre les problèmes d'autorisation
+      skipJwtVerification: true,
       debug: true,
       timestamp: new Date().toISOString(),
-      // Ajouter une durée de validité plus longue (90 jours)
+      // Add longer validity period (90 days)
       inviteOptions: {
-        expireIn: 7776000 // 90 jours en secondes
+        expireIn: 7776000 // 90 days in seconds
       }
     };
     
-    console.log("Appel à la fonction Edge resend-invitation avec:", JSON.stringify(requestParams, null, 2));
+    console.log("Calling resend-invitation Edge function with:", JSON.stringify(requestParams, null, 2));
     
-    // Appel à la fonction Edge avec l'email
+    // Call the Edge function with the email
     const invitePromise = supabase.functions.invoke('resend-invitation', { 
       body: requestParams
     }).catch(error => {
-      console.error("Erreur lors de l'appel à la fonction Edge:", error);
-      return { error: { message: error.message || "Erreur de connexion" } };
+      console.error("Error calling Edge function:", error);
+      return { error: { message: error.message || "Connection error" } };
     });
     
-    // Race entre le timeout et l'appel à la fonction
+    // Race between timeout and function call
     const result = await Promise.race([invitePromise, timeoutPromise]);
     
-    // Si c'est le timeout qui a gagné
+    // If timeout won
     if ('warning' in result) {
-      console.warn("Délai dépassé lors de l'envoi de l'email:", {
+      console.warn("Timeout exceeded when sending email:", {
         email: userEmail,
         redirectUrl,
         timestamp: new Date().toISOString()
@@ -74,10 +72,10 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       return result;
     }
     
-    // Journaliser la réponse complète
-    console.log("Réponse complète de resend-invitation:", JSON.stringify(result, null, 2));
+    // Log the complete response
+    console.log("Complete response from resend-invitation:", JSON.stringify(result, null, 2));
     
-    // Vérifier les erreurs dans plusieurs formats possibles
+    // Check for errors in various possible formats
     let errorMessage = null;
     
     if ('error' in result) {
@@ -86,25 +84,25 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     }
     
     if (errorMessage) {
-      console.error("Erreur lors de l'envoi de l'email:", errorMessage);
+      console.error("Error sending email:", errorMessage);
       return { success: false, error: errorMessage || "Erreur lors de l'envoi de l'invitation" };
     }
 
-    // Accéder aux données de façon sécurisée
+    // Safely access data
     const data = 'data' in result ? result.data : null;
     
-    // Vérifier si la réponse contient des erreurs spécifiques
+    // Check if response contains specific errors
     if (data?.error) {
-      console.error("Erreur dans les données de réponse:", data.error);
+      console.error("Error in response data:", data.error);
       return { success: false, error: data.error };
     }
     
     if (!data || data.success === false) {
-      console.error("Réponse négative lors de l'envoi de l'email:", data);
-      return { success: false, error: data?.error || "Échec de l'envoi de l'email" };
+      console.error("Negative response when sending email:", data);
+      return { success: false, error: data?.error || "Failed to send email" };
     }
     
-    console.log("Email envoyé avec succès à:", userEmail, "Données de réponse:", data);
+    console.log("Email successfully sent to:", userEmail, "Response data:", data);
     return { 
       success: true,
       userExists: data.userExists || false,
@@ -113,9 +111,9 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       smtpConfigured: data.smtpConfigured || false
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     
-    console.error("Exception lors de l'envoi de l'email:", error);
+    console.error("Exception when sending email:", error);
     return { success: false, error: errorMessage };
   }
 };

@@ -1,5 +1,5 @@
 
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserManagementTabs } from "@/components/admin/UserManagementTabs";
 import { useAuth } from "@/contexts/auth";
@@ -13,56 +13,69 @@ const AdminUsers = () => {
   const queryClient = useQueryClient();
   const [refreshKey, setRefreshKey] = useState(0);
   const isRefreshingRef = useRef(false);
+  const toastIdRef = useRef<string | number | null>(null);
   
-  // Fonction optimisée pour rafraîchir les données avec un debounce intégré
+  // Cleanup function for component unmount
+  useEffect(() => {
+    return () => {
+      // Dismiss any lingering toasts when component unmounts
+      if (toastIdRef.current) {
+        toast.dismiss(toastIdRef.current);
+      }
+    };
+  }, []);
+  
+  // Optimized function to refresh user data with debounce
   const refreshUserData = useCallback(() => {
-    // Vérifier si un rafraîchissement est déjà en cours avec la référence
+    // Check if refresh is already in progress
     if (isRefreshingRef.current) {
-      console.log("Refresh déjà en cours, ignoré");
+      console.log("Refresh already in progress, ignoring");
       return;
     }
     
-    console.log("Rafraîchissement des données utilisateur depuis AdminUsers");
+    console.log("Refreshing user data from AdminUsers");
     isRefreshingRef.current = true;
     
     try {
-      // Invalider le cache local
+      // Invalidate local cache
       invalidateUserCache();
       
-      // Toast discret pour indiquer le rafraichissement
-      const toastId = toast.loading("Rafraîchissement...", {
+      // Show discreet refresh toast
+      toastIdRef.current = toast.loading("Rafraîchissement...", {
         duration: 1000,
         position: "bottom-right"
       });
       
-      // Mettre à jour la clé de rafraîchissement
+      // Update refresh key
       setRefreshKey(prev => prev + 1);
       
-      // Invalider les requêtes avec un délai pour éviter les problèmes de concurrence
+      // Invalidate queries with a delay to avoid concurrency issues
       setTimeout(() => {
-        // Invalider les requêtes utilisateurs
+        // Invalidate user queries
         queryClient.invalidateQueries({ 
           queryKey: ['users']
         });
         
-        // Invalider spécifiquement les données admin-users
+        // Specifically invalidate admin-users data
         queryClient.invalidateQueries({ 
           queryKey: ['admin-users']
         });
         
         toast.success("Données rafraîchies", { 
-          id: toastId,
+          id: toastIdRef.current || undefined,
           duration: 1000
         });
         
-        // Réinitialiser l'état de rafraîchissement après une période suffisante
+        // Reset refresh state after sufficient time
         setTimeout(() => {
           isRefreshingRef.current = false;
-        }, 1500); // Attendre 1.5 secondes avant de permettre un nouveau rafraîchissement
+          toastIdRef.current = null;
+        }, 1500); // Wait 1.5 seconds before allowing another refresh
       }, 200);
     } catch (error) {
-      console.error("Erreur lors du rafraîchissement des données:", error);
+      console.error("Error refreshing data:", error);
       isRefreshingRef.current = false;
+      toastIdRef.current = null;
       toast.error("Erreur lors du rafraîchissement");
     }
   }, [queryClient]);

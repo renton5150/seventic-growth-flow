@@ -26,24 +26,24 @@ export const UserActionMenuItems = ({
   const handleResendInvitation = async () => {
     if (isSendingInvite) return;
     
-    // Toast persistant qui sera mis à jour
+    // Persistent toast that will be updated
     const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
     
     try {
       setIsSendingInvite(true);
       
-      // Envoyer l'invitation
+      // Send invitation
       const result = await resendInvitation(user.email);
       
       if (result.success) {
-        // Mise à jour du toast en succès
+        // Update toast to success
         toast.success("Invitation envoyée", {
           id: toastId,
           description: `Une invitation a été envoyée à ${user.email}`
         });
         
-        // Notifier le composant parent après une courte attente
-        setTimeout(() => onActionComplete(), 100);
+        // Wait before notifying parent
+        setTimeout(() => onActionComplete(), 300);
       } else {
         toast.error("Erreur lors de l'envoi", {
           id: toastId,
@@ -53,15 +53,16 @@ export const UserActionMenuItems = ({
     } catch (error) {
       console.error("Exception lors de l'envoi de l'invitation:", error);
       toast.error("Erreur système", {
-        id: toastId
+        id: toastId,
+        description: "Une erreur système est survenue lors de l'envoi"
       });
     } finally {
-      // Reset de l'état d'envoi
-      setTimeout(() => setIsSendingInvite(false), 100);
+      // Reset sending state after a short delay
+      setTimeout(() => setIsSendingInvite(false), 300);
     }
   };
   
-  // Fonction pour changer le rôle directement
+  // Function to directly change role
   const handleDirectRoleChange = async (newRole: UserRole) => {
     if (newRole === user.role || isChangingRole) return;
     
@@ -73,14 +74,14 @@ export const UserActionMenuItems = ({
       const { success, error } = await updateUserRole(user.id, newRole);
       
       if (success) {
-        // Mise à jour du toast en succès
+        // Update toast to success
         toast.success("Rôle modifié", {
           id: toastId,
           description: `Le rôle de ${user.email} a été modifié en ${newRole}`
         });
         
-        // Notifier le composant parent après une courte attente
-        setTimeout(() => onActionComplete(), 100);
+        // Wait before notifying parent
+        setTimeout(() => onActionComplete(), 300);
       } else {
         toast.error("Erreur", {
           id: toastId,
@@ -89,14 +90,17 @@ export const UserActionMenuItems = ({
       }
     } catch (error) {
       console.error("Erreur lors du changement de rôle:", error);
-      toast.error("Erreur", { id: toastId });
+      toast.error("Erreur système", { 
+        id: toastId,
+        description: "Une erreur système est survenue lors de la modification du rôle"
+      });
     } finally {
-      // Reset de l'état
-      setTimeout(() => setIsChangingRole(false), 100);
+      // Reset state after a short delay
+      setTimeout(() => setIsChangingRole(false), 300);
     }
   };
   
-  // Obtenir l'icône appropriée pour chaque rôle
+  // Get appropriate icon for each role
   const getRoleIcon = (role: UserRole) => {
     switch (role) {
       case "admin": return <Shield className="h-4 w-4 mr-2" />;
@@ -111,7 +115,7 @@ export const UserActionMenuItems = ({
   return (
     <>
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger disabled={isButtonDisabled} className="gap-2">
+        <DropdownMenuSubTrigger disabled={isButtonDisabled} className="gap-2 cursor-pointer">
           <Edit className="h-4 w-4" />
           <span>Modifier le rôle</span>
         </DropdownMenuSubTrigger>
@@ -120,6 +124,7 @@ export const UserActionMenuItems = ({
             <DropdownMenuItem 
               onClick={() => handleDirectRoleChange("admin")}
               disabled={isButtonDisabled}
+              className="cursor-pointer"
             >
               {getRoleIcon("admin")}
               <span>Admin</span>
@@ -129,6 +134,7 @@ export const UserActionMenuItems = ({
             <DropdownMenuItem 
               onClick={() => handleDirectRoleChange("growth")}
               disabled={isButtonDisabled}
+              className="cursor-pointer"
             >
               {getRoleIcon("growth")}
               <span>Growth</span>
@@ -138,6 +144,7 @@ export const UserActionMenuItems = ({
             <DropdownMenuItem 
               onClick={() => handleDirectRoleChange("sdr")}
               disabled={isButtonDisabled}
+              className="cursor-pointer"
             >
               {getRoleIcon("sdr")}
               <span>SDR</span>
@@ -149,7 +156,7 @@ export const UserActionMenuItems = ({
       <DropdownMenuItem 
         onClick={handleResendInvitation} 
         disabled={isButtonDisabled}
-        className="gap-2"
+        className="gap-2 cursor-pointer"
       >
         {isSendingInvite ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -164,7 +171,7 @@ export const UserActionMenuItems = ({
       <DropdownMenuItem 
         onClick={onDelete} 
         disabled={isButtonDisabled}
-        className="text-destructive gap-2 focus:text-destructive"
+        className="text-destructive gap-2 focus:text-destructive cursor-pointer"
       >
         <Trash2 className="h-4 w-4" />
         <span>Supprimer</span>

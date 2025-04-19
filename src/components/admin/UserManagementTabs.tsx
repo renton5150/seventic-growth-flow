@@ -30,15 +30,14 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
-    staleTime: 5000, // Augmenter le temps de fraîcheur pour réduire les requêtes
-    gcTime: 60000,  // Augmenter le temps de cache
-    retry: 1,       // Réduire le nombre de tentatives
+    staleTime: 30000, // Increase stale time to 30 seconds
+    gcTime: 300000,   // Increase cache time to 5 minutes
+    retry: 1,
   });
 
   // Optimized refetch with debounce
   const handleRefresh = useCallback(async () => {
     if (isRefreshingRef.current) {
-      console.log("Rafraîchissement déjà en cours, ignoré");
       return;
     }
     
@@ -47,25 +46,24 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
     try {
       await refetch();
       
-      // Notifier le composant parent après un délai
+      // Notify parent component after a delay
       if (onUserDataChange) {
-        onUserDataChange();
+        setTimeout(() => onUserDataChange(), 300);
       }
     } catch (error) {
-      console.error("Erreur lors du rafraîchissement:", error);
+      console.error("Error refreshing:", error);
     } finally {
-      // Limiter la fréquence des rafraîchissements
+      // Limit refresh frequency
       setTimeout(() => {
         isRefreshingRef.current = false;
-      }, 2000); // Attendre 2 secondes avant de permettre un nouveau rafraîchissement
+      }, 2000);
     }
   }, [refetch, onUserDataChange]);
 
-  // Premier chargement uniquement
+  // First load only
   useEffect(() => {
     if (!initialLoadDoneRef.current && !isLoading && users.length > 0) {
       initialLoadDoneRef.current = true;
-      console.log("Premier chargement des données terminé");
     }
   }, [isLoading, users]);
 
@@ -75,14 +73,13 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   });
 
   const handleInviteClick = (role: UserRole) => {
+    // Set role first, then open dialog after a small delay
     setInviteRole(role);
-    setIsInviteDialogOpen(true);
+    setTimeout(() => setIsInviteDialogOpen(true), 50);
   };
 
   const handleUserInvited = async () => {
-    console.log("Utilisateur invité, rafraîchissement des données");
-    
-    // Attendre avant de rafraîchir pour éviter le gel
+    // Wait before refreshing to avoid freezing
     setTimeout(() => {
       handleRefresh();
     }, 1000);
@@ -121,20 +118,20 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="flex items-center gap-2" disabled={isRefreshingRef.current}>
+                <Button className="flex items-center gap-2">
                   <PlusCircle className="h-4 w-4" />
                   <span>Inviter un collaborateur</span>
                   <ChevronDown className="h-4 w-4 ml-1" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleInviteClick("sdr")}>
+                <DropdownMenuItem onClick={() => handleInviteClick("sdr")} className="cursor-pointer">
                   Inviter un SDR
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleInviteClick("growth")}>
+                <DropdownMenuItem onClick={() => handleInviteClick("growth")} className="cursor-pointer">
                   Inviter un Growth
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleInviteClick("admin")}>
+                <DropdownMenuItem onClick={() => handleInviteClick("admin")} className="cursor-pointer">
                   Inviter un Admin
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -145,7 +142,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
         <TabsContent value={activeTab} className="mt-4">
           <UsersTable 
             users={filteredUsers} 
-            isLoading={isLoading || isRefreshingRef.current} 
+            isLoading={isLoading} 
             onRefresh={handleRefresh}
           />
         </TabsContent>

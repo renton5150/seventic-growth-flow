@@ -14,26 +14,33 @@ interface UserActionsMenuProps {
 
 export const UserActionsMenu = ({ user, onActionComplete }: UserActionsMenuProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Simplify by removing complex state management that's causing issues
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button 
             variant="ghost" 
             size="icon" 
             aria-label="Menu d'actions pour l'utilisateur"
+            className="focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <MoreHorizontal className="h-4 w-4" />
             <span className="sr-only">Menu d'actions</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" forceMount>
           <UserActionMenuItems 
             user={user}
-            onDelete={() => setIsDeleteDialogOpen(true)}
-            onActionComplete={onActionComplete}
+            onDelete={() => {
+              setIsMenuOpen(false);
+              setTimeout(() => setIsDeleteDialogOpen(true), 100);
+            }}
+            onActionComplete={() => {
+              setIsMenuOpen(false);
+              onActionComplete();
+            }}
           />
         </DropdownMenuContent>
       </DropdownMenu>

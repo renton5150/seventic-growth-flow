@@ -33,6 +33,9 @@ export const DeleteUserDialog = ({
       // Close dialog first before performing the operation
       onOpenChange(false);
       
+      // Wait for dialog to close
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Show loading toast
       const toastId = toast.loading(`Suppression de l'utilisateur ${user.name}...`);
       
@@ -52,8 +55,8 @@ export const DeleteUserDialog = ({
           queryKey: ['admin-users']
         });
         
-        // Notify parent with a small delay
-        setTimeout(() => onUserDeleted(), 100);
+        // Notify parent after a small delay
+        setTimeout(() => onUserDeleted(), 500);
       } else {
         toast.dismiss(toastId);
         toast.error(`Erreur: ${error || "Une erreur est survenue"}`);
@@ -62,8 +65,8 @@ export const DeleteUserDialog = ({
       console.error("Erreur critique lors de la suppression:", error);
       toast.error("Une erreur inattendue est survenue");
     } finally {
-      // Reset deleting state
-      setTimeout(() => setIsDeleting(false), 100);
+      // Reset deleting state with a delay
+      setTimeout(() => setIsDeleting(false), 300);
     }
   };
   
