@@ -44,25 +44,33 @@ serve(async (req) => {
     // Get Supabase admin client
     const supabaseAdmin = await getSupabaseAdmin();
     if ('error' in supabaseAdmin) {
+      console.error("Error getting Supabase admin client:", supabaseAdmin.error);
       return new Response(JSON.stringify({ error: supabaseAdmin.error }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
     
+    console.log("Supabase admin client initialized successfully");
+    
     // Check SMTP configuration if requested
     const emailConfig = checkSmtpConfig ? 
       await checkSmtpConfiguration(supabaseAdmin.client) : 
       { smtpConfigured: false, emailProvider: "Supabase default" };
 
+    console.log("Email configuration check result:", JSON.stringify(emailConfig));
+    
     // Get user profile for role information
     const profileResult = await getUserProfile(supabaseAdmin.client, email);
     if ('error' in profileResult) {
+      console.error("Error getting user profile:", profileResult.error);
       return new Response(JSON.stringify({ error: profileResult.error }), {
         status: profileResult.status || 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
+
+    console.log("User profile retrieved:", JSON.stringify(profileResult.profile));
 
     // Check if user exists in auth
     console.log("Checking if user already exists in auth");
@@ -85,8 +93,15 @@ serve(async (req) => {
     console.log("Email configuration:", emailConfig.emailProvider, 
                 emailConfig.smtpConfigured ? "(SMTP configured)" : "(SMTP not configured)");
     
+    // Force a longer expiration time
+    if (!inviteOptions.expireIn) {
+      inviteOptions.expireIn = 15552000; // 180 days (6 months)
+      console.log("Setting default expireIn to 180 days (15552000 seconds)");
+    }
+    
     // Send appropriate email based on whether user exists
     if (userExists) {
+      console.log("Sending reset link to existing user");
       return await sendResetLink(
         supabaseAdmin.client, 
         email, 
@@ -97,6 +112,7 @@ serve(async (req) => {
         inviteOptions
       );
     } else {
+      console.log("Sending invitation link to new user");
       return await sendInvitationLink(
         supabaseAdmin.client, 
         email, 

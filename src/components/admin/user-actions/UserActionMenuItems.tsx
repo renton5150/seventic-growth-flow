@@ -31,11 +31,14 @@ export const UserActionMenuItems = ({
     
     try {
       setIsSendingInvite(true);
+      console.log("Starting invitation process for:", user.email);
       
       // Send invitation with a proper delay to allow the UI to update
       setTimeout(async () => {
         // Send invitation
+        console.log("Making resendInvitation call for:", user.email);
         const result = await resendInvitation(user.email);
+        console.log("resendInvitation result:", result);
         
         if (result.success) {
           // Update toast to success
@@ -44,12 +47,25 @@ export const UserActionMenuItems = ({
             description: `Une invitation a été envoyée à ${user.email}`
           });
           
+          // Provide detailed console info for debugging
+          console.log("Invitation sent successfully:", {
+            email: user.email,
+            userExists: result.userExists,
+            emailProvider: result.emailProvider,
+            smtpConfigured: result.smtpConfigured
+          });
+          
           // Wait before notifying parent
           setTimeout(() => onActionComplete(), 300);
         } else {
           toast.error("Erreur lors de l'envoi", {
             id: toastId,
             description: result.error || "Une erreur est survenue"
+          });
+          
+          console.error("Failed to send invitation:", {
+            email: user.email,
+            error: result.error
           });
         }
         

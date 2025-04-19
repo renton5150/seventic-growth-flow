@@ -22,7 +22,7 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     // Get current application base URL
     const origin = window.location.origin;
     
-    // Redirect URL with explicit type parameter
+    // Redirect URL with explicit type parameter and email
     const redirectUrl = `${origin}/reset-password?type=invite&email=${encodeURIComponent(userEmail)}`;
     
     // Use a longer client-side timeout (30 seconds)
@@ -32,7 +32,7 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
           success: true, 
           warning: "L'opération a pris plus de temps que prévu mais l'email a probablement été envoyé."
         });
-      }, 30000); // Augmenté à 30 secondes
+      }, 30000); // 30 seconds timeout
     });
     
     // Request params with much longer validity period (180 days / ~6 months)
@@ -54,10 +54,13 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     // Call the Edge function with retry capability
     const makeInviteRequest = async (retryCount = 0): Promise<any> => {
       try {
-        return await supabase.functions.invoke('resend-invitation', { 
+        const response = await supabase.functions.invoke('resend-invitation', { 
           body: requestParams
         });
+        console.log("Edge function response:", JSON.stringify(response, null, 2));
+        return response;
       } catch (error) {
+        console.error(`Error in attempt ${retryCount + 1}:`, error);
         if (retryCount < 2) { // Allow up to 2 retries
           console.warn(`Retry ${retryCount + 1} after error:`, error);
           // Exponential backoff
