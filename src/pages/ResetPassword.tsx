@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,10 +82,13 @@ const ResetPassword = () => {
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-        token: token,
-      });
+      // Utilisation correcte de l'API Supabase
+      // La méthode updateUser et la propriété password existent sur UserAttributes
+      // mais token doit être passé comme second argument
+      const { error } = await supabase.auth.updateUser(
+        { password: newPassword },
+        { token }
+      );
 
       if (error) {
         console.error("Erreur lors de la mise à jour du mot de passe:", error);
