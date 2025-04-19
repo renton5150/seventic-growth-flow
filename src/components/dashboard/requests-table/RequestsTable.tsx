@@ -9,6 +9,7 @@ interface RequestsTableProps {
   requests: Request[];
   missionView?: boolean;
   showSdr?: boolean;
+  isSDR?: boolean;
   onRequestDeleted?: () => void;
 }
 
@@ -16,6 +17,7 @@ export const RequestsTable = ({
   requests, 
   missionView = false, 
   showSdr = false,
+  isSDR = false,
   onRequestDeleted
 }: RequestsTableProps) => {
   const [sortColumn, setSortColumn] = useState<string>("dueDate");
@@ -64,11 +66,13 @@ export const RequestsTable = ({
           missionView={missionView} 
           handleSort={handleSort}
           showSdr={showSdr}
+          isSDR={isSDR}
         />
         <RequestsTableBody 
           sortedRequests={sortedRequests} 
           missionView={missionView}
           showSdr={showSdr}
+          isSDR={isSDR}
           onRequestDeleted={onRequestDeleted}
         />
       </Table>

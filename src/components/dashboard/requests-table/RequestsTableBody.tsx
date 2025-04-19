@@ -8,6 +8,7 @@ interface RequestsTableBodyProps {
   sortedRequests: Request[];
   missionView?: boolean;
   showSdr?: boolean;
+  isSDR?: boolean;
   onRequestDeleted?: () => void;
 }
 
@@ -15,12 +16,13 @@ export const RequestsTableBody = ({
   sortedRequests, 
   missionView = false,
   showSdr = false,
+  isSDR = false,
   onRequestDeleted
 }: RequestsTableBodyProps) => {
   return (
     <TableBody>
       {sortedRequests.length === 0 ? (
-        <EmptyRequestsRow colSpan={missionView ? 6 : 7} />
+        <EmptyRequestsRow colSpan={missionView ? 6 : (isSDR ? 6 : 7)} />
       ) : (
         sortedRequests.map((request) => (
           <RequestRow 
@@ -28,6 +30,7 @@ export const RequestsTableBody = ({
             request={request} 
             missionView={missionView}
             showSdr={showSdr}
+            isSDR={isSDR}
             onRequestDeleted={onRequestDeleted}
           />
         ))

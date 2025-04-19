@@ -7,15 +7,17 @@ import { useDashboardRequests } from "@/hooks/useDashboardRequests";
 import { useState } from "react";
 import { Toaster } from "sonner";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const { user } = useAuth();
+  const isSDR = user?.role === 'sdr';
   
   const { 
     filteredRequests, 
     activeTab,
     setActiveTab, 
-    isSDR, 
     isAdmin, 
     requests,
     refetch,
@@ -44,6 +46,9 @@ const Dashboard = () => {
     }
   };
 
+  // Log pour le débogage des permissions
+  console.log("Dashboard - User Role:", user?.role, "isSDR:", isSDR, "Requests count:", requests?.length || 0);
+
   return (
     <AppLayout>
       <Toaster position="top-center" />
@@ -59,6 +64,7 @@ const Dashboard = () => {
           setActiveTab={setActiveTab}
           filteredRequests={filteredRequests}
           isAdmin={isAdmin}
+          isSDR={isSDR}
           onRequestDeleted={handleRequestDeleted}
         />
       </div>

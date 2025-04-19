@@ -1,18 +1,19 @@
 
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Request } from "@/types/types";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Eye, MoreHorizontal, Users, User } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Request } from "@/types/types";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Eye, MoreHorizontal, Trash2 } from "lucide-react";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 
@@ -20,97 +21,145 @@ interface RequestRowProps {
   request: Request;
   missionView?: boolean;
   showSdr?: boolean;
+  isSDR?: boolean;
   onRequestDeleted?: () => void;
 }
 
 export const RequestRow = ({ 
   request, 
-  missionView = false,
+  missionView = false, 
   showSdr = false,
-  onRequestDeleted
+  isSDR = false,
+  onRequestDeleted 
 }: RequestRowProps) => {
   const navigate = useNavigate();
-  
-  const formatDate = (date: Date) => {
-    return format(new Date(date), "d MMM yyyy", { locale: fr });
-  };
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case "email":
-        return "Campagne Email";
-      case "database":
-        return "Base de données";
-      case "linkedin":
-        return "Scraping LinkedIn";
-      default:
-        return type;
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    
+    try {
+      const { error } = await supabase
+        .from('requests')
+        .delete()
+        .eq('id', request.id);
+      
+      if (error) {
+        console.error("Erreur lors de la suppression de la demande:", error);
+        toast.error("Erreur lors de la suppression de la demande");
+      } else {
+        toast.success("Demande supprimée avec succès");
+        setIsDeleteDialogOpen(false);
+        onRequestDeleted?.();
+      }
+    } catch (error) {
+      console.error("Exception lors de la suppression de la demande:", error);
+      toast.error("Une erreur est survenue lors de la suppression");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
+  const handleViewRequest = () => {
+    navigate(`/requests/${request.type}/${request.id}`);
+  };
+
+  // Formatter la date d'échéance
+  const formatDueDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('fr-FR', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    }).format(date);
+  };
+
   return (
-    <TableRow className={request.isLate ? "bg-red-50" : ""}>
-      <TableCell className="text-center">
-        <RequestTypeIcon type={request.type} />
-      </TableCell>
-      <TableCell>
-        <div className="font-medium">{request.title}</div>
-      </TableCell>
-      <TableCell>
-        <Badge variant="outline" className="bg-gray-100">
-          {getTypeLabel(request.type)}
-        </Badge>
-      </TableCell>
-      {!missionView && (
-        <TableCell>
-          {request.missionName || "Sans mission"}
-        </TableCell>
-      )}
-      {showSdr && (
+    <>
+      <TableRow>
         <TableCell>
           <div className="flex items-center">
-            <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-            {request.sdrName || "Non assigné"}
+            <RequestTypeIcon type={request.type} />
           </div>
         </TableCell>
-      )}
-      <TableCell>{formatDate(request.dueDate)}</TableCell>
-      <TableCell>
-        <RequestStatusBadge status={request.status} workflow_status={request.workflow_status} isLate={request.isLate} />
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center">
-          <User className="mr-2 h-4 w-4 text-muted-foreground" />
-          {request.assignedToName || "Non assigné"}
-        </div>
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex justify-end space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(`/requests/${request.type}/${request.id}`)}
-          >
-            <Eye className="h-4 w-4" />
-            <span className="sr-only">Voir les détails</span>
-          </Button>
+        
+        <TableCell className="font-medium">
+          {request.title}
+        </TableCell>
+        
+        {!missionView && !isSDR && (
+          <TableCell>
+            {request.missionName}
+          </TableCell>
+        )}
+        
+        {showSdr && (
+          <TableCell>
+            {request.sdrName || "-"}
+          </TableCell>
+        )}
+        
+        <TableCell>
+          <RequestStatusBadge status={request.status} />
+        </TableCell>
+        
+        <TableCell>
+          {formatDueDate(request.dueDate)}
+        </TableCell>
+        
+        <TableCell className="text-right">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
                 <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Plus d'actions</span>
+                <span className="sr-only">Actions</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => navigate(`/requests/${request.type}/${request.id}/edit`)}
+              <DropdownMenuItem onClick={handleViewRequest} className="cursor-pointer">
+                <Eye className="mr-2 h-4 w-4" />
+                Voir les détails
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setIsDeleteDialogOpen(true)}
+                className="text-destructive cursor-pointer"
               >
-                Modifier
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </TableCell>
-    </TableRow>
+        </TableCell>
+      </TableRow>
+      
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <div className="space-y-4 py-2 text-center">
+            <h3 className="text-lg font-semibold">Supprimer la demande</h3>
+            <p>
+              Êtes-vous sûr de vouloir supprimer la demande "{request.title}" ?
+              Cette action est irréversible.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteDialogOpen(false)}
+                disabled={isDeleting}
+              >
+                Annuler
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Suppression..." : "Supprimer"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

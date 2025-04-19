@@ -3,21 +3,33 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function useRequestQueries(userId: string | undefined) {
-  // Requêtes à affecter
+  const { user } = useAuth();
+  const isSDR = user?.role === 'sdr';
+
+  // Requêtes à affecter - Modifications pour les SDRs
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
-    queryKey: ['growth-requests-to-assign'],
+    queryKey: ['growth-requests-to-assign', userId],
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération des requêtes à affecter pour Growth avec userId:", userId);
+      console.log("Récupération des requêtes à affecter avec userId:", userId);
       
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('growth_requests_view')
         .select('*', { count: 'exact' })
-        .eq('workflow_status', 'pending_assignment')
-        .order('due_date', { ascending: true });
+        .eq('workflow_status', 'pending_assignment');
+      
+      // Si c'est un SDR, filtrer uniquement ses requêtes
+      if (isSDR) {
+        query = query.eq('created_by', userId);
+      }
+      
+      query = query.order('due_date', { ascending: true });
+      
+      const { data, error, count } = await query;
       
       if (error) {
         console.error("Erreur lors de la récupération des requêtes à affecter:", error);
@@ -25,25 +37,32 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log(`Requêtes à affecter récupérées: ${data.length} sur ${count} requêtes totales dans la vue`);
-      console.log("IDs des requêtes à affecter:", data.map(r => r.id));
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
   });
   
-  // Mes assignations - Correction pour ne montrer que les demandes assignées au Growth connecté
+  // Mes assignations - Afficher uniquement les demandes du SDR connecté ou assignées au Growth
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
-    queryKey: ['growth-requests-my-assignments'],
+    queryKey: ['growth-requests-my-assignments', userId],
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération de mes assignations pour Growth avec userId:", userId);
+      console.log("Récupération de mes assignations avec userId:", userId);
       
-      const { data, error, count } = await supabase
-        .from('growth_requests_view')
-        .select('*', { count: 'exact' })
-        .eq('assigned_to', userId)
-        .order('due_date', { ascending: true });
+      let query = supabase.from('growth_requests_view').select('*', { count: 'exact' });
+      
+      // Si c'est un SDR, montrer uniquement ses propres demandes
+      if (isSDR) {
+        query = query.eq('created_by', userId);
+      } else {
+        // Sinon, pour Growth/Admin, montrer les demandes assignées à eux
+        query = query.eq('assigned_to', userId);
+      }
+      
+      query = query.order('due_date', { ascending: true });
+      
+      const { data, error, count } = await query;
       
       if (error) {
         console.error("Erreur lors de la récupération de mes assignations:", error);
@@ -51,25 +70,27 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log(`Mes assignations récupérées: ${data.length} sur ${count} requêtes totales dans la vue`);
-      console.log("IDs de mes assignations:", data.map(r => r.id));
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
   });
   
-  // Toutes les requêtes pour le rôle growth
+  // Toutes les requêtes - Filtré pour les SDRs
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
-    queryKey: ['growth-all-requests'],
+    queryKey: ['growth-all-requests', userId, isSDR],
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log('Fetching ALL requests for Growth dashboard');
+      console.log('Fetching ALL requests for dashboard with role:', isSDR ? 'SDR' : 'Admin/Growth');
       
-      // Solution radicale : récupérer TOUTES les demandes sans exception
-      // Utiliser la méthode .from au lieu de .rpc pour contourner le problème de typage
-      const { data, error } = await supabase
-        .from('requests_with_missions')
-        .select('*');
+      let query = supabase.from('requests_with_missions').select('*');
+      
+      // Si c'est un SDR, ne récupérer que ses demandes créées
+      if (isSDR) {
+        query = query.eq('created_by', userId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error('Error fetching all requests:', error);
@@ -79,6 +100,8 @@ export function useRequestQueries(userId: string | undefined) {
       // Vérifier que data est bien un tableau avant d'appeler length ou map
       const requestsArray = Array.isArray(data) ? data : [];
       console.log(`Retrieved ${requestsArray.length} total requests`);
+      console.log('User role is SDR?', isSDR);
+      
       return requestsArray.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId
@@ -107,6 +130,12 @@ export function useRequestQueries(userId: string | undefined) {
           
         data = response.data;
         error = response.error;
+      }
+
+      // Vérification des droits pour un SDR
+      if (data && isSDR && data.created_by !== userId) {
+        console.error("SDR tentant d'accéder à une demande qui ne lui appartient pas");
+        return null;
       }
 
       if (error) {
