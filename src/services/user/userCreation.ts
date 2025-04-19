@@ -30,8 +30,8 @@ export const createUser = async (
     // Récupérer l'origine pour l'URL de redirection
     const origin = window.location.origin;
     
-    // S'assurer qu'on redirige explicitement vers la page reset-password
-    const redirectTo = `${origin}/reset-password?type=signup`;
+    // S'assurer qu'on redirige explicitement vers la page reset-password avec le type et l'email
+    const redirectTo = `${origin}/reset-password?type=invite&email=${encodeURIComponent(email)}`;
     console.log("URL de redirection pour la confirmation:", redirectTo);
     
     // Utiliser signUp pour créer un nouvel utilisateur avec le rôle spécifié dans les métadonnées
@@ -41,7 +41,8 @@ export const createUser = async (
       options: {
         data: {
           name,
-          role // S'assurer que le rôle est correctement défini ici
+          role,
+          created_at: new Date().toISOString()
         },
         emailRedirectTo: redirectTo,
       }
@@ -67,26 +68,61 @@ export const createUser = async (
     console.log("Utilisateur créé avec succès dans auth.users:", data.user.id);
     
     // Attendre un court instant pour s'assurer que le trigger a eu le temps de s'exécuter
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
     // Créer ou mettre à jour manuellement le profil avec les informations complètes
     const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7E69AB&color=fff`;
     
     console.log("Mise à jour du profil avec le rôle:", role);
     
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: data.user.id,
-        email: email,
-        name: name,
-        role: role,
-        avatar: avatarUrl
-      }, { onConflict: 'id' });
+    // Utiliser une fonction plus robuste pour l'upsert avec retry
+    const updateProfile = async (retries = 3): Promise<boolean> => {
+      try {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            email: email,
+            name: name,
+            role: role,
+            avatar: avatarUrl,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, { 
+            onConflict: 'id',
+            ignoreDuplicates: false
+          });
+        
+        if (profileError) {
+          console.error("Erreur lors de la mise à jour du profil (tentative):", profileError);
+          
+          if (retries > 0 && profileError.code === '23505') { // Code for duplicate key violation
+            console.log(`Conflit détecté, nouvelle tentative dans 1s (${retries} restantes)`);
+            await new Promise(r => setTimeout(r, 1000));
+            return updateProfile(retries - 1);
+          }
+          
+          return false;
+        }
+        
+        return true;
+      } catch (err) {
+        console.error("Exception lors de la mise à jour du profil:", err);
+        
+        if (retries > 0) {
+          console.log(`Exception, nouvelle tentative dans 1s (${retries} restantes)`);
+          await new Promise(r => setTimeout(r, 1000));
+          return updateProfile(retries - 1);
+        }
+        
+        return false;
+      }
+    };
     
-    if (profileError) {
-      console.error("Erreur lors de la mise à jour du profil:", profileError);
-      toast.error("Profil créé mais erreur lors de la mise à jour des détails");
+    const profileUpdateSuccess = await updateProfile();
+    
+    if (!profileUpdateSuccess) {
+      console.warn("Avertissement: problème lors de la mise à jour du profil, mais l'utilisateur a été créé");
     }
     
     // Vérifier que le profil a bien été créé avec le bon rôle
@@ -106,7 +142,7 @@ export const createUser = async (
         redirectUrl: redirectTo,
         skipJwtVerification: true,
         inviteOptions: {
-          expireIn: 7776000 // 90 days
+          expireIn: 15552000 // 180 days (6 months)
         }
       };
       

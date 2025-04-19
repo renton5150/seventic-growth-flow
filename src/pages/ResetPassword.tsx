@@ -12,6 +12,8 @@ import { useResetSession } from "@/components/auth/reset-password/useResetSessio
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { resendInvitation } from "@/services/user/userInvitation";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 const ResetPassword = () => {
   const [isSuccess, setIsSuccess] = useState(false);
@@ -21,6 +23,8 @@ const ResetPassword = () => {
   const { error, setError, mode, isProcessingToken } = useResetSession();
   const [urlDebug, setUrlDebug] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [resendAttempts, setResendAttempts] = useState(0);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   // Extrait l'email du token ou des paramètres d'URL
   useEffect(() => {
@@ -73,20 +77,26 @@ const ResetPassword = () => {
     }
 
     setIsResending(true);
+    setResendAttempts(prev => prev + 1);
+    
     try {
+      console.log("Tentative de renvoi d'invitation pour:", email);
       const result = await resendInvitation(email);
       
       if (result.success) {
+        setResendSuccess(true);
         toast.success("Nouvelle invitation envoyée avec succès", {
-          description: "Veuillez vérifier votre boîte de réception"
+          description: "Veuillez vérifier votre boîte de réception et vos spams"
         });
+        
         // Recharger la page après 2 secondes
         setTimeout(() => {
           window.location.reload();
         }, 2000);
       } else {
+        console.error("Échec du renvoi:", result.error);
         toast.error("Échec de l'envoi de l'invitation", {
-          description: result.error
+          description: result.error || "Une erreur est survenue"
         });
       }
     } catch (err) {
@@ -125,28 +135,55 @@ const ResetPassword = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ErrorDisplay error={error} />
+          {!isOtpExpired && <ErrorDisplay error={error} />}
           
           {isOtpExpired && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-md text-amber-800">
-              <h3 className="font-bold mb-2">Lien d'invitation expiré</h3>
-              <p className="mb-4">Le lien d'invitation que vous avez utilisé a expiré ou n'est plus valide.</p>
-              {email && (
-                <Button 
-                  onClick={handleResendInvitation} 
-                  variant="outline" 
-                  className="w-full"
-                  disabled={isResending}
-                >
-                  {isResending ? "Envoi en cours..." : "Demander un nouveau lien"}
-                </Button>
-              )}
-              {!email && (
-                <p className="text-sm text-amber-700">
-                  Veuillez contacter un administrateur pour obtenir une nouvelle invitation.
-                </p>
-              )}
-            </div>
+            <Alert variant="warning" className="mb-6 bg-amber-50 border border-amber-300">
+              <AlertCircle className="h-4 w-4 text-amber-800" />
+              <AlertTitle className="text-amber-800 font-bold">Lien d'invitation expiré</AlertTitle>
+              <AlertDescription className="text-amber-800">
+                <p className="mb-4">Le lien d'invitation que vous avez utilisé a expiré ou n'est plus valide.</p>
+                {email && (
+                  <div className="space-y-2">
+                    {resendSuccess ? (
+                      <div className="p-2 bg-green-50 border border-green-200 rounded text-green-700">
+                        Nouvelle invitation envoyée avec succès. Veuillez vérifier votre boîte de réception et vos spams.
+                      </div>
+                    ) : (
+                      <Button 
+                        onClick={handleResendInvitation} 
+                        variant="outline" 
+                        className="w-full flex items-center justify-center gap-2"
+                        disabled={isResending}
+                      >
+                        {isResending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            Envoi en cours...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4" />
+                            Demander un nouveau lien
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    
+                    {resendAttempts > 0 && !resendSuccess && (
+                      <p className="text-xs text-amber-700">
+                        Si vous ne recevez toujours pas l'email, vérifiez vos spams ou contactez un administrateur.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {!email && (
+                  <p className="text-sm text-amber-700">
+                    Veuillez contacter un administrateur pour obtenir une nouvelle invitation.
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
           
           {isSuccess ? (

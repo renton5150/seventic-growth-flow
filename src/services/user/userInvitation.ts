@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ActionResponse } from "./types";
 
-// Resend invitation
+// Resend invitation with optimized parameters
 export const resendInvitation = async (userEmail: string): Promise<ActionResponse & { userExists?: boolean; actionUrl?: string; emailProvider?: string; smtpConfigured?: boolean }> => {
   try {
     // Check for empty email
@@ -19,23 +19,23 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     
     console.log("Attempting to resend invitation for:", userEmail);
     
-    // Get current application base URL - use window.location.origin to get the full URL
+    // Get current application base URL
     const origin = window.location.origin;
     
-    // Redirect URL for password reset page
-    const redirectUrl = `${origin}/reset-password?type=invite`;
+    // Redirect URL with explicit type parameter
+    const redirectUrl = `${origin}/reset-password?type=invite&email=${encodeURIComponent(userEmail)}`;
     
-    // Set up a shorter client-side timeout (15 seconds)
+    // Use a longer client-side timeout (30 seconds)
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {
       setTimeout(() => {
         resolve({ 
           success: true, 
           warning: "L'opération a pris plus de temps que prévu mais l'email a probablement été envoyé."
         });
-      }, 15000);
+      }, 30000); // Augmenté à 30 secondes
     });
     
-    // Request params with explicit invitation options
+    // Request params with much longer validity period (180 days / ~6 months)
     const requestParams = { 
       email: userEmail,
       redirectUrl,
@@ -43,20 +43,34 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
       skipJwtVerification: true,
       debug: true,
       timestamp: new Date().toISOString(),
-      // Add longer validity period (90 days)
+      // Add much longer validity period (180 days)
       inviteOptions: {
-        expireIn: 7776000 // 90 days in seconds
+        expireIn: 15552000 // 180 days in seconds (6 months)
       }
     };
     
     console.log("Calling resend-invitation Edge function with:", JSON.stringify(requestParams, null, 2));
     
-    // Call the Edge function with the email
-    const invitePromise = supabase.functions.invoke('resend-invitation', { 
-      body: requestParams
-    }).catch(error => {
-      console.error("Error calling Edge function:", error);
-      return { error: { message: error.message || "Connection error" } };
+    // Call the Edge function with retry capability
+    const makeInviteRequest = async (retryCount = 0): Promise<any> => {
+      try {
+        return await supabase.functions.invoke('resend-invitation', { 
+          body: requestParams
+        });
+      } catch (error) {
+        if (retryCount < 2) { // Allow up to 2 retries
+          console.warn(`Retry ${retryCount + 1} after error:`, error);
+          // Exponential backoff
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retryCount)));
+          return makeInviteRequest(retryCount + 1);
+        }
+        throw error;
+      }
+    };
+    
+    const invitePromise = makeInviteRequest().catch(error => {
+      console.error("Error calling Edge function after retries:", error);
+      return { error: { message: error.message || "Connection error after multiple attempts" } };
     });
     
     // Race between timeout and function call

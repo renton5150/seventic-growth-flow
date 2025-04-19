@@ -33,7 +33,7 @@ serve(async (req) => {
       checkSmtpConfig = false, 
       debug = false, 
       inviteOptions = {},
-      skipJwtVerification = true // Always skip JWT verification
+      skipJwtVerification = true // Toujours ignorer la vérification JWT - important!
     } = requestBody;
     
     console.log(`Attempting to send invitation to: ${email}`);

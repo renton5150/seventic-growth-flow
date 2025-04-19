@@ -21,10 +21,15 @@ export async function sendResetLink(
       }
     };
     
-    // Ajouter expireIn si spécifié
-    if (inviteOptions.expireIn) {
-      options.expireIn = inviteOptions.expireIn;
-      console.log(`Durée d'expiration configurée pour le lien: ${inviteOptions.expireIn} secondes`);
+    // Ajouter expireIn si spécifié (avec une valeur par défaut de 15552000 = 180 jours)
+    options.expireIn = inviteOptions.expireIn || 15552000; // 180 jours par défaut
+    console.log(`Durée d'expiration configurée pour le lien: ${options.expireIn} secondes (${options.expireIn / 86400} jours)`);
+    
+    // Ajouter le paramètre email dans l'URL de redirection
+    if (redirectUrl && !redirectUrl.includes('email=')) {
+      options.emailRedirectTo = redirectUrl.includes('?') 
+        ? `${redirectUrl}&email=${encodeURIComponent(email)}` 
+        : `${redirectUrl}?email=${encodeURIComponent(email)}`;
     }
     
     const emailSettings = {
@@ -78,6 +83,7 @@ export async function sendResetLink(
       emailProvider: emailConfig.emailProvider,
       smtpConfigured: emailConfig.smtpConfigured,
       recommendedSenderEmail: "laura.decoster@7tic.fr",
+      expireInDays: options.expireIn / 86400,
       debug: {
         emailSettings,
         responseData: resetResult.data,
@@ -120,10 +126,15 @@ export async function sendInvitationLink(
       }
     };
     
-    // Ajouter expireIn si spécifié
-    if (inviteOptions.expireIn) {
-      options.expireIn = inviteOptions.expireIn;
-      console.log(`Durée d'expiration configurée pour l'invitation: ${inviteOptions.expireIn} secondes`);
+    // Ajouter expireIn si spécifié (avec une valeur par défaut de 15552000 = 180 jours)
+    options.expireIn = inviteOptions.expireIn || 15552000; // 180 jours par défaut
+    console.log(`Durée d'expiration configurée pour l'invitation: ${options.expireIn} secondes (${options.expireIn / 86400} jours)`);
+    
+    // Ajouter le paramètre email dans l'URL de redirection
+    if (redirectUrl && !redirectUrl.includes('email=')) {
+      options.emailRedirectTo = redirectUrl.includes('?') 
+        ? `${redirectUrl}&email=${encodeURIComponent(email)}` 
+        : `${redirectUrl}?email=${encodeURIComponent(email)}`;
     }
     
     const emailSettings = {
@@ -147,10 +158,42 @@ export async function sendInvitationLink(
       exigence: "laura.decoster@7tic.fr DOIT être l'expéditeur"
     });
     
-    const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, options);
+    // Tentative d'invitation avec retry en cas d'échec
+    let inviteResult;
+    let attempts = 0;
+    const maxAttempts = 3;
     
-    if (inviteResult.error) {
-      console.error("ERREUR lors de l'envoi de l'invitation:", inviteResult.error);
+    while (attempts < maxAttempts) {
+      try {
+        console.log(`Tentative d'invitation ${attempts + 1}/${maxAttempts}`);
+        inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, options);
+        
+        if (!inviteResult.error) {
+          break;
+        }
+        
+        console.error(`Échec de la tentative ${attempts + 1}:`, inviteResult.error);
+        attempts++;
+        
+        if (attempts < maxAttempts) {
+          // Attente exponentielle entre les tentatives
+          const waitTime = 1000 * Math.pow(2, attempts);
+          console.log(`Nouvelle tentative dans ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      } catch (err) {
+        console.error(`Exception à la tentative ${attempts + 1}:`, err);
+        attempts++;
+        
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts)));
+        }
+      }
+    }
+    
+    // Vérifier le résultat final
+    if (inviteResult?.error) {
+      console.error("ERREUR lors de l'envoi de l'invitation après plusieurs tentatives:", inviteResult.error);
       console.error("Détails de l'erreur:", typeof inviteResult.error === 'object' ? JSON.stringify(inviteResult.error) : inviteResult.error);
       return new Response(JSON.stringify({ 
         error: `Erreur lors de l'envoi de l'invitation: ${inviteResult.error.message}`,
@@ -169,13 +212,14 @@ export async function sendInvitationLink(
       success: true,
       message: "Invitation envoyée avec succès",
       userExists: false,
-      actionUrl: inviteResult.data?.properties?.action_link || null,
+      actionUrl: inviteResult?.data?.properties?.action_link || null,
       emailProvider: emailConfig.emailProvider,
       smtpConfigured: emailConfig.smtpConfigured,
       recommendedSenderEmail: "laura.decoster@7tic.fr",
+      expireInDays: options.expireIn / 86400,
       debug: {
         emailSettings,
-        responseData: inviteResult.data,
+        responseData: inviteResult?.data,
         smtpDetails: emailConfig.smtpDetails || "Non disponible"
       }
     }), {
