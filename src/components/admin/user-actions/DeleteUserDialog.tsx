@@ -5,14 +5,12 @@ import { User } from "@/types/types";
 import { deleteUser } from "@/services/user";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface DeleteUserDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   user: User;
-  isDeleting: boolean;
-  setIsDeleting: (value: boolean) => void;
   onUserDeleted: () => void;
 }
 
@@ -20,44 +18,25 @@ export const DeleteUserDialog = ({
   isOpen,
   onOpenChange,
   user,
-  isDeleting,
-  setIsDeleting,
   onUserDeleted
 }: DeleteUserDialogProps) => {
   const queryClient = useQueryClient();
-  const [internalOpen, setInternalOpen] = useState(isOpen);
-  
-  // Synchroniser l'état interne avec l'état externe
-  useEffect(() => {
-    setInternalOpen(isOpen);
-  }, [isOpen]);
-  
-  // Nettoyer l'état lors du démontage
-  useEffect(() => {
-    return () => {
-      if (isDeleting) {
-        setIsDeleting(false);
-      }
-    };
-  }, [isDeleting, setIsDeleting]);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const handleDeleteUser = async () => {
     if (isDeleting) return;
     
     try {
+      // Set deleting state
       setIsDeleting(true);
       
-      // IMPORTANT: Fermer d'abord la boîte de dialogue
-      setInternalOpen(false);
+      // Close dialog first before performing the operation
       onOpenChange(false);
       
-      // Afficher un toast de chargement
+      // Show loading toast
       const toastId = toast.loading(`Suppression de l'utilisateur ${user.name}...`);
       
-      // Attendre un court délai pour s'assurer que la boîte de dialogue est fermée
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Effectuer la suppression
+      // Perform deletion after dialog is closed
       const { success, error, warning } = await deleteUser(user.id);
       
       if (success) {
@@ -68,14 +47,13 @@ export const DeleteUserDialog = ({
           : `Utilisateur ${user.name} supprimé avec succès`
         );
         
-        // Rafraichir les données
+        // Refresh data
         queryClient.invalidateQueries({ 
-          queryKey: ['admin-users'],
-          refetchType: 'all'
+          queryKey: ['admin-users']
         });
         
-        // Notifier le composant parent
-        onUserDeleted();
+        // Notify parent with a small delay
+        setTimeout(() => onUserDeleted(), 100);
       } else {
         toast.dismiss(toastId);
         toast.error(`Erreur: ${error || "Une erreur est survenue"}`);
@@ -84,25 +62,21 @@ export const DeleteUserDialog = ({
       console.error("Erreur critique lors de la suppression:", error);
       toast.error("Une erreur inattendue est survenue");
     } finally {
-      setIsDeleting(false);
+      // Reset deleting state
+      setTimeout(() => setIsDeleting(false), 100);
     }
   };
   
   return (
     <AlertDialog 
-      open={internalOpen}
+      open={isOpen}
       onOpenChange={(open) => {
         if (!isDeleting) {
-          setInternalOpen(open);
           onOpenChange(open);
         }
       }}
     >
-      <AlertDialogContent onEscapeKeyDown={(e) => {
-        if (isDeleting) {
-          e.preventDefault();
-        }
-      }}>
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
           <AlertDialogDescription>

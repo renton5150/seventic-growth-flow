@@ -1,12 +1,12 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
 import { InviteUserDialog } from "./InviteUserDialog";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ChevronDown, RefreshCw } from "lucide-react";
 import { User, UserRole } from "@/types/types";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/user/userQueries";
 import {
   DropdownMenu,
@@ -24,78 +24,50 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   const [activeTab, setActiveTab] = useState<string>("all");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState<boolean>(false);
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const queryClient = useQueryClient();
+  const isRefreshingRef = useRef(false);
+  const initialLoadDoneRef = useRef(false);
 
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
-    staleTime: 0,
-    gcTime: 0,
-    retry: 2,
+    staleTime: 5000, // Augmenter le temps de fraîcheur pour réduire les requêtes
+    gcTime: 60000,  // Augmenter le temps de cache
+    retry: 1,       // Réduire le nombre de tentatives
   });
 
-  // Optimized refetch that prevents concurrent refreshes
+  // Optimized refetch with debounce
   const handleRefresh = useCallback(async () => {
-    if (isRefreshing) {
+    if (isRefreshingRef.current) {
       console.log("Rafraîchissement déjà en cours, ignoré");
       return;
     }
     
-    const toastId = toast.loading("Rafraîchissement des données...", {
-      duration: 2000
-    });
-    
-    console.log("Rafraîchissement manuel des utilisateurs");
-    setIsRefreshing(true);
+    isRefreshingRef.current = true;
     
     try {
-      // Invalider les requêtes avant de rafraîchir
-      queryClient.invalidateQueries({ 
-        queryKey: ['admin-users'],
-        refetchType: 'all'
-      });
-      
-      // Attendre un peu pour éviter les problèmes de concurrence
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Lancer un rafraîchissement explicite
       await refetch();
-      
-      // Montrer un message de succès
-      toast.success("Données rafraîchies", { id: toastId });
       
       // Notifier le composant parent après un délai
       if (onUserDataChange) {
-        setTimeout(() => {
-          onUserDataChange();
-        }, 100);
+        onUserDataChange();
       }
     } catch (error) {
       console.error("Erreur lors du rafraîchissement:", error);
-      toast.error("Erreur lors du rafraîchissement", { id: toastId });
     } finally {
-      // Reset l'état après un délai pour éviter les doubles clics
+      // Limiter la fréquence des rafraîchissements
       setTimeout(() => {
-        setIsRefreshing(false);
-      }, 500);
+        isRefreshingRef.current = false;
+      }, 2000); // Attendre 2 secondes avant de permettre un nouveau rafraîchissement
     }
-  }, [refetch, onUserDataChange, isRefreshing, queryClient]);
+  }, [refetch, onUserDataChange]);
 
-  // Rafraîchissement initial uniquement
+  // Premier chargement uniquement
   useEffect(() => {
-    let isMounted = true;
-    
-    if (isMounted && onUserDataChange) {
-      console.log("UserManagementTabs monté - rafraîchissement initial");
-      handleRefresh();
+    if (!initialLoadDoneRef.current && !isLoading && users.length > 0) {
+      initialLoadDoneRef.current = true;
+      console.log("Premier chargement des données terminé");
     }
-    
-    return () => {
-      isMounted = false;
-      setIsRefreshing(false);
-    };
-  }, [handleRefresh, onUserDataChange]);
+  }, [isLoading, users]);
 
   const filteredUsers = users.filter(user => {
     if (activeTab === "all") return true;
@@ -113,7 +85,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
     // Attendre avant de rafraîchir pour éviter le gel
     setTimeout(() => {
       handleRefresh();
-    }, 300);
+    }, 1000);
   };
 
   return (
@@ -140,16 +112,16 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
               variant="outline" 
               size="icon"
               onClick={handleRefresh}
-              disabled={isRefreshing}
+              disabled={isRefreshingRef.current}
               title="Rafraîchir les données"
             >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${isRefreshingRef.current ? 'animate-spin' : ''}`} />
               <span className="sr-only">Rafraîchir</span>
             </Button>
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="flex items-center gap-2" disabled={isRefreshing}>
+                <Button className="flex items-center gap-2" disabled={isRefreshingRef.current}>
                   <PlusCircle className="h-4 w-4" />
                   <span>Inviter un collaborateur</span>
                   <ChevronDown className="h-4 w-4 ml-1" />
@@ -173,7 +145,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
         <TabsContent value={activeTab} className="mt-4">
           <UsersTable 
             users={filteredUsers} 
-            isLoading={isLoading || isRefreshing} 
+            isLoading={isLoading || isRefreshingRef.current} 
             onRefresh={handleRefresh}
           />
         </TabsContent>

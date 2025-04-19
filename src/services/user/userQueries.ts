@@ -8,7 +8,7 @@ let userCache: { users: User[] | null; timestamp: number } = {
   users: null,
   timestamp: 0
 };
-const CACHE_TIMEOUT = 3000; // 3 secondes pour réduire les requêtes redondantes
+const CACHE_TIMEOUT = 5000; // 5 secondes pour réduire les requêtes redondantes
 
 // Récupérer tous les utilisateurs - version compatible avec TanStack Query
 export const getAllUsers = async (): Promise<User[]> => {
@@ -29,7 +29,6 @@ export const getAllUsers = async (): Promise<User[]> => {
 
     if (error) {
       console.error("Erreur lors de la récupération des utilisateurs:", error);
-      toast.error("Erreur lors de la récupération des utilisateurs");
       return [];
     }
 
@@ -66,12 +65,9 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
     if (userCache.users) {
       const cachedUser = userCache.users.find(user => user.id === userId);
       if (cachedUser) {
-        console.log("Utilisateur trouvé dans le cache:", userId);
         return cachedUser;
       }
     }
-    
-    console.log("Récupération de l'utilisateur depuis Supabase:", userId);
     
     const { data, error } = await supabase
       .from('profiles')
@@ -79,12 +75,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
       .eq('id', userId)
       .maybeSingle();
 
-    if (error) {
-      console.error("Erreur lors de la récupération de l'utilisateur:", error);
-      return undefined;
-    }
-
-    if (!data) {
+    if (error || !data) {
       return undefined;
     }
 
@@ -96,7 +87,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
       avatar: data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=7E69AB&color=fff`
     };
   } catch (error) {
-    console.error("Erreur inattendue lors de la récupération de l'utilisateur:", error);
+    console.error("Erreur lors de la récupération de l'utilisateur:", error);
     return undefined;
   }
 };

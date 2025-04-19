@@ -1,5 +1,5 @@
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserManagementTabs } from "@/components/admin/UserManagementTabs";
 import { useAuth } from "@/contexts/auth";
@@ -12,33 +12,26 @@ const AdminUsers = () => {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [refreshKey, setRefreshKey] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
   
-  // Nettoyer les opérations en cours lors du démontage
-  useEffect(() => {
-    return () => {
-      console.log("AdminUsers unmounting - nettoyage des opérations en cours");
-      setIsRefreshing(false);
-    };
-  }, []);
-  
-  // Fonction optimisée pour rafraîchir les données
+  // Fonction optimisée pour rafraîchir les données avec un debounce intégré
   const refreshUserData = useCallback(() => {
-    if (isRefreshing) {
+    // Vérifier si un rafraîchissement est déjà en cours avec la référence
+    if (isRefreshingRef.current) {
       console.log("Refresh déjà en cours, ignoré");
       return;
     }
     
     console.log("Rafraîchissement des données utilisateur depuis AdminUsers");
-    setIsRefreshing(true);
+    isRefreshingRef.current = true;
     
     try {
       // Invalider le cache local
       invalidateUserCache();
       
-      // Toast pour indiquer le rafraichissement
-      const toastId = toast.loading("Rafraîchissement des données...", {
-        duration: 1500,
+      // Toast discret pour indiquer le rafraichissement
+      const toastId = toast.loading("Rafraîchissement...", {
+        duration: 1000,
         position: "bottom-right"
       });
       
@@ -49,28 +42,30 @@ const AdminUsers = () => {
       setTimeout(() => {
         // Invalider les requêtes utilisateurs
         queryClient.invalidateQueries({ 
-          queryKey: ['users'],
-          refetchType: 'all' 
+          queryKey: ['users']
         });
         
         // Invalider spécifiquement les données admin-users
         queryClient.invalidateQueries({ 
-          queryKey: ['admin-users'],
-          refetchType: 'all'
+          queryKey: ['admin-users']
         });
         
-        // Attendre que les données soient rechargées
+        toast.success("Données rafraîchies", { 
+          id: toastId,
+          duration: 1000
+        });
+        
+        // Réinitialiser l'état de rafraîchissement après une période suffisante
         setTimeout(() => {
-          toast.success("Données rafraîchies", { id: toastId });
-          setIsRefreshing(false);
-        }, 500);
+          isRefreshingRef.current = false;
+        }, 1500); // Attendre 1.5 secondes avant de permettre un nouveau rafraîchissement
       }, 200);
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des données:", error);
-      setIsRefreshing(false);
+      isRefreshingRef.current = false;
       toast.error("Erreur lors du rafraîchissement");
     }
-  }, [queryClient, isRefreshing]);
+  }, [queryClient]);
   
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;

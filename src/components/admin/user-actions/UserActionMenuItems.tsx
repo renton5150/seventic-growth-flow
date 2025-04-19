@@ -10,26 +10,21 @@ import { useState } from "react";
 
 interface UserActionMenuItemsProps {
   user: User;
-  isSendingInvite: boolean;
-  isDeleting: boolean;
   onDelete: () => void;
-  setIsSendingInvite: (value: boolean) => void;
   onActionComplete: () => void;
 }
 
 export const UserActionMenuItems = ({
   user,
-  isSendingInvite,
-  isDeleting,
   onDelete,
-  setIsSendingInvite,
   onActionComplete
 }: UserActionMenuItemsProps) => {
   const queryClient = useQueryClient();
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isChangingRole, setIsChangingRole] = useState(false);
   
   const handleResendInvitation = async () => {
-    if (isSendingInvite || isDeleting || isChangingRole) return;
+    if (isSendingInvite) return;
     
     // Toast persistant qui sera mis à jour
     const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
@@ -37,27 +32,18 @@ export const UserActionMenuItems = ({
     try {
       setIsSendingInvite(true);
       
-      // Utilisation explicite de l'email
-      const userEmail = user.email.trim();
-      
       // Envoyer l'invitation
-      const result = await resendInvitation(userEmail);
+      const result = await resendInvitation(user.email);
       
       if (result.success) {
         // Mise à jour du toast en succès
         toast.success("Invitation envoyée", {
           id: toastId,
-          description: `Une invitation a été envoyée à ${userEmail}`
+          description: `Une invitation a été envoyée à ${user.email}`
         });
         
-        // Forcer le rafraîchissement des données
-        queryClient.invalidateQueries({ 
-          queryKey: ['users'],
-          refetchType: 'all'
-        });
-        
-        // Notifier le composant parent
-        onActionComplete();
+        // Notifier le composant parent après une courte attente
+        setTimeout(() => onActionComplete(), 100);
       } else {
         toast.error("Erreur lors de l'envoi", {
           id: toastId,
@@ -71,15 +57,13 @@ export const UserActionMenuItems = ({
       });
     } finally {
       // Reset de l'état d'envoi
-      setTimeout(() => {
-        setIsSendingInvite(false);
-      }, 300);
+      setTimeout(() => setIsSendingInvite(false), 100);
     }
   };
   
   // Fonction pour changer le rôle directement
   const handleDirectRoleChange = async (newRole: UserRole) => {
-    if (newRole === user.role || isDeleting || isSendingInvite || isChangingRole) return;
+    if (newRole === user.role || isChangingRole) return;
     
     const toastId = toast.loading(`Modification du rôle pour ${user.email}...`);
     
@@ -95,14 +79,8 @@ export const UserActionMenuItems = ({
           description: `Le rôle de ${user.email} a été modifié en ${newRole}`
         });
         
-        // Rafraîchir les données et notifier
-        queryClient.invalidateQueries({ 
-          queryKey: ['users'],
-          refetchType: 'all'
-        });
-        
-        // Notifier le composant parent
-        onActionComplete();
+        // Notifier le composant parent après une courte attente
+        setTimeout(() => onActionComplete(), 100);
       } else {
         toast.error("Erreur", {
           id: toastId,
@@ -114,9 +92,7 @@ export const UserActionMenuItems = ({
       toast.error("Erreur", { id: toastId });
     } finally {
       // Reset de l'état
-      setTimeout(() => {
-        setIsChangingRole(false);
-      }, 300);
+      setTimeout(() => setIsChangingRole(false), 100);
     }
   };
   
@@ -130,7 +106,7 @@ export const UserActionMenuItems = ({
     }
   };
   
-  const isButtonDisabled = isSendingInvite || isDeleting || isChangingRole;
+  const isButtonDisabled = isSendingInvite || isChangingRole;
   
   return (
     <>
