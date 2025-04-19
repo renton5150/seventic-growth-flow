@@ -3,11 +3,10 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Mission } from "@/types/types";
-import { updateMission } from "@/services/missions-service"; // Updated import path
+import { updateMission } from "@/services/missions-service"; 
 import { MissionForm } from "./form/MissionForm";
 import { MissionFormValues } from "./schemas/missionFormSchema";
 import { ErrorBoundary } from "react-error-boundary";
-import { useNavigate } from "react-router-dom";
 
 interface EditMissionDialogProps {
   mission: Mission | null;
@@ -41,7 +40,6 @@ export function EditMissionDialog({
   onMissionUpdated,
 }: EditMissionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
   
   // Function to close the dialog and reset state
   const handleClose = () => {
@@ -75,36 +73,33 @@ export function EditMissionDialog({
       console.log("Données préparées pour la mise à jour:", updatedMissionData);
       
       // Appel API pour mettre à jour avec timeout de sécurité
-      const updatePromise = updateMission(updatedMissionData);
-      
-      // Ajouter un timeout pour éviter que l'UI ne se bloque indéfiniment
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Délai d'attente dépassé")), 10000);
-      });
-      
-      const result = await Promise.race([updatePromise, timeoutPromise]);
+      const result = await updateMission(updatedMissionData);
       
       console.log("Résultat de la mise à jour:", result);
       
-      // Important: Fermer le dialogue AVANT d'afficher le toast ou de rediriger
+      // Fermer le dialogue AVANT de déclencher la mise à jour
+      setIsSubmitting(false);
       handleClose();
       
-      // Afficher le toast de succès sans redirection automatique
-      toast.success("Mission mise à jour", {
-        description: `La mission "${values.name}" a été mise à jour avec succès.`
-      });
+      // Délai court pour s'assurer que le dialogue est fermé
+      setTimeout(() => {
+        // Afficher le toast de succès
+        toast.success("Mission mise à jour", {
+          description: `La mission "${values.name}" a été mise à jour avec succès.`
+        });
+        
+        // Appeler la fonction de rappel pour mettre à jour la liste
+        if (onMissionUpdated) {
+          onMissionUpdated();
+        }
+      }, 100);
       
-      // Appeler la fonction de rappel pour mettre à jour la liste
-      if (onMissionUpdated) {
-        onMissionUpdated();
-      }
     } catch (error) {
       console.error("Erreur lors de la mise à jour:", error);
+      setIsSubmitting(false);
       toast.error("Erreur lors de la mise à jour", {
         description: "Une erreur est survenue lors de la mise à jour de la mission"
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
   
@@ -117,9 +112,10 @@ export function EditMissionDialog({
   
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px]" aria-describedby="mission-edit-description">
         <DialogHeader>
           <DialogTitle>Modifier la mission</DialogTitle>
+          <p id="mission-edit-description" className="sr-only">Formulaire de modification d'une mission</p>
         </DialogHeader>
         
         <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => handleClose()}>

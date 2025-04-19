@@ -10,13 +10,12 @@ import { Plus } from "lucide-react";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { DeleteMissionDialog } from "@/components/missions/DeleteMissionDialog";
-import { getAllMissions } from "@/services/missions-service"; // Updated import path
+import { getAllMissions } from "@/services/missions-service";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { invalidateUserCache } from "@/services/user/userQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
 
 const AdminMissions = () => {
@@ -28,24 +27,27 @@ const AdminMissions = () => {
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0); // Clé de rafraîchissement pour forcer la requête
   
   const refreshMissionsData = useCallback(() => {
     console.log("Rafraîchissement des données de missions depuis AdminMissions");
     
-    // Invalider le cache de requête et forcer une récupération
+    // Invalider le cache de requête
     queryClient.invalidateQueries({ 
-      queryKey: ['missions'],
-      refetchType: 'all' 
+      queryKey: ['missions', 'admin'],
     });
+    
+    // Forcer un nouveau rendu en incrémentant la clé de rafraîchissement
+    setRefreshKey(prev => prev + 1);
   }, [queryClient]);
 
   const { data: missions = [], isLoading } = useQuery({
-    queryKey: ['missions', 'admin'],
+    queryKey: ['missions', 'admin', refreshKey],
     queryFn: async () => {
       try {
         console.log("Chargement des missions pour l'administrateur");
         const allMissions = await getAllMissions();
-        console.log("Missions récupérées:", allMissions);
+        console.log("Missions récupérées:", allMissions.length);
         return allMissions;
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
@@ -87,10 +89,21 @@ const AdminMissions = () => {
   
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour, rafraîchissement des données");
-    // Attendre un court moment avant de rafraîchir pour permettre à la base de données de se mettre à jour
-    setTimeout(() => {
-      refreshMissionsData();
-    }, 500);
+    refreshMissionsData();
+  };
+  
+  // Fonction pour gérer la fermeture de la boîte de dialogue d'édition
+  const handleEditDialogChange = (open: boolean) => {
+    console.log("Changement d'état de la boîte de dialogue d'édition:", open);
+    setIsEditModalOpen(open);
+    
+    if (!open) {
+      // Réinitialiser missionToEdit lorsque la boîte de dialogue est fermée
+      // pour éviter des problèmes de données obsolètes
+      setTimeout(() => {
+        setMissionToEdit(null);
+      }, 200);
+    }
   };
 
   if (isLoading) {
@@ -155,7 +168,7 @@ const AdminMissions = () => {
         <EditMissionDialog
           mission={missionToEdit}
           open={isEditModalOpen}
-          onOpenChange={setIsEditModalOpen}
+          onOpenChange={handleEditDialogChange}
           onMissionUpdated={handleMissionUpdated}
         />
       </div>
