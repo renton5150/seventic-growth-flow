@@ -1,5 +1,5 @@
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
 import { Navigate } from "react-router-dom";
@@ -25,7 +25,8 @@ const AdminMissions = () => {
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0); 
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
   
   // Fonction optimisée de rafraîchissement des données
   const refreshMissionsData = useCallback(() => {
@@ -57,19 +58,33 @@ const AdminMissions = () => {
     }
   });
 
+  // Effet pour nettoyer l'état après fermeture de modales
+  useEffect(() => {
+    if (!isEditModalOpen && missionToEdit) {
+      // Délai pour s'assurer que l'animation est terminée
+      const timer = setTimeout(() => {
+        setMissionToEdit(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isEditModalOpen, missionToEdit]);
+
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
   }
 
   const handleCreateMissionClick = () => {
+    if (isProcessingAction) return;
     setIsCreateModalOpen(true);
   };
 
   const handleViewMission = (mission: Mission) => {
+    if (isProcessingAction) return;
     setSelectedMission(mission);
   };
   
   const handleDeleteMission = (mission: Mission) => {
+    if (isProcessingAction) return;
     setMissionToDelete(mission);
   };
   
@@ -78,29 +93,27 @@ const AdminMissions = () => {
   };
 
   const handleEditMission = (mission: Mission) => {
-    setMissionToEdit(mission);
+    if (isProcessingAction) return;
+    setMissionToEdit({...mission}); // Cloner l'objet pour éviter les mutations
     setIsEditModalOpen(true);
   };
   
   // Fonction de rafraîchissement avec délai pour garantir la mise à jour complète
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour, rafraîchissement des données");
+    setIsProcessingAction(true);
+    
     // Ajout d'un délai pour garantir que la base de données a bien été mise à jour
     setTimeout(() => {
       refreshMissionsData();
-    }, 300);
+      setIsProcessingAction(false);
+    }, 500);
   };
   
   // Gestion optimisée de la fermeture de la boîte de dialogue d'édition
   const handleEditDialogChange = (open: boolean) => {
+    console.log("Changement état dialog d'édition:", open);
     setIsEditModalOpen(open);
-    
-    if (!open) {
-      // Réinitialiser missionToEdit avec un délai pour éviter les problèmes de rendu
-      setTimeout(() => {
-        setMissionToEdit(null);
-      }, 200);
-    }
   };
 
   if (isLoading) {
@@ -118,7 +131,11 @@ const AdminMissions = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Gestion des missions</h1>
-          <Button onClick={handleCreateMissionClick} className="bg-blue-600 hover:bg-blue-700">
+          <Button 
+            onClick={handleCreateMissionClick} 
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={isProcessingAction}
+          >
             <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
           </Button>
         </div>

@@ -1,32 +1,44 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mission } from "@/types/types";
-import { getAllMissions, getMissionsByUserId } from "@/services/missions-service"; // Updated import path
+import { getAllMissions, getMissionsByUserId } from "@/services/missions-service"; 
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const Missions = () => {
   const { user } = useAuth();
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const queryClient = useQueryClient();
   
   const isAdmin = user?.role === "admin";
   const isSdr = user?.role === "sdr";
 
   console.log("Page Missions - utilisateur:", user);
 
+  // Fonction rafraîchissement optimisée
+  const handleRefreshMissions = useCallback(() => {
+    console.log("Rafraîchissement des missions");
+    queryClient.invalidateQueries({ 
+      queryKey: ['missions', user?.id, isAdmin],
+    });
+    setRefreshKey(prev => prev + 1);
+  }, [queryClient, user?.id, isAdmin]);
+
   // Utiliser react-query pour gérer les missions
-  const { data: missions = [], isLoading, refetch } = useQuery({
-    queryKey: ['missions', user?.id, isAdmin],
+  const { data: missions = [], isLoading } = useQuery({
+    queryKey: ['missions', user?.id, isAdmin, refreshKey],
     queryFn: async () => {
       try {
         console.log("Chargement des missions pour", isAdmin ? "admin" : "sdr", "avec ID:", user?.id);
@@ -38,6 +50,7 @@ const Missions = () => {
         return [];
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
+        toast.error("Erreur lors du chargement des missions");
         return [];
       }
     },
@@ -45,11 +58,6 @@ const Missions = () => {
   });
     
   // Handlers
-  const handleRefreshMissions = () => {
-    console.log("Rafraîchissement des missions");
-    refetch();
-  };
-  
   const handleViewMission = (mission: Mission) => {
     console.log("Affichage de la mission:", mission);
     setSelectedMission(mission);
@@ -57,7 +65,7 @@ const Missions = () => {
   
   const handleEditMission = (mission: Mission) => {
     console.log("Modification de la mission:", mission);
-    setSelectedMission(mission);
+    setSelectedMission({...mission});
     setIsEditModalOpen(true);
   };
   
@@ -66,6 +74,14 @@ const Missions = () => {
     setIsCreateModalOpen(true);
   };
 
+  // Handler de mise à jour avec délai
+  const handleMissionUpdated = () => {
+    console.log("Mission mise à jour, rafraîchissement programmé");
+    setTimeout(() => {
+      handleRefreshMissions();
+    }, 500);
+  };
+  
   if (isLoading) {
     return (
       <AppLayout>
@@ -122,7 +138,7 @@ const Missions = () => {
           mission={selectedMission}
           open={isEditModalOpen}
           onOpenChange={setIsEditModalOpen}
-          onMissionUpdated={handleRefreshMissions}
+          onMissionUpdated={handleMissionUpdated}
         />
       </div>
     </AppLayout>

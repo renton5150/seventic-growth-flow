@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Mission } from "@/types/types";
@@ -40,12 +40,26 @@ export function EditMissionDialog({
   onMissionUpdated,
 }: EditMissionDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   
-  // Fonction simplifiée de fermeture de la boite de dialogue
-  const handleClose = () => {
-    if (!isSubmitting) {
-      onOpenChange(false);
+  // Synchronize internal state with prop
+  useEffect(() => {
+    if (open) {
+      setInternalOpen(true);
     }
+  }, [open]);
+  
+  // Clean handling of dialog close
+  const handleClose = () => {
+    if (isSubmitting) return;
+    
+    // First update internal state
+    setInternalOpen(false);
+    
+    // Then notify parent after animation has completed
+    setTimeout(() => {
+      onOpenChange(false);
+    }, 200); // Match animation duration
   };
   
   const onSubmit = async (values: MissionFormValues) => {
@@ -65,29 +79,40 @@ export function EditMissionDialog({
         status: values.status
       };
       
-      // Étape 1: Fermer la boîte de dialogue immédiatement pour éviter les problèmes de rendu
-      handleClose();
+      console.log("Fermeture de la boîte de dialogue avant la mise à jour API");
+      setInternalOpen(false);
+      onOpenChange(false);
       
-      // Étape 2: Appel API pour mettre à jour - après la fermeture pour éviter les conflits d'état
-      await updateMission(updatedMissionData);
-      
-      // Étape 3: Notification et rafraichissement des données
-      setTimeout(() => {
-        toast.success("Mission mise à jour", {
-          description: `La mission "${values.name}" a été mise à jour avec succès.`
-        });
-        
-        if (onMissionUpdated) {
-          onMissionUpdated();
+      // API call with a small delay to ensure UI update completes first
+      setTimeout(async () => {
+        try {
+          await updateMission(updatedMissionData);
+          
+          console.log("Mission mise à jour avec succès, notification");
+          toast.success("Mission mise à jour", {
+            description: `La mission "${values.name}" a été mise à jour avec succès.`
+          });
+          
+          if (onMissionUpdated) {
+            console.log("Déclenchement de onMissionUpdated");
+            onMissionUpdated();
+          }
+        } catch (error) {
+          console.error("Erreur lors de la mise à jour:", error);
+          toast.error("Erreur lors de la mise à jour", {
+            description: "Une erreur est survenue lors de la mise à jour de la mission"
+          });
+        } finally {
+          setIsSubmitting(false);
         }
-      }, 100);
+      }, 300);
+      
     } catch (error) {
-      console.error("Erreur lors de la mise à jour:", error);
+      console.error("Erreur lors de la préparation de la mise à jour:", error);
+      setIsSubmitting(false);
       toast.error("Erreur lors de la mise à jour", {
         description: "Une erreur est survenue lors de la mise à jour de la mission"
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
   
@@ -99,17 +124,19 @@ export function EditMissionDialog({
   const isMissionDataValid = mission && mission.id && mission.name;
   
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={internalOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent 
         className="sm:max-w-[500px]" 
         aria-describedby="mission-edit-description"
       >
         <DialogHeader>
           <DialogTitle>Modifier la mission</DialogTitle>
-          <p id="mission-edit-description" className="sr-only">Formulaire de modification d'une mission</p>
+          <p id="mission-edit-description" className="text-sm text-muted-foreground">
+            Formulaire de modification d'une mission
+          </p>
         </DialogHeader>
         
-        <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => handleClose()}>
+        <ErrorBoundary FallbackComponent={ErrorFallback} onReset={handleClose}>
           {isMissionDataValid ? (
             <MissionForm
               mission={mission}
