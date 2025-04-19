@@ -24,6 +24,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     );
     
     // Rediriger les administrateurs vers le tableau de bord admin s'ils accèdent au tableau de bord standard
+    // MAIS ne pas rediriger s'ils accèdent à d'autres pages comme le planning
     if (isAdmin && location.pathname === "/dashboard") {
       console.log("Redirection vers le tableau de bord administrateur");
       toast.info("Redirection vers le tableau de bord administrateur");

@@ -1,3 +1,4 @@
+
 import { 
   Building2, 
   Calendar, 
@@ -67,6 +68,11 @@ export const adminMenuItems: MenuItem[] = [
     title: "Missions",
     path: "/admin/missions",
     icon: Building2
+  },
+  {
+    title: "Planning",
+    path: "/planning",
+    icon: CalendarDays
   },
   {
     title: "AI Insights",
