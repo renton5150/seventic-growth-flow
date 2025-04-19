@@ -51,9 +51,7 @@ const ResetPassword = () => {
           console.log("Hash détecté dans l'URL, tentative de récupération du token");
           
           // Essayer d'extraire et de valider le token du hash
-          const { data, error } = await supabase.auth.getSessionFromUrl({
-            storeSession: true // Stocker la session si valide
-          });
+          const { data, error } = await supabase.auth.getSession();
           
           if (error) {
             console.error("Erreur lors de la récupération du token:", error);
@@ -121,19 +119,12 @@ const ResetPassword = () => {
 
       if (error) {
         console.error("Erreur lors de la mise à jour du mot de passe:", error);
-        toast({
-          variant: "destructive",
-          title: "Erreur",
-          description: "Une erreur s'est produite lors de la réinitialisation du mot de passe."
-        });
+        toast.error("Une erreur s'est produite lors de la réinitialisation du mot de passe.");
       } else {
         setResetSuccessful(true);
-        toast({
-          title: "Succès",
-          description: isInvite 
-            ? "Votre compte a été créé. Vous pouvez maintenant vous connecter."
-            : "Votre mot de passe a été réinitialisé avec succès."
-        });
+        toast.success(isInvite 
+          ? "Votre compte a été créé. Vous pouvez maintenant vous connecter." 
+          : "Votre mot de passe a été réinitialisé avec succès.");
 
         // Rediriger l'utilisateur après un court délai
         setTimeout(() => {
@@ -142,11 +133,7 @@ const ResetPassword = () => {
       }
     } catch (error) {
       console.error("Erreur inattendue lors de la mise à jour du mot de passe:", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur inattendue s'est produite."
-      });
+      toast.error("Une erreur inattendue s'est produite.");
     } finally {
       setLoading(false);
     }
@@ -155,11 +142,7 @@ const ResetPassword = () => {
   // Fonction pour demander un nouveau lien de réinitialisation
   const handleRequestNewLink = async () => {
     if (!email) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Email manquant. Veuillez contacter un administrateur."
-      });
+      toast.error("Email manquant. Veuillez contacter un administrateur.");
       return;
     }
 
@@ -178,24 +161,13 @@ const ResetPassword = () => {
 
       if (error) {
         console.error("Erreur lors de l'envoi du lien:", error);
-        toast({
-          variant: "destructive",
-          title: "Erreur",
-          description: "Impossible d'envoyer un nouveau lien de réinitialisation."
-        });
+        toast.error("Impossible d'envoyer un nouveau lien de réinitialisation.");
       } else {
-        toast({
-          title: "Email envoyé",
-          description: "Un nouveau lien de réinitialisation a été envoyé à votre adresse email."
-        });
+        toast.success("Un nouveau lien de réinitialisation a été envoyé à votre adresse email.");
       }
     } catch (err) {
       console.error("Exception lors de l'envoi du lien:", err);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur s'est produite lors de l'envoi du lien."
-      });
+      toast.error("Une erreur s'est produite lors de l'envoi du lien.");
     } finally {
       setLoading(false);
     }
