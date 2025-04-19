@@ -152,8 +152,10 @@ export const PlanningHeader = ({ missions, onFiltersChange }: PlanningHeaderProp
           </PopoverContent>
         </Popover>
 
-        {/* Sélecteur de plage de dates */}
-        <DateRangePicker onChange={handleDateRangeChange} />
+        {/* Sélecteur de plage de dates - Fixed the onChange prop to match expected type */}
+        <DateRangePicker 
+          onChange={(range) => handleDateRangeChange(range)} 
+        />
         
         {/* Sélecteur de vue */}
         <Select value={view} onValueChange={handleViewChange}>
