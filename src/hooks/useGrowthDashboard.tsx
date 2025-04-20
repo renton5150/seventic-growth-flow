@@ -30,13 +30,15 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   // Filter requests based on activeTab and activeFilter
   const getFilteredRequests = useCallback(() => {
-    // First, filter to only show growth requests on the my-requests page
+    // Premier filtre pour les SDRs uniquement - Growth et Admin voient tout
     let requests = allRequests;
+    const isSDR = user?.role === 'sdr';
     
-    // Si on est sur la page my-requests, ne montrer que les demandes assignées à l'utilisateur connecté
-    if (location.pathname.includes("/my-requests") && user?.role === "growth") {
-      requests = allRequests.filter(req => req.assigned_to === user?.id);
+    // Si on est sur la page my-requests et que c'est un SDR, ne montrer que les demandes créées par l'utilisateur
+    if (location.pathname.includes("/my-requests") && isSDR) {
+      requests = allRequests.filter(req => req.createdBy === user?.id);
     }
+    // Pour Growth et Admin, aucune restriction - ils voient toutes les requêtes
 
     // If we have an activeFilter from stat cards, it takes precedence
     if (activeFilter) {
@@ -61,9 +63,11 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       case "to_assign":
         return requests.filter(req => req.workflow_status === "pending_assignment");
       case "my_assignments":
-        return user?.role === "growth" 
-          ? requests.filter(req => req.assigned_to === user?.id)
-          : requests; // Admin voit tout
+        // Pour les SDR, montrer leurs propres demandes
+        // Pour Growth et Admin, montrer toutes les demandes (pas de filtre)
+        return isSDR 
+          ? requests.filter(req => req.createdBy === user?.id)
+          : requests;
       case "inprogress":
         return requests.filter(req => req.workflow_status === "in_progress");
       case "completed":

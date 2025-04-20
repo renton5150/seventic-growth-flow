@@ -9,6 +9,7 @@ export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
   const isSDR = user?.role === 'sdr';
   const isGrowth = user?.role === 'growth';
+  const isAdmin = user?.role === 'admin';
 
   // Requêtes à affecter - Modifications pour les SDRs
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
@@ -44,7 +45,7 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Mes assignations - Pour Growth, voir toutes les requêtes qui sont assignées à moi
+  // Mes assignations - Pour Growth et Admin, voir TOUTES les requêtes (modification importante)
   // Pour SDR, voir uniquement mes demandes
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
     queryKey: ['growth-requests-my-assignments', userId],
@@ -58,11 +59,9 @@ export function useRequestQueries(userId: string | undefined) {
       // Si c'est un SDR, montrer uniquement ses propres demandes
       if (isSDR) {
         query = query.eq('created_by', userId);
-      } else if (isGrowth) {
-        // Pour Growth, montrer les demandes qui lui sont assignées
-        query = query.eq('assigned_to', userId);
       }
-      // Admin voit tout
+      // Pour Growth et Admin, on ne filtre pas - ils voient tout
+      // Suppression du filtre assigned_to pour Growth
       
       query = query.order('due_date', { ascending: true });
       
@@ -124,7 +123,7 @@ export function useRequestQueries(userId: string | undefined) {
         .eq('id', requestId)
         .maybeSingle();
 
-      // Vérification des droits pour un SDR
+      // Vérification des droits pour un SDR uniquement - Growth et Admin ont accès à tout
       if (data && isSDR && data.created_by !== userId) {
         console.error("SDR tentant d'accéder à une demande qui ne lui appartient pas");
         return null;
