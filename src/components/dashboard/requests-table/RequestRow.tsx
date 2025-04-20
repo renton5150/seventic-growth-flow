@@ -86,7 +86,8 @@ export const RequestRow = ({
         navigate(`/linkedin-scraping-edit/${request.id}`);
         break;
       default:
-        navigate(`/request-edit/${request.id}`);
+        console.error("Type de demande inconnu:", request.type);
+        toast.error("Type de demande non pris en charge");
     }
   };
 
