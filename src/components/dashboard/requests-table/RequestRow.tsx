@@ -14,7 +14,6 @@ import { fr } from "date-fns/locale";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { updateRequest } from "@/services/requests";
 
 interface RequestRowProps {
   request: Request;
@@ -101,16 +100,15 @@ export const RequestRow = ({
         {request.title}
       </TableCell>
 
-      {!missionView && !isSDR && (
-        <TableCell>{request.missionName || "Sans mission"}</TableCell>
-      )}
+      {/* Show mission column for SDR users too */}
+      <TableCell>{request.missionName || "Sans mission"}</TableCell>
 
       {showSdr && (
         <TableCell>{request.sdrName || "Non assigné"}</TableCell>
       )}
 
       <TableCell>
-        <RequestStatusBadge status={request.workflow_status as WorkflowStatus || "pending_assignment"} isLate={request.isLate} />
+        <RequestStatusBadge status={request.workflow_status || "pending_assignment"} isLate={request.isLate} />
       </TableCell>
 
       <TableCell>

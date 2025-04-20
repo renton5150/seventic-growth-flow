@@ -20,7 +20,7 @@ export const RequestsTableBody = ({
   onRequestDeleted
 }: RequestsTableBodyProps) => {
   if (sortedRequests.length === 0) {
-    return <EmptyRequestsRow colSpan={isSDR ? 6 : 8} />;
+    return <EmptyRequestsRow colSpan={isSDR ? 8 : 8} />;
   }
 
   return (

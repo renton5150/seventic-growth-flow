@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,7 +38,10 @@ export function MissionSelect() {
         }
         
         if (data) {
-          const uniqueMissions = Array.from(new Map(data.map(item => [item.id, item])).values());
+          // Ensure we only have unique mission IDs
+          const uniqueMissions = Array.from(
+            new Map(data.map(item => [item.id, item])).values()
+          );
           setMissions(uniqueMissions);
         }
       } catch (error) {
