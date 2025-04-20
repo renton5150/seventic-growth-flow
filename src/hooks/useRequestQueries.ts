@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -11,19 +10,20 @@ export function useRequestQueries(userId: string | undefined) {
   const isGrowth = user?.role === 'growth';
   const isAdmin = user?.role === 'admin';
 
-  // Requêtes à affecter - Modifications pour n'afficher que les demandes non assignées
+  // Requêtes à affecter - UNIQUEMENT les demandes sans assignation
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
     queryKey: ['growth-requests-to-assign', userId],
     queryFn: async () => {
       if (!userId) return [];
       
       console.log("Récupération des requêtes à affecter avec userId:", userId);
+      console.log("Est-ce un SDR?", isSDR ? "Oui" : "Non");
       
+      // Modifié pour UNIQUEMENT récupérer les demandes sans assignation
       let query = supabase
         .from('requests_with_missions')
         .select('*', { count: 'exact' })
-        .eq('workflow_status', 'pending_assignment')
-        .is('assigned_to', null); // S'assurer que assigned_to est NULL
+        .is('assigned_to', null);
       
       // Si c'est un SDR, filtrer uniquement ses requêtes
       if (isSDR) {
@@ -40,6 +40,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log(`Requêtes à affecter récupérées: ${data.length} sur ${count} requêtes totales dans la vue`);
+      console.log("Requêtes sans assignation:", data);
       return data.map(request => formatRequestFromDb(request));
     },
     enabled: !!userId

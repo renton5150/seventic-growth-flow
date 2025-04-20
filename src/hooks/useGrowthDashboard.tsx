@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -16,22 +15,27 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Fetch requests data
+  // Fetch requests data - Utilisez les trois types de requêtes
   const { 
+    toAssignRequests,
+    myAssignmentsRequests,
     allGrowthRequests: allRequests = [], 
+    refetchToAssign,
+    refetchMyAssignments,
     refetchAllRequests: refetchRequests 
   } = useRequestQueries(user?.id);
 
   // Create the onRequestUpdated callback before passing it to useRequestAssignment
   const handleRequestUpdated = useCallback(() => {
     refetchRequests();
-  }, [refetchRequests]);
+    refetchToAssign();
+    refetchMyAssignments();
+  }, [refetchRequests, refetchToAssign, refetchMyAssignments]);
 
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);
 
   // Filter requests based on activeTab and activeFilter
   const getFilteredRequests = useCallback(() => {
-    let requests = allRequests;
     const isSDR = user?.role === 'sdr';
     const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
     
@@ -39,10 +43,10 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     if (location.pathname.includes("/my-requests")) {
       if (isSDR) {
         // Pour les SDR: uniquement leurs demandes créées
-        requests = requests.filter(req => req.createdBy === user?.id);
+        return allRequests.filter(req => req.createdBy === user?.id);
       } else if (isGrowthOrAdmin) {
         // Pour Growth: uniquement les demandes qui leur sont assignées
-        requests = requests.filter(req => req.assigned_to === user?.id);
+        return allRequests.filter(req => req.assigned_to === user?.id);
       }
     }
 
@@ -50,48 +54,48 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     if (activeFilter) {
       switch (activeFilter) {
         case "all":
-          return requests;
+          return allRequests;
         case "pending":
-          return requests.filter(req => req.workflow_status === "pending_assignment");
+          return allRequests.filter(req => req.workflow_status === "pending_assignment");
         case "completed":
-          return requests.filter(req => req.workflow_status === "completed");
+          return allRequests.filter(req => req.workflow_status === "completed");
         case "late":
-          return requests.filter(req => req.isLate);
+          return allRequests.filter(req => req.isLate);
         default:
-          return requests;
+          return allRequests;
       }
     }
     
     // Otherwise, filter by the activeTab
     switch (activeTab) {
       case "all":
-        return requests;
+        return allRequests;
       case "to_assign":
-        // CORRECTION: Pour "A assigner": uniquement les demandes non assignées ET en attente d'assignation
-        return requests.filter(req => !req.assigned_to && req.workflow_status === "pending_assignment");
+        // Utiliser directement les toAssignRequests pour le filtre "à assigner"
+        return toAssignRequests;
       case "my_assignments":
         if (isSDR) {
           // Pour les SDR: leurs propres demandes
-          return requests.filter(req => req.createdBy === user?.id);
+          return allRequests.filter(req => req.createdBy === user?.id);
         } else if (isGrowthOrAdmin) {
           // Pour Growth: uniquement les demandes qui leur sont assignées
-          return requests.filter(req => req.assigned_to === user?.id);
+          return allRequests.filter(req => req.assigned_to === user?.id);
         }
-        return requests;
+        return allRequests;
       case "inprogress":
-        return requests.filter(req => req.workflow_status === "in_progress");
+        return allRequests.filter(req => req.workflow_status === "in_progress");
       case "completed":
-        return requests.filter(req => req.workflow_status === "completed");
+        return allRequests.filter(req => req.workflow_status === "completed");
       case "email":
-        return requests.filter(req => req.type === "email");
+        return allRequests.filter(req => req.type === "email");
       case "database":
-        return requests.filter(req => req.type === "database");
+        return allRequests.filter(req => req.type === "database");
       case "linkedin":
-        return requests.filter(req => req.type === "linkedin");
+        return allRequests.filter(req => req.type === "linkedin");
       default:
-        return requests;
+        return allRequests;
     }
-  }, [allRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname]);
+  }, [allRequests, toAssignRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname]);
 
   // Get filtered requests based on active tab
   const filteredRequests = getFilteredRequests();
