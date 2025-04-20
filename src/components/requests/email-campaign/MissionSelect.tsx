@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,14 +19,12 @@ export function MissionSelect() {
   const { user } = useAuth();
   const isSDR = user?.role === 'sdr';
 
-  // Récupérer les missions en fonction du rôle de l'utilisateur
   useEffect(() => {
     const fetchMissions = async () => {
       setLoading(true);
       try {
         let query = supabase.from("missions").select("id, name, client");
         
-        // Si l'utilisateur est un SDR, ne récupérer que les missions où il est assigné
         if (isSDR && user?.id) {
           query = query.eq('sdr_id', user.id);
         }
@@ -40,8 +37,8 @@ export function MissionSelect() {
         }
         
         if (data) {
-          console.log("Missions récupérées:", data);
-          setMissions(data);
+          const uniqueMissions = Array.from(new Map(data.map(item => [item.id, item])).values());
+          setMissions(uniqueMissions);
         }
       } catch (error) {
         console.error("Exception lors de la récupération des missions:", error);
@@ -57,10 +54,8 @@ export function MissionSelect() {
     setValue("missionId", value, { shouldValidate: true });
   };
 
-  // Surveiller la valeur de la mission
   const selectedMissionId = watch("missionId");
 
-  // Formatter le nom de la mission pour l'affichage
   const getFormattedMissionName = (id: string) => {
     const mission = missions.find(m => m.id === id);
     return mission ? `${mission.name} - ${mission.client}` : "Sélectionner une mission";

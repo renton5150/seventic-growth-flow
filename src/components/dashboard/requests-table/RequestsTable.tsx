@@ -4,6 +4,7 @@ import { Request } from "@/types/types";
 import { Table } from "@/components/ui/table";
 import { RequestsTableHeader } from "./RequestsTableHeader";
 import { RequestsTableBody } from "./RequestsTableBody";
+import { sortRequests } from "@/utils/requestSorting";
 
 interface RequestsTableProps {
   requests: Request[];
@@ -22,33 +23,10 @@ export const RequestsTable = ({
 }: RequestsTableProps) => {
   const [sortColumn, setSortColumn] = useState<string>("dueDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [filters, setFilters] = useState<{[key: string]: string[]}>({});
+  const [dateFilters, setDateFilters] = useState<{[key: string]: any}>({});
 
-  const sortedRequests = [...requests].sort((a, b) => {
-    switch (sortColumn) {
-      case "dueDate":
-        return sortDirection === "asc" 
-          ? new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-          : new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
-      case "title":
-        return sortDirection === "asc" 
-          ? a.title.localeCompare(b.title)
-          : b.title.localeCompare(a.title);
-      case "status":
-        return sortDirection === "asc" 
-          ? a.status.localeCompare(b.status)
-          : b.status.localeCompare(a.status);
-      case "type":
-        return sortDirection === "asc" 
-          ? a.type.localeCompare(b.type)
-          : b.type.localeCompare(a.type);
-      case "sdrName":
-        return sortDirection === "asc" 
-          ? (a.sdrName || "").localeCompare(b.sdrName || "")
-          : (b.sdrName || "").localeCompare(a.sdrName || "");
-      default:
-        return 0;
-    }
-  });
+  const filteredAndSortedRequests = sortRequests(requests, sortColumn, sortDirection, filters, dateFilters);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -59,6 +37,20 @@ export const RequestsTable = ({
     }
   };
 
+  const handleFilterChange = (column: string, values: string[]) => {
+    setFilters(prev => ({
+      ...prev,
+      [column]: values
+    }));
+  };
+
+  const handleDateFilterChange = (field: string, type: string, values: any) => {
+    setDateFilters(prev => ({
+      ...prev,
+      [field]: { type, values }
+    }));
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -67,9 +59,15 @@ export const RequestsTable = ({
           handleSort={handleSort}
           showSdr={showSdr}
           isSDR={isSDR}
+          filters={filters}
+          dateFilters={dateFilters}
+          onFilterChange={handleFilterChange}
+          onDateFilterChange={handleDateFilterChange}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
         />
         <RequestsTableBody 
-          sortedRequests={sortedRequests} 
+          sortedRequests={filteredAndSortedRequests} 
           missionView={missionView}
           showSdr={showSdr}
           isSDR={isSDR}

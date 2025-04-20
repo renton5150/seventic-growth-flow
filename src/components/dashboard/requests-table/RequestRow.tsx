@@ -3,16 +3,8 @@ import { Request } from "@/types/types";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { Eye, MoreHorizontal, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 
@@ -31,9 +23,12 @@ export const RequestRow = ({
   isSDR = false,
   onRequestDeleted 
 }: RequestRowProps) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const canEdit = user?.id === request.created_by || user?.role === 'admin';
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
@@ -120,13 +115,21 @@ export const RequestRow = ({
                 <Eye className="mr-2 h-4 w-4" />
                 Voir les détails
               </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="text-destructive cursor-pointer"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Supprimer
-              </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuItem onClick={() => navigate(`/requests/${request.type}/${request.id}/edit`)} className="cursor-pointer">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Modifier
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    className="text-destructive cursor-pointer"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </TableCell>
