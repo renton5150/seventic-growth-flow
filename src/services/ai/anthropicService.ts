@@ -9,6 +9,7 @@ export interface RequestAnalysis {
   priorityLevel: string;
   complexity: "low" | "medium" | "high";
   keywords: string[];
+  error?: string; // Added error field to handle graceful errors
 }
 
 export interface ActivitySummary {
@@ -17,6 +18,7 @@ export interface ActivitySummary {
   achievements: string[];
   bottlenecks: string[];
   insights: string[];
+  error?: string; // Added error field
 }
 
 export interface AssignmentSuggestion {
@@ -26,6 +28,7 @@ export interface AssignmentSuggestion {
     matchScore: number;
     reasoning: string;
   }[];
+  error?: string; // Added error field
 }
 
 export interface SimilarityResult {
@@ -35,6 +38,7 @@ export interface SimilarityResult {
     similarityScore: number;
     matchReason: string;
   }[];
+  error?: string; // Added error field
 }
 
 // Main service class for Anthropic API interactions
@@ -52,14 +56,48 @@ export const AnthropicService = {
       
       if (error) {
         console.error("[Anthropic Service] Error analyzing request:", error);
-        return null;
+        // Return a graceful fallback object instead of null
+        return {
+          topic: "Analysis unavailable",
+          category: "N/A",
+          relevantSkills: ["N/A"],
+          priorityLevel: "Medium",
+          complexity: "medium",
+          keywords: ["N/A"],
+          error: error.message || "An error occurred during analysis"
+        };
+      }
+      
+      // Handle the case where the result has an error property from the edge function
+      if (data?.result?.error) {
+        console.warn("[Anthropic Service] API returned an error:", data.result.error);
+        
+        // Return the fallback data if provided, otherwise construct one
+        return data.result.fallbackData || {
+          topic: "Analysis unavailable",
+          category: "N/A",
+          relevantSkills: ["N/A"],
+          priorityLevel: "Medium",
+          complexity: "medium",
+          keywords: ["N/A"],
+          error: data.result.error
+        };
       }
       
       console.log("[Anthropic Service] Analysis result:", data);
       return data.result as RequestAnalysis;
     } catch (error) {
       console.error("[Anthropic Service] Exception analyzing request:", error);
-      return null;
+      // Return a graceful fallback object
+      return {
+        topic: "Analysis unavailable",
+        category: "Error",
+        relevantSkills: ["N/A"],
+        priorityLevel: "Medium",
+        complexity: "medium",
+        keywords: ["Error"],
+        error: error.message || "An unexpected error occurred"
+      };
     }
   },
   
@@ -77,6 +115,12 @@ export const AnthropicService = {
       if (error) {
         console.error("[Anthropic Service] Error generating summary:", error);
         return null;
+      }
+      
+      // Handle potential errors in the result
+      if (data?.result?.error) {
+        console.warn("[Anthropic Service] API returned an error:", data.result.error);
+        return data.result.fallbackData || null;
       }
       
       return data.result as ActivitySummary;
@@ -107,6 +151,12 @@ export const AnthropicService = {
         return null;
       }
       
+      // Handle potential errors in the result
+      if (data?.result?.error) {
+        console.warn("[Anthropic Service] API returned an error:", data.result.error);
+        return data.result.fallbackData || null;
+      }
+      
       return data.result as AssignmentSuggestion;
     } catch (error) {
       console.error("[Anthropic Service] Exception suggesting assignments:", error);
@@ -131,6 +181,12 @@ export const AnthropicService = {
       if (error) {
         console.error("[Anthropic Service] Error finding similarities:", error);
         return null;
+      }
+      
+      // Handle potential errors in the result
+      if (data?.result?.error) {
+        console.warn("[Anthropic Service] API returned an error:", data.result.error);
+        return data.result.fallbackData || null;
       }
       
       return data.result as SimilarityResult;

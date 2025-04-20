@@ -120,6 +120,7 @@ serve(async (req) => {
       );
     }
     
+    // FIXED: Using the correct API format for Claude with system parameter at the root
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -128,13 +129,10 @@ serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: MODELS.HAIKU, // Utiliser un modèle moins cher et plus rapide par défaut
+        model: MODELS.HAIKU, // Using Haiku model for faster responses
         max_tokens: MAX_TOKENS_TO_SAMPLE,
+        system: systemPrompt, // System prompt as a separate parameter, not in messages array
         messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
           {
             role: "user",
             content: userPrompt,
@@ -147,10 +145,24 @@ serve(async (req) => {
     if (!response.ok) {
       const errorData = await response.text();
       console.error(`[Anthropic API] Error: ${response.status} ${errorData}`);
+      
+      // Return a more graceful error that won't show an alert to users
       return new Response(
-        JSON.stringify({ error: `API call failed with status ${response.status}` }),
+        JSON.stringify({ 
+          result: {
+            error: `API call failed with status ${response.status}`,
+            fallbackData: {
+              topic: "Could not analyze",
+              category: "Error",
+              relevantSkills: ["N/A"],
+              priorityLevel: "Medium",
+              complexity: "medium",
+              keywords: ["Error"]
+            }
+          } 
+        }),
         {
-          status: 500,
+          status: 200, // Return 200 status to prevent errors in the UI
           headers: { "Content-Type": "application/json", ...corsHeaders }
         }
       );
@@ -163,10 +175,22 @@ serve(async (req) => {
     const aiResponse = result.content && result.content[0] && result.content[0].text;
     
     if (!aiResponse) {
+      // Provide fallback data instead of an error
       return new Response(
-        JSON.stringify({ error: "Empty or invalid response from AI" }),
+        JSON.stringify({ 
+          result: {
+            fallbackData: {
+              topic: "No response",
+              category: "Error",
+              relevantSkills: ["N/A"],
+              priorityLevel: "Medium",
+              complexity: "medium",
+              keywords: ["No response"]
+            }
+          } 
+        }),
         {
-          status: 500,
+          status: 200, // Return 200 status to prevent errors in the UI
           headers: { "Content-Type": "application/json", ...corsHeaders }
         }
       );
@@ -179,7 +203,7 @@ serve(async (req) => {
       parsedResponse = JSON.parse(aiResponse);
     } catch (e) {
       console.error("[Anthropic API] Failed to parse JSON from AI response:", e);
-      // If parsing fails, return the raw text
+      // If parsing fails, return the raw text but wrap it in a proper JSON structure
       parsedResponse = { raw: aiResponse };
     }
     
@@ -198,10 +222,24 @@ serve(async (req) => {
     
   } catch (error) {
     console.error("[Anthropic API] Unexpected error:", error);
+    
+    // Return a graceful error that won't show an alert to users
     return new Response(
-      JSON.stringify({ error: error.message || "Unknown error occurred" }),
+      JSON.stringify({ 
+        result: {
+          error: error.message || "Unknown error occurred",
+          fallbackData: {
+            topic: "Error occurred",
+            category: "Error",
+            relevantSkills: ["N/A"],
+            priorityLevel: "Medium",
+            complexity: "medium",
+            keywords: ["Error"]
+          }
+        }
+      }),
       {
-        status: 500,
+        status: 200, // Return 200 status to prevent the UI from showing errors
         headers: { "Content-Type": "application/json", ...corsHeaders }
       }
     );

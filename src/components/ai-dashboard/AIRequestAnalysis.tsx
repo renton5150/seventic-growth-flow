@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Request } from "@/types/types";
 import AnthropicService, { RequestAnalysis } from "@/services/ai/anthropicService";
+import { AlertCircle } from "lucide-react";
 
 interface AIRequestAnalysisProps {
   requests: Request[];
@@ -19,18 +20,20 @@ export const AIRequestAnalysis = ({ requests }: AIRequestAnalysisProps) => {
   const [analysisResult, setAnalysisResult] = useState<RequestAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisMode, setAnalysisMode] = useState<"existing" | "custom">("existing");
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     try {
       setIsAnalyzing(true);
       setAnalysisResult(null);
+      setAnalysisError(null);
       
       let textToAnalyze = "";
       
       if (analysisMode === "existing") {
         const selectedRequest = requests.find(r => r.id === selectedRequestId);
         if (!selectedRequest) {
-          toast.error("Selected request not found");
+          setAnalysisError("Selected request not found");
           return;
         }
         textToAnalyze = `Title: ${selectedRequest.title}
@@ -41,7 +44,7 @@ export const AIRequestAnalysis = ({ requests }: AIRequestAnalysisProps) => {
       }
       
       if (!textToAnalyze.trim()) {
-        toast.error("Please provide text to analyze");
+        setAnalysisError("Please provide text to analyze");
         return;
       }
       
@@ -49,13 +52,17 @@ export const AIRequestAnalysis = ({ requests }: AIRequestAnalysisProps) => {
       
       if (result) {
         setAnalysisResult(result);
-        toast.success("Analysis completed");
+        // Only show success toast if there was no error
+        if (!result.error) {
+          toast.success("Analysis completed");
+        }
       } else {
-        toast.error("Failed to analyze request");
+        // Show a less intrusive error in the component instead of a toast
+        setAnalysisError("Could not analyze request. Please try again later.");
       }
     } catch (error) {
       console.error("Error analyzing request:", error);
-      toast.error("An error occurred during analysis");
+      setAnalysisError("An error occurred during analysis. Please try again later.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -116,6 +123,13 @@ export const AIRequestAnalysis = ({ requests }: AIRequestAnalysisProps) => {
               </div>
             )}
 
+            {analysisError && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-yellow-800 flex items-start">
+                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                <p>{analysisError}</p>
+              </div>
+            )}
+
             <Button
               className="w-full"
               onClick={handleAnalyze}
@@ -163,22 +177,22 @@ export const AIRequestAnalysis = ({ requests }: AIRequestAnalysisProps) => {
               <div>
                 <p className="font-medium text-sm text-muted-foreground mb-2">Relevant Skills</p>
                 <div className="flex flex-wrap gap-2">
-                  {analysisResult.relevantSkills.map((skill, index) => (
+                  {analysisResult.relevantSkills?.map((skill, index) => (
                     <Badge key={index} variant="outline" className="bg-blue-50">
                       {skill}
                     </Badge>
-                  ))}
+                  )) || <p className="text-muted-foreground">No skills data available</p>}
                 </div>
               </div>
 
               <div>
                 <p className="font-medium text-sm text-muted-foreground mb-2">Keywords</p>
                 <div className="flex flex-wrap gap-2">
-                  {analysisResult.keywords.map((keyword, index) => (
+                  {analysisResult.keywords?.map((keyword, index) => (
                     <Badge key={index} variant="outline" className="bg-green-50">
                       {keyword}
                     </Badge>
-                  ))}
+                  )) || <p className="text-muted-foreground">No keywords data available</p>}
                 </div>
               </div>
             </div>
