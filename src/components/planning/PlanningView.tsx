@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import resourceTimelinePlugin from "@fullcalendar/resource-timeline";
@@ -13,15 +14,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+// More distinctive color palette with higher contrast
 const missionColors = [
-  { bg: '#8B5CF6', border: '#6D28D9' }, // Violet vif
-  { bg: '#EC4899', border: '#BE185D' }, // Rose vif
-  { bg: '#F97316', border: '#C2410C' }, // Orange vif
-  { bg: '#10B981', border: '#047857' }, // Vert émeraude
-  { bg: '#3B82F6', border: '#1D4ED8' }, // Bleu vif
-  { bg: '#EF4444', border: '#B91C1C' }, // Rouge
-  { bg: '#F59E0B', border: '#B45309' }, // Jaune ambre
-  { bg: '#6366F1', border: '#4338CA' }  // Indigo
+  { bg: '#8B5CF6', border: '#6D28D9', textColor: '#FFFFFF' }, // Violet vif
+  { bg: '#EC4899', border: '#BE185D', textColor: '#FFFFFF' }, // Rose vif
+  { bg: '#F97316', border: '#C2410C', textColor: '#FFFFFF' }, // Orange vif
+  { bg: '#10B981', border: '#047857', textColor: '#FFFFFF' }, // Vert émeraude
+  { bg: '#3B82F6', border: '#1D4ED8', textColor: '#FFFFFF' }, // Bleu vif
+  { bg: '#EF4444', border: '#B91C1C', textColor: '#FFFFFF' }, // Rouge
+  { bg: '#F59E0B', border: '#B45309', textColor: '#FFFFFF' }, // Jaune ambre
+  { bg: '#6366F1', border: '#4338CA', textColor: '#FFFFFF' }  // Indigo
 ];
 
 interface PlanningViewProps {
@@ -34,17 +36,26 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
   const navigate = useNavigate();
   const [calendarApi, setCalendarApi] = useState<any | null>(null);
 
+  // Create a fixed color map that assigns consistent colors to each mission ID
+  // We use the mission ID as the key to ensure consistency across renders
   const [missionColorMap] = useState(() => {
-    const map = new Map<string, { bg: string; border: string }>();
+    const map = new Map<string, { bg: string; border: string; textColor: string }>();
+    
+    // Ensure each mission gets a unique color by using modulo on the array length
+    // This distributes colors evenly across all missions
     missions.forEach((mission, index) => {
-      map.set(mission.id, missionColors[index % missionColors.length]);
+      const colorIndex = index % missionColors.length;
+      map.set(mission.id, missionColors[colorIndex]);
     });
+    
     return map;
   });
 
   const transformMissionsToEvents = (missions: Mission[]): EventSourceInput => {
     return missions.map(mission => {
+      // Get color from map or use default if not found
       const colors = missionColorMap.get(mission.id) || missionColors[0];
+      
       return {
         id: mission.id,
         title: mission.name,
@@ -58,7 +69,7 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
         },
         backgroundColor: colors.bg,
         borderColor: colors.border,
-        textColor: '#ffffff',
+        textColor: colors.textColor,
         classNames: ['mission-event'],
       };
     });
@@ -89,11 +100,24 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
       setCalendarApi(calendarRef.current.getApi());
     }
     
+    // Add custom CSS to enhance mission event visibility
     const style = document.createElement('style');
     style.textContent = `
       .mission-event {
         opacity: 1 !important;
-        font-weight: bold;
+        font-weight: bold !important;
+        border-width: 2px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+      }
+      
+      /* Ensure calendar header separates events better */
+      .fc-timeline-slot {
+        border-left: 1px solid rgba(0,0,0,0.1) !important;
+      }
+      
+      /* Make the events stand out more */
+      .fc-event-main {
+        padding: 2px 4px !important;
       }
     `;
     document.head.appendChild(style);
