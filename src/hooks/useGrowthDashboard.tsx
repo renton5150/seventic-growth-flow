@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -33,7 +34,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     let requests = allRequests;
     
     // Si on est sur la page my-requests, ne montrer que les demandes assignées à l'utilisateur connecté
-    if (location.pathname.includes("/my-requests")) {
+    if (location.pathname.includes("/my-requests") && user?.role === "growth") {
       requests = allRequests.filter(req => req.assigned_to === user?.id);
     }
 
@@ -60,7 +61,9 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       case "to_assign":
         return requests.filter(req => req.workflow_status === "pending_assignment");
       case "my_assignments":
-        return requests.filter(req => req.assigned_to === user?.id);
+        return user?.role === "growth" 
+          ? requests.filter(req => req.assigned_to === user?.id)
+          : requests; // Admin voit tout
       case "inprogress":
         return requests.filter(req => req.workflow_status === "in_progress");
       case "completed":
@@ -74,7 +77,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       default:
         return requests;
     }
-  }, [allRequests, activeTab, activeFilter, user?.id, location.pathname]);
+  }, [allRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname]);
 
   // Get filtered requests based on active tab
   const filteredRequests = getFilteredRequests();

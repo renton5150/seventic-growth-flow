@@ -42,8 +42,8 @@ export const GrowthDashboardContent = ({
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   
-  // Filtrer les demandes pour le comptage dans les cartes de statistiques
   // Sur la page "Mes demandes", on ne montre que les stats des demandes assignées à l'utilisateur
+  // Sur les autres pages, on montre toutes les demandes pour les utilisateurs Growth
   const statsRequests = isMyRequestsPage 
     ? allRequests.filter(req => req.assigned_to === user?.id)
     : allRequests;

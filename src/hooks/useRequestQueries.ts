@@ -27,6 +27,7 @@ export function useRequestQueries(userId: string | undefined) {
       if (isSDR) {
         query = query.eq('created_by', userId);
       }
+      // Pour Growth/Admin, pas de filtre supplémentaire - voir toutes les requêtes en attente d'assignation
       
       query = query.order('due_date', { ascending: true });
       
@@ -43,7 +44,8 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Mes assignations - Afficher uniquement les demandes du SDR connecté ou assignées au Growth
+  // Mes assignations - Pour Growth, voir toutes les requêtes qui sont assignées à moi
+  // Pour SDR, voir uniquement mes demandes
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
     queryKey: ['growth-requests-my-assignments', userId],
     queryFn: async () => {
@@ -60,6 +62,7 @@ export function useRequestQueries(userId: string | undefined) {
         // Pour Growth, montrer les demandes qui lui sont assignées
         query = query.eq('assigned_to', userId);
       }
+      // Admin voit tout
       
       query = query.order('due_date', { ascending: true });
       
@@ -76,7 +79,7 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Toutes les requêtes - Pas de filtre pour Growth
+  // Toutes les requêtes - Pas de filtre pour Growth et Admin
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
     queryKey: ['growth-all-requests', userId, isSDR],
     queryFn: async () => {
@@ -91,6 +94,8 @@ export function useRequestQueries(userId: string | undefined) {
         query = query.eq('created_by', userId);
       }
       // Pour Growth et Admin, récupérer toutes les requêtes sans filtre
+      
+      query = query.order('due_date', { ascending: true });
       
       const { data, error } = await query;
       
@@ -112,25 +117,12 @@ export function useRequestQueries(userId: string | undefined) {
     try {
       console.log("Récupération des détails pour la demande:", requestId);
       
-      // Essayer d'abord avec la vue growth_requests_view
-      let { data, error } = await supabase
-        .from('growth_requests_view')
+      // Utiliser uniquement la table requests_with_missions pour une consistance optimale
+      const { data, error } = await supabase
+        .from('requests_with_missions')
         .select('*')
         .eq('id', requestId)
         .maybeSingle();
-
-      // Si pas trouvé, essayer avec la table requests_with_missions
-      if (!data && !error) {
-        console.log("Requête non trouvée dans la vue, essai avec la table requests_with_missions");
-        const response = await supabase
-          .from('requests_with_missions')
-          .select('*')
-          .eq('id', requestId)
-          .maybeSingle();
-          
-        data = response.data;
-        error = response.error;
-      }
 
       // Vérification des droits pour un SDR
       if (data && isSDR && data.created_by !== userId) {
