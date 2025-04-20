@@ -31,15 +31,20 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   // Filter requests based on activeTab and activeFilter
   const getFilteredRequests = useCallback(() => {
-    // Premier filtre pour les SDRs uniquement - Growth et Admin voient tout
     let requests = allRequests;
     const isSDR = user?.role === 'sdr';
+    const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
     
-    // Si on est sur la page my-requests et que c'est un SDR, ne montrer que les demandes créées par l'utilisateur
-    if (location.pathname.includes("/my-requests") && isSDR) {
-      requests = allRequests.filter(req => req.createdBy === user?.id);
+    // Si on est sur la page my-requests
+    if (location.pathname.includes("/my-requests")) {
+      if (isSDR) {
+        // Pour les SDR: uniquement leurs demandes créées
+        requests = requests.filter(req => req.createdBy === user?.id);
+      } else if (isGrowthOrAdmin) {
+        // Pour Growth: uniquement les demandes qui leur sont assignées
+        requests = requests.filter(req => req.assigned_to === user?.id);
+      }
     }
-    // Pour Growth et Admin, aucune restriction - ils voient toutes les requêtes
 
     // If we have an activeFilter from stat cards, it takes precedence
     if (activeFilter) {
@@ -62,13 +67,17 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       case "all":
         return requests;
       case "to_assign":
-        return requests.filter(req => req.workflow_status === "pending_assignment");
+        // Pour "A assigner": uniquement les demandes non assignées
+        return requests.filter(req => !req.assigned_to && req.workflow_status === "pending_assignment");
       case "my_assignments":
-        // Pour les SDR, montrer leurs propres demandes
-        // Pour Growth et Admin, montrer toutes les demandes (pas de filtre)
-        return isSDR 
-          ? requests.filter(req => req.createdBy === user?.id)
-          : requests;
+        if (isSDR) {
+          // Pour les SDR: leurs propres demandes
+          return requests.filter(req => req.createdBy === user?.id);
+        } else if (isGrowthOrAdmin) {
+          // Pour Growth: uniquement les demandes qui leur sont assignées
+          return requests.filter(req => req.assigned_to === user?.id);
+        }
+        return requests;
       case "inprogress":
         return requests.filter(req => req.workflow_status === "in_progress");
       case "completed":
