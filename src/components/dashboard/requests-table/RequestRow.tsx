@@ -130,15 +130,13 @@ export const RequestRow = ({
             <Eye className="h-4 w-4 mr-1" /> Voir
           </Button>
 
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={editRequest}
-            >
-              <Pencil className="h-4 w-4 mr-1" /> Éditer
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={editRequest}
+          >
+            <Pencil className="h-4 w-4 mr-1" /> Éditer
+          </Button>
 
           {canDelete && (
             <DropdownMenu>
