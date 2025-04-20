@@ -10,6 +10,8 @@ import {
 import { Pencil, CheckCircle, XCircle, ArrowRightLeft, FileCheck, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface GrowthRequestActionsProps {
   request: Request;
@@ -30,6 +32,10 @@ export function GrowthRequestActions({
   updateRequestWorkflowStatus,
   activeTab
 }: GrowthRequestActionsProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
+  
   const handleStatusChange = async (newStatus: string) => {
     if (!updateRequestWorkflowStatus) return;
     
@@ -41,17 +47,21 @@ export function GrowthRequestActions({
     }
   };
 
+  // Fonction pour rediriger vers la page de détails complète
+  const viewFullDetails = () => {
+    navigate(`/requests/${request.type}/${request.id}`);
+  };
+
   return (
     <div className="flex justify-end space-x-2">
-      {onViewDetails && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onViewDetails(request)}
-        >
-          <Eye size={14} className="mr-1" /> Voir
-        </Button>
-      )}
+      {/* Bouton pour voir les détails complets - redirige vers la page détaillée */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={viewFullDetails}
+      >
+        <Eye size={14} className="mr-1" /> Voir
+      </Button>
       
       <Button
         variant="ghost"

@@ -4,7 +4,7 @@ import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
 import { useRequestAssignment } from "@/hooks/useRequestAssignment";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export const useGrowthDashboard = (defaultTab?: string) => {
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "all");
@@ -14,6 +14,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Fetch requests data
   const { 
@@ -137,9 +138,9 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   }, []);
 
   const handleViewDetails = useCallback((request: Request) => {
-    // Implement navigation to details page
-    console.log("View details for request:", request);
-  }, []);
+    // Redirection directe vers la page de détails pour tous les utilisateurs
+    navigate(`/requests/${request.type}/${request.id}`);
+  }, [navigate]);
 
   return {
     filteredRequests,

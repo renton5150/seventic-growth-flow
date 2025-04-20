@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { Request, RequestStatus } from "@/types/types";
 import { updateRequest } from "@/services/requestService";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RequestEditDialogProps {
   open: boolean;
@@ -36,6 +38,10 @@ export function RequestEditDialog({
   selectedRequest, 
   onRequestUpdated 
 }: RequestEditDialogProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
+
   useEffect(() => {
     if (selectedRequest) {
       console.log("Mission dans RequestEditDialog:", selectedRequest.missionName, selectedRequest);
@@ -84,6 +90,13 @@ export function RequestEditDialog({
     }
   };
 
+  // Fonction pour accéder à l'édition complète
+  const handleViewFullEdit = () => {
+    if (!selectedRequest) return;
+    navigate(`/requests/${selectedRequest.type}/${selectedRequest.id}/edit`);
+    onOpenChange(false);
+  };
+
   // Calcul du type de demande pour l'affichage
   const getRequestTypeLabel = (type?: string): string => {
     if (!type) return "";
@@ -102,7 +115,7 @@ export function RequestEditDialog({
         <DialogHeader>
           <DialogTitle>Modifier la demande</DialogTitle>
           <DialogDescription>
-            Modifiez les détails de cette demande.
+            Modifiez les détails de cette demande ou accédez à l'édition complète.
           </DialogDescription>
         </DialogHeader>
         
@@ -172,7 +185,16 @@ export function RequestEditDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="flex justify-between pt-2">
+              {isGrowthOrAdmin && selectedRequest && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleViewFullEdit}
+                >
+                  Édition complète
+                </Button>
+              )}
               <Button type="submit">Enregistrer</Button>
             </DialogFooter>
           </form>
