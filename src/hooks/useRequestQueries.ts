@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
   const isSDR = user?.role === 'sdr';
+  const isGrowth = user?.role === 'growth';
 
   // Requêtes à affecter - Modifications pour les SDRs
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
@@ -18,7 +19,7 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("Récupération des requêtes à affecter avec userId:", userId);
       
       let query = supabase
-        .from('growth_requests_view')
+        .from('requests_with_missions')
         .select('*', { count: 'exact' })
         .eq('workflow_status', 'pending_assignment');
       
@@ -50,13 +51,13 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log("Récupération de mes assignations avec userId:", userId);
       
-      let query = supabase.from('growth_requests_view').select('*', { count: 'exact' });
+      let query = supabase.from('requests_with_missions').select('*', { count: 'exact' });
       
       // Si c'est un SDR, montrer uniquement ses propres demandes
       if (isSDR) {
         query = query.eq('created_by', userId);
-      } else {
-        // Sinon, pour Growth/Admin, montrer les demandes assignées à eux
+      } else if (isGrowth) {
+        // Pour Growth, montrer les demandes qui lui sont assignées
         query = query.eq('assigned_to', userId);
       }
       
@@ -75,7 +76,7 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Toutes les requêtes - Filtré pour les SDRs
+  // Toutes les requêtes - Pas de filtre pour Growth
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
     queryKey: ['growth-all-requests', userId, isSDR],
     queryFn: async () => {
@@ -89,6 +90,7 @@ export function useRequestQueries(userId: string | undefined) {
       if (isSDR) {
         query = query.eq('created_by', userId);
       }
+      // Pour Growth et Admin, récupérer toutes les requêtes sans filtre
       
       const { data, error } = await query;
       
@@ -97,10 +99,8 @@ export function useRequestQueries(userId: string | undefined) {
         throw error;
       }
       
-      // Vérifier que data est bien un tableau avant d'appeler length ou map
       const requestsArray = Array.isArray(data) ? data : [];
       console.log(`Retrieved ${requestsArray.length} total requests`);
-      console.log('User role is SDR?', isSDR);
       
       return requestsArray.map(request => formatRequestFromDb(request));
     },
