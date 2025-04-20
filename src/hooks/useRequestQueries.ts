@@ -11,7 +11,7 @@ export function useRequestQueries(userId: string | undefined) {
   const isGrowth = user?.role === 'growth';
   const isAdmin = user?.role === 'admin';
 
-  // Requêtes à affecter - Modifications pour les SDRs
+  // Requêtes à affecter - Modifications pour n'afficher que les demandes non assignées
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
     queryKey: ['growth-requests-to-assign', userId],
     queryFn: async () => {
@@ -22,13 +22,13 @@ export function useRequestQueries(userId: string | undefined) {
       let query = supabase
         .from('requests_with_missions')
         .select('*', { count: 'exact' })
-        .eq('workflow_status', 'pending_assignment');
+        .eq('workflow_status', 'pending_assignment')
+        .is('assigned_to', null); // S'assurer que assigned_to est NULL
       
       // Si c'est un SDR, filtrer uniquement ses requêtes
       if (isSDR) {
         query = query.eq('created_by', userId);
       }
-      // Pour Growth/Admin, pas de filtre supplémentaire - voir toutes les requêtes en attente d'assignation
       
       query = query.order('due_date', { ascending: true });
       

@@ -67,7 +67,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       case "all":
         return requests;
       case "to_assign":
-        // Pour "A assigner": uniquement les demandes non assignées
+        // CORRECTION: Pour "A assigner": uniquement les demandes non assignées ET en attente d'assignation
         return requests.filter(req => !req.assigned_to && req.workflow_status === "pending_assignment");
       case "my_assignments":
         if (isSDR) {
