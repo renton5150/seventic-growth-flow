@@ -1,8 +1,7 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, MODELS, MAX_TOKENS_TO_SAMPLE } from "./config";
-import { createSystemPrompt } from "./prompts";
-import { AnthropicResponse } from "./types";
+import { corsHeaders, MODELS, MAX_TOKENS_TO_SAMPLE } from "./config.ts";
+import { createSystemPrompt } from "./prompts.ts";
+import { AnthropicResponse } from "./types.ts";
 
 const handleRequest = async (req: Request) => {
   try {

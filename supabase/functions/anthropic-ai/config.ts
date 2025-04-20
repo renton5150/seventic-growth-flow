@@ -1,5 +1,5 @@
 
-import { CorsConfig, ModelsConfig } from "./types";
+import { CorsConfig, ModelsConfig } from "./types.ts";
 
 export const corsHeaders: CorsConfig = {
   "Access-Control-Allow-Origin": "*",

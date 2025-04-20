@@ -1,5 +1,5 @@
 
-import { SystemPromptType } from "./types";
+import { SystemPromptType } from "./types.ts";
 
 const basePrompt = "You are Claude, an AI assistant integrated into Seventic, a project management application. ";
 
