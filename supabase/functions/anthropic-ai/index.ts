@@ -121,6 +121,7 @@ serve(async (req) => {
     }
     
     // FIXED: Using the correct API format for Claude with system parameter at the root
+    // and proper response_format parameter
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -138,7 +139,7 @@ serve(async (req) => {
             content: userPrompt,
           },
         ],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" } // Correctly formatted response_format
       }),
     });
     

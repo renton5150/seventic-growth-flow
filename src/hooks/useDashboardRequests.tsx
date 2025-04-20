@@ -94,6 +94,9 @@ export const useDashboardRequests = () => {
       if (activeTab === "pending") {
         return request.status === "pending" || request.workflow_status === "pending_assignment";
       }
+      if (activeTab === "inprogress") {
+        return request.workflow_status === "in_progress";
+      }
       if (activeTab === "completed") {
         return request.workflow_status === "completed";
       }
@@ -108,14 +111,20 @@ export const useDashboardRequests = () => {
   const filteredRequests = getFilteredRequests();
 
   // Solution radicale: Implémentation directe avec un forçage du rendu complet
-  const handleStatCardClick = (filterType: "all" | "pending" | "completed" | "late") => {
+  const handleStatCardClick = (filterType: "all" | "pending" | "inprogress" | "completed" | "late") => {
     console.log("[ULTRA FIX] useDashboardRequests - handleStatCardClick appelé avec:", filterType);
     
     // Application immédiate du filtre
     setActiveTab(filterType);
     
     // Notification visuelle
-    toast.success(`Filtrage appliqué: ${filterType}`, {
+    toast.success(`Filtrage appliqué: ${
+      filterType === "all" ? "toutes les demandes" :
+      filterType === "pending" ? "demandes en attente" :
+      filterType === "inprogress" ? "demandes en cours" :
+      filterType === "completed" ? "demandes terminées" :
+      "demandes en retard"
+    }`, {
       duration: 2000,
       position: "top-center"
     });

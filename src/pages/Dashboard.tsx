@@ -21,13 +21,14 @@ const Dashboard = () => {
     isAdmin, 
     requests,
     refetch,
+    handleStatCardClick
   } = useDashboardRequests();
 
   const handleRequestDeleted = () => {
     refetch();
   };
 
-  const handleFilterClick = (filterType: "all" | "pending" | "completed" | "late") => {
+  const handleFilterClick = (filterType: "all" | "pending" | "inprogress" | "completed" | "late") => {
     console.log("[DEBUG] Dashboard - Filter clicked:", filterType);
     
     if (activeFilter === filterType) {
@@ -40,6 +41,7 @@ const Dashboard = () => {
       toast.success(`Filtrage par ${
         filterType === "all" ? "toutes les demandes" :
         filterType === "pending" ? "demandes en attente" :
+        filterType === "inprogress" ? "demandes en cours" :
         filterType === "completed" ? "demandes terminées" :
         "demandes en retard"
       }`);

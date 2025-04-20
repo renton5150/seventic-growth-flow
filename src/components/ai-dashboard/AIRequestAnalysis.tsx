@@ -52,9 +52,15 @@ export const AIRequestAnalysis = ({ requests }: AIRequestAnalysisProps) => {
       
       if (result) {
         setAnalysisResult(result);
-        // Only show success toast if there was no error
+        
+        // Only show success toast if there was no error, and do NOT show error toasts
+        // This prevents intrusive error popups when there are API issues
         if (!result.error) {
-          toast.success("Analysis completed");
+          toast.success("Analysis completed", { duration: 2000 });
+        } else {
+          // Log the error but don't show intrusive popups
+          console.warn("Analysis completed with errors:", result.error);
+          setAnalysisError("Analysis could not be completed at this time. Using fallback data.");
         }
       } else {
         // Show a less intrusive error in the component instead of a toast
