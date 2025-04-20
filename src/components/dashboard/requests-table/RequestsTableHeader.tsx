@@ -173,17 +173,16 @@ export const RequestsTableHeader = ({
           </div>
         </TableHead>
         
-        {!missionView && !isSDR && (
-          <TableHead>
-            <div className="flex items-center justify-between">
-              <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("missionName")}>
-                Mission
-                {getSortIcon("missionName")}
-              </div>
-              {renderFilterPopover("mission", [])}
+        {/* Toujours afficher la colonne mission, même pour les SDR */}
+        <TableHead>
+          <div className="flex items-center justify-between">
+            <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("missionName")}>
+              Mission
+              {getSortIcon("missionName")}
             </div>
-          </TableHead>
-        )}
+            {renderFilterPopover("mission", [])}
+          </div>
+        </TableHead>
         
         {showSdr && (
           <TableHead>

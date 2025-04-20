@@ -73,7 +73,7 @@ export const RequestRow = ({
   };
 
   const editRequest = () => {
-    const baseEditUrl = `/request-edit/${request.id}`;
+    console.log("Édition de la demande:", request.id, "type:", request.type);
     
     switch (request.type) {
       case "email":
@@ -86,7 +86,7 @@ export const RequestRow = ({
         navigate(`/linkedin-scraping-edit/${request.id}`);
         break;
       default:
-        navigate(baseEditUrl);
+        navigate(`/request-edit/${request.id}`);
     }
   };
 
@@ -100,7 +100,7 @@ export const RequestRow = ({
         {request.title}
       </TableCell>
 
-      {/* Show mission column for SDR users too */}
+      {/* Always show mission column */}
       <TableCell>{request.missionName || "Sans mission"}</TableCell>
 
       {showSdr && (
@@ -108,7 +108,7 @@ export const RequestRow = ({
       )}
 
       <TableCell>
-        <RequestStatusBadge status={request.workflow_status || "pending_assignment"} isLate={request.isLate} />
+        <RequestStatusBadge status={request.workflow_status || request.status} isLate={request.isLate} />
       </TableCell>
 
       <TableCell>

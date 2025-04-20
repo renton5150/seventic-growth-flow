@@ -9,8 +9,8 @@ interface RequestStatusBadgeProps {
 }
 
 export const RequestStatusBadge = ({ status, isLate }: RequestStatusBadgeProps) => {
-  // Si on a un workflow_status, on l'utilise en priorité
-  if (isLate && (status === "pending_assignment" || status === "in_progress" || status === "pending")) {
+  // Si on est en retard et que le statut est en attente ou en cours
+  if (isLate && (status === "pending_assignment" || status === "in_progress" || status === "pending" || status === "inprogress")) {
     return (
       <Badge variant="outline" className="bg-red-500 text-white flex gap-1 items-center">
         <AlertCircle size={14} /> En retard
@@ -45,14 +45,20 @@ export const RequestStatusBadge = ({ status, isLate }: RequestStatusBadgeProps) 
       );
     case "pending":
       return (
-        <Badge variant="outline" className="bg-status-pending text-white flex gap-1 items-center">
+        <Badge variant="outline" className="bg-orange-500 text-white flex gap-1 items-center">
           <Clock size={14} /> En attente
         </Badge>
       );
     case "inprogress":
       return (
-        <Badge variant="outline" className="bg-status-inprogress text-white flex gap-1 items-center">
+        <Badge variant="outline" className="bg-blue-500 text-white flex gap-1 items-center">
           <ArrowRightLeft size={14} /> En cours
+        </Badge>
+      );
+    case "rejected":
+      return (
+        <Badge variant="outline" className="bg-gray-500 text-white flex gap-1 items-center">
+          <XCircle size={14} /> Rejetée
         </Badge>
       );
     default:

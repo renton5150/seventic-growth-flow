@@ -38,7 +38,7 @@ export function MissionSelect() {
         }
         
         if (data) {
-          // Ensure we only have unique mission IDs
+          // S'assurer que les missions ont des IDs uniques
           const uniqueMissions = Array.from(
             new Map(data.map(item => [item.id, item])).values()
           );
@@ -59,11 +59,6 @@ export function MissionSelect() {
   };
 
   const selectedMissionId = watch("missionId");
-
-  const getFormattedMissionName = (id: string) => {
-    const mission = missions.find(m => m.id === id);
-    return mission ? `${mission.name} - ${mission.client}` : "Sélectionner une mission";
-  };
   
   return (
     <div className="space-y-2">
@@ -73,11 +68,9 @@ export function MissionSelect() {
         </Label>
       </div>
       
-      <Select onValueChange={handleMissionChange} value={selectedMissionId}>
+      <Select onValueChange={handleMissionChange} value={selectedMissionId || ""}>
         <SelectTrigger className="w-full h-10">
-          <SelectValue placeholder="Sélectionner une mission">
-            {selectedMissionId ? getFormattedMissionName(selectedMissionId) : "Sélectionner une mission"}
-          </SelectValue>
+          <SelectValue placeholder="Sélectionner une mission" />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
