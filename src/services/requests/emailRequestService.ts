@@ -1,4 +1,3 @@
-
 import { EmailCampaignRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
@@ -16,7 +15,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       mission_id: requestData.missionId,
       created_by: requestData.createdBy,
       created_at: new Date().toISOString(),
-      status: "pending",
+      status: "en attente",
       workflow_status: "pending_assignment",
       target_role: "growth",
       due_date: requestData.dueDate.toISOString(),

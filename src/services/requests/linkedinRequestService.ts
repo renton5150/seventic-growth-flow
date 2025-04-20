@@ -1,4 +1,3 @@
-
 import { LinkedInScrapingRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
@@ -14,7 +13,7 @@ export const createLinkedInScrapingRequest = async (requestData: any): Promise<L
       mission_id: requestData.missionId,
       created_by: requestData.createdBy,
       created_at: new Date().toISOString(),
-      status: "pending",
+      status: "en attente",
       due_date: requestData.dueDate.toISOString(),
       last_updated: new Date().toISOString(),
       details: {
