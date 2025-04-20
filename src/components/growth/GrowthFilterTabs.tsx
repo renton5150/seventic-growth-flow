@@ -43,14 +43,6 @@ export function GrowthFilterTabs({ activeTab, setActiveTab }: GrowthFilterTabsPr
         <UserCheck className="mr-1 h-4 w-4" /> Mes assignations
       </Button>
       <Button
-        variant={activeTab === "pending" ? "default" : "outline"}
-        size="sm"
-        onClick={() => setActiveTab("pending")}
-        style={{ display: 'none' }} // Masquer ce bouton au lieu de le supprimer
-      >
-        <AlertCircle className="mr-1 h-4 w-4" /> En attente
-      </Button>
-      <Button
         variant={activeTab === "inprogress" ? "default" : "outline"}
         size="sm"
         onClick={() => setActiveTab("inprogress")}

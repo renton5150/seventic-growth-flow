@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -19,11 +20,12 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("Récupération des requêtes à affecter avec userId:", userId);
       console.log("Est-ce un SDR?", isSDR ? "Oui" : "Non");
       
-      // Modifié pour UNIQUEMENT récupérer les demandes sans assignation
+      // Requête EXCLUSIVEMENT pour les demandes sans assignation
       let query = supabase
         .from('requests_with_missions')
         .select('*', { count: 'exact' })
-        .is('assigned_to', null);
+        .is('assigned_to', null)
+        .eq('workflow_status', 'pending_assignment');
       
       // Si c'est un SDR, filtrer uniquement ses requêtes
       if (isSDR) {
@@ -57,12 +59,15 @@ export function useRequestQueries(userId: string | undefined) {
       
       let query = supabase.from('requests_with_missions').select('*', { count: 'exact' });
       
-      // Si c'est un SDR, montrer uniquement ses propres demandes
-      if (isSDR) {
+      // Pour Growth: seulement les requêtes assignées à lui-même
+      if (isGrowth) {
+        query = query.eq('assigned_to', userId);
+      }
+      // Pour SDR: seulement ses requêtes créées
+      else if (isSDR) {
         query = query.eq('created_by', userId);
       }
-      // Pour Growth et Admin, on ne filtre pas - ils voient tout
-      // Suppression du filtre assigned_to pour Growth
+      // Pour Admin: toutes les requêtes
       
       query = query.order('due_date', { ascending: true });
       

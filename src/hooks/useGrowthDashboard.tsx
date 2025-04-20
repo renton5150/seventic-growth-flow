@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -50,6 +51,12 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       }
     }
 
+    // Si on est sur la page to-assign
+    if (location.pathname.includes("/to-assign")) {
+      // Utiliser directement toAssignRequests qui contient uniquement les demandes non assignées
+      return toAssignRequests;
+    }
+
     // If we have an activeFilter from stat cards, it takes precedence
     if (activeFilter) {
       switch (activeFilter) {
@@ -81,7 +88,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           // Pour Growth: uniquement les demandes qui leur sont assignées
           return allRequests.filter(req => req.assigned_to === user?.id);
         }
-        return allRequests;
+        return myAssignmentsRequests;
       case "inprogress":
         return allRequests.filter(req => req.workflow_status === "in_progress");
       case "completed":
@@ -95,7 +102,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       default:
         return allRequests;
     }
-  }, [allRequests, toAssignRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname]);
+  }, [allRequests, toAssignRequests, myAssignmentsRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname]);
 
   // Get filtered requests based on active tab
   const filteredRequests = getFilteredRequests();
