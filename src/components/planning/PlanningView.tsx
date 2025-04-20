@@ -79,7 +79,15 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
         headerToolbar={{
           left: 'today prev,next',
           center: 'title',
-          right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth'
+          right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth,resourceTimelineQuarter'
+        }}
+        views={{
+          resourceTimelineQuarter: {
+            type: 'resourceTimeline',
+            duration: { months: 3 },
+            buttonText: 'Trimestre',
+            slotDuration: { days: 1 }
+          }
         }}
         editable={isAdmin}
         selectable={true}
@@ -97,14 +105,11 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
           { day: 'numeric' }
         ]}
         resourceLabelDidMount={(info) => {
-          // Vous pouvez ajouter du style aux labels des ressources ici
           info.el.style.fontWeight = 'bold';
         }}
         droppable={isAdmin}
-        // Use eventDrop as part of the droppable interactions
         eventDrop={isAdmin ? (info) => {
           toast.success(`Mission ${info.event.title} déplacée`);
-          // Ici, vous pourriez appeler votre API pour mettre à jour la mission
           console.log('Mission déplacée:', {
             id: info.event.id,
             newStart: info.event.start,
@@ -112,10 +117,8 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
             newResourceId: info.newResource?.id
           });
         } : undefined}
-        // Use eventResize as part of the resizable interactions
         eventResize={isAdmin ? (info) => {
           toast.success(`Dates de la mission ${info.event.title} modifiées`);
-          // Ici, vous pourriez appeler votre API pour mettre à jour la mission
           console.log('Mission redimensionnée:', {
             id: info.event.id,
             newStart: info.event.start,

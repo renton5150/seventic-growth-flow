@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "./DateRangePicker";
@@ -172,6 +171,7 @@ export const PlanningHeader = ({ missions, onFiltersChange }: PlanningHeaderProp
             <SelectItem value="resourceTimelineDay">Vue journalière</SelectItem>
             <SelectItem value="resourceTimelineWeek">Vue hebdomadaire</SelectItem>
             <SelectItem value="resourceTimelineMonth">Vue mensuelle</SelectItem>
+            <SelectItem value="resourceTimelineQuarter">Vue trimestrielle</SelectItem>
           </SelectContent>
         </Select>
       </div>
