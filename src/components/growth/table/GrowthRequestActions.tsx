@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Pencil, CheckCircle, XCircle, ArrowRightLeft, FileCheck, Eye } from "lucide-react";
+import { Pencil, CheckCircle, XCircle, ArrowRightLeft, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
 import { useNavigate } from "react-router-dom";
@@ -47,14 +47,18 @@ export function GrowthRequestActions({
     }
   };
 
-  // Fonction pour rediriger vers la page de détails complète
+  // Fonction pour rediriger vers la page d'édition complète
+  const handleEdit = () => {
+    navigate(`/requests/${request.type}/${request.id}/edit`);
+  };
+
+  // Fonction pour rediriger vers la page de détails
   const viewFullDetails = () => {
     navigate(`/requests/${request.type}/${request.id}`);
   };
 
   return (
     <div className="flex justify-end space-x-2">
-      {/* Bouton pour voir les détails complets - redirige vers la page détaillée */}
       <Button
         variant="ghost"
         size="sm"
@@ -66,7 +70,7 @@ export function GrowthRequestActions({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => onEditRequest(request)}
+        onClick={handleEdit}
       >
         <Pencil size={14} className="mr-1" /> Éditer
       </Button>
