@@ -1,7 +1,7 @@
 
 import { Mission } from "@/types/types";
 import { EventSourceInput } from "@fullcalendar/core";
-import { createMissionColorMap } from "../utils/missionColors";
+import { createMissionColorMap, missionColors } from "../utils/missionColors";
 
 export const usePlanningCalendar = (missions: Mission[]) => {
   const transformMissionsToEvents = (): EventSourceInput => {
