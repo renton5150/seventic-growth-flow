@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import resourceTimelinePlugin from "@fullcalendar/resource-timeline";
@@ -14,6 +13,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+const missionColors = [
+  { bg: '#9b87f5', border: '#7E69AB' }, // Purple
+  { bg: '#D946EF', border: '#BE185D' }, // Pink
+  { bg: '#0EA5E9', border: '#0369A1' }, // Blue
+  { bg: '#F97316', border: '#C2410C' }, // Orange
+  { bg: '#10B981', border: '#047857' }, // Green
+  { bg: '#6366F1', border: '#4338CA' }  // Indigo
+];
+
 interface PlanningViewProps {
   missions: Mission[];
 }
@@ -24,25 +32,34 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
   const navigate = useNavigate();
   const [calendarApi, setCalendarApi] = useState<any | null>(null);
 
-  // Transformer les missions en événements pour FullCalendar
+  const [missionColorMap] = useState(() => {
+    const map = new Map<string, { bg: string; border: string }>();
+    missions.forEach((mission, index) => {
+      map.set(mission.id, missionColors[index % missionColors.length]);
+    });
+    return map;
+  });
+
   const transformMissionsToEvents = (missions: Mission[]): EventSourceInput => {
-    return missions.map(mission => ({
-      id: mission.id,
-      title: mission.name,
-      start: mission.startDate,
-      end: mission.endDate || undefined,
-      resourceId: mission.sdrId,
-      extendedProps: {
-        client: mission.name,
-        type: mission.type,
-        description: mission.description || '',
-      },
-      backgroundColor: mission.type === 'Full' ? '#9b87f5' : '#6E59A5',
-      borderColor: mission.type === 'Full' ? '#7E69AB' : '#6E59A5',
-    }));
+    return missions.map(mission => {
+      const colors = missionColorMap.get(mission.id) || missionColors[0];
+      return {
+        id: mission.id,
+        title: mission.name,
+        start: mission.startDate,
+        end: mission.endDate || undefined,
+        resourceId: mission.sdrId,
+        extendedProps: {
+          client: mission.name,
+          type: mission.type,
+          description: mission.description || '',
+        },
+        backgroundColor: colors.bg,
+        borderColor: colors.border,
+      };
+    });
   };
 
-  // Créer les ressources (SDR) à partir des missions
   const extractResourcesFromMissions = (missions: Mission[]) => {
     const uniqueResources = new Map();
     
@@ -58,7 +75,6 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
     return Array.from(uniqueResources.values());
   };
 
-  // Gestionnaire pour le clic sur un événement
   const handleEventClick = (clickInfo: EventClickArg) => {
     const missionId = clickInfo.event.id;
     navigate(`/admin/missions?id=${missionId}`);
@@ -130,7 +146,6 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
   );
 };
 
-// Composant pour afficher le contenu des événements avec une info-bulle au survol
 function renderEventContent(eventInfo: any) {
   return (
     <HoverCard>
