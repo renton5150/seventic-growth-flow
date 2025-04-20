@@ -1,3 +1,4 @@
+
 import { DatabaseRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
@@ -13,7 +14,7 @@ export const createDatabaseRequest = async (requestData: any): Promise<DatabaseR
       mission_id: requestData.missionId,
       created_by: requestData.createdBy,
       created_at: new Date().toISOString(),
-      status: "en attente",
+      status: "pending", // Utilisons "pending" au lieu de "en attente" pour correspondre à la contrainte de la base de données
       due_date: requestData.dueDate.toISOString(),
       last_updated: new Date().toISOString(),
       details: {
