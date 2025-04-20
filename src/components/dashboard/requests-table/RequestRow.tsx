@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Request } from "@/types/types";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -7,6 +8,18 @@ import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { 
+  Dialog,
+  DialogContent
+} from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface RequestRowProps {
   request: Request;
@@ -28,7 +41,7 @@ export const RequestRow = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canEdit = user?.id === request.created_by || user?.role === 'admin';
+  const canEdit = user?.id === request.createdBy || user?.role === 'admin';
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
@@ -60,6 +73,7 @@ export const RequestRow = ({
   };
 
   const formatDueDate = (dateInput: Date | string) => {
+    // Make sure we have a Date object
     const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
     
     return new Intl.DateTimeFormat('fr-FR', { 

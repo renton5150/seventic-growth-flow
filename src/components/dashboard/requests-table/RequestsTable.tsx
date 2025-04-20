@@ -47,7 +47,7 @@ export const RequestsTable = ({
   const handleDateFilterChange = (field: string, type: string, values: any) => {
     setDateFilters(prev => ({
       ...prev,
-      [field]: { type, values }
+      [field]: type ? { type, values } : undefined
     }));
   };
 
@@ -59,12 +59,12 @@ export const RequestsTable = ({
           handleSort={handleSort}
           showSdr={showSdr}
           isSDR={isSDR}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
           filters={filters}
           dateFilters={dateFilters}
           onFilterChange={handleFilterChange}
           onDateFilterChange={handleDateFilterChange}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
         />
         <RequestsTableBody 
           sortedRequests={filteredAndSortedRequests} 

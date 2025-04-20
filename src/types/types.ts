@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -15,31 +14,17 @@ export type WorkflowStatus = "pending_assignment" | "in_progress" | "completed" 
 export interface Request {
   id: string;
   title: string;
-  type: "email" | "database" | "linkedin";
-  missionId: string;
-  missionName?: string | null;
-  createdBy: string;
+  type: string;
+  status: string;
+  createdBy?: string;
+  missionId?: string;
+  missionName?: string;
   sdrName?: string;
-  createdAt: Date;
-  dueDate: Date;
-  status: RequestStatus;
-  workflow_status?: WorkflowStatus;
-  target_role?: string;
-  assigned_to?: string | null;
-  assignedToName?: string | null;
-  lastUpdated: Date;
-  isLate?: boolean;
+  dueDate: string | Date;
   details?: any;
-  statistics?: EmailCampaignStatistics;
-  contactsCreated?: number;
-  template?: EmailTemplate;
-  database?: DatabaseDetails;
-  blacklist?: Blacklist;
-  targeting?: TargetingCriteria;
-  platform?: string;
-  profilesScraped?: number;
-  resultFileUrl?: string;
-  tool?: string;
+  workflow_status?: string;
+  assignedToName?: string;
+  isLate?: boolean;
 }
 
 export interface EmailCampaignRequest extends Request {
