@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -15,16 +16,31 @@ export interface Request {
   id: string;
   title: string;
   type: string;
-  status: string;
+  status: RequestStatus;
   createdBy?: string;
   missionId?: string;
   missionName?: string;
   sdrName?: string;
   dueDate: string | Date;
   details?: any;
-  workflow_status?: string;
+  workflow_status?: WorkflowStatus;
+  assigned_to?: string;
   assignedToName?: string;
   isLate?: boolean;
+  createdAt: Date | string;
+  lastUpdated: Date | string;
+  target_role?: string;
+  // Add generic fields to allow type-specific properties
+  template?: EmailTemplate;
+  database?: DatabaseDetails;
+  blacklist?: Blacklist;
+  platform?: string;
+  statistics?: EmailCampaignStatistics;
+  tool?: string;
+  targeting?: TargetingCriteria;
+  contactsCreated?: number;
+  profilesScraped?: number;
+  resultFileUrl?: string;
 }
 
 export interface EmailCampaignRequest extends Request {
@@ -43,6 +59,7 @@ export interface DatabaseRequest extends Request {
   blacklist?: Blacklist;
   contactsCreated?: number;
   otherCriteria?: string;
+  resultFileUrl?: string;
 }
 
 export interface LinkedInScrapingRequest extends Request {

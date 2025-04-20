@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Request } from "@/types/types";
+import { Request, RequestStatus } from "@/types/types";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -109,7 +109,7 @@ export const RequestRow = ({
         )}
         
         <TableCell>
-          <RequestStatusBadge status={request.status} />
+          <RequestStatusBadge status={request.status as RequestStatus} />
         </TableCell>
         
         <TableCell>

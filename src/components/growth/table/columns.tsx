@@ -16,8 +16,10 @@ export interface ColumnDefinition {
   render: (request: Request) => React.ReactNode;
 }
 
-const formatDate = (date: Date) => {
-  return format(new Date(date), "d MMM yyyy", { locale: fr });
+const formatDate = (date: Date | string) => {
+  // Ensure we have a Date object
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return format(dateObj, "d MMM yyyy", { locale: fr });
 };
 
 const getRequestTypeLabel = (type: string): string => {

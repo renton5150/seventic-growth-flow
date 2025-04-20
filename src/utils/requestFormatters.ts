@@ -1,7 +1,11 @@
 
-import { Request } from "@/types/types";
+import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
+import { supabase } from "@/integrations/supabase/client";
 
-export function formatRequestFromDb(dbRequest: any): Request {
+/**
+ * Formats a request object from database format to application format
+ */
+export const formatRequestFromDb = (dbRequest: any): Request => {
   // Ajouter des logs pour voir les données exactes reçues de Supabase
   console.log("Données brutes de la requête reçue de Supabase:", dbRequest);
   
@@ -41,8 +45,8 @@ export function formatRequestFromDb(dbRequest: any): Request {
     sdrName,
     createdAt,
     dueDate,
-    status: dbRequest.status,
-    workflow_status: dbRequest.workflow_status || 'pending_assignment',
+    status: dbRequest.status as RequestStatus,
+    workflow_status: dbRequest.workflow_status as WorkflowStatus || 'pending_assignment',
     target_role: dbRequest.target_role || 'growth',
     assigned_to: dbRequest.assigned_to || null,
     assignedToName,
@@ -68,7 +72,6 @@ export function formatRequestFromDb(dbRequest: any): Request {
     case 'database':
       return {
         ...baseRequest,
-        type: "database",
         tool: details.tool || "",
         targeting: details.targeting || {
           jobTitles: [],
@@ -80,12 +83,12 @@ export function formatRequestFromDb(dbRequest: any): Request {
         blacklist: details.blacklist || {
           accounts: { notes: "", fileUrl: "" }
         },
-        contactsCreated: details.contactsCreated || 0
+        contactsCreated: details.contactsCreated || 0,
+        resultFileUrl: details.resultFileUrl || ""
       };
     case 'linkedin':
       return {
         ...baseRequest,
-        type: "linkedin",
         targeting: details.targeting || {
           jobTitles: [],
           industries: [],

@@ -42,7 +42,7 @@ export function RequestEditDialog({
       form.reset({
         title: selectedRequest.title,
         dueDate: new Date(selectedRequest.dueDate).toISOString().split('T')[0],
-        status: selectedRequest.status || "pending"
+        status: selectedRequest.status as RequestStatus
       });
     }
   }, [selectedRequest]);
@@ -57,7 +57,7 @@ export function RequestEditDialog({
       dueDate: selectedRequest?.dueDate 
         ? new Date(selectedRequest.dueDate).toISOString().split('T')[0] 
         : "",
-      status: selectedRequest?.status || "pending"
+      status: (selectedRequest?.status as RequestStatus) || "pending"
     },
   });
 

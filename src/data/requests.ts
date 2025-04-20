@@ -30,7 +30,7 @@ export const requests: Request[] = [
       clicked: 450,
       bounced: 50,
     },
-  } as EmailCampaignRequest,
+  } as unknown as EmailCampaignRequest,
   {
     id: "request2",
     type: "database",
@@ -88,7 +88,14 @@ export const requests: Request[] = [
       emails: { notes: "Exclude people who unsubscribed from previous campaigns" },
     },
     isLate: true,
-  } as EmailCampaignRequest,
+    platform: "Mailchimp",
+    statistics: {
+      sent: 0,
+      opened: 0,
+      clicked: 0,
+      bounced: 0
+    }
+  } as unknown as EmailCampaignRequest,
   {
     id: "request5",
     type: "database",

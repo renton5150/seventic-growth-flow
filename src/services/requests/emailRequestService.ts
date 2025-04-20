@@ -57,10 +57,15 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     const dbUpdates: any = {};
     
     if (updates.title) dbUpdates.title = updates.title;
-    if (updates.dueDate) dbUpdates.due_date = updates.dueDate.toISOString();
+    if (updates.dueDate) {
+      // Convert Date object to string if needed
+      dbUpdates.due_date = typeof updates.dueDate === 'object' && updates.dueDate instanceof Date 
+        ? updates.dueDate.toISOString() 
+        : updates.dueDate;
+    }
     if (updates.status) dbUpdates.status = updates.status;
     if (updates.workflow_status) dbUpdates.workflow_status = updates.workflow_status;
-    if (updates.assigned_to) dbUpdates.assigned_to = updates.assigned_to;
+    if ('assigned_to' in updates) dbUpdates.assigned_to = updates.assigned_to;
 
     // Récupérer d'abord la requête actuelle pour fusionner correctement les détails
     const { data: currentRequest } = await supabase

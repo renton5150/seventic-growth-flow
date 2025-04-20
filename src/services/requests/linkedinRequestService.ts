@@ -49,7 +49,12 @@ export const updateLinkedInRequest = async (requestId: string, updates: Partial<
     const dbUpdates: any = {};
     
     if (updates.title) dbUpdates.title = updates.title;
-    if (updates.dueDate) dbUpdates.due_date = updates.dueDate.toISOString();
+    if (updates.dueDate) {
+      // Convert Date object to string if needed
+      dbUpdates.due_date = typeof updates.dueDate === 'object' && updates.dueDate instanceof Date 
+        ? updates.dueDate.toISOString() 
+        : updates.dueDate;
+    }
     if (updates.status) dbUpdates.status = updates.status;
 
     // Gérer les détails spécifiques au type LinkedIn

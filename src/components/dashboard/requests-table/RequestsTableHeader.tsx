@@ -110,7 +110,7 @@ export const RequestsTableHeader = ({
                     <Select 
                       onValueChange={(value) => {
                         if (value === "none") {
-                          onDateFilterChange("dueDate", null, null);
+                          onDateFilterChange("dueDate", "", null);
                         } else {
                           onDateFilterChange("dueDate", value, dateFilters.dueDate?.values || {});
                         }
