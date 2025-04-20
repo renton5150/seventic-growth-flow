@@ -81,7 +81,7 @@ export function MissionSelect() {
             ) : missions.length > 0 ? (
               missions.map((mission) => (
                 <SelectItem key={mission.id} value={mission.id}>
-                  {mission.name}{mission.client ? ` - ${mission.client}` : ''}
+                  {mission.name}{mission.client && mission.client !== mission.name ? ` - ${mission.client}` : ''}
                 </SelectItem>
               ))
             ) : (

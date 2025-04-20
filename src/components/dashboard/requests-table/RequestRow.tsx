@@ -69,7 +69,7 @@ export const RequestRow = ({
   };
 
   const viewDetails = () => {
-    navigate(`/request/${request.id}`);
+    navigate(`/requests/${request.type}/${request.id}`);
   };
 
   const editRequest = () => {
@@ -77,13 +77,13 @@ export const RequestRow = ({
     
     switch (request.type) {
       case "email":
-        navigate(`/email-campaign-edit/${request.id}`);
+        navigate(`/requests/email/${request.id}/edit`);
         break;
       case "database":
-        navigate(`/database-creation-edit/${request.id}`);
+        navigate(`/requests/database/${request.id}/edit`);
         break;
       case "linkedin":
-        navigate(`/linkedin-scraping-edit/${request.id}`);
+        navigate(`/requests/linkedin/${request.id}/edit`);
         break;
       default:
         console.error("Type de demande inconnu:", request.type);

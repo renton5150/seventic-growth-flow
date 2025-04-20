@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -168,6 +169,8 @@ const RequestDetails = () => {
     );
   }
 
+  const canEdit = user?.role === "admin" || user?.id === request.createdBy || user?.role === "growth";
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -179,7 +182,7 @@ const RequestDetails = () => {
             <h1 className="text-2xl font-bold">{request?.title}</h1>
           </div>
           
-          {isGrowth && (
+          {canEdit && (
             <Button 
               variant="default"
               onClick={() => setIsEditDialogOpen(true)}
