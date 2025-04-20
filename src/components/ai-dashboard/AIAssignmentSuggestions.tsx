@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Request } from "@/types/types";
-import AnthropicService, { AssignmentSuggestion } from "@/services/ai/anthropicService";
+import AnthropicService, { AssignmentSuggestion } from "@/services/ai";
 import { useQuery } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/userService";
 

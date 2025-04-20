@@ -6,7 +6,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
-import { AIRequestAnalysis } from "@/components/ai-dashboard/AIRequestAnalysis";
+import { AIRequestAnalysis } from "@/components/ai-dashboard/request-analysis";
 import { AIActivitySummary } from "@/components/ai-dashboard/AIActivitySummary";
 import { AIAssignmentSuggestions } from "@/components/ai-dashboard/AIAssignmentSuggestions";
 import { AISimilarityFinder } from "@/components/ai-dashboard/AISimilarityFinder";

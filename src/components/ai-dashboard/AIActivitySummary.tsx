@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Request } from "@/types/types";
-import AnthropicService, { ActivitySummary } from "@/services/ai/anthropicService";
+import AnthropicService, { ActivitySummary } from "@/services/ai";
 
 interface AIActivitySummaryProps {
   requests: Request[];
@@ -21,7 +20,6 @@ export const AIActivitySummary = ({ requests }: AIActivitySummaryProps) => {
       setIsGenerating(true);
       setSummaryResult(null);
       
-      // Filter requests based on the selected time period
       const now = new Date();
       const cutoffDate = new Date();
       
@@ -37,7 +35,6 @@ export const AIActivitySummary = ({ requests }: AIActivitySummaryProps) => {
           break;
       }
       
-      // Filter and prepare the data
       const filteredRequests = requests.filter(r => 
         new Date(r.createdAt) >= cutoffDate
       ).map(r => ({
@@ -61,19 +58,16 @@ export const AIActivitySummary = ({ requests }: AIActivitySummaryProps) => {
         return;
       }
       
-      // Group requests by mission or by SDR
       const requestsByMission: Record<string, any[]> = {};
       const requestsBySDR: Record<string, any[]> = {};
       
       filteredRequests.forEach(r => {
-        // Group by mission
         const missionKey = r.missionName || 'Unknown Mission';
         if (!requestsByMission[missionKey]) {
           requestsByMission[missionKey] = [];
         }
         requestsByMission[missionKey].push(r);
         
-        // Group by SDR
         const sdrKey = r.sdrName || 'Unknown SDR';
         if (!requestsBySDR[sdrKey]) {
           requestsBySDR[sdrKey] = [];
@@ -81,7 +75,6 @@ export const AIActivitySummary = ({ requests }: AIActivitySummaryProps) => {
         requestsBySDR[sdrKey].push(r);
       });
       
-      // Prepare data for AI analysis
       const activityData = {
         period: selectedPeriod,
         totalRequests: filteredRequests.length,
@@ -97,7 +90,6 @@ export const AIActivitySummary = ({ requests }: AIActivitySummaryProps) => {
         }
       };
       
-      // Send to the AI for analysis
       const result = await AnthropicService.generateSummary(activityData);
       
       if (result) {

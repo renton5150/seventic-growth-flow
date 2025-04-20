@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Request } from "@/types/types";
-import AnthropicService, { SimilarityResult } from "@/services/ai/anthropicService";
+import AnthropicService, { SimilarityResult } from "@/services/ai";
 import { Progress } from "@/components/ui/progress";
 
 interface AISimilarityFinderProps {
