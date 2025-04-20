@@ -61,7 +61,8 @@ serve(async (req) => {
     console.log(`[Anthropic API] Request received for endpoint: ${path}`);
     
     // Parse the request body
-    const { text, data } = await req.json();
+    const requestBody = await req.json();
+    const { text, data } = requestBody;
     
     if (!text && !data) {
       return new Response(
@@ -127,7 +128,7 @@ serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: MODELS.OPUS,
+        model: MODELS.HAIKU, // Utiliser un modèle moins cher et plus rapide par défaut
         max_tokens: MAX_TOKENS_TO_SAMPLE,
         messages: [
           {
@@ -187,7 +188,7 @@ serve(async (req) => {
       JSON.stringify({ 
         result: parsedResponse,
         endpoint: path,
-        model: MODELS.OPUS 
+        model: MODELS.HAIKU 
       }),
       {
         status: 200,

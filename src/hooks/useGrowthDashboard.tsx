@@ -64,6 +64,8 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           return allRequests;
         case "pending":
           return allRequests.filter(req => req.workflow_status === "pending_assignment");
+        case "inprogress":
+          return allRequests.filter(req => req.workflow_status === "in_progress");
         case "completed":
           return allRequests.filter(req => req.workflow_status === "completed");
         case "late":
@@ -108,7 +110,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const filteredRequests = getFilteredRequests();
 
   // Handle stat card clicks for filtering
-  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late") => {
+  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress") => {
     console.log(`Stat card clicked: ${filterType}`);
     
     // If clicking on the active filter, deactivate it
@@ -127,6 +129,9 @@ export const useGrowthDashboard = (defaultTab?: string) => {
         case "pending":
           setActiveTab("pending");
           break;
+        case "inprogress":
+          setActiveTab("inprogress");
+          break;
         case "completed":
           setActiveTab("completed");
           break;
@@ -140,7 +145,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   // Reset activeFilter when activeTab changes (except when changed by the stat card)
   useEffect(() => {
     // Only reset if activeTab wasn't set by the stat card
-    const isStatCardTab = ["all", "pending", "completed", "late"].includes(activeTab);
+    const isStatCardTab = ["all", "pending", "inprogress", "completed", "late"].includes(activeTab);
     if (!isStatCardTab) {
       setActiveFilter(null);
     }

@@ -19,7 +19,7 @@ interface GrowthDashboardContentProps {
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeFilter: string | null;
   setActiveFilter: (filter: string | null) => void;
-  handleStatCardClick: (filterType: "all" | "pending" | "completed" | "late") => void;
+  handleStatCardClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => void;
 }
 
 export const GrowthDashboardContent = ({
