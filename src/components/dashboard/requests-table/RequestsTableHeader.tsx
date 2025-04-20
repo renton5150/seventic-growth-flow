@@ -1,6 +1,6 @@
 
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Filter, ChevronUp, ChevronDown } from "lucide-react";
+import { Filter, ChevronUp, ChevronDown, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 interface RequestsTableHeaderProps {
   missionView?: boolean;
@@ -50,98 +50,187 @@ export const RequestsTableHeader = ({
     return null;
   };
 
+  // Fonction pour afficher une popover de filtrage par type
+  const renderFilterPopover = (columnName: string, options: string[]) => {
+    const selectedValues = filters[columnName] || [];
+    const hasFilter = selectedValues.length > 0;
+
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant={hasFilter ? "default" : "ghost"} size="icon" className={hasFilter ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}>
+            <Filter className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-4" align="end">
+          <div className="space-y-4">
+            <h4 className="font-medium">Filtrer par {columnName}</h4>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              {options.map(option => (
+                <div key={option} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`${columnName}-${option}`}
+                    checked={selectedValues.includes(option)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        onFilterChange(columnName, [...selectedValues, option]);
+                      } else {
+                        onFilterChange(columnName, selectedValues.filter(v => v !== option));
+                      }
+                    }}
+                  />
+                  <Label htmlFor={`${columnName}-${option}`}>{option || "Non assigné"}</Label>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onFilterChange(columnName, [])}
+              >
+                Effacer les filtres
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // Fonction pour afficher la popover de filtrage par date
+  const renderDateFilterPopover = (columnName: string) => {
+    const currentFilter = dateFilters[columnName];
+    const hasFilter = currentFilter && currentFilter.type;
+
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant={hasFilter ? "default" : "ghost"} size="icon" className={hasFilter ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}>
+            <Filter className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80">
+          <div className="space-y-4">
+            <h4 className="font-medium">Filtrer par date</h4>
+            <div className="grid gap-2">
+              <div className="flex items-center space-x-2">
+                <Select 
+                  onValueChange={(value) => {
+                    if (value === "none") {
+                      onDateFilterChange(columnName, "", null);
+                    } else {
+                      onDateFilterChange(columnName, value, currentFilter?.values || {});
+                    }
+                  }}
+                  value={currentFilter?.type || "none"}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Type de filtre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun filtre</SelectItem>
+                    <SelectItem value="equals">Est égal à</SelectItem>
+                    <SelectItem value="before">Est avant</SelectItem>
+                    <SelectItem value="after">Est après</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {currentFilter?.type && (
+                <CalendarComponent
+                  mode="single"
+                  selected={currentFilter?.values?.date}
+                  onSelect={(date) => {
+                    onDateFilterChange(columnName, currentFilter.type, { date });
+                  }}
+                  className="rounded-md border"
+                />
+              )}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <TableHeader>
       <TableRow>
-        <TableHead className="w-[100px]">Type</TableHead>
-        <TableHead 
-          className="cursor-pointer flex items-center gap-1" 
-          onClick={() => handleSort("title")}
-        >
-          Titre
-          {getSortIcon("title")}
+        <TableHead className="w-[100px]">
+          <div className="flex items-center justify-between">
+            <span>Type</span>
+            {renderFilterPopover("type", ["email", "database", "linkedin"])}
+          </div>
         </TableHead>
         
-        {!missionView && (
-          <TableHead 
-            className={`cursor-pointer flex items-center gap-1 ${isSDR ? 'hidden' : ''}`}
-            onClick={() => handleSort("missionName")}
-          >
-            Mission
-            {getSortIcon("missionName")}
+        <TableHead> 
+          <div className="flex items-center justify-between">
+            <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("title")}>
+              Titre
+              {getSortIcon("title")}
+            </div>
+            {renderFilterPopover("title", [])}
+          </div>
+        </TableHead>
+        
+        {!missionView && !isSDR && (
+          <TableHead>
+            <div className="flex items-center justify-between">
+              <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("missionName")}>
+                Mission
+                {getSortIcon("missionName")}
+              </div>
+              {renderFilterPopover("mission", [])}
+            </div>
           </TableHead>
         )}
         
         {showSdr && (
-          <TableHead 
-            className="cursor-pointer flex items-center gap-1" 
-            onClick={() => handleSort("sdrName")}
-          >
-            SDR
-            {getSortIcon("sdrName")}
+          <TableHead>
+            <div className="flex items-center justify-between">
+              <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("sdrName")}>
+                SDR
+                {getSortIcon("sdrName")}
+              </div>
+              {renderFilterPopover("sdr", [])}
+            </div>
           </TableHead>
         )}
         
-        <TableHead 
-          className="cursor-pointer flex items-center gap-1" 
-          onClick={() => handleSort("status")}
-        >
-          Statut
-          {getSortIcon("status")}
+        <TableHead>
+          <div className="flex items-center justify-between">
+            <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("status")}>
+              Statut
+              {getSortIcon("status")}
+            </div>
+            {renderFilterPopover("status", ["pending", "inprogress", "completed", "rejected"])}
+          </div>
         </TableHead>
         
-        <TableHead 
-          className="cursor-pointer flex items-center gap-1" 
-          onClick={() => handleSort("dueDate")}
-        >
-          Échéance
-          {getSortIcon("dueDate")}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-                <Filter className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <div className="space-y-4">
-                <h4 className="font-medium">Filtrer par date</h4>
-                <div className="grid gap-2">
-                  <div className="flex items-center space-x-2">
-                    <Select 
-                      onValueChange={(value) => {
-                        if (value === "none") {
-                          onDateFilterChange("dueDate", "", null);
-                        } else {
-                          onDateFilterChange("dueDate", value, dateFilters.dueDate?.values || {});
-                        }
-                      }}
-                      value={dateFilters.dueDate?.type || "none"}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Type de filtre" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Aucun filtre</SelectItem>
-                        <SelectItem value="equals">Est égal à</SelectItem>
-                        <SelectItem value="before">Est avant</SelectItem>
-                        <SelectItem value="after">Est après</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {dateFilters.dueDate?.type && (
-                    <Calendar
-                      mode="single"
-                      selected={dateFilters.dueDate?.values?.date}
-                      onSelect={(date) => {
-                        onDateFilterChange("dueDate", dateFilters.dueDate.type, { date });
-                      }}
-                      className="rounded-md border"
-                    />
-                  )}
-                </div>
+        <TableHead>
+          <div className="flex items-center justify-between">
+            <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("dueDate")}>
+              <div className="flex items-center">
+                <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                Échéance
               </div>
-            </PopoverContent>
-          </Popover>
+              {getSortIcon("dueDate")}
+            </div>
+            {renderDateFilterPopover("dueDate")}
+          </div>
+        </TableHead>
+        
+        <TableHead>
+          <div className="flex items-center justify-between">
+            <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("createdAt")}>
+              <div className="flex items-center">
+                <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                Créée le
+              </div>
+              {getSortIcon("createdAt")}
+            </div>
+            {renderDateFilterPopover("createdAt")}
+          </div>
         </TableHead>
         
         <TableHead className="text-right">Actions</TableHead>

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Request } from "@/types/types";
 import { Table } from "@/components/ui/table";
 import { RequestsTableHeader } from "./RequestsTableHeader";
@@ -25,6 +25,30 @@ export const RequestsTable = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [filters, setFilters] = useState<{[key: string]: string[]}>({});
   const [dateFilters, setDateFilters] = useState<{[key: string]: any}>({});
+  const [uniqueValues, setUniqueValues] = useState<{[key: string]: string[]}>({
+    type: [],
+    title: [],
+    mission: [],
+    sdr: [],
+    status: [],
+  });
+
+  // Extraire les valeurs uniques des propriétés pour les filtres
+  useEffect(() => {
+    const types = [...new Set(requests.map(r => r.type))];
+    const missions = [...new Set(requests.map(r => r.missionName || "Sans mission").filter(Boolean))];
+    const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
+    const statuses = [...new Set(requests.map(r => r.status))];
+    const titles = [...new Set(requests.map(r => r.title))];
+    
+    setUniqueValues({
+      type: types,
+      mission: missions,
+      sdr: sdrs,
+      status: statuses,
+      title: titles,
+    });
+  }, [requests]);
 
   const filteredAndSortedRequests = sortRequests(requests, sortColumn, sortDirection, filters, dateFilters);
 

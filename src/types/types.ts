@@ -30,7 +30,7 @@ export interface Request {
   createdAt: Date | string;
   lastUpdated: Date | string;
   target_role?: string;
-  // Add generic fields to allow type-specific properties
+  // Type-specific properties
   template?: EmailTemplate;
   database?: DatabaseDetails;
   blacklist?: Blacklist;

@@ -7,65 +7,130 @@ export const sortRequests = (
   sortDirection: "asc" | "desc",
   filters: {[key: string]: string[]},
   dateFilters: {[key: string]: any}
-) => {
-  let result = [...requests];
-
-  // Appliquer les filtres
-  Object.entries(filters).forEach(([column, values]) => {
-    if (values && values.length > 0) {
-      result = result.filter(request => {
-        const value = request[column as keyof Request];
-        return values.includes(String(value));
-      });
-    }
-  });
-
-  // Appliquer les filtres de date
-  Object.entries(dateFilters).forEach(([field, filter]) => {
-    if (!filter?.type) return;
-
-    result = result.filter(request => {
-      const requestDate = new Date(request[field as keyof Request] as string);
+): Request[] => {
+  // Filtrer les demandes en fonction des filtres
+  let filteredRequests = [...requests];
+  
+  // Appliquer les filtres de type
+  if (filters.type && filters.type.length > 0) {
+    filteredRequests = filteredRequests.filter(r => filters.type.includes(r.type));
+  }
+  
+  // Appliquer les filtres de mission
+  if (filters.mission && filters.mission.length > 0) {
+    filteredRequests = filteredRequests.filter(r => {
+      const missionName = r.missionName || "Sans mission";
+      return filters.mission.includes(missionName);
+    });
+  }
+  
+  // Appliquer les filtres de SDR
+  if (filters.sdr && filters.sdr.length > 0) {
+    filteredRequests = filteredRequests.filter(r => {
+      const sdrName = r.sdrName || "Non assigné";
+      return filters.sdr.includes(sdrName);
+    });
+  }
+  
+  // Appliquer les filtres de statut
+  if (filters.status && filters.status.length > 0) {
+    filteredRequests = filteredRequests.filter(r => filters.status.includes(r.status));
+  }
+  
+  // Appliquer les filtres de date de création
+  if (dateFilters.createdAt && dateFilters.createdAt.type) {
+    const { type, values } = dateFilters.createdAt;
+    const filterDate = new Date(values.date);
+    
+    filteredRequests = filteredRequests.filter(r => {
+      if (!r.createdAt) return false;
       
-      switch (filter.type) {
-        case 'equals':
-          return requestDate.toDateString() === filter.values.date?.toDateString();
-        case 'before':
-          return requestDate < filter.values.date;
-        case 'after':
-          return requestDate > filter.values.date;
+      const createdDate = new Date(r.createdAt);
+      
+      switch (type) {
+        case "equals":
+          return (
+            createdDate.getFullYear() === filterDate.getFullYear() &&
+            createdDate.getMonth() === filterDate.getMonth() &&
+            createdDate.getDate() === filterDate.getDate()
+          );
+        case "before":
+          return createdDate < filterDate;
+        case "after":
+          return createdDate > filterDate;
         default:
           return true;
       }
     });
-  });
-
-  // Trier les résultats
-  result.sort((a, b) => {
-    let comparison = 0;
+  }
+  
+  // Appliquer les filtres de date d'échéance
+  if (dateFilters.dueDate && dateFilters.dueDate.type) {
+    const { type, values } = dateFilters.dueDate;
+    const filterDate = new Date(values.date);
     
-    switch (sortColumn) {
+    filteredRequests = filteredRequests.filter(r => {
+      if (!r.dueDate) return false;
+      
+      const dueDate = new Date(r.dueDate);
+      
+      switch (type) {
+        case "equals":
+          return (
+            dueDate.getFullYear() === filterDate.getFullYear() &&
+            dueDate.getMonth() === filterDate.getMonth() &&
+            dueDate.getDate() === filterDate.getDate()
+          );
+        case "before":
+          return dueDate < filterDate;
+        case "after":
+          return dueDate > filterDate;
+        default:
+          return true;
+      }
+    });
+  }
+
+  // Trier les demandes
+  return filteredRequests.sort((a, b) => {
+    let valueA: any;
+    let valueB: any;
+
+    switch(sortColumn) {
       case "title":
-        comparison = (a.title || "").localeCompare(b.title || "");
-        break;
-      case "missionName":
-        comparison = (a.missionName || "").localeCompare(b.missionName || "");
-        break;
-      case "status":
-        comparison = (a.status || "").localeCompare(b.status || "");
-        break;
-      case "dueDate":
-        comparison = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        valueA = a.title.toLowerCase();
+        valueB = b.title.toLowerCase();
         break;
       case "type":
-        comparison = (a.type || "").localeCompare(b.type || "");
+        valueA = a.type.toLowerCase();
+        valueB = b.type.toLowerCase();
+        break;
+      case "missionName":
+        valueA = (a.missionName || "").toLowerCase();
+        valueB = (b.missionName || "").toLowerCase();
+        break;
+      case "sdrName":
+        valueA = (a.sdrName || "").toLowerCase();
+        valueB = (b.sdrName || "").toLowerCase();
+        break;
+      case "status":
+        valueA = a.status.toLowerCase();
+        valueB = b.status.toLowerCase();
+        break;
+      case "dueDate":
+        valueA = new Date(a.dueDate).getTime();
+        valueB = new Date(b.dueDate).getTime();
+        break;
+      case "createdAt":
+        valueA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        valueB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         break;
       default:
-        comparison = 0;
+        valueA = new Date(a.dueDate).getTime();
+        valueB = new Date(b.dueDate).getTime();
     }
 
+    const comparison = valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
     return sortDirection === "asc" ? comparison : -comparison;
   });
-
-  return result;
 };

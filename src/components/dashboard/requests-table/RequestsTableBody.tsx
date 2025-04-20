@@ -1,8 +1,8 @@
 
 import { TableBody } from "@/components/ui/table";
-import { Request } from "@/types/types";
-import { EmptyRequestsRow } from "./EmptyRequestsRow";
 import { RequestRow } from "./RequestRow";
+import { EmptyRequestsRow } from "./EmptyRequestsRow";
+import { Request } from "@/types/types";
 
 interface RequestsTableBodyProps {
   sortedRequests: Request[];
@@ -12,29 +12,29 @@ interface RequestsTableBodyProps {
   onRequestDeleted?: () => void;
 }
 
-export const RequestsTableBody = ({ 
-  sortedRequests, 
+export const RequestsTableBody = ({
+  sortedRequests,
   missionView = false,
   showSdr = false,
   isSDR = false,
   onRequestDeleted
 }: RequestsTableBodyProps) => {
+  if (sortedRequests.length === 0) {
+    return <EmptyRequestsRow colSpan={isSDR ? 6 : 8} />;
+  }
+
   return (
     <TableBody>
-      {sortedRequests.length === 0 ? (
-        <EmptyRequestsRow colSpan={missionView ? 6 : (isSDR ? 6 : 7)} />
-      ) : (
-        sortedRequests.map((request) => (
-          <RequestRow 
-            key={request.id} 
-            request={request} 
-            missionView={missionView}
-            showSdr={showSdr}
-            isSDR={isSDR}
-            onRequestDeleted={onRequestDeleted}
-          />
-        ))
-      )}
+      {sortedRequests.map((request) => (
+        <RequestRow
+          key={request.id}
+          request={request}
+          missionView={missionView}
+          showSdr={showSdr}
+          isSDR={isSDR}
+          onDeleted={onRequestDeleted}
+        />
+      ))}
     </TableBody>
   );
 };
