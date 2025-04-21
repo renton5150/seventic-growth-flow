@@ -28,7 +28,7 @@ const AdminMissions = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const isActionInProgress = useRef(false);
   
-  // Advanced query configuration with retry and better error handling
+  // Advanced query configuration with retry and better error handling - FIXED
   const { 
     data: missions = [], 
     isLoading,
@@ -49,11 +49,22 @@ const AdminMissions = () => {
     },
     staleTime: 15000,
     retry: 1,
-    onError: (err) => {
-      console.error("Erreur dans la requête de missions:", err);
-      toast.error("Impossible de charger les missions");
+    // The onError property moved to options.meta in React Query v5+
+    meta: {
+      onError: (err: Error) => {
+        console.error("Erreur dans la requête de missions:", err);
+        toast.error("Impossible de charger les missions");
+      }
     }
   });
+
+  // Log error for debugging if it exists
+  useEffect(() => {
+    if (error) {
+      console.error("Erreur de requête détectée:", error);
+      toast.error("Erreur lors du chargement des missions");
+    }
+  }, [error]);
   
   // Safe refresh function that uses a ref to prevent overlapping operations
   const refreshMissionsData = useCallback(() => {
