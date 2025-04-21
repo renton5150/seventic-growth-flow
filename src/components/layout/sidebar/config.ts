@@ -53,11 +53,17 @@ export const growthMenuItems: MenuItem[] = [
   }
 ];
 
+// Ajout du dashboard Growth accessible aux admins dans le menu Administration
 export const adminMenuItems: MenuItem[] = [
   {
     title: "Dashboard",
     path: "/admin/dashboard",
     icon: LayoutDashboard
+  },
+  {
+    title: "AI Insights",
+    path: "/admin/ai-dashboard",
+    icon: BrainCircuit
   },
   {
     title: "Utilisateurs",
@@ -74,10 +80,11 @@ export const adminMenuItems: MenuItem[] = [
     path: "/planning",
     icon: CalendarDays
   },
+  // Ici on ajoute la vue des demandes Growth comme un accès rapide distinct
   {
-    title: "AI Insights",
-    path: "/admin/ai-dashboard",
-    icon: BrainCircuit
+    title: "Growth - Toutes les demandes",
+    path: "/growth",
+    icon: FileText
   }
 ];
 

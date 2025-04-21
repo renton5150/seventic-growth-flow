@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -16,7 +15,6 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Fetch requests data - Utilisez les trois types de requêtes
   const { 
     toAssignRequests,
     myAssignmentsRequests,
@@ -26,7 +24,6 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     refetchAllRequests: refetchRequests 
   } = useRequestQueries(user?.id);
 
-  // Create the onRequestUpdated callback before passing it to useRequestAssignment
   const handleRequestUpdated = useCallback(() => {
     refetchRequests();
     refetchToAssign();
@@ -35,29 +32,22 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);
 
-  // Filter requests based on activeTab and activeFilter
   const getFilteredRequests = useCallback(() => {
     const isSDR = user?.role === 'sdr';
     const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
-    
-    // Si on est sur la page my-requests
+
     if (location.pathname.includes("/my-requests")) {
       if (isSDR) {
-        // Pour les SDR: uniquement leurs demandes créées
         return allRequests.filter(req => req.createdBy === user?.id);
       } else if (isGrowthOrAdmin) {
-        // Pour Growth: uniquement les demandes qui leur sont assignées
-        return allRequests.filter(req => req.assigned_to === user?.id);
+        return allRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
       }
     }
 
-    // Si on est sur la page to-assign
     if (location.pathname.includes("/to-assign")) {
-      // Utiliser directement toAssignRequests qui contient uniquement les demandes non assignées
       return toAssignRequests;
     }
 
-    // If we have an activeFilter from stat cards, it takes precedence
     if (activeFilter) {
       switch (activeFilter) {
         case "all":
@@ -75,20 +65,16 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       }
     }
     
-    // Otherwise, filter by the activeTab
     switch (activeTab) {
       case "all":
         return allRequests;
       case "to_assign":
-        // Utiliser directement les toAssignRequests pour le filtre "à assigner"
         return toAssignRequests;
       case "my_assignments":
         if (isSDR) {
-          // Pour les SDR: leurs propres demandes
           return allRequests.filter(req => req.createdBy === user?.id);
         } else if (isGrowthOrAdmin) {
-          // Pour Growth: uniquement les demandes qui leur sont assignées
-          return allRequests.filter(req => req.assigned_to === user?.id);
+          return allRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
         }
         return myAssignmentsRequests;
       case "inprogress":
@@ -106,22 +92,17 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     }
   }, [allRequests, toAssignRequests, myAssignmentsRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname]);
 
-  // Get filtered requests based on active tab
   const filteredRequests = getFilteredRequests();
 
-  // Handle stat card clicks for filtering
   const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress") => {
     console.log(`Stat card clicked: ${filterType}`);
     
-    // If clicking on the active filter, deactivate it
     if (activeFilter === filterType) {
       setActiveFilter(null);
-      // Reset to default tab
       setActiveTab("all");
     } else {
       setActiveFilter(filterType);
       
-      // Apply corresponding filter without toast
       switch (filterType) {
         case "all":
           setActiveTab("all");
@@ -142,16 +123,13 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     }
   }, [activeFilter]);
 
-  // Reset activeFilter when activeTab changes (except when changed by the stat card)
   useEffect(() => {
-    // Only reset if activeTab wasn't set by the stat card
     const isStatCardTab = ["all", "pending", "inprogress", "completed", "late"].includes(activeTab);
     if (!isStatCardTab) {
       setActiveFilter(null);
     }
   }, [activeTab]);
 
-  // Dialog handlers
   const handleOpenEditDialog = useCallback((request: Request) => {
     setSelectedRequest(request);
     setIsEditDialogOpen(true);
@@ -163,7 +141,6 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   }, []);
 
   const handleViewDetails = useCallback((request: Request) => {
-    // Redirection directe vers la page de détails pour tous les utilisateurs
     navigate(`/requests/${request.type}/${request.id}`);
   }, [navigate]);
 
