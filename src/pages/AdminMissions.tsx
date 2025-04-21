@@ -12,6 +12,7 @@ import { useAdminMissions } from "./admin-missions/useAdminMissions";
 import { AdminMissionsHeader } from "./admin-missions/AdminMissionsHeader";
 import { AdminMissionsLoading } from "./admin-missions/AdminMissionsLoading";
 import { AdminMissionsError } from "./admin-missions/AdminMissionsError";
+import { useEffect } from "react";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
@@ -26,7 +27,6 @@ const AdminMissions = () => {
     missionToDelete,
     setMissionToDelete,
     missionToEdit,
-    setMissionToEdit,
     isEditModalOpen,
     refreshMissionsData,
     handleCreateMissionClick,
@@ -38,6 +38,15 @@ const AdminMissions = () => {
     handleEditDialogChange,
     refetch,
   } = useAdminMissions();
+
+  // Effectuer un rafraîchissement initial au montage du composant
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      refreshMissionsData();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [refreshMissionsData]);
 
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
@@ -75,12 +84,14 @@ const AdminMissions = () => {
           onSuccess={refreshMissionsData} 
         />
 
-        <MissionDetailsDialog
-          mission={selectedMission}
-          open={!!selectedMission}
-          onOpenChange={(open) => !open && setSelectedMission(null)}
-          isSdr={false}
-        />
+        {selectedMission && (
+          <MissionDetailsDialog
+            mission={selectedMission}
+            open={!!selectedMission}
+            onOpenChange={(open) => !open && setSelectedMission(null)}
+            isSdr={false}
+          />
+        )}
 
         {missionToDelete && (
           <DeleteMissionDialog
@@ -96,12 +107,14 @@ const AdminMissions = () => {
           />
         )}
 
-        <EditMissionDialog
-          mission={missionToEdit}
-          open={isEditModalOpen}
-          onOpenChange={handleEditDialogChange}
-          onMissionUpdated={handleMissionUpdated}
-        />
+        {missionToEdit && (
+          <EditMissionDialog
+            mission={missionToEdit}
+            open={isEditModalOpen}
+            onOpenChange={handleEditDialogChange}
+            onMissionUpdated={handleMissionUpdated}
+          />
+        )}
       </div>
     </AppLayout>
   );

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface DeleteMissionDialogProps {
   missionId: string | null;
@@ -34,33 +35,43 @@ export function DeleteMissionDialog({
     if (!missionId || isDeleting) return;
 
     try {
+      // Indiquer que la suppression est en cours
       setIsDeleting(true);
+      
+      // Créer un toast de chargement
       const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
-
-      // Fermons d'abord la boîte de dialogue
+      
+      // Fermer immédiatement la boîte de dialogue pour éviter le gel de l'interface
       onOpenChange(false);
       
-      // Attendons que l'animation de fermeture se termine
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Puis effectuons la suppression
+      // Importer dynamiquement le service pour éviter des problèmes de chargement
       const { deleteSupabaseMission } = await import("@/services/missions-service");
-      const success = await deleteSupabaseMission(missionId);
-
-      if (success) {
-        toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
-        onDeleted();
-      } else {
-        toast.error("Échec de la suppression. Veuillez réessayer.", { id: toastId });
-      }
+      
+      // Effectuer la suppression avec un délai minimal pour permettre à l'UI de se mettre à jour
+      setTimeout(async () => {
+        try {
+          const success = await deleteSupabaseMission(missionId);
+          
+          if (success) {
+            toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
+            // Notifier le parent que la suppression est terminée
+            onDeleted();
+          } else {
+            toast.error("Échec de la suppression. Veuillez réessayer.", { id: toastId });
+          }
+        } catch (error: any) {
+          console.error("Erreur lors de la suppression:", error);
+          toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, { id: toastId });
+        } finally {
+          // S'assurer que l'état isDeleting est réinitialisé
+          setIsDeleting(false);
+        }
+      }, 100);
+      
     } catch (error: any) {
-      console.error("Erreur lors de la suppression:", error);
+      console.error("Erreur générale lors de la suppression:", error);
       toast.error(`Erreur: ${error.message || "Erreur inconnue"}`);
-    } finally {
-      // Remettons l'état isDeleting à false après un court délai
-      setTimeout(() => {
-        setIsDeleting(false);
-      }, 300);
+      setIsDeleting(false);
     }
   };
 
@@ -92,7 +103,7 @@ export function DeleteMissionDialog({
           >
             {isDeleting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Suppression...
+                <Spinner className="mr-2 h-4 w-4" /> Suppression...
               </>
             ) : (
               "Supprimer"
