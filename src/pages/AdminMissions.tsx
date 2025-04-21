@@ -39,14 +39,15 @@ const AdminMissions = () => {
     refetch,
   } = useAdminMissions();
 
-  // Effectuer un rafraîchissement initial au montage du composant
+  // Effectuer un rafraîchissement unique au montage du composant
   useEffect(() => {
+    // Utiliser un délai plus court et n'exécuter qu'une seule fois au montage
     const timer = setTimeout(() => {
       refreshMissionsData();
-    }, 500);
+    }, 300);
     
     return () => clearTimeout(timer);
-  }, [refreshMissionsData]);
+  }, []); // Pas de dépendance pour n'exécuter qu'une fois
 
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
@@ -78,11 +79,13 @@ const AdminMissions = () => {
           />
         )}
 
-        <CreateMissionDialog 
-          open={isCreateModalOpen} 
-          onOpenChange={setIsCreateModalOpen} 
-          onSuccess={refreshMissionsData} 
-        />
+        {isCreateModalOpen && (
+          <CreateMissionDialog 
+            open={isCreateModalOpen} 
+            onOpenChange={setIsCreateModalOpen} 
+            onSuccess={refreshMissionsData} 
+          />
+        )}
 
         {selectedMission && (
           <MissionDetailsDialog

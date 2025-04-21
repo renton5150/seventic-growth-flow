@@ -1,5 +1,5 @@
 
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -18,8 +18,8 @@ export function useAdminMissions() {
   // Référence pour suivre si une opération de rafraîchissement est déjà en cours
   const isRefreshing = useRef(false);
   const pendingRefresh = useRef(false);
-
-  // Requête pour obtenir les missions
+  
+  // Requête pour obtenir les missions avec staleTime plus élevé pour réduire les rendus inutiles
   const { 
     data: missions = [], 
     isLoading,
@@ -29,8 +29,8 @@ export function useAdminMissions() {
   } = useQuery({
     queryKey: ['missions', 'admin', refreshKey],
     queryFn: getAllMissions,
-    staleTime: 5000, // Réduire le temps de fraîcheur pour des mises à jour plus fréquentes
-    retry: 2,
+    staleTime: 30000, // Augmenter le temps de fraîcheur pour réduire les requêtes fréquentes
+    retry: 1,
     meta: {
       onError: (err: Error) => {
         console.error("Erreur de requête:", err);
@@ -39,20 +39,10 @@ export function useAdminMissions() {
     }
   });
 
-  // Afficher un toast en cas d'erreur
-  useEffect(() => {
-    if (isError && error) {
-      console.error("Erreur de chargement:", error);
-    }
-  }, [isError, error]);
-
-  // Fonction pour rafraîchir les données des missions de manière sécurisée
+  // Fonction pour rafraîchir les données des missions de manière sécurisée avec debounce
   const refreshMissionsData = useCallback(() => {
-    console.log("Rafraîchissement des données demandé");
-    
-    // Vérifier si un rafraîchissement est déjà en cours
+    // Si un rafraîchissement est déjà en cours, on ignore cette demande
     if (isRefreshing.current) {
-      console.log("Rafraîchissement déjà en cours, marquer comme en attente");
       pendingRefresh.current = true;
       return;
     }
@@ -60,54 +50,46 @@ export function useAdminMissions() {
     // Indiquer qu'un rafraîchissement est en cours
     isRefreshing.current = true;
     
-    // Invalidons le cache et incrémentons la clé
+    // Invalidons le cache uniquement si nécessaire
     queryClient.invalidateQueries({ queryKey: ['missions'] });
     setRefreshKey(prev => prev + 1);
     
-    console.log("Démarrage du rafraîchissement, clé:", refreshKey + 1);
-    
-    // Utiliser setTimeout pour permettre à l'interface de se mettre à jour
+    // Utiliser un court délai pour permettre aux opérations asynchrones de se terminer
     setTimeout(() => {
       refetch()
         .then(() => {
-          console.log("Rafraîchissement réussi");
-          
           // Vérifier si un autre rafraîchissement est en attente
           if (pendingRefresh.current) {
-            console.log("Traitement du rafraîchissement en attente");
             pendingRefresh.current = false;
             setTimeout(() => {
               isRefreshing.current = false;
-              refreshMissionsData();
-            }, 200);
+              refreshMissionsData(); // Uniquement si réellement nécessaire
+            }, 500);
           } else {
             isRefreshing.current = false;
           }
         })
-        .catch((err) => {
-          console.error("Erreur lors du rafraîchissement:", err);
+        .catch(() => {
           isRefreshing.current = false;
           pendingRefresh.current = false;
         });
-    }, 200);
-  }, [queryClient, refetch, refreshKey]);
+    }, 300);
+  }, [queryClient, refetch]);
 
-  // Gestionnaire pour la suppression d'une mission
+  // Gestionnaire pour la suppression d'une mission - simplifié
   const handleDeleteSuccess = useCallback(() => {
-    console.log("Suppression réussie, nettoyage de l'état");
     setMissionToDelete(null);
     
-    // Attendre un court instant avant de rafraîchir pour éviter les problèmes d'UI
+    // Utiliser setTimeout pour différer le rafraîchissement après les transitions d'UI
     setTimeout(() => {
       refreshMissionsData();
-    }, 300);
+    }, 500);
   }, [refreshMissionsData]);
 
   // Gestionnaires d'événements
   const handleCreateMissionClick = useCallback(() => {
     if (isRefreshing.current) {
-      toast.info("Veuillez patienter, une opération est en cours");
-      return;
+      return; // Éviter les actions pendant un rafraîchissement
     }
     setIsCreateModalOpen(true);
   }, []);
@@ -118,25 +100,24 @@ export function useAdminMissions() {
 
   const handleDeleteMission = useCallback((mission: Mission) => {
     if (isRefreshing.current) {
-      toast.info("Veuillez patienter, une opération est en cours");
-      return;
+      return; // Éviter les actions pendant un rafraîchissement
     }
     setMissionToDelete(mission);
   }, []);
 
   const handleEditMission = useCallback((mission: Mission) => {
     if (isRefreshing.current) {
-      toast.info("Veuillez patienter, une opération est en cours");
-      return;
+      return; // Éviter les actions pendant un rafraîchissement
     }
     setMissionToEdit({ ...mission });
     setIsEditModalOpen(true);
   }, []);
 
   const handleMissionUpdated = useCallback(() => {
+    // Attendre que l'UI ait fini ses transitions avant de rafraîchir
     setTimeout(() => {
       refreshMissionsData();
-    }, 300);
+    }, 500);
   }, [refreshMissionsData]);
 
   const handleEditDialogChange = useCallback((open: boolean) => {
