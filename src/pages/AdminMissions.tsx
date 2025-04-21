@@ -55,7 +55,8 @@ const AdminMissions = () => {
         toast.error("Erreur lors du chargement des missions");
         return [];
       }
-    }
+    },
+    staleTime: 30000 // Conserver les données en cache pendant 30 secondes
   });
 
   // Effet pour nettoyer l'état après fermeture de modales
@@ -89,7 +90,19 @@ const AdminMissions = () => {
   };
   
   const handleDeleteSuccess = () => {
-    refreshMissionsData();
+    console.log("Mission supprimée avec succès, déclenchement du rafraîchissement");
+    // Marquer que nous sommes dans un état de traitement
+    setIsProcessingAction(true);
+    
+    // Nettoyer les références à la mission supprimée
+    setMissionToDelete(null);
+    
+    // Attendre un court délai pour permettre aux états de se stabiliser
+    setTimeout(() => {
+      // Rafraîchir les données et réinitialiser l'état de traitement
+      refreshMissionsData();
+      setIsProcessingAction(false);
+    }, 500);
   };
 
   const handleEditMission = (mission: Mission) => {
@@ -112,6 +125,7 @@ const AdminMissions = () => {
   
   // Gestion optimisée de la fermeture de la boîte de dialogue d'édition
   const handleEditDialogChange = (open: boolean) => {
+    if (!open && isProcessingAction) return;
     console.log("Changement état dialog d'édition:", open);
     setIsEditModalOpen(open);
   };
@@ -174,7 +188,11 @@ const AdminMissions = () => {
             missionId={missionToDelete.id}
             missionName={missionToDelete.name}
             isOpen={!!missionToDelete}
-            onOpenChange={(open) => !open && setMissionToDelete(null)}
+            onOpenChange={(open) => {
+              if (!open && !isProcessingAction) {
+                setMissionToDelete(null);
+              }
+            }}
             onDeleted={handleDeleteSuccess}
           />
         )}
