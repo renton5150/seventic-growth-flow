@@ -1,5 +1,5 @@
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
 import { Navigate } from "react-router-dom";
@@ -10,12 +10,12 @@ import { Plus } from "lucide-react";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { DeleteMissionDialog } from "@/components/missions/DeleteMissionDialog";
-import { getAllMissions } from "@/services/missions-service";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
+import { getAllMissions } from "@/services/missions-service";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
@@ -26,23 +26,15 @@ const AdminMissions = () => {
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const isActionInProgress = useRef(false);
   
-  // Fonction optimisée de rafraîchissement des données
-  const refreshMissionsData = useCallback(() => {
-    console.log("Rafraîchissement des données de missions depuis AdminMissions");
-    
-    // Invalider le cache de requête
-    queryClient.invalidateQueries({ 
-      queryKey: ['missions', 'admin'],
-    });
-    
-    // Déclencher un nouveau rendu en forçant une nouvelle requête
-    setRefreshKey(prev => prev + 1);
-  }, [queryClient]);
-
-  // Requête optimisée avec clé de dépendance pour forcer le rafraîchissement
-  const { data: missions = [], isLoading } = useQuery({
+  // Advanced query configuration with retry and better error handling
+  const { 
+    data: missions = [], 
+    isLoading,
+    isError,
+    error
+  } = useQuery({
     queryKey: ['missions', 'admin', refreshKey],
     queryFn: async () => {
       try {
@@ -52,17 +44,42 @@ const AdminMissions = () => {
         return allMissions;
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
-        toast.error("Erreur lors du chargement des missions");
-        return [];
+        throw error;  // Let the query error handling take care of it
       }
     },
-    staleTime: 30000 // Conserver les données en cache pendant 30 secondes
+    staleTime: 15000,
+    retry: 1,
+    onError: (err) => {
+      console.error("Erreur dans la requête de missions:", err);
+      toast.error("Impossible de charger les missions");
+    }
   });
+  
+  // Safe refresh function that uses a ref to prevent overlapping operations
+  const refreshMissionsData = useCallback(() => {
+    if (isActionInProgress.current) {
+      console.log("Une action est déjà en cours, rafraîchissement ignoré");
+      return;
+    }
+    
+    console.log("Rafraîchissement des missions");
+    isActionInProgress.current = true;
+    
+    // Invalidate query cache
+    queryClient.invalidateQueries({ 
+      queryKey: ['missions', 'admin'],
+    });
+    
+    // Force a new render by updating refresh key
+    setTimeout(() => {
+      setRefreshKey(prev => prev + 1);
+      isActionInProgress.current = false;
+    }, 300);
+  }, [queryClient]);
 
-  // Effet pour nettoyer l'état après fermeture de modales
+  // Cleanup effect for modals and state
   useEffect(() => {
     if (!isEditModalOpen && missionToEdit) {
-      // Délai pour s'assurer que l'animation est terminée
       const timer = setTimeout(() => {
         setMissionToEdit(null);
       }, 300);
@@ -74,59 +91,51 @@ const AdminMissions = () => {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  // Handler functions
   const handleCreateMissionClick = () => {
-    if (isProcessingAction) return;
+    if (isActionInProgress.current) return;
     setIsCreateModalOpen(true);
   };
 
   const handleViewMission = (mission: Mission) => {
-    if (isProcessingAction) return;
+    if (isActionInProgress.current) return;
     setSelectedMission(mission);
   };
   
   const handleDeleteMission = (mission: Mission) => {
-    if (isProcessingAction) return;
+    if (isActionInProgress.current) return;
     setMissionToDelete(mission);
   };
   
   const handleDeleteSuccess = () => {
-    console.log("Mission supprimée avec succès, déclenchement du rafraîchissement");
-    // Marquer que nous sommes dans un état de traitement
-    setIsProcessingAction(true);
+    console.log("Mission supprimée avec succès");
     
-    // Nettoyer les références à la mission supprimée
+    // Mark deletion as complete and clean up references
     setMissionToDelete(null);
     
-    // Attendre un court délai pour permettre aux états de se stabiliser
+    // Schedule data refresh with delay
     setTimeout(() => {
-      // Rafraîchir les données et réinitialiser l'état de traitement
       refreshMissionsData();
-      setIsProcessingAction(false);
     }, 500);
   };
 
   const handleEditMission = (mission: Mission) => {
-    if (isProcessingAction) return;
-    setMissionToEdit({...mission}); // Cloner l'objet pour éviter les mutations
+    if (isActionInProgress.current) return;
+    setMissionToEdit({...mission});
     setIsEditModalOpen(true);
   };
   
-  // Fonction de rafraîchissement avec délai pour garantir la mise à jour complète
   const handleMissionUpdated = () => {
-    console.log("Mission mise à jour, rafraîchissement des données");
-    setIsProcessingAction(true);
+    console.log("Mission mise à jour");
     
-    // Ajout d'un délai pour garantir que la base de données a bien été mise à jour
+    // Schedule refresh with delay
     setTimeout(() => {
       refreshMissionsData();
-      setIsProcessingAction(false);
     }, 500);
   };
   
-  // Gestion optimisée de la fermeture de la boîte de dialogue d'édition
   const handleEditDialogChange = (open: boolean) => {
-    if (!open && isProcessingAction) return;
-    console.log("Changement état dialog d'édition:", open);
+    if (!open && isActionInProgress.current) return;
     setIsEditModalOpen(open);
   };
 
@@ -135,6 +144,17 @@ const AdminMissions = () => {
       <AppLayout>
         <div className="flex items-center justify-center h-64">
           <p>Chargement des missions...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+  
+  if (isError) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <p className="text-red-500">Erreur lors du chargement des missions</p>
+          <Button onClick={refreshMissionsData}>Réessayer</Button>
         </div>
       </AppLayout>
     );
@@ -148,7 +168,6 @@ const AdminMissions = () => {
           <Button 
             onClick={handleCreateMissionClick} 
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={isProcessingAction}
           >
             <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
           </Button>
@@ -189,7 +208,7 @@ const AdminMissions = () => {
             missionName={missionToDelete.name}
             isOpen={!!missionToDelete}
             onOpenChange={(open) => {
-              if (!open && !isProcessingAction) {
+              if (!open) {
                 setMissionToDelete(null);
               }
             }}
