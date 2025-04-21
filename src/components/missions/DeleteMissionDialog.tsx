@@ -37,38 +37,40 @@ export function DeleteMissionDialog({
       // Marquer comme suppression en cours
       setIsDeleting(true);
       
-      // Fermer la boîte de dialogue immédiatement pour éviter le gel de l'interface
+      // Fermer la boîte de dialogue immédiatement
       onOpenChange(false);
       
-      // Montrer un toast de chargement
+      // Afficher un toast de chargement
       const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
       
-      // Effectuer la requête de suppression en dehors du cycle de rendu React
-      setTimeout(async () => {
-        try {
-          // Importer dynamiquement le service après la fermeture de l'UI
-          const { deleteMission } = await import("@/services/missions-service");
-          
-          // Effectuer la suppression
-          await deleteMission(missionId);
-          
-          // Notification de succès
-          toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
-          
-          // Notifier le parent que la suppression est terminée
-          setTimeout(() => {
-            onDeleted();
-            setIsDeleting(false);
-          }, 300);
-        } catch (error: any) {
-          console.error("Erreur lors de la suppression:", error);
-          toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, { id: toastId });
-          setIsDeleting(false);
-        }
-      }, 100);
-    } catch (error: any) {
-      console.error("Erreur générale:", error);
-      toast.error(`Erreur: ${error.message || "Erreur inconnue"}`);
+      // Appeler la fonction Edge pour supprimer la mission
+      const response = await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/delete-mission', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ missionId }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Notification de succès
+        toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
+        
+        // Forcer le rechargement de la page après un court délai
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } else {
+        // Notification d'erreur
+        toast.error(`Erreur: ${result.error || "Erreur inconnue"}`, { id: toastId });
+        setIsDeleting(false);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
+      toast.error(`Erreur inattendue lors de la suppression. Veuillez réessayer.`);
       setIsDeleting(false);
     }
   };
