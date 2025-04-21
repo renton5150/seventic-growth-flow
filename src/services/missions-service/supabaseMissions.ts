@@ -1,3 +1,4 @@
+
 import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import {
@@ -168,43 +169,36 @@ export const updateSupabaseMission = async (data: {
  * Deletes a mission from Supabase with authentication and error handling
  */
 export const deleteSupabaseMission = async (missionId: string): Promise<boolean> => {
-  console.log("Starting mission deletion process for ID:", missionId);
-  
+  // Implémentation simplifiée pour éviter les blocages
+  if (!missionId) {
+    throw new Error("ID de mission invalide");
+  }
+
   try {
-    if (!missionId) {
-      console.error("Missing mission ID for deletion");
-      throw new Error("ID de mission invalide");
-    }
-
-    const isAuthenticated = await isSupabaseAuthenticated();
+    // Import dynamiquement pour éviter les problèmes de référence circulaire
+    const { supabase } = await import("@/integrations/supabase/client");
     
-    if (!isSupabaseConfigured || !isAuthenticated) {
-      console.error("Supabase not configured or user not authenticated");
-      throw new Error("Authentification requise");
+    // Vérifier l'authentification
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session) {
+      throw new Error("Utilisateur non authentifié");
     }
 
-    // Vérifier si la mission existe avant de tenter de la supprimer
-    let exists = false;
-    try {
-      exists = await checkMissionExists(missionId);
-      console.log("Mission existence check:", exists ? "exists" : "does not exist");
-      
-      if (!exists) {
-        console.warn("Mission does not exist or already deleted:", missionId);
-        return true; // Considérer comme un succès si la mission est déjà supprimée
-      }
-    } catch (checkError) {
-      console.error("Error checking if mission exists:", checkError);
-      // Continuer malgré l'erreur
+    // Supprimer directement en une seule opération
+    const { error } = await supabase
+      .from("missions")
+      .delete()
+      .eq("id", missionId);
+    
+    if (error) {
+      console.error("Erreur Supabase lors de la suppression:", error);
+      throw new Error(`Erreur Supabase: ${error.message}`);
     }
-
-    // Effectuer la suppression sans mécanisme de retentative pour éviter les blocages
-    console.log("Attempting to delete mission...");
-    const result = await deleteSupaMission(missionId);
-    console.log("Delete operation completed successfully");
+    
+    console.log("Mission supprimée avec succès:", missionId);
     return true;
   } catch (error) {
-    console.error("Error in deleteSupabaseMission:", error);
-    throw error; // Propager l'erreur pour un traitement approprié
+    console.error("Erreur lors de la suppression de mission:", error);
+    throw error;
   }
 };

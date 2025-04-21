@@ -31,8 +31,8 @@ export function DeleteMissionDialog({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!missionId || isDeleting) return;
-
+    if (!missionId) return;
+    
     try {
       // Marquer comme suppression en cours
       setIsDeleting(true);
@@ -40,27 +40,23 @@ export function DeleteMissionDialog({
       // Fermer la boîte de dialogue immédiatement
       onOpenChange(false);
       
-      // Créer un toast de chargement
+      // Montrer un toast de chargement
       const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
       
-      // Importer le service après la fermeture de l'UI
+      // Importer dynamiquement le service après la fermeture de l'UI
       const { deleteSupabaseMission } = await import("@/services/missions-service");
-      
-      // Attendre un court délai pour que l'UI se mette à jour
-      await new Promise(resolve => setTimeout(resolve, 50));
       
       try {
         // Effectuer la suppression
-        const success = await deleteSupabaseMission(missionId);
+        await deleteSupabaseMission(missionId);
         
-        if (success) {
-          toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
-          
-          // Notifier le parent que la suppression est terminée
+        // Notification de succès
+        toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
+        
+        // Notifier le parent que la suppression est terminée
+        setTimeout(() => {
           onDeleted();
-        } else {
-          toast.error("Échec de la suppression. Veuillez réessayer.", { id: toastId });
-        }
+        }, 300);
       } catch (error: any) {
         console.error("Erreur lors de la suppression:", error);
         toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, { id: toastId });
@@ -70,7 +66,9 @@ export function DeleteMissionDialog({
       toast.error(`Erreur: ${error.message || "Erreur inconnue"}`);
     } finally {
       // Réinitialiser l'état
-      setIsDeleting(false);
+      setTimeout(() => {
+        setIsDeleting(false);
+      }, 500);
     }
   };
 

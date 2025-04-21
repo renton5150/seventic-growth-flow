@@ -13,22 +13,11 @@ export function useAdminMissions() {
   const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null);
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   
-  // Référence pour empêcher les opérations simultanées
+  // Référence pour éviter les opérations simultanées
   const isRefreshing = useRef(false);
-  const refreshTimerRef = useRef<number | null>(null);
-
-  // Nettoyage lors du démontage du composant
-  useEffect(() => {
-    return () => {
-      if (refreshTimerRef.current) {
-        clearTimeout(refreshTimerRef.current);
-      }
-    };
-  }, []);
   
-  // Requête pour obtenir les missions
+  // Requête pour obtenir les missions avec un temps de cache plus long
   const { 
     data: missions = [], 
     isLoading,
@@ -36,11 +25,11 @@ export function useAdminMissions() {
     error,
     refetch
   } = useQuery({
-    queryKey: ['missions', 'admin', refreshKey],
+    queryKey: ['missions', 'admin'],
     queryFn: getAllMissions,
-    staleTime: 60000, // 1 minute
+    staleTime: 300000, // 5 minutes
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: 0, // Pas de tentatives répétées
     meta: {
       onError: (err: Error) => {
         console.error("Erreur de requête:", err);
@@ -51,42 +40,39 @@ export function useAdminMissions() {
 
   // Fonction pour rafraîchir les données avec protection contre les appels multiples
   const refreshMissionsData = useCallback(() => {
-    // Si un rafraîchissement est déjà planifié, annuler
-    if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-    
-    // Si un rafraîchissement est en cours, ne rien faire
+    // Si un rafraîchissement est déjà en cours, ne rien faire
     if (isRefreshing.current) {
+      console.log("Rafraîchissement déjà en cours, ignoré");
       return;
     }
     
     console.log("Demande de rafraîchissement des missions");
     isRefreshing.current = true;
     
-    // Planifier le rafraîchissement
-    refreshTimerRef.current = window.setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ['missions'] });
-      setRefreshKey(prev => prev + 1);
-      
-      // Utiliser setTimeout pour refetch après l'invalidation
-      window.setTimeout(() => {
-        refetch()
-          .finally(() => {
-            console.log("Rafraîchissement terminé");
+    // Invalider la requête et forcer un nouveau chargement
+    queryClient.invalidateQueries({ queryKey: ['missions'] });
+    
+    // Attendre un peu avant de lancer le refetch
+    setTimeout(() => {
+      refetch()
+        .finally(() => {
+          console.log("Rafraîchissement terminé");
+          // Attendre un moment avant de permettre un nouveau rafraîchissement
+          setTimeout(() => {
             isRefreshing.current = false;
-          });
-      }, 100);
-      
-      refreshTimerRef.current = null;
-    }, 300);
+          }, 1000);
+        });
+    }, 500);
   }, [queryClient, refetch]);
 
   // Gestionnaire pour la suppression d'une mission
   const handleDeleteSuccess = useCallback(() => {
     setMissionToDelete(null);
-    refreshMissionsData();
+    
+    // Attendre un court délai avant de rafraîchir les données
+    setTimeout(() => {
+      refreshMissionsData();
+    }, 500);
   }, [refreshMissionsData]);
 
   // Gestionnaires d'événements
@@ -108,7 +94,10 @@ export function useAdminMissions() {
   }, []);
 
   const handleMissionUpdated = useCallback(() => {
-    refreshMissionsData();
+    // Attendre un court délai avant de rafraîchir les données
+    setTimeout(() => {
+      refreshMissionsData();
+    }, 500);
   }, [refreshMissionsData]);
 
   const handleEditDialogChange = useCallback((open: boolean) => {

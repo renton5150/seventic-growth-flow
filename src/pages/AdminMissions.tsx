@@ -38,11 +38,22 @@ const AdminMissions = () => {
     refetch,
   } = useAdminMissions();
 
-  // Chargement initial unique
+  // Chargement initial uniquement au montage du composant
   useEffect(() => {
-    // Faire une seule requête au chargement du composant
-    refetch();
-  }, [refetch]);
+    // Charger les données une seule fois au montage du composant
+    const loadData = async () => {
+      try {
+        await refetch();
+        console.log("Chargement initial des missions terminé");
+      } catch (error) {
+        console.error("Erreur lors du chargement initial des missions:", error);
+      }
+    };
+    
+    loadData();
+    // Ne pas inclure refetch dans les dépendances pour éviter les rechargements
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
