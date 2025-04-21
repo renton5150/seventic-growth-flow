@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useEffect } from "react";
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
 import { Navigate } from "react-router-dom";
@@ -19,7 +19,6 @@ const AdminMissions = () => {
     missions,
     isLoading,
     isError,
-    error,
     selectedMission,
     setSelectedMission,
     isCreateModalOpen,
@@ -29,7 +28,6 @@ const AdminMissions = () => {
     missionToEdit,
     setMissionToEdit,
     isEditModalOpen,
-    setIsEditModalOpen,
     refreshMissionsData,
     handleCreateMissionClick,
     handleViewMission,
@@ -38,7 +36,6 @@ const AdminMissions = () => {
     handleEditMission,
     handleMissionUpdated,
     handleEditDialogChange,
-    isActionInProgress,
     refetch,
   } = useAdminMissions();
 
@@ -72,7 +69,11 @@ const AdminMissions = () => {
           />
         )}
 
-        <CreateMissionDialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} onSuccess={refreshMissionsData} />
+        <CreateMissionDialog 
+          open={isCreateModalOpen} 
+          onOpenChange={setIsCreateModalOpen} 
+          onSuccess={refreshMissionsData} 
+        />
 
         <MissionDetailsDialog
           mission={selectedMission}

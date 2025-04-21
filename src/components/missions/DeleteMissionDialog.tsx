@@ -37,14 +37,19 @@ export function DeleteMissionDialog({
       setIsDeleting(true);
       const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
 
-      // Perform deletion directly without prematurely closing dialog
+      // Fermons d'abord la boîte de dialogue
+      onOpenChange(false);
+      
+      // Attendons que l'animation de fermeture se termine
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Puis effectuons la suppression
       const { deleteSupabaseMission } = await import("@/services/missions-service");
       const success = await deleteSupabaseMission(missionId);
 
       if (success) {
         toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
         onDeleted();
-        onOpenChange(false);
       } else {
         toast.error("Échec de la suppression. Veuillez réessayer.", { id: toastId });
       }
@@ -52,7 +57,10 @@ export function DeleteMissionDialog({
       console.error("Erreur lors de la suppression:", error);
       toast.error(`Erreur: ${error.message || "Erreur inconnue"}`);
     } finally {
-      setIsDeleting(false);
+      // Remettons l'état isDeleting à false après un court délai
+      setTimeout(() => {
+        setIsDeleting(false);
+      }, 300);
     }
   };
 

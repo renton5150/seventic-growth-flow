@@ -15,9 +15,11 @@ export function useAdminMissions() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Flag pour suivre si une action est en cours
   const isActionInProgress = useRef(false);
-  const operationTimeoutRef = useRef<number | null>(null);
+  const refreshTimeoutRef = useRef<number | null>(null);
 
+  // Requête pour obtenir les missions
   const { 
     data: missions = [], 
     isLoading,
@@ -26,59 +28,71 @@ export function useAdminMissions() {
     refetch
   } = useQuery({
     queryKey: ['missions', 'admin', refreshKey],
-    queryFn: async () => {
-      try {
-        const allMissions = await getAllMissions();
-        return allMissions;
-      } catch (error) {
-        throw error;
-      }
-    },
+    queryFn: getAllMissions,
     staleTime: 15000,
     retry: 1,
   });
 
+  // Afficher un toast en cas d'erreur
   useEffect(() => {
     if (isError && error) {
       toast.error("Erreur lors du chargement des missions");
+      console.error("Erreur de chargement:", error);
     }
   }, [isError, error]);
 
+  // Nettoyer les timeouts en sortant du composant
   useEffect(() => {
     return () => {
-      if (operationTimeoutRef.current !== null) {
-        clearTimeout(operationTimeoutRef.current);
+      if (refreshTimeoutRef.current !== null) {
+        clearTimeout(refreshTimeoutRef.current);
       }
     };
   }, []);
 
+  // Fonction pour rafraîchir les données des missions
   const refreshMissionsData = useCallback(() => {
+    console.log("Rafraîchissement des données demandé");
+    
+    // Si une action est déjà en cours, planifions un refresh pour plus tard
     if (isActionInProgress.current) {
-      if (operationTimeoutRef.current !== null) {
-        clearTimeout(operationTimeoutRef.current);
+      console.log("Action déjà en cours, planification d'un refresh ultérieur");
+      if (refreshTimeoutRef.current !== null) {
+        clearTimeout(refreshTimeoutRef.current);
       }
-      operationTimeoutRef.current = window.setTimeout(() => {
-        refreshMissionsData();
-      }, 500);
+      refreshTimeoutRef.current = window.setTimeout(refreshMissionsData, 500);
       return;
     }
+    
+    // Indiquons qu'une action est en cours
     isActionInProgress.current = true;
-    queryClient.invalidateQueries({ queryKey: ['missions'], exact: false });
+    
+    // Invalidons le cache des requêtes et incrémentons la clé de rafraîchissement
+    queryClient.invalidateQueries({ queryKey: ['missions'] });
     setRefreshKey(prev => prev + 1);
-    operationTimeoutRef.current = window.setTimeout(() => {
+    
+    console.log("Démarrage de la requête de rafraîchissement");
+    
+    // Planifions un refetch avec un court délai
+    refreshTimeoutRef.current = window.setTimeout(() => {
       refetch()
         .then(() => {
-          operationTimeoutRef.current = window.setTimeout(() => {
+          console.log("Rafraîchissement réussi");
+          // Réinitialisons le flag d'action en cours après un court délai
+          refreshTimeoutRef.current = window.setTimeout(() => {
             isActionInProgress.current = false;
+            console.log("Action terminée, nouvelles actions possibles");
           }, 300);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error("Erreur lors du rafraîchissement:", err);
           toast.error("Erreur lors du rafraîchissement des données");
           isActionInProgress.current = false;
         });
     }, 300);
   }, [queryClient, refetch]);
 
+  // Nettoyer l'état missionToEdit après la fermeture du modal d'édition
   useEffect(() => {
     if (!isEditModalOpen && missionToEdit) {
       const timer = setTimeout(() => {
@@ -88,7 +102,7 @@ export function useAdminMissions() {
     }
   }, [isEditModalOpen, missionToEdit]);
 
-  // Handlers
+  // Gestionnaires d'événements
   const handleCreateMissionClick = () => {
     if (isActionInProgress.current) {
       toast.info("Une opération est déjà en cours, veuillez patienter");
@@ -111,8 +125,13 @@ export function useAdminMissions() {
   };
 
   const handleDeleteSuccess = () => {
+    console.log("Suppression réussie, nettoyage de l'état");
     setMissionToDelete(null);
-    refreshMissionsData();
+    
+    // Utilisons setTimeout pour éviter les problèmes de rendu
+    setTimeout(() => {
+      refreshMissionsData();
+    }, 300);
   };
 
   const handleEditMission = (mission: Mission) => {
@@ -124,7 +143,7 @@ export function useAdminMissions() {
   const handleMissionUpdated = () => {
     setTimeout(() => {
       refreshMissionsData();
-    }, 500);
+    }, 300);
   };
 
   const handleEditDialogChange = (open: boolean) => {
