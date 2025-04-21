@@ -54,9 +54,14 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
             type: 'resourceTimeline',
             duration: { months: 3 },
             buttonText: 'Trimestre',
-            slotDuration: { days: 1 }
+            slotDuration: { days: 1 },
+            slotMinWidth: 15, // Réduire la largeur minimale des slots
+            contentHeight: 'auto', // Hauteur automatique
+            stickyHeaderDates: true, // Garder les dates visibles lors du défilement
+            expandRows: true // Étendre les lignes pour remplir la hauteur disponible
           }
         }}
+        contentHeight="auto"
         editable={isAdmin}
         selectable={true}
         selectMirror={true}
