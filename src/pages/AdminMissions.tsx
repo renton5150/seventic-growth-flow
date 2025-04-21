@@ -1,4 +1,3 @@
-
 import { useCallback, useState, useRef, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/auth";
@@ -30,8 +29,6 @@ const AdminMissions = () => {
   const isActionInProgress = useRef(false);
   const operationTimeoutRef = useRef<number | null>(null);
 
-  // Remove the deletionInProgress ref: we'll manage disabling by isActionInProgress state only
-
   const { 
     data: missions = [], 
     isLoading,
@@ -53,11 +50,14 @@ const AdminMissions = () => {
     },
     staleTime: 15000,
     retry: 1,
-    onError: (err: Error) => {
-      console.error("Erreur dans la requête de missions:", err);
+  });
+
+  useEffect(() => {
+    if (isError && error) {
+      console.error("Erreur dans la requête de missions:", error);
       toast.error("Erreur lors du chargement des missions");
     }
-  });
+  }, [isError, error]);
 
   useEffect(() => {
     return () => {
@@ -106,7 +106,6 @@ const AdminMissions = () => {
     }, 300);
   }, [queryClient, refetch]);
 
-  // Clean missionToEdit state after modal closed
   useEffect(() => {
     if (!isEditModalOpen && missionToEdit) {
       const timer = setTimeout(() => {
