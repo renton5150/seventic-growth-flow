@@ -38,20 +38,19 @@ const AdminMissions = () => {
     refetch,
   } = useAdminMissions();
 
-  // Chargement initial uniquement au montage du composant
+  // Chargement initial une seule fois au montage du composant
   useEffect(() => {
-    // Charger les données une seule fois au montage du composant
-    const loadData = async () => {
+    const loadInitialData = async () => {
       try {
+        console.log("Chargement initial des missions...");
         await refetch();
-        console.log("Chargement initial des missions terminé");
+        console.log("Chargement initial terminé");
       } catch (error) {
-        console.error("Erreur lors du chargement initial des missions:", error);
+        console.error("Erreur de chargement initial:", error);
       }
     };
     
-    loadData();
-    // Ne pas inclure refetch dans les dépendances pour éviter les rechargements
+    loadInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

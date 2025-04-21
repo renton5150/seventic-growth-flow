@@ -37,38 +37,39 @@ export function DeleteMissionDialog({
       // Marquer comme suppression en cours
       setIsDeleting(true);
       
-      // Fermer la boîte de dialogue immédiatement
+      // Fermer la boîte de dialogue immédiatement pour éviter le gel de l'interface
       onOpenChange(false);
       
       // Montrer un toast de chargement
       const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
       
-      // Importer dynamiquement le service après la fermeture de l'UI
-      const { deleteSupabaseMission } = await import("@/services/missions-service");
-      
-      try {
-        // Effectuer la suppression
-        await deleteSupabaseMission(missionId);
-        
-        // Notification de succès
-        toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
-        
-        // Notifier le parent que la suppression est terminée
-        setTimeout(() => {
-          onDeleted();
-        }, 300);
-      } catch (error: any) {
-        console.error("Erreur lors de la suppression:", error);
-        toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, { id: toastId });
-      }
+      // Effectuer la requête de suppression en dehors du cycle de rendu React
+      setTimeout(async () => {
+        try {
+          // Importer dynamiquement le service après la fermeture de l'UI
+          const { deleteMission } = await import("@/services/missions-service");
+          
+          // Effectuer la suppression
+          await deleteMission(missionId);
+          
+          // Notification de succès
+          toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
+          
+          // Notifier le parent que la suppression est terminée
+          setTimeout(() => {
+            onDeleted();
+            setIsDeleting(false);
+          }, 300);
+        } catch (error: any) {
+          console.error("Erreur lors de la suppression:", error);
+          toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, { id: toastId });
+          setIsDeleting(false);
+        }
+      }, 100);
     } catch (error: any) {
-      console.error("Erreur générale lors de la suppression:", error);
+      console.error("Erreur générale:", error);
       toast.error(`Erreur: ${error.message || "Erreur inconnue"}`);
-    } finally {
-      // Réinitialiser l'état
-      setTimeout(() => {
-        setIsDeleting(false);
-      }, 500);
+      setIsDeleting(false);
     }
   };
 

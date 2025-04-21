@@ -6,9 +6,8 @@ import {
   getSupaMissionsByUserId,
   getSupaMissionById,
   createSupaMission,
-  deleteSupaMission,
-  checkMissionExists,
-  updateSupaMission
+  updateSupaMission,
+  checkMissionExists
 } from "@/services/missions";
 
 /**
@@ -151,9 +150,6 @@ export const updateSupabaseMission = async (data: {
     // Ensure type is a valid MissionType
     const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
     
-    // Log the status value to help with debugging
-    console.log("Status being passed to updateSupaMission:", data.status);
-    
     return await updateSupaMission({
       ...data,
       type: missionType,
@@ -167,24 +163,33 @@ export const updateSupabaseMission = async (data: {
 
 /**
  * Deletes a mission from Supabase with authentication and error handling
+ * Version complètement réécrite pour éviter les gels d'interface
  */
 export const deleteSupabaseMission = async (missionId: string): Promise<boolean> => {
-  // Implémentation simplifiée pour éviter les blocages
   if (!missionId) {
     throw new Error("ID de mission invalide");
   }
 
   try {
-    // Import dynamiquement pour éviter les problèmes de référence circulaire
+    console.log("Lancement de la suppression directe de la mission:", missionId);
+    
+    // Import dynamique du client Supabase
     const { supabase } = await import("@/integrations/supabase/client");
     
-    // Vérifier l'authentification
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.session) {
+    // Vérification de session
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error("Erreur de session:", sessionError);
+      throw new Error("Problème d'authentification");
+    }
+    
+    if (!sessionData.session) {
       throw new Error("Utilisateur non authentifié");
     }
-
-    // Supprimer directement en une seule opération
+    
+    console.log("Session valide, exécution de la suppression...");
+    
+    // Suppression directe
     const { error } = await supabase
       .from("missions")
       .delete()
@@ -192,13 +197,13 @@ export const deleteSupabaseMission = async (missionId: string): Promise<boolean>
     
     if (error) {
       console.error("Erreur Supabase lors de la suppression:", error);
-      throw new Error(`Erreur Supabase: ${error.message}`);
+      throw new Error(`Erreur de suppression: ${error.message}`);
     }
     
-    console.log("Mission supprimée avec succès:", missionId);
+    console.log("Mission supprimée avec succès dans Supabase");
     return true;
-  } catch (error) {
-    console.error("Erreur lors de la suppression de mission:", error);
+  } catch (error: any) {
+    console.error("Erreur critique lors de la suppression:", error);
     throw error;
   }
 };

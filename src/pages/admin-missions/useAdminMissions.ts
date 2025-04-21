@@ -22,24 +22,26 @@ export function useAdminMissions() {
     data: missions = [], 
     isLoading,
     isError,
-    error,
     refetch
   } = useQuery({
     queryKey: ['missions', 'admin'],
     queryFn: getAllMissions,
-    staleTime: 300000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes pour éviter les rechargements fréquents
     refetchOnWindowFocus: false,
     retry: 0, // Pas de tentatives répétées
+    refetchInterval: false, // Pas de rechargement automatique périodique
     meta: {
-      onError: (err: Error) => {
-        console.error("Erreur de requête:", err);
-        toast.error("Erreur lors du chargement des missions");
+      onSettled: (_, error) => {
+        if (error) {
+          console.error("Erreur de requête:", error);
+          toast.error("Erreur lors du chargement des missions");
+        }
       }
     }
   });
 
   // Fonction pour rafraîchir les données avec protection contre les appels multiples
-  const refreshMissionsData = useCallback(() => {
+  const refreshMissionsData = useCallback(async () => {
     // Si un rafraîchissement est déjà en cours, ne rien faire
     if (isRefreshing.current) {
       console.log("Rafraîchissement déjà en cours, ignoré");
@@ -49,20 +51,22 @@ export function useAdminMissions() {
     console.log("Demande de rafraîchissement des missions");
     isRefreshing.current = true;
     
-    // Invalider la requête et forcer un nouveau chargement
-    queryClient.invalidateQueries({ queryKey: ['missions'] });
-    
-    // Attendre un peu avant de lancer le refetch
-    setTimeout(() => {
-      refetch()
-        .finally(() => {
-          console.log("Rafraîchissement terminé");
-          // Attendre un moment avant de permettre un nouveau rafraîchissement
-          setTimeout(() => {
-            isRefreshing.current = false;
-          }, 1000);
-        });
-    }, 500);
+    try {
+      // Invalider la requête et forcer un nouveau chargement
+      await queryClient.invalidateQueries({ queryKey: ['missions'] });
+      
+      // Attendre un peu avant de lancer le refetch
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await refetch();
+      console.log("Rafraîchissement terminé");
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement:", error);
+    } finally {
+      // Attendre un moment avant de permettre un nouveau rafraîchissement
+      setTimeout(() => {
+        isRefreshing.current = false;
+      }, 1000);
+    }
   }, [queryClient, refetch]);
 
   // Gestionnaire pour la suppression d'une mission
@@ -115,7 +119,6 @@ export function useAdminMissions() {
     missions,
     isLoading,
     isError,
-    error,
     selectedMission,
     setSelectedMission,
     isCreateModalOpen,
