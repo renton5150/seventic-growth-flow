@@ -34,63 +34,55 @@ export function DeleteMissionDialog({
     if (!missionId || isDeleting) return;
 
     try {
-      // Indiquer que la suppression est en cours
+      // Marquer comme suppression en cours
       setIsDeleting(true);
+      
+      // Fermer la boîte de dialogue immédiatement
+      onOpenChange(false);
       
       // Créer un toast de chargement
       const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
       
-      // Fermer immédiatement la boîte de dialogue pour éviter le gel de l'interface
-      onOpenChange(false);
-      
-      // Importer dynamiquement le service
+      // Importer le service après la fermeture de l'UI
       const { deleteSupabaseMission } = await import("@/services/missions-service");
       
+      // Attendre un court délai pour que l'UI se mette à jour
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
       try {
-        // Effectuer la suppression après un court délai pour permettre la fermeture de l'UI
-        setTimeout(async () => {
-          try {
-            const success = await deleteSupabaseMission(missionId);
-            
-            if (success) {
-              toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
-              // Notifier le parent après un court délai
-              setTimeout(() => {
-                onDeleted();
-                setIsDeleting(false);
-              }, 300);
-            } else {
-              toast.error("Échec de la suppression. Veuillez réessayer.", { id: toastId });
-              setIsDeleting(false);
-            }
-          } catch (error: any) {
-            console.error("Erreur lors de la suppression:", error);
-            toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, { id: toastId });
-            setIsDeleting(false);
-          }
-        }, 300);
+        // Effectuer la suppression
+        const success = await deleteSupabaseMission(missionId);
+        
+        if (success) {
+          toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
+          
+          // Notifier le parent que la suppression est terminée
+          onDeleted();
+        } else {
+          toast.error("Échec de la suppression. Veuillez réessayer.", { id: toastId });
+        }
       } catch (error: any) {
+        console.error("Erreur lors de la suppression:", error);
         toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, { id: toastId });
-        setIsDeleting(false);
       }
     } catch (error: any) {
       console.error("Erreur générale lors de la suppression:", error);
       toast.error(`Erreur: ${error.message || "Erreur inconnue"}`);
+    } finally {
+      // Réinitialiser l'état
       setIsDeleting(false);
     }
   };
 
-  // Utiliser une fonction pour gérer la fermeture de manière appropriée
-  const handleDialogChange = (open: boolean) => {
-    if (isDeleting && !open) {
-      // Ne pas permettre la fermeture manuelle pendant la suppression
-      return;
-    }
-    onOpenChange(open);
-  };
-
   return (
-    <AlertDialog open={isOpen} onOpenChange={handleDialogChange}>
+    <AlertDialog 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        if (!isDeleting) {
+          onOpenChange(open);
+        }
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>

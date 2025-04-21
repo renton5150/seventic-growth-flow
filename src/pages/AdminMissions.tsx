@@ -28,7 +28,6 @@ const AdminMissions = () => {
     setMissionToDelete,
     missionToEdit,
     isEditModalOpen,
-    refreshMissionsData,
     handleCreateMissionClick,
     handleViewMission,
     handleDeleteMission,
@@ -39,15 +38,11 @@ const AdminMissions = () => {
     refetch,
   } = useAdminMissions();
 
-  // Effectuer un rafraîchissement unique au montage du composant
+  // Chargement initial unique
   useEffect(() => {
-    // Utiliser un délai plus court et n'exécuter qu'une seule fois au montage
-    const timer = setTimeout(() => {
-      refreshMissionsData();
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, []); // Pas de dépendance pour n'exécuter qu'une fois
+    // Faire une seule requête au chargement du composant
+    refetch();
+  }, [refetch]);
 
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
@@ -75,7 +70,7 @@ const AdminMissions = () => {
             onViewMission={handleViewMission}
             onDeleteMission={handleDeleteMission}
             onEditMission={handleEditMission}
-            onMissionUpdated={refreshMissionsData}
+            onMissionUpdated={handleMissionUpdated}
           />
         )}
 
@@ -83,7 +78,7 @@ const AdminMissions = () => {
           <CreateMissionDialog 
             open={isCreateModalOpen} 
             onOpenChange={setIsCreateModalOpen} 
-            onSuccess={refreshMissionsData} 
+            onSuccess={handleMissionUpdated} 
           />
         )}
 

@@ -1,4 +1,3 @@
-
 import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import {
@@ -184,7 +183,7 @@ export const deleteSupabaseMission = async (missionId: string): Promise<boolean>
       throw new Error("Authentification requise");
     }
 
-    // Check if mission exists before attempting to delete
+    // Vérifier si la mission existe avant de tenter de la supprimer
     let exists = false;
     try {
       exists = await checkMissionExists(missionId);
@@ -192,47 +191,20 @@ export const deleteSupabaseMission = async (missionId: string): Promise<boolean>
       
       if (!exists) {
         console.warn("Mission does not exist or already deleted:", missionId);
-        return true; // Consider it success since the mission is already gone
+        return true; // Considérer comme un succès si la mission est déjà supprimée
       }
     } catch (checkError) {
       console.error("Error checking if mission exists:", checkError);
-      // Continue with deletion attempt anyway
+      // Continuer malgré l'erreur
     }
 
-    // Perform the deletion with a retry mechanism
-    let retryCount = 0;
-    const maxRetries = 2;
-    
-    while (retryCount <= maxRetries) {
-      try {
-        console.log(`Attempting to delete mission (attempt ${retryCount + 1}/${maxRetries + 1})...`);
-        const result = await deleteSupaMission(missionId);
-        console.log("Delete operation completed successfully");
-        return true;
-      } catch (deleteError: any) {
-        console.error(`Error during deletion attempt ${retryCount + 1}:`, deleteError);
-        
-        // If this indicates the mission doesn't exist, consider it a success
-        if (deleteError.message && 
-            (deleteError.message.includes("not exist") || 
-             deleteError.message.includes("not found"))) {
-          console.log("Mission doesn't exist in database - considering deletion successful");
-          return true;
-        }
-        
-        if (retryCount < maxRetries) {
-          console.log(`Retrying in ${(retryCount + 1) * 500}ms...`);
-          await new Promise(r => setTimeout(r, (retryCount + 1) * 500));
-          retryCount++;
-        } else {
-          throw deleteError; // Re-throw after all retries fail
-        }
-      }
-    }
-    
-    throw new Error("Failed to delete after multiple attempts");
+    // Effectuer la suppression sans mécanisme de retentative pour éviter les blocages
+    console.log("Attempting to delete mission...");
+    const result = await deleteSupaMission(missionId);
+    console.log("Delete operation completed successfully");
+    return true;
   } catch (error) {
-    console.error("Fatal error in deleteSupabaseMission:", error);
-    throw error;
+    console.error("Error in deleteSupabaseMission:", error);
+    throw error; // Propager l'erreur pour un traitement approprié
   }
 };
