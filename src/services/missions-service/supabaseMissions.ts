@@ -170,23 +170,51 @@ export const updateSupabaseMission = async (data: {
  */
 export const deleteSupabaseMission = async (missionId: string): Promise<boolean> => {
   try {
+    if (!missionId) {
+      console.error("Missing mission ID for deletion");
+      throw new Error("ID de mission invalide");
+    }
+
     const isAuthenticated = await isSupabaseAuthenticated();
     
     if (!isSupabaseConfigured || !isAuthenticated) {
-      console.log("Supabase not configured or user not authenticated");
-      return false;
+      console.error("Supabase not configured or user not authenticated");
+      throw new Error("Authentification requise");
     }
 
-    // Check if mission exists before attempting to delete
-    const exists = await checkMissionExists(missionId);
-    if (!exists) {
-      console.error("Mission does not exist:", missionId);
-      throw new Error("Mission does not exist or has already been deleted");
+    // Double check if mission exists before attempting to delete
+    try {
+      const exists = await checkMissionExists(missionId);
+      if (!exists) {
+        console.warn("Mission does not exist or already deleted:", missionId);
+        // Return true since the end result is the same - mission no longer exists
+        return true;
+      }
+    } catch (checkError) {
+      console.error("Error checking if mission exists:", checkError);
+      // Continue with deletion attempt even if check fails
     }
 
-    return await deleteSupaMission(missionId);
+    // Wrap the actual deletion in a try-catch to handle specific delete errors
+    try {
+      const result = await deleteSupaMission(missionId);
+      console.log("Delete operation result:", result);
+      return result;
+    } catch (deleteError: any) {
+      // Handle specific deletion errors
+      console.error("Error during mission deletion:", deleteError);
+      
+      // If the error indicates the mission doesn't exist, consider it "deleted"
+      if (deleteError.message && 
+          (deleteError.message.includes("not exist") || 
+           deleteError.message.includes("not found"))) {
+        return true;
+      }
+      
+      throw deleteError; // Re-throw for the caller to handle
+    }
   } catch (error) {
-    console.error("Error deleting mission from Supabase:", error);
+    console.error("Error in deleteSupabaseMission wrapper:", error);
     throw error;
   }
 };

@@ -27,13 +27,16 @@ const AdminMissions = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const isActionInProgress = useRef(false);
+  const refreshTimeoutRef = useRef<number | null>(null);
+  const cleanupTimeoutRef = useRef<number | null>(null);
   
-  // Advanced query configuration with retry and better error handling - FIXED
+  // Advanced query configuration with retry and better error handling
   const { 
     data: missions = [], 
     isLoading,
     isError,
-    error
+    error,
+    refetch
   } = useQuery({
     queryKey: ['missions', 'admin', refreshKey],
     queryFn: async () => {
@@ -49,7 +52,6 @@ const AdminMissions = () => {
     },
     staleTime: 15000,
     retry: 1,
-    // The onError property moved to options.meta in React Query v5+
     meta: {
       onError: (err: Error) => {
         console.error("Erreur dans la requête de missions:", err);
@@ -66,6 +68,18 @@ const AdminMissions = () => {
     }
   }, [error]);
   
+  // Clean up any pending timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current !== null) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      if (cleanupTimeoutRef.current !== null) {
+        clearTimeout(cleanupTimeoutRef.current);
+      }
+    };
+  }, []);
+  
   // Safe refresh function that uses a ref to prevent overlapping operations
   const refreshMissionsData = useCallback(() => {
     if (isActionInProgress.current) {
@@ -76,17 +90,30 @@ const AdminMissions = () => {
     console.log("Rafraîchissement des missions");
     isActionInProgress.current = true;
     
-    // Invalidate query cache
+    // Clear any existing timeout
+    if (refreshTimeoutRef.current !== null) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    
+    // First invalidate the query cache
     queryClient.invalidateQueries({ 
       queryKey: ['missions', 'admin'],
     });
     
-    // Force a new render by updating refresh key
-    setTimeout(() => {
-      setRefreshKey(prev => prev + 1);
-      isActionInProgress.current = false;
+    // Then trigger a refetch with a delay to ensure invalidation completes
+    refreshTimeoutRef.current = window.setTimeout(() => {
+      refetch().then(() => {
+        // Set a timeout to reset the action flag
+        cleanupTimeoutRef.current = window.setTimeout(() => {
+          isActionInProgress.current = false;
+          console.log("Action terminée, rafraîchissement disponible");
+        }, 300);
+      }).catch(err => {
+        console.error("Erreur pendant le refetch:", err);
+        isActionInProgress.current = false;
+      });
     }, 300);
-  }, [queryClient]);
+  }, [queryClient, refetch]);
 
   // Cleanup effect for modals and state
   useEffect(() => {
@@ -124,10 +151,8 @@ const AdminMissions = () => {
     // Mark deletion as complete and clean up references
     setMissionToDelete(null);
     
-    // Schedule data refresh with delay
-    setTimeout(() => {
-      refreshMissionsData();
-    }, 500);
+    // Schedule data refresh after a delay to ensure state is updated
+    refreshMissionsData();
   };
 
   const handleEditMission = (mission: Mission) => {
@@ -138,11 +163,7 @@ const AdminMissions = () => {
   
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour");
-    
-    // Schedule refresh with delay
-    setTimeout(() => {
-      refreshMissionsData();
-    }, 500);
+    refreshMissionsData();
   };
   
   const handleEditDialogChange = (open: boolean) => {
@@ -165,7 +186,7 @@ const AdminMissions = () => {
       <AppLayout>
         <div className="flex flex-col items-center justify-center h-64 space-y-4">
           <p className="text-red-500">Erreur lors du chargement des missions</p>
-          <Button onClick={refreshMissionsData}>Réessayer</Button>
+          <Button onClick={() => refetch()}>Réessayer</Button>
         </div>
       </AppLayout>
     );
