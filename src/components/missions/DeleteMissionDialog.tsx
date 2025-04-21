@@ -32,57 +32,34 @@ export function DeleteMissionDialog({
 
   const handleDelete = async () => {
     if (!missionId || isDeleting) return;
-    
-    // Set deleting state first
-    setIsDeleting(true);
-    
-    // Show loading toast
-    const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
-    
-    // Close dialog immediately to prevent UI freeze
-    onOpenChange(false);
-    
+
     try {
-      // Dynamic import to avoid circular dependencies
+      setIsDeleting(true);
+      const toastId = toast.loading(`Suppression de la mission "${missionName}" en cours...`);
+
+      // Perform deletion directly without prematurely closing dialog
       const { deleteSupabaseMission } = await import("@/services/missions-service");
-      
-      // Use a short delay to ensure UI has updated
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Perform the deletion
       const success = await deleteSupabaseMission(missionId);
-      
+
       if (success) {
-        toast.success(`Mission "${missionName}" supprimée avec succès`, {
-          id: toastId
-        });
-        
-        // Notify parent with a delay to ensure UI has settled
-        setTimeout(() => {
-          onDeleted();
-          setIsDeleting(false);
-        }, 300);
+        toast.success(`Mission "${missionName}" supprimée avec succès`, { id: toastId });
+        onDeleted();
+        onOpenChange(false);
       } else {
-        toast.error("Échec de la suppression", {
-          id: toastId,
-          description: "Impossible de supprimer la mission. Veuillez réessayer."
-        });
-        setIsDeleting(false);
+        toast.error("Échec de la suppression. Veuillez réessayer.", { id: toastId });
       }
     } catch (error: any) {
       console.error("Erreur lors de la suppression:", error);
-      toast.error(`Erreur: ${error.message || "Erreur inconnue"}`, {
-        id: toastId
-      });
+      toast.error(`Erreur: ${error.message || "Erreur inconnue"}`);
+    } finally {
       setIsDeleting(false);
     }
   };
 
   return (
-    <AlertDialog 
-      open={isOpen} 
+    <AlertDialog
+      open={isOpen}
       onOpenChange={(open) => {
-        // Prevent state changes during deletion
         if (!isDeleting) {
           onOpenChange(open);
         }
@@ -92,8 +69,7 @@ export function DeleteMissionDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
           <AlertDialogDescription>
-            Êtes-vous sûr de vouloir supprimer la mission "{missionName}" ?
-            Cette action ne peut pas être annulée.
+            Êtes-vous sûr de vouloir supprimer la mission "{missionName}" ? Cette action ne peut pas être annulée.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -108,11 +84,10 @@ export function DeleteMissionDialog({
           >
             {isDeleting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                Suppression...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Suppression...
               </>
             ) : (
-              'Supprimer'
+              "Supprimer"
             )}
           </AlertDialogAction>
         </AlertDialogFooter>
