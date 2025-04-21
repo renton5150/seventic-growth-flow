@@ -26,11 +26,13 @@ const AdminMissions = () => {
   const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const isActionInProgress = useRef(false);
-  const refreshTimeoutRef = useRef<number | null>(null);
-  const cleanupTimeoutRef = useRef<number | null>(null);
   
-  // Advanced query configuration with retry and better error handling
+  // Use refs to track operation state and prevent overlapping actions
+  const isActionInProgress = useRef(false);
+  const operationTimeoutRef = useRef<number | null>(null);
+  const deletionInProgress = useRef(false);
+  
+  // Advanced query configuration
   const { 
     data: missions = [], 
     isLoading,
@@ -40,27 +42,27 @@ const AdminMissions = () => {
   } = useQuery({
     queryKey: ['missions', 'admin', refreshKey],
     queryFn: async () => {
+      console.log("Chargement des missions pour l'administrateur");
       try {
-        console.log("Chargement des missions pour l'administrateur");
         const allMissions = await getAllMissions();
-        console.log("Missions récupérées:", allMissions.length);
+        console.log(`Missions récupérées: ${allMissions.length}`);
         return allMissions;
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
-        throw error;  // Let the query error handling take care of it
+        throw error;
       }
     },
     staleTime: 15000,
     retry: 1,
     meta: {
+      // Error handling moved to meta object
       onError: (err: Error) => {
         console.error("Erreur dans la requête de missions:", err);
-        toast.error("Impossible de charger les missions");
       }
     }
   });
 
-  // Log error for debugging if it exists
+  // Separate effect for handling query errors
   useEffect(() => {
     if (error) {
       console.error("Erreur de requête détectée:", error);
@@ -71,47 +73,58 @@ const AdminMissions = () => {
   // Clean up any pending timeouts on unmount
   useEffect(() => {
     return () => {
-      if (refreshTimeoutRef.current !== null) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      if (cleanupTimeoutRef.current !== null) {
-        clearTimeout(cleanupTimeoutRef.current);
+      if (operationTimeoutRef.current !== null) {
+        clearTimeout(operationTimeoutRef.current);
       }
     };
   }, []);
   
-  // Safe refresh function that uses a ref to prevent overlapping operations
+  // Safe refresh function with improved state management
   const refreshMissionsData = useCallback(() => {
     if (isActionInProgress.current) {
-      console.log("Une action est déjà en cours, rafraîchissement ignoré");
+      console.log("Une action est déjà en cours, rafraîchissement programmé");
+      
+      // Clear any existing timeout and schedule a new one
+      if (operationTimeoutRef.current !== null) {
+        clearTimeout(operationTimeoutRef.current);
+      }
+      
+      operationTimeoutRef.current = window.setTimeout(() => {
+        console.log("Exécution du rafraîchissement différé");
+        refreshMissionsData();
+      }, 500);
+      
       return;
     }
     
     console.log("Rafraîchissement des missions");
     isActionInProgress.current = true;
     
-    // Clear any existing timeout
-    if (refreshTimeoutRef.current !== null) {
-      clearTimeout(refreshTimeoutRef.current);
-    }
-    
-    // First invalidate the query cache
+    // Invalidate all queries related to missions
     queryClient.invalidateQueries({ 
-      queryKey: ['missions', 'admin'],
+      queryKey: ['missions'],
+      exact: false
     });
     
-    // Then trigger a refetch with a delay to ensure invalidation completes
-    refreshTimeoutRef.current = window.setTimeout(() => {
-      refetch().then(() => {
-        // Set a timeout to reset the action flag
-        cleanupTimeoutRef.current = window.setTimeout(() => {
+    // Increment refresh key to force re-render
+    setRefreshKey(prev => prev + 1);
+    
+    // Schedule a refetch with a delay
+    operationTimeoutRef.current = window.setTimeout(() => {
+      refetch()
+        .then(() => {
+          console.log("Missions refetchées avec succès");
+          // Reset action flag with a delay
+          operationTimeoutRef.current = window.setTimeout(() => {
+            isActionInProgress.current = false;
+            console.log("Action terminée, rafraîchissement disponible");
+          }, 300);
+        })
+        .catch(err => {
+          console.error("Erreur pendant le refetch:", err);
+          toast.error("Erreur lors du rafraîchissement des données");
           isActionInProgress.current = false;
-          console.log("Action terminée, rafraîchissement disponible");
-        }, 300);
-      }).catch(err => {
-        console.error("Erreur pendant le refetch:", err);
-        isActionInProgress.current = false;
-      });
+        });
     }, 300);
   }, [queryClient, refetch]);
 
@@ -129,9 +142,12 @@ const AdminMissions = () => {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Handler functions
+  // Improved handler functions with better state management
   const handleCreateMissionClick = () => {
-    if (isActionInProgress.current) return;
+    if (isActionInProgress.current) {
+      toast.info("Une opération est déjà en cours, veuillez patienter");
+      return;
+    }
     setIsCreateModalOpen(true);
   };
 
@@ -141,18 +157,30 @@ const AdminMissions = () => {
   };
   
   const handleDeleteMission = (mission: Mission) => {
-    if (isActionInProgress.current) return;
+    if (isActionInProgress.current || deletionInProgress.current) {
+      toast.info("Une opération est déjà en cours, veuillez patienter");
+      return;
+    }
+    console.log("Préparation à la suppression de la mission:", mission.id);
+    deletionInProgress.current = true;
     setMissionToDelete(mission);
   };
   
   const handleDeleteSuccess = () => {
-    console.log("Mission supprimée avec succès");
+    console.log("Mission supprimée avec succès, rafraîchissement programmé");
     
-    // Mark deletion as complete and clean up references
+    // Mark deletion as complete
     setMissionToDelete(null);
     
-    // Schedule data refresh after a delay to ensure state is updated
-    refreshMissionsData();
+    // Schedule a complete data refresh
+    operationTimeoutRef.current = window.setTimeout(() => {
+      refreshMissionsData();
+      // Reset deletion flag after data is refreshed
+      operationTimeoutRef.current = window.setTimeout(() => {
+        deletionInProgress.current = false;
+        console.log("Processus de suppression terminé");
+      }, 500);
+    }, 300);
   };
 
   const handleEditMission = (mission: Mission) => {
@@ -162,8 +190,10 @@ const AdminMissions = () => {
   };
   
   const handleMissionUpdated = () => {
-    console.log("Mission mise à jour");
-    refreshMissionsData();
+    console.log("Mission mise à jour, rafraîchissement programmé");
+    setTimeout(() => {
+      refreshMissionsData();
+    }, 500);
   };
   
   const handleEditDialogChange = (open: boolean) => {
@@ -171,6 +201,7 @@ const AdminMissions = () => {
     setIsEditModalOpen(open);
   };
 
+  // Render logic
   if (isLoading) {
     return (
       <AppLayout>

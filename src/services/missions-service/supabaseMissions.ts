@@ -169,6 +169,8 @@ export const updateSupabaseMission = async (data: {
  * Deletes a mission from Supabase with authentication and error handling
  */
 export const deleteSupabaseMission = async (missionId: string): Promise<boolean> => {
+  console.log("Starting mission deletion process for ID:", missionId);
+  
   try {
     if (!missionId) {
       console.error("Missing mission ID for deletion");
@@ -182,39 +184,55 @@ export const deleteSupabaseMission = async (missionId: string): Promise<boolean>
       throw new Error("Authentification requise");
     }
 
-    // Double check if mission exists before attempting to delete
+    // Check if mission exists before attempting to delete
+    let exists = false;
     try {
-      const exists = await checkMissionExists(missionId);
+      exists = await checkMissionExists(missionId);
+      console.log("Mission existence check:", exists ? "exists" : "does not exist");
+      
       if (!exists) {
         console.warn("Mission does not exist or already deleted:", missionId);
-        // Return true since the end result is the same - mission no longer exists
-        return true;
+        return true; // Consider it success since the mission is already gone
       }
     } catch (checkError) {
       console.error("Error checking if mission exists:", checkError);
-      // Continue with deletion attempt even if check fails
+      // Continue with deletion attempt anyway
     }
 
-    // Wrap the actual deletion in a try-catch to handle specific delete errors
-    try {
-      const result = await deleteSupaMission(missionId);
-      console.log("Delete operation result:", result);
-      return result;
-    } catch (deleteError: any) {
-      // Handle specific deletion errors
-      console.error("Error during mission deletion:", deleteError);
-      
-      // If the error indicates the mission doesn't exist, consider it "deleted"
-      if (deleteError.message && 
-          (deleteError.message.includes("not exist") || 
-           deleteError.message.includes("not found"))) {
+    // Perform the deletion with a retry mechanism
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`Attempting to delete mission (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+        const result = await deleteSupaMission(missionId);
+        console.log("Delete operation completed successfully");
         return true;
+      } catch (deleteError: any) {
+        console.error(`Error during deletion attempt ${retryCount + 1}:`, deleteError);
+        
+        // If this indicates the mission doesn't exist, consider it a success
+        if (deleteError.message && 
+            (deleteError.message.includes("not exist") || 
+             deleteError.message.includes("not found"))) {
+          console.log("Mission doesn't exist in database - considering deletion successful");
+          return true;
+        }
+        
+        if (retryCount < maxRetries) {
+          console.log(`Retrying in ${(retryCount + 1) * 500}ms...`);
+          await new Promise(r => setTimeout(r, (retryCount + 1) * 500));
+          retryCount++;
+        } else {
+          throw deleteError; // Re-throw after all retries fail
+        }
       }
-      
-      throw deleteError; // Re-throw for the caller to handle
     }
+    
+    throw new Error("Failed to delete after multiple attempts");
   } catch (error) {
-    console.error("Error in deleteSupabaseMission wrapper:", error);
+    console.error("Fatal error in deleteSupabaseMission:", error);
     throw error;
   }
 };
