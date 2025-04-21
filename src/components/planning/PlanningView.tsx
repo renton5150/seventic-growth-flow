@@ -55,13 +55,15 @@ export const PlanningView = ({ missions }: PlanningViewProps) => {
             duration: { months: 3 },
             buttonText: 'Trimestre',
             slotDuration: { days: 1 },
-            slotMinWidth: 15, // Réduire la largeur minimale des slots
-            contentHeight: 'auto', // Hauteur automatique
-            stickyHeaderDates: true, // Garder les dates visibles lors du défilement
-            expandRows: true // Étendre les lignes pour remplir la hauteur disponible
+            slotMinWidth: 25, // Augmenté pour améliorer la lisibilité
+            slotLabelFormat: [
+              { month: 'short' }, // Format court pour le mois
+              { day: 'numeric' } // Juste le numéro du jour
+            ],
+            dateAlignment: 'month', // Aligner sur les mois
+            resourceAreaWidth: '15%', // Réduire l'espace pour les ressources
           }
         }}
-        contentHeight="auto"
         editable={isAdmin}
         selectable={true}
         selectMirror={true}
