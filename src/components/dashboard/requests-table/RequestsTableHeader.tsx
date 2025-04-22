@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RequestsTableHeaderProps {
   missionView?: boolean;
@@ -43,6 +44,8 @@ export const RequestsTableHeader = ({
   onFilterChange,
   onDateFilterChange
 }: RequestsTableHeaderProps) => {
+  const { user } = useAuth();
+  
   const getSortIcon = (column: string) => {
     if (sortColumn === column) {
       return sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
@@ -50,10 +53,27 @@ export const RequestsTableHeader = ({
     return null;
   };
 
+  // Fonction pour traduire les statuts en français
+  const translateStatus = (status: string): string => {
+    switch(status) {
+      case "pending": return "En attente";
+      case "inprogress": return "En cours";
+      case "completed": return "Terminée";
+      case "rejected": return "Rejetée";
+      default: return status;
+    }
+  };
+
   // Fonction pour afficher une popover de filtrage par type
   const renderFilterPopover = (columnName: string, options: string[]) => {
     const selectedValues = filters[columnName] || [];
     const hasFilter = selectedValues.length > 0;
+
+    // Si l'utilisateur est un SDR et que c'est la colonne mission, 
+    // ne pas afficher le filtre car il n'a accès qu'à ses propres missions
+    if (isSDR && (columnName === "mission" || columnName === "title")) {
+      return null;
+    }
 
     return (
       <Popover>
@@ -66,22 +86,27 @@ export const RequestsTableHeader = ({
           <div className="space-y-4">
             <h4 className="font-medium">Filtrer par {columnName}</h4>
             <div className="space-y-2 max-h-[200px] overflow-y-auto">
-              {options.map(option => (
-                <div key={option} className="flex items-center space-x-2">
-                  <Checkbox 
-                    id={`${columnName}-${option}`}
-                    checked={selectedValues.includes(option)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        onFilterChange(columnName, [...selectedValues, option]);
-                      } else {
-                        onFilterChange(columnName, selectedValues.filter(v => v !== option));
-                      }
-                    }}
-                  />
-                  <Label htmlFor={`${columnName}-${option}`}>{option || "Non assigné"}</Label>
-                </div>
-              ))}
+              {options.map(option => {
+                // Traduire les statuts si c'est la colonne status
+                const displayOption = columnName === "status" ? translateStatus(option) : option;
+                
+                return (
+                  <div key={option} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`${columnName}-${option}`}
+                      checked={selectedValues.includes(option)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          onFilterChange(columnName, [...selectedValues, option]);
+                        } else {
+                          onFilterChange(columnName, selectedValues.filter(v => v !== option));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`${columnName}-${option}`}>{displayOption || "Non assigné"}</Label>
+                  </div>
+                );
+              })}
             </div>
             <div className="flex justify-end">
               <Button 

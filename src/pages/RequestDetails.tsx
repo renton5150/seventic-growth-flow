@@ -18,6 +18,13 @@ import { DatabaseDetails } from "@/components/request-details/DatabaseDetails";
 import { LinkedInDetails } from "@/components/request-details/LinkedInDetails";
 import { RequestComments } from "@/components/request-details/RequestComments";
 import { RequestInfo } from "@/components/request-details/RequestInfo";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function isEmailRequest(request: Request): request is EmailCampaignRequest {
   return request.type === "email";
@@ -41,6 +48,9 @@ const RequestDetails = () => {
   const [comment, setComment] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [workflowStatus, setWorkflowStatus] = useState<string>("");
+  const [emailPlatform, setEmailPlatform] = useState<string>("");
+  const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
 
   const fetchRequestDetails = async () => {
     if (id) {
@@ -63,6 +73,12 @@ const RequestDetails = () => {
         
         const formattedRequest = formatRequestFromDb(data);
         setRequest(formattedRequest);
+        setWorkflowStatus(formattedRequest.workflow_status || "pending_assignment");
+        
+        // Récupérer la plateforme d'emailing si elle existe dans les détails
+        if (formattedRequest.type === "email" && formattedRequest.details) {
+          setEmailPlatform(formattedRequest.details.emailPlatform || "");
+        }
         
         if (data.mission_id) {
           const missionName = data.mission_name || "Mission sans nom";
@@ -149,6 +165,81 @@ const RequestDetails = () => {
     }
   };
 
+  const updateWorkflowStatus = async (status: string) => {
+    if (!request) return;
+    
+    try {
+      const { error } = await supabase
+        .from('requests')
+        .update({
+          workflow_status: status,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', request.id);
+      
+      if (error) {
+        console.error("Erreur lors de la mise à jour du statut:", error);
+        toast.error("Erreur lors de la mise à jour du statut");
+        return;
+      }
+      
+      setRequest({
+        ...request,
+        workflow_status: status,
+        lastUpdated: new Date()
+      });
+      
+      toast.success(`Statut mis à jour: ${
+        status === "pending_assignment" ? "En attente" :
+        status === "in_progress" ? "En cours" :
+        status === "completed" ? "Terminée" :
+        "Annulée"
+      }`);
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du statut:", error);
+      toast.error("Erreur lors de la mise à jour du statut");
+    }
+  };
+
+  const updateEmailPlatform = async (platform: string) => {
+    if (!request || request.type !== "email") return;
+    
+    try {
+      const currentDetails = request.details || {};
+      
+      const { error } = await supabase
+        .from('requests')
+        .update({
+          details: {
+            ...currentDetails,
+            emailPlatform: platform
+          },
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', request.id);
+      
+      if (error) {
+        console.error("Erreur lors de la mise à jour de la plateforme d'emailing:", error);
+        toast.error("Erreur lors de la mise à jour de la plateforme d'emailing");
+        return;
+      }
+      
+      setRequest({
+        ...request,
+        details: {
+          ...request.details,
+          emailPlatform: platform
+        },
+        lastUpdated: new Date()
+      });
+      
+      toast.success(`Plateforme d'emailing mise à jour: ${platform}`);
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la plateforme d'emailing:", error);
+      toast.error("Erreur lors de la mise à jour de la plateforme d'emailing");
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -209,6 +300,57 @@ const RequestDetails = () => {
             />
           )}
         </div>
+
+        {/* Contrôles pour Growth et Admin */}
+        {isGrowthOrAdmin && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+            <div>
+              <p className="text-sm font-medium mb-1">Statut de la demande</p>
+              <Select
+                value={workflowStatus}
+                onValueChange={(value) => {
+                  setWorkflowStatus(value);
+                  updateWorkflowStatus(value);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sélectionner un statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending_assignment">En attente</SelectItem>
+                  <SelectItem value="in_progress">En cours</SelectItem>
+                  <SelectItem value="completed">Terminée</SelectItem>
+                  <SelectItem value="canceled">Annulée</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {isEmailRequest(request) && (
+              <div>
+                <p className="text-sm font-medium mb-1">Plateforme d'emailing</p>
+                <Select
+                  value={emailPlatform}
+                  onValueChange={(value) => {
+                    setEmailPlatform(value);
+                    updateEmailPlatform(value);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Sélectionner une plateforme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Acelmail">Acelmail</SelectItem>
+                    <SelectItem value="Brevo">Brevo</SelectItem>
+                    <SelectItem value="Mindbaz">Mindbaz</SelectItem>
+                    <SelectItem value="Mailjet">Mailjet</SelectItem>
+                    <SelectItem value="Postyman">Postyman</SelectItem>
+                    <SelectItem value="Mailwizz">Mailwizz</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
