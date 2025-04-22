@@ -1,3 +1,5 @@
+
+import * as React from "react";  // Add this import at the top of the file
 import { User } from "@/types/types";
 import { Control } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
