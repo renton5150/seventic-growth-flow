@@ -14,6 +14,7 @@ import { fr } from "date-fns/locale";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface RequestRowProps {
   request: Request;
@@ -91,6 +92,18 @@ export const RequestRow = ({
     }
   };
 
+  // Fonction pour afficher la plateforme d'emailing avec un badge pour les demandes d'email
+  const renderEmailPlatform = () => {
+    if (request.type === "email" && request.details?.emailPlatform) {
+      return (
+        <Badge variant="outline" className="bg-violet-50 text-violet-600">
+          {request.details.emailPlatform}
+        </Badge>
+      );
+    }
+    return <span className="text-muted-foreground">–</span>;
+  };
+
   return (
     <TableRow>
       <TableCell>
@@ -120,6 +133,12 @@ export const RequestRow = ({
         {formatDate(request.createdAt)}
       </TableCell>
 
+      {/* Colonne Plateforme d'emailing */}
+      <TableCell>
+        {renderEmailPlatform()}
+      </TableCell>
+
+      {/* Colonne Actions */}
       <TableCell className="text-right">
         <div className="flex items-center justify-end space-x-2">
           <Button

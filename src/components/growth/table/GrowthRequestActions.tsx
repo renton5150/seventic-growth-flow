@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface GrowthRequestActionsProps {
   request: Request;
@@ -34,6 +35,7 @@ export function GrowthRequestActions({
 }: GrowthRequestActionsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
   
   const handleStatusChange = async (newStatus: string) => {
@@ -42,6 +44,12 @@ export function GrowthRequestActions({
     const success = await updateRequestWorkflowStatus(request.id, newStatus);
     if (success) {
       toast.success(`Statut mis à jour : ${newStatus}`);
+      
+      // Invalidate and refetch all request-related queries
+      queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+      queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
     } else {
       toast.error("Erreur lors de la mise à jour du statut");
     }

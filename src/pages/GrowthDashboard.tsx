@@ -6,12 +6,14 @@ import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDi
 import { useEffect } from "react";
 import { GrowthDashboardHeader } from "@/components/growth/dashboard/GrowthDashboardHeader";
 import { GrowthDashboardContent } from "@/components/growth/dashboard/GrowthDashboardContent";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
 }
 
 const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
+  const queryClient = useQueryClient();
   const {
     filteredRequests,
     allRequests,
@@ -39,6 +41,17 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
       setActiveTab("all");
     }
   }, [defaultTab, activeTab, setActiveTab]);
+
+  // Force refresh data periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+      queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+    }, 5000); // Refresh every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [queryClient]);
 
   return (
     <AppLayout>

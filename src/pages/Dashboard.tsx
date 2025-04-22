@@ -4,15 +4,17 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Toaster } from "sonner";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Dashboard = () => {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const { user } = useAuth();
   const isSDR = user?.role === 'sdr';
+  const queryClient = useQueryClient();
   
   const { 
     filteredRequests, 
@@ -27,6 +29,15 @@ const Dashboard = () => {
   const handleRequestDeleted = () => {
     refetch();
   };
+
+  // Force refresh data periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+    }, 5000); // Refresh every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [queryClient]);
 
   const handleFilterClick = (filterType: "all" | "pending" | "inprogress" | "completed" | "late") => {
     console.log("[DEBUG] Dashboard - Filter clicked:", filterType);
