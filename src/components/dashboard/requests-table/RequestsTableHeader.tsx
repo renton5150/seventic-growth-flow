@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   TableHead,
@@ -7,12 +8,16 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  Filter,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 interface RequestsTableHeaderProps {
   missionView?: boolean;
@@ -67,19 +72,120 @@ export const RequestsTableHeader = ({
     return filters[column]?.includes(value) || false;
   };
 
+  // Helper to render a filter button
+  const renderFilterButton = (column: string, uniqueValues: string[]) => {
+    const hasFilter = filters[column]?.length > 0;
+    
+    return (
+      <Popover open={isFilterOpen(column)} onOpenChange={() => toggleFilter(column)}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant={hasFilter ? "default" : "ghost"} 
+            size="icon"
+            className={hasFilter ? "bg-blue-600 hover:bg-blue-700 text-white ml-2 h-7 w-7" : "ml-2 h-7 w-7"}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            <span className="sr-only">Filtre {column}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-4" align="end">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">Filtrer par {column}</h4>
+              {hasFilter && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-2 text-xs"
+                  onClick={() => onFilterChange(column, [])}
+                >
+                  Effacer
+                </Button>
+              )}
+            </div>
+            
+            <Separator />
+            
+            <ScrollArea className="h-[200px] pr-4">
+              <div className="space-y-4">
+                {uniqueValues.map((option) => (
+                  <div key={option} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`${column}-${option}`}
+                      checked={isCheckboxChecked(column, option)}
+                      onCheckedChange={(checked) => 
+                        handleCheckboxChange(column, option, checked === true)
+                      }
+                    />
+                    <Label htmlFor={`${column}-${option}`}>{option || "Non assigné"}</Label>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <TableHeader>
       <TableRow>
-        <TableHead>Type</TableHead>
-        <TableHead>Titre</TableHead>
-        <TableHead>Mission</TableHead>
-        {showSdr && <TableHead>SDR</TableHead>}
-        <TableHead>Statut</TableHead>
-        <TableHead>Échéance</TableHead>
-        <TableHead>Créée le</TableHead>
+        <TableHead className="w-[100px]">
+          <div className="flex items-center justify-between">
+            Type
+            {renderFilterButton("type", ["email", "database", "linkedin"])}
+          </div>
+        </TableHead>
+        <TableHead>
+          <div className="flex items-center justify-between">
+            Titre
+            {renderFilterButton("title", ["Titre 1", "Titre 2"])}
+          </div>
+        </TableHead>
+        <TableHead>
+          <div className="flex items-center justify-between">
+            Mission
+            {renderFilterButton("mission", ["Mission 1", "Mission 2"])}
+          </div>
+        </TableHead>
+        {showSdr && (
+          <TableHead>
+            <div className="flex items-center justify-between">
+              SDR
+              {renderFilterButton("sdr", ["SDR 1", "SDR 2"])}
+            </div>
+          </TableHead>
+        )}
+        <TableHead>
+          <div className="flex items-center justify-between">
+            Statut
+            {renderFilterButton("status", ["pending", "inprogress", "completed", "canceled"])}
+          </div>
+        </TableHead>
+        <TableHead>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => handleSort("dueDate")}>
+            Échéance
+            {sortColumn === "dueDate" && (
+              sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+            )}
+          </div>
+        </TableHead>
+        <TableHead>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => handleSort("createdAt")}>
+            Créée le
+            {sortColumn === "createdAt" && (
+              sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+            )}
+          </div>
+        </TableHead>
         
-        {/* Nouvelle colonne pour la Plateforme d'emailing */}
-        <TableHead>Plateforme d'emailing</TableHead>
+        <TableHead>
+          <div className="flex items-center justify-between">
+            Plateforme d'emailing
+            {renderFilterButton("emailPlatform", ["Acelmail", "Brevo", "Mindbaz", "Mailjet", "Postyman", "Mailwizz"])}
+          </div>
+        </TableHead>
         
         <TableHead className="text-right">Actions</TableHead>
       </TableRow>

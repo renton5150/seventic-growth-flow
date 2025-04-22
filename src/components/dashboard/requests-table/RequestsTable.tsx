@@ -31,6 +31,7 @@ export const RequestsTable = ({
     mission: [],
     sdr: [],
     status: [],
+    emailPlatform: []
   });
 
   // Extraire les valeurs uniques des propriétés pour les filtres
@@ -40,6 +41,12 @@ export const RequestsTable = ({
     const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
     const statuses = [...new Set(requests.map(r => r.status))];
     const titles = [...new Set(requests.map(r => r.title))];
+    const emailPlatforms = [...new Set(requests.map(r => {
+      if (r.details && r.details.emailPlatform) {
+        return r.details.emailPlatform;
+      }
+      return "Non spécifié";
+    }))];
     
     setUniqueValues({
       type: types,
@@ -47,6 +54,16 @@ export const RequestsTable = ({
       sdr: sdrs,
       status: statuses,
       title: titles,
+      emailPlatform: emailPlatforms
+    });
+    
+    console.log("Values for filters:", {
+      types,
+      missions,
+      sdrs,
+      statuses,
+      titles,
+      emailPlatforms
     });
   }, [requests]);
 
@@ -62,6 +79,7 @@ export const RequestsTable = ({
   };
 
   const handleFilterChange = (column: string, values: string[]) => {
+    console.log(`Applying filter on ${column}:`, values);
     setFilters(prev => ({
       ...prev,
       [column]: values

@@ -8,6 +8,15 @@ export const useRequestAssignment = (onSuccess?: () => void) => {
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
+  // Force immediate invalidation of all relevant queries
+  const invalidateAllQueries = () => {
+    console.log("Invalidating all request queries for instant refresh");
+    queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+    queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+    queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+  };
+
   /**
    * Assigne une demande à l'utilisateur actuel
    */
@@ -42,11 +51,8 @@ export const useRequestAssignment = (onSuccess?: () => void) => {
       
       toast.success("Demande assignée avec succès");
       
-      // Force refresh all request queries
-      queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-      queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-      queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+      // Force instant refresh
+      invalidateAllQueries();
       
       if (onSuccess) {
         onSuccess();
@@ -85,11 +91,8 @@ export const useRequestAssignment = (onSuccess?: () => void) => {
       
       toast.success(`Statut mis à jour: ${newStatus}`);
       
-      // Force refresh all request queries
-      queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-      queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-      queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+      // Force instant refresh
+      invalidateAllQueries();
       
       if (onSuccess) {
         onSuccess();

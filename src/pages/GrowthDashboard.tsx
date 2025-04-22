@@ -42,13 +42,15 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     }
   }, [defaultTab, activeTab, setActiveTab]);
 
-  // Force refresh data periodically
+  // Force refresh data more frequently for better real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
       queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-    }, 5000); // Refresh every 5 seconds
+      queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+      console.log("Growth Dashboard - Automatic refresh triggered");
+    }, 3000); // Refresh every 3 seconds for better reactivity
     
     return () => clearInterval(interval);
   }, [queryClient]);

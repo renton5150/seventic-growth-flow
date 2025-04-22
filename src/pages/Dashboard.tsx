@@ -30,11 +30,12 @@ const Dashboard = () => {
     refetch();
   };
 
-  // Force refresh data periodically
+  // Force refresh data more frequently for better real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
-    }, 5000); // Refresh every 5 seconds
+      console.log("Dashboard - Automatic refresh triggered");
+    }, 3000); // Refresh every 3 seconds for better reactivity
     
     return () => clearInterval(interval);
   }, [queryClient]);

@@ -37,6 +37,19 @@ export const sortRequests = (
     filteredRequests = filteredRequests.filter(r => filters.status.includes(r.status));
   }
   
+  // Appliquer les filtres de titre
+  if (filters.title && filters.title.length > 0) {
+    filteredRequests = filteredRequests.filter(r => filters.title.includes(r.title));
+  }
+  
+  // Appliquer les filtres de plateforme d'emailing
+  if (filters.emailPlatform && filters.emailPlatform.length > 0) {
+    filteredRequests = filteredRequests.filter(r => {
+      const platform = r.details?.emailPlatform || "Non spécifié";
+      return filters.emailPlatform.includes(platform);
+    });
+  }
+  
   // Appliquer les filtres de date de création
   if (dateFilters.createdAt && dateFilters.createdAt.type) {
     const { type, values } = dateFilters.createdAt;
@@ -124,6 +137,10 @@ export const sortRequests = (
       case "createdAt":
         valueA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         valueB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        break;
+      case "emailPlatform":
+        valueA = (a.details?.emailPlatform || "").toLowerCase();
+        valueB = (b.details?.emailPlatform || "").toLowerCase();
         break;
       default:
         valueA = new Date(a.dueDate).getTime();

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request } from "@/types/types";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMissionsByUserId } from "@/services/missionService";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -13,6 +13,7 @@ export const useDashboardRequests = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const queryClient = useQueryClient();
 
   const isSDR = user?.role === "sdr";
   const isGrowth = user?.role === "growth";
@@ -52,7 +53,8 @@ export const useDashboardRequests = () => {
         return [];
       }
     },
-    enabled: !!user
+    enabled: !!user,
+    refetchInterval: 3000 // Refresh every 3 seconds
   });
 
   // Récupérer les missions de l'utilisateur s'il est SDR
@@ -115,12 +117,15 @@ export const useDashboardRequests = () => {
   // Calcul des requêtes filtrées en fonction de l'onglet actif
   const filteredRequests = getFilteredRequests();
 
-  // Solution radicale: Implémentation directe avec un forçage du rendu complet
+  // Implémentation directe avec un forçage du rendu complet et invalidation des requêtes
   const handleStatCardClick = (filterType: "all" | "pending" | "inprogress" | "completed" | "late") => {
     console.log("[ULTRA FIX] useDashboardRequests - handleStatCardClick appelé avec:", filterType);
     
     // Application immédiate du filtre
     setActiveTab(filterType);
+    
+    // Force refresh data
+    queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
     
     // Notification visuelle
     toast.success(`Filtrage appliqué: ${
