@@ -42,10 +42,10 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log(`Requêtes à affecter récupérées: ${data.length} sur ${count} requêtes totales dans la vue`);
-      console.log("Requêtes sans assignation:", data);
       return data.map(request => formatRequestFromDb(request));
     },
-    enabled: !!userId
+    enabled: !!userId,
+    refetchInterval: 10000 // Rafraîchir toutes les 10 secondes
   });
   
   // Mes assignations - Pour Growth et Admin, voir TOUTES les requêtes
@@ -81,7 +81,8 @@ export function useRequestQueries(userId: string | undefined) {
       console.log(`Mes assignations récupérées: ${data.length} sur ${count} requêtes totales dans la vue`);
       return data.map(request => formatRequestFromDb(request));
     },
-    enabled: !!userId
+    enabled: !!userId,
+    refetchInterval: 10000 // Rafraîchir toutes les 10 secondes
   });
   
   // Toutes les requêtes - Filtre par SDR pour restreindre l'accès
@@ -115,7 +116,8 @@ export function useRequestQueries(userId: string | undefined) {
       
       return requestsArray.map(request => formatRequestFromDb(request));
     },
-    enabled: !!userId
+    enabled: !!userId,
+    refetchInterval: 10000 // Rafraîchir toutes les 10 secondes
   });
 
   // Récupération des détails d'une demande spécifique

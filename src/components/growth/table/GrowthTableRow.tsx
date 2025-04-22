@@ -26,7 +26,7 @@ export function GrowthTableRow({
   return (
     <TableRow>
       {columns.map((column) => (
-        <TableCell key={column.key} className="text-center">
+        <TableCell key={column.key} className={column.key === "title" ? "font-medium" : ""}>
           {column.render(request)}
         </TableCell>
       ))}
