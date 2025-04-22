@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, PenSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Request, Mission, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
+import { Request, Mission, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest, WorkflowStatus } from "@/types/types";
 import { RequestCompleteEditDialog } from "@/components/request-details/RequestCompleteEditDialog";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +47,7 @@ const RequestDetails = () => {
   const [comment, setComment] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [workflowStatus, setWorkflowStatus] = useState<string>("");
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("pending_assignment");
   const [emailPlatform, setEmailPlatform] = useState<string>("");
   const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
 
@@ -73,7 +72,11 @@ const RequestDetails = () => {
         
         const formattedRequest = formatRequestFromDb(data);
         setRequest(formattedRequest);
-        setWorkflowStatus(formattedRequest.workflow_status || "pending_assignment");
+        
+        // Ensure we're using a valid WorkflowStatus type
+        if (formattedRequest.workflow_status) {
+          setWorkflowStatus(formattedRequest.workflow_status as WorkflowStatus);
+        }
         
         // Récupérer la plateforme d'emailing si elle existe dans les détails
         if (formattedRequest.type === "email" && formattedRequest.details) {
@@ -165,7 +168,7 @@ const RequestDetails = () => {
     }
   };
 
-  const updateWorkflowStatus = async (status: string) => {
+  const updateWorkflowStatus = async (status: WorkflowStatus) => {
     if (!request) return;
     
     try {
@@ -301,7 +304,6 @@ const RequestDetails = () => {
           )}
         </div>
 
-        {/* Contrôles pour Growth et Admin */}
         {isGrowthOrAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
             <div>
@@ -309,8 +311,8 @@ const RequestDetails = () => {
               <Select
                 value={workflowStatus}
                 onValueChange={(value) => {
-                  setWorkflowStatus(value);
-                  updateWorkflowStatus(value);
+                  setWorkflowStatus(value as WorkflowStatus);
+                  updateWorkflowStatus(value as WorkflowStatus);
                 }}
               >
                 <SelectTrigger className="w-full">
