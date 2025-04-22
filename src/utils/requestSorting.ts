@@ -1,6 +1,19 @@
 
 import { Request } from "@/types/types";
 
+// Helper to translate filter values for status comparison
+const getStatusFilterValue = (statusValue: string): string => {
+  const lowercaseStatus = statusValue.toLowerCase();
+  
+  // Map French translations back to English for internal processing
+  if (lowercaseStatus === "en attente") return "pending";
+  if (lowercaseStatus === "en cours") return "inprogress";
+  if (lowercaseStatus === "terminé") return "completed";
+  if (lowercaseStatus === "annulé") return "canceled";
+  
+  return lowercaseStatus;
+};
+
 export const sortRequests = (
   requests: Request[],
   sortColumn: string,
@@ -34,7 +47,13 @@ export const sortRequests = (
   
   // Appliquer les filtres de statut
   if (filters.status && filters.status.length > 0) {
-    filteredRequests = filteredRequests.filter(r => filters.status.includes(r.status));
+    filteredRequests = filteredRequests.filter(r => {
+      // Check if status matches any of the selected filter values
+      return filters.status.some(filterStatus => {
+        const normalizedFilterStatus = getStatusFilterValue(filterStatus);
+        return r.status === normalizedFilterStatus;
+      });
+    });
   }
   
   // Appliquer les filtres de titre

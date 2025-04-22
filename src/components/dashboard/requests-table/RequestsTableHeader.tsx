@@ -9,15 +9,19 @@ import {
   ArrowDown,
   ArrowUp,
   Filter,
+  Calendar
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface RequestsTableHeaderProps {
   missionView?: boolean;
@@ -30,6 +34,7 @@ interface RequestsTableHeaderProps {
   dateFilters: {[key: string]: any};
   onFilterChange: (column: string, values: string[]) => void;
   onDateFilterChange: (field: string, type: string, values: any) => void;
+  uniqueValues: {[key: string]: string[]};
 }
 
 export const RequestsTableHeader = ({
@@ -42,9 +47,12 @@ export const RequestsTableHeader = ({
   filters,
   dateFilters,
   onFilterChange,
-  onDateFilterChange
+  onDateFilterChange,
+  uniqueValues
 }: RequestsTableHeaderProps) => {
   const [openFilters, setOpenFilters] = useState<{[key: string]: boolean}>({});
+  const [dateFilterType, setDateFilterType] = useState<{[key: string]: string}>({});
+  const [selectedDate, setSelectedDate] = useState<{[key: string]: Date | undefined}>({});
 
   const toggleFilter = (column: string) => {
     setOpenFilters(prev => ({
@@ -72,8 +80,19 @@ export const RequestsTableHeader = ({
     return filters[column]?.includes(value) || false;
   };
 
+  // Helper to format status values in French
+  const translateStatus = (status: string): string => {
+    switch (status.toLowerCase()) {
+      case "pending": return "En attente";
+      case "inprogress": return "En cours";
+      case "completed": return "Terminé";
+      case "canceled": return "Annulé";
+      default: return status;
+    }
+  };
+
   // Helper to render a filter button
-  const renderFilterButton = (column: string, uniqueValues: string[]) => {
+  const renderFilterButton = (column: string, filterValues: string[]) => {
     const hasFilter = filters[column]?.length > 0;
     
     return (
@@ -108,7 +127,7 @@ export const RequestsTableHeader = ({
             
             <ScrollArea className="h-[200px] pr-4">
               <div className="space-y-4">
-                {uniqueValues.map((option) => (
+                {filterValues.map((option) => (
                   <div key={option} className="flex items-center space-x-2">
                     <Checkbox
                       id={`${column}-${option}`}
@@ -117,12 +136,103 @@ export const RequestsTableHeader = ({
                         handleCheckboxChange(column, option, checked === true)
                       }
                     />
-                    <Label htmlFor={`${column}-${option}`}>{option || "Non assigné"}</Label>
+                    <Label htmlFor={`${column}-${option}`}>
+                      {column === "status" ? translateStatus(option) : (option || "Non assigné")}
+                    </Label>
                   </div>
                 ))}
               </div>
             </ScrollArea>
           </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // Helper for date filter
+  const renderDateFilter = (column: string) => {
+    const hasFilter = dateFilters[column]?.type;
+    const currentType = dateFilterType[column] || dateFilters[column]?.type || "equals";
+    const currentDate = selectedDate[column] || dateFilters[column]?.values?.date;
+    
+    return (
+      <Popover open={isFilterOpen(column)} onOpenChange={() => toggleFilter(column)}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant={hasFilter ? "default" : "ghost"} 
+            size="icon"
+            className={hasFilter ? "bg-blue-600 hover:bg-blue-700 text-white ml-2 h-7 w-7" : "ml-2 h-7 w-7"}
+          >
+            <Calendar className="h-3.5 w-3.5" />
+            <span className="sr-only">Filtre {column}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="end">
+          <div className="p-4 pb-0">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">Filtrer par date</h4>
+              {hasFilter && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    onDateFilterChange(column, "", {});
+                    setSelectedDate({...selectedDate, [column]: undefined});
+                    setDateFilterType({...dateFilterType, [column]: "equals"});
+                  }}
+                >
+                  Effacer
+                </Button>
+              )}
+            </div>
+            
+            <Select 
+              value={currentType} 
+              onValueChange={(value) => {
+                setDateFilterType({...dateFilterType, [column]: value});
+                if (currentDate) {
+                  onDateFilterChange(column, value, { date: currentDate });
+                }
+              }}
+            >
+              <SelectTrigger className="w-full mt-2">
+                <SelectValue placeholder="Type de filtre" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="equals">Est égal à</SelectItem>
+                <SelectItem value="before">Est avant</SelectItem>
+                <SelectItem value="after">Est après</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="p-1">
+            <CalendarComponent
+              mode="single"
+              selected={currentDate}
+              onSelect={(date) => {
+                setSelectedDate({...selectedDate, [column]: date});
+                if (date) {
+                  onDateFilterChange(
+                    column,
+                    dateFilterType[column] || "equals",
+                    { date }
+                  );
+                }
+              }}
+              initialFocus
+              locale={fr}
+            />
+          </div>
+          
+          {currentDate && (
+            <div className="p-4 pt-0 border-t">
+              <p className="text-sm">
+                Date sélectionnée: {currentDate && format(currentDate, "P", { locale: fr })}
+              </p>
+            </div>
+          )}
         </PopoverContent>
       </Popover>
     );
@@ -134,56 +244,62 @@ export const RequestsTableHeader = ({
         <TableHead className="w-[100px]">
           <div className="flex items-center justify-between">
             Type
-            {renderFilterButton("type", ["email", "database", "linkedin"])}
+            {renderFilterButton("type", uniqueValues.type || [])}
           </div>
         </TableHead>
         <TableHead>
           <div className="flex items-center justify-between">
             Titre
-            {renderFilterButton("title", ["Titre 1", "Titre 2"])}
+            {renderFilterButton("title", uniqueValues.title || [])}
           </div>
         </TableHead>
         <TableHead>
           <div className="flex items-center justify-between">
             Mission
-            {renderFilterButton("mission", ["Mission 1", "Mission 2"])}
+            {renderFilterButton("mission", uniqueValues.mission || [])}
           </div>
         </TableHead>
         {showSdr && (
           <TableHead>
             <div className="flex items-center justify-between">
               SDR
-              {renderFilterButton("sdr", ["SDR 1", "SDR 2"])}
+              {renderFilterButton("sdr", uniqueValues.sdr || [])}
             </div>
           </TableHead>
         )}
         <TableHead>
           <div className="flex items-center justify-between">
             Statut
-            {renderFilterButton("status", ["pending", "inprogress", "completed", "canceled"])}
+            {renderFilterButton("status", uniqueValues.status || [])}
           </div>
         </TableHead>
         <TableHead>
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => handleSort("dueDate")}>
-            Échéance
-            {sortColumn === "dueDate" && (
-              sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
-            )}
+          <div className="flex items-center justify-between">
+            <span className="cursor-pointer" onClick={() => handleSort("dueDate")}>
+              Échéance
+              {sortColumn === "dueDate" && (
+                sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4 inline" /> : <ArrowDown className="ml-2 h-4 w-4 inline" />
+              )}
+            </span>
+            {renderDateFilter("dueDate")}
           </div>
         </TableHead>
         <TableHead>
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => handleSort("createdAt")}>
-            Créée le
-            {sortColumn === "createdAt" && (
-              sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
-            )}
+          <div className="flex items-center justify-between">
+            <span className="cursor-pointer" onClick={() => handleSort("createdAt")}>
+              Créée le
+              {sortColumn === "createdAt" && (
+                sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4 inline" /> : <ArrowDown className="ml-2 h-4 w-4 inline" />
+              )}
+            </span>
+            {renderDateFilter("createdAt")}
           </div>
         </TableHead>
         
         <TableHead>
           <div className="flex items-center justify-between">
             Plateforme d'emailing
-            {renderFilterButton("emailPlatform", ["Acelmail", "Brevo", "Mindbaz", "Mailjet", "Postyman", "Mailwizz"])}
+            {renderFilterButton("emailPlatform", uniqueValues.emailPlatform || [])}
           </div>
         </TableHead>
         

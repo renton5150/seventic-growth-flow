@@ -36,11 +36,24 @@ export const RequestsTable = ({
 
   // Extraire les valeurs uniques des propriétés pour les filtres
   useEffect(() => {
+    if (!requests || requests.length === 0) return;
+    
+    // Extract unique values for filters
     const types = [...new Set(requests.map(r => r.type))];
-    const missions = [...new Set(requests.map(r => r.missionName || "Sans mission").filter(Boolean))];
+    
+    // Use proper "Sans mission" for null or empty mission names
+    const missions = [...new Set(requests.map(r => r.missionName || "Sans mission"))];
+    
+    // Use "Non assigné" for null or empty SDR names
     const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
+    
+    // Get unique statuses
     const statuses = [...new Set(requests.map(r => r.status))];
+    
+    // Get unique titles
     const titles = [...new Set(requests.map(r => r.title))];
+    
+    // Extract email platforms from request details
     const emailPlatforms = [...new Set(requests.map(r => {
       if (r.details && r.details.emailPlatform) {
         return r.details.emailPlatform;
@@ -57,7 +70,7 @@ export const RequestsTable = ({
       emailPlatform: emailPlatforms
     });
     
-    console.log("Values for filters:", {
+    console.log("Updated filter values:", {
       types,
       missions,
       sdrs,
@@ -87,6 +100,7 @@ export const RequestsTable = ({
   };
 
   const handleDateFilterChange = (field: string, type: string, values: any) => {
+    console.log(`Applying date filter on ${field}:`, { type, values });
     setDateFilters(prev => ({
       ...prev,
       [field]: type ? { type, values } : undefined
@@ -107,6 +121,7 @@ export const RequestsTable = ({
           dateFilters={dateFilters}
           onFilterChange={handleFilterChange}
           onDateFilterChange={handleDateFilterChange}
+          uniqueValues={uniqueValues}
         />
         <RequestsTableBody 
           sortedRequests={filteredAndSortedRequests} 
