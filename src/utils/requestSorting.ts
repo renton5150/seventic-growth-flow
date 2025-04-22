@@ -7,7 +7,8 @@ const getStatusFilterValue = (statusValue: string): string => {
   
   // Map French translations back to English for internal processing
   if (lowercaseStatus === "en attente") return "pending";
-  if (lowercaseStatus === "en cours") return "inprogress";
+  if (lowercaseStatus === "en attente d'affectation") return "pending_assignment";
+  if (lowercaseStatus === "en cours") return "inprogress"; // Keep for backwards compatibility
   if (lowercaseStatus === "terminé") return "completed";
   if (lowercaseStatus === "annulé") return "canceled";
   
@@ -45,13 +46,19 @@ export const sortRequests = (
     });
   }
   
-  // Appliquer les filtres de statut
+  // Appliquer les filtres de statut avec support amélioré pour les différents formats de statut
   if (filters.status && filters.status.length > 0) {
     filteredRequests = filteredRequests.filter(r => {
       // Check if status matches any of the selected filter values
       return filters.status.some(filterStatus => {
         const normalizedFilterStatus = getStatusFilterValue(filterStatus);
-        return r.status === normalizedFilterStatus;
+        
+        // Vérifie le statut standard et le workflow_status
+        return r.status === normalizedFilterStatus || 
+               r.workflow_status === normalizedFilterStatus ||
+               // Cas spécial pour in_progress qui peut correspondre à inprogress
+               (normalizedFilterStatus === "inprogress" && r.workflow_status === "in_progress") ||
+               (normalizedFilterStatus === "in_progress" && r.status === "inprogress");
       });
     });
   }

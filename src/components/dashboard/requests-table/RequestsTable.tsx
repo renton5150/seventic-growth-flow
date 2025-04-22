@@ -47,8 +47,10 @@ export const RequestsTable = ({
     // Use "Non assigné" for null or empty SDR names
     const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
     
-    // Get unique statuses
-    const statuses = [...new Set(requests.map(r => r.status))];
+    // Get unique statuses - include all possible workflow statuses
+    const statuses = [...new Set(requests.map(r => {
+      return r.workflow_status || r.status || "pending";
+    }))];
     
     // Get unique titles
     const titles = [...new Set(requests.map(r => r.title))];

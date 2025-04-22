@@ -17,11 +17,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WorkflowStatus } from "@/types/types";
 
 interface RequestsTableHeaderProps {
   missionView?: boolean;
@@ -84,16 +84,41 @@ export const RequestsTableHeader = ({
   const translateStatus = (status: string): string => {
     switch (status.toLowerCase()) {
       case "pending": return "En attente";
+      case "pending_assignment": return "En attente d'affectation";
       case "inprogress": return "En cours";
+      case "in_progress": return "En cours";
       case "completed": return "Terminé";
       case "canceled": return "Annulé";
       default: return status;
     }
   };
 
+  // Ensure all available statuses for the SDR are shown
+  const getAllStatusOptions = () => {
+    // Start with the unique values from requests
+    let statuses = uniqueValues.status || [];
+
+    // Make sure all possible workflow statuses are included
+    const allPossibleStatuses = [
+      "pending", "pending_assignment", "inprogress", "in_progress", "completed", "canceled"
+    ];
+
+    // Add any missing statuses
+    allPossibleStatuses.forEach(status => {
+      if (!statuses.includes(status)) {
+        statuses.push(status);
+      }
+    });
+
+    return statuses;
+  };
+
   // Helper to render a filter button
   const renderFilterButton = (column: string, filterValues: string[]) => {
     const hasFilter = filters[column]?.length > 0;
+    
+    // If this is the status column, get all possible statuses
+    const valuesToShow = column === "status" ? getAllStatusOptions() : filterValues;
     
     return (
       <Popover open={isFilterOpen(column)} onOpenChange={() => toggleFilter(column)}>
@@ -127,7 +152,7 @@ export const RequestsTableHeader = ({
             
             <ScrollArea className="h-[200px] pr-4">
               <div className="space-y-4">
-                {filterValues.map((option) => (
+                {valuesToShow.map((option) => (
                   <div key={option} className="flex items-center space-x-2">
                     <Checkbox
                       id={`${column}-${option}`}
