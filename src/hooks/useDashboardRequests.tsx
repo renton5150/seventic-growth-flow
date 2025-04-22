@@ -1,7 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllRequests } from "@/services/requestService";
 import { Request } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
 import { getMissionsByUserId } from "@/services/missionService";
@@ -21,23 +20,30 @@ export const useDashboardRequests = () => {
 
   // Récupérer toutes les requêtes avec les relations
   const { data: allRequests = [], isLoading: isLoadingRequests, refetch: refetchRequests } = useQuery({
-    queryKey: ['dashboard-requests-with-missions'],
+    queryKey: ['dashboard-requests-with-missions', user?.id, isSDR],
     queryFn: async () => {
       if (!user) return [];
       
       console.log("Récupération des requêtes pour le tableau de bord");
       try {
         // Utilisation de la vue requests_with_missions
-        const { data, error } = await supabase
-          .from('requests_with_missions')
-          .select('*');
+        let query = supabase.from('requests_with_missions').select('*');
+        
+        // Si c'est un SDR, filtrer pour ne montrer que ses propres requêtes
+        if (isSDR) {
+          console.log("SDR détecté - Filtrage des requêtes pour l'utilisateur:", user.id);
+          query = query.eq('created_by', user.id);
+        }
+        
+        const { data, error } = await query;
           
         if (error) {
           console.error("Erreur lors de la récupération des requêtes:", error);
           return [];
         }
         
-        console.log("Requêtes récupérées pour le tableau de bord:", data);
+        console.log(`Requêtes récupérées pour le tableau de bord: ${data.length}`, 
+                    isSDR ? "pour le SDR" : "pour Admin/Growth");
         
         // Traiter les données avec formatRequestFromDb
         return data.map((req: any) => formatRequestFromDb(req));
@@ -70,11 +76,10 @@ export const useDashboardRequests = () => {
     }
 
     if (isSDR && userMissions.length) {
-      // Filtrer les requêtes pour un SDR selon ses missions
-      const missionIds = userMissions.map(mission => mission.id);
-      const filteredRequests = allRequests.filter(request => 
-        missionIds.includes(request.missionId) || request.createdBy === user?.id
-      );
+      // Pour les SDR, ne montrer que les requêtes qu'ils ont créées
+      // Cet effet est maintenant redondant avec le filtre dans la requête,
+      // mais gardons-le pour une double vérification
+      const filteredRequests = allRequests.filter(request => request.createdBy === user?.id);
       setRequests(filteredRequests);
     } else {
       // Admin et Growth voient toutes les requêtes

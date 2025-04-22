@@ -13,7 +13,7 @@ export function useRequestQueries(userId: string | undefined) {
 
   // Requêtes à affecter - UNIQUEMENT les demandes sans assignation
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
-    queryKey: ['growth-requests-to-assign', userId],
+    queryKey: ['growth-requests-to-assign', userId, isSDR],
     queryFn: async () => {
       if (!userId) return [];
       
@@ -48,10 +48,10 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Mes assignations - Pour Growth et Admin, voir TOUTES les requêtes (modification importante)
+  // Mes assignations - Pour Growth et Admin, voir TOUTES les requêtes
   // Pour SDR, voir uniquement mes demandes
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
-    queryKey: ['growth-requests-my-assignments', userId],
+    queryKey: ['growth-requests-my-assignments', userId, isSDR],
     queryFn: async () => {
       if (!userId) return [];
       
@@ -84,7 +84,7 @@ export function useRequestQueries(userId: string | undefined) {
     enabled: !!userId
   });
   
-  // Toutes les requêtes - Pas de filtre pour Growth et Admin
+  // Toutes les requêtes - Filtre par SDR pour restreindre l'accès
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
     queryKey: ['growth-all-requests', userId, isSDR],
     queryFn: async () => {
@@ -94,9 +94,10 @@ export function useRequestQueries(userId: string | undefined) {
       
       let query = supabase.from('requests_with_missions').select('*');
       
-      // Si c'est un SDR, ne récupérer que ses demandes créées
+      // Si c'est un SDR, ne récupérer QUE ses demandes créées
       if (isSDR) {
         query = query.eq('created_by', userId);
+        console.log('SDR detected - Filtering requests for user ID:', userId);
       }
       // Pour Growth et Admin, récupérer toutes les requêtes sans filtre
       
@@ -110,7 +111,7 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       const requestsArray = Array.isArray(data) ? data : [];
-      console.log(`Retrieved ${requestsArray.length} total requests`);
+      console.log(`Retrieved ${requestsArray.length} total requests`, isSDR ? 'for SDR' : 'for Admin/Growth');
       
       return requestsArray.map(request => formatRequestFromDb(request));
     },

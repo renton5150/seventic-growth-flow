@@ -49,7 +49,7 @@ const Dashboard = () => {
   };
 
   // Log pour le débogage des permissions
-  console.log("Dashboard - User Role:", user?.role, "isSDR:", isSDR, "Requests count:", requests?.length || 0);
+  console.log("Dashboard - User Role:", user?.role, "isSDR:", isSDR, "Requests visible count:", filteredRequests?.length || 0);
 
   return (
     <AppLayout>

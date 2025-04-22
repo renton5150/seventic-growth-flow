@@ -43,11 +43,14 @@ export const GrowthDashboardContent = ({
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   const isSDR = user?.role === 'sdr';
   
-  // Sur la page "Mes demandes" pour un SDR, ne montrer que les demandes créées par l'utilisateur
-  // Pour Growth et Admin, montrer toutes les demandes
-  const statsRequests = isMyRequestsPage && isSDR
+  // Pour un SDR, on filtre toujours pour ne montrer que ses propres demandes
+  // Pour Growth et Admin, sur la page "Mes demandes", montrer selon le filtrage habituel
+  // Sur les autres pages, montrer toutes les demandes
+  const statsRequests = isSDR 
     ? allRequests.filter(req => req.createdBy === user?.id)
-    : allRequests;
+    : isMyRequestsPage 
+      ? allRequests.filter(req => isMyRequestsPage)
+      : allRequests;
   
   return (
     <>
