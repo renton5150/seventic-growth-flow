@@ -97,7 +97,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           // Préserver le fragment (hash)
           if (window.location.hash) {
-            redirectUrl += window.location.hash;
+            // Si nous avons un type dans le hash (comme type=signup), l'extraire pour le query param
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const type = hashParams.get("type");
+            
+            if (type) {
+              redirectUrl += redirectUrl.includes('?') ? '&' : '?';
+              redirectUrl += `type=${type}`;
+            }
+            
+            // Si nous avons un email dans le hash, l'extraire aussi
+            const email = hashParams.get("email");
+            if (email) {
+              redirectUrl += redirectUrl.includes('?') ? '&' : '?';
+              redirectUrl += `email=${encodeURIComponent(email)}`;
+            }
+            
+            redirectUrl += redirectUrl.includes('?') ? '#' : '#';
+            redirectUrl += window.location.hash.substring(1);
           }
           
           console.log("Redirection vers:", redirectUrl);

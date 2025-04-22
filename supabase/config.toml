@@ -28,8 +28,8 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://localhost:3000"]
+site_url = "https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com"
+additional_redirect_urls = ["https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com", "http://localhost:3000", "https://localhost:3000"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10

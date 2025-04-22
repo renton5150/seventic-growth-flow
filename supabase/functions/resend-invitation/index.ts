@@ -99,13 +99,29 @@ serve(async (req) => {
       console.log("Setting default expireIn to 180 days (15552000 seconds)");
     }
     
+    // Construire une URL de redirection explicite contenant le type et l'email
+    let enhancedRedirectUrl = redirectUrl;
+    
+    // S'assurer que l'URL contient des paramètres explicites (type et email)
+    if (!enhancedRedirectUrl.includes('type=')) {
+      enhancedRedirectUrl += enhancedRedirectUrl.includes('?') ? '&' : '?';
+      enhancedRedirectUrl += `type=${userExists ? 'recovery' : 'invite'}`;
+    }
+    
+    if (!enhancedRedirectUrl.includes('email=')) {
+      enhancedRedirectUrl += enhancedRedirectUrl.includes('?') ? '&' : '?';
+      enhancedRedirectUrl += `email=${encodeURIComponent(email)}`;
+    }
+    
+    console.log("Enhanced redirect URL:", enhancedRedirectUrl);
+    
     // Send appropriate email based on whether user exists
     if (userExists) {
       console.log("Sending reset link to existing user");
       return await sendResetLink(
         supabaseAdmin.client, 
         email, 
-        redirectUrl, 
+        enhancedRedirectUrl, 
         profileResult.profile, 
         emailConfig,
         corsHeaders,
@@ -116,7 +132,7 @@ serve(async (req) => {
       return await sendInvitationLink(
         supabaseAdmin.client, 
         email, 
-        redirectUrl, 
+        enhancedRedirectUrl, 
         profileResult.profile, 
         emailConfig,
         corsHeaders,

@@ -28,6 +28,7 @@ const ResetPassword = () => {
     const processHash = async () => {
       try {
         console.log("Traitement du hash URL pour réinitialisation");
+        console.log("URL complète:", window.location.href);
         
         // Extraire les paramètres de l'URL
         const type = searchParams.get("type");
@@ -49,27 +50,63 @@ const ResetPassword = () => {
         // Si nous avons un hash dans l'URL, il pourrait contenir un token valide
         if (hash && hash.length > 1) {
           console.log("Hash détecté dans l'URL, tentative de récupération du token");
+          console.log("Hash:", hash);
           
-          // Essayer d'extraire et de valider le token du hash
-          const { data, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.error("Erreur lors de la récupération du token:", error);
-            setExpiredLink(true);
-            setExpiredLinkMessage("Le lien de réinitialisation est invalide ou a expiré.");
-          } else if (data?.session) {
-            console.log("Session récupérée avec succès du hash");
-            // La session est maintenant stockée, l'utilisateur peut réinitialiser son mot de passe
-            setExpiredLink(false);
+          // Vérifier si le hash contient directement un access_token
+          if (hash.includes('access_token=')) {
+            const hashParams = new URLSearchParams(hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token') || '';
             
-            // Si l'e-mail n'est pas dans les paramètres mais dans la session
-            if (!emailParam && data.session.user?.email) {
-              setEmail(data.session.user.email);
+            if (accessToken) {
+              console.log("Access token trouvé dans le hash, configuration de la session");
+              try {
+                const { data, error } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken
+                });
+                
+                if (error) {
+                  console.error("Erreur lors de la configuration de la session:", error);
+                  setExpiredLink(true);
+                  setExpiredLinkMessage("Le lien est expiré ou invalide. Veuillez demander un nouveau lien.");
+                } else {
+                  console.log("Session configurée avec succès");
+                  
+                  if (data?.user?.email && !emailParam) {
+                    setEmail(data.user.email);
+                  }
+                  
+                  setExpiredLink(false);
+                }
+              } catch (err) {
+                console.error("Exception lors de la configuration de la session:", err);
+                setExpiredLink(true);
+                setExpiredLinkMessage("Erreur lors du traitement du lien d'authentification.");
+              }
             }
           } else {
-            console.warn("Aucune session trouvée dans l'URL");
-            setExpiredLink(true);
-            setExpiredLinkMessage("Le lien de réinitialisation est invalide ou a expiré.");
+            // Essayer d'extraire et de valider le token du hash via getSession
+            const { data, error } = await supabase.auth.getSession();
+            
+            if (error) {
+              console.error("Erreur lors de la récupération du token:", error);
+              setExpiredLink(true);
+              setExpiredLinkMessage("Le lien de réinitialisation est invalide ou a expiré.");
+            } else if (data?.session) {
+              console.log("Session récupérée avec succès du hash");
+              // La session est maintenant stockée, l'utilisateur peut réinitialiser son mot de passe
+              setExpiredLink(false);
+              
+              // Si l'e-mail n'est pas dans les paramètres mais dans la session
+              if (!emailParam && data.session.user?.email) {
+                setEmail(data.session.user.email);
+              }
+            } else {
+              console.warn("Aucune session trouvée dans l'URL");
+              setExpiredLink(true);
+              setExpiredLinkMessage("Le lien de réinitialisation est invalide ou a expiré.");
+            }
           }
         } else {
           // Vérifier si nous avons une session active
