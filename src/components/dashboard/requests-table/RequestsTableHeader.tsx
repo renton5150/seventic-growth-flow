@@ -1,4 +1,3 @@
-
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Filter, ChevronUp, ChevronDown, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,27 +52,22 @@ export const RequestsTableHeader = ({
     return null;
   };
 
-  // Fonction pour traduire les statuts en français
   const translateStatus = (status: string): string => {
     switch(status) {
       case "pending": return "En attente";
       case "inprogress": return "En cours";
       case "completed": return "Terminée";
       case "rejected": return "Rejetée";
+      case "pending_assignment": return "En attente";
+      case "in_progress": return "En cours";
+      case "canceled": return "Annulée";
       default: return status;
     }
   };
 
-  // Fonction pour afficher une popover de filtrage par type
   const renderFilterPopover = (columnName: string, options: string[]) => {
     const selectedValues = filters[columnName] || [];
     const hasFilter = selectedValues.length > 0;
-
-    // Si l'utilisateur est un SDR et que c'est la colonne mission, 
-    // ne pas afficher le filtre car il n'a accès qu'à ses propres missions
-    if (isSDR && (columnName === "mission" || columnName === "title")) {
-      return null;
-    }
 
     return (
       <Popover>
@@ -82,14 +76,14 @@ export const RequestsTableHeader = ({
             <Filter className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-4" align="end">
+        <PopoverContent className="w-64 p-4 bg-white z-[100]" align="end">
           <div className="space-y-4">
             <h4 className="font-medium">Filtrer par {columnName}</h4>
             <div className="space-y-2 max-h-[200px] overflow-y-auto">
-              {options.map(option => {
-                // Traduire les statuts si c'est la colonne status
+              {options.length === 0
+                ? <span className="text-xs italic text-muted-foreground">Aucune donnée à filtrer</span>
+                : options.map(option => {
                 const displayOption = columnName === "status" ? translateStatus(option) : option;
-                
                 return (
                   <div key={option} className="flex items-center space-x-2">
                     <Checkbox 
@@ -123,7 +117,6 @@ export const RequestsTableHeader = ({
     );
   };
 
-  // Fonction pour afficher la popover de filtrage par date
   const renderDateFilterPopover = (columnName: string) => {
     const currentFilter = dateFilters[columnName];
     const hasFilter = currentFilter && currentFilter.type;
@@ -194,21 +187,20 @@ export const RequestsTableHeader = ({
               Titre
               {getSortIcon("title")}
             </div>
-            {renderFilterPopover("title", [])}
+            {renderFilterPopover("title", filters.title ?? [])}
           </div>
         </TableHead>
         
-        {/* Toujours afficher la colonne mission, même pour les SDR */}
         <TableHead>
           <div className="flex items-center justify-between">
             <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("missionName")}>
               Mission
               {getSortIcon("missionName")}
             </div>
-            {renderFilterPopover("mission", [])}
+            {renderFilterPopover("mission", filters.mission ?? [])}
           </div>
         </TableHead>
-        
+
         {showSdr && (
           <TableHead>
             <div className="flex items-center justify-between">
@@ -216,18 +208,18 @@ export const RequestsTableHeader = ({
                 SDR
                 {getSortIcon("sdrName")}
               </div>
-              {renderFilterPopover("sdr", [])}
+              {renderFilterPopover("sdr", filters.sdr ?? [])}
             </div>
           </TableHead>
         )}
-        
+
         <TableHead>
           <div className="flex items-center justify-between">
             <div className="cursor-pointer flex items-center gap-1" onClick={() => handleSort("status")}>
               Statut
               {getSortIcon("status")}
             </div>
-            {renderFilterPopover("status", ["pending", "inprogress", "completed", "rejected"])}
+            {renderFilterPopover("status", ["pending", "inprogress", "completed", "rejected", "pending_assignment", "in_progress", "canceled"])}
           </div>
         </TableHead>
         
@@ -254,6 +246,13 @@ export const RequestsTableHeader = ({
               {getSortIcon("createdAt")}
             </div>
             {renderDateFilterPopover("createdAt")}
+          </div>
+        </TableHead>
+        
+        <TableHead>
+          <div className="flex items-center justify-between">
+            <span>Plateforme d'emailing</span>
+            {renderFilterPopover("emailPlatform", filters.emailPlatform ?? [])}
           </div>
         </TableHead>
         

@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { GrowthRequestTypeIcon } from "./GrowthRequestTypeIcon";
 import { GrowthRequestStatusBadge } from "./GrowthRequestStatusBadge";
@@ -82,6 +81,19 @@ export const columns: ColumnDefinition[] = [
         {request.assignedToName || "Non assigné"}
       </div>
     )
+  },
+  {
+    header: "Plateforme d'emailing",
+    key: "emailPlatform",
+    render: (request) =>
+      request.type === "email" && request.details?.emailPlatform
+        ? (
+          <Badge variant="outline" className="bg-violet-50 text-violet-600">
+            {request.details.emailPlatform}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">–</span>
+        ),
   },
   {
     header: "Créée le",

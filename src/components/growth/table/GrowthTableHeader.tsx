@@ -1,4 +1,3 @@
-
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CheckboxColumnFilter } from "../filters/CheckboxColumnFilter";
 import { DateColumnFilter } from "../filters/DateColumnFilter";
@@ -78,6 +77,18 @@ export function GrowthTableHeader({
                   onFilterChange={setAssigneeFilter}
                   hasFilter={assigneeFilter.length > 0}
                   onClearFilter={() => setAssigneeFilter([])}
+                />
+              </div>
+            ) : column.key === "emailPlatform" ? (
+              <div className="flex items-center justify-between">
+                {column.header}
+                <CheckboxColumnFilter
+                  columnName="Plateforme d'emailing"
+                  options={["Acelmail", "Brevo", "Mindbaz", "Mailjet", "Postyman", "Mailwizz"]}
+                  selectedValues={[]}
+                  onFilterChange={() => {}} // wiring up filter left for implementation depending on state logic
+                  hasFilter={false}
+                  onClearFilter={() => {}}
                 />
               </div>
             ) : column.key === "createdAt" ? (
