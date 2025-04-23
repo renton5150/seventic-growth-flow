@@ -1,6 +1,10 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { toast } from "sonner";
+
+// Base URL for the Acelle API proxy
+const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
 
 // Récupérer tous les comptes Acelle
 export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
@@ -176,9 +180,8 @@ export const testAcelleConnection = async (
   debug: boolean = false
 ): Promise<boolean | AcelleConnectionDebug> => {
   try {
-    const baseEndpoint = apiEndpoint.endsWith('/') ? apiEndpoint.slice(0, -1) : apiEndpoint;
-    
-    const url = `${baseEndpoint}/me?api_token=${apiToken}`;
+    // Nous ignorons l'apiEndpoint car nous utilisons maintenant le proxy
+    const url = `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`;
     
     const headers = {
       "Accept": "application/json",
@@ -195,8 +198,7 @@ export const testAcelleConnection = async (
     
     const response = await fetch(url, {
       method: "GET",
-      headers,
-      mode: "cors"
+      headers
     });
     
     if (debug) {
@@ -234,7 +236,7 @@ export const testAcelleConnection = async (
         success: false,
         errorMessage: error instanceof Error ? error.message : "Erreur inconnue",
         request: {
-          url: `${apiEndpoint}/me?api_token=${apiToken}`,
+          url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
           headers: { "Accept": "application/json" }
         }
       };
@@ -247,7 +249,7 @@ export const testAcelleConnection = async (
 // Récupérer les campagnes d'un compte Acelle
 export const getAcelleCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
   try {
-    const response = await fetch(`${account.apiEndpoint}/campaigns?api_token=${account.apiToken}`, {
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
         "Accept": "application/json"
@@ -272,7 +274,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount): Promise<Acelle
 // Récupérer les détails d'une campagne
 export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
-    const response = await fetch(`${account.apiEndpoint}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
         "Accept": "application/json"
