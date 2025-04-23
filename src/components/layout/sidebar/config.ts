@@ -7,7 +7,8 @@ import {
   Users,
   BrainCircuit,
   LogOut,
-  CalendarDays
+  CalendarDays,
+  Mail
 } from "lucide-react";
 import React from "react";
 
@@ -77,6 +78,11 @@ export const adminMenuItems: MenuItem[] = [
     icon: FileText
   },
   {
+    title: "Campagnes emailing",
+    path: "/admin/email-campaigns",
+    icon: Mail
+  },
+  {
     title: "AI Insights",
     path: "/admin/ai-dashboard",
     icon: BrainCircuit
@@ -93,4 +99,3 @@ export const planningMenuItem: MenuItem = {
   path: "/planning",
   icon: CalendarDays
 };
-

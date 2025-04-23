@@ -1,0 +1,246 @@
+
+import { supabase } from "@/integrations/supabase/client";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
+import { toast } from "sonner";
+
+// Récupérer tous les comptes Acelle
+export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("acelle_accounts")
+      .select(`
+        *,
+        missions(name)
+      `)
+      .order("name");
+    
+    if (error) throw error;
+
+    // Transformer les données pour inclure le nom de la mission
+    return data.map(account => ({
+      ...account,
+      missionName: account.missions?.name || "Mission inconnue",
+      lastSyncDate: account.last_sync_date,
+      apiEndpoint: account.api_endpoint,
+      apiToken: account.api_token,
+      createdAt: account.created_at,
+      updatedAt: account.updated_at
+    }));
+  } catch (error) {
+    console.error("Erreur lors de la récupération des comptes Acelle:", error);
+    return [];
+  }
+};
+
+// Récupérer un compte Acelle par ID
+export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("acelle_accounts")
+      .select(`
+        *,
+        missions(name)
+      `)
+      .eq("id", id)
+      .single();
+    
+    if (error) throw error;
+
+    return {
+      ...data,
+      missionName: data.missions?.name || "Mission inconnue",
+      lastSyncDate: data.last_sync_date,
+      apiEndpoint: data.api_endpoint,
+      apiToken: data.api_token,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    };
+  } catch (error) {
+    console.error(`Erreur lors de la récupération du compte Acelle ${id}:`, error);
+    return null;
+  }
+};
+
+// Créer un compte Acelle
+export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt">): Promise<AcelleAccount | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("acelle_accounts")
+      .insert({
+        mission_id: account.missionId,
+        name: account.name,
+        api_endpoint: account.apiEndpoint,
+        api_token: account.apiToken,
+        status: account.status,
+        last_sync_date: account.lastSyncDate
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+
+    toast.success("Compte Acelle créé avec succès");
+    
+    return {
+      ...account,
+      id: data.id,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    };
+  } catch (error) {
+    console.error("Erreur lors de la création du compte Acelle:", error);
+    toast.error("Échec de la création du compte Acelle");
+    return null;
+  }
+};
+
+// Mettre à jour un compte Acelle
+export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("acelle_accounts")
+      .update({
+        mission_id: account.missionId,
+        name: account.name,
+        api_endpoint: account.apiEndpoint,
+        api_token: account.apiToken,
+        status: account.status,
+        last_sync_date: account.lastSyncDate
+      })
+      .eq("id", account.id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+
+    toast.success("Compte Acelle mis à jour avec succès");
+    
+    return {
+      ...account,
+      updatedAt: data.updated_at
+    };
+  } catch (error) {
+    console.error(`Erreur lors de la mise à jour du compte Acelle ${account.id}:`, error);
+    toast.error("Échec de la mise à jour du compte Acelle");
+    return null;
+  }
+};
+
+// Supprimer un compte Acelle
+export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from("acelle_accounts")
+      .delete()
+      .eq("id", id);
+    
+    if (error) throw error;
+
+    toast.success("Compte Acelle supprimé avec succès");
+    return true;
+  } catch (error) {
+    console.error(`Erreur lors de la suppression du compte Acelle ${id}:`, error);
+    toast.error("Échec de la suppression du compte Acelle");
+    return false;
+  }
+};
+
+// Tester la connexion à l'API Acelle
+export const testAcelleConnection = async (apiEndpoint: string, apiToken: string): Promise<boolean> => {
+  try {
+    // Appel à l'API pour vérifier les informations d'identification
+    const response = await fetch(`${apiEndpoint}/me?api_token=${apiToken}`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erreur API: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return !!data.id; // Si l'API retourne un ID, la connexion est valide
+  } catch (error) {
+    console.error("Erreur lors du test de connexion à l'API Acelle:", error);
+    return false;
+  }
+};
+
+// Récupérer les campagnes d'un compte Acelle
+export const getAcelleCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
+  try {
+    // Appel à l'API pour récupérer la liste des campagnes
+    const response = await fetch(`${account.apiEndpoint}/campaigns?api_token=${account.apiToken}`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erreur API: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Mettre à jour la date de dernière synchronisation
+    await updateLastSyncDate(account.id);
+    
+    return data;
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des campagnes du compte ${account.id}:`, error);
+    return [];
+  }
+};
+
+// Récupérer les détails d'une campagne
+export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
+  try {
+    // Appel à l'API pour récupérer les détails d'une campagne
+    const response = await fetch(`${account.apiEndpoint}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erreur API: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des détails de la campagne ${campaignUid}:`, error);
+    return null;
+  }
+};
+
+// Mettre à jour la date de dernière synchronisation
+const updateLastSyncDate = async (accountId: string): Promise<void> => {
+  try {
+    await supabase
+      .from("acelle_accounts")
+      .update({
+        last_sync_date: new Date().toISOString()
+      })
+      .eq("id", accountId);
+  } catch (error) {
+    console.error(`Erreur lors de la mise à jour de la date de synchronisation du compte ${accountId}:`, error);
+  }
+};
+
+// Export de tous les services
+export const acelleService = {
+  getAcelleAccounts,
+  getAcelleAccountById,
+  createAcelleAccount,
+  updateAcelleAccount,
+  deleteAcelleAccount,
+  testAcelleConnection,
+  getAcelleCampaigns,
+  getAcelleCampaignDetails
+};
+
+export default acelleService;

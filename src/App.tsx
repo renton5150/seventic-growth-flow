@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,6 +32,7 @@ import PermissionsDebug from "./pages/PermissionsDebug";
 import { DashboardWithRedirect } from "./components/dashboard/DashboardWithRedirect";
 import AIDashboard from "./pages/AIDashboard";
 import Planning from "./pages/Planning";
+import AcelleEmailCampaigns from "./pages/AcelleEmailCampaigns";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -210,6 +212,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={["admin"]}>
                     <AIDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/email-campaigns"
+                element={
+                  <ProtectedRoute allowedRoles={["admin"]}>
+                    <AcelleEmailCampaigns />
                   </ProtectedRoute>
                 }
               />
