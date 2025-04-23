@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getAllSupaMissions } from "@/services/missions";
+import { getMissions } from "@/services/missions";
 import { AcelleAccount } from "@/types/acelle.types";
 import { testAcelleConnection } from "@/services/acelle/acelle-service";
 
@@ -63,7 +63,7 @@ export default function AcelleAccountForm({
   
   const { data: missions = [] } = useQuery({
     queryKey: ["missions"],
-    queryFn: getAllSupaMissions,
+    queryFn: getMissions,
   });
 
   const form = useForm<FormValues>({
@@ -127,11 +127,11 @@ export default function AcelleAccountForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {missions.map((mission) => (
+                  {Array.isArray(missions) ? missions.map((mission) => (
                     <SelectItem key={mission.id} value={mission.id}>
                       {mission.name}
                     </SelectItem>
-                  ))}
+                  )) : null}
                 </SelectContent>
               </Select>
               <FormMessage />

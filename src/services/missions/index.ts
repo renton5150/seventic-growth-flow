@@ -16,4 +16,4 @@ export * from "./createMission";
 export * from "./updateDeleteMission";
 
 // Add the getMissions function that was missing
-export const getMissions = getAllSupaMissions;
+export { getAllSupaMissions as getMissions } from './utils';
