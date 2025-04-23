@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -27,7 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { getAcelleAccounts, deleteAcelleAccount } from "@/services/acelle/acelle-service";
+import { getAcelleAccounts, deleteAcelleAccount, createAcelleAccount, updateAcelleAccount, getAcelleCampaigns } from "@/services/acelle/acelle-service";
 import { AcelleAccount } from "@/types/acelle.types";
 import AcelleAccountForm from "./AcelleAccountForm";
 import { toast } from "sonner";
@@ -49,17 +48,18 @@ export default function AcelleAccountsTable() {
   const handleAddAccount = async (data: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt" | "lastSyncDate">) => {
     setIsSubmitting(true);
     try {
-      // Cette fonction sera implémentée dans le composant parent
-      // Pour l'instant, nous simulerons un succès après un délai
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("Ajouter un compte:", data);
+      const newAccount = await createAcelleAccount({
+        ...data,
+        lastSyncDate: null
+      });
       
-      toast.success("Compte ajouté avec succès");
-      setIsAddDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
+      if (newAccount) {
+        setIsAddDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
+      }
     } catch (error) {
+      console.error("Erreur lors de l'ajout du compte:", error);
       toast.error("Erreur lors de l'ajout du compte");
-      console.error(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -70,16 +70,19 @@ export default function AcelleAccountsTable() {
     
     setIsSubmitting(true);
     try {
-      // Cette fonction sera implémentée dans le composant parent
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("Modifier le compte:", { ...selectedAccount, ...data });
+      const updatedAccount = await updateAcelleAccount({
+        ...selectedAccount,
+        ...data,
+        lastSyncDate: selectedAccount.lastSyncDate
+      });
       
-      toast.success("Compte mis à jour avec succès");
-      setIsEditDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
+      if (updatedAccount) {
+        setIsEditDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
+      }
     } catch (error) {
+      console.error("Erreur lors de la mise à jour du compte:", error);
       toast.error("Erreur lors de la mise à jour du compte");
-      console.error(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -105,11 +108,11 @@ export default function AcelleAccountsTable() {
   const handleRefreshAccount = async (account: AcelleAccount) => {
     setRefreshingId(account.id);
     try {
-      // Ici, nous simulerons une synchronisation
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await getAcelleCampaigns(account);
       toast.success(`Données synchronisées pour ${account.name}`);
       queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
     } catch (error) {
+      console.error(`Erreur lors de la synchronisation pour ${account.name}:`, error);
       toast.error(`Échec de la synchronisation pour ${account.name}`);
     } finally {
       setRefreshingId(null);
