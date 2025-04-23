@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getMissions } from "@/services/missions";
+import { getAllSupaMissions } from "@/services/missions";
 import { AcelleAccount } from "@/types/acelle.types";
 import { testAcelleConnection } from "@/services/acelle/acelle-service";
 
@@ -64,7 +63,7 @@ export default function AcelleAccountForm({
   
   const { data: missions = [] } = useQuery({
     queryKey: ["missions"],
-    queryFn: getMissions,
+    queryFn: getAllSupaMissions,
   });
 
   const form = useForm<FormValues>({
