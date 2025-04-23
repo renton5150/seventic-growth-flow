@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRange } from "react-day-picker";
 import { format, subMonths } from "date-fns";
+import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { DateRangePicker } from "@/components/planning/DateRangePicker";
@@ -117,7 +118,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     const missionData = Object.values(
       filteredCampaigns.reduce((acc, campaign) => {
         const account = accounts.find(a => 
-          filteredAccounts.some(fa => fa.id === a.id && fa.apiEndpoint === campaign.delivery_info?.server)
+          filteredAccounts.some(fa => fa.id === a.id)
         );
         
         const missionName = account?.missionName || "Inconnu";

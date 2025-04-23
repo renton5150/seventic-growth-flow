@@ -11,11 +11,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 interface DateRangePickerProps {
   className?: string;
+  value?: DateRange;
   onChange: (date?: DateRange) => void;
+  locale?: any;
 }
 
-export function DateRangePicker({ className, onChange }: DateRangePickerProps) {
-  const [date, setDate] = React.useState<DateRange | undefined>();
+export function DateRangePicker({ className, value, onChange, locale = fr }: DateRangePickerProps) {
+  const [date, setDate] = React.useState<DateRange | undefined>(value);
+
+  React.useEffect(() => {
+    setDate(value);
+  }, [value]);
 
   const handleDateChange = (newDate: DateRange | undefined) => {
     setDate(newDate);
@@ -38,11 +44,11 @@ export function DateRangePicker({ className, onChange }: DateRangePickerProps) {
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "d MMMM yyyy", { locale: fr })} -{" "}
-                  {format(date.to, "d MMMM yyyy", { locale: fr })}
+                  {format(date.from, "d MMMM yyyy", { locale })} -{" "}
+                  {format(date.to, "d MMMM yyyy", { locale })}
                 </>
               ) : (
-                format(date.from, "d MMMM yyyy", { locale: fr })
+                format(date.from, "d MMMM yyyy", { locale })
               )
             ) : (
               <span>Sélectionner une période</span>
@@ -57,7 +63,8 @@ export function DateRangePicker({ className, onChange }: DateRangePickerProps) {
             selected={date}
             onSelect={handleDateChange}
             numberOfMonths={2}
-            locale={fr}
+            locale={locale}
+            className={cn("p-3 pointer-events-auto")}
           />
         </PopoverContent>
       </Popover>

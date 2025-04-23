@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -48,11 +49,14 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
     if (error) throw error;
 
     return {
-      ...data,
+      id: data.id,
+      missionId: data.mission_id,
       missionName: data.missions?.name || "Mission inconnue",
-      lastSyncDate: data.last_sync_date,
+      name: data.name,
       apiEndpoint: data.api_endpoint,
       apiToken: data.api_token,
+      lastSyncDate: data.last_sync_date,
+      status: data.status as AcelleAccount["status"],
       createdAt: data.created_at,
       updatedAt: data.updated_at
     };
@@ -65,6 +69,11 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
 // Créer un compte Acelle
 export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt">): Promise<AcelleAccount | null> => {
   try {
+    // Convert Date object to ISO string if needed
+    const lastSyncDate = account.lastSyncDate instanceof Date 
+      ? account.lastSyncDate.toISOString() 
+      : account.lastSyncDate;
+    
     const { data, error } = await supabase
       .from("acelle_accounts")
       .insert({
@@ -73,7 +82,7 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
         api_endpoint: account.apiEndpoint,
         api_token: account.apiToken,
         status: account.status,
-        last_sync_date: account.lastSyncDate
+        last_sync_date: lastSyncDate
       })
       .select()
       .single();
@@ -98,6 +107,11 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
 // Mettre à jour un compte Acelle
 export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount | null> => {
   try {
+    // Convert Date object to ISO string if needed
+    const lastSyncDate = account.lastSyncDate instanceof Date 
+      ? account.lastSyncDate.toISOString() 
+      : account.lastSyncDate;
+      
     const { data, error } = await supabase
       .from("acelle_accounts")
       .update({
@@ -106,7 +120,7 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
         api_endpoint: account.apiEndpoint,
         api_token: account.apiToken,
         status: account.status,
-        last_sync_date: account.lastSyncDate
+        last_sync_date: lastSyncDate
       })
       .eq("id", account.id)
       .select()
