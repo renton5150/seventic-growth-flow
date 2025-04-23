@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -168,14 +167,14 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         
         <div className="w-full md:w-1/4">
           <Select
-            value={statusFilter || ""}
-            onValueChange={(value) => setStatusFilter(value || null)}
+            value={statusFilter || "all"}
+            onValueChange={(value) => setStatusFilter(value === "all" ? null : value)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Filtrer par statut" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tous les statuts</SelectItem>
+              <SelectItem value="all">Tous les statuts</SelectItem>
               <SelectItem value="new">Nouveau</SelectItem>
               <SelectItem value="queued">En attente</SelectItem>
               <SelectItem value="sending">En cours d'envoi</SelectItem>
@@ -285,7 +284,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         </div>
       )}
 
-      {/* Dialogue de détails de campagne */}
       <Dialog open={!!selectedCampaign} onOpenChange={(open) => !open && setSelectedCampaign(null)}>
         <DialogContent className="max-w-4xl h-[80vh] max-h-[800px] overflow-y-auto">
           <DialogHeader>
