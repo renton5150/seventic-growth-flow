@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { Mission, MissionType } from "@/types/types";
 
 // Simple function to check if a mission exists by ID
 export const checkMissionExists = async (missionId: string): Promise<boolean> => {
@@ -125,4 +126,29 @@ export const updateSupaMission = async (missionData: any) => {
     console.error("Error in updateSupaMission:", error);
     return null;
   }
+};
+
+/**
+ * Maps a Supabase mission data object to the Mission type used in the application
+ */
+export const mapSupaMissionToMission = (missionData: any): Mission => {
+  // Handle case when mission has nested profile data
+  let sdrName = "";
+  if (missionData.profiles) {
+    sdrName = missionData.profiles.name || "";
+  }
+
+  return {
+    id: missionData.id,
+    name: missionData.name,
+    sdrId: missionData.sdr_id || "",
+    sdrName: sdrName,
+    description: missionData.description || "",
+    startDate: missionData.start_date ? new Date(missionData.start_date) : new Date(),
+    endDate: missionData.end_date ? new Date(missionData.end_date) : null,
+    createdAt: missionData.created_at ? new Date(missionData.created_at) : new Date(),
+    type: (missionData.type || "Full") as MissionType,
+    status: missionData.status || "En cours",
+    requests: []
+  };
 };

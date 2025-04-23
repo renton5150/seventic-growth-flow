@@ -1,6 +1,16 @@
 
-// Re-export all the mission services for backward compatibility
-export * from "./utils";
+// Export all mission-related functions explicitly to avoid ambiguity
+export {
+  checkMissionExists,
+  getAllSupaMissions,
+  getSupaMissionsByUserId,
+  getSupaMissionById,
+  createSupaMission,
+  updateSupaMission,
+  mapSupaMissionToMission
+} from "./utils";
+
+// Export other modules
 export * from "./getMissions";
 export * from "./createMission";
 export * from "./updateDeleteMission";

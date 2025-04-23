@@ -1,4 +1,3 @@
-
 import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import {
@@ -8,14 +7,13 @@ import {
   createSupaMission,
   updateSupaMission,
   checkMissionExists
-} from "@/services/missions";
+} from "@/services/missions/utils";
 
 /**
  * Checks if a user is authenticated with Supabase
  */
 export const isSupabaseAuthenticated = async (): Promise<boolean> => {
   try {
-    // Import dynamically to avoid circular reference issues
     const { supabase } = await import("@/integrations/supabase/client");
     const { data } = await supabase.auth.getSession();
     return !!data.session;
@@ -101,13 +99,11 @@ export const createSupabaseMission = async (data: {
       return undefined;
     }
     
-    // Ensure sdrId is defined
     if (!data.sdrId) {
       console.error("Missing SDR ID!");
       throw new Error("SDR is required to create a mission");
     }
 
-    // Ensure type is a valid MissionType
     const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
     
     return await createSupaMission({
@@ -141,13 +137,11 @@ export const updateSupabaseMission = async (data: {
       return undefined;
     }
     
-    // Ensure sdrId is defined
     if (!data.sdrId) {
       console.error("Missing SDR ID!");
       throw new Error("SDR is required to update a mission");
     }
 
-    // Ensure type is a valid MissionType
     const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
     
     return await updateSupaMission({
@@ -163,7 +157,6 @@ export const updateSupabaseMission = async (data: {
 
 /**
  * Deletes a mission from Supabase with authentication and error handling
- * Version complètement réécrite pour éviter les gels d'interface
  */
 export const deleteSupabaseMission = async (missionId: string): Promise<boolean> => {
   if (!missionId) {
@@ -173,10 +166,8 @@ export const deleteSupabaseMission = async (missionId: string): Promise<boolean>
   try {
     console.log("Lancement de la suppression directe de la mission:", missionId);
     
-    // Import dynamique du client Supabase
     const { supabase } = await import("@/integrations/supabase/client");
     
-    // Vérification de session
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) {
       console.error("Erreur de session:", sessionError);
@@ -189,7 +180,6 @@ export const deleteSupabaseMission = async (missionId: string): Promise<boolean>
     
     console.log("Session valide, exécution de la suppression...");
     
-    // Suppression directe
     const { error } = await supabase
       .from("missions")
       .delete()
