@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -41,7 +42,12 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isFetching 
   } = useQuery({
     queryKey: ["acelleCampaigns", account.id],
-    queryFn: () => acelleService.getAcelleCampaigns(account),
+    queryFn: async () => {
+      console.log("Fetching campaigns for account:", account);
+      const campaigns = await acelleService.getAcelleCampaigns(account);
+      console.log("Fetched campaigns:", campaigns);
+      return campaigns;
+    },
     enabled: account.status === "active",
   });
 

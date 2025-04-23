@@ -29,7 +29,9 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
       
       for (const account of activeAccounts) {
         try {
+          console.log(`Fetching campaigns for account: ${account.name}`);
           const campaigns = await acelleService.getAcelleCampaigns(account);
+          console.log(`Got ${campaigns.length} campaigns for ${account.name}`, campaigns);
           results.push(...campaigns);
         } catch (error) {
           console.error(`Erreur lors de la récupération des campagnes pour ${account.name}:`, error);
@@ -44,6 +46,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
   
   useEffect(() => {
     if (data) {
+      console.log("Setting campaigns data:", data);
       setCampaignsData(data);
     }
   }, [data]);
@@ -77,14 +80,22 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     let totalBounced = 0;
     
     campaignsData.forEach(campaign => {
-      const info = campaign.delivery_info;
-      if (info) {
-        totalSent += info.total || 0;
-        totalOpened += info.opened || 0;
-        totalClicked += info.clicked || 0;
-        totalBounced += (info.bounced?.soft || 0) + (info.bounced?.hard || 0);
+      console.log("Processing delivery info for campaign:", campaign.name, "delivery_info:", campaign.delivery_info);
+      
+      // Ensure the delivery_info exists and handle null values
+      if (campaign.delivery_info) {
+        totalSent += campaign.delivery_info.total || 0;
+        totalOpened += campaign.delivery_info.opened || 0;
+        totalClicked += campaign.delivery_info.clicked || 0;
+        
+        // Safe access to nested bounced property
+        const softBounce = campaign.delivery_info.bounced?.soft || 0;
+        const hardBounce = campaign.delivery_info.bounced?.hard || 0;
+        totalBounced += softBounce + hardBounce;
       }
     });
+    
+    console.log("Calculated delivery stats:", { totalSent, totalOpened, totalClicked, totalBounced });
     
     return [
       { name: "Envoyés", value: totalSent },
