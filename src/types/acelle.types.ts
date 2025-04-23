@@ -55,3 +55,15 @@ export interface AcelleCampaignDetail extends AcelleCampaign {
     unsubscribe_url: string;
   };
 }
+
+// Interface pour le débogage de la connexion
+export interface AcelleConnectionDebug {
+  success: boolean;
+  statusCode?: number;
+  responseData?: any;
+  errorMessage?: string;
+  request?: {
+    url: string;
+    headers: Record<string, string>;
+  };
+}

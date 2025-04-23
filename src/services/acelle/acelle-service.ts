@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -69,7 +68,6 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
 // Créer un compte Acelle
 export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt">): Promise<AcelleAccount | null> => {
   try {
-    // Convert Date object to ISO string if needed
     const lastSyncDate = account.lastSyncDate instanceof Date 
       ? account.lastSyncDate.toISOString() 
       : account.lastSyncDate;
@@ -107,7 +105,6 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
 // Mettre à jour un compte Acelle
 export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount | null> => {
   try {
-    // Convert Date object to ISO string if needed
     const lastSyncDate = account.lastSyncDate instanceof Date 
       ? account.lastSyncDate.toISOString() 
       : account.lastSyncDate;
@@ -160,24 +157,89 @@ export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
   }
 };
 
-// Tester la connexion à l'API Acelle
-export const testAcelleConnection = async (apiEndpoint: string, apiToken: string): Promise<boolean> => {
-  try {
-    const response = await fetch(`${apiEndpoint}/me?api_token=${apiToken}`, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json"
-      }
-    });
+// Données de débogage pour la connexion API
+export interface AcelleConnectionDebug {
+  success: boolean;
+  statusCode?: number;
+  responseData?: any;
+  errorMessage?: string;
+  request?: {
+    url: string;
+    headers: Record<string, string>;
+  };
+}
 
+// Tester la connexion à l'API Acelle avec mode debug
+export const testAcelleConnection = async (
+  apiEndpoint: string, 
+  apiToken: string, 
+  debug: boolean = false
+): Promise<boolean | AcelleConnectionDebug> => {
+  try {
+    const baseEndpoint = apiEndpoint.endsWith('/') ? apiEndpoint.slice(0, -1) : apiEndpoint;
+    
+    const url = `${baseEndpoint}/me?api_token=${apiToken}`;
+    
+    const headers = {
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    };
+    
+    const debugInfo: AcelleConnectionDebug = {
+      success: false,
+      request: {
+        url,
+        headers
+      }
+    };
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      mode: "cors"
+    });
+    
+    if (debug) {
+      debugInfo.statusCode = response.status;
+      
+      try {
+        debugInfo.responseData = await response.clone().json();
+      } catch (e) {
+        debugInfo.responseData = await response.clone().text();
+      }
+    }
+    
     if (!response.ok) {
+      if (debug) {
+        debugInfo.errorMessage = `Erreur API: ${response.status} ${response.statusText}`;
+        return debugInfo;
+      }
       throw new Error(`Erreur API: ${response.status}`);
     }
-
+    
     const data = await response.json();
-    return !!data.id;
+    const success = !!data.id;
+    
+    if (debug) {
+      debugInfo.success = success;
+      return debugInfo;
+    }
+    
+    return success;
   } catch (error) {
     console.error("Erreur lors du test de connexion à l'API Acelle:", error);
+    
+    if (debug) {
+      return {
+        success: false,
+        errorMessage: error instanceof Error ? error.message : "Erreur inconnue",
+        request: {
+          url: `${apiEndpoint}/me?api_token=${apiToken}`,
+          headers: { "Accept": "application/json" }
+        }
+      };
+    }
+    
     return false;
   }
 };

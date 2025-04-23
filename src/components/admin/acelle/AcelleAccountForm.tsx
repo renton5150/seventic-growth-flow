@@ -1,10 +1,11 @@
+
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +19,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getMissions } from "@/services/missions";
-import { AcelleAccount } from "@/types/acelle.types";
+import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { testAcelleConnection } from "@/services/acelle/acelle-service";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const formSchema = z.object({
   missionId: z.string({
@@ -60,6 +63,8 @@ export default function AcelleAccountForm({
 }: AcelleAccountFormProps) {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"untested" | "success" | "failure">("untested");
+  const [debugMode, setDebugMode] = useState<boolean>(false);
+  const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
   
   const { data: missions = [] } = useQuery({
     queryKey: ["missions"],
@@ -88,16 +93,28 @@ export default function AcelleAccountForm({
     
     setIsTestingConnection(true);
     setConnectionStatus("untested");
+    setDebugInfo(null);
     
     try {
-      const isConnected = await testAcelleConnection(apiEndpoint, apiToken);
+      const result = await testAcelleConnection(apiEndpoint, apiToken, debugMode);
       
-      if (isConnected) {
-        setConnectionStatus("success");
-        toast.success("Connexion réussie à l'API Acelle Mail");
-      } else {
-        setConnectionStatus("failure");
-        toast.error("Échec de la connexion à l'API Acelle Mail");
+      if (debugMode && typeof result !== 'boolean') {
+        setDebugInfo(result);
+        setConnectionStatus(result.success ? "success" : "failure");
+        
+        if (result.success) {
+          toast.success("Connexion réussie à l'API Acelle Mail");
+        } else {
+          toast.error(`Échec de la connexion: ${result.errorMessage || "Erreur inconnue"}`);
+        }
+      } else if (typeof result === 'boolean') {
+        setConnectionStatus(result ? "success" : "failure");
+        
+        if (result) {
+          toast.success("Connexion réussie à l'API Acelle Mail");
+        } else {
+          toast.error("Échec de la connexion à l'API Acelle Mail");
+        }
       }
     } catch (error) {
       setConnectionStatus("failure");
@@ -215,32 +232,117 @@ export default function AcelleAccountForm({
           )}
         />
         
-        <div className="flex items-center gap-2">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={handleTestConnection}
-            disabled={isTestingConnection || isSubmitting}
-          >
-            {isTestingConnection ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Test en cours...
-              </>
-            ) : (
-              "Tester la connexion"
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleTestConnection}
+              disabled={isTestingConnection || isSubmitting}
+            >
+              {isTestingConnection ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Test en cours...
+                </>
+              ) : (
+                "Tester la connexion"
+              )}
+            </Button>
+            
+            {connectionStatus === "success" && (
+              <div className="flex items-center text-green-500">
+                <Check className="h-4 w-4 mr-1" /> Connexion réussie
+              </div>
             )}
-          </Button>
-          
-          {connectionStatus === "success" && (
-            <div className="flex items-center text-green-500">
-              <Check className="h-4 w-4 mr-1" /> Connexion réussie
+            
+            {connectionStatus === "failure" && (
+              <div className="flex items-center text-red-500">
+                <X className="h-4 w-4 mr-1" /> Échec de connexion
+              </div>
+            )}
+            
+            <div className="flex items-center ml-2">
+              <label className="flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={debugMode} 
+                  onChange={() => setDebugMode(!debugMode)}
+                  className="mr-2"
+                />
+                <span className="text-sm">Mode debug</span>
+              </label>
             </div>
-          )}
+          </div>
           
-          {connectionStatus === "failure" && (
-            <div className="flex items-center text-red-500">
-              <X className="h-4 w-4 mr-1" /> Échec de connexion
-            </div>
+          {debugInfo && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="flex items-center gap-1 text-blue-500">
+                  <Info className="h-4 w-4" /> Voir les détails du debug
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Informations de débogage</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="h-[400px] rounded-md border p-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-medium">Requête</h3>
+                      <pre className="bg-gray-100 p-3 rounded-md text-sm overflow-auto">
+                        {JSON.stringify(debugInfo.request, null, 2)}
+                      </pre>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-medium">
+                        Statut: {debugInfo.statusCode || 'N/A'} 
+                        {debugInfo.success ? 
+                          <span className="text-green-500 ml-2">(Succès)</span> : 
+                          <span className="text-red-500 ml-2">(Échec)</span>
+                        }
+                      </h3>
+                    </div>
+                    
+                    {debugInfo.errorMessage && (
+                      <div>
+                        <h3 className="font-medium">Message d'erreur</h3>
+                        <div className="bg-red-50 text-red-700 p-3 rounded-md">
+                          {debugInfo.errorMessage}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {debugInfo.responseData && (
+                      <div>
+                        <h3 className="font-medium">Réponse</h3>
+                        <pre className="bg-gray-100 p-3 rounded-md text-sm overflow-auto">
+                          {typeof debugInfo.responseData === 'object' 
+                            ? JSON.stringify(debugInfo.responseData, null, 2) 
+                            : debugInfo.responseData
+                          }
+                        </pre>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <h3 className="font-medium">Comment tester avec Curl</h3>
+                      <pre className="bg-gray-100 p-3 rounded-md text-sm overflow-auto">
+                        {`curl -v -X GET "${debugInfo.request?.url}"`}
+                      </pre>
+                    </div>
+                    
+                    <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+                      <p className="text-yellow-800 text-sm">
+                        <strong>Note:</strong> Si cette requête fonctionne avec curl mais pas depuis le navigateur, 
+                        il s'agit probablement d'un problème CORS. Vérifiez que votre serveur Acelle API est 
+                        correctement configuré pour accepter les requêtes CORS depuis cette origine.
+                      </p>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
         
