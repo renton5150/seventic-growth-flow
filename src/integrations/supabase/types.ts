@@ -9,6 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      acelle_accounts: {
+        Row: {
+          api_endpoint: string
+          api_token: string
+          created_at: string
+          id: string
+          last_sync_date: string | null
+          mission_id: string | null
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          api_endpoint: string
+          api_token: string
+          created_at?: string
+          id?: string
+          last_sync_date?: string | null
+          mission_id?: string | null
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          api_endpoint?: string
+          api_token?: string
+          created_at?: string
+          id?: string
+          last_sync_date?: string | null
+          mission_id?: string | null
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acelle_accounts_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       database_files: {
         Row: {
           created_at: string

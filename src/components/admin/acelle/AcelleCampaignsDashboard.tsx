@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -199,8 +198,8 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
         
         <div className="w-full md:w-1/3">
           <DateRangePicker 
-            date={dateRange}
-            onDateChange={setDateRange}
+            value={dateRange}
+            onChange={setDateRange}
             locale={fr}
           />
         </div>

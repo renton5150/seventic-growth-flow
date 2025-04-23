@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -10,19 +9,21 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       .from("acelle_accounts")
       .select(`
         *,
-        missions(name)
+        missions (name)
       `)
       .order("name");
     
     if (error) throw error;
 
-    // Transformer les données pour inclure le nom de la mission
     return data.map(account => ({
-      ...account,
+      id: account.id,
+      missionId: account.mission_id,
       missionName: account.missions?.name || "Mission inconnue",
-      lastSyncDate: account.last_sync_date,
+      name: account.name,
       apiEndpoint: account.api_endpoint,
       apiToken: account.api_token,
+      lastSyncDate: account.last_sync_date,
+      status: account.status as AcelleAccount["status"],
       createdAt: account.created_at,
       updatedAt: account.updated_at
     }));
@@ -148,7 +149,6 @@ export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
 // Tester la connexion à l'API Acelle
 export const testAcelleConnection = async (apiEndpoint: string, apiToken: string): Promise<boolean> => {
   try {
-    // Appel à l'API pour vérifier les informations d'identification
     const response = await fetch(`${apiEndpoint}/me?api_token=${apiToken}`, {
       method: "GET",
       headers: {
@@ -161,7 +161,7 @@ export const testAcelleConnection = async (apiEndpoint: string, apiToken: string
     }
 
     const data = await response.json();
-    return !!data.id; // Si l'API retourne un ID, la connexion est valide
+    return !!data.id;
   } catch (error) {
     console.error("Erreur lors du test de connexion à l'API Acelle:", error);
     return false;
@@ -171,7 +171,6 @@ export const testAcelleConnection = async (apiEndpoint: string, apiToken: string
 // Récupérer les campagnes d'un compte Acelle
 export const getAcelleCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
   try {
-    // Appel à l'API pour récupérer la liste des campagnes
     const response = await fetch(`${account.apiEndpoint}/campaigns?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
@@ -185,7 +184,6 @@ export const getAcelleCampaigns = async (account: AcelleAccount): Promise<Acelle
 
     const data = await response.json();
     
-    // Mettre à jour la date de dernière synchronisation
     await updateLastSyncDate(account.id);
     
     return data;
@@ -198,7 +196,6 @@ export const getAcelleCampaigns = async (account: AcelleAccount): Promise<Acelle
 // Récupérer les détails d'une campagne
 export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
-    // Appel à l'API pour récupérer les détails d'une campagne
     const response = await fetch(`${account.apiEndpoint}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
