@@ -20,7 +20,14 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
     
     try {
       console.log(`Téléchargement demandé pour: ${url}`);
+      
+      // Afficher un toast de chargement
+      toast.loading("Téléchargement en cours...");
+      
       const success = await downloadFile(url, filename);
+      
+      // Supprimer le toast de chargement
+      toast.dismiss();
       
       if (success) {
         toast.success(`Téléchargement de "${filename}" réussi`);

@@ -59,9 +59,16 @@ export const FileUploader = ({
     if (!value || disabled || typeof value !== 'string') return;
     
     try {
-      if (value.startsWith('http://') || value.startsWith('https://')) {
+      if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('uploads/')) {
         const fileName = value.split('/').pop() || 'document';
+        
+        // Afficher un toast de chargement
+        toast.loading("Téléchargement en cours...");
+        
         const success = await downloadFile(value, decodeURIComponent(fileName));
+        
+        // Supprimer le toast de chargement
+        toast.dismiss();
         
         if (!success) {
           toast.error("Erreur lors du téléchargement du fichier");
