@@ -28,18 +28,19 @@ export const DatabaseUploader = () => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       
-      if (
-        selectedFile.type !== "text/csv" &&
-        selectedFile.type !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
-        !selectedFile.name.endsWith(".csv") &&
-        !selectedFile.name.endsWith(".xlsx")
-      ) {
+      // Vérifications sur le type de fichier
+      const validTypes = ["text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+      const validExtensions = [".csv", ".xlsx"];
+      const fileExtension = selectedFile.name.substring(selectedFile.name.lastIndexOf(".")).toLowerCase();
+      
+      if (!validTypes.includes(selectedFile.type) && !validExtensions.includes(fileExtension)) {
         toast.error("Type de fichier non pris en charge", {
           description: "Veuillez sélectionner un fichier CSV ou XLSX",
         });
         return;
       }
       
+      // Vérification de la taille du fichier (10MB max)
       if (selectedFile.size > 10 * 1024 * 1024) {
         toast.error("Fichier trop volumineux", {
           description: "La taille maximale autorisée est de 10MB",
@@ -72,6 +73,7 @@ export const DatabaseUploader = () => {
       if (result.success) {
         toast.success("Base de données téléchargée avec succès");
         setFile(null);
+        // Notifier les autres composants que la liste a été mise à jour
         window.dispatchEvent(new CustomEvent("database-uploaded"));
       } else {
         toast.error("Erreur lors du téléchargement", {

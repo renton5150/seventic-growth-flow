@@ -6,10 +6,9 @@ import { Database, Download, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { deleteDatabaseFile } from "@/services/database";
+import { deleteDatabaseFile, downloadFile } from "@/services/database";
 import { toast } from "sonner";
 import { DatabaseFile } from "@/types/database.types";
-import { supabase } from "@/integrations/supabase/client";
 
 interface DatabasesListProps {
   databases: DatabaseFile[];
@@ -51,36 +50,12 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
   };
 
   const handleFileDownload = async (fileUrl: string, fileName: string) => {
-    if (!fileUrl) return;
-    
     try {
-      const path = fileUrl.split('/').pop();
-      if (!path) {
-        toast.error("URL du fichier invalide");
-        return;
-      }
+      const success = await downloadFile(fileUrl, fileName);
       
-      const { data, error } = await supabase.storage
-        .from('databases')
-        .download(path);
-        
-      if (error) {
-        console.error('Erreur lors du téléchargement:', error);
+      if (!success) {
         toast.error("Erreur lors du téléchargement du fichier");
-        return;
       }
-      
-      const blobUrl = URL.createObjectURL(data);
-      const element = document.createElement('a');
-      element.href = blobUrl;
-      element.download = fileName;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 100);
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");

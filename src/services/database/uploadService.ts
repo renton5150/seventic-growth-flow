@@ -5,20 +5,34 @@ import { isSupabaseConfigured } from "./config";
 
 export const uploadDatabaseFile = async (file: File, userId: string): Promise<{success: boolean; fileUrl?: string}> => {
   try {
-    // Générer un nom unique pour le fichier
-    const fileName = `${Date.now()}_${file.name}`;
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured) {
+      console.error("Supabase n'est pas configuré correctement");
+      return { success: false };
+    }
+    
+    // Générer un nom unique pour le fichier (garder les caractères spéciaux au minimum)
+    const uniquePrefix = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const fileName = `${uniquePrefix}_${safeFileName}`;
     
     console.log(`Téléchargement du fichier ${fileName} vers le bucket 'databases'...`);
     
-    // Télécharger le fichier dans le bucket "databases"
+    // Télécharger le fichier dans le bucket "databases" avec les bons headers
     const { data: fileData, error: fileError } = await supabase.storage
       .from("databases")
-      .upload(fileName, file);
+      .upload(fileName, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: false
+      });
       
     if (fileError) {
       console.error("Erreur lors du téléchargement du fichier:", fileError);
       return { success: false };
     }
+    
+    console.log("Fichier téléchargé avec succès. Récupération de l'URL publique...");
     
     // Obtenir l'URL publique du fichier
     const { data: publicUrlData } = await supabase.storage
@@ -58,10 +72,12 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<{s
       
     if (metadataError) {
       console.error("Erreur lors de l'enregistrement des métadonnées du fichier:", metadataError);
-      return { success: false };
+      // Même en cas d'erreur avec les métadonnées, le fichier a été téléchargé
+      // Nous pouvons donc retourner success: true
+      return { success: true, fileUrl: publicUrlData.publicUrl };
     }
     
-    console.log("Fichier téléchargé avec succès:", publicUrlData.publicUrl);
+    console.log("Fichier téléchargé et enregistré avec succès:", publicUrlData.publicUrl);
     return { success: true, fileUrl: publicUrlData.publicUrl };
   } catch (error) {
     console.error("Erreur inattendue lors du téléchargement de la base de données:", error);

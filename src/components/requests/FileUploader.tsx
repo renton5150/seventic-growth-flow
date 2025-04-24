@@ -1,7 +1,7 @@
 
 import React from "react";
-import { Upload } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { downloadFile } from "@/services/database";
 
 interface FileUploaderProps {
   icon: React.ReactNode;
@@ -60,31 +60,16 @@ export const FileUploader = ({
     
     try {
       if (value.startsWith('http://') || value.startsWith('https://')) {
-        const path = value.split('/').pop() || '';
+        const fileName = value.split('/').pop() || 'document';
+        const success = await downloadFile(value, decodeURIComponent(fileName));
         
-        const { data, error } = await supabase.storage
-          .from('databases')
-          .download(path);
-          
-        if (error) {
-          console.error('Erreur lors du téléchargement:', error);
-          return;
+        if (!success) {
+          toast.error("Erreur lors du téléchargement du fichier");
         }
-        
-        const blobUrl = URL.createObjectURL(data);
-        const element = document.createElement('a');
-        element.href = blobUrl;
-        element.download = value.split('/').pop() || 'document';
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-        
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-        }, 100);
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
+      toast.error("Erreur lors du téléchargement du fichier");
     }
   };
   

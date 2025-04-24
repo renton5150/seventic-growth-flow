@@ -5,7 +5,7 @@ import { DatabaseRequest } from '@/types/types';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from "@/integrations/supabase/client";
+import { downloadFile } from "@/services/database";
 
 interface DatabaseDetailsProps {
   request: DatabaseRequest;
@@ -16,39 +16,17 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
 
   // Fonction pour télécharger un fichier à partir d'une URL
   const handleFileDownload = async (fileUrl: string | undefined, filename: string = "document") => {
-    if (!fileUrl) return;
+    if (!fileUrl) {
+      toast.error("URL du fichier invalide");
+      return;
+    }
     
     try {
-      // Extraire le nom du fichier depuis l'URL Supabase
-      const path = fileUrl.split('/').pop();
-      if (!path) {
-        toast.error("URL du fichier invalide");
-        return;
-      }
+      const success = await downloadFile(fileUrl, filename);
       
-      const { data, error } = await supabase.storage
-        .from('databases')
-        .download(path);
-        
-      if (error) {
-        console.error('Erreur lors du téléchargement:', error);
+      if (!success) {
         toast.error("Erreur lors du téléchargement du fichier");
-        return;
       }
-      
-      // Créer un URL object pour le téléchargement
-      const blobUrl = URL.createObjectURL(data);
-      const element = document.createElement('a');
-      element.href = blobUrl;
-      element.download = filename;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      
-      // Libérer l'URL créée
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 100);
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");

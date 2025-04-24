@@ -3,3 +3,4 @@
 export { uploadDatabaseFile } from './uploadService';
 export { deleteDatabaseFile } from './deleteService';
 export { getAllDatabases, getDatabaseById } from './queryService';
+export { downloadFile } from './downloadService';

@@ -20,12 +20,17 @@ export const deleteDatabaseFile = async (fileId: string): Promise<boolean> => {
     // Récupérer les métadonnées du fichier
     const { data: fileData, error: fetchError } = await supabase
       .from("database_files")
-      .select()
+      .select("file_name")
       .eq("id", fileId)
       .single();
       
     if (fetchError) {
       console.error("Erreur lors de la récupération des métadonnées du fichier:", fetchError);
+      return false;
+    }
+    
+    if (!fileData || !fileData.file_name) {
+      console.error("Aucune donnée de fichier trouvée");
       return false;
     }
     
