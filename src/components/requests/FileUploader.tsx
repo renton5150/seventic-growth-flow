@@ -1,5 +1,7 @@
+
 import React from "react";
 import { Upload } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FileUploaderProps {
   icon: React.ReactNode;
@@ -58,25 +60,27 @@ export const FileUploader = ({
     
     try {
       if (value.startsWith('http://') || value.startsWith('https://')) {
+        const path = value.split('/').pop() || '';
+        
         const { data, error } = await supabase.storage
           .from('databases')
-          .download(value.split('/').pop() || '');
+          .download(path);
           
         if (error) {
           console.error('Erreur lors du téléchargement:', error);
           return;
         }
         
-        const url = URL.createObjectURL(data);
+        const blobUrl = URL.createObjectURL(data);
         const element = document.createElement('a');
-        element.href = url;
+        element.href = blobUrl;
         element.download = value.split('/').pop() || 'document';
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
         
         setTimeout(() => {
-          URL.revokeObjectURL(url);
+          URL.revokeObjectURL(blobUrl);
         }, 100);
       }
     } catch (error) {

@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { fr } from "date-fns/locale";
 import { deleteDatabaseFile } from "@/services/database";
 import { toast } from "sonner";
 import { DatabaseFile } from "@/types/database.types";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DatabasesListProps {
   databases: DatabaseFile[];
@@ -68,16 +70,16 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
         return;
       }
       
-      const url = URL.createObjectURL(data);
+      const blobUrl = URL.createObjectURL(data);
       const element = document.createElement('a');
-      element.href = url;
+      element.href = blobUrl;
       element.download = fileName;
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
       
       setTimeout(() => {
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(blobUrl);
       }, 100);
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);

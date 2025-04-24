@@ -1,10 +1,11 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatabaseRequest } from '@/types/types';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Download } from 'lucide-react';
-import { toast } from 'react-toastify';
-import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DatabaseDetailsProps {
   request: DatabaseRequest;
@@ -14,12 +15,12 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
   const { tool, targeting, blacklist, contactsCreated, resultFileUrl } = request;
 
   // Fonction pour télécharger un fichier à partir d'une URL
-  const handleFileDownload = async (url: string | undefined, filename: string = "document") => {
-    if (!url) return;
+  const handleFileDownload = async (fileUrl: string | undefined, filename: string = "document") => {
+    if (!fileUrl) return;
     
     try {
       // Extraire le nom du fichier depuis l'URL Supabase
-      const path = url.split('/').pop();
+      const path = fileUrl.split('/').pop();
       if (!path) {
         toast.error("URL du fichier invalide");
         return;
@@ -36,9 +37,9 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
       }
       
       // Créer un URL object pour le téléchargement
-      const url = URL.createObjectURL(data);
+      const blobUrl = URL.createObjectURL(data);
       const element = document.createElement('a');
-      element.href = url;
+      element.href = blobUrl;
       element.download = filename;
       document.body.appendChild(element);
       element.click();
@@ -46,7 +47,7 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
       
       // Libérer l'URL créée
       setTimeout(() => {
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(blobUrl);
       }, 100);
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
