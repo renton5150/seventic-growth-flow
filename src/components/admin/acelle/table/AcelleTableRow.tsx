@@ -87,4 +87,4 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
       </TableCell>
     </TableRow>
   );
-};
+}

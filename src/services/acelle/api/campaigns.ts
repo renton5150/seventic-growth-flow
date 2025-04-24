@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 
@@ -29,11 +30,17 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
 // Get campaigns for an account with pagination
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
+    console.log(`Fetching campaigns for account ${account.name}, page ${page}, limit ${limit}`);
+    
+    // Add cache-control header to prevent browser caching
+    const cacheKey = `${account.id}-${page}-${limit}-${Date.now()}`;
+    
     // Get campaign list with pagination and included stats
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true`, {
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`, {
       method: "GET",
       headers: {
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     });
 
@@ -67,8 +74,10 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       delivery_date: campaign.delivery_at || campaign.run_at
     }));
     
-    // Update last sync date after successful fetch
-    await updateLastSyncDate(account.id);
+    // Update last sync date after successful fetch, but don't await it to speed up response
+    updateLastSyncDate(account.id).catch(error => 
+      console.error(`Failed to update last sync date for account ${account.id}:`, error)
+    );
     
     return mappedCampaigns;
   } catch (error) {
@@ -83,7 +92,8 @@ export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignU
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     });
 

@@ -12,6 +12,19 @@ interface DeliveryStatsChartProps {
 
 export const DeliveryStatsChart = ({ campaigns }: DeliveryStatsChartProps) => {
   const deliveryStats = calculateDeliveryStats(campaigns);
+  
+  // Format data to show both number and percentage
+  const formattedStats = deliveryStats.map(stat => {
+    let percentage = 0;
+    if (deliveryStats[0].value > 0) {
+      percentage = (stat.value / deliveryStats[0].value) * 100;
+    }
+    
+    return {
+      ...stat,
+      percentage: percentage.toFixed(1)
+    };
+  });
 
   return (
     <Card>
@@ -22,13 +35,22 @@ export const DeliveryStatsChart = ({ campaigns }: DeliveryStatsChartProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {deliveryStats.some(item => item.value > 0) ? (
+        {formattedStats.some(item => item.value > 0) ? (
           <ResponsiveContainer width="100%" height={300}>
-            <RechartsBarChart data={deliveryStats}>
+            <RechartsBarChart data={formattedStats}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis allowDecimals={false} />
-              <Tooltip formatter={(value) => [`${value}`, ""]} />
+              <Tooltip 
+                formatter={(value, name, props) => {
+                  if (name === "value") {
+                    // Format number with percentage for tooltip
+                    const percentage = props.payload.percentage;
+                    return [`${value} (${percentage}%)`, ""];
+                  }
+                  return [value, ""];
+                }}
+              />
               <Legend />
               <Bar dataKey="value" name="Nombre" fill="#82ca9d" />
             </RechartsBarChart>

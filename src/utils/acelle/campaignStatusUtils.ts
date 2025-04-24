@@ -1,9 +1,9 @@
 
-export const translateStatus = (status: string) => {
+export const translateStatus = (status: string): string => {
   switch (status) {
     case "new": return "Nouveau";
     case "queued": return "En attente";
-    case "sending": return "En cours d'envoi";
+    case "sending": return "En envoi";
     case "sent": return "Envoyé";
     case "paused": return "En pause";
     case "failed": return "Échoué";
@@ -11,7 +11,7 @@ export const translateStatus = (status: string) => {
   }
 };
 
-export const getStatusBadgeVariant = (status: string) => {
+export const getStatusBadgeVariant = (status: string): string => {
   switch (status) {
     case "new": return "secondary";
     case "queued": return "outline";
@@ -23,7 +23,7 @@ export const getStatusBadgeVariant = (status: string) => {
   }
 };
 
-export const renderPercentage = (value: number | undefined) => {
-  if (value === undefined) return "N/A";
+export const renderPercentage = (value: number | undefined): string => {
+  if (value === undefined) return "0%";
   return `${(value * 100).toFixed(1)}%`;
 };

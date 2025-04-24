@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Eye, RefreshCw } from "lucide-react";
 import {
@@ -28,6 +28,13 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   
+  const fetchCampaigns = useCallback(async () => {
+    console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
+    const campaigns = await acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
+    console.log("Fetched campaigns:", campaigns);
+    return campaigns;
+  }, [account, currentPage, itemsPerPage]);
+  
   const { 
     data: campaigns = [], 
     isLoading, 
@@ -36,13 +43,10 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isFetching 
   } = useQuery({
     queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage],
-    queryFn: async () => {
-      console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
-      const campaigns = await acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
-      console.log("Fetched campaigns:", campaigns);
-      return campaigns;
-    },
+    queryFn: fetchCampaigns,
     enabled: account.status === "active",
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -59,6 +63,13 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     filteredCampaigns
   } = useAcelleCampaignsTable(campaigns);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm, statusFilter]);
+
   if (account.status === "inactive") {
     return (
       <div className="text-center py-8 border rounded-md bg-muted/20">
@@ -70,6 +81,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    window.scrollTo(0, 0);
   };
 
   // Show loading state for initial load

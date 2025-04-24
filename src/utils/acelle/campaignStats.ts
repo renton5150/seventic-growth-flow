@@ -30,8 +30,6 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalBounced = 0;
   
   campaigns.forEach(campaign => {
-    console.log("Processing delivery info for campaign:", campaign.name, "delivery_info:", campaign.delivery_info);
-    
     if (campaign.delivery_info) {
       totalSent += campaign.delivery_info.total || 0;
       totalOpened += campaign.delivery_info.opened || 0;
@@ -42,8 +40,6 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       totalBounced += softBounce + hardBounce;
     }
   });
-  
-  console.log("Calculated delivery stats:", { totalSent, totalOpened, totalClicked, totalBounced });
   
   return [
     { name: "Envoyés", value: totalSent },
