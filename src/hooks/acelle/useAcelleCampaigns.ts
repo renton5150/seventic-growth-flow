@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
   const [activeAccounts, setActiveAccounts] = useState<AcelleAccount[]>([]);
@@ -25,19 +26,43 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
         throw new Error("Authentication required");
       }
 
-      await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
+      console.log("Starting cache synchronization...");
+      const syncResponse = await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          forceSync: true // Forcer une synchronisation complète
+        })
       });
+      
+      if (!syncResponse.ok) {
+        const errorText = await syncResponse.text();
+        console.error(`Error syncing campaigns cache: ${syncResponse.status}`, errorText);
+        toast.error("Erreur lors de la synchronisation des campagnes");
+      } else {
+        const syncResult = await syncResponse.json();
+        console.log("Sync result:", syncResult);
+      }
+      
     } catch (error) {
       console.error("Error syncing campaigns cache:", error);
+      toast.error("Erreur lors de la synchronisation");
       // Continue to get cached data even if sync fails
     }
 
-    // Get campaigns from cache
+    // Get campaigns from cache with a small delay to ensure sync has time to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const accountIds = activeAccounts.map(acc => acc.id);
+    if (accountIds.length === 0) {
+      console.log("No active accounts found");
+      return [];
+    }
+    
+    console.log(`Fetching campaigns for accounts: ${accountIds.join(', ')}`);
     const { data: campaigns, error } = await supabase
       .from('email_campaigns_cache')
       .select('*')
@@ -46,7 +71,14 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
 
     if (error) {
       console.error('Error fetching campaigns:', error);
+      toast.error("Erreur lors du chargement des campagnes");
       throw error;
+    }
+
+    if (campaigns.length === 0) {
+      console.log("No campaigns found in cache");
+    } else {
+      console.log(`Found ${campaigns.length} campaigns in cache`);
     }
 
     return campaigns.map(campaign => {

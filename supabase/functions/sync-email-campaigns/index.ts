@@ -20,13 +20,27 @@ async function fetchCampaignsForAccount(account: any) {
       
     console.log(`Fetching campaigns for account: ${account.name} from ${apiEndpoint}/api/v1/campaigns`);
     
-    const response = await fetch(`${apiEndpoint}/api/v1/campaigns?api_token=${account.api_token}&include_stats=true`, {
+    // Vérification des paramètres d'API
+    if (!account.api_token || !apiEndpoint) {
+      console.error(`Invalid API configuration for account ${account.name}: missing API token or endpoint`);
+      await updateAccountStatus(account.id, 'error: invalid API configuration');
+      return { success: false, error: 'Invalid API configuration' };
+    }
+    
+    // Appel direct à l'API Acelle (pas via le proxy)
+    const url = `${apiEndpoint}/api/v1/campaigns?api_token=${account.api_token}&include_stats=true`;
+    console.log(`Making request to: ${url}`);
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' }
     });
 
     if (!response.ok) {
-      throw new Error(`Error fetching campaigns: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`Error fetching campaigns for ${account.name}: Status ${response.status}, Response: ${errorText}`);
+      await updateAccountStatus(account.id, `error: API returned ${response.status}`);
+      return { success: false, error: `API Error: ${response.status}`, details: errorText };
     }
 
     const campaigns = await response.json();
@@ -38,18 +52,18 @@ async function fetchCampaignsForAccount(account: any) {
       const deliveryInfo = {
         total: campaign.statistics?.subscriber_count || 0,
         delivered: campaign.statistics?.delivered_count || 0,
+        delivery_rate: campaign.statistics?.delivered_rate || 0,
         opened: campaign.statistics?.open_count || 0,
+        unique_open_rate: campaign.statistics?.uniq_open_rate || 0,
         clicked: campaign.statistics?.click_count || 0,
+        click_rate: campaign.statistics?.click_rate || 0,
         bounced: {
           soft: campaign.statistics?.soft_bounce_count || 0,
           hard: campaign.statistics?.hard_bounce_count || 0,
           total: campaign.statistics?.bounce_count || 0
         },
         unsubscribed: campaign.statistics?.unsubscribe_count || 0,
-        complained: campaign.statistics?.abuse_complaint_count || 0,
-        delivery_rate: campaign.statistics?.delivered_rate || 0,
-        unique_open_rate: campaign.statistics?.uniq_open_rate || 0,
-        click_rate: campaign.statistics?.click_rate || 0
+        complained: campaign.statistics?.abuse_complaint_count || 0
       };
 
       await supabase.from('email_campaigns_cache').upsert({
@@ -71,15 +85,36 @@ async function fetchCampaignsForAccount(account: any) {
     }
 
     // Update last sync time for account
-    await supabase
-      .from('acelle_accounts')
-      .update({ last_sync_date: new Date().toISOString() })
-      .eq('id', account.id);
+    await updateAccountStatus(account.id);
 
     return { success: true, count: campaigns.length };
   } catch (error) {
     console.error(`Error syncing account ${account.name}:`, error);
+    await updateAccountStatus(account.id, `error: ${error.message}`);
     return { success: false, error: error.message };
+  }
+}
+
+// Helper function to update account status
+async function updateAccountStatus(accountId: string, errorMessage?: string) {
+  try {
+    const updateData: Record<string, any> = { 
+      last_sync_date: new Date().toISOString() 
+    };
+    
+    if (errorMessage) {
+      console.log(`Setting error status for account ${accountId}: ${errorMessage}`);
+      // Store the error message in cache_last_updated field for tracking
+      updateData.cache_last_updated = new Date().toISOString();
+    }
+    
+    await supabase
+      .from('acelle_accounts')
+      .update(updateData)
+      .eq('id', accountId);
+      
+  } catch (err) {
+    console.error(`Failed to update status for account ${accountId}:`, err);
   }
 }
 
@@ -98,6 +133,11 @@ serve(async (req) => {
     if (error) throw error;
 
     console.log(`Found ${accounts.length} active Acelle accounts to sync`);
+    if (accounts.length === 0) {
+      return new Response(JSON.stringify({ message: 'No active accounts to sync' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const results = [];
     for (const account of accounts) {

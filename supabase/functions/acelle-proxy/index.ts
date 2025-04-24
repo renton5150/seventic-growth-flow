@@ -19,6 +19,7 @@ serve(async (req) => {
     const apiToken = url.searchParams.get('api_token');
     
     if (!apiToken) {
+      console.error("Missing API token in request");
       return new Response(JSON.stringify({ error: 'API token is required' }), { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -29,6 +30,7 @@ serve(async (req) => {
     const acelleEndpoint = req.headers.get('x-acelle-endpoint');
     
     if (!acelleEndpoint) {
+      console.error("Missing Acelle endpoint in request headers");
       return new Response(JSON.stringify({ error: 'Acelle endpoint is missing' }), {
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -65,9 +67,13 @@ serve(async (req) => {
       headers: {
         'Accept': 'application/json',
         'Content-Type': req.headers.get('Content-Type') || 'application/json',
+        'User-Agent': 'Seventic-Acelle-Proxy/1.0'
       },
       body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : await req.text(),
     });
+
+    // Log the response status
+    console.log(`Acelle API response: ${response.status} ${response.statusText} for ${acelleApiUrl}`);
 
     // Read response data
     const data = await response.text();
@@ -75,9 +81,11 @@ serve(async (req) => {
     
     try {
       responseData = JSON.parse(data);
+      console.log(`Successfully parsed JSON response for ${resource}`);
     } catch (e) {
       console.error('Error parsing response from Acelle API:', e);
-      responseData = { error: 'Failed to parse response from Acelle API', raw: data };
+      console.error('Raw response data:', data.substring(0, 500) + (data.length > 500 ? '...' : ''));
+      responseData = { error: 'Failed to parse response from Acelle API', status: response.status };
     }
 
     // Return the response
