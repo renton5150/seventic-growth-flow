@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { Request, WorkflowStatus } from "@/types/types";
+import { Request, WorkflowStatus, Mission } from "@/types/types";
 import { RequestCompleteEditDialog } from "@/components/request-details/RequestCompleteEditDialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
