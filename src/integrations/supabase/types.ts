@@ -13,6 +13,8 @@ export type Database = {
         Row: {
           api_endpoint: string
           api_token: string
+          cache_last_updated: string | null
+          cache_priority: number | null
           created_at: string
           id: string
           last_sync_date: string | null
@@ -24,6 +26,8 @@ export type Database = {
         Insert: {
           api_endpoint: string
           api_token: string
+          cache_last_updated?: string | null
+          cache_priority?: number | null
           created_at?: string
           id?: string
           last_sync_date?: string | null
@@ -35,6 +39,8 @@ export type Database = {
         Update: {
           api_endpoint?: string
           api_token?: string
+          cache_last_updated?: string | null
+          cache_priority?: number | null
           created_at?: string
           id?: string
           last_sync_date?: string | null
@@ -93,6 +99,62 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaigns_cache: {
+        Row: {
+          account_id: string
+          cache_updated_at: string
+          campaign_uid: string
+          created_at: string
+          delivery_date: string | null
+          delivery_info: Json | null
+          id: string
+          last_error: string | null
+          name: string
+          run_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          cache_updated_at?: string
+          campaign_uid: string
+          created_at: string
+          delivery_date?: string | null
+          delivery_info?: Json | null
+          id?: string
+          last_error?: string | null
+          name: string
+          run_at?: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Update: {
+          account_id?: string
+          cache_updated_at?: string
+          campaign_uid?: string
+          created_at?: string
+          delivery_date?: string | null
+          delivery_info?: Json | null
+          id?: string
+          last_error?: string | null
+          name?: string
+          run_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaigns_cache_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "acelle_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -298,6 +360,27 @@ export type Database = {
       }
     }
     Views: {
+      email_campaigns_stats: {
+        Row: {
+          account_id: string | null
+          avg_click_rate: number | null
+          avg_open_rate: number | null
+          campaign_count: number | null
+          total_bounced: number | null
+          total_clicked: number | null
+          total_emails: number | null
+          total_opened: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaigns_cache_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "acelle_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       growth_requests_view: {
         Row: {
           assigned_to: string | null

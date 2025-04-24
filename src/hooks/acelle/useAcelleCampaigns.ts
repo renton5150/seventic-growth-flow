@@ -1,42 +1,63 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle/acelle-service";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
   const [activeAccounts, setActiveAccounts] = useState<AcelleAccount[]>([]);
-  const [campaignsData, setCampaignsData] = useState<AcelleCampaign[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const filteredAccounts = accounts.filter(acc => acc.status === "active");
     setActiveAccounts(filteredAccounts);
   }, [accounts]);
 
-  const fetchCampaigns = useCallback(async () => {
-    setLoading(true);
-    const results: AcelleCampaign[] = [];
+  const fetchCampaigns = async () => {
+    console.log('Fetching campaigns from cache...');
     
-    // Limit to max 5 campaigns per account for dashboard to improve performance
-    const campaignsPerAccount = 5; 
-    
-    for (const account of activeAccounts) {
-      try {
-        console.log(`Fetching campaigns for account: ${account.name}`);
-        const campaigns = await acelleService.getAcelleCampaigns(account, 1, campaignsPerAccount);
-        console.log(`Got ${campaigns.length} campaigns for ${account.name}`);
-        results.push(...campaigns);
-      } catch (error) {
-        console.error(`Erreur lors de la récupération des campagnes pour ${account.name}:`, error);
+    // Sync cache first
+    await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabase.auth.session()?.access_token}`,
       }
-    }
-    
-    setLoading(false);
-    return results;
-  }, [activeAccounts]);
+    });
 
-  const { data, isLoading, isError, refetch } = useQuery({
+    // Get campaigns from cache
+    const accountIds = activeAccounts.map(acc => acc.id);
+    const { data: campaigns, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .in('account_id', accountIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching campaigns:', error);
+      throw error;
+    }
+
+    return campaigns.map(campaign => ({
+      ...campaign,
+      uid: campaign.campaign_uid,
+      delivery_at: campaign.delivery_date,
+      statistics: {
+        subscriber_count: campaign.delivery_info?.total || 0,
+        delivered_count: campaign.delivery_info?.delivered || 0,
+        delivered_rate: campaign.delivery_info?.delivery_rate || 0,
+        open_count: campaign.delivery_info?.opened || 0,
+        uniq_open_rate: campaign.delivery_info?.unique_open_rate || 0,
+        click_count: campaign.delivery_info?.clicked || 0,
+        click_rate: campaign.delivery_info?.click_rate || 0,
+        bounce_count: campaign.delivery_info?.bounced?.total || 0,
+        soft_bounce_count: campaign.delivery_info?.bounced?.soft || 0,
+        hard_bounce_count: campaign.delivery_info?.bounced?.hard || 0,
+        unsubscribe_count: campaign.delivery_info?.unsubscribed || 0,
+        abuse_complaint_count: campaign.delivery_info?.complained || 0
+      }
+    }));
+  };
+
+  const { data: campaignsData = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["acelleCampaignsDashboard", activeAccounts.map(acc => acc.id)],
     queryFn: fetchCampaigns,
     enabled: activeAccounts.length > 0,
@@ -45,16 +66,10 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     refetchOnWindowFocus: false,
   });
 
-  useEffect(() => {
-    if (data) {
-      setCampaignsData(data);
-    }
-  }, [data]);
-
   return {
     activeAccounts,
     campaignsData,
-    isLoading: isLoading || loading,
+    isLoading,
     isError,
     refetch
   };

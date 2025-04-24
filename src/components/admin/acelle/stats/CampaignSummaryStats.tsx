@@ -10,6 +10,11 @@ interface CampaignSummaryStatsProps {
 
 export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) => {
   const deliveryStats = calculateDeliveryStats(campaigns);
+  
+  const formatRate = (value: number, total: number) => {
+    if (total === 0) return "0%";
+    return `${((value / total) * 100).toFixed(1)}%`;
+  };
 
   return (
     <Card>
@@ -28,17 +33,19 @@ export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) =
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
             <p className="text-2xl font-bold">
-              {deliveryStats[1].value} / {deliveryStats[0].value > 0 
-                ? `${((deliveryStats[1].value / deliveryStats[0].value) * 100).toFixed(1)}%`
-                : "0%"}
+              {deliveryStats[1].value}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {formatRate(deliveryStats[1].value, deliveryStats[0].value)}
             </p>
             <p className="text-muted-foreground">Taux d'ouverture</p>
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
             <p className="text-2xl font-bold">
-              {deliveryStats[2].value} / {deliveryStats[0].value > 0 
-                ? `${((deliveryStats[2].value / deliveryStats[0].value) * 100).toFixed(1)}%`
-                : "0%"}
+              {deliveryStats[2].value}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {formatRate(deliveryStats[2].value, deliveryStats[0].value)}
             </p>
             <p className="text-muted-foreground">Taux de clic</p>
           </div>
