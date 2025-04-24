@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -49,58 +48,43 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
     }
   };
 
-  // Fonction pour télécharger un fichier
-  const handleFileDownload = (fileUrl: string, fileName: string) => {
+  const handleFileDownload = async (fileUrl: string, fileName: string) => {
     if (!fileUrl) return;
     
-    // Cas 1: URL complète (http/https)
-    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-      window.open(fileUrl, '_blank');
-      return;
+    try {
+      const path = fileUrl.split('/').pop();
+      if (!path) {
+        toast.error("URL du fichier invalide");
+        return;
+      }
+      
+      const { data, error } = await supabase.storage
+        .from('databases')
+        .download(path);
+        
+      if (error) {
+        console.error('Erreur lors du téléchargement:', error);
+        toast.error("Erreur lors du téléchargement du fichier");
+        return;
+      }
+      
+      const url = URL.createObjectURL(data);
+      const element = document.createElement('a');
+      element.href = url;
+      element.download = fileName;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      toast.error("Erreur lors du téléchargement du fichier");
     }
-    
-    // Cas 2: Chemin local (pour les chemins simulés en mode démo)
-    const element = document.createElement('a');
-    
-    // Déterminer le type de fichier à partir de l'extension
-    const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-    let mimeType = 'application/octet-stream';
-    
-    if (fileExtension === 'xlsx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    } else if (fileExtension === 'xls') {
-      mimeType = 'application/vnd.ms-excel';
-    } else if (fileExtension === 'csv') {
-      mimeType = 'text/csv';
-    }
-    
-    // Créer un contenu approprié selon le type de fichier
-    let fileContent;
-    
-    if (fileExtension === 'csv') {
-      // En-tête CSV minimal valide
-      fileContent = 'Column1,Column2,Column3\nValue1,Value2,Value3';
-    } else {
-      // Pour les fichiers Excel, utilisons un arraybuffer avec un en-tête minimal
-      fileContent = new Uint8Array([
-        0x50, 0x4B, 0x03, 0x04, // Signature pour les fichiers XLSX (ZIP)
-        0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-      ]);
-    }
-    
-    const blob = new Blob([fileContent], { type: mimeType });
-    element.href = URL.createObjectURL(blob);
-    element.download = fileName || fileUrl.split('/').pop() || "database.xlsx";
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    
-    // Libérer l'URL créée
-    setTimeout(() => {
-      URL.revokeObjectURL(element.href);
-    }, 100);
   };
-  
+
   return (
     <Card className={getRoleColor()}>
       <CardHeader className={getRoleBgColor()}>

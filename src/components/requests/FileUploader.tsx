@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Upload } from "lucide-react";
 
@@ -51,68 +50,41 @@ export const FileUploader = ({
     fileInputRef.current?.click();
   };
 
-  // Fonction pour télécharger un fichier existant
-  const handleDownload = (e: React.MouseEvent) => {
+  const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (!value || disabled || typeof value !== 'string') return;
     
-    // Pour les URLs complètes (http/https)
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      window.open(value, '_blank');
-      return;
+    try {
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        const { data, error } = await supabase.storage
+          .from('databases')
+          .download(value.split('/').pop() || '');
+          
+        if (error) {
+          console.error('Erreur lors du téléchargement:', error);
+          return;
+        }
+        
+        const url = URL.createObjectURL(data);
+        const element = document.createElement('a');
+        element.href = url;
+        element.download = value.split('/').pop() || 'document';
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+        
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
     }
-    
-    // Pour les chemins locaux (mode démo)
-    // Au lieu de créer un blob avec du contenu fictif, créons un lien vers un fichier Excel vide valide
-    const element = document.createElement('a');
-    
-    // Déterminer le type de fichier à partir de l'extension
-    const fileExtension = value.split('.').pop()?.toLowerCase() || '';
-    let mimeType = 'application/octet-stream';
-    
-    if (fileExtension === 'xlsx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    } else if (fileExtension === 'xls') {
-      mimeType = 'application/vnd.ms-excel';
-    } else if (fileExtension === 'csv') {
-      mimeType = 'text/csv';
-    }
-    
-    // Créer un nouveau blob avec l'en-tête correct pour chaque type de fichier
-    let fileContent;
-    
-    if (fileExtension === 'csv') {
-      // En-tête CSV minimal valide
-      fileContent = 'Column1,Column2,Column3\nValue1,Value2,Value3';
-    } else {
-      // Pour les fichiers Excel, utilisons un arraybuffer avec un en-tête minimal
-      // Ceci est une approximation - idéalement, nous utiliserions une bibliothèque comme ExcelJS
-      // mais pour une démo cela montrerait au moins le concept
-      fileContent = new Uint8Array([
-        0x50, 0x4B, 0x03, 0x04, // Signature pour les fichiers XLSX (ZIP)
-        0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-      ]);
-    }
-    
-    const blob = new Blob([fileContent], { type: mimeType });
-    element.href = URL.createObjectURL(blob);
-    
-    const filename = value.split('/').pop() || "document";
-    element.download = decodeURIComponent(filename);
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    
-    // Libérer l'URL créée
-    setTimeout(() => {
-      URL.revokeObjectURL(element.href);
-    }, 100);
   };
   
   const renderFilePreview = () => {
-    // Si valeur est une chaîne (URL ou chemin de fichier)
     if (typeof value === 'string' && value) {
       const fileName = value.split('/').pop() || value;
       

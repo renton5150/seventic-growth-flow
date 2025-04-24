@@ -1,33 +1,12 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { DatabaseFile } from "@/types/database.types";
-import { isSupabaseConfigured, demoDatabases } from "./config";
+import { isSupabaseConfigured } from "./config";
 
-// Télécharger un fichier de base de données
 export const uploadDatabaseFile = async (file: File, userId: string): Promise<boolean> => {
   try {
     // Générer un nom unique pour le fichier
     const fileName = `${Date.now()}_${file.name}`;
-    
-    if (!isSupabaseConfigured) {
-      console.log("Mode démo: simulation de téléchargement de fichier");
-      
-      // En mode démo, on simule la réussite et on ajoute aux données locales
-      const newFile: DatabaseFile = {
-        id: `db_${Date.now()}`,
-        name: file.name,
-        fileName: fileName,
-        fileUrl: `uploads/${fileName}`,
-        fileType: file.type,
-        fileSize: file.size,
-        uploadedBy: userId,
-        uploaderName: "Utilisateur (démo)",
-        createdAt: new Date().toISOString()
-      };
-      
-      demoDatabases.push(newFile);
-      return true;
-    }
     
     // Télécharger le fichier dans le bucket "databases"
     const { data: fileData, error: fileError } = await supabase.storage
@@ -70,8 +49,7 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
         file_type: file.type,
         file_size: file.size,
         uploaded_by: userId,
-        uploader_name: userData?.name || "Utilisateur",
-        created_at: new Date().toISOString()
+        uploader_name: userData?.name || "Utilisateur"
       });
       
     if (metadataError) {
