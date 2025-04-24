@@ -22,7 +22,8 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "X-Acelle-Endpoint": apiEndpoint
+        "X-Acelle-Endpoint": apiEndpoint,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     });
 

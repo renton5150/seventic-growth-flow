@@ -44,10 +44,15 @@ serve(async (req) => {
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
     const resourceId = parts[parts.length - 2] === 'acelle-proxy' ? null : parts[parts.length - 1];
 
-    // Build Acelle API URL
+    // Build Acelle API URL - FIXED: Avoid double api/v1 path
+    // Make sure the endpoint doesn't end with a slash to properly join with the path
+    const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
+    
     let acelleApiUrl;
     if (resourceId) {
-      acelleApiUrl = `${acelleEndpoint}/api/v1/${resource}/${resourceId}?api_token=${apiToken}`;
+      // Don't add api/v1 if it's already in the endpoint
+      const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
+      acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}/${resourceId}?api_token=${apiToken}`;
     } else {
       // Copy all query parameters except api_token which is handled specially
       const queryParams = new URLSearchParams();
@@ -58,7 +63,9 @@ serve(async (req) => {
       }
       queryParams.append('api_token', apiToken);
       
-      acelleApiUrl = `${acelleEndpoint}/api/v1/${resource}?${queryParams.toString()}`;
+      // Don't add api/v1 if it's already in the endpoint
+      const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
+      acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}?${queryParams.toString()}`;
     }
 
     console.log(`Proxying request to Acelle API: ${acelleApiUrl}`);

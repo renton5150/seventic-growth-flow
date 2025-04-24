@@ -18,7 +18,7 @@ async function fetchCampaignsForAccount(account: any) {
       ? account.api_endpoint.slice(0, -1) 
       : account.api_endpoint;
       
-    console.log(`Fetching campaigns for account: ${account.name} from ${apiEndpoint}/api/v1/campaigns`);
+    console.log(`Processing account: ${account.name}, API endpoint: ${apiEndpoint}`);
     
     // Vérification des paramètres d'API
     if (!account.api_token || !apiEndpoint) {
@@ -27,8 +27,11 @@ async function fetchCampaignsForAccount(account: any) {
       return { success: false, error: 'Invalid API configuration' };
     }
     
-    // Appel direct à l'API Acelle (pas via le proxy)
-    const url = `${apiEndpoint}/api/v1/campaigns?api_token=${account.api_token}&include_stats=true`;
+    // FIXED: Avoid duplicate api/v1 in the URL path
+    // Check if the API endpoint already includes /api/v1
+    const apiPath = apiEndpoint.includes('/api/v1') ? '' : '/api/v1';
+    const url = `${apiEndpoint}${apiPath}/campaigns?api_token=${account.api_token}&include_stats=true`;
+    
     console.log(`Making request to: ${url}`);
     
     // Set up timeout for the request

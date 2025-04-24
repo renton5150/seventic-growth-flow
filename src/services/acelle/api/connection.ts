@@ -39,7 +39,9 @@ export const testAcelleConnection = async (
     
     const response = await fetch(url, {
       method: "GET",
-      headers
+      headers,
+      // Add cache control headers to prevent browser caching
+      cache: "no-store"
     });
     
     if (debug) {
