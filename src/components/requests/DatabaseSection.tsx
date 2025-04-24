@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
@@ -8,6 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { uploadDatabaseFile } from "@/services/database";
 
 interface DatabaseSectionProps {
   control: Control<any>;
@@ -19,9 +21,10 @@ export const DatabaseSection = ({
   handleFileUpload 
 }: DatabaseSectionProps) => {
   const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
 
-  const handleDatabaseFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) {
+  const handleDatabaseFileUpload = async (files: FileList | null | string) => {
+    if (!files || typeof files === 'string' || files.length === 0) {
       handleFileUpload("databaseFileUrl", null);
       return;
     }
@@ -43,26 +46,29 @@ export const DatabaseSection = ({
       return;
     }
 
+    if (!user || !user.id) {
+      toast.error("Vous devez être connecté pour télécharger un fichier");
+      return;
+    }
+
     try {
       setUploading(true);
       
-      // En mode démo, nous simulons un téléchargement réussi
-      setTimeout(() => {
-        const fileName = file.name;
-        // Créer une URL fictive sous forme de chaîne pour le mode démo
-        const fakeUrl = `uploads/${fileName}`;
-        
-        toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
-        // Passer l'URL directement comme une chaîne
-        handleFileUpload("databaseFileUrl", fakeUrl);
+      const result = await uploadDatabaseFile(file, user.id);
+      
+      if (result.success && result.fileUrl) {
+        toast.success(`Fichier ${file.name} téléchargé avec succès`);
+        handleFileUpload("databaseFileUrl", result.fileUrl);
         
         // Déclencher l'événement pour actualiser la liste des bases de données
         window.dispatchEvent(new CustomEvent('database-uploaded'));
-        setUploading(false);
-      }, 1000);
+      } else {
+        toast.error("Erreur lors du téléchargement du fichier");
+      }
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast.error("Erreur lors du téléchargement du fichier");
+    } finally {
       setUploading(false);
     }
   };

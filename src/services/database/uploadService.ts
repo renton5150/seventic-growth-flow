@@ -3,10 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { DatabaseFile } from "@/types/database.types";
 import { isSupabaseConfigured } from "./config";
 
-export const uploadDatabaseFile = async (file: File, userId: string): Promise<boolean> => {
+export const uploadDatabaseFile = async (file: File, userId: string): Promise<{success: boolean; fileUrl?: string}> => {
   try {
     // Générer un nom unique pour le fichier
     const fileName = `${Date.now()}_${file.name}`;
+    
+    console.log(`Téléchargement du fichier ${fileName} vers le bucket 'databases'...`);
     
     // Télécharger le fichier dans le bucket "databases"
     const { data: fileData, error: fileError } = await supabase.storage
@@ -15,7 +17,7 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
       
     if (fileError) {
       console.error("Erreur lors du téléchargement du fichier:", fileError);
-      return false;
+      return { success: false };
     }
     
     // Obtenir l'URL publique du fichier
@@ -23,9 +25,9 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
       .from("databases")
       .getPublicUrl(fileName);
     
-    if (!publicUrlData.publicUrl) {
+    if (!publicUrlData || !publicUrlData.publicUrl) {
       console.error("Impossible d'obtenir l'URL publique du fichier");
-      return false;
+      return { success: false };
     }
     
     // Obtenir les informations de l'utilisateur pour stocker le nom de l'uploader
@@ -40,7 +42,7 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
     }
     
     // Enregistrer les métadonnées du fichier dans la table "database_files"
-    const { error: metadataError } = await supabase
+    const { data: insertedData, error: metadataError } = await supabase
       .from("database_files")
       .insert({
         name: file.name,
@@ -50,16 +52,19 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<bo
         file_size: file.size,
         uploaded_by: userId,
         uploader_name: userData?.name || "Utilisateur"
-      });
+      })
+      .select()
+      .single();
       
     if (metadataError) {
       console.error("Erreur lors de l'enregistrement des métadonnées du fichier:", metadataError);
-      return false;
+      return { success: false };
     }
     
-    return true;
+    console.log("Fichier téléchargé avec succès:", publicUrlData.publicUrl);
+    return { success: true, fileUrl: publicUrlData.publicUrl };
   } catch (error) {
     console.error("Erreur inattendue lors du téléchargement de la base de données:", error);
-    return false;
+    return { success: false };
   }
 };

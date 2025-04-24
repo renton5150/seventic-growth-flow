@@ -1,11 +1,11 @@
 
-// Configuration for database service
-
-const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Stockage local pour les bases de données en mode démo
-const demoDatabases: DatabaseFile[] = [];
-
-export { isSupabaseConfigured, demoDatabases };
+// Configuration pour la gestion des bases de données
 
 import { DatabaseFile } from "@/types/database.types";
+import { supabase } from "@/integrations/supabase/client";
+
+// Vérifier si la configuration Supabase est disponible
+export const isSupabaseConfigured = !!(supabase && supabase.storage);
+
+// Tableau pour stocker temporairement les bases de données en mode démo
+export const demoDatabases: DatabaseFile[] = [];

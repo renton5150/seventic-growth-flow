@@ -5,7 +5,7 @@ import { DatabaseRequest } from '@/types/types';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 
 interface DatabaseDetailsProps {
   request: DatabaseRequest;

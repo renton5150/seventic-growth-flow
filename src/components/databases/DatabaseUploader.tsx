@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,7 @@ export const DatabaseUploader = () => {
       console.log("Téléchargement du fichier:", file.name, "par utilisateur:", user.id);
       const result = await uploadDatabaseFile(file, user.id);
       
-      if (result) {
+      if (result.success) {
         toast.success("Base de données téléchargée avec succès");
         setFile(null);
         window.dispatchEvent(new CustomEvent("database-uploaded"));

@@ -8,6 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { uploadDatabaseFile } from "@/services/database";
 
 interface DatabaseSectionProps {
   control: Control<any>;
@@ -19,6 +22,7 @@ export const DatabaseSection = ({
   handleFileUpload 
 }: DatabaseSectionProps) => {
   const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
 
   const handleDatabaseFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) {
@@ -43,24 +47,29 @@ export const DatabaseSection = ({
       return;
     }
 
+    if (!user || !user.id) {
+      toast.error("Vous devez être connecté pour télécharger un fichier");
+      return;
+    }
+
     try {
       setUploading(true);
       
-      // Mode démo - simulation d'un téléchargement réussi
-      setTimeout(() => {
-        const fileName = file.name;
-        const fakeUrl = `uploads/${fileName}`;
-        
-        toast.success(`Fichier ${fileName} téléchargé avec succès (mode démo)`);
-        handleFileUpload("databaseFileUrl", fakeUrl);
+      const result = await uploadDatabaseFile(file, user.id);
+      
+      if (result.success && result.fileUrl) {
+        toast.success(`Fichier ${file.name} téléchargé avec succès`);
+        handleFileUpload("databaseFileUrl", result.fileUrl);
         
         // Déclencher l'événement pour actualiser la liste des bases de données
         window.dispatchEvent(new CustomEvent('database-uploaded'));
-        setUploading(false);
-      }, 1000);
+      } else {
+        toast.error("Erreur lors du téléchargement du fichier");
+      }
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast.error("Erreur lors du téléchargement du fichier");
+    } finally {
       setUploading(false);
     }
   };
