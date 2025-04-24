@@ -13,7 +13,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function fetchCampaignsForAccount(account: any) {
   try {
-    const response = await fetch(`${account.api_endpoint}/api/v1/campaigns?api_token=${account.api_token}&include_stats=true`, {
+    // Ensure endpoint is formatted correctly
+    const apiEndpoint = account.api_endpoint.endsWith('/') 
+      ? account.api_endpoint.slice(0, -1) 
+      : account.api_endpoint;
+      
+    console.log(`Fetching campaigns for account: ${account.name} from ${apiEndpoint}/api/v1/campaigns`);
+    
+    const response = await fetch(`${apiEndpoint}/api/v1/campaigns?api_token=${account.api_token}&include_stats=true`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' }
     });
@@ -23,6 +30,7 @@ async function fetchCampaignsForAccount(account: any) {
     }
 
     const campaigns = await response.json();
+    console.log(`Retrieved ${campaigns.length} campaigns for account ${account.name}`);
     
     // Update cache for each campaign
     for (const campaign of campaigns) {
@@ -89,8 +97,11 @@ serve(async (req) => {
 
     if (error) throw error;
 
+    console.log(`Found ${accounts.length} active Acelle accounts to sync`);
+
     const results = [];
     for (const account of accounts) {
+      console.log(`Processing account: ${account.name}, API endpoint: ${account.api_endpoint}`);
       const result = await fetchCampaignsForAccount(account);
       results.push({ account: account.name, ...result });
     }
@@ -99,6 +110,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    console.error(`Error in sync-email-campaigns:`, error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

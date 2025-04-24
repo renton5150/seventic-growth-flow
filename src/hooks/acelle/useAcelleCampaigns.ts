@@ -16,12 +16,25 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     console.log('Fetching campaigns from cache...');
     
     // Sync cache first
-    await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      
+      if (!accessToken) {
+        console.error("No access token available");
+        throw new Error("Authentication required");
       }
-    });
+
+      await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      });
+    } catch (error) {
+      console.error("Error syncing campaigns cache:", error);
+      // Continue to get cached data even if sync fails
+    }
 
     // Get campaigns from cache
     const accountIds = activeAccounts.map(acc => acc.id);
@@ -38,45 +51,53 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
 
     return campaigns.map(campaign => {
       // Parse the delivery_info if it's a string
-      const deliveryInfo = typeof campaign.delivery_info === 'string' 
-        ? JSON.parse(campaign.delivery_info) 
-        : campaign.delivery_info || {};
+      let deliveryInfo = {};
+      try {
+        if (typeof campaign.delivery_info === 'string') {
+          deliveryInfo = JSON.parse(campaign.delivery_info);
+        } else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+          deliveryInfo = campaign.delivery_info;
+        }
+      } catch (e) {
+        console.error('Error parsing delivery_info:', e);
+        deliveryInfo = {};
+      }
       
       return {
         ...campaign,
         uid: campaign.campaign_uid,
         delivery_at: campaign.delivery_date,
         statistics: {
-          subscriber_count: deliveryInfo.total || 0,
-          delivered_count: deliveryInfo.delivered || 0,
-          delivered_rate: deliveryInfo.delivery_rate || 0,
-          open_count: deliveryInfo.opened || 0,
-          uniq_open_rate: deliveryInfo.unique_open_rate || 0,
-          click_count: deliveryInfo.clicked || 0,
-          click_rate: deliveryInfo.click_rate || 0,
-          bounce_count: deliveryInfo.bounced?.total || 0,
-          soft_bounce_count: deliveryInfo.bounced?.soft || 0,
-          hard_bounce_count: deliveryInfo.bounced?.hard || 0,
-          unsubscribe_count: deliveryInfo.unsubscribed || 0,
-          abuse_complaint_count: deliveryInfo.complained || 0
+          subscriber_count: deliveryInfo?.total || 0,
+          delivered_count: deliveryInfo?.delivered || 0,
+          delivered_rate: deliveryInfo?.delivery_rate || 0,
+          open_count: deliveryInfo?.opened || 0,
+          uniq_open_rate: deliveryInfo?.unique_open_rate || 0,
+          click_count: deliveryInfo?.clicked || 0,
+          click_rate: deliveryInfo?.click_rate || 0,
+          bounce_count: deliveryInfo?.bounced?.total || 0,
+          soft_bounce_count: deliveryInfo?.bounced?.soft || 0,
+          hard_bounce_count: deliveryInfo?.bounced?.hard || 0,
+          unsubscribe_count: deliveryInfo?.unsubscribed || 0,
+          abuse_complaint_count: deliveryInfo?.complained || 0
         },
         delivery_info: {
-          total: deliveryInfo.total || 0,
-          delivery_rate: deliveryInfo.delivery_rate || 0,
-          unique_open_rate: deliveryInfo.unique_open_rate || 0,
-          click_rate: deliveryInfo.click_rate || 0,
-          bounce_rate: (deliveryInfo.bounced?.total || 0) / (deliveryInfo.total || 1),
-          unsubscribe_rate: (deliveryInfo.unsubscribed || 0) / (deliveryInfo.total || 1),
-          delivered: deliveryInfo.delivered || 0,
-          opened: deliveryInfo.opened || 0,
-          clicked: deliveryInfo.clicked || 0,
+          total: deliveryInfo?.total || 0,
+          delivery_rate: deliveryInfo?.delivery_rate || 0,
+          unique_open_rate: deliveryInfo?.unique_open_rate || 0,
+          click_rate: deliveryInfo?.click_rate || 0,
+          bounce_rate: (deliveryInfo?.bounced?.total || 0) / (deliveryInfo?.total || 1),
+          unsubscribe_rate: (deliveryInfo?.unsubscribed || 0) / (deliveryInfo?.total || 1),
+          delivered: deliveryInfo?.delivered || 0,
+          opened: deliveryInfo?.opened || 0,
+          clicked: deliveryInfo?.clicked || 0,
           bounced: {
-            soft: deliveryInfo.bounced?.soft || 0,
-            hard: deliveryInfo.bounced?.hard || 0,
-            total: deliveryInfo.bounced?.total || 0
+            soft: deliveryInfo?.bounced?.soft || 0,
+            hard: deliveryInfo?.bounced?.hard || 0,
+            total: deliveryInfo?.bounced?.total || 0
           },
-          unsubscribed: deliveryInfo.unsubscribed || 0,
-          complained: deliveryInfo.complained || 0
+          unsubscribed: deliveryInfo?.unsubscribed || 0,
+          complained: deliveryInfo?.complained || 0
         }
       } as AcelleCampaign;
     });

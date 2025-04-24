@@ -35,12 +35,24 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     // Add cache-control header to prevent browser caching
     const cacheKey = `${account.id}-${page}-${limit}-${Date.now()}`;
     
+    // Check if the API endpoint has the correct format
+    if (!account.apiEndpoint || !account.apiToken) {
+      console.error(`Invalid API endpoint or token for account: ${account.name}`);
+      return [];
+    }
+
+    // Fix potential URL issues by ensuring there's no trailing slash
+    const apiEndpoint = account.apiEndpoint.endsWith('/') 
+      ? account.apiEndpoint.slice(0, -1) 
+      : account.apiEndpoint;
+    
     // Get campaign list with pagination and included stats
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "X-Acelle-Endpoint": apiEndpoint
       }
     });
 
@@ -89,11 +101,17 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
 // Get campaign details
 export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
+    // Fix potential URL issues by ensuring there's no trailing slash
+    const apiEndpoint = account.apiEndpoint.endsWith('/') 
+      ? account.apiEndpoint.slice(0, -1) 
+      : account.apiEndpoint;
+      
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "X-Acelle-Endpoint": apiEndpoint
       }
     });
 
