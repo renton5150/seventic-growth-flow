@@ -10,10 +10,12 @@ import { UserProfile } from "./sidebar/UserProfile";
 import { adminMenuItems, growthMenuItems, sdrMenuItems } from "./sidebar/config";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 export const AppSidebar = () => {
   const { user, logout } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,11 +27,42 @@ export const AppSidebar = () => {
   const isSDR = user?.role === "sdr";
 
   const handleLogout = async () => {
-    if (await logout()) {
-      toast.success("Déconnexion réussie");
-      navigate("/login");
-    } else {
-      toast.error("Échec de la déconnexion");
+    try {
+      setIsLoggingOut(true);
+      console.log("Tentative de déconnexion directe depuis la sidebar");
+      
+      // Vérifier d'abord si une session est active
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        console.log("Aucune session active trouvée, redirection vers la page de connexion");
+        toast.info("Aucune session active, redirection vers la page de connexion");
+        navigate("/login");
+        return;
+      }
+      
+      // Tenter la déconnexion
+      const logoutSuccess = await logout();
+      
+      if (logoutSuccess) {
+        toast.success("Déconnexion réussie");
+        navigate("/login");
+      } else {
+        // Si logout échoue, forcer une déconnexion manuelle
+        console.log("Échec de la déconnexion normale, tentative de déconnexion forcée");
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error("Erreur lors de la déconnexion forcée:", error);
+          toast.error("Problème lors de la déconnexion");
+        } else {
+          toast.success("Déconnexion réussie");
+          navigate("/login");
+        }
+      }
+    } catch (error) {
+      console.error("Exception lors de la déconnexion:", error);
+      toast.error("Erreur lors de la déconnexion");
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -67,9 +100,10 @@ export const AppSidebar = () => {
               variant="ghost" 
               onClick={handleLogout} 
               className="w-full mt-2 text-muted-foreground hover:text-foreground flex items-center justify-start"
+              disabled={isLoggingOut}
             >
               <LogOut className="mr-3 h-4 w-4" />
-              Déconnexion
+              {isLoggingOut ? 'Déconnexion en cours...' : 'Déconnexion'}
             </Button>
           </div>
         </div>

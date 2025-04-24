@@ -101,12 +101,26 @@ export const useAuthOperations = (
 
   const logout = async () => {
     try {
+      console.log("Début de la procédure de déconnexion");
       setLoading(true);
+
+      // Vérifier d'abord si une session existe
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        console.log("Pas de session active à déconnecter");
+        // Réinitialiser l'état utilisateur même sans session
+        setUser(null);
+        setLoading(false);
+        return true;
+      }
+
+      console.log("Session active trouvée, tentative de déconnexion");
 
       // Gestion du timeout pour la déconnexion
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
+        console.warn("Déconnexion interrompue après 5 secondes d'attente");
       }, 5000);
       
       try {
@@ -116,13 +130,15 @@ export const useAuthOperations = (
 
         if (error) {
           console.error("Erreur de déconnexion:", error.message);
-          toast.error("Échec de la déconnexion");
+          toast.error("Échec de la déconnexion", { description: error.message });
+          
+          // Réinitialiser l'état utilisateur même en cas d'erreur pour garantir la déconnexion côté client
+          setUser(null);
           setLoading(false);
           return false;
         }
 
         console.log("Déconnexion réussie");
-        toast.success("Déconnexion réussie");
         
         // Réinitialiser l'état immédiatement pour une meilleure expérience utilisateur
         setUser(null);
@@ -137,10 +153,13 @@ export const useAuthOperations = (
       
       // Forcer la déconnexion locale même en cas d'erreur
       setUser(null);
+      
+      // Nettoyer le localStorage pour s'assurer que l'ancienne session est supprimée
       localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('sb-dupguifqyjchlmzbadav-auth-token');
       
       setLoading(false);
-      return false;
+      return true; // Retourner true pour indiquer que la déconnexion locale a été effectuée
     }
   };
 
