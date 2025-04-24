@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 
@@ -30,8 +29,8 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
 // Get campaigns for an account with pagination
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
-    // Step 1: Get basic campaign list with pagination
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}`, {
+    // Get campaign list with pagination and included stats
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true`, {
       method: "GET",
       headers: {
         "Accept": "application/json"
@@ -42,42 +41,36 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       throw new Error(`Error API: ${response.status}`);
     }
 
-    const basicCampaigns = await response.json();
+    const campaigns = await response.json();
     
-    // Step 2: Fetch detailed stats for each campaign
-    const campaignsWithStats = await Promise.all(
-      basicCampaigns.map(async (campaign: any) => {
-        const details = await fetchCampaignDetails(account, campaign.uid);
-        
-        return {
-          ...campaign,
-          delivery_info: details?.statistics ? {
-            total: details.statistics.subscriber_count || 0,
-            delivery_rate: details.statistics.delivered_rate || 0,
-            unique_open_rate: details.statistics.uniq_open_rate || 0,
-            click_rate: details.statistics.click_rate || 0,
-            bounce_rate: details.statistics.bounce_count / (details.statistics.subscriber_count || 1),
-            unsubscribe_rate: details.statistics.unsubscribe_count / (details.statistics.subscriber_count || 1),
-            delivered: details.statistics.delivered_count || 0,
-            opened: details.statistics.open_count || 0,
-            clicked: details.statistics.click_count || 0,
-            bounced: {
-              soft: details.statistics.soft_bounce_count || 0,
-              hard: details.statistics.hard_bounce_count || 0,
-              total: details.statistics.bounce_count || 0
-            },
-            unsubscribed: details.statistics.unsubscribe_count || 0,
-            complained: details.statistics.abuse_complaint_count || 0
-          } : undefined,
-          delivery_date: campaign.delivery_at || campaign.run_at
-        };
-      })
-    );
+    // Map the campaigns with their included statistics
+    const mappedCampaigns = campaigns.map((campaign: any) => ({
+      ...campaign,
+      delivery_info: campaign.statistics ? {
+        total: campaign.statistics.subscriber_count || 0,
+        delivery_rate: campaign.statistics.delivered_rate || 0,
+        unique_open_rate: campaign.statistics.uniq_open_rate || 0,
+        click_rate: campaign.statistics.click_rate || 0,
+        bounce_rate: campaign.statistics.bounce_count / (campaign.statistics.subscriber_count || 1),
+        unsubscribe_rate: campaign.statistics.unsubscribe_count / (campaign.statistics.subscriber_count || 1),
+        delivered: campaign.statistics.delivered_count || 0,
+        opened: campaign.statistics.open_count || 0,
+        clicked: campaign.statistics.click_count || 0,
+        bounced: {
+          soft: campaign.statistics.soft_bounce_count || 0,
+          hard: campaign.statistics.hard_bounce_count || 0,
+          total: campaign.statistics.bounce_count || 0
+        },
+        unsubscribed: campaign.statistics.unsubscribe_count || 0,
+        complained: campaign.statistics.abuse_complaint_count || 0
+      } : undefined,
+      delivery_date: campaign.delivery_at || campaign.run_at
+    }));
     
     // Update last sync date after successful fetch
     await updateLastSyncDate(account.id);
     
-    return campaignsWithStats;
+    return mappedCampaigns;
   } catch (error) {
     console.error(`Error fetching campaigns for account ${account.id}:`, error);
     return [];
