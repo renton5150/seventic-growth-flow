@@ -23,7 +23,7 @@ export interface AcelleCampaign {
   updated_at: string;
   last_error: string | null;
   run_at: string | null;
-  delivery_info: {
+  delivery_info?: {
     total: number;
     delivery_rate: number;
     unique_open_rate: number;
