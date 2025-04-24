@@ -1,6 +1,6 @@
 
 import { useAuth } from "@/contexts/AuthContext";
-import { Request, Mission } from "@/types/types";
+import { Request, Mission, WorkflowStatus } from "@/types/types";
 import { RequestCompleteEditDialog } from "./RequestCompleteEditDialog";
 import { RequestHeader } from "./RequestHeader";
 import { RequestStatusControls } from "./RequestStatusControls";
@@ -13,11 +13,11 @@ interface RequestDetailsContentProps {
   comment: string;
   commentLoading: boolean;
   isEditDialogOpen: boolean;
-  workflowStatus: string;
+  workflowStatus: WorkflowStatus;
   emailPlatform: string;
   onCommentChange: (value: string) => void;
   onEditDialogChange: (open: boolean) => void;
-  onWorkflowStatusChange: (status: any) => void;
+  onWorkflowStatusChange: (status: WorkflowStatus) => void;
   onEmailPlatformChange: (platform: string) => void;
   onAddComment: () => void;
   onRequestUpdated: () => void;
