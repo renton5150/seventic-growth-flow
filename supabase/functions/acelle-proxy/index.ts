@@ -37,6 +37,8 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Received request to endpoint: ${acelleEndpoint} with method ${req.method}`);
+
     // Parse the URL path
     const parts = url.pathname.split('/');
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
@@ -61,39 +63,74 @@ serve(async (req) => {
 
     console.log(`Proxying request to Acelle API: ${acelleApiUrl}`);
 
-    // Forward the request to Acelle API
-    const response = await fetch(acelleApiUrl, {
-      method: req.method,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': req.headers.get('Content-Type') || 'application/json',
-        'User-Agent': 'Seventic-Acelle-Proxy/1.0'
-      },
-      body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : await req.text(),
-    });
+    // Prepare headers for the Acelle API request
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'User-Agent': 'Seventic-Acelle-Proxy/1.0'
+    };
 
-    // Log the response status
-    console.log(`Acelle API response: ${response.status} ${response.statusText} for ${acelleApiUrl}`);
-
-    // Read response data
-    const data = await response.text();
-    let responseData;
-    
-    try {
-      responseData = JSON.parse(data);
-      console.log(`Successfully parsed JSON response for ${resource}`);
-    } catch (e) {
-      console.error('Error parsing response from Acelle API:', e);
-      console.error('Raw response data:', data.substring(0, 500) + (data.length > 500 ? '...' : ''));
-      responseData = { error: 'Failed to parse response from Acelle API', status: response.status };
+    // Only add Content-Type for requests with body
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      headers['Content-Type'] = req.headers.get('Content-Type') || 'application/json';
     }
 
-    // Return the response
-    return new Response(JSON.stringify(responseData), {
-      status: response.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-    
+    // Forward the request to Acelle API with a timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+
+    try {
+      const response = await fetch(acelleApiUrl, {
+        method: req.method,
+        headers,
+        body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : await req.text(),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      // Log the response status
+      console.log(`Acelle API response: ${response.status} ${response.statusText} for ${acelleApiUrl}`);
+
+      // Read response data
+      const data = await response.text();
+      let responseData;
+      
+      try {
+        responseData = JSON.parse(data);
+        console.log(`Successfully parsed JSON response for ${resource}`);
+      } catch (e) {
+        console.error('Error parsing response from Acelle API:', e);
+        console.error('Raw response data:', data.substring(0, 500) + (data.length > 500 ? '...' : ''));
+        responseData = { 
+          error: 'Failed to parse response from Acelle API', 
+          status: response.status,
+          message: data.substring(0, 1000),
+          url: acelleApiUrl
+        };
+      }
+
+      // Return the response
+      return new Response(JSON.stringify(responseData), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error(`Request to ${acelleApiUrl} timed out`);
+        return new Response(JSON.stringify({ 
+          error: 'Request timed out', 
+          endpoint: acelleEndpoint,
+          url: acelleApiUrl 
+        }), { 
+          status: 504,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      throw fetchError; // Re-throw for the outer catch block
+    }
   } catch (error) {
     console.error('Error in Acelle Proxy:', error);
     

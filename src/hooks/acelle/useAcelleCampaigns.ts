@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
   const [activeAccounts, setActiveAccounts] = useState<AcelleAccount[]>([]);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     const filteredAccounts = accounts.filter(acc => acc.status === "active");
@@ -15,6 +16,7 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
 
   const fetchCampaigns = async () => {
     console.log('Fetching campaigns from cache...');
+    setSyncError(null);
     
     // Sync cache first
     try {
@@ -34,23 +36,46 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          forceSync: true // Forcer une synchronisation complète
+          forceSync: true
         })
       });
       
       if (!syncResponse.ok) {
-        const errorText = await syncResponse.text();
-        console.error(`Error syncing campaigns cache: ${syncResponse.status}`, errorText);
+        let errorMessage = `Erreur ${syncResponse.status}`;
+        try {
+          const errorData = await syncResponse.json();
+          console.error("Sync error details:", errorData);
+          errorMessage += `: ${errorData.error || "Erreur de synchronisation"}`;
+        } catch (e) {
+          const errorText = await syncResponse.text();
+          console.error(`Error syncing campaigns cache: ${syncResponse.status}`, errorText);
+        }
+        
         toast.error("Erreur lors de la synchronisation des campagnes");
+        setSyncError(errorMessage);
       } else {
         const syncResult = await syncResponse.json();
         console.log("Sync result:", syncResult);
+        
+        // Vérifiez s'il y a des erreurs dans les résultats individuels
+        const failedAccounts = syncResult.results?.filter(r => !r.success);
+        if (failedAccounts && failedAccounts.length > 0) {
+          console.warn("Some accounts failed to sync:", failedAccounts);
+          if (failedAccounts.length === syncResult.results.length) {
+            const mainError = failedAccounts[0];
+            toast.error(`Erreur de synchronisation: ${mainError.error || "Échec de connexion"}`);
+            setSyncError(`Échec de la synchronisation: ${mainError.error || "Problème de connexion API"}`);
+          } else {
+            toast.warning(`${failedAccounts.length} compte(s) n'ont pas pu être synchronisés`);
+          }
+        } else {
+          toast.success("Synchronisation réussie");
+        }
       }
-      
     } catch (error) {
       console.error("Error syncing campaigns cache:", error);
       toast.error("Erreur lors de la synchronisation");
-      // Continue to get cached data even if sync fails
+      setSyncError(`Erreur: ${error.message}`);
     }
 
     // Get campaigns from cache with a small delay to ensure sync has time to complete
@@ -100,35 +125,45 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
         complained: 0
       };
       
-      // Parse the delivery_info if it's a string or use the object if available
-      try {
-        if (typeof campaign.delivery_info === 'string') {
-          const parsedInfo = JSON.parse(campaign.delivery_info);
-          if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
-            // Merge with defaults to ensure all properties exist
-            deliveryInfo = {
-              ...deliveryInfo,
-              ...parsedInfo,
-              bounced: {
-                ...deliveryInfo.bounced,
-                ...(parsedInfo.bounced && typeof parsedInfo.bounced === 'object' ? parsedInfo.bounced : {})
+      // Parse the delivery_info if available
+      if (campaign.delivery_info) {
+        try {
+          // Handle string format (older data)
+          if (typeof campaign.delivery_info === 'string') {
+            try {
+              const parsedInfo = JSON.parse(campaign.delivery_info);
+              if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
+                deliveryInfo = {
+                  ...deliveryInfo,
+                  ...parsedInfo,
+                  bounced: {
+                    ...deliveryInfo.bounced,
+                    ...(parsedInfo.bounced && typeof parsedInfo.bounced === 'object' ? parsedInfo.bounced : {})
+                  }
+                };
               }
-            };
-          }
-        } else if (campaign.delivery_info && typeof campaign.delivery_info === 'object' && !Array.isArray(campaign.delivery_info)) {
-          // Merge with defaults to ensure all properties exist
-          deliveryInfo = {
-            ...deliveryInfo,
-            ...campaign.delivery_info,
-            bounced: {
-              ...deliveryInfo.bounced,
-              ...(campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced : {})
+            } catch (e) {
+              console.error(`Error parsing delivery_info string for campaign ${campaign.campaign_uid}:`, e);
             }
-          };
+          } 
+          // Handle object format (newer data)
+          else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+            if (Array.isArray(campaign.delivery_info)) {
+              console.error(`Unexpected array delivery_info for campaign ${campaign.campaign_uid}`);
+            } else {
+              deliveryInfo = {
+                ...deliveryInfo,
+                ...campaign.delivery_info,
+                bounced: {
+                  ...deliveryInfo.bounced,
+                  ...(campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced : {})
+                }
+              };
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing delivery_info for campaign ${campaign.campaign_uid}:`, e);
         }
-      } catch (e) {
-        console.error('Error parsing delivery_info:', e);
-        // Keep using the default deliveryInfo object
       }
       
       return {
@@ -171,13 +206,14 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     });
   };
 
-  const { data: campaignsData = [], isLoading, isError, refetch } = useQuery({
+  const { data: campaignsData = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["acelleCampaignsDashboard", activeAccounts.map(acc => acc.id)],
     queryFn: fetchCampaigns,
     enabled: activeAccounts.length > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnMount: true,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   return {
@@ -185,6 +221,8 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     campaignsData,
     isLoading,
     isError,
+    error,
+    syncError,
     refetch
   };
 };

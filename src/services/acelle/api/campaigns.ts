@@ -8,10 +8,21 @@ const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/function
 // Helper function to fetch campaign details
 export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: string) => {
   try {
+    // Fix potential URL issues by ensuring there's no trailing slash
+    const apiEndpoint = account.apiEndpoint?.endsWith('/') 
+      ? account.apiEndpoint.slice(0, -1) 
+      : account.apiEndpoint;
+      
+    if (!apiEndpoint || !account.apiToken) {
+      console.error(`Invalid API configuration for account: ${account.name}`);
+      return null;
+    }
+    
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "X-Acelle-Endpoint": apiEndpoint
       }
     });
 
@@ -102,10 +113,15 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
 export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
     // Fix potential URL issues by ensuring there's no trailing slash
-    const apiEndpoint = account.apiEndpoint.endsWith('/') 
+    const apiEndpoint = account.apiEndpoint?.endsWith('/') 
       ? account.apiEndpoint.slice(0, -1) 
       : account.apiEndpoint;
       
+    if (!apiEndpoint || !account.apiToken) {
+      console.error(`Invalid API configuration for account: ${account.name}`);
+      return null;
+    }
+    
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {

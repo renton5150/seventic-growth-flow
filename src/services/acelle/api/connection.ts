@@ -10,11 +10,21 @@ export const testAcelleConnection = async (
   debug: boolean = false
 ): Promise<boolean | AcelleConnectionDebug> => {
   try {
+    // Fix potential URL issues by ensuring there's no trailing slash
+    const cleanApiEndpoint = apiEndpoint?.endsWith('/') 
+      ? apiEndpoint.slice(0, -1) 
+      : apiEndpoint;
+      
+    if (!cleanApiEndpoint || !apiToken) {
+      throw new Error("API endpoint and token are required");
+    }
+      
     const url = `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`;
     
     const headers = {
       "Accept": "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "X-Acelle-Endpoint": cleanApiEndpoint
     };
     
     const debugInfo: AcelleConnectionDebug = {
@@ -24,6 +34,8 @@ export const testAcelleConnection = async (
         headers
       }
     };
+    
+    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint}`);
     
     const response = await fetch(url, {
       method: "GET",
@@ -36,7 +48,11 @@ export const testAcelleConnection = async (
       try {
         debugInfo.responseData = await response.clone().json();
       } catch (e) {
-        debugInfo.responseData = await response.clone().text();
+        try {
+          debugInfo.responseData = await response.clone().text();
+        } catch (textError) {
+          debugInfo.responseData = "Error reading response";
+        }
       }
     }
     
@@ -66,7 +82,10 @@ export const testAcelleConnection = async (
         errorMessage: error instanceof Error ? error.message : "Unknown error",
         request: {
           url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
-          headers: { "Accept": "application/json" }
+          headers: { 
+            "Accept": "application/json",
+            "X-Acelle-Endpoint": apiEndpoint
+          }
         }
       };
     }
@@ -74,4 +93,3 @@ export const testAcelleConnection = async (
     return false;
   }
 };
-

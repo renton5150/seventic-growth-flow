@@ -1,8 +1,9 @@
 
 import React, { useCallback } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AcelleAccount } from "@/types/acelle.types";
 import { useAcelleCampaigns } from "@/hooks/acelle/useAcelleCampaigns";
 import { CampaignStatusChart } from "./charts/CampaignStatusChart";
@@ -14,7 +15,7 @@ interface AcelleCampaignsDashboardProps {
 }
 
 export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDashboardProps) {
-  const { activeAccounts, campaignsData, isLoading, isError, refetch } = useAcelleCampaigns(accounts);
+  const { activeAccounts, campaignsData, isLoading, isError, error, syncError, refetch } = useAcelleCampaigns(accounts);
 
   const handleRefresh = useCallback(() => {
     refetch();
@@ -56,6 +57,15 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
         </Button>
       </div>
 
+      {syncError && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex flex-1 items-center">
+            {syncError}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -64,9 +74,9 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
         <Card>
           <CardContent className="py-6">
             <div className="text-center">
-              <p className="text-red-500">Erreur lors du chargement des données</p>
-              <p className="text-sm text-muted-foreground mt-2">Veuillez réessayer plus tard.</p>
-              <Button onClick={handleRefresh} className="mt-4" variant="outline">Réessayer</Button>
+              <p className="text-red-500 mb-2">Erreur lors du chargement des données</p>
+              <p className="text-sm text-muted-foreground mb-4">{error instanceof Error ? error.message : "Une erreur s'est produite"}</p>
+              <Button onClick={handleRefresh} className="mt-2" variant="outline">Réessayer</Button>
             </div>
           </CardContent>
         </Card>
@@ -75,7 +85,10 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
           <CardContent className="py-6">
             <div className="text-center">
               <p>Aucune campagne trouvée.</p>
-              <p className="text-sm text-muted-foreground mt-2">Créez votre première campagne ou attendez la synchronisation.</p>
+              <p className="text-sm text-muted-foreground mt-2">Créez votre première campagne ou vérifiez la connexion à l'API Acelle.</p>
+              <Button onClick={handleRefresh} className="mt-4" variant="outline">
+                Synchroniser les données
+              </Button>
             </div>
           </CardContent>
         </Card>
