@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmailCampaignRequest } from '@/types/types';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { downloadFile } from '@/services/database';
+import { toast } from 'sonner';
 
 interface EmailCampaignDetailsProps {
   request: EmailCampaignRequest;
@@ -18,69 +20,23 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
   };
 
   // Fonction pour télécharger un fichier à partir d'une URL
-  const handleFileDownload = (url: string | undefined, filename: string = "document") => {
-    if (!url) return;
-    
-    // Cas 1: URL complète (http/https)
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      window.open(url, '_blank');
+  const handleFileDownload = async (url: string | undefined, filename: string = "document") => {
+    if (!url) {
+      toast.error("Aucune URL de fichier disponible");
       return;
     }
     
-    // Cas 2: Chemin local (pour les chemins simulés en mode démo)
-    const element = document.createElement('a');
-    
-    // Déterminer le type de fichier à partir de l'extension
-    const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
-    let mimeType = 'application/octet-stream';
-    
-    // Configurer le type MIME correct selon l'extension
-    if (fileExtension === 'xlsx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    } else if (fileExtension === 'xls') {
-      mimeType = 'application/vnd.ms-excel';
-    } else if (fileExtension === 'csv') {
-      mimeType = 'text/csv';
-    } else if (fileExtension === 'pdf') {
-      mimeType = 'application/pdf';
-    } else if (fileExtension === 'docx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    } else if (fileExtension === 'doc') {
-      mimeType = 'application/msword';
+    try {
+      console.log(`Téléchargement demandé pour: ${url}`);
+      const success = await downloadFile(url, filename);
+      
+      if (!success) {
+        toast.error("Erreur lors du téléchargement du fichier");
+      }
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      toast.error("Erreur lors du téléchargement du fichier");
     }
-    
-    // Créer un contenu approprié selon le type de fichier
-    let fileContent;
-    
-    if (fileExtension === 'csv') {
-      // En-tête CSV minimal valide
-      fileContent = 'Column1,Column2,Column3\nValue1,Value2,Value3';
-    } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-      // Pour les fichiers Excel, utiliser un en-tête minimal
-      fileContent = new Uint8Array([
-        0x50, 0x4B, 0x03, 0x04, // Signature pour les fichiers XLSX (ZIP)
-        0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-      ]);
-    } else {
-      // Pour les autres types de fichiers
-      fileContent = 'Contenu simulé pour le mode démo';
-    }
-    
-    const blob = new Blob([fileContent], { type: mimeType });
-    element.href = URL.createObjectURL(blob);
-    
-    // Extraire le nom du fichier depuis l'URL
-    const extractedFilename = url.split('/').pop() || filename;
-    element.download = decodeURIComponent(extractedFilename);
-    
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    
-    // Libérer l'URL créée
-    setTimeout(() => {
-      URL.revokeObjectURL(element.href);
-    }, 100);
   };
 
   return (

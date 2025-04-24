@@ -51,6 +51,7 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
 
   const handleFileDownload = async (fileUrl: string, fileName: string) => {
     try {
+      console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
       const success = await downloadFile(fileUrl, fileName);
       
       if (!success) {
