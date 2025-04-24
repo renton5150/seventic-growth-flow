@@ -1,41 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, PenSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Request, Mission, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest, WorkflowStatus } from "@/types/types";
+import { Request, WorkflowStatus } from "@/types/types";
 import { RequestCompleteEditDialog } from "@/components/request-details/RequestCompleteEditDialog";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { GrowthRequestStatusBadge } from "@/components/growth/table/GrowthRequestStatusBadge";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
-import { EmailCampaignDetails } from "@/components/request-details/EmailCampaignDetails";
-import { DatabaseDetails } from "@/components/request-details/DatabaseDetails";
-import { LinkedInDetails } from "@/components/request-details/LinkedInDetails";
-import { RequestComments } from "@/components/request-details/RequestComments";
+import { RequestHeader } from "@/components/request-details/RequestHeader";
+import { RequestStatusControls } from "@/components/request-details/RequestStatusControls";
+import { RequestTabs } from "@/components/request-details/RequestTabs";
 import { RequestInfo } from "@/components/request-details/RequestInfo";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-function isEmailRequest(request: Request): request is EmailCampaignRequest {
-  return request.type === "email";
-}
-
-function isDatabaseRequest(request: Request): request is DatabaseRequest {
-  return request.type === "database";
-}
-
-function isLinkedInRequest(request: Request): request is LinkedInScrapingRequest {
-  return request.type === "linkedin";
-}
 
 const RequestDetails = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -73,12 +48,10 @@ const RequestDetails = () => {
         const formattedRequest = formatRequestFromDb(data);
         setRequest(formattedRequest);
         
-        // Ensure we're using a valid WorkflowStatus type
         if (formattedRequest.workflow_status) {
           setWorkflowStatus(formattedRequest.workflow_status as WorkflowStatus);
         }
         
-        // Récupérer la plateforme d'emailing si elle existe dans les détails
         if (formattedRequest.type === "email" && formattedRequest.details) {
           setEmailPlatform(formattedRequest.details.emailPlatform || "");
         }
@@ -112,61 +85,6 @@ const RequestDetails = () => {
   useEffect(() => {
     fetchRequestDetails();
   }, [id, navigate]);
-
-  const addComment = async () => {
-    if (!comment.trim() || !request) return;
-
-    try {
-      setCommentLoading(true);
-      
-      const currentDetails = request.details || {};
-      const currentComments = currentDetails.comments || [];
-      
-      const newComment = {
-        id: Date.now().toString(),
-        text: comment,
-        user: user?.name || "Utilisateur",
-        timestamp: new Date().toISOString(),
-        userId: user?.id
-      };
-      
-      const newComments = [...currentComments, newComment];
-      
-      const { error } = await supabase
-        .from('requests')
-        .update({
-          details: {
-            ...currentDetails,
-            comments: newComments
-          },
-          last_updated: new Date().toISOString()
-        })
-        .eq('id', request.id);
-      
-      if (error) {
-        console.error("Erreur lors de l'ajout du commentaire:", error);
-        toast.error("Erreur lors de l'ajout du commentaire");
-        return;
-      }
-      
-      setRequest({
-        ...request,
-        details: {
-          ...request.details,
-          comments: newComments
-        },
-        lastUpdated: new Date()
-      });
-      
-      setComment("");
-      toast.success("Commentaire ajouté avec succès");
-    } catch (error) {
-      console.error("Erreur lors de l'ajout du commentaire:", error);
-      toast.error("Erreur lors de l'ajout du commentaire");
-    } finally {
-      setCommentLoading(false);
-    }
-  };
 
   const updateWorkflowStatus = async (status: WorkflowStatus) => {
     if (!request) return;
@@ -243,6 +161,61 @@ const RequestDetails = () => {
     }
   };
 
+  const addComment = async () => {
+    if (!comment.trim() || !request) return;
+
+    try {
+      setCommentLoading(true);
+      
+      const currentDetails = request.details || {};
+      const currentComments = currentDetails.comments || [];
+      
+      const newComment = {
+        id: Date.now().toString(),
+        text: comment,
+        user: user?.name || "Utilisateur",
+        timestamp: new Date().toISOString(),
+        userId: user?.id
+      };
+      
+      const newComments = [...currentComments, newComment];
+      
+      const { error } = await supabase
+        .from('requests')
+        .update({
+          details: {
+            ...currentDetails,
+            comments: newComments
+          },
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', request.id);
+      
+      if (error) {
+        console.error("Erreur lors de l'ajout du commentaire:", error);
+        toast.error("Erreur lors de l'ajout du commentaire");
+        return;
+      }
+      
+      setRequest({
+        ...request,
+        details: {
+          ...request.details,
+          comments: newComments
+        },
+        lastUpdated: new Date()
+      });
+      
+      setComment("");
+      toast.success("Commentaire ajouté avec succès");
+    } catch (error) {
+      console.error("Erreur lors de l'ajout du commentaire:", error);
+      toast.error("Erreur lors de l'ajout du commentaire");
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -268,116 +241,37 @@ const RequestDetails = () => {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-2xl font-bold">{request?.title}</h1>
-          </div>
-          
-          {canEdit && (
-            <Button 
-              variant="default"
-              onClick={() => setIsEditDialogOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <PenSquare className="h-4 w-4" />
-              Modifier la demande
-            </Button>
-          )}
-        </div>
+        <RequestHeader
+          request={request}
+          onBack={() => navigate(-1)}
+          onEdit={() => setIsEditDialogOpen(true)}
+          canEdit={canEdit}
+        />
 
-        <div className="flex flex-wrap gap-2 mb-6">
-          <Badge className="px-2 py-1">
-            {request?.type === "email"
-              ? "Campagne Email"
-              : request?.type === "database"
-              ? "Base de données"
-              : "Scraping LinkedIn"}
-          </Badge>
-          {request && (
-            <GrowthRequestStatusBadge 
-              status={request.workflow_status || "pending_assignment"} 
-              isLate={request.isLate}
-            />
-          )}
-        </div>
-
-        {isGrowthOrAdmin && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
-            <div>
-              <p className="text-sm font-medium mb-1">Statut de la demande</p>
-              <Select
-                value={workflowStatus}
-                onValueChange={(value) => {
-                  setWorkflowStatus(value as WorkflowStatus);
-                  updateWorkflowStatus(value as WorkflowStatus);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionner un statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending_assignment">En attente</SelectItem>
-                  <SelectItem value="in_progress">En cours</SelectItem>
-                  <SelectItem value="completed">Terminée</SelectItem>
-                  <SelectItem value="canceled">Annulée</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {isEmailRequest(request) && (
-              <div>
-                <p className="text-sm font-medium mb-1">Plateforme d'emailing</p>
-                <Select
-                  value={emailPlatform}
-                  onValueChange={(value) => {
-                    setEmailPlatform(value);
-                    updateEmailPlatform(value);
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sélectionner une plateforme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Acelmail">Acelmail</SelectItem>
-                    <SelectItem value="Brevo">Brevo</SelectItem>
-                    <SelectItem value="Mindbaz">Mindbaz</SelectItem>
-                    <SelectItem value="Mailjet">Mailjet</SelectItem>
-                    <SelectItem value="Postyman">Postyman</SelectItem>
-                    <SelectItem value="Mailwizz">Mailwizz</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-        )}
+        <RequestStatusControls
+          isGrowthOrAdmin={isGrowthOrAdmin}
+          workflowStatus={workflowStatus}
+          onWorkflowStatusChange={(status) => {
+            setWorkflowStatus(status);
+            updateWorkflowStatus(status);
+          }}
+          isEmailRequest={request.type === "email"}
+          emailPlatform={emailPlatform}
+          onEmailPlatformChange={(platform) => {
+            setEmailPlatform(platform);
+            updateEmailPlatform(platform);
+          }}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
-            <Tabs defaultValue="details" className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="details">Détails</TabsTrigger>
-                <TabsTrigger value="comments">Commentaires</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="details">
-                {isEmailRequest(request) && <EmailCampaignDetails request={request} />}
-                {isDatabaseRequest(request) && <DatabaseDetails request={request} />}
-                {isLinkedInRequest(request) && <LinkedInDetails request={request} />}
-              </TabsContent>
-              
-              <TabsContent value="comments">
-                <RequestComments
-                  comments={request.details?.comments || []}
-                  comment={comment}
-                  commentLoading={commentLoading}
-                  onCommentChange={setComment}
-                  onAddComment={addComment}
-                />
-              </TabsContent>
-            </Tabs>
+            <RequestTabs
+              request={request}
+              comment={comment}
+              commentLoading={commentLoading}
+              onCommentChange={setComment}
+              onAddComment={addComment}
+            />
           </div>
 
           <div>
@@ -390,9 +284,7 @@ const RequestDetails = () => {
             open={isEditDialogOpen}
             onOpenChange={setIsEditDialogOpen}
             request={request}
-            onRequestUpdated={() => {
-              fetchRequestDetails();
-            }}
+            onRequestUpdated={fetchRequestDetails}
           />
         )}
       </div>
