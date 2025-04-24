@@ -42,6 +42,20 @@ export interface AcelleCampaign {
     unsubscribed: number;
     complained: number;
   };
+  statistics?: {
+    subscriber_count: number;
+    delivered_count: number;
+    delivered_rate: number;
+    open_count: number;
+    uniq_open_rate: number;
+    click_count: number;
+    click_rate: number;
+    bounce_count: number;
+    soft_bounce_count: number;
+    hard_bounce_count: number;
+    unsubscribe_count: number;
+    abuse_complaint_count: number;
+  };
 }
 
 export interface AcelleCampaignDetail extends AcelleCampaign {

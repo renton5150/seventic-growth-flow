@@ -179,7 +179,6 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
       const mappedCampaign: AcelleCampaign = {
         ...campaign,
         uid: campaign.campaign_uid,
-        delivery_at: campaign.delivery_date,
         statistics: {
           subscriber_count: deliveryInfo.total || 0,
           delivered_count: deliveryInfo.delivered || 0,

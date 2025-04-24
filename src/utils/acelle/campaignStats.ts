@@ -33,21 +33,22 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   console.log("calculateDeliveryStats - processing campaigns:", campaigns.length);
   
   campaigns.forEach(campaign => {
-    // Vérifiez si delivery_info existe et n'est pas null ou undefined
+    // Prioritize delivery_info as it's our primary structure
     if (campaign.delivery_info) {
       console.log(`Campaign ${campaign.name} delivery info:`, campaign.delivery_info);
       
-      // Utilisez les statistiques ou 0 si non disponibles
+      // Use existing delivery_info structure
       totalSent += campaign.delivery_info.total || 0;
       totalOpened += campaign.delivery_info.opened || 0;
       totalClicked += campaign.delivery_info.clicked || 0;
       
-      // Gérez les bounces qui peuvent être dans un sous-objet
+      // Handle bounces from the bounced subobject
       const softBounce = campaign.delivery_info.bounced?.soft || 0;
       const hardBounce = campaign.delivery_info.bounced?.hard || 0;
       totalBounced += softBounce + hardBounce;
-    } else if (campaign.statistics) {
-      // Fallback sur les statistiques directes si disponibles
+    } 
+    // Fall back to statistics if available
+    else if (campaign.statistics) {
       console.log(`Campaign ${campaign.name} statistics:`, campaign.statistics);
       
       totalSent += campaign.statistics.subscriber_count || 0;
