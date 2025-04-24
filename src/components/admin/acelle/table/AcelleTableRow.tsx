@@ -29,18 +29,52 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         </Badge>
       </TableCell>
       <TableCell>
-        {campaign.run_at 
-          ? format(new Date(campaign.run_at), "dd/MM/yyyy HH:mm", { locale: fr }) 
+        {campaign.delivery_date 
+          ? format(new Date(campaign.delivery_date), "dd/MM/yyyy HH:mm", { locale: fr }) 
           : "Non programmé"}
       </TableCell>
       <TableCell>
         {campaign.delivery_info?.total || 0}
       </TableCell>
       <TableCell>
-        {renderPercentage(campaign.delivery_info?.unique_open_rate)}
+        <div>
+          <div>{campaign.delivery_info?.delivered || 0}</div>
+          <div className="text-xs text-muted-foreground">
+            {renderPercentage(campaign.delivery_info?.delivery_rate)}
+          </div>
+        </div>
       </TableCell>
       <TableCell>
-        {renderPercentage(campaign.delivery_info?.click_rate)}
+        <div>
+          <div>{campaign.delivery_info?.opened || 0}</div>
+          <div className="text-xs text-muted-foreground">
+            {renderPercentage(campaign.delivery_info?.unique_open_rate)}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div>
+          <div>{campaign.delivery_info?.clicked || 0}</div>
+          <div className="text-xs text-muted-foreground">
+            {renderPercentage(campaign.delivery_info?.click_rate)}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div>
+          <div>{campaign.delivery_info?.bounced?.total || 0}</div>
+          <div className="text-xs text-muted-foreground">
+            {renderPercentage(campaign.delivery_info?.bounce_rate)}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div>
+          <div>{campaign.delivery_info?.unsubscribed || 0}</div>
+          <div className="text-xs text-muted-foreground">
+            {renderPercentage(campaign.delivery_info?.unsubscribe_rate)}
+          </div>
+        </div>
       </TableCell>
       <TableCell className="text-right">
         <Button

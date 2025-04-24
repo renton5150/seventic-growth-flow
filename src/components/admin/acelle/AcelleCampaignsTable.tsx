@@ -1,4 +1,5 @@
-import React from "react";
+
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Eye, RefreshCw } from "lucide-react";
 import {
@@ -16,12 +17,17 @@ import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable"
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
 import AcelleCampaignDetails from "./AcelleCampaignDetails";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Spinner } from "@/components/ui/spinner";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
 }
 
 export default function AcelleCampaignsTable({ account }: AcelleCampaignsTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
   const { 
     data: campaigns = [], 
     isLoading, 
@@ -29,10 +35,10 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     refetch,
     isFetching 
   } = useQuery({
-    queryKey: ["acelleCampaigns", account.id],
+    queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage],
     queryFn: async () => {
-      console.log("Fetching campaigns for account:", account);
-      const campaigns = await acelleService.getAcelleCampaigns(account);
+      console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
+      const campaigns = await acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
       console.log("Fetched campaigns:", campaigns);
       return campaigns;
     },
@@ -61,6 +67,12 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     );
   }
 
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Show loading state for initial load
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -117,31 +129,115 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           <p className="text-muted-foreground">Aucune campagne trouvée pour ce compte</p>
         </div>
       ) : (
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Sujet</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Date d'envoi</TableHead>
-                <TableHead>Envoyés</TableHead>
-                <TableHead>Taux d'ouverture</TableHead>
-                <TableHead>Taux de clic</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCampaigns.map((campaign) => (
-                <AcelleTableRow
-                  key={campaign.uid}
-                  campaign={campaign}
-                  onViewCampaign={(uid) => setSelectedCampaign(uid)}
+        <>
+          <div className="border rounded-md relative">
+            {isFetching && (
+              <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
+                <Spinner className="h-8 w-8 border-primary" />
+              </div>
+            )}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nom</TableHead>
+                  <TableHead>Sujet</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Date d'envoi</TableHead>
+                  <TableHead>Envoyés</TableHead>
+                  <TableHead>Livraisons</TableHead>
+                  <TableHead>Taux d'ouv.</TableHead>
+                  <TableHead>Taux de clic</TableHead>
+                  <TableHead>Bounces</TableHead>
+                  <TableHead>Désabonnements</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCampaigns.map((campaign) => (
+                  <AcelleTableRow
+                    key={campaign.uid}
+                    campaign={campaign}
+                    onViewCampaign={(uid) => setSelectedCampaign(uid)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage > 1) handlePageChange(currentPage - 1);
+                  }}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
                 />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </PaginationItem>
+              
+              {[...Array(Math.min(3, currentPage))].map((_, i) => {
+                const pageNumber = currentPage - (Math.min(3, currentPage) - i);
+                return (
+                  <PaginationItem key={`prev-${pageNumber}`}>
+                    <PaginationLink 
+                      href="#" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePageChange(pageNumber);
+                      }}
+                      isActive={pageNumber === currentPage}
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
+              
+              {currentPage + 1 <= 10 && (
+                <PaginationItem>
+                  <PaginationLink 
+                    href="#" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage + 1);
+                    }}
+                  >
+                    {currentPage + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              
+              {currentPage + 2 <= 10 && (
+                <PaginationItem>
+                  <PaginationLink 
+                    href="#" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage + 2);
+                    }}
+                  >
+                    {currentPage + 2}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (campaigns.length === itemsPerPage) {
+                      handlePageChange(currentPage + 1);
+                    }
+                  }}
+                  className={campaigns.length < itemsPerPage ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </>
       )}
 
       <Dialog open={!!selectedCampaign} onOpenChange={(open) => !open && setSelectedCampaign(null)}>

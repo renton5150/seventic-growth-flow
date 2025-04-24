@@ -1,5 +1,6 @@
 
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
+import { updateLastSyncDate } from "./accounts";
 
 // Base URL for the Acelle API proxy
 const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
@@ -26,11 +27,11 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
   }
 };
 
-// Get campaigns for an account
-export const getAcelleCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
+// Get campaigns for an account with pagination
+export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
-    // Step 1: Get basic campaign list
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}`, {
+    // Step 1: Get basic campaign list with pagination
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}`, {
       method: "GET",
       headers: {
         "Accept": "application/json"
@@ -55,21 +56,26 @@ export const getAcelleCampaigns = async (account: AcelleAccount): Promise<Acelle
             delivery_rate: details.statistics.delivered_rate || 0,
             unique_open_rate: details.statistics.uniq_open_rate || 0,
             click_rate: details.statistics.click_rate || 0,
-            bounce_rate: (details.statistics.bounce_count || 0) / (details.statistics.subscriber_count || 1),
-            unsubscribe_rate: (details.statistics.unsubscribe_count || 0) / (details.statistics.subscriber_count || 1),
+            bounce_rate: details.statistics.bounce_count / (details.statistics.subscriber_count || 1),
+            unsubscribe_rate: details.statistics.unsubscribe_count / (details.statistics.subscriber_count || 1),
             delivered: details.statistics.delivered_count || 0,
             opened: details.statistics.open_count || 0,
             clicked: details.statistics.click_count || 0,
             bounced: {
               soft: details.statistics.soft_bounce_count || 0,
-              hard: details.statistics.hard_bounce_count || 0
+              hard: details.statistics.hard_bounce_count || 0,
+              total: details.statistics.bounce_count || 0
             },
             unsubscribed: details.statistics.unsubscribe_count || 0,
             complained: details.statistics.abuse_complaint_count || 0
-          } : undefined
+          } : undefined,
+          delivery_date: campaign.delivery_at || campaign.run_at
         };
       })
     );
+    
+    // Update last sync date after successful fetch
+    await updateLastSyncDate(account.id);
     
     return campaignsWithStats;
   } catch (error) {
@@ -98,4 +104,3 @@ export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignU
     return null;
   }
 };
-
