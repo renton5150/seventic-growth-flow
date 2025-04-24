@@ -29,46 +29,91 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     const { bucketName, path } = extractBucketAndPath(filePath);
     
     console.log(`Téléchargement du fichier: "${path}" depuis le bucket '${bucketName}'`);
-    
-    // Si le chemin n'a pas de dossier parent (fichier à la racine du bucket)
+
+    // Si path ne contient pas de séparateurs de chemin, alors c'est un fichier à la racine
     const folderPath = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '';
     const fileNameFromPath = path.split('/').pop() || '';
-    
-    // Vérifier d'abord si le fichier existe
-    const { data: fileList, error: existError } = await supabase.storage
+
+    // Liste tous les fichiers dans le bucket pour diagnostic
+    console.log(`Listage des fichiers dans le bucket '${bucketName}' chemin '${folderPath}'`);
+    const { data: fileList, error: listError } = await supabase.storage
       .from(bucketName)
-      .list(folderPath, {
-        limit: 100,
-        search: fileNameFromPath
-      });
-    
-    if (existError) {
-      console.error('Erreur lors de la vérification de l\'existence du fichier:', existError);
-      toast.error(`Erreur: ${existError.message || 'Fichier introuvable'}`);
+      .list(folderPath);
+
+    if (listError) {
+      console.error('Erreur lors du listage des fichiers:', listError);
+      toast.error(`Erreur de listage: ${listError.message}`);
       return false;
     }
-    
+
+    console.log(`Fichiers trouvés dans '${bucketName}/${folderPath}':`, fileList?.map(f => f.name).join(', ') || 'aucun');
+
+    // Si aucun fichier n'est trouvé, tenter avec un chemin vide
     if (!fileList || fileList.length === 0) {
-      console.error(`Fichier "${fileNameFromPath}" non trouvé dans le bucket: "${bucketName}" au chemin "${folderPath}"`);
-      toast.error("Fichier introuvable dans le stockage");
-      return false;
+      console.log(`Aucun fichier trouvé dans '${bucketName}/${folderPath}', tentative avec un chemin vide`);
+      const { data: rootFiles, error: rootError } = await supabase.storage
+        .from(bucketName)
+        .list('');
+
+      if (rootError) {
+        console.error('Erreur lors du listage des fichiers à la racine:', rootError);
+      } else {
+        console.log(`Fichiers à la racine de '${bucketName}':`, rootFiles?.map(f => f.name).join(', ') || 'aucun');
+        
+        // Recherche du fichier par nom sans tenir compte du chemin
+        const matchingFile = rootFiles?.find(f => f.name === fileNameFromPath);
+        if (matchingFile) {
+          console.log(`Fichier trouvé à la racine: ${matchingFile.name}`);
+          
+          // Télécharger directement depuis la racine
+          const { data, error } = await supabase.storage
+            .from(bucketName)
+            .download(matchingFile.name);
+            
+          if (error) {
+            console.error('Erreur lors du téléchargement du fichier depuis la racine:', error);
+            toast.error(`Erreur: ${error.message}`);
+            return false;
+          }
+          
+          if (data) {
+            console.log(`Téléchargement réussi depuis la racine pour ${matchingFile.name}`);
+            await saveFile(data, fileName);
+            return true;
+          }
+        }
+      }
+      
+      // Essayer toutes les combinaisons possibles de chemins
+      return await tryAlternativePaths(bucketName, fileNameFromPath, fileName);
     }
     
     // Trouver le fichier exact dans la liste
     const exactFile = fileList.find(file => file.name === fileNameFromPath);
     if (!exactFile) {
-      console.error(`Fichier exact "${fileNameFromPath}" non trouvé dans la liste des fichiers disponibles`);
-      console.log('Fichiers disponibles:', fileList.map(f => f.name).join(', '));
-      toast.error("Fichier exact introuvable dans le dossier");
-      return false;
+      console.log(`Fichier exact "${fileNameFromPath}" non trouvé dans la liste. Tentative avec le nom seulement.`);
+      
+      // Essayer de télécharger par nom uniquement
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .download(fileNameFromPath);
+        
+      if (!error && data) {
+        console.log(`Téléchargement réussi par nom uniquement pour ${fileNameFromPath}`);
+        await saveFile(data, fileName);
+        return true;
+      }
+      
+      return await tryAlternativePaths(bucketName, fileNameFromPath, fileName);
     }
     
-    console.log(`Fichier trouvé: ${exactFile.name}, taille: ${exactFile.metadata?.size || 'inconnue'}`);
+    console.log(`Fichier trouvé: ${exactFile.name}, tentative de téléchargement`);
     
-    // Télécharger directement depuis le bucket de stockage
+    // Télécharger depuis le chemin complet
+    const fullPath = folderPath ? `${folderPath}/${fileNameFromPath}` : fileNameFromPath;
     const { data, error } = await supabase.storage
       .from(bucketName)
-      .download(path);
+      .download(fullPath);
     
     if (error) {
       console.error('Erreur lors du téléchargement du fichier:', error);
@@ -76,7 +121,7 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       // Tentative alternative avec URL publique
       const { data: publicUrl } = supabase.storage
         .from(bucketName)
-        .getPublicUrl(path);
+        .getPublicUrl(fullPath);
       
       if (publicUrl?.publicUrl) {
         console.log('Tentative de téléchargement via URL publique:', publicUrl.publicUrl);
@@ -94,15 +139,86 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     }
     
     console.log(`Fichier téléchargé avec succès. Taille: ${data.size} octets`);
+    return await saveFile(data, fileName);
     
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error('Erreur lors du téléchargement:', error);
+    toast.error(`Erreur de téléchargement: ${errorMessage}`);
+    return false;
+  }
+};
+
+/**
+ * Essaie plusieurs combinaisons de chemins possibles pour télécharger le fichier
+ */
+const tryAlternativePaths = async (bucketName: string, fileName: string, downloadName: string): Promise<boolean> => {
+  console.log(`Essai de chemins alternatifs pour '${fileName}' dans le bucket '${bucketName}'`);
+  
+  // Liste des chemins à essayer
+  const pathsToTry = [
+    fileName,                   // Nom du fichier directement
+    `/${fileName}`,             // Avec slash au début
+    `${fileName.toLowerCase()}`, // En minuscules
+    encodeURIComponent(fileName), // URL encodé
+    decodeURIComponent(fileName)  // URL décodé
+  ];
+  
+  // Essayer avec les chemins alternatifs
+  for (const path of pathsToTry) {
+    console.log(`Tentative avec le chemin: ${path}`);
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .download(path);
+        
+      if (error) {
+        console.log(`Échec avec le chemin ${path}:`, error.message);
+        continue;
+      }
+      
+      if (data) {
+        console.log(`Succès avec le chemin alternatif: ${path}`);
+        await saveFile(data, downloadName);
+        return true;
+      }
+    } catch (e) {
+      console.log(`Erreur lors de l'essai du chemin ${path}:`, e);
+    }
+  }
+  
+  // Tenter d'utiliser la méthode getPublicUrl comme dernier recours
+  try {
+    console.log(`Tentative avec getPublicUrl pour ${fileName}`);
+    const { data } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(fileName);
+      
+    if (data?.publicUrl) {
+      console.log(`URL publique obtenue: ${data.publicUrl}`);
+      return await downloadFileFromUrl(data.publicUrl, downloadName);
+    }
+  } catch (e) {
+    console.log('Erreur lors de l\'obtention de l\'URL publique:', e);
+  }
+  
+  toast.error("Impossible de trouver le fichier après plusieurs tentatives");
+  return false;
+};
+
+/**
+ * Sauvegarde un blob en tant que fichier téléchargeable
+ */
+const saveFile = async (data: Blob, fileName: string): Promise<boolean> => {
+  try {
     // Créer un URL objet pour le téléchargement
     const blobUrl = URL.createObjectURL(data);
     const element = document.createElement('a');
     element.href = blobUrl;
     
-    // Utiliser le nom de fichier fourni ou extraire du chemin
-    const downloadFileName = fileName || path.split('/').pop() || "document";
-    element.download = decodeURIComponent(downloadFileName);
+    // Utiliser le nom de fichier fourni
+    element.download = decodeURIComponent(fileName);
     
     // Déclencher le téléchargement
     document.body.appendChild(element);
@@ -114,11 +230,11 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       URL.revokeObjectURL(blobUrl);
     }, 500);
     
+    console.log(`Fichier ${fileName} téléchargé avec succès`);
     return true;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-    console.error('Erreur lors du téléchargement:', error);
-    toast.error(`Erreur de téléchargement: ${errorMessage}`);
+  } catch (e) {
+    console.error('Erreur lors de la sauvegarde du fichier:', e);
+    toast.error("Erreur lors de la sauvegarde du fichier");
     return false;
   }
 };
@@ -127,10 +243,10 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
  * Extrait le nom du bucket et le chemin du fichier à partir d'une URL ou d'un chemin
  */
 const extractBucketAndPath = (filePath: string): { bucketName: string; path: string } => {
+  // Liste des buckets possibles
+  const knownBuckets = ['uploads', 'databases', 'templates', 'blacklists', 'storage'];
+  let bucketName = 'uploads'; // Par défaut 'uploads'
   let path = filePath;
-  // Liste des buckets possibles dans l'ordre de priorité
-  const knownBuckets = ['databases', 'uploads', 'templates', 'blacklists'];
-  let bucketName = knownBuckets[0]; // Par défaut 'databases'
   
   console.log("Analyse du chemin de fichier:", filePath);
   
@@ -153,36 +269,38 @@ const extractBucketAndPath = (filePath: string): { bucketName: string; path: str
         }
       }
       
-      // Si aucun bucket connu n'est trouvé dans l'URL
-      console.log("Aucun bucket connu trouvé dans l'URL, utilisation du chemin brut");
+      // Si aucun bucket connu n'est trouvé, extraire juste le nom du fichier
+      const fileName = pathSegments[pathSegments.length - 1];
+      console.log(`Aucun bucket trouvé dans l'URL, utilisation du nom de fichier: ${fileName}`);
+      return { bucketName, path: fileName };
     } catch (urlError) {
       console.error("Erreur lors du traitement de l'URL:", urlError);
     }
-  } 
+  }
   
-  // Si c'est un chemin relatif ou si l'URL n'a pas été analysée avec succès
-  // Vérifier si le chemin contient un nom de bucket connu
+  // Si c'est un chemin relatif, vérifier le format
   for (const bucket of knownBuckets) {
     if (path.startsWith(`${bucket}/`)) {
       bucketName = bucket;
-      path = path.substring(bucket.length + 1); // +1 pour le slash
+      path = path.substring(bucket.length + 1);
       console.log(`Chemin relatif avec bucket: ${bucketName}, sous-chemin: ${path}`);
       return { bucketName, path };
     }
   }
   
-  // Si aucun bucket n'a été identifié dans le chemin, utiliser le premier bucket connu
+  // Si le chemin commence par un slash, le supprimer
   if (path.startsWith('/')) {
-    path = path.substring(1); // Supprimer le slash initial si présent
+    path = path.substring(1);
   }
   
+  // Si aucun bucket identifié, considérer que c'est juste un nom de fichier
+  // et rechercher dans le bucket par défaut
   console.log(`Aucun bucket identifié, utilisation par défaut: ${bucketName}, chemin: ${path}`);
   return { bucketName, path };
 };
 
 /**
  * Télécharge un fichier directement via une URL
- * Cette méthode alternative est utilisée lorsque nous avons une URL signée
  */
 const downloadFileFromUrl = async (url: string, fileName: string): Promise<boolean> => {
   try {
@@ -197,20 +315,7 @@ const downloadFileFromUrl = async (url: string, fileName: string): Promise<boole
     }
     
     const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const element = document.createElement('a');
-    element.href = blobUrl;
-    element.download = fileName;
-    
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    
-    setTimeout(() => {
-      URL.revokeObjectURL(blobUrl);
-    }, 500);
-    
-    return true;
+    return await saveFile(blob, fileName);
   } catch (error) {
     console.error('Erreur lors du téléchargement direct:', error);
     toast.error(`Erreur lors du téléchargement direct: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);

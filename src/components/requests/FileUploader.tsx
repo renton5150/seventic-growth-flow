@@ -73,7 +73,9 @@ export const FileUploader = ({
         // Supprimer le toast de chargement
         toast.dismiss(loadingToast);
         
-        if (!success) {
+        if (success) {
+          toast.success(`Téléchargement de "${decodeURIComponent(fileName)}" réussi`);
+        } else {
           toast.error("Erreur lors du téléchargement du fichier");
         }
       }

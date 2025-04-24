@@ -5,13 +5,13 @@ import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { downloadFile } from '@/services/database';
 import { toast } from 'sonner';
-import { DatabaseDetails } from '@/types/types';
+import { EmailTemplate } from '@/types/types';
 
-interface DatabaseSectionProps {
-  database: DatabaseDetails;
+interface TemplateDetailsProps {
+  template: EmailTemplate;
 }
 
-export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
+export const TemplateSection = ({ template }: TemplateDetailsProps) => {
   const [downloading, setDownloading] = useState(false);
 
   const handleFileDownload = async (url: string | undefined, filename: string = "document") => {
@@ -54,36 +54,39 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
   return (
     <Card className="mb-4">
       <CardHeader>
-        <CardTitle>Base de données</CardTitle>
+        <CardTitle>Template Email</CardTitle>
       </CardHeader>
       <CardContent>
-        {database.notes && (
+        {template.content && (
           <div className="mb-4">
-            <h4 className="font-semibold text-sm">Notes</h4>
-            <p>{database.notes}</p>
+            <h4 className="font-semibold text-sm">Contenu</h4>
+            <div 
+              className="border rounded-md p-4 bg-white mt-1 overflow-auto max-h-[500px]"
+              dangerouslySetInnerHTML={{ __html: template.content }}
+            />
           </div>
         )}
-        {database.fileUrl && (
+        {template.webLink && (
           <div className="mb-4">
-            <h4 className="font-semibold text-sm">Fichier</h4>
+            <h4 className="font-semibold text-sm">Lien web</h4>
+            <a href={template.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              {template.webLink}
+            </a>
+          </div>
+        )}
+        {template.fileUrl && (
+          <div>
+            <h4 className="font-semibold text-sm">Fichier attaché</h4>
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => handleFileDownload(database.fileUrl, "database.xlsx")}
+              onClick={() => handleFileDownload(template.fileUrl, "template.docx")}
               className="flex items-center gap-2 mt-1"
               disabled={downloading}
             >
               <Download className="h-4 w-4" />
-              {downloading ? 'Téléchargement...' : 'Télécharger la base de données'}
+              {downloading ? 'Téléchargement...' : 'Télécharger le fichier'}
             </Button>
-          </div>
-        )}
-        {database.webLink && (
-          <div>
-            <h4 className="font-semibold text-sm">Lien web</h4>
-            <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-              {database.webLink}
-            </a>
           </div>
         )}
       </CardContent>

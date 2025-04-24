@@ -36,6 +36,9 @@ export const BlacklistSection = ({ blacklist }: BlacklistSectionProps) => {
       
       if (success) {
         toast.success(`Téléchargement de "${filename}" réussi`);
+      } else {
+        // Afficher un message d'erreur spécifique si le téléchargement échoue
+        toast.error("Le fichier n'a pas pu être téléchargé");
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
