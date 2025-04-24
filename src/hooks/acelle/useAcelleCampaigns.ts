@@ -33,7 +33,8 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
         },
         body: JSON.stringify({
           forceSync: true
@@ -58,7 +59,7 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
         console.log("Sync result:", syncResult);
         
         // Vérifiez s'il y a des erreurs dans les résultats individuels
-        const failedAccounts = syncResult.results?.filter(r => !r.success);
+        const failedAccounts = syncResult.results?.filter((r: any) => !r.success);
         if (failedAccounts && failedAccounts.length > 0) {
           console.warn("Some accounts failed to sync:", failedAccounts);
           if (failedAccounts.length === syncResult.results.length) {
@@ -104,10 +105,11 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
       console.log("No campaigns found in cache");
     } else {
       console.log(`Found ${campaigns.length} campaigns in cache`);
+      console.log("Sample campaign data:", campaigns[0]);
     }
 
     return campaigns.map(campaign => {
-      // Initialize default empty objects with all required properties
+      // Initialisation d'un delivery_info complet avec toutes les propriétés attendues
       let deliveryInfo = {
         total: 0,
         delivered: 0,
@@ -125,10 +127,12 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
         complained: 0
       };
       
-      // Parse the delivery_info if available
+      // Traitement des données de delivery_info
       if (campaign.delivery_info) {
+        console.log(`Processing delivery_info for campaign ${campaign.campaign_uid}:`, campaign.delivery_info);
+        
         try {
-          // Handle string format (older data)
+          // Gestion du cas où delivery_info est une chaîne JSON
           if (typeof campaign.delivery_info === 'string') {
             try {
               const parsedInfo = JSON.parse(campaign.delivery_info);
@@ -146,7 +150,7 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
               console.error(`Error parsing delivery_info string for campaign ${campaign.campaign_uid}:`, e);
             }
           } 
-          // Handle object format (newer data)
+          // Gestion du cas où delivery_info est déjà un objet
           else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
             if (Array.isArray(campaign.delivery_info)) {
               console.error(`Unexpected array delivery_info for campaign ${campaign.campaign_uid}`);
@@ -156,7 +160,9 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
                 ...campaign.delivery_info,
                 bounced: {
                   ...deliveryInfo.bounced,
-                  ...(campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced : {})
+                  ...(campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object' 
+                      ? campaign.delivery_info.bounced 
+                      : {})
                 }
               };
             }
@@ -166,7 +172,11 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
         }
       }
       
-      return {
+      // Log pour vérifier les valeurs finales
+      console.log(`Final deliveryInfo for campaign ${campaign.campaign_uid}:`, deliveryInfo);
+      
+      // Construction de l'objet campaign avec les statistiques
+      const mappedCampaign: AcelleCampaign = {
         ...campaign,
         uid: campaign.campaign_uid,
         delivery_at: campaign.delivery_date,
@@ -202,7 +212,9 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
           unsubscribed: deliveryInfo.unsubscribed || 0,
           complained: deliveryInfo.complained || 0
         }
-      } as AcelleCampaign;
+      };
+
+      return mappedCampaign;
     });
   };
 
