@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
 import { downloadFile } from "@/services/database";
 
@@ -25,6 +25,7 @@ export const FileUploader = ({
   disabled
 }: FileUploaderProps) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [downloading, setDownloading] = useState(false);
   
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
@@ -56,19 +57,21 @@ export const FileUploader = ({
     e.preventDefault();
     e.stopPropagation();
     
-    if (!value || disabled || typeof value !== 'string') return;
+    if (!value || disabled || typeof value !== 'string' || downloading) return;
     
     try {
-      if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('uploads/')) {
+      setDownloading(true);
+      
+      if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('uploads/') || value.includes('storage')) {
         const fileName = value.split('/').pop() || 'document';
         
         // Afficher un toast de chargement
-        toast.loading("Téléchargement en cours...");
+        const loadingToast = toast.loading("Téléchargement en cours...");
         
         const success = await downloadFile(value, decodeURIComponent(fileName));
         
         // Supprimer le toast de chargement
-        toast.dismiss();
+        toast.dismiss(loadingToast);
         
         if (!success) {
           toast.error("Erreur lors du téléchargement du fichier");
@@ -77,6 +80,8 @@ export const FileUploader = ({
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");
+    } finally {
+      setDownloading(false);
     }
   };
   
@@ -92,9 +97,10 @@ export const FileUploader = ({
           </div>
           <button 
             onClick={handleDownload}
-            className="mt-2 text-sm text-blue-600 hover:underline focus:outline-none"
+            className="mt-2 text-sm text-blue-600 hover:underline focus:outline-none disabled:opacity-50"
+            disabled={downloading || disabled}
           >
-            Télécharger
+            {downloading ? 'Téléchargement...' : 'Télécharger'}
           </button>
           <button 
             onClick={(e) => {

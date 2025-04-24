@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,22 +12,30 @@ interface TemplateDetailsProps {
 }
 
 export const TemplateSection = ({ template }: TemplateDetailsProps) => {
+  const [downloading, setDownloading] = useState(false);
+
   const handleFileDownload = async (url: string | undefined, filename: string = "document") => {
     if (!url) {
       toast.error("Aucune URL de fichier disponible");
       return;
     }
     
+    if (downloading) {
+      return; // Éviter les téléchargements multiples
+    }
+    
     try {
       console.log(`Téléchargement demandé pour: ${url}`);
       
+      setDownloading(true);
+      
       // Afficher un toast de chargement
-      toast.loading("Téléchargement en cours...");
+      const loadingToast = toast.loading("Téléchargement en cours...");
       
       const success = await downloadFile(url, filename);
       
       // Supprimer le toast de chargement
-      toast.dismiss();
+      toast.dismiss(loadingToast);
       
       if (success) {
         toast.success(`Téléchargement de "${filename}" réussi`);
@@ -35,6 +43,8 @@ export const TemplateSection = ({ template }: TemplateDetailsProps) => {
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -69,9 +79,10 @@ export const TemplateSection = ({ template }: TemplateDetailsProps) => {
               size="sm" 
               onClick={() => handleFileDownload(template.fileUrl, "template.docx")}
               className="flex items-center gap-2 mt-1"
+              disabled={downloading}
             >
               <Download className="h-4 w-4" />
-              Télécharger le fichier
+              {downloading ? 'Téléchargement...' : 'Télécharger le fichier'}
             </Button>
           </div>
         )}

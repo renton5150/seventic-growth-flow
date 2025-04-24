@@ -19,18 +19,27 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       return false;
     }
     
+    // Si c'est une URL complète avec token de signature, essayer le téléchargement direct
+    if (filePath.includes("token=") || filePath.includes("sign=")) {
+      console.log("URL signée détectée, tentative de téléchargement direct...");
+      return await downloadFileFromUrl(filePath, fileName);
+    }
+    
     // Déterminer le bucket et le chemin du fichier
     const { bucketName, path } = extractBucketAndPath(filePath);
     
-    console.log(`Téléchargement du fichier: ${path} depuis le bucket '${bucketName}'`);
+    console.log(`Téléchargement du fichier: "${path}" depuis le bucket '${bucketName}'`);
+    
+    // Si le chemin n'a pas de dossier parent (fichier à la racine du bucket)
+    const folderPath = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '';
+    const fileNameFromPath = path.split('/').pop() || '';
     
     // Vérifier d'abord si le fichier existe
-    const { data: fileExists, error: existError } = await supabase.storage
+    const { data: fileList, error: existError } = await supabase.storage
       .from(bucketName)
-      .list(path.split('/').slice(0, -1).join('/'), {
+      .list(folderPath, {
         limit: 100,
-        offset: 0,
-        search: path.split('/').pop()
+        search: fileNameFromPath
       });
     
     if (existError) {
@@ -39,11 +48,22 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       return false;
     }
     
-    if (!fileExists || fileExists.length === 0) {
-      console.error('Fichier non trouvé dans le bucket:', path);
+    if (!fileList || fileList.length === 0) {
+      console.error(`Fichier "${fileNameFromPath}" non trouvé dans le bucket: "${bucketName}" au chemin "${folderPath}"`);
       toast.error("Fichier introuvable dans le stockage");
       return false;
     }
+    
+    // Trouver le fichier exact dans la liste
+    const exactFile = fileList.find(file => file.name === fileNameFromPath);
+    if (!exactFile) {
+      console.error(`Fichier exact "${fileNameFromPath}" non trouvé dans la liste des fichiers disponibles`);
+      console.log('Fichiers disponibles:', fileList.map(f => f.name).join(', '));
+      toast.error("Fichier exact introuvable dans le dossier");
+      return false;
+    }
+    
+    console.log(`Fichier trouvé: ${exactFile.name}, taille: ${exactFile.metadata?.size || 'inconnue'}`);
     
     // Télécharger directement depuis le bucket de stockage
     const { data, error } = await supabase.storage
@@ -52,6 +72,17 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     
     if (error) {
       console.error('Erreur lors du téléchargement du fichier:', error);
+      
+      // Tentative alternative avec URL publique
+      const { data: publicUrl } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(path);
+      
+      if (publicUrl?.publicUrl) {
+        console.log('Tentative de téléchargement via URL publique:', publicUrl.publicUrl);
+        return await downloadFileFromUrl(publicUrl.publicUrl, fileName);
+      }
+      
       toast.error(`Erreur: ${error.message || 'Problème de téléchargement'}`);
       return false;
     }
@@ -97,56 +128,55 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
  */
 const extractBucketAndPath = (filePath: string): { bucketName: string; path: string } => {
   let path = filePath;
-  let bucketName = 'databases'; // Bucket par défaut
+  // Liste des buckets possibles dans l'ordre de priorité
+  const knownBuckets = ['databases', 'uploads', 'templates', 'blacklists'];
+  let bucketName = knownBuckets[0]; // Par défaut 'databases'
+  
+  console.log("Analyse du chemin de fichier:", filePath);
   
   // Si c'est une URL complète, extraire le chemin du fichier
   if (filePath.startsWith('http')) {
     try {
       const url = new URL(filePath);
       const pathSegments = url.pathname.split('/');
+      console.log("Segments du chemin dans l'URL:", pathSegments);
       
-      // Chercher les segments dans l'URL pour déterminer le bucket et le chemin
-      if (pathSegments.includes('storage') && pathSegments.includes('object')) {
-        // Format moderne: /storage/v1/object/{bucket}/{path}
-        const objectIndex = pathSegments.indexOf('object');
-        
-        if (objectIndex !== -1 && objectIndex + 1 < pathSegments.length) {
-          bucketName = pathSegments[objectIndex + 1];
-          path = pathSegments.slice(objectIndex + 2).join('/');
-          console.log(`Format moderne - Bucket: ${bucketName}, Path: ${path}`);
-        }
-      } else if (pathSegments.includes('storage') && pathSegments.includes('sign')) {
-        // Format signé: /storage/v1/sign/{token}
-        // Dans ce cas, nous devons utiliser une approche différente
-        // car nous n'avons pas accès direct au chemin du fichier
-        console.log(`URL signée détectée - Utilisation du téléchargement direct via URL`);
-        return { bucketName: 'direct', path: filePath };
-      } else {
-        // Essayer d'identifier un segment qui pourrait être un nom de bucket connu
-        const bucketCandidates = ['databases', 'uploads'];
-        for (const candidate of bucketCandidates) {
-          const index = pathSegments.indexOf(candidate);
-          if (index !== -1) {
-            bucketName = candidate;
-            path = pathSegments.slice(index).join('/');
-            console.log(`Bucket candidat trouvé - Bucket: ${bucketName}, Path: ${path}`);
-            break;
-          }
+      // Recherche des segments de bucket connus
+      for (const bucket of knownBuckets) {
+        const bucketIndex = pathSegments.indexOf(bucket);
+        if (bucketIndex !== -1) {
+          bucketName = bucket;
+          // Le chemin est tout ce qui vient après le nom du bucket
+          path = pathSegments.slice(bucketIndex + 1).join('/');
+          console.log(`Bucket trouvé dans l'URL: ${bucketName}, chemin: ${path}`);
+          return { bucketName, path };
         }
       }
+      
+      // Si aucun bucket connu n'est trouvé dans l'URL
+      console.log("Aucun bucket connu trouvé dans l'URL, utilisation du chemin brut");
     } catch (urlError) {
       console.error("Erreur lors du traitement de l'URL:", urlError);
-      
-      // Fallback: utiliser le chemin tel quel
-      path = filePath;
-      console.log(`URL mal formée - Utilisation du chemin brut: ${path}`);
     }
-  } else if (filePath.startsWith('uploads/')) {
-    // C'est un chemin relatif qui commence par 'uploads/'
-    path = filePath;
-    console.log(`Chemin relatif - Path: ${path}`);
+  } 
+  
+  // Si c'est un chemin relatif ou si l'URL n'a pas été analysée avec succès
+  // Vérifier si le chemin contient un nom de bucket connu
+  for (const bucket of knownBuckets) {
+    if (path.startsWith(`${bucket}/`)) {
+      bucketName = bucket;
+      path = path.substring(bucket.length + 1); // +1 pour le slash
+      console.log(`Chemin relatif avec bucket: ${bucketName}, sous-chemin: ${path}`);
+      return { bucketName, path };
+    }
   }
   
+  // Si aucun bucket n'a été identifié dans le chemin, utiliser le premier bucket connu
+  if (path.startsWith('/')) {
+    path = path.substring(1); // Supprimer le slash initial si présent
+  }
+  
+  console.log(`Aucun bucket identifié, utilisation par défaut: ${bucketName}, chemin: ${path}`);
   return { bucketName, path };
 };
 
