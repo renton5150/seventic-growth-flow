@@ -19,7 +19,7 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       return false;
     }
     
-    // Gérer le cas où l'URL est complète
+    // Gérer le cas où l'URL est complète ou juste un chemin relatif
     let path = filePath;
     let bucketName = 'databases'; // Bucket par défaut
     
@@ -29,32 +29,42 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
         const url = new URL(filePath);
         const pathSegments = url.pathname.split('/');
         
-        // Chercher le segment "storage" et "object" dans l'URL
-        const storageIndex = pathSegments.indexOf('storage');
-        const objectIndex = pathSegments.indexOf('object');
-        const bucketIndex = storageIndex !== -1 && objectIndex !== -1 ? objectIndex + 1 : -1;
-        
-        if (bucketIndex !== -1 && bucketIndex < pathSegments.length) {
-          bucketName = pathSegments[bucketIndex];
-          path = pathSegments.slice(bucketIndex + 1).join('/');
-          console.log(`Bucket extrait: ${bucketName}, chemin: ${path}`);
-        } else {
-          // Ancienne méthode pour la rétrocompatibilité
-          const databasesIndex = pathSegments.findIndex(s => s === 'databases');
-          if (databasesIndex !== -1 && databasesIndex < pathSegments.length - 1) {
-            path = pathSegments.slice(databasesIndex + 1).join('/');
-            console.log(`Chemin extrait (ancienne méthode): ${path}`);
-          } else {
-            console.error("Format d'URL non reconnu");
-            toast.error("Format d'URL incorrect");
-            return false;
+        // Chercher les segments dans l'URL pour déterminer le bucket et le chemin
+        if (pathSegments.includes('storage') && pathSegments.includes('object')) {
+          // Format moderne: /storage/v1/object/{bucket}/{path}
+          const storageIndex = pathSegments.indexOf('storage');
+          const objectIndex = pathSegments.indexOf('object');
+          
+          if (objectIndex !== -1 && objectIndex + 1 < pathSegments.length) {
+            bucketName = pathSegments[objectIndex + 1];
+            path = pathSegments.slice(objectIndex + 2).join('/');
+            console.log(`Format moderne - Bucket: ${bucketName}, Path: ${path}`);
           }
+        } else if (pathSegments.includes('databases')) {
+          // Format ancien: /storage/v1/object/sign/{path}
+          const databasesIndex = pathSegments.indexOf('databases');
+          if (databasesIndex !== -1) {
+            bucketName = 'databases';
+            path = pathSegments.slice(databasesIndex).join('/');
+            console.log(`Format ancien - Path: ${path}`);
+          }
+        } else {
+          // Format inconnu, essayer d'extraire le dernier segment comme nom de fichier
+          path = pathSegments[pathSegments.length - 1];
+          console.log(`Format inconnu - Utilisation du dernier segment: ${path}`);
         }
       } catch (urlError) {
         console.error("Erreur lors du traitement de l'URL:", urlError);
-        toast.error("URL de fichier malformée");
-        return false;
+        
+        // Fallback: utiliser le chemin tel quel si c'est une URL mal formée
+        path = filePath;
+        console.log(`URL mal formée - Utilisation du chemin brut: ${path}`);
       }
+    } else if (filePath.startsWith('uploads/')) {
+      // C'est un chemin relatif qui commence par 'uploads/'
+      path = filePath;
+      bucketName = 'databases'; // Bucket par défaut pour les uploads
+      console.log(`Chemin relatif - Bucket: ${bucketName}, Path: ${path}`);
     }
     
     console.log(`Téléchargement du fichier: ${path} depuis le bucket '${bucketName}'`);
@@ -66,7 +76,7 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     
     if (error) {
       console.error('Erreur lors du téléchargement du fichier:', error);
-      toast.error(`Erreur: ${error.message}`);
+      toast.error(`Erreur: ${error.message || 'Problème de téléchargement'}`);
       return false;
     }
     
