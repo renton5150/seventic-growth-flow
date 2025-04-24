@@ -1,9 +1,20 @@
 
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, PenSquare } from "lucide-react";
+import { ChevronLeft, PenSquare, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { GrowthRequestStatusBadge } from "@/components/growth/table/GrowthRequestStatusBadge";
 import { Request } from "@/types/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { useState } from "react";
+import { deleteRequest } from "@/services/requests/deleteRequestService";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface RequestHeaderProps {
   request: Request;
@@ -13,6 +24,30 @@ interface RequestHeaderProps {
 }
 
 export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeaderProps) => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      const success = await deleteRequest(request.id);
+      
+      if (success) {
+        toast.success("Demande supprimée avec succès");
+        navigate("/dashboard");
+      } else {
+        toast.error("Erreur lors de la suppression de la demande");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
+      toast.error("Erreur lors de la suppression de la demande");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -23,16 +58,27 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
           <h1 className="text-2xl font-bold">{request?.title}</h1>
         </div>
         
-        {canEdit && (
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Button 
+              variant="default"
+              onClick={onEdit}
+              className="flex items-center gap-2"
+            >
+              <PenSquare className="h-4 w-4" />
+              Modifier la demande
+            </Button>
+          )}
+          
           <Button 
-            variant="default"
-            onClick={onEdit}
+            variant="destructive"
+            onClick={() => setIsDeleteDialogOpen(true)}
             className="flex items-center gap-2"
           >
-            <PenSquare className="h-4 w-4" />
-            Modifier la demande
+            <Trash2 className="h-4 w-4" />
+            Supprimer
           </Button>
-        )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -50,6 +96,33 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
           />
         )}
       </div>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer cette demande ? Cette action ne peut pas être annulée.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Suppression..." : "Supprimer"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
