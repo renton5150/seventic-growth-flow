@@ -1,9 +1,9 @@
 
 import React from 'react';
 import { EmailCampaignRequest } from '@/types/types';
-import { TemplateDetails } from './email-campaign/TemplateDetails';
-import { DatabaseDetails } from './email-campaign/DatabaseDetails';
-import { BlacklistDetails } from './email-campaign/BlacklistDetails';
+import { TemplateSection } from './sections/TemplateDetails';
+import { DatabaseSection } from './sections/DatabaseSection';
+import { BlacklistSection } from './sections/BlacklistSection';
 
 interface EmailCampaignDetailsProps {
   request: EmailCampaignRequest;
@@ -18,10 +18,10 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
   };
 
   return (
-    <>
-      <TemplateDetails template={template} />
-      <DatabaseDetails database={database} />
-      <BlacklistDetails blacklist={blacklist} />
-    </>
+    <div className="space-y-6">
+      <TemplateSection template={template} />
+      <DatabaseSection database={database} />
+      <BlacklistSection blacklist={blacklist} />
+    </div>
   );
 };
