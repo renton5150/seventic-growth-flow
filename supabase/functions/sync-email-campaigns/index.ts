@@ -26,6 +26,24 @@ async function fetchCampaignsForAccount(account: any) {
     
     // Update cache for each campaign
     for (const campaign of campaigns) {
+      // Ensure the delivery_info is properly structured as a JSON object
+      const deliveryInfo = {
+        total: campaign.statistics?.subscriber_count || 0,
+        delivered: campaign.statistics?.delivered_count || 0,
+        opened: campaign.statistics?.open_count || 0,
+        clicked: campaign.statistics?.click_count || 0,
+        bounced: {
+          soft: campaign.statistics?.soft_bounce_count || 0,
+          hard: campaign.statistics?.hard_bounce_count || 0,
+          total: campaign.statistics?.bounce_count || 0
+        },
+        unsubscribed: campaign.statistics?.unsubscribe_count || 0,
+        complained: campaign.statistics?.abuse_complaint_count || 0,
+        delivery_rate: campaign.statistics?.delivered_rate || 0,
+        unique_open_rate: campaign.statistics?.uniq_open_rate || 0,
+        click_rate: campaign.statistics?.click_rate || 0
+      };
+
       await supabase.from('email_campaigns_cache').upsert({
         campaign_uid: campaign.uid,
         account_id: account.id,
@@ -37,22 +55,7 @@ async function fetchCampaignsForAccount(account: any) {
         delivery_date: campaign.delivery_at || campaign.run_at,
         run_at: campaign.run_at,
         last_error: campaign.last_error,
-        delivery_info: {
-          total: campaign.statistics?.subscriber_count || 0,
-          delivered: campaign.statistics?.delivered_count || 0,
-          opened: campaign.statistics?.open_count || 0,
-          clicked: campaign.statistics?.click_count || 0,
-          bounced: {
-            soft: campaign.statistics?.soft_bounce_count || 0,
-            hard: campaign.statistics?.hard_bounce_count || 0,
-            total: campaign.statistics?.bounce_count || 0
-          },
-          unsubscribed: campaign.statistics?.unsubscribe_count || 0,
-          complained: campaign.statistics?.abuse_complaint_count || 0,
-          delivery_rate: campaign.statistics?.delivered_rate || 0,
-          unique_open_rate: campaign.statistics?.uniq_open_rate || 0,
-          click_rate: campaign.statistics?.click_rate || 0
-        },
+        delivery_info: deliveryInfo,
         cache_updated_at: new Date().toISOString()
       }, {
         onConflict: 'campaign_uid'
