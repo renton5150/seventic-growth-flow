@@ -1,6 +1,6 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EmailCampaignDetails } from "./EmailCampaignDetails";
+import { EmailCampaignDetails } from "./email-campaign/EmailCampaignDetails";
 import { DatabaseDetails } from "./DatabaseDetails";
 import { LinkedInDetails } from "./LinkedInDetails";
 import { RequestComments } from "./RequestComments";
