@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
@@ -71,25 +72,25 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
       try {
         if (typeof campaign.delivery_info === 'string') {
           const parsedInfo = JSON.parse(campaign.delivery_info);
-          if (parsedInfo && typeof parsedInfo === 'object') {
+          if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
             // Merge with defaults to ensure all properties exist
             deliveryInfo = {
               ...deliveryInfo,
               ...parsedInfo,
               bounced: {
                 ...deliveryInfo.bounced,
-                ...(parsedInfo.bounced || {})
+                ...(parsedInfo.bounced && typeof parsedInfo.bounced === 'object' ? parsedInfo.bounced : {})
               }
             };
           }
-        } else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+        } else if (campaign.delivery_info && typeof campaign.delivery_info === 'object' && !Array.isArray(campaign.delivery_info)) {
           // Merge with defaults to ensure all properties exist
           deliveryInfo = {
             ...deliveryInfo,
             ...campaign.delivery_info,
             bounced: {
               ...deliveryInfo.bounced,
-              ...(campaign.delivery_info.bounced || {})
+              ...(campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced : {})
             }
           };
         }
