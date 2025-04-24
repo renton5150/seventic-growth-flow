@@ -23,17 +23,50 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
     
     // Cas 1: URL complète (http/https)
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      // Ouvrir dans un nouvel onglet mais indiquer que c'est pour un téléchargement
       window.open(url, '_blank');
       return;
     }
     
     // Cas 2: Chemin local (pour les chemins simulés en mode démo)
-    // Créer une simulation de téléchargement
     const element = document.createElement('a');
     
-    // Utiliser un blob vide juste pour déclencher le téléchargement
-    const blob = new Blob(['Contenu simulé pour le mode démo'], { type: 'application/octet-stream' });
+    // Déterminer le type de fichier à partir de l'extension
+    const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
+    let mimeType = 'application/octet-stream';
+    
+    // Configurer le type MIME correct selon l'extension
+    if (fileExtension === 'xlsx') {
+      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    } else if (fileExtension === 'xls') {
+      mimeType = 'application/vnd.ms-excel';
+    } else if (fileExtension === 'csv') {
+      mimeType = 'text/csv';
+    } else if (fileExtension === 'pdf') {
+      mimeType = 'application/pdf';
+    } else if (fileExtension === 'docx') {
+      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } else if (fileExtension === 'doc') {
+      mimeType = 'application/msword';
+    }
+    
+    // Créer un contenu approprié selon le type de fichier
+    let fileContent;
+    
+    if (fileExtension === 'csv') {
+      // En-tête CSV minimal valide
+      fileContent = 'Column1,Column2,Column3\nValue1,Value2,Value3';
+    } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+      // Pour les fichiers Excel, utiliser un en-tête minimal
+      fileContent = new Uint8Array([
+        0x50, 0x4B, 0x03, 0x04, // Signature pour les fichiers XLSX (ZIP)
+        0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+      ]);
+    } else {
+      // Pour les autres types de fichiers
+      fileContent = 'Contenu simulé pour le mode démo';
+    }
+    
+    const blob = new Blob([fileContent], { type: mimeType });
     element.href = URL.createObjectURL(blob);
     
     // Extraire le nom du fichier depuis l'URL
@@ -43,6 +76,11 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+    
+    // Libérer l'URL créée
+    setTimeout(() => {
+      URL.revokeObjectURL(element.href);
+    }, 100);
   };
 
   return (
@@ -103,7 +141,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => handleFileDownload(database.fileUrl, "database")}
+                onClick={() => handleFileDownload(database.fileUrl, "database.xlsx")}
                 className="flex items-center gap-2 mt-1"
               >
                 <Download className="h-4 w-4" />
@@ -136,7 +174,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts")}
+                    onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts.xlsx")}
                     className="flex items-center gap-2 mt-1"
                   >
                     <Download className="h-4 w-4" />
@@ -153,7 +191,7 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => handleFileDownload(blacklist.emails.fileUrl, "blacklist-emails")}
+                    onClick={() => handleFileDownload(blacklist.emails.fileUrl, "blacklist-emails.xlsx")}
                     className="flex items-center gap-2 mt-1"
                   >
                     <Download className="h-4 w-4" />
