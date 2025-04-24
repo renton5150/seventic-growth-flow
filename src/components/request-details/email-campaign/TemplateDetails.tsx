@@ -22,8 +22,8 @@ export const TemplateDetails = ({ template }: TemplateDetailsProps) => {
       console.log(`Téléchargement demandé pour: ${url}`);
       const success = await downloadFile(url, filename);
       
-      if (!success) {
-        toast.error("Erreur lors du téléchargement du fichier");
+      if (success) {
+        toast.success(`Téléchargement de "${filename}" réussi`);
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
@@ -60,7 +60,7 @@ export const TemplateDetails = ({ template }: TemplateDetailsProps) => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => handleFileDownload(template.fileUrl, "template")}
+              onClick={() => handleFileDownload(template.fileUrl, "template.docx")}
               className="flex items-center gap-2 mt-1"
             >
               <Download className="h-4 w-4" />

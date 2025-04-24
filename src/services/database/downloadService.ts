@@ -10,32 +10,60 @@ import { toast } from "sonner";
  */
 export const downloadFile = async (filePath: string, fileName: string = "document"): Promise<boolean> => {
   try {
-    // Gestion des URLs complètes vs chemins relatifs
+    console.log(`Tentative de téléchargement: ${filePath}`);
+    
+    // Vérifier si filePath est vide ou non défini
+    if (!filePath) {
+      console.error("Chemin de fichier vide ou non défini");
+      toast.error("Chemin de fichier invalide");
+      return false;
+    }
+    
+    // Gérer le cas où l'URL est complète
     let path = filePath;
+    let bucketName = 'databases'; // Bucket par défaut
     
     // Si c'est une URL complète, extraire le chemin du fichier
     if (filePath.startsWith('http')) {
-      const url = new URL(filePath);
-      // Le dernier segment de l'URL après /object/public/databases/
-      const segments = url.pathname.split('/');
-      const databasesIndex = segments.findIndex(s => s === 'databases');
-      
-      if (databasesIndex !== -1 && databasesIndex < segments.length - 1) {
-        path = segments.slice(databasesIndex + 1).join('/');
-      } else {
-        console.error("Format d'URL Supabase non reconnu");
-        toast.error("Format d'URL incorrect");
+      try {
+        const url = new URL(filePath);
+        const pathSegments = url.pathname.split('/');
+        
+        // Chercher le segment "storage" et "object" dans l'URL
+        const storageIndex = pathSegments.indexOf('storage');
+        const objectIndex = pathSegments.indexOf('object');
+        const bucketIndex = storageIndex !== -1 && objectIndex !== -1 ? objectIndex + 1 : -1;
+        
+        if (bucketIndex !== -1 && bucketIndex < pathSegments.length) {
+          bucketName = pathSegments[bucketIndex];
+          path = pathSegments.slice(bucketIndex + 1).join('/');
+          console.log(`Bucket extrait: ${bucketName}, chemin: ${path}`);
+        } else {
+          // Ancienne méthode pour la rétrocompatibilité
+          const databasesIndex = pathSegments.findIndex(s => s === 'databases');
+          if (databasesIndex !== -1 && databasesIndex < pathSegments.length - 1) {
+            path = pathSegments.slice(databasesIndex + 1).join('/');
+            console.log(`Chemin extrait (ancienne méthode): ${path}`);
+          } else {
+            console.error("Format d'URL non reconnu");
+            toast.error("Format d'URL incorrect");
+            return false;
+          }
+        }
+      } catch (urlError) {
+        console.error("Erreur lors du traitement de l'URL:", urlError);
+        toast.error("URL de fichier malformée");
         return false;
       }
     }
     
-    console.log(`Téléchargement du fichier: ${path} depuis le bucket 'databases'`);
+    console.log(`Téléchargement du fichier: ${path} depuis le bucket '${bucketName}'`);
     
     // Télécharger directement depuis le bucket de stockage
     const { data, error } = await supabase.storage
-      .from('databases')
+      .from(bucketName)
       .download(path);
-      
+    
     if (error) {
       console.error('Erreur lors du téléchargement du fichier:', error);
       toast.error(`Erreur: ${error.message}`);

@@ -22,8 +22,8 @@ export const BlacklistDetails = ({ blacklist }: BlacklistDetailsProps) => {
       console.log(`Téléchargement demandé pour: ${url}`);
       const success = await downloadFile(url, filename);
       
-      if (!success) {
-        toast.error("Erreur lors du téléchargement du fichier");
+      if (success) {
+        toast.success(`Téléchargement de "${filename}" réussi`);
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
@@ -44,7 +44,7 @@ export const BlacklistDetails = ({ blacklist }: BlacklistDetailsProps) => {
         {blacklist.accounts && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Comptes exclus</h4>
-            <p>{blacklist.accounts.notes}</p>
+            {blacklist.accounts.notes && <p>{blacklist.accounts.notes}</p>}
             {blacklist.accounts.fileUrl && (
               <Button 
                 variant="outline" 
@@ -61,7 +61,7 @@ export const BlacklistDetails = ({ blacklist }: BlacklistDetailsProps) => {
         {blacklist.emails && (
           <div>
             <h4 className="font-semibold text-sm">Emails exclus</h4>
-            <p>{blacklist.emails.notes}</p>
+            {blacklist.emails.notes && <p>{blacklist.emails.notes}</p>}
             {blacklist.emails.fileUrl && (
               <Button 
                 variant="outline" 

@@ -22,8 +22,8 @@ export const DatabaseDetails = ({ database }: DatabaseDetailsProps) => {
       console.log(`Téléchargement demandé pour: ${url}`);
       const success = await downloadFile(url, filename);
       
-      if (!success) {
-        toast.error("Erreur lors du téléchargement du fichier");
+      if (success) {
+        toast.success(`Téléchargement de "${filename}" réussi`);
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);

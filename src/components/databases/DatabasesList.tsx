@@ -50,12 +50,17 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
   };
 
   const handleFileDownload = async (fileUrl: string, fileName: string) => {
+    if (!fileUrl) {
+      toast.error("URL du fichier invalide");
+      return;
+    }
+    
     try {
       console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
       const success = await downloadFile(fileUrl, fileName);
       
-      if (!success) {
-        toast.error("Erreur lors du téléchargement du fichier");
+      if (success) {
+        toast.success(`Téléchargement de "${fileName}" réussi`);
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
