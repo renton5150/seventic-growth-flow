@@ -1,110 +1,128 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
-import AcelleCampaignsTable from "./AcelleCampaignsTable";
-import AcelleAccountsTable from "./AcelleAccountsTable";
-import { AcelleAccount } from "@/types/acelle.types";
 import { useQuery } from "@tanstack/react-query";
-import { acelleService } from "@/services/acelle";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+import AcelleAccountsTable from "./AcelleAccountsTable";
+import AcelleCampaignsTable from "./AcelleCampaignsTable";
+import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
+import { getAcelleAccounts } from "@/services/acelle/acelle-service";
+import { AcelleAccount } from "@/types/acelle.types";
 
 export default function AcelleAdminPanel() {
-  const [selectedAccount, setSelectedAccount] = useState<AcelleAccount | null>(null);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   
-  const { data: accounts = [], isLoading, error } = useQuery({
+  const { 
+    data: accounts = [], 
+    isLoading, 
+    isError, 
+    refetch 
+  } = useQuery({
     queryKey: ["acelleAccounts"],
-    queryFn: () => acelleService.getAcelleAccounts()
+    queryFn: getAcelleAccounts,
   });
 
-  const handleAccountSelect = (account: AcelleAccount) => {
-    console.log("Compte sélectionné:", account);
-    setSelectedAccount(account);
-    // Afficher un toast pour confirmer la sélection
-    toast.success(`Compte ${account.name} sélectionné`);
-  };
+  const selectedAccount = accounts.find(acc => acc.id === selectedAccountId) || accounts[0];
 
-  // Log pour le débogage
-  useEffect(() => {
-    console.log("Onglet actif:", activeTab);
-    console.log("Compte sélectionné:", selectedAccount);
-    console.log("Comptes disponibles:", accounts);
-  }, [activeTab, selectedAccount, accounts]);
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Alert variant="destructive" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Erreur</AlertTitle>
+        <AlertDescription>
+          Une erreur est survenue lors du chargement des comptes Acelle Mail.
+          <Button variant="outline" onClick={() => refetch()} className="ml-2">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Réessayer
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {isLoading ? (
-        <div className="flex justify-center items-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : error ? (
-        <Card className="p-6">
-          <div className="text-center text-red-500">
-            Erreur lors du chargement des comptes Acelle
-          </div>
-        </Card>
-      ) : (
-        <>
-          <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="dashboard">Tableau de bord</TabsTrigger>
-              <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
-              <TabsTrigger value="accounts">Comptes</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="dashboard" className="space-y-4">
-              <AcelleCampaignsDashboard accounts={accounts} />
-            </TabsContent>
-            
-            <TabsContent value="campaigns" className="space-y-4">
-              {accounts.length === 0 ? (
-                <Card className="p-6">
-                  <div className="text-center">
-                    Aucun compte Acelle n'a été configuré
-                  </div>
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                    {accounts.map((account) => (
-                      <button
-                        key={account.id}
-                        onClick={() => handleAccountSelect(account)}
-                        className={`
-                          px-4 py-2 rounded-md transition-colors text-sm font-medium 
-                          ${selectedAccount?.id === account.id 
-                            ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
-                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}
-                          focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
-                          active:scale-95 pointer-events-auto z-10 relative
-                        `}
-                      >
-                        {account.name}
-                      </button>
-                    ))}
-                  </div>
-                  {selectedAccount ? (
-                    <AcelleCampaignsTable account={selectedAccount} />
-                  ) : (
-                    <Card className="p-6">
-                      <div className="text-center">
-                        Veuillez sélectionner un compte pour voir ses campagnes
-                      </div>
-                    </Card>
-                  )}
+    <Tabs defaultValue="accounts" className="space-y-4">
+      <TabsList className="grid grid-cols-3">
+        <TabsTrigger value="accounts">Comptes</TabsTrigger>
+        <TabsTrigger value="campaigns" disabled={accounts.length === 0}>
+          Campagnes
+        </TabsTrigger>
+        <TabsTrigger value="dashboard" disabled={accounts.length === 0}>
+          Tableau de bord
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="accounts" className="space-y-4">
+        <AcelleAccountsTable />
+      </TabsContent>
+
+      <TabsContent value="campaigns" className="space-y-4">
+        {accounts.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">
+                Aucun compte Acelle Mail configuré. Veuillez d'abord ajouter un compte.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Sélectionner un compte</CardTitle>
+                <CardDescription>
+                  Choisissez le compte Acelle Mail pour afficher ses campagnes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 flex-wrap">
+                  {accounts.map((account) => (
+                    <Button
+                      key={account.id}
+                      variant={selectedAccountId === account.id ? "default" : "outline"}
+                      onClick={() => setSelectedAccountId(account.id)}
+                      disabled={account.status !== "active"}
+                    >
+                      {account.name}
+                      {account.status !== "active" && " (inactif)"}
+                    </Button>
+                  ))}
                 </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="accounts">
-              <AcelleAccountsTable />
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
-    </div>
+              </CardContent>
+            </Card>
+
+            {selectedAccount && (
+              <AcelleCampaignsTable account={selectedAccount} />
+            )}
+          </>
+        )}
+      </TabsContent>
+
+      <TabsContent value="dashboard" className="space-y-4">
+        {accounts.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">
+                Aucun compte Acelle Mail configuré. Veuillez d'abord ajouter un compte.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <AcelleCampaignsDashboard accounts={accounts} />
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }

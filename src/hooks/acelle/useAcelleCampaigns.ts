@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { useAcelleAccountsFilter } from "./useAcelleAccountsFilter";
@@ -7,31 +7,11 @@ import { useCampaignSync } from "./useCampaignSync";
 import { fetchCampaignsFromCache } from "./useCampaignFetch";
 
 export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
-  console.log("useAcelleCampaigns appelé avec:", accounts);
   const activeAccounts = useAcelleAccountsFilter(accounts);
-  console.log("Comptes actifs filtrés:", activeAccounts);
-  
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [retryCount, setRetryCount] = useState<number>(0);
   const { syncCampaignsCache, wakeUpEdgeFunctions } = useCampaignSync();
-
-  // Ajout d'un effet pour tenter un réveil automatique au début
-  useEffect(() => {
-    const attemptInitialWakeUp = async () => {
-      if (activeAccounts.length > 0) {
-        console.log("Tentative automatique d'initialisation des edge functions...");
-        try {
-          await wakeUpEdgeFunctions();
-          console.log("Réveil des edge functions réussi");
-        } catch (err) {
-          console.error("Échec du réveil des edge functions:", err);
-        }
-      }
-    };
-    
-    attemptInitialWakeUp();
-  }, [activeAccounts, wakeUpEdgeFunctions]);
 
   const fetchCampaigns = useCallback(async () => {
     console.log('Fetching campaigns from cache...');
@@ -40,12 +20,7 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     try {
       // Always try to wake up the edge functions first to ensure they're running
       console.log("Preemptively waking up edge functions");
-      const wakeUpSuccess = await wakeUpEdgeFunctions().catch((err) => {
-        console.error("Erreur lors du réveil des edge functions:", err);
-        return false;
-      });
-      
-      console.log("Statut du réveil des edge functions:", wakeUpSuccess ? "réussi" : "échec");
+      const wakeUpSuccess = await wakeUpEdgeFunctions().catch(() => false);
       
       // Try to get data from cache first
       const cachedCampaigns = await fetchCampaignsFromCache(activeAccounts);
@@ -112,7 +87,6 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
   }, [activeAccounts, syncCampaignsCache, wakeUpEdgeFunctions]);
 
   const handleRetry = useCallback(() => {
-    console.log("Manuel retry triggered");
     setRetryCount(prev => prev + 1);
   }, []);
 
