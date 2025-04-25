@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { AcelleAccount } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
+import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 
 interface AcelleCampaignDetailsProps {
   account: AcelleAccount;
@@ -36,35 +37,6 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
     queryKey: ["acelleCampaignDetails", account.id, campaignUid],
     queryFn: () => acelleService.getAcelleCampaignDetails(account, campaignUid),
   });
-
-  const translateStatus = (status: string) => {
-    switch (status) {
-      case "new": return "Nouveau";
-      case "queued": return "En attente";
-      case "sending": return "En cours d'envoi";
-      case "sent": return "Envoyé";
-      case "paused": return "En pause";
-      case "failed": return "Échoué";
-      default: return status;
-    }
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "new": return "secondary";
-      case "queued": return "outline";
-      case "sending": return "default";
-      case "sent": return "success";
-      case "paused": return "warning";
-      case "failed": return "destructive";
-      default: return "outline";
-    }
-  };
-
-  const renderPercentage = (value: number | undefined) => {
-    if (value === undefined || isNaN(value)) return "N/A";
-    return `${(value * 100).toFixed(1)}%`;
-  };
 
   // Safe date formatting function to prevent errors
   const formatDateSafely = (dateString: string | null | undefined) => {
@@ -96,8 +68,27 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
 
-  // Make sure we have valid delivery info data
-  const deliveryInfo = campaign.delivery_info || {};
+  // Make sure we have valid delivery info data with proper default values for all properties
+  const deliveryInfo = campaign.delivery_info || {
+    total: 0,
+    delivery_rate: 0,
+    unique_open_rate: 0,
+    click_rate: 0,
+    bounce_rate: 0,
+    unsubscribe_rate: 0,
+    delivered: 0,
+    opened: 0,
+    clicked: 0,
+    bounced: {
+      soft: 0,
+      hard: 0,
+      total: 0
+    },
+    unsubscribed: 0,
+    complained: 0
+  };
+
+  // Extract values with proper defaults to prevent TypeScript errors
   const total = deliveryInfo.total || 0;
   const delivered = deliveryInfo.delivered || 0;
   const opened = deliveryInfo.opened || 0;
@@ -105,6 +96,7 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
   const bounced = (deliveryInfo.bounced?.total || 0);
   const unsubscribed = deliveryInfo.unsubscribed || 0;
 
+  // Create data for charts with safe values
   const deliveryData = [
     { name: "Livrés", value: delivered },
     { name: "Non livrés", value: Math.max(0, total - delivered) },
