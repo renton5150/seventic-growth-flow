@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
@@ -16,6 +15,8 @@ const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://dupguifqyjchlmzbadav.supabase.co';
 const SUPABASE_SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds timeout par défaut
+const ACELLE_EMAIL = Deno.env.get('ACELLE_EMAIL') || '';
+const ACELLE_PASSWORD = Deno.env.get('ACELLE_PASSWORD') || '';
 
 // Configuration des niveaux de log
 const LOG_LEVELS = {
@@ -371,40 +372,23 @@ serve(async (req) => {
       debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...", LOG_LEVELS.DEBUG);
     }
 
-    // Get API token from query parameters
-    const apiToken = url.searchParams.get('api_token');
-    
     // Special case for ping/health check
-    if (apiToken === 'ping') {
+    if (req.url.includes('ping')) {
       debugLog("Received ping request - service is active", {}, LOG_LEVELS.INFO);
       
       // Test API accessibility with extended debugging
       const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/api/v1';
       
-      // Test different auth methods for the endpoint
-      const authMethodsToTest = url.searchParams.get('auth_methods')?.split(',') || ['token'];
+      const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`);
       const accessTest = await testEndpointAccess(baseUrl, {
-        timeout: 10000, // 10 seconds timeout for quick response
+        timeout: 10000,
         headers: {
+          'Authorization': `Basic ${credentials}`,
           'User-Agent': 'Seventic-Acelle-Proxy/1.5 (Diagnostic)',
           'Accept': 'application/json',
           'X-Debug-Marker': 'true'
         }
       });
-      
-      // Test authentication methods if basic connection works
-      let authTest = null;
-      if (accessTest.success) {
-        authTest = await testAuthMethods(
-          baseUrl, 
-          '/me', // Standard endpoint for testing auth
-          url.searchParams.get('test_token') || 'test', 
-          { 
-            timeout: 8000,
-            authMethods: authMethodsToTest
-          }
-        );
-      }
       
       debugLog("API endpoint accessibility test:", accessTest, LOG_LEVELS.DEBUG);
       
@@ -413,20 +397,8 @@ serve(async (req) => {
         timestamp: new Date().toISOString(),
         uptime: Math.floor((Date.now() - lastActivity) / 1000),
         endpoint_test: accessTest,
-        auth_test: authTest,
         debug_level: currentLogLevel
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    if (!apiToken) {
-      debugLog("Missing API token in request", {}, LOG_LEVELS.ERROR);
-      return new Response(JSON.stringify({ 
-        error: 'API token is required',
-        timestamp: new Date().toISOString()
-      }), { 
-        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -458,62 +430,37 @@ serve(async (req) => {
     // Make sure the endpoint doesn't end with a slash to properly join with the path
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     
+    // Create Basic Auth credentials
+    const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`);
+    
+    // Copy all query parameters except api_token which is handled specially
+    const queryParams = new URLSearchParams();
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key !== 'api_token' && key !== 'cache_key' && key !== 'debug' && key !== 'debug_level' && key !== 'auth_method') {
+        queryParams.append(key, value);
+      }
+    }
+    
+    // Don't add api/v1 if it's already in the endpoint
+    const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     let acelleApiUrl;
     
-    // Select auth method if specified
-    const authMethod = req.headers.get('x-auth-method') || 'token'; // Default to token auth
-    
-    // Determine if we should use URL token or alternative auth
-    const useUrlToken = authMethod === 'token';
-    
     if (resourceId) {
-      // Don't add api/v1 if it's already in the endpoint
-      const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
-      acelleApiUrl = useUrlToken ?
-        `${cleanEndpoint}${apiPath}/${resource}/${resourceId}?api_token=${apiToken}` :
-        `${cleanEndpoint}${apiPath}/${resource}/${resourceId}`;
+      acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}/${resourceId}?${queryParams.toString()}`;
     } else {
-      // Copy all query parameters except api_token which is handled specially
-      const queryParams = new URLSearchParams();
-      for (const [key, value] of url.searchParams.entries()) {
-        if (key !== 'api_token' && key !== 'cache_key' && key !== 'debug' && key !== 'debug_level' && key !== 'auth_method') {
-          queryParams.append(key, value);
-        }
-      }
-      
-      // Add API token to URL only with token auth method
-      if (useUrlToken) {
-        queryParams.append('api_token', apiToken);
-      }
-      
-      // Don't add api/v1 if it's already in the endpoint
-      const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
       acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}?${queryParams.toString()}`;
     }
 
-    debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, { authMethod }, LOG_LEVELS.DEBUG);
+    debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, {}, LOG_LEVELS.DEBUG);
 
-    // Prepare headers for the Acelle API request with selected auth method
+    // Prepare headers for the Acelle API request
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Proxy/1.5', // Updated version
+      'User-Agent': 'Seventic-Acelle-Proxy/1.5',
+      'Authorization': `Basic ${credentials}`,
       'Connection': 'keep-alive',
       'Cache-Control': 'no-cache, no-store, must-revalidate'
     };
-
-    // Add appropriate authentication based on selected method
-    if (authMethod === 'basic') {
-      // Use Basic Auth with token as username
-      headers['Authorization'] = `Basic ${btoa(`${apiToken}:`)}`;
-    } else if (authMethod === 'header') {
-      // Use X-API-Key header
-      headers['X-API-Key'] = apiToken;
-    }
-    
-    // Also forward the auth header if present
-    if (authHeader) {
-      headers['Authorization'] = authHeader;
-    }
 
     // Only add Content-Type for requests with body
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -529,40 +476,52 @@ serve(async (req) => {
 
     try {
       // Récupérer le body de la requête si nécessaire
-      let requestBody;
       let requestBodyText = '';
       if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         requestBodyText = await req.text();
         debugLog("Request body (text):", requestBodyText, LOG_LEVELS.VERBOSE);
-        
-        // Try to parse JSON for better logging
-        try {
-          requestBody = JSON.parse(requestBodyText);
-          debugLog("Request body (parsed):", requestBody, LOG_LEVELS.DEBUG);
-        } catch (e) {
-          // Not JSON, use raw text
-          requestBody = requestBodyText;
-        }
       }
-
-      // Log the full request information
-      debugLog("Full request details:", {
-        method: req.method,
-        url: acelleApiUrl,
-        headers,
-        body: requestBody || null,
-        authMethod,
-        timestamp: new Date().toISOString()
-      }, LOG_LEVELS.VERBOSE);
 
       const response = await fetch(acelleApiUrl, {
         method: req.method,
         headers,
         body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : requestBodyText,
-        signal: controller.signal
+        signal: controller.signal,
+        redirect: 'manual' // Important: prevent automatic redirects
       });
 
       clearTimeout(timeoutId);
+
+      // Check for redirects which indicate auth failure
+      if (response.status === 302) {
+        debugLog("Authentication failed - received redirect response", {}, LOG_LEVELS.ERROR);
+        return new Response(JSON.stringify({
+          error: "Authentication failed",
+          message: "Invalid credentials or insufficient permissions",
+          timestamp: new Date().toISOString()
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Handle server errors with retry mechanism
+      if (response.status === 500) {
+        debugLog("Server error from Acelle API", {}, LOG_LEVELS.ERROR);
+        return new Response(JSON.stringify({
+          error: "Internal Server Error",
+          message: "Le serveur Acelle Mail a rencontré une erreur interne. Veuillez réessayer plus tard.",
+          retryAfter: 30,
+          timestamp: new Date().toISOString()
+        }), {
+          status: 500,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': '30'
+          }
+        });
+      }
 
       // Log the response status
       debugLog(`Acelle API response: ${response.status} ${response.statusText} for ${acelleApiUrl}`, {
