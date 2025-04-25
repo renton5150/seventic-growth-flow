@@ -8,8 +8,8 @@ interface DataUnavailableAlertProps {
 
 export const DataUnavailableAlert = ({ message }: DataUnavailableAlertProps) => {
   return (
-    <Alert variant="warning" className="mb-4">
-      <AlertTriangle className="h-4 w-4" />
+    <Alert className="mb-4 border-yellow-500 bg-yellow-50">
+      <AlertTriangle className="h-4 w-4 text-yellow-500" />
       <AlertDescription>
         {message || "Certaines données sont temporairement indisponibles"}
       </AlertDescription>

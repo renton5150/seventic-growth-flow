@@ -1,4 +1,5 @@
-import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
+
+import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail, AcelleConnectionDebug } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -429,3 +430,4 @@ export const checkApiAvailability = async (account?: AcelleAccount): Promise<{
     };
   }
 };
+
