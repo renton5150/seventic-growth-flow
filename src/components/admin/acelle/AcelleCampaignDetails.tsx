@@ -1,393 +1,499 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Loader2, AlertTriangle } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { DataUnavailableAlert } from "./errors/DataUnavailableAlert";
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ChevronLeft, Info, RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, Mail } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { AcelleCampaignDetail, AcelleCampaignDeliveryInfo } from '@/types/acelle.types';
+import DataUnavailableAlert from './errors/DataUnavailableAlert';
+import { acelleService } from '@/services/acelle/acelle-service';
 
-import { AcelleAccount, AcelleCampaignDetail, AcelleCampaignDeliveryInfo } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle/acelle-service";
-import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
+export default function AcelleCampaignDetails() {
+  const { id, campaignId } = useParams<{ id: string, campaignId: string }>();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [refreshing, setRefreshing] = useState(false);
 
-interface AcelleCampaignDetailsProps {
-  account: AcelleAccount;
-  campaignUid: string;
-}
-
-export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCampaignDetailsProps) {
-  const { data: campaign, isLoading, isError, error, refetch } = useQuery<AcelleCampaignDetail>({
-    queryKey: ["acelleCampaignDetails", account.id, campaignUid],
-    queryFn: () => acelleService.getAcelleCampaignDetails(account, campaignUid),
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 30000),
+  const { data: campaign, isLoading, error, refetch } = useQuery({
+    queryKey: ['acelleEmailCampaign', id, campaignId],
+    queryFn: async () => {
+      if (!id || !campaignId) return null;
+      
+      const account = await acelleService.getAcelleAccountById(id);
+      if (!account) throw new Error('Account not found');
+      
+      // Use getAcelleCampaigns instead of getAcelleCampaignDetails
+      const campaigns = await acelleService.getAcelleCampaigns(account);
+      const campaign = campaigns.find(c => c.uid === campaignId);
+      
+      if (!campaign) throw new Error('Campaign not found');
+      return campaign as AcelleCampaignDetail;
+    }
   });
 
-  const formatDateSafely = (dateString: string | null | undefined) => {
-    if (!dateString) return "Non disponible";
+  if (isLoading) {
+    return <CampaignLoading />;
+  }
+
+  if (error || !campaign) {
+    return <DataUnavailableAlert />;
+  }
+
+  // Format the campaign data for display
+  const statusColors = {
+    ready: 'bg-blue-100 text-blue-800',
+    sending: 'bg-yellow-100 text-yellow-800',
+    sent: 'bg-green-100 text-green-800',
+    failed: 'bg-red-100 text-red-800',
+    paused: 'bg-gray-100 text-gray-800',
+    queuing: 'bg-purple-100 text-purple-800',
+    queued: 'bg-indigo-100 text-indigo-800',
+    scheduled: 'bg-cyan-100 text-cyan-800',
+    processing: 'bg-amber-100 text-amber-800',
+    done: 'bg-emerald-100 text-emerald-800',
+  };
+
+  const statusLabels = {
+    ready: 'Prêt',
+    sending: 'En cours d\'envoi',
+    sent: 'Envoyé',
+    failed: 'Échoué',
+    paused: 'En pause',
+    queuing: 'En file d\'attente',
+    queued: 'En attente',
+    scheduled: 'Programmé',
+    processing: 'En cours',
+    done: 'Terminé',
+  };
+
+  const statusColor = statusColors[campaign.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
+  const statusLabel = statusLabels[campaign.status as keyof typeof statusLabels] || campaign.status;
+
+  // Pie chart data
+  const chartData = [
+    { name: 'Ouverts', value: campaign.statistics?.open_count || 0 },
+    { name: 'Clics', value: campaign.statistics?.click_count || 0 },
+    { name: 'Rebonds', value: campaign.statistics?.bounce_count || 0 },
+    { name: 'Désabonnés', value: campaign.statistics?.unsubscribe_count || 0 },
+  ];
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+  const refreshCampaign = async () => {
+    setRefreshing(true);
     try {
-      return format(parseISO(dateString), "dd/MM/yyyy HH:mm", { locale: fr });
+      await refetch();
+      toast.success('Données de la campagne mises à jour');
     } catch (error) {
-      console.error(`Invalid date format: ${dateString}`, error);
-      return "Date invalide";
+      toast.error('Erreur lors de la mise à jour des données');
+      console.error('Error refreshing campaign:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  const isServerError = error && (
-    error instanceof Error && error.message.includes("500") ||
-    error instanceof Error && error.message.includes("erreur interne")
-  );
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="text-center py-8">
-        <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-4" />
-        <p className="text-red-500 mb-2">
-          {isServerError 
-            ? "Le serveur d'Acelle Mail a rencontré une erreur interne. Veuillez réessayer plus tard ou contacter l'administrateur de la plateforme Acelle Mail."
-            : "Erreur lors du chargement des détails de la campagne"}
-        </p>
-        <p className="text-sm text-muted-foreground mb-4">
-          {error instanceof Error ? error.message : "Une erreur s'est produite"}
-        </p>
-      </div>
-    );
-  }
-
-  // Affichage en mode dégradé si certaines données sont manquantes
-  const hasIncompleteData = campaign && (!campaign.delivery_info || !campaign.statistics);
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
-
-  const deliveryInfo: AcelleCampaignDeliveryInfo = {
-    total: campaign?.delivery_info?.total ?? 0,
-    delivery_rate: campaign?.delivery_info?.delivery_rate ?? 0,
-    unique_open_rate: campaign?.delivery_info?.unique_open_rate ?? 0,
-    click_rate: campaign?.delivery_info?.click_rate ?? 0,
-    bounce_rate: campaign?.delivery_info?.bounce_rate ?? 0,
-    unsubscribe_rate: campaign?.delivery_info?.unsubscribe_rate ?? 0,
-    delivered: campaign?.delivery_info?.delivered ?? 0,
-    opened: campaign?.delivery_info?.opened ?? 0,
-    clicked: campaign?.delivery_info?.clicked ?? 0,
-    bounced: {
-      soft: campaign?.delivery_info?.bounced?.soft ?? 0,
-      hard: campaign?.delivery_info?.bounced?.hard ?? 0,
-      total: campaign?.delivery_info?.bounced?.total ?? 0
-    },
-    unsubscribed: campaign?.delivery_info?.unsubscribed ?? 0,
-    complained: campaign?.delivery_info?.complained ?? 0
-  };
-
-  const total = deliveryInfo.total;
-  const delivered = deliveryInfo.delivered;
-  const opened = deliveryInfo.opened;
-  const clicked = deliveryInfo.clicked;
-  const bounced = deliveryInfo.bounced.total;
-  const unsubscribed = deliveryInfo.unsubscribed;
-
-  const deliveryData = [
-    { name: "Livrés", value: delivered },
-    { name: "Non livrés", value: Math.max(0, total - delivered) },
-  ];
-
-  const engagementData = [
-    { name: "Ouverts", value: opened },
-    { name: "Cliqués", value: clicked },
-    { name: "Non ouverts", value: Math.max(0, delivered - opened) },
-  ];
-
-  const bounceData = [
-    { name: "Soft bounce", value: deliveryInfo.bounced.soft },
-    { name: "Hard bounce", value: deliveryInfo.bounced.hard },
-    { name: "Désabonnés", value: unsubscribed },
-    { name: "Plaintes", value: deliveryInfo.complained },
-  ];
-
-  const barData = [
-    { name: "Envoyés", value: total },
-    { name: "Livrés", value: delivered },
-    { name: "Ouverts", value: opened },
-    { name: "Cliqués", value: clicked },
-    { name: "Rebonds", value: bounced },
-    { name: "Désabonnés", value: unsubscribed },
-  ];
-
   return (
     <div className="space-y-6">
-      {hasIncompleteData && (
-        <DataUnavailableAlert 
-          message="Certaines statistiques détaillées sont temporairement indisponibles. Les informations de base sont affichées ci-dessous." 
-        />
-      )}
+      {/* Header with back button */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/admin/email-campaigns`}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Retour
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">{campaign.name}</h1>
+          <Badge className={statusColor}>{statusLabel}</Badge>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={refreshCampaign}
+          disabled={refreshing}
+        >
+          {refreshing ? (
+            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Rafraîchir
+        </Button>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Campaign statistics summary */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardTitle>{campaign?.name}</CardTitle>
-            <CardDescription className="flex items-center justify-between">
-              <span>Sujet: {campaign?.subject}</span>
-              <Badge variant={getStatusBadgeVariant(campaign?.status || "") as any}>
-                {translateStatus(campaign?.status || "")}
-              </Badge>
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Taux d'ouverture</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm font-medium text-muted-foreground">Créé le</dt>
-                <dd className="text-sm">
-                  {formatDateSafely(campaign?.created_at)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-muted-foreground">Envoyé le</dt>
-                <dd className="text-sm">
-                  {campaign?.run_at ? formatDateSafely(campaign?.run_at) : "Non envoyé"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-muted-foreground">Dernière mise à jour</dt>
-                <dd className="text-sm">
-                  {formatDateSafely(campaign?.updated_at)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-muted-foreground">Tracking</dt>
-                <dd className="text-sm">
-                  {campaign?.tracking?.open_tracking ? "Ouvertures: Activé" : "Ouvertures: Désactivé"}{", "}
-                  {campaign?.tracking?.click_tracking ? "Clics: Activé" : "Clics: Désactivé"}
-                </dd>
-              </div>
-            </dl>
+            <div className="text-2xl font-bold">
+              {campaign.statistics?.uniq_open_rate ? 
+                `${(campaign.statistics.uniq_open_rate * 100).toFixed(1)}%` : 
+                '0%'}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {campaign.statistics?.open_count || 0} ouvertures
+            </p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader>
-            <CardTitle>Métriques clés</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Taux de clic</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Emails envoyés</p>
-                <p className="text-2xl font-bold">{total}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Emails livrés</p>
-                <p className="text-2xl font-bold">{delivered}</p>
-                <p className="text-sm text-muted-foreground">
-                  {renderPercentage(deliveryInfo.delivery_rate)} du total
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Emails ouverts</p>
-                <p className="text-2xl font-bold">{opened}</p>
-                <p className="text-sm text-muted-foreground">
-                  {renderPercentage(deliveryInfo.unique_open_rate)} des livrés
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Emails cliqués</p>
-                <p className="text-2xl font-bold">{clicked}</p>
-                <p className="text-sm text-muted-foreground">
-                  {renderPercentage(deliveryInfo.click_rate)} des livrés
-                </p>
-              </div>
+            <div className="text-2xl font-bold">
+              {campaign.statistics?.click_rate ? 
+                `${(campaign.statistics.click_rate * 100).toFixed(1)}%` : 
+                '0%'}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {campaign.statistics?.click_count || 0} clics
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Taux de rebond</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {campaign.delivery_info?.bounce_rate ? 
+                `${(campaign.delivery_info.bounce_rate * 100).toFixed(1)}%` : 
+                '0%'}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {campaign.statistics?.bounce_count || 0} rebonds
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Taux de désabonnement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {campaign.delivery_info?.unsubscribe_rate ? 
+                `${(campaign.delivery_info.unsubscribe_rate * 100).toFixed(1)}%` : 
+                '0%'}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {campaign.statistics?.unsubscribe_count || 0} désabonnements
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <Separator />
-
-      <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-3">
+      {/* Tabs for different views */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full sm:w-auto grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="engagement">Engagement</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="content">Contenu</TabsTrigger>
+          <TabsTrigger value="settings">Paramètres</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="overview" className="space-y-4 pt-4">
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Informations générales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2">
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-muted-foreground">Sujet</dt>
+                    <dd>{campaign.subject}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-muted-foreground">Date d'envoi</dt>
+                    <dd>{campaign.delivery_date ? format(new Date(campaign.delivery_date), 'dd/MM/yyyy HH:mm', { locale: fr }) : 'Non définie'}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-muted-foreground">Statut</dt>
+                    <dd><Badge className={statusColor}>{statusLabel}</Badge></dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-muted-foreground">Date de création</dt>
+                    <dd>{format(new Date(campaign.created_at), 'dd/MM/yyyy HH:mm', { locale: fr })}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-muted-foreground">Dernière modification</dt>
+                    <dd>{format(new Date(campaign.updated_at), 'dd/MM/yyyy HH:mm', { locale: fr })}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Statistiques d'envoi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [value, '']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {chartData.map((entry, index) => (
+                    <div key={index} className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="text-sm">{entry.name}: {entry.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Détails de livraison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Métrique</TableHead>
+                      <TableHead className="text-right">Valeur</TableHead>
+                      <TableHead className="text-right">Pourcentage</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>Destinataires</TableCell>
+                      <TableCell className="text-right">{campaign.delivery_info?.total || 0}</TableCell>
+                      <TableCell className="text-right">100%</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Livrés</TableCell>
+                      <TableCell className="text-right">{campaign.delivery_info?.delivered || 0}</TableCell>
+                      <TableCell className="text-right">
+                        {campaign.delivery_info?.delivery_rate ? 
+                          `${(campaign.delivery_info.delivery_rate * 100).toFixed(1)}%` : 
+                          '0%'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Ouvertures uniques</TableCell>
+                      <TableCell className="text-right">{campaign.delivery_info?.opened || 0}</TableCell>
+                      <TableCell className="text-right">
+                        {campaign.delivery_info?.unique_open_rate ? 
+                          `${(campaign.delivery_info.unique_open_rate * 100).toFixed(1)}%` : 
+                          '0%'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Clics</TableCell>
+                      <TableCell className="text-right">{campaign.delivery_info?.clicked || 0}</TableCell>
+                      <TableCell className="text-right">
+                        {campaign.delivery_info?.click_rate ? 
+                          `${(campaign.delivery_info.click_rate * 100).toFixed(1)}%` : 
+                          '0%'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Rebonds</TableCell>
+                      <TableCell className="text-right">{campaign.delivery_info?.bounced?.total || 0}</TableCell>
+                      <TableCell className="text-right">
+                        {campaign.delivery_info?.bounce_rate ? 
+                          `${(campaign.delivery_info.bounce_rate * 100).toFixed(1)}%` : 
+                          '0%'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Désabonnements</TableCell>
+                      <TableCell className="text-right">{campaign.delivery_info?.unsubscribed || 0}</TableCell>
+                      <TableCell className="text-right">
+                        {campaign.delivery_info?.unsubscribe_rate ? 
+                          `${(campaign.delivery_info.unsubscribe_rate * 100).toFixed(1)}%` : 
+                          '0%'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Plaintes</TableCell>
+                      <TableCell className="text-right">{campaign.delivery_info?.complained || 0}</TableCell>
+                      <TableCell className="text-right">-</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Performance Tab */}
+        <TabsContent value="performance" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Performance de la campagne</CardTitle>
             </CardHeader>
-            <CardContent className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="value" fill="#8884d8" name="Nombre d'emails" />
-                </BarChart>
-              </ResponsiveContainer>
+            <CardContent>
+              <div className="text-center py-10 text-muted-foreground">
+                <Info className="h-10 w-10 mx-auto mb-4" />
+                <p>Les graphiques détaillés de performance seront disponibles prochainement.</p>
+              </div>
             </CardContent>
           </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Livraison</CardTitle>
-              </CardHeader>
-              <CardContent className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={deliveryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {deliveryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [value, "Nombre d'emails"]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Problèmes</CardTitle>
-              </CardHeader>
-              <CardContent className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={bounceData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {bounceData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [value, "Nombre d'emails"]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
-        
-        <TabsContent value="engagement" className="space-y-4 pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Engagement</CardTitle>
-            </CardHeader>
-            <CardContent className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={engagementData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                  >
-                    {engagementData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [value, "Nombre d'emails"]} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
 
+        {/* Content Tab */}
+        <TabsContent value="content" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Statistiques détaillées</CardTitle>
+              <CardTitle>Contenu de l'email</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">Taux d'ouverture</dt>
-                  <dd className="text-2xl font-bold">{renderPercentage(deliveryInfo.unique_open_rate)}</dd>
+              {campaign.html ? (
+                <div 
+                  className="border rounded-md p-4 bg-white max-h-[800px] overflow-auto"
+                  dangerouslySetInnerHTML={{ __html: campaign.html }}
+                />
+              ) : campaign.plain ? (
+                <pre className="border rounded-md p-4 bg-gray-50 whitespace-pre-wrap max-h-[800px] overflow-auto">
+                  {campaign.plain}
+                </pre>
+              ) : (
+                <div className="text-center py-10 text-muted-foreground">
+                  <Info className="h-10 w-10 mx-auto mb-4" />
+                  <p>Le contenu de l'email n'est pas disponible</p>
                 </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">Taux de clic</dt>
-                  <dd className="text-2xl font-bold">{renderPercentage(deliveryInfo.click_rate)}</dd>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Paramètres de la campagne</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-2">
+                <div className="flex justify-between">
+                  <dt className="font-medium text-muted-foreground">Suivi des ouvertures</dt>
+                  <dd>{campaign.tracking?.open_tracking === true ? (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <CheckCircle className="h-4 w-4 mr-1" /> Activé
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                      <XCircle className="h-4 w-4 mr-1" /> Désactivé
+                    </Badge>
+                  )}</dd>
                 </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">Taux de désabonnement</dt>
-                  <dd className="text-2xl font-bold">{renderPercentage(deliveryInfo.unsubscribe_rate)}</dd>
+                <div className="flex justify-between">
+                  <dt className="font-medium text-muted-foreground">Suivi des clics</dt>
+                  <dd>{campaign.tracking?.click_tracking === true ? (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <CheckCircle className="h-4 w-4 mr-1" /> Activé
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                      <XCircle className="h-4 w-4 mr-1" /> Désactivé
+                    </Badge>
+                  )}</dd>
                 </div>
               </dl>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="content" className="space-y-4 pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Contenu HTML</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-md p-4 h-[400px] overflow-auto">
-                <div dangerouslySetInnerHTML={{ __html: campaign?.html || "<p>Aucun contenu HTML</p>" }} />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Contenu texte brut</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-md p-4 h-[200px] overflow-auto bg-muted">
-                <pre className="text-sm">
-                  {campaign?.plain || "Aucun contenu texte"}
-                </pre>
-              </div>
+              
+              {campaign.status === 'failed' && campaign.last_error && (
+                <Alert className="mt-4 bg-red-50 border-red-200">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertTitle className="text-red-800">Erreur détectée</AlertTitle>
+                  <AlertDescription className="text-red-700">
+                    {campaign.last_error}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {campaign.run_at && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2">Planification</h4>
+                  <div className="flex items-center space-x-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      Exécution prévue: {format(new Date(campaign.run_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function CampaignLoading() {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" asChild disabled>
+            <Link to={`/admin/email-campaigns`}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Retour
+            </Link>
+          </Button>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-6 w-20" />
+        </div>
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        {Array(4).fill(null).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <Skeleton className="h-5 w-24" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-4 w-20" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="border rounded-md">
+        <Skeleton className="h-10 w-full" />
+        <div className="p-6">
+          <Skeleton className="h-[400px] w-full" />
+        </div>
+      </div>
     </div>
   );
 }

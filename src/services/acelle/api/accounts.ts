@@ -52,7 +52,7 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       .single();
     
     if (error) throw error;
-
+    
     return {
       id: data.id,
       missionId: data.mission_id,
@@ -82,11 +82,7 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
     let lastSyncDate = null;
     
     if (account.lastSyncDate) {
-      if (typeof account.lastSyncDate === 'string') {
-        lastSyncDate = account.lastSyncDate;
-      } else if (account.lastSyncDate instanceof Date) {
-        lastSyncDate = account.lastSyncDate.toISOString();
-      }
+      lastSyncDate = account.lastSyncDate;
     }
     
     const { data, error } = await supabase
@@ -129,11 +125,7 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
     let lastSyncDate = null;
     
     if (account.lastSyncDate) {
-      if (typeof account.lastSyncDate === 'string') {
-        lastSyncDate = account.lastSyncDate;
-      } else if (account.lastSyncDate instanceof Date) {
-        lastSyncDate = account.lastSyncDate.toISOString();
-      }
+      lastSyncDate = account.lastSyncDate;
     }
       
     const { data, error } = await supabase
@@ -190,10 +182,12 @@ export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
 // Update last sync date
 export const updateLastSyncDate = async (accountId: string): Promise<void> => {
   try {
+    const now = new Date().toISOString();
+    
     await supabase
       .from("acelle_accounts")
       .update({
-        last_sync_date: new Date().toISOString()
+        last_sync_date: now
       })
       .eq("id", accountId);
   } catch (error) {

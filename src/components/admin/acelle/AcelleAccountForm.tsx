@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
+import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { testAcelleConnection } from "@/services/acelle/api/connection";
 import { useQuery } from "@tanstack/react-query";
 import { getMissions } from "@/services/mission";
+import { AcelleFormValues, AcelleAccountFormProps } from "./AcelleAccountForm.types";
 
 // Form schema with validation
 const formSchema = z.object({
@@ -22,15 +23,6 @@ const formSchema = z.object({
   status: z.enum(["active", "inactive", "error"]),
   missionId: z.string().optional(),
 });
-
-type AcelleFormValues = z.infer<typeof formSchema>;
-
-interface AcelleAccountFormProps {
-  account?: AcelleAccount;
-  onSubmit: (data: AcelleFormValues) => void;
-  onCancel: () => void;
-  isSubmitting?: boolean;
-}
 
 const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }: AcelleAccountFormProps) => {
   const [isConnectionLoading, setIsConnectionLoading] = useState(false);
@@ -283,7 +275,7 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="">Aucune mission</SelectItem>
-                  {missions.map((mission) => (
+                  {missions.map((mission: any) => (
                     <SelectItem key={mission.id} value={mission.id}>
                       {mission.name}
                     </SelectItem>

@@ -7,10 +7,11 @@ import { toast } from "sonner";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
 import { useAuth } from "@/contexts/AuthContext";
+import { testAcelleConnection } from "@/services/acelle/api/connection";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();
-  const { checkApiAvailability } = useCampaignSync();
+  const { checkApiAccess } = useCampaignSync();
   const [isTesting, setIsTesting] = useState(false);
   const [endpointStatus, setEndpointStatus] = useState<{[key: string]: boolean}>({});
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
@@ -21,7 +22,24 @@ export const SystemStatus = () => {
   const runDiagnostics = async () => {
     setIsTesting(true);
     try {
-      const status = await checkApiAvailability();
+      // Use the existing functions to test API availability
+      const status: { 
+        available: boolean, 
+        endpoints: {[key: string]: boolean},
+        debugInfo?: AcelleConnectionDebug 
+      } = { available: false, endpoints: {} };
+      
+      // Test using checkApiAccess which is already properly typed
+      const apiAccess = await checkApiAccess();
+      
+      status.endpoints = {
+        campaigns: apiAccess.hasAccess,
+        details: apiAccess.hasAccess
+      };
+      
+      status.available = Object.values(status.endpoints).every(Boolean);
+      status.debugInfo = apiAccess.debug || null;
+      
       setEndpointStatus(status.endpoints || {});
       setDebugInfo(status.debugInfo || null);
       setLastTestTime(new Date());
