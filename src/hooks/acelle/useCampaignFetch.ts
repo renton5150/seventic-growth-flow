@@ -59,18 +59,23 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
               ...parsedInfo,
               bounced: {
                 ...deliveryInfo.bounced,
-                ...(parsedInfo.bounced && typeof parsedInfo.bounced === 'object' ? parsedInfo.bounced : {})
+                ...(parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced) 
+                  ? parsedInfo.bounced 
+                  : {})
               }
             };
           }
-        } else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+        } else if (campaign.delivery_info && typeof campaign.delivery_info === 'object' && !Array.isArray(campaign.delivery_info)) {
+          // Fix here: Ensure we're dealing with an object, not an array
+          const deliveryInfoObj = campaign.delivery_info as Record<string, any>;
+          
           deliveryInfo = {
             ...deliveryInfo,
-            ...campaign.delivery_info,
+            ...deliveryInfoObj,
             bounced: {
               ...deliveryInfo.bounced,
-              ...(campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object' 
-                ? campaign.delivery_info.bounced 
+              ...(deliveryInfoObj.bounced && typeof deliveryInfoObj.bounced === 'object' && !Array.isArray(deliveryInfoObj.bounced) 
+                ? deliveryInfoObj.bounced 
                 : {})
             }
           };
