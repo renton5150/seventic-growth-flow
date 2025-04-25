@@ -24,12 +24,14 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
 
   const { data: campaignDetails, isLoading, isError } = useQuery({
     queryKey: ["campaignDetails", account?.id, campaignUid],
-    queryFn: () => acelleService.getCampaignDetails(account, campaignUid),
+    queryFn: () => acelleService.fetchCampaignDetails(account, campaignUid),
     enabled: !!account && !!campaignUid,
     staleTime: 60 * 1000, // 1 minute
-    onError: (error) => {
-      toast.error(`Erreur lors du chargement des détails de la campagne: ${error}`);
-    },
+    meta: {
+      onError: (error: any) => {
+        toast.error(`Erreur lors du chargement des détails de la campagne: ${error}`);
+      }
+    }
   });
 
   if (isLoading) {
