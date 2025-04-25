@@ -1,7 +1,6 @@
-
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
 import {
@@ -25,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { AcelleAccount } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
+import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 
 interface AcelleCampaignDetailsProps {
   account: AcelleAccount;
@@ -32,38 +32,19 @@ interface AcelleCampaignDetailsProps {
 }
 
 export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCampaignDetailsProps) {
-  const { data: campaign, isLoading, isError } = useQuery({
+  const { data: campaign, isLoading, isError, error } = useQuery<AcelleCampaignDetail>({
     queryKey: ["acelleCampaignDetails", account.id, campaignUid],
     queryFn: () => acelleService.getAcelleCampaignDetails(account, campaignUid),
   });
 
-  const translateStatus = (status: string) => {
-    switch (status) {
-      case "new": return "Nouveau";
-      case "queued": return "En attente";
-      case "sending": return "En cours d'envoi";
-      case "sent": return "Envoyé";
-      case "paused": return "En pause";
-      case "failed": return "Échoué";
-      default: return status;
+  const formatDateSafely = (dateString: string | null | undefined) => {
+    if (!dateString) return "Non disponible";
+    try {
+      return format(parseISO(dateString), "dd/MM/yyyy HH:mm", { locale: fr });
+    } catch (error) {
+      console.error(`Invalid date format: ${dateString}`, error);
+      return "Date invalide";
     }
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "new": return "secondary";
-      case "queued": return "outline";
-      case "sending": return "default";
-      case "sent": return "success";
-      case "paused": return "warning";
-      case "failed": return "destructive";
-      default: return "outline";
-    }
-  };
-
-  const renderPercentage = (value: number | undefined) => {
-    if (value === undefined) return "N/A";
-    return `${(value * 100).toFixed(1)}%`;
   };
 
   if (isLoading) {
@@ -77,38 +58,65 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
   if (isError || !campaign) {
     return (
       <div className="text-center py-8">
-        <p className="text-red-500">Erreur lors du chargement des détails de la campagne</p>
+        <p className="text-red-500 mb-2">Erreur lors du chargement des détails de la campagne</p>
+        <p className="text-sm text-muted-foreground mb-4">{error instanceof Error ? error.message : "Une erreur s'est produite"}</p>
       </div>
     );
   }
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
 
+  const deliveryInfo = campaign?.delivery_info || {
+    total: 0,
+    delivery_rate: 0,
+    unique_open_rate: 0,
+    click_rate: 0,
+    bounce_rate: 0,
+    unsubscribe_rate: 0,
+    delivered: 0,
+    opened: 0,
+    clicked: 0,
+    bounced: {
+      soft: 0,
+      hard: 0,
+      total: 0
+    },
+    unsubscribed: 0,
+    complained: 0
+  };
+
+  const total = deliveryInfo.total;
+  const delivered = deliveryInfo.delivered;
+  const opened = deliveryInfo.opened;
+  const clicked = deliveryInfo.clicked;
+  const bounced = deliveryInfo.bounced.total;
+  const unsubscribed = deliveryInfo.unsubscribed;
+
   const deliveryData = [
-    { name: "Livrés", value: campaign.delivery_info?.delivered || 0 },
-    { name: "Non livrés", value: (campaign.delivery_info?.total || 0) - (campaign.delivery_info?.delivered || 0) },
+    { name: "Livrés", value: delivered },
+    { name: "Non livrés", value: Math.max(0, total - delivered) },
   ];
 
   const engagementData = [
-    { name: "Ouverts", value: campaign.delivery_info?.opened || 0 },
-    { name: "Cliqués", value: campaign.delivery_info?.clicked || 0 },
-    { name: "Non ouverts", value: (campaign.delivery_info?.delivered || 0) - (campaign.delivery_info?.opened || 0) },
+    { name: "Ouverts", value: opened },
+    { name: "Cliqués", value: clicked },
+    { name: "Non ouverts", value: Math.max(0, delivered - opened) },
   ];
 
   const bounceData = [
-    { name: "Soft bounce", value: campaign.delivery_info?.bounced?.soft || 0 },
-    { name: "Hard bounce", value: campaign.delivery_info?.bounced?.hard || 0 },
-    { name: "Désabonnés", value: campaign.delivery_info?.unsubscribed || 0 },
-    { name: "Plaintes", value: campaign.delivery_info?.complained || 0 },
+    { name: "Soft bounce", value: deliveryInfo.bounced?.soft || 0 },
+    { name: "Hard bounce", value: deliveryInfo.bounced?.hard || 0 },
+    { name: "Désabonnés", value: unsubscribed },
+    { name: "Plaintes", value: deliveryInfo.complained || 0 },
   ];
 
   const barData = [
-    { name: "Envoyés", value: campaign.delivery_info?.total || 0 },
-    { name: "Livrés", value: campaign.delivery_info?.delivered || 0 },
-    { name: "Ouverts", value: campaign.delivery_info?.opened || 0 },
-    { name: "Cliqués", value: campaign.delivery_info?.clicked || 0 },
-    { name: "Rebonds", value: (campaign.delivery_info?.bounced?.soft || 0) + (campaign.delivery_info?.bounced?.hard || 0) },
-    { name: "Désabonnés", value: campaign.delivery_info?.unsubscribed || 0 },
+    { name: "Envoyés", value: total },
+    { name: "Livrés", value: delivered },
+    { name: "Ouverts", value: opened },
+    { name: "Cliqués", value: clicked },
+    { name: "Rebonds", value: bounced },
+    { name: "Désabonnés", value: unsubscribed },
   ];
 
   return (
@@ -129,21 +137,19 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Créé le</dt>
                 <dd className="text-sm">
-                  {format(new Date(campaign.created_at), "dd/MM/yyyy HH:mm", { locale: fr })}
+                  {formatDateSafely(campaign.created_at)}
                 </dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Envoyé le</dt>
                 <dd className="text-sm">
-                  {campaign.run_at 
-                    ? format(new Date(campaign.run_at), "dd/MM/yyyy HH:mm", { locale: fr }) 
-                    : "Non envoyé"}
+                  {campaign.run_at ? formatDateSafely(campaign.run_at) : "Non envoyé"}
                 </dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Dernière mise à jour</dt>
                 <dd className="text-sm">
-                  {format(new Date(campaign.updated_at), "dd/MM/yyyy HH:mm", { locale: fr })}
+                  {formatDateSafely(campaign.updated_at)}
                 </dd>
               </div>
               <div>
@@ -165,27 +171,27 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Emails envoyés</p>
-                <p className="text-2xl font-bold">{campaign.delivery_info?.total || 0}</p>
+                <p className="text-2xl font-bold">{total}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Emails livrés</p>
-                <p className="text-2xl font-bold">{campaign.delivery_info?.delivered || 0}</p>
+                <p className="text-2xl font-bold">{delivered}</p>
                 <p className="text-sm text-muted-foreground">
-                  {renderPercentage(campaign.delivery_info?.delivery_rate)} du total
+                  {renderPercentage(deliveryInfo.delivery_rate)} du total
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Emails ouverts</p>
-                <p className="text-2xl font-bold">{campaign.delivery_info?.opened || 0}</p>
+                <p className="text-2xl font-bold">{opened}</p>
                 <p className="text-sm text-muted-foreground">
-                  {renderPercentage(campaign.delivery_info?.unique_open_rate)} des livrés
+                  {renderPercentage(deliveryInfo.unique_open_rate)} des livrés
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Emails cliqués</p>
-                <p className="text-2xl font-bold">{campaign.delivery_info?.clicked || 0}</p>
+                <p className="text-2xl font-bold">{clicked}</p>
                 <p className="text-sm text-muted-foreground">
-                  {renderPercentage(campaign.delivery_info?.click_rate)} des livrés
+                  {renderPercentage(deliveryInfo.click_rate)} des livrés
                 </p>
               </div>
             </div>
@@ -317,15 +323,15 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Taux d'ouverture</dt>
-                  <dd className="text-2xl font-bold">{renderPercentage(campaign.delivery_info?.unique_open_rate)}</dd>
+                  <dd className="text-2xl font-bold">{renderPercentage(deliveryInfo.unique_open_rate)}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Taux de clic</dt>
-                  <dd className="text-2xl font-bold">{renderPercentage(campaign.delivery_info?.click_rate)}</dd>
+                  <dd className="text-2xl font-bold">{renderPercentage(deliveryInfo.click_rate)}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Taux de désabonnement</dt>
-                  <dd className="text-2xl font-bold">{renderPercentage(campaign.delivery_info?.unsubscribe_rate)}</dd>
+                  <dd className="text-2xl font-bold">{renderPercentage(deliveryInfo.unsubscribe_rate)}</dd>
                 </div>
               </dl>
             </CardContent>
