@@ -16,6 +16,7 @@ export interface AcelleAccount {
   createdAt?: string;
   updatedAt?: string;
   apiKey?: string;
+  updated_at?: string; // Allow both naming conventions during transition
 }
 
 export interface AcelleCampaign {

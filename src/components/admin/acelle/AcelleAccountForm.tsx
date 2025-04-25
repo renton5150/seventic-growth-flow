@@ -1,160 +1,181 @@
-import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Check, X, Loader2, Info } from "lucide-react";
 
+import React, { useState, useEffect } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getMissions } from "@/services/missions";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { testAcelleConnection } from "@/services/acelle/acelle-service";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { testAcelleConnection } from "@/services/acelle/api/connection";
+import { useQuery } from "@tanstack/react-query";
+import { getMissions } from "@/services/mission";
 
+// Form schema with validation
 const formSchema = z.object({
-  missionId: z.string({
-    required_error: "Veuillez sélectionner une mission",
-  }),
-  name: z.string({
-    required_error: "Veuillez saisir un nom",
-  }).min(3, {
-    message: "Le nom doit contenir au moins 3 caractères",
-  }),
-  apiEndpoint: z.string({
-    required_error: "Veuillez saisir l'URL de l'API",
-  }).url({
-    message: "Veuillez saisir une URL valide",
-  }),
-  apiToken: z.string({
-    required_error: "Veuillez saisir le token API",
-  }).min(10, {
-    message: "Le token API doit contenir au moins 10 caractères",
-  }),
-  status: z.enum(["active", "inactive"]),
+  name: z.string().min(2, { message: "Le nom doit contenir au moins 2 caractères" }),
+  apiEndpoint: z.string().url({ message: "L'URL de l'API doit être valide" }),
+  apiToken: z.string().min(5, { message: "Le token API doit contenir au moins 5 caractères" }),
+  status: z.enum(["active", "inactive", "error"]),
+  missionId: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type AcelleFormValues = z.infer<typeof formSchema>;
 
 interface AcelleAccountFormProps {
   account?: AcelleAccount;
-  onSubmit: (data: FormValues) => void;
+  onSubmit: (data: AcelleFormValues) => void;
   onCancel: () => void;
-  isSubmitting: boolean;
+  isSubmitting?: boolean;
 }
 
-export default function AcelleAccountForm({
-  account,
-  onSubmit,
-  onCancel,
-  isSubmitting
-}: AcelleAccountFormProps) {
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<"untested" | "success" | "failure">("untested");
-  const [debugMode, setDebugMode] = useState<boolean>(false);
-  const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
-  
-  const { data: missions = [] } = useQuery({
-    queryKey: ["missions"],
-    queryFn: getMissions,
-  });
+const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }: AcelleAccountFormProps) => {
+  const [isConnectionLoading, setIsConnectionLoading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<boolean | null>(null);
+  const [connectionDebugInfo, setConnectionDebugInfo] = useState<AcelleConnectionDebug | null>(null);
+  const [advancedDebug, setAdvancedDebug] = useState(false);
 
-  const form = useForm<FormValues>({
+  const form = useForm<AcelleFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      missionId: account?.missionId || "",
       name: account?.name || "",
       apiEndpoint: account?.apiEndpoint || "",
       apiToken: account?.apiToken || "",
-      status: (account?.status === "active" || account?.status === "inactive") ? account.status : "inactive",
+      status: account?.status || "inactive",
+      missionId: account?.missionId || "",
     },
   });
 
-  const handleTestConnection = async () => {
+  // Fetch missions for dropdown
+  const { data: missions = [] } = useQuery({
+    queryKey: ["missionsForAccountForm"],
+    queryFn: getMissions,
+    staleTime: 60000,
+  });
+
+  // Test API connection
+  const testConnection = async () => {
     const apiEndpoint = form.getValues("apiEndpoint");
     const apiToken = form.getValues("apiToken");
     
     if (!apiEndpoint || !apiToken) {
-      toast.error("Veuillez saisir l'URL de l'API et le token API");
+      form.trigger(["apiEndpoint", "apiToken"]);
       return;
     }
-    
-    setIsTestingConnection(true);
-    setConnectionStatus("untested");
-    setDebugInfo(null);
-    
+
+    setIsConnectionLoading(true);
+    setConnectionStatus(null);
+    setConnectionDebugInfo(null);
+
     try {
-      const result = await testAcelleConnection(apiEndpoint, apiToken, debugMode);
+      const result = await testAcelleConnection(apiEndpoint, apiToken, true);
       
-      if (debugMode && typeof result !== 'boolean') {
-        setDebugInfo(result);
-        setConnectionStatus(result.success ? "success" : "failure");
-        
-        if (result.success) {
-          toast.success("Connexion réussie à l'API Acelle Mail");
-        } else {
-          toast.error(`Échec de la connexion: ${result.errorMessage || "Erreur inconnue"}`);
-        }
-      } else if (typeof result === 'boolean') {
-        setConnectionStatus(result ? "success" : "failure");
-        
-        if (result) {
-          toast.success("Connexion réussie à l'API Acelle Mail");
-        } else {
-          toast.error("Échec de la connexion à l'API Acelle Mail");
-        }
+      if (typeof result === "boolean") {
+        setConnectionStatus(result);
+      } else {
+        setConnectionStatus(result.success);
+        setConnectionDebugInfo(result);
+      }
+      
+      if ((typeof result === "boolean" && result) || 
+          (typeof result !== "boolean" && result.success)) {
+        form.setValue("status", "active");
+      } else {
+        form.setValue("status", "error");
       }
     } catch (error) {
-      setConnectionStatus("failure");
-      toast.error("Erreur lors du test de connexion");
+      console.error("Connection test error:", error);
+      setConnectionStatus(false);
+      form.setValue("status", "error");
     } finally {
-      setIsTestingConnection(false);
+      setIsConnectionLoading(false);
     }
+  };
+
+  // Handle submit
+  const handleSubmit = (values: AcelleFormValues) => {
+    onSubmit(values);
+  };
+
+  // Connection status indicator component
+  const ConnectionStatusIndicator = () => {
+    if (connectionStatus === null) {
+      return null;
+    }
+
+    if (connectionStatus) {
+      return (
+        <Alert className="mt-4 bg-green-50 border-green-200">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Connexion réussie</AlertTitle>
+          <AlertDescription className="text-green-700">
+            L'API Acelle est accessible et fonctionnelle.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return (
+      <Alert className="mt-4 bg-red-50 border-red-200">
+        <AlertCircle className="h-4 w-4 text-red-600" />
+        <AlertTitle className="text-red-800">Échec de connexion</AlertTitle>
+        <AlertDescription className="text-red-700">
+          Impossible de se connecter à l'API Acelle. Veuillez vérifier les informations saisies.
+          <Button 
+            variant="link" 
+            className="p-0 h-auto text-red-700 underline"
+            onClick={() => setAdvancedDebug(!advancedDebug)}
+          >
+            {advancedDebug ? "Masquer les détails" : "Afficher les détails"}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
+  // Debug information section
+  const DebugInfoSection = () => {
+    if (!advancedDebug || !connectionDebugInfo) {
+      return null;
+    }
+
+    return (
+      <div className="mt-4 bg-gray-50 p-4 rounded border text-xs font-mono overflow-x-auto">
+        <h4 className="font-semibold mb-2">Informations de débogage</h4>
+        <div className="space-y-2">
+          <div>
+            <strong>Statut:</strong> {connectionDebugInfo.statusCode || "N/A"}
+          </div>
+          <div>
+            <strong>Erreur:</strong> {connectionDebugInfo.errorMessage || "Aucune erreur"}
+          </div>
+          <div>
+            <strong>Requête:</strong>
+            <pre className="mt-1 bg-gray-100 p-2 rounded">
+              {JSON.stringify(connectionDebugInfo.request || {}, null, 2)}
+            </pre>
+          </div>
+          <div>
+            <strong>Réponse:</strong>
+            <pre className="mt-1 bg-gray-100 p-2 rounded">
+              {connectionDebugInfo.responseData ? 
+                (typeof connectionDebugInfo.responseData === 'object' 
+                  ? JSON.stringify(connectionDebugInfo.responseData, null, 2)
+                  : connectionDebugInfo.responseData)
+                : "Aucune donnée"}
+            </pre>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="missionId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Mission</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-                disabled={isSubmitting}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner une mission" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Array.isArray(missions) ? missions.map((mission) => (
-                    <SelectItem key={mission.id} value={mission.id}>
-                      {mission.name}
-                    </SelectItem>
-                  )) : null}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -162,13 +183,13 @@ export default function AcelleAccountForm({
             <FormItem>
               <FormLabel>Nom du compte</FormLabel>
               <FormControl>
-                <Input placeholder="Compte Acelle Wenes" {...field} disabled={isSubmitting} />
+                <Input {...field} placeholder="Mon compte Acelle" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="apiEndpoint"
@@ -176,17 +197,13 @@ export default function AcelleAccountForm({
             <FormItem>
               <FormLabel>URL de l'API</FormLabel>
               <FormControl>
-                <Input 
-                  placeholder="https://emailing.plateforme-solution.net/api/v1" 
-                  {...field} 
-                  disabled={isSubmitting}
-                />
+                <Input {...field} placeholder="https://emailing.entreprise.fr" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="apiToken"
@@ -194,179 +211,113 @@ export default function AcelleAccountForm({
             <FormItem>
               <FormLabel>Token API</FormLabel>
               <FormControl>
-                <Input 
-                  placeholder="SiWiMzuDxJuTIcOTMtBmfzYxdZ7HBlIqZU4zJIbVhtZp..." 
-                  {...field} 
-                  disabled={isSubmitting}
-                />
+                <Input {...field} placeholder="token-api-acelle" type="password" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={testConnection}
+            disabled={isConnectionLoading}
+          >
+            {isConnectionLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Test en cours...
+              </>
+            ) : (
+              "Tester la connexion"
+            )}
+          </Button>
+        </div>
+
+        <ConnectionStatusIndicator />
+        <DebugInfoSection />
+
         <FormField
           control={form.control}
           name="status"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Statut</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
                 defaultValue={field.value}
-                disabled={isSubmitting}
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un statut" />
+                    <SelectValue placeholder="Sélectionnez un statut" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="active">Actif</SelectItem>
                   <SelectItem value="inactive">Inactif</SelectItem>
+                  <SelectItem value="error">Erreur</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>
           )}
         />
-        
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleTestConnection}
-              disabled={isTestingConnection || isSubmitting}
-            >
-              {isTestingConnection ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Test en cours...
-                </>
-              ) : (
-                "Tester la connexion"
-              )}
-            </Button>
-            
-            {connectionStatus === "success" && (
-              <div className="flex items-center text-green-500">
-                <Check className="h-4 w-4 mr-1" /> Connexion réussie
-              </div>
-            )}
-            
-            {connectionStatus === "failure" && (
-              <div className="flex items-center text-red-500">
-                <X className="h-4 w-4 mr-1" /> Échec de connexion
-              </div>
-            )}
-            
-            <div className="flex items-center ml-2">
-              <label className="flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={debugMode} 
-                  onChange={() => setDebugMode(!debugMode)}
-                  className="mr-2"
-                />
-                <span className="text-sm">Mode debug</span>
-              </label>
-            </div>
-          </div>
-          
-          {debugInfo && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center gap-1 text-blue-500">
-                  <Info className="h-4 w-4" /> Voir les détails du debug
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl">
-                <DialogHeader>
-                  <DialogTitle>Informations de débogage</DialogTitle>
-                </DialogHeader>
-                <ScrollArea className="h-[400px] rounded-md border p-4">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-medium">Requête</h3>
-                      <pre className="bg-gray-100 p-3 rounded-md text-sm overflow-auto">
-                        {JSON.stringify(debugInfo.request, null, 2)}
-                      </pre>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-medium">
-                        Statut: {debugInfo.statusCode || 'N/A'} 
-                        {debugInfo.success ? 
-                          <span className="text-green-500 ml-2">(Succès)</span> : 
-                          <span className="text-red-500 ml-2">(Échec)</span>
-                        }
-                      </h3>
-                    </div>
-                    
-                    {debugInfo.errorMessage && (
-                      <div>
-                        <h3 className="font-medium">Message d'erreur</h3>
-                        <div className="bg-red-50 text-red-700 p-3 rounded-md">
-                          {debugInfo.errorMessage}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {debugInfo.responseData && (
-                      <div>
-                        <h3 className="font-medium">Réponse</h3>
-                        <pre className="bg-gray-100 p-3 rounded-md text-sm overflow-auto">
-                          {typeof debugInfo.responseData === 'object' 
-                            ? JSON.stringify(debugInfo.responseData, null, 2) 
-                            : debugInfo.responseData
-                          }
-                        </pre>
-                      </div>
-                    )}
-                    
-                    <div>
-                      <h3 className="font-medium">Comment tester avec Curl</h3>
-                      <pre className="bg-gray-100 p-3 rounded-md text-sm overflow-auto">
-                        {`curl -v -X GET "${debugInfo.request?.url}"`}
-                      </pre>
-                    </div>
-                    
-                    <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
-                      <p className="text-yellow-800 text-sm">
-                        <strong>Note:</strong> Si cette requête fonctionne avec curl mais pas depuis le navigateur, 
-                        il s'agit probablement d'un problème CORS. Vérifiez que votre serveur Acelle API est 
-                        correctement configuré pour accepter les requêtes CORS depuis cette origine.
-                      </p>
-                    </div>
-                  </div>
-                </ScrollArea>
-              </DialogContent>
-            </Dialog>
+
+        <FormField
+          control={form.control}
+          name="missionId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Mission associée (optionnel)</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value || ""}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez une mission" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="">Aucune mission</SelectItem>
+                  {missions.map((mission) => (
+                    <SelectItem key={mission.id} value={mission.id}>
+                      {mission.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
           )}
-        </div>
-        
+        />
+
         <div className="flex justify-end space-x-2 pt-4">
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             onClick={onCancel}
             disabled={isSubmitting}
           >
             Annuler
           </Button>
-          <Button 
-            type="submit"
-            disabled={isSubmitting}
-          >
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Enregistrement...
+                {account ? "Mise à jour..." : "Création..."}
               </>
-            ) : account ? "Mettre à jour" : "Créer"}
+            ) : (
+              account ? "Mettre à jour" : "Créer"
+            )}
           </Button>
         </div>
       </form>
     </Form>
   );
-}
+};
+
+export default AcelleAccountForm;

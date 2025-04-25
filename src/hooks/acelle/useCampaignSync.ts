@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -60,8 +61,7 @@ export const useCampaignSync = () => {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
               'X-Debug-Level': 'verbose'
-            },
-            method: 'GET'
+            }
           },
           response: {
             statusCode: pingResponse.status,
@@ -75,10 +75,26 @@ export const useCampaignSync = () => {
         
         if (pingResponse.ok) {
           console.log("Ping successful, service status:", pingData);
-          return { available: true, data: pingData, debugInfo: debugData };
+          return { 
+            available: true, 
+            data: pingData, 
+            debugInfo: debugData,
+            endpoints: {
+              campaigns: true,
+              details: true
+            }
+          };
         } else {
           console.warn("Ping returned non-200 status:", pingResponse.status);
-          return { available: false, status: pingResponse.status, debugInfo: debugData };
+          return { 
+            available: false, 
+            status: pingResponse.status, 
+            debugInfo: debugData,
+            endpoints: {
+              campaigns: false,
+              details: false
+            }
+          };
         }
       } catch (pingError) {
         clearTimeout(timeoutId);
@@ -95,8 +111,7 @@ export const useCampaignSync = () => {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
               'X-Debug-Level': 'verbose'
-            },
-            method: 'GET'
+            }
           }
         };
         
@@ -104,11 +119,26 @@ export const useCampaignSync = () => {
         setDebugInfo(errorDebug);
         console.log("Ping failed, debug info:", errorDebug);
         
-        return { available: false, error: pingError.message, debugInfo: errorDebug };
+        return { 
+          available: false, 
+          error: pingError.message, 
+          debugInfo: errorDebug,
+          endpoints: {
+            campaigns: false,
+            details: false
+          }
+        };
       }
     } catch (error) {
       console.error("Error checking API availability:", error);
-      return { available: false, error: error.message };
+      return { 
+        available: false, 
+        error: error.message,
+        endpoints: {
+          campaigns: false,
+          details: false
+        }
+      };
     }
   }, []);
 
@@ -207,20 +237,7 @@ export const useCampaignSync = () => {
             duration: responseTime,
             timestamp: new Date().toISOString(),
             request: {
-              url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'X-Debug-Level': 'verbose'
-              },
-              body: {
-                forceSync: true,
-                startServices: true,
-                debug: true,
-                authMethods: ["token", "basic", "header"],
-                timeout: 30000
-              }
+              url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns'
             },
             response: {
               statusCode: syncResponse.status,
@@ -246,20 +263,7 @@ export const useCampaignSync = () => {
           duration: responseTime,
           timestamp: new Date().toISOString(),
           request: {
-            url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'X-Debug-Level': 'verbose'
-            },
-            body: {
-              forceSync: true,
-              startServices: true,
-              debug: true,
-              authMethods: ["token", "basic", "header"],
-              timeout: 30000
-            }
+            url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns'
           },
           response: {
             statusCode: syncResponse.status,
@@ -305,20 +309,7 @@ export const useCampaignSync = () => {
             timestamp: new Date().toISOString(),
             duration: Date.now() - requestStartTime,
             request: {
-              url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'X-Debug-Level': 'verbose'
-              },
-              body: {
-                forceSync: true,
-                startServices: true,
-                debug: true,
-                authMethods: ["token", "basic", "header"],
-                timeout: 30000
-              }
+              url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns'
             }
           };
           
@@ -334,20 +325,7 @@ export const useCampaignSync = () => {
           timestamp: new Date().toISOString(),
           duration: Date.now() - requestStartTime,
           request: {
-            url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'X-Debug-Level': 'verbose'
-            },
-            body: {
-              forceSync: true,
-              startServices: true,
-              debug: true,
-              authMethods: ["token", "basic", "header"],
-              timeout: 30000
-            }
+            url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns'
           }
         };
         
@@ -434,12 +412,7 @@ export const useCampaignSync = () => {
         duration: Date.now() - startTime,
         timestamp: new Date().toISOString(),
         request: {
-          url: 'Multiple wake-up requests to edge functions',
-          method: 'MULTIPLE',
-          headers: {
-            'X-Debug-Level': 'verbose',
-            'X-Wake-Request': 'true'
-          }
+          url: 'Multiple wake-up requests to edge functions'
         }
       };
       

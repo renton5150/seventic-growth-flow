@@ -4,12 +4,13 @@ import { Check, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { acelleService } from "@/services/acelle/acelle-service";
-import { useAuth } from "@/contexts/AuthContext";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
+import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();
+  const { checkApiAvailability } = useCampaignSync();
   const [isTesting, setIsTesting] = useState(false);
   const [endpointStatus, setEndpointStatus] = useState<{[key: string]: boolean}>({});
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
@@ -20,7 +21,7 @@ export const SystemStatus = () => {
   const runDiagnostics = async () => {
     setIsTesting(true);
     try {
-      const status = await acelleService.checkApiAvailability();
+      const status = await checkApiAvailability();
       setEndpointStatus(status.endpoints || {});
       setDebugInfo(status.debugInfo || null);
       setLastTestTime(new Date());

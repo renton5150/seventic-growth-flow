@@ -79,11 +79,15 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
 // Create account
 export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "created_at" | "updated_at">): Promise<AcelleAccount | null> => {
   try {
-    const lastSyncDate = typeof account.lastSyncDate === 'string' 
-      ? account.lastSyncDate
-      : account.lastSyncDate instanceof Date 
-        ? account.lastSyncDate.toISOString() 
-        : null;
+    let lastSyncDate = null;
+    
+    if (account.lastSyncDate) {
+      if (typeof account.lastSyncDate === 'string') {
+        lastSyncDate = account.lastSyncDate;
+      } else if (account.lastSyncDate instanceof Date) {
+        lastSyncDate = account.lastSyncDate.toISOString();
+      }
+    }
     
     const { data, error } = await supabase
       .from("acelle_accounts")
@@ -122,11 +126,15 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
 // Update account
 export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount | null> => {
   try {
-    const lastSyncDate = typeof account.lastSyncDate === 'string'
-      ? account.lastSyncDate
-      : account.lastSyncDate instanceof Date 
-        ? account.lastSyncDate.toISOString() 
-        : null;
+    let lastSyncDate = null;
+    
+    if (account.lastSyncDate) {
+      if (typeof account.lastSyncDate === 'string') {
+        lastSyncDate = account.lastSyncDate;
+      } else if (account.lastSyncDate instanceof Date) {
+        lastSyncDate = account.lastSyncDate.toISOString();
+      }
+    }
       
     const { data, error } = await supabase
       .from("acelle_accounts")
