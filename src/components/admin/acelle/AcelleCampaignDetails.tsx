@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
@@ -33,12 +32,11 @@ interface AcelleCampaignDetailsProps {
 }
 
 export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCampaignDetailsProps) {
-  const { data: campaign, isLoading, isError, error } = useQuery({
+  const { data: campaign, isLoading, isError, error } = useQuery<AcelleCampaignDetail>({
     queryKey: ["acelleCampaignDetails", account.id, campaignUid],
     queryFn: () => acelleService.getAcelleCampaignDetails(account, campaignUid),
   });
 
-  // Safe date formatting function to prevent errors
   const formatDateSafely = (dateString: string | null | undefined) => {
     if (!dateString) return "Non disponible";
     try {
@@ -68,8 +66,7 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
 
-  // Make sure we have valid delivery info data with proper default values for all properties
-  const deliveryInfo = campaign.delivery_info || {
+  const deliveryInfo = campaign?.delivery_info || {
     total: 0,
     delivery_rate: 0,
     unique_open_rate: 0,
@@ -88,15 +85,13 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
     complained: 0
   };
 
-  // Extract values with proper defaults to prevent TypeScript errors
-  const total = deliveryInfo.total || 0;
-  const delivered = deliveryInfo.delivered || 0;
-  const opened = deliveryInfo.opened || 0;
-  const clicked = deliveryInfo.clicked || 0;
-  const bounced = (deliveryInfo.bounced?.total || 0);
-  const unsubscribed = deliveryInfo.unsubscribed || 0;
+  const total = deliveryInfo.total;
+  const delivered = deliveryInfo.delivered;
+  const opened = deliveryInfo.opened;
+  const clicked = deliveryInfo.clicked;
+  const bounced = deliveryInfo.bounced.total;
+  const unsubscribed = deliveryInfo.unsubscribed;
 
-  // Create data for charts with safe values
   const deliveryData = [
     { name: "Livrés", value: delivered },
     { name: "Non livrés", value: Math.max(0, total - delivered) },
