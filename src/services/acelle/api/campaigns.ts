@@ -25,10 +25,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
     
     if (!accessToken) {
       console.error("No auth token available for API request");
-      return null;
     }
-    
-    console.log(`Fetching details for campaign ${campaignUid} from account ${account.name}`);
     
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
@@ -36,19 +33,16 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
         "Accept": "application/json",
         "X-Acelle-Endpoint": apiEndpoint,
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Authorization": `Bearer ${accessToken}`
+        ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
       }
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to fetch details for campaign ${campaignUid}: ${response.status}`, errorText);
+      console.error(`Failed to fetch details for campaign ${campaignUid}: ${response.status}`);
       return null;
     }
 
-    const campaignDetails = await response.json();
-    console.log(`Successfully fetched details for campaign ${campaignUid}`, campaignDetails);
-    return campaignDetails;
+    return await response.json();
   } catch (error) {
     console.error(`Error fetching details for campaign ${campaignUid}:`, error);
     return null;
@@ -82,7 +76,6 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     
     if (!accessToken) {
       console.error("No auth token available for campaigns API request");
-      return [];
     }
     
     // Get campaign list with pagination and included stats
@@ -92,7 +85,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         "Accept": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`
+        ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
       }
     });
 
@@ -107,51 +100,32 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     
     if (campaigns.length > 0) {
       console.log("Sample campaign data:", campaigns[0]);
-      if (campaigns[0].statistics) {
-        console.log("Statistics details:", campaigns[0].statistics);
-      }
     }
     
     // Map the campaigns with their included statistics
     const mappedCampaigns = campaigns.map((campaign: any) => {
-      // Make sure we have all statistics fields properly populated
-      const statistics = campaign.statistics || {};
+      console.log(`Processing campaign ${campaign.uid} statistics:`, campaign.statistics);
       
-      // Calculate actual numbers and rates
-      const subscriberCount = parseInt(statistics.subscriber_count) || 0;
-      const deliveredCount = parseInt(statistics.delivered_count) || 0;
-      const openCount = parseInt(statistics.open_count) || 0;
-      const clickCount = parseInt(statistics.click_count) || 0;
-      const bounceCount = parseInt(statistics.bounce_count) || 0;
-      const unsubscribeCount = parseInt(statistics.unsubscribe_count) || 0;
-      
-      // Calculate rates based on subscriber count
-      const deliveryRate = subscriberCount > 0 ? deliveredCount / subscriberCount : 0;
-      const openRate = deliveredCount > 0 ? openCount / deliveredCount : 0;
-      const clickRate = deliveredCount > 0 ? clickCount / deliveredCount : 0;
-      const bounceRate = subscriberCount > 0 ? bounceCount / subscriberCount : 0;
-      const unsubscribeRate = deliveredCount > 0 ? unsubscribeCount / deliveredCount : 0;
-
       return {
         ...campaign,
-        delivery_info: {
-          total: subscriberCount,
-          delivery_rate: deliveryRate,
-          unique_open_rate: statistics.uniq_open_rate || openRate,
-          click_rate: clickRate,
-          bounce_rate: bounceRate,
-          unsubscribe_rate: unsubscribeRate,
-          delivered: deliveredCount,
-          opened: openCount,
-          clicked: clickCount,
+        delivery_info: campaign.statistics ? {
+          total: campaign.statistics.subscriber_count || 0,
+          delivery_rate: campaign.statistics.delivered_rate || 0,
+          unique_open_rate: campaign.statistics.uniq_open_rate || 0,
+          click_rate: campaign.statistics.click_rate || 0,
+          bounce_rate: campaign.statistics.bounce_count ? campaign.statistics.bounce_count / (campaign.statistics.subscriber_count || 1) : 0,
+          unsubscribe_rate: campaign.statistics.unsubscribe_count ? campaign.statistics.unsubscribe_count / (campaign.statistics.subscriber_count || 1) : 0,
+          delivered: campaign.statistics.delivered_count || 0,
+          opened: campaign.statistics.open_count || 0,
+          clicked: campaign.statistics.click_count || 0,
           bounced: {
-            soft: parseInt(statistics.soft_bounce_count) || 0,
-            hard: parseInt(statistics.hard_bounce_count) || 0,
-            total: bounceCount
+            soft: campaign.statistics.soft_bounce_count || 0,
+            hard: campaign.statistics.hard_bounce_count || 0,
+            total: campaign.statistics.bounce_count || 0
           },
-          unsubscribed: unsubscribeCount,
-          complained: parseInt(statistics.abuse_complaint_count) || 0
-        },
+          unsubscribed: campaign.statistics.unsubscribe_count || 0,
+          complained: campaign.statistics.abuse_complaint_count || 0
+        } : undefined,
         delivery_date: campaign.delivery_at || campaign.run_at
       };
     });
@@ -196,10 +170,7 @@ export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignU
     
     if (!accessToken) {
       console.error("No auth token available for campaign details API request");
-      return null;
     }
-    
-    console.log(`Fetching details for campaign ${campaignUid}`);
     
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
@@ -207,7 +178,7 @@ export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignU
         "Accept": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`
+        ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
       }
     });
 
@@ -217,29 +188,7 @@ export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignU
       throw new Error(`Error API: ${response.status}`);
     }
 
-    const campaignDetails = await response.json();
-    console.log(`Successfully fetched details for campaign ${campaignUid}`, campaignDetails);
-    
-    // Make sure we have consistent data structures even if some properties are missing
-    const formattedDetails = {
-      ...campaignDetails,
-      statistics: campaignDetails.statistics || {},
-      delivery_info: campaignDetails.delivery_info || {
-        total: parseInt(campaignDetails.statistics?.subscriber_count) || 0,
-        delivered: parseInt(campaignDetails.statistics?.delivered_count) || 0,
-        opened: parseInt(campaignDetails.statistics?.open_count) || 0,
-        clicked: parseInt(campaignDetails.statistics?.click_count) || 0,
-        bounced: {
-          soft: parseInt(campaignDetails.statistics?.soft_bounce_count) || 0,
-          hard: parseInt(campaignDetails.statistics?.hard_bounce_count) || 0,
-          total: parseInt(campaignDetails.statistics?.bounce_count) || 0
-        },
-        unsubscribed: parseInt(campaignDetails.statistics?.unsubscribe_count) || 0,
-        complained: parseInt(campaignDetails.statistics?.abuse_complaint_count) || 0
-      }
-    };
-    
-    return formattedDetails;
+    return await response.json();
   } catch (error) {
     console.error(`Error fetching campaign details ${campaignUid}:`, error);
     return null;
