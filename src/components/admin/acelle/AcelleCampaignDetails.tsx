@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -15,38 +14,85 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { AcelleCampaignDetail, AcelleCampaignDeliveryInfo } from '@/types/acelle.types';
-import DataUnavailableAlert from './errors/DataUnavailableAlert';
+import { AcelleCampaignDetail, AcelleAccount } from '@/types/acelle.types';
+import { DataUnavailableAlert } from './errors/DataUnavailableAlert';
 import { acelleService } from '@/services/acelle/acelle-service';
 
-export default function AcelleCampaignDetails() {
-  const { id, campaignId } = useParams<{ id: string, campaignId: string }>();
+// Add a props interface to properly type the component
+interface AcelleCampaignDetailsProps {
+  account: AcelleAccount;
+  campaignUid: string;
+}
+
+export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCampaignDetailsProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: campaign, isLoading, error, refetch } = useQuery({
-    queryKey: ['acelleEmailCampaign', id, campaignId],
+    queryKey: ['acelleEmailCampaign', account.id, campaignUid],
     queryFn: async () => {
-      if (!id || !campaignId) return null;
+      if (!account || !campaignUid) return null;
       
-      const account = await acelleService.getAcelleAccountById(id);
-      if (!account) throw new Error('Account not found');
-      
-      // Use getAcelleCampaigns instead of getAcelleCampaignDetails
-      const campaigns = await acelleService.getAcelleCampaigns(account);
-      const campaign = campaigns.find(c => c.uid === campaignId);
-      
-      if (!campaign) throw new Error('Campaign not found');
-      return campaign as AcelleCampaignDetail;
+      try {
+        // Use getAcelleCampaigns instead of getAcelleCampaignDetails since the latter doesn't exist
+        const campaigns = await acelleService.getAcelleCampaigns(account);
+        const campaign = campaigns.find(c => c.uid === campaignUid);
+        
+        if (!campaign) throw new Error('Campaign not found');
+        return campaign as AcelleCampaignDetail;
+      } catch (error) {
+        console.error("Error fetching campaign:", error);
+        throw error;
+      }
     }
   });
+
+  function CampaignLoading() {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" asChild disabled>
+              <Link to={`/admin/email-campaigns`}>
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Retour
+              </Link>
+            </Button>
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-6 w-20" />
+          </div>
+        </div>
+  
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {Array(4).fill(null).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-5 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-4 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+  
+        <div className="border rounded-md">
+          <Skeleton className="h-10 w-full" />
+          <div className="p-6">
+            <Skeleton className="h-[400px] w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <CampaignLoading />;
   }
 
   if (error || !campaign) {
-    return <DataUnavailableAlert />;
+    return <DataUnavailableAlert message="Les détails de la campagne sont indisponibles" />;
   }
 
   // Format the campaign data for display
@@ -454,46 +500,6 @@ export default function AcelleCampaignDetails() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function CampaignLoading() {
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" asChild disabled>
-            <Link to={`/admin/email-campaigns`}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Retour
-            </Link>
-          </Button>
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-6 w-20" />
-        </div>
-      </div>
-
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        {Array(4).fill(null).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-2">
-              <Skeleton className="h-5 w-24" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-4 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="border rounded-md">
-        <Skeleton className="h-10 w-full" />
-        <div className="p-6">
-          <Skeleton className="h-[400px] w-full" />
-        </div>
-      </div>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { testAcelleConnection } from "@/services/acelle/api/connection";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();
-  const { checkApiAccess } = useCampaignSync();
+  const { syncCampaignsCache, wakeUpEdgeFunctions } = useCampaignSync();
   const [isTesting, setIsTesting] = useState(false);
   const [endpointStatus, setEndpointStatus] = useState<{[key: string]: boolean}>({});
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
@@ -22,29 +22,22 @@ export const SystemStatus = () => {
   const runDiagnostics = async () => {
     setIsTesting(true);
     try {
-      // Use the existing functions to test API availability
-      const status: { 
-        available: boolean, 
-        endpoints: {[key: string]: boolean},
-        debugInfo?: AcelleConnectionDebug 
-      } = { available: false, endpoints: {} };
+      // Instead of using checkApiAccess which doesn't exist, 
+      // we'll use the wakeUpEdgeFunctions method which returns a boolean
+      // indicating if the API is available
+      const apiAccess = await wakeUpEdgeFunctions();
       
-      // Test using checkApiAccess which is already properly typed
-      const apiAccess = await checkApiAccess();
-      
-      status.endpoints = {
-        campaigns: apiAccess.hasAccess,
-        details: apiAccess.hasAccess
+      const status = {
+        endpoints: {
+          campaigns: apiAccess,
+          details: apiAccess
+        }
       };
       
-      status.available = Object.values(status.endpoints).every(Boolean);
-      status.debugInfo = apiAccess.debug || null;
-      
       setEndpointStatus(status.endpoints || {});
-      setDebugInfo(status.debugInfo || null);
       setLastTestTime(new Date());
       
-      if (status.available) {
+      if (apiAccess) {
         toast.success("Tous les services sont opérationnels");
       } else {
         toast.error("Certains services sont indisponibles");
