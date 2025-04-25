@@ -34,18 +34,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [itemsPerPage] = useState(10);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   
-  const {
-    searchTerm,
-    setSearchTerm,
-    statusFilter,
-    setStatusFilter,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
-    filteredCampaigns
-  } = useAcelleCampaignsTable(campaigns);
-
   const fetchCampaigns = React.useCallback(async () => {
     console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
     return acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
@@ -64,6 +52,18 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  
+  const {
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
+    setStatusFilter,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    filteredCampaigns
+  } = useAcelleCampaignsTable(campaigns);
 
   // Reset to page 1 when filters change
   useEffect(() => {
