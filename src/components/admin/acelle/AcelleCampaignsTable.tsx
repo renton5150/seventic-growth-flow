@@ -1,7 +1,7 @@
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Eye, RefreshCw } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
@@ -9,16 +9,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
+import { CampaignsTableHeader } from "./table/TableHeader";
+import { CampaignsTablePagination } from "./table/TablePagination";
+import {
+  TableLoadingState,
+  TableErrorState,
+  EmptyState,
+  InactiveAccountState
+} from "./table/LoadingAndErrorStates";
 import AcelleCampaignDetails from "./AcelleCampaignDetails";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Spinner } from "@/components/ui/spinner";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -27,28 +32,8 @@ interface AcelleCampaignsTableProps {
 export default function AcelleCampaignsTable({ account }: AcelleCampaignsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   
-  const fetchCampaigns = useCallback(async () => {
-    console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
-    const campaigns = await acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
-    console.log("Fetched campaigns:", campaigns);
-    return campaigns;
-  }, [account, currentPage, itemsPerPage]);
-  
-  const { 
-    data: campaigns = [], 
-    isLoading, 
-    isError, 
-    refetch,
-    isFetching 
-  } = useQuery({
-    queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage],
-    queryFn: fetchCampaigns,
-    enabled: account.status === "active",
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchOnWindowFocus: false,
-  });
-
   const {
     searchTerm,
     setSearchTerm,
@@ -58,10 +43,27 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setSortBy,
     sortOrder,
     setSortOrder,
-    selectedCampaign,
-    setSelectedCampaign,
     filteredCampaigns
   } = useAcelleCampaignsTable(campaigns);
+
+  const fetchCampaigns = React.useCallback(async () => {
+    console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
+    return acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
+  }, [account, currentPage, itemsPerPage]);
+  
+  const { 
+    data: campaigns = [], 
+    isLoading, 
+    isError,
+    isFetching,
+    refetch 
+  } = useQuery({
+    queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage],
+    queryFn: fetchCampaigns,
+    enabled: account.status === "active",
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -70,60 +72,30 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     }
   }, [searchTerm, statusFilter]);
 
-  if (account.status === "inactive") {
-    return (
-      <div className="text-center py-8 border rounded-md bg-muted/20">
-        <p className="text-muted-foreground">Le compte est inactif. Activez-le pour voir les campagnes.</p>
-      </div>
-    );
-  }
-
-  // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo(0, 0);
   };
 
-  // Show loading state for initial load
+  if (account.status === "inactive") {
+    return <InactiveAccountState />;
+  }
+
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <TableLoadingState />;
   }
 
   if (isError) {
-    return (
-      <div className="text-center py-8 border rounded-md bg-muted/20">
-        <p className="text-red-500 mb-4">Erreur lors du chargement des campagnes</p>
-        <Button onClick={() => refetch()}>Réessayer</Button>
-      </div>
-    );
+    return <TableErrorState onRetry={() => refetch()} />;
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Campagnes - {account.name}</h2>
-        <Button 
-          onClick={() => refetch()} 
-          disabled={isFetching} 
-          variant="outline"
-        >
-          {isFetching ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Synchronisation...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Synchroniser
-            </>
-          )}
-        </Button>
-      </div>
+      <CampaignsTableHeader 
+        accountName={account.name}
+        onRefresh={() => refetch()}
+        isSyncing={isFetching}
+      />
       
       <AcelleTableFilters
         searchTerm={searchTerm}
@@ -137,9 +109,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       />
       
       {campaigns.length === 0 ? (
-        <div className="text-center py-8 border rounded-md bg-muted/20">
-          <p className="text-muted-foreground">Aucune campagne trouvée pour ce compte</p>
-        </div>
+        <EmptyState />
       ) : (
         <>
           <div className="border rounded-md relative">
@@ -176,79 +146,11 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             </Table>
           </div>
           
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (currentPage > 1) handlePageChange(currentPage - 1);
-                  }}
-                  className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                />
-              </PaginationItem>
-              
-              {[...Array(Math.min(3, currentPage))].map((_, i) => {
-                const pageNumber = currentPage - (Math.min(3, currentPage) - i);
-                return (
-                  <PaginationItem key={`prev-${pageNumber}`}>
-                    <PaginationLink 
-                      href="#" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handlePageChange(pageNumber);
-                      }}
-                      isActive={pageNumber === currentPage}
-                    >
-                      {pageNumber}
-                    </PaginationLink>
-                  </PaginationItem>
-                );
-              })}
-              
-              {currentPage + 1 <= 10 && (
-                <PaginationItem>
-                  <PaginationLink 
-                    href="#" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePageChange(currentPage + 1);
-                    }}
-                  >
-                    {currentPage + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              )}
-              
-              {currentPage + 2 <= 10 && (
-                <PaginationItem>
-                  <PaginationLink 
-                    href="#" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePageChange(currentPage + 2);
-                    }}
-                  >
-                    {currentPage + 2}
-                  </PaginationLink>
-                </PaginationItem>
-              )}
-              
-              <PaginationItem>
-                <PaginationNext 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (campaigns.length === itemsPerPage) {
-                      handlePageChange(currentPage + 1);
-                    }
-                  }}
-                  className={campaigns.length < itemsPerPage ? "pointer-events-none opacity-50" : ""}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <CampaignsTablePagination
+            currentPage={currentPage}
+            hasNextPage={campaigns.length === itemsPerPage}
+            onPageChange={handlePageChange}
+          />
         </>
       )}
 
