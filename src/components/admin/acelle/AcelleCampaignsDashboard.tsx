@@ -1,5 +1,5 @@
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useAcelleCampaigns } from "@/hooks/acelle/useAcelleCampaigns";
 import { CampaignStatusChart } from "./charts/CampaignStatusChart";
 import { DeliveryStatsChart } from "./charts/DeliveryStatsChart";
 import { CampaignSummaryStats } from "./stats/CampaignSummaryStats";
+import { toast } from "sonner";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
@@ -17,7 +18,21 @@ interface AcelleCampaignsDashboardProps {
 export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDashboardProps) {
   const { activeAccounts, campaignsData, isLoading, isError, error, syncError, refetch } = useAcelleCampaigns(accounts);
 
+  // Vérification auto de l'état de connexion et tentative de réveil automatique
+  useEffect(() => {
+    // Si on a une erreur, on tente une reconnexion après un court délai
+    if (syncError && syncError.includes("Failed to fetch")) {
+      const timer = setTimeout(() => {
+        toast.info("Tentative de reconnexion automatique...");
+        refetch();
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [syncError, refetch]);
+
   const handleRefresh = useCallback(() => {
+    toast.info("Actualisation des données en cours...");
     refetch();
   }, [refetch]);
 
@@ -60,15 +75,19 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
       {syncError && (
         <Alert variant="destructive" className="bg-red-50 border-red-200">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="flex flex-1 items-center">
-            {syncError}
+          <AlertDescription className="flex flex-1 items-center justify-between">
+            <span>{syncError}</span>
+            <Button variant="outline" size="sm" onClick={handleRefresh} className="ml-2">
+              Réessayer
+            </Button>
           </AlertDescription>
         </Alert>
       )}
 
       {isLoading ? (
-        <div className="flex justify-center items-center h-64">
+        <div className="flex flex-col justify-center items-center h-64 space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Connexion aux services Acelle en cours...</p>
         </div>
       ) : isError ? (
         <Card>

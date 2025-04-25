@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -7,7 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
+// Add a heartbeat mechanism to keep the service active
+let lastActivity = Date.now();
+const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+
+// Start heartbeat
+setInterval(() => {
+  // Only log if the function has been idle for a while
+  if (Date.now() - lastActivity > HEARTBEAT_INTERVAL) {
+    console.log(`Heartbeat at ${new Date().toISOString()} - Service active`);
+  }
+  lastActivity = Date.now();
+}, HEARTBEAT_INTERVAL);
+
 serve(async (req) => {
+  // Update last activity time
+  lastActivity = Date.now();
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,6 +32,14 @@ serve(async (req) => {
     // Get API token from query parameters
     const url = new URL(req.url);
     const apiToken = url.searchParams.get('api_token');
+    
+    // Special case for ping/health check
+    if (apiToken === 'ping') {
+      console.log("Received ping request - service is active");
+      return new Response(JSON.stringify({ status: 'active', timestamp: new Date().toISOString() }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     
     if (!apiToken) {
       console.error("Missing API token in request");
@@ -57,7 +80,7 @@ serve(async (req) => {
       // Copy all query parameters except api_token which is handled specially
       const queryParams = new URLSearchParams();
       for (const [key, value] of url.searchParams.entries()) {
-        if (key !== 'api_token') {
+        if (key !== 'api_token' && key !== 'cache_key') {
           queryParams.append(key, value);
         }
       }
@@ -73,7 +96,8 @@ serve(async (req) => {
     // Prepare headers for the Acelle API request
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Proxy/1.0'
+      'User-Agent': 'Seventic-Acelle-Proxy/1.1',
+      'Connection': 'keep-alive'
     };
 
     // Only add Content-Type for requests with body
@@ -83,7 +107,7 @@ serve(async (req) => {
 
     // Forward the request to Acelle API with a timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
 
     try {
       const response = await fetch(acelleApiUrl, {

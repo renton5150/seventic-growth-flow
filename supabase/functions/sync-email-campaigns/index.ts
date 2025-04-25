@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -41,7 +40,10 @@ async function fetchCampaignsForAccount(account: any) {
     try {
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: { 
+          'Accept': 'application/json',
+          'User-Agent': 'Seventic-Acelle-Sync/1.1' // Ajout d'un User-Agent pour traçabilité
+        },
         signal: controller.signal
       });
       
@@ -154,6 +156,21 @@ async function updateAccountStatus(accountId: string, errorMessage?: string) {
   }
 }
 
+// Add a heartbeat function to keep the service alive
+async function recordHeartbeat() {
+  try {
+    await supabase.from('edge_function_stats').upsert({
+      function_name: 'sync-email-campaigns',
+      last_heartbeat: new Date().toISOString(),
+      status: 'active'
+    }, { onConflict: 'function_name' });
+    
+    console.log("Heartbeat recorded for sync-email-campaigns");
+  } catch (error) {
+    console.error("Failed to record heartbeat:", error);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -161,6 +178,22 @@ serve(async (req) => {
 
   try {
     console.log("Starting sync-email-campaigns function");
+    
+    // Record heartbeat on each invocation
+    await recordHeartbeat();
+    
+    // Parse request body
+    let startServices = false;
+    
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        startServices = !!body.startServices;
+        console.log("Request options:", { startServices });
+      } catch (e) {
+        console.warn("Could not parse request body");
+      }
+    }
     
     const { data: accounts, error } = await supabase
       .from('acelle_accounts')
