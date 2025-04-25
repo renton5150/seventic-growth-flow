@@ -25,8 +25,13 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       apiToken: account.api_token,
       lastSyncDate: account.last_sync_date,
       status: account.status as AcelleAccount["status"],
-      createdAt: account.created_at,
-      updatedAt: account.updated_at
+      created_at: account.created_at,
+      updated_at: account.updated_at,
+      createdAt: account.created_at, // Adding compatibility fields
+      updatedAt: account.updated_at, // Adding compatibility fields
+      lastSyncError: account.last_sync_error || null,
+      cachePriority: account.cache_priority || 0,
+      apiKey: account.api_token // For compatibility
     }));
   } catch (error) {
     console.error("Error fetching Acelle accounts:", error);
@@ -57,8 +62,13 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       apiToken: data.api_token,
       lastSyncDate: data.last_sync_date,
       status: data.status as AcelleAccount["status"],
+      created_at: data.created_at,
+      updated_at: data.updated_at,
       createdAt: data.created_at,
-      updatedAt: data.updated_at
+      updatedAt: data.updated_at,
+      lastSyncError: data.last_sync_error || null,
+      cachePriority: data.cache_priority || 0,
+      apiKey: data.api_token
     };
   } catch (error) {
     console.error(`Error fetching Acelle account ${id}:`, error);
@@ -67,11 +77,13 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
 };
 
 // Create account
-export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt">): Promise<AcelleAccount | null> => {
+export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "created_at" | "updated_at">): Promise<AcelleAccount | null> => {
   try {
-    const lastSyncDate = account.lastSyncDate instanceof Date 
-      ? account.lastSyncDate.toISOString() 
-      : account.lastSyncDate;
+    const lastSyncDate = typeof account.lastSyncDate === 'string' 
+      ? account.lastSyncDate
+      : account.lastSyncDate instanceof Date 
+        ? account.lastSyncDate.toISOString() 
+        : null;
     
     const { data, error } = await supabase
       .from("acelle_accounts")
@@ -81,7 +93,9 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
         api_endpoint: account.apiEndpoint,
         api_token: account.apiToken,
         status: account.status,
-        last_sync_date: lastSyncDate
+        last_sync_date: lastSyncDate,
+        last_sync_error: account.lastSyncError,
+        cache_priority: account.cachePriority || 0
       })
       .select()
       .single();
@@ -93,6 +107,8 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
     return {
       ...account,
       id: data.id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
       createdAt: data.created_at,
       updatedAt: data.updated_at
     };
@@ -106,9 +122,11 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
 // Update account
 export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount | null> => {
   try {
-    const lastSyncDate = account.lastSyncDate instanceof Date 
-      ? account.lastSyncDate.toISOString() 
-      : account.lastSyncDate;
+    const lastSyncDate = typeof account.lastSyncDate === 'string'
+      ? account.lastSyncDate
+      : account.lastSyncDate instanceof Date 
+        ? account.lastSyncDate.toISOString() 
+        : null;
       
     const { data, error } = await supabase
       .from("acelle_accounts")
@@ -118,7 +136,9 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
         api_endpoint: account.apiEndpoint,
         api_token: account.apiToken,
         status: account.status,
-        last_sync_date: lastSyncDate
+        last_sync_date: lastSyncDate,
+        last_sync_error: account.lastSyncError,
+        cache_priority: account.cachePriority || 0
       })
       .eq("id", account.id)
       .select()
@@ -130,6 +150,7 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
     
     return {
       ...account,
+      updated_at: data.updated_at,
       updatedAt: data.updated_at
     };
   } catch (error) {
@@ -171,4 +192,3 @@ export const updateLastSyncDate = async (accountId: string): Promise<void> => {
     console.error(`Error updating last sync date for account ${accountId}:`, error);
   }
 };
-

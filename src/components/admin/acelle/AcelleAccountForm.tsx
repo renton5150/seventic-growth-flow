@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -78,7 +77,7 @@ export default function AcelleAccountForm({
       name: account?.name || "",
       apiEndpoint: account?.apiEndpoint || "",
       apiToken: account?.apiToken || "",
-      status: account?.status || "inactive",
+      status: (account?.status === "active" || account?.status === "inactive") ? account.status : "inactive",
     },
   });
 

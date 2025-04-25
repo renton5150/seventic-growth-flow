@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail, AcelleConnectionDebug } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -164,270 +163,37 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
         "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`
+        "Authorization": `Bearer ${accessToken}`,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     });
-
+    
     if (!response.ok) {
-      let errorText;
-      try {
-        const errorData = await response.json();
-        errorText = errorData.error || `Error ${response.status}`;
-      } catch (e) {
-        errorText = await response.text();
+      console.error(`Failed to fetch campaigns: ${response.status}`);
+      
+      if (response.status === 401 || response.status === 403) {
+        toast.error("Erreur d'authentification avec l'API Acelle");
+      } else if (response.status === 500) {
+        toast.error("Erreur interne du serveur Acelle");
+      } else {
+        toast.error(`Erreur lors de la récupération des campagnes: ${response.status}`);
       }
-      console.error(`Error API: ${response.status}`, errorText);
-      toast.error(`Erreur API: ${errorText}`);
-      throw new Error(`Error API: ${response.status}`);
+      
+      return [];
     }
-
+    
     const campaigns = await response.json();
-    console.log(`Received ${campaigns.length} campaigns from API`);
+    console.log(`Fetched ${campaigns.length} campaigns for account ${account.name}`);
     
-    if (campaigns.length > 0) {
-      console.log("Sample campaign data:", campaigns[0]);
-      if (campaigns[0].statistics) {
-        console.log("Statistics details:", campaigns[0].statistics);
-      }
-    }
+    // Update last sync date
+    updateLastSyncDate(account.id);
     
-    // Map the campaigns with their included statistics
-    const mappedCampaigns = campaigns.map((campaign: any) => {
-      // Make sure we have all statistics fields properly populated
-      const statistics = campaign.statistics || {};
-      
-      // Calculate actual numbers and rates
-      const subscriberCount = parseInt(statistics.subscriber_count) || 0;
-      const deliveredCount = parseInt(statistics.delivered_count) || 0;
-      const openCount = parseInt(statistics.open_count) || 0;
-      const clickCount = parseInt(statistics.click_count) || 0;
-      const bounceCount = parseInt(statistics.bounce_count) || 0;
-      const unsubscribeCount = parseInt(statistics.unsubscribe_count) || 0;
-      
-      // Calculate rates based on subscriber count
-      const deliveryRate = subscriberCount > 0 ? deliveredCount / subscriberCount : 0;
-      const openRate = deliveredCount > 0 ? openCount / deliveredCount : 0;
-      const clickRate = deliveredCount > 0 ? clickCount / deliveredCount : 0;
-      const bounceRate = subscriberCount > 0 ? bounceCount / subscriberCount : 0;
-      const unsubscribeRate = deliveredCount > 0 ? unsubscribeCount / deliveredCount : 0;
-
-      return {
-        ...campaign,
-        delivery_info: {
-          total: subscriberCount,
-          delivery_rate: deliveryRate,
-          unique_open_rate: statistics.uniq_open_rate || openRate,
-          click_rate: clickRate,
-          bounce_rate: bounceRate,
-          unsubscribe_rate: unsubscribeRate,
-          delivered: deliveredCount,
-          opened: openCount,
-          clicked: clickCount,
-          bounced: {
-            soft: parseInt(statistics.soft_bounce_count) || 0,
-            hard: parseInt(statistics.hard_bounce_count) || 0,
-            total: bounceCount
-          },
-          unsubscribed: unsubscribeCount,
-          complained: parseInt(statistics.abuse_complaint_count) || 0
-        },
-        delivery_date: campaign.delivery_at || campaign.run_at
-      };
-    });
-    
-    // Log des données mappées pour débogage
-    console.log(`Mapped ${mappedCampaigns.length} campaigns with statistics`);
-    if (mappedCampaigns.length > 0) {
-      console.log("Sample mapped campaign data:", {
-        name: mappedCampaigns[0].name,
-        delivery_info: mappedCampaigns[0].delivery_info
-      });
-    }
-    
-    // Update last sync date after successful fetch, but don't await it to speed up response
-    updateLastSyncDate(account.id).catch(error => 
-      console.error(`Failed to update last sync date for account ${account.id}:`, error)
-    );
-    
-    return mappedCampaigns;
+    return campaigns;
   } catch (error) {
-    console.error(`Error fetching campaigns for account ${account.id}:`, error);
-    toast.error(`Erreur lors du chargement des campagnes: ${error.message || "Erreur inconnue"}`);
+    console.error(`Error fetching campaigns for account ${account.name}:`, error);
+    toast.error(`Erreur lors de la récupération des campagnes: ${error.message || "Erreur inconnue"}`);
     return [];
   }
 };
-
-// Get campaign details
-export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
-  try {
-    // Fix potential URL issues by ensuring there's no trailing slash
-    const apiEndpoint = account.apiEndpoint?.endsWith('/') 
-      ? account.apiEndpoint.slice(0, -1) 
-      : account.apiEndpoint;
-      
-    if (!apiEndpoint || !account.apiToken) {
-      console.error(`Invalid API configuration for account: ${account.name}`);
-      return null;
-    }
-    
-    // Get the auth session for the current user
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-    
-    if (!accessToken) {
-      console.error("No auth token available for campaign details API request");
-      return null;
-    }
-    
-    console.log(`Fetching details for campaign ${campaignUid}`);
-    
-    // First check API accessibility
-    const isApiAccessible = await checkApiAccess(account);
-    if (!isApiAccessible) {
-      console.error("API is not accessible, cannot fetch campaign details");
-      toast.error("L'API Acelle n'est pas accessible actuellement");
-      return null;
-    }
-    
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`
-      }
-    });
-
-    if (!response.ok) {
-      let errorText;
-      try {
-        const errorData = await response.json();
-        errorText = errorData.error || `Error ${response.status}`;
-      } catch (e) {
-        errorText = await response.text();
-      }
-      console.error(`Error fetching campaign details: ${response.status}`, errorText);
-      toast.error(`Erreur lors du chargement des détails: ${errorText}`);
-      throw new Error(`Error API: ${response.status}`);
-    }
-
-    const campaignDetails = await response.json();
-    console.log(`Successfully fetched details for campaign ${campaignUid}`, campaignDetails);
-    
-    // Make sure we have consistent data structures even if some properties are missing
-    const formattedDetails = {
-      ...campaignDetails,
-      statistics: campaignDetails.statistics || {},
-      delivery_info: campaignDetails.delivery_info || {
-        total: parseInt(campaignDetails.statistics?.subscriber_count) || 0,
-        delivery_rate: parseFloat(campaignDetails.statistics?.delivered_rate) || 0,
-        unique_open_rate: parseFloat(campaignDetails.statistics?.uniq_open_rate) || 0,
-        click_rate: parseFloat(campaignDetails.statistics?.click_rate) || 0,
-        bounce_rate: parseFloat(campaignDetails.statistics?.bounce_rate) || 0,
-        unsubscribe_rate: parseFloat(campaignDetails.statistics?.unsubscribe_rate) || 0,
-        delivered: parseInt(campaignDetails.statistics?.delivered_count) || 0,
-        opened: parseInt(campaignDetails.statistics?.open_count) || 0,
-        clicked: parseInt(campaignDetails.statistics?.click_count) || 0,
-        bounced: {
-          soft: parseInt(campaignDetails.statistics?.soft_bounce_count) || 0,
-          hard: parseInt(campaignDetails.statistics?.hard_bounce_count) || 0,
-          total: parseInt(campaignDetails.statistics?.bounce_count) || 0
-        },
-        unsubscribed: parseInt(campaignDetails.statistics?.unsubscribe_count) || 0,
-        complained: parseInt(campaignDetails.statistics?.abuse_complaint_count) || 0
-      }
-    };
-    
-    return formattedDetails;
-  } catch (error) {
-    console.error(`Error fetching campaign details ${campaignUid}:`, error);
-    toast.error(`Erreur lors du chargement des détails: ${error.message || "Erreur inconnue"}`);
-    return null;
-  }
-};
-
-// Helper function to check API availability
-export const checkApiAvailability = async (account?: AcelleAccount): Promise<{
-  available: boolean;
-  endpoints: { [key: string]: boolean };
-  debugInfo?: AcelleConnectionDebug;
-}> => {
-  try {
-    const endpoints = {
-      campaigns: false,
-      details: false
-    };
-    
-    const debugInfo: AcelleConnectionDebug = {
-      success: false,
-      timestamp: new Date().toISOString(),
-      request: {
-        url: ACELLE_PROXY_BASE_URL,
-        headers: {}
-      }
-    };
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!accessToken) {
-      return { available: false, endpoints, debugInfo: { ...debugInfo, errorMessage: "No auth token available" } };
-    }
-
-    // Test campaigns endpoint
-    try {
-      const campaignsResponse = await fetch(`${ACELLE_PROXY_BASE_URL}/ping`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Cache-Control': 'no-cache'
-        }
-      });
-      endpoints.campaigns = campaignsResponse.ok;
-    } catch (error) {
-      console.error("Error testing campaigns endpoint:", error);
-    }
-
-    // Test details endpoint
-    if (account) {
-      try {
-        const detailsResponse = await fetch(`${ACELLE_PROXY_BASE_URL}/ping?api_token=${account.apiToken}`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Acelle-Endpoint': account.apiEndpoint,
-            'Cache-Control': 'no-cache'
-          }
-        });
-        endpoints.details = detailsResponse.ok;
-      } catch (error) {
-        console.error("Error testing details endpoint:", error);
-      }
-    }
-
-    const available = Object.values(endpoints).some(status => status);
-    
-    return {
-      available,
-      endpoints,
-      debugInfo: {
-        ...debugInfo,
-        success: available,
-        timestamp: new Date().toISOString()
-      }
-    };
-  } catch (error) {
-    console.error("Error checking API availability:", error);
-    return {
-      available: false,
-      endpoints: { campaigns: false, details: false },
-      debugInfo: {
-        success: false,
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString()
-      }
-    };
-  }
-};
-
