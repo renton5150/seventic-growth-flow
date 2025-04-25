@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
-import { AcelleAccount } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaignDetail, AcelleCampaignDeliveryInfo } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 
@@ -66,23 +66,23 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
 
-  const deliveryInfo = campaign?.delivery_info || {
-    total: 0,
-    delivery_rate: 0,
-    unique_open_rate: 0,
-    click_rate: 0,
-    bounce_rate: 0,
-    unsubscribe_rate: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
+  const deliveryInfo: AcelleCampaignDeliveryInfo = {
+    total: campaign.delivery_info?.total ?? 0,
+    delivery_rate: campaign.delivery_info?.delivery_rate ?? 0,
+    unique_open_rate: campaign.delivery_info?.unique_open_rate ?? 0,
+    click_rate: campaign.delivery_info?.click_rate ?? 0,
+    bounce_rate: campaign.delivery_info?.bounce_rate ?? 0,
+    unsubscribe_rate: campaign.delivery_info?.unsubscribe_rate ?? 0,
+    delivered: campaign.delivery_info?.delivered ?? 0,
+    opened: campaign.delivery_info?.opened ?? 0,
+    clicked: campaign.delivery_info?.clicked ?? 0,
     bounced: {
-      soft: 0,
-      hard: 0,
-      total: 0
+      soft: campaign.delivery_info?.bounced?.soft ?? 0,
+      hard: campaign.delivery_info?.bounced?.hard ?? 0,
+      total: campaign.delivery_info?.bounced?.total ?? 0
     },
-    unsubscribed: 0,
-    complained: 0
+    unsubscribed: campaign.delivery_info?.unsubscribed ?? 0,
+    complained: campaign.delivery_info?.complained ?? 0
   };
 
   const total = deliveryInfo.total;
@@ -104,10 +104,10 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
   ];
 
   const bounceData = [
-    { name: "Soft bounce", value: deliveryInfo.bounced?.soft || 0 },
-    { name: "Hard bounce", value: deliveryInfo.bounced?.hard || 0 },
+    { name: "Soft bounce", value: deliveryInfo.bounced.soft },
+    { name: "Hard bounce", value: deliveryInfo.bounced.hard },
     { name: "Désabonnés", value: unsubscribed },
-    { name: "Plaintes", value: deliveryInfo.complained || 0 },
+    { name: "Plaintes", value: deliveryInfo.complained },
   ];
 
   const barData = [

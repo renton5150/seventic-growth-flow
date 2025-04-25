@@ -1,3 +1,4 @@
+
 export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
@@ -23,24 +24,7 @@ export interface AcelleCampaign {
   last_error: string | null;
   run_at: string | null;
   delivery_date?: string | null;
-  delivery_info?: {
-    total: number;
-    delivery_rate: number;
-    unique_open_rate: number;
-    click_rate: number;
-    bounce_rate: number;
-    unsubscribe_rate: number;
-    delivered: number;
-    opened: number;
-    clicked: number;
-    bounced: {
-      soft: number;
-      hard: number;
-      total: number;
-    };
-    unsubscribed: number;
-    complained: number;
-  };
+  delivery_info?: AcelleCampaignDeliveryInfo;
   statistics?: {
     subscriber_count: number;
     delivered_count: number;
@@ -76,7 +60,7 @@ export interface AcelleCampaignDeliveryInfo {
   complained: number;
 }
 
-export interface AcelleCampaignDetail extends AcelleCampaign {
+export interface AcelleCampaignDetail extends Omit<AcelleCampaign, 'delivery_info'> {
   html: string;
   plain: string;
   template: {
@@ -100,5 +84,14 @@ export interface AcelleConnectionDebug {
   request?: {
     url: string;
     headers: Record<string, string>;
+    body?: any;
+    method?: string;
   };
+  response?: {
+    statusCode?: number;
+    headers?: Record<string, string>;
+    body?: any;
+  };
+  timestamp?: string;
+  duration?: number;
 }
