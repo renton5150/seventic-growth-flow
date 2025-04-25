@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -9,6 +10,35 @@ const corsHeaders = {
 const supabaseUrl = 'https://dupguifqyjchlmzbadav.supabase.co';
 const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Service activity tracking
+let lastActivity = Date.now();
+const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+
+// Heartbeat recording function
+async function recordHeartbeat() {
+  try {
+    await supabase.from('edge_function_stats').upsert({
+      function_name: 'sync-email-campaigns',
+      last_heartbeat: new Date().toISOString(),
+      status: 'active'
+    }, { onConflict: 'function_name' });
+    
+    console.log("Heartbeat recorded for sync-email-campaigns");
+    lastActivity = Date.now();
+  } catch (error) {
+    console.error("Failed to record heartbeat:", error);
+  }
+}
+
+// Start heartbeat interval
+setInterval(async () => {
+  // Only log if the function has been idle for a while
+  if (Date.now() - lastActivity > HEARTBEAT_INTERVAL) {
+    console.log(`Heartbeat at ${new Date().toISOString()} - Service active`);
+    await recordHeartbeat();
+  }
+}, HEARTBEAT_INTERVAL);
 
 async function fetchCampaignsForAccount(account: any) {
   try {
@@ -35,14 +65,15 @@ async function fetchCampaignsForAccount(account: any) {
     
     // Set up timeout for the request
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // Extended to 25 seconds
     
     try {
       const response = await fetch(url, {
         method: 'GET',
         headers: { 
           'Accept': 'application/json',
-          'User-Agent': 'Seventic-Acelle-Sync/1.1' // Ajout d'un User-Agent pour traçabilité
+          'User-Agent': 'Seventic-Acelle-Sync/1.2', // Updated version
+          'Connection': 'keep-alive'
         },
         signal: controller.signal
       });
@@ -156,22 +187,11 @@ async function updateAccountStatus(accountId: string, errorMessage?: string) {
   }
 }
 
-// Add a heartbeat function to keep the service alive
-async function recordHeartbeat() {
-  try {
-    await supabase.from('edge_function_stats').upsert({
-      function_name: 'sync-email-campaigns',
-      last_heartbeat: new Date().toISOString(),
-      status: 'active'
-    }, { onConflict: 'function_name' });
-    
-    console.log("Heartbeat recorded for sync-email-campaigns");
-  } catch (error) {
-    console.error("Failed to record heartbeat:", error);
-  }
-}
-
 serve(async (req) => {
+  // Record activity and update heartbeat
+  lastActivity = Date.now();
+  await recordHeartbeat();
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -179,17 +199,16 @@ serve(async (req) => {
   try {
     console.log("Starting sync-email-campaigns function");
     
-    // Record heartbeat on each invocation
-    await recordHeartbeat();
-    
     // Parse request body
     let startServices = false;
+    let forceSync = false;
     
     if (req.method === 'POST') {
       try {
         const body = await req.json();
         startServices = !!body.startServices;
-        console.log("Request options:", { startServices });
+        forceSync = !!body.forceSync;
+        console.log("Request options:", { startServices, forceSync });
       } catch (e) {
         console.warn("Could not parse request body");
       }
@@ -208,7 +227,10 @@ serve(async (req) => {
 
     console.log(`Found ${accounts.length} active Acelle accounts to sync`);
     if (accounts.length === 0) {
-      return new Response(JSON.stringify({ message: 'No active accounts to sync' }), {
+      return new Response(JSON.stringify({ 
+        message: 'No active accounts to sync',
+        timestamp: new Date().toISOString()
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -225,14 +247,35 @@ serve(async (req) => {
       });
     }
 
+    // Update edge function stats
+    await supabase.from('edge_function_stats').upsert({
+      function_name: 'sync-email-campaigns',
+      last_heartbeat: new Date().toISOString(),
+      last_run_success: true,
+      last_run_time: new Date().toISOString(),
+      status: 'active'
+    }, { onConflict: 'function_name' });
+
     return new Response(JSON.stringify({
       timestamp: new Date().toISOString(),
-      results
+      results,
+      nextScheduledSync: new Date(Date.now() + 30 * 60 * 1000).toISOString() // estimate next sync
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error(`Error in sync-email-campaigns:`, error);
+    
+    // Record error in stats
+    await supabase.from('edge_function_stats').upsert({
+      function_name: 'sync-email-campaigns',
+      last_heartbeat: new Date().toISOString(),
+      last_run_success: false,
+      last_error: error.message,
+      last_run_time: new Date().toISOString(),
+      status: 'error'
+    }, { onConflict: 'function_name' });
+    
     return new Response(JSON.stringify({ 
       error: error.message,
       stack: error.stack,

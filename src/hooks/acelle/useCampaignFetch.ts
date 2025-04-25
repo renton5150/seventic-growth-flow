@@ -30,6 +30,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
   console.log("Sample campaign data:", campaigns[0]);
 
   return campaigns.map(campaign => {
+    // Initialize default delivery info structure
     let deliveryInfo = {
       total: 0,
       delivery_rate: 0,
@@ -51,40 +52,57 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
 
     if (campaign.delivery_info) {
       try {
+        // Handle if delivery_info is a JSON string
         if (typeof campaign.delivery_info === 'string') {
           const parsedInfo = JSON.parse(campaign.delivery_info);
           if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
             deliveryInfo = {
               ...deliveryInfo,
               ...parsedInfo,
-              bounced: {
-                ...deliveryInfo.bounced,
-                ...(parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced) 
-                  ? parsedInfo.bounced 
-                  : {})
-              }
             };
-          }
-        } else if (campaign.delivery_info && typeof campaign.delivery_info === 'object' && !Array.isArray(campaign.delivery_info)) {
-          // Fix here: Ensure we're dealing with an object, not an array
-          const deliveryInfoObj = campaign.delivery_info as Record<string, any>;
-          
-          deliveryInfo = {
-            ...deliveryInfo,
-            ...deliveryInfoObj,
-            bounced: {
-              ...deliveryInfo.bounced,
-              ...(deliveryInfoObj.bounced && typeof deliveryInfoObj.bounced === 'object' && !Array.isArray(deliveryInfoObj.bounced) 
-                ? deliveryInfoObj.bounced 
-                : {})
+            
+            // Handle bounced data separately with type safety
+            if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced)) {
+              deliveryInfo.bounced = {
+                ...deliveryInfo.bounced,
+                ...(parsedInfo.bounced as { soft?: number; hard?: number; total?: number })
+              };
             }
-          };
+          }
+        } 
+        // Handle if delivery_info is already an object
+        else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+          // Ensure we're not working with an array
+          if (!Array.isArray(campaign.delivery_info)) {
+            const deliveryInfoObj = campaign.delivery_info as Record<string, any>;
+            
+            // Copy all non-nested properties
+            Object.entries(deliveryInfoObj).forEach(([key, value]) => {
+              if (key !== 'bounced' && value !== null && value !== undefined) {
+                (deliveryInfo as any)[key] = value;
+              }
+            });
+            
+            // Handle the nested bounced property with proper type checking
+            if (deliveryInfoObj.bounced && 
+                typeof deliveryInfoObj.bounced === 'object' && 
+                !Array.isArray(deliveryInfoObj.bounced)) {
+              deliveryInfo.bounced = {
+                soft: deliveryInfoObj.bounced.soft || 0,
+                hard: deliveryInfoObj.bounced.hard || 0,
+                total: deliveryInfoObj.bounced.total || 0
+              };
+            }
+          } else {
+            console.warn(`Unexpected array format for delivery_info in campaign ${campaign.campaign_uid}`);
+          }
         }
       } catch (e) {
         console.error(`Error processing delivery_info for campaign ${campaign.campaign_uid}:`, e);
       }
     }
 
+    // Create a campaign object with properly formatted statistics
     return {
       uid: campaign.campaign_uid,
       name: campaign.name,
