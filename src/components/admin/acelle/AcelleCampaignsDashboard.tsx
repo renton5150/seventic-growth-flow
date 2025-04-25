@@ -16,6 +16,8 @@ interface AcelleCampaignsDashboardProps {
 }
 
 export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDashboardProps) {
+  console.log("Rendu de AcelleCampaignsDashboard avec", accounts.length, "comptes");
+
   const { 
     activeAccounts, 
     campaignsData, 
@@ -32,6 +34,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     if (syncError && (syncError.includes("Failed to fetch") || syncError.includes("timeout") || syncError.includes("shutdown"))) {
       // Schedule automatic recovery attempt after error detected
       const timer = setTimeout(() => {
+        console.log("Tentative de récupération automatique après erreur détectée:", syncError);
         toast.info("Tentative de récupération automatique...");
         handleRetry();
       }, 8000);
@@ -41,16 +44,25 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
   }, [syncError, handleRetry]);
 
   const handleRefresh = useCallback(() => {
+    console.log("Actualisation manuelle des données demandée");
     toast.info("Actualisation des données en cours...");
     refetch();
   }, [refetch]);
 
   const handleWakeAndRefresh = useCallback(() => {
+    console.log("Initialisation des services et actualisation demandée");
     toast.info("Initialisation des services et actualisation...");
     handleRetry();
   }, [handleRetry]);
 
+  useEffect(() => {
+    console.log("Données des campagnes:", campaignsData);
+    console.log("État de chargement:", isLoading);
+    console.log("Erreur de synchronisation:", syncError);
+  }, [campaignsData, isLoading, syncError]);
+
   if (activeAccounts.length === 0) {
+    console.log("Aucun compte actif trouvé");
     return (
       <Card>
         <CardContent className="py-6">
@@ -73,7 +85,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
               onClick={handleWakeAndRefresh}
               disabled={isLoading}
               variant="outline"
-              className="border-amber-500 text-amber-500 hover:bg-amber-50"
+              className="border-amber-500 text-amber-500 hover:bg-amber-50 pointer-events-auto z-10"
             >
               <Power className="mr-2 h-4 w-4" />
               Réveiller les services
@@ -83,6 +95,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
             onClick={handleRefresh}
             disabled={isLoading}
             variant="outline"
+            className="pointer-events-auto z-10"
           >
             {isLoading ? (
               <>
@@ -108,7 +121,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
                 "Les services semblent être en cours de démarrage. Veuillez patienter ou cliquer sur 'Réveiller les services'." : 
                 syncError}
             </span>
-            <Button variant="outline" size="sm" onClick={handleWakeAndRefresh} className="ml-2">
+            <Button variant="outline" size="sm" onClick={handleWakeAndRefresh} className="ml-2 pointer-events-auto z-10">
               <Power className="mr-2 h-4 w-4" />
               Réessayer
             </Button>
@@ -128,11 +141,11 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
               <p className="text-red-500 mb-2">Erreur lors du chargement des données</p>
               <p className="text-sm text-muted-foreground mb-4">{error instanceof Error ? error.message : "Une erreur s'est produite"}</p>
               <div className="flex justify-center gap-3">
-                <Button onClick={handleRefresh} className="mt-2" variant="outline">
+                <Button onClick={handleRefresh} className="mt-2 pointer-events-auto z-10" variant="outline">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Réessayer
                 </Button>
-                <Button onClick={handleWakeAndRefresh} className="mt-2" variant="default">
+                <Button onClick={handleWakeAndRefresh} className="mt-2 pointer-events-auto z-10" variant="default">
                   <Power className="mr-2 h-4 w-4" />
                   Réveiller les services
                 </Button>
@@ -147,11 +160,11 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
               <p>Aucune campagne trouvée.</p>
               <p className="text-sm text-muted-foreground mt-2">Créez votre première campagne ou vérifiez la connexion à l'API Acelle.</p>
               <div className="flex justify-center gap-3 mt-4">
-                <Button onClick={handleRefresh} variant="outline">
+                <Button onClick={handleRefresh} variant="outline" className="pointer-events-auto z-10">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Synchroniser les données
                 </Button>
-                <Button onClick={handleWakeAndRefresh} variant="default">
+                <Button onClick={handleWakeAndRefresh} variant="default" className="pointer-events-auto z-10">
                   <Power className="mr-2 h-4 w-4" />
                   Réveiller les services
                 </Button>

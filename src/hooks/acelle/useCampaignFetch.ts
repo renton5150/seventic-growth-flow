@@ -27,7 +27,9 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
   }
 
   console.log(`Found ${campaigns.length} campaigns in cache`);
-  console.log("Sample campaign data:", campaigns[0]);
+  if (campaigns.length > 0) {
+    console.log("Sample campaign data:", campaigns[0]);
+  }
 
   return campaigns.map(campaign => {
     // Initialize default delivery info structure
@@ -54,25 +56,29 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
       try {
         // Handle if delivery_info is a JSON string
         if (typeof campaign.delivery_info === 'string') {
-          const parsedInfo = JSON.parse(campaign.delivery_info);
-          if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
-            deliveryInfo = {
-              ...deliveryInfo,
-              ...parsedInfo,
-            };
-            
-            // Handle bounced data separately with type safety
-            if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced)) {
-              deliveryInfo.bounced = {
-                ...deliveryInfo.bounced,
-                ...(parsedInfo.bounced as { soft?: number; hard?: number; total?: number })
+          try {
+            const parsedInfo = JSON.parse(campaign.delivery_info);
+            if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
+              deliveryInfo = {
+                ...deliveryInfo,
+                ...parsedInfo,
               };
+              
+              // Handle bounced data separately with type safety
+              if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced)) {
+                deliveryInfo.bounced = {
+                  ...deliveryInfo.bounced,
+                  ...(parsedInfo.bounced as { soft?: number; hard?: number; total?: number })
+                };
+              }
             }
+          } catch (e) {
+            console.error(`Error parsing delivery_info JSON for campaign ${campaign.campaign_uid}:`, e);
           }
         } 
         // Handle if delivery_info is already an object
         else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-          // Ensure we're not working with an array
+          // Type guard to ensure it's not an array
           if (!Array.isArray(campaign.delivery_info)) {
             const deliveryInfoObj = campaign.delivery_info as Record<string, any>;
             
@@ -87,10 +93,11 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
             if (deliveryInfoObj.bounced && 
                 typeof deliveryInfoObj.bounced === 'object' && 
                 !Array.isArray(deliveryInfoObj.bounced)) {
+              const bouncedObj = deliveryInfoObj.bounced as Record<string, number>;
               deliveryInfo.bounced = {
-                soft: deliveryInfoObj.bounced.soft || 0,
-                hard: deliveryInfoObj.bounced.hard || 0,
-                total: deliveryInfoObj.bounced.total || 0
+                soft: bouncedObj.soft || 0,
+                hard: bouncedObj.hard || 0,
+                total: bouncedObj.total || 0
               };
             }
           } else {
