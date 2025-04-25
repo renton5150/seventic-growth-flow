@@ -25,6 +25,7 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
 
 export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalSent = 0;
+  let totalDelivered = 0;
   let totalOpened = 0;
   let totalClicked = 0;
   let totalBounced = 0;
@@ -39,6 +40,7 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       
       // Use existing delivery_info structure
       totalSent += campaign.delivery_info.total || 0;
+      totalDelivered += campaign.delivery_info.delivered || 0;
       totalOpened += campaign.delivery_info.opened || 0;
       totalClicked += campaign.delivery_info.clicked || 0;
       
@@ -52,6 +54,7 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       console.log(`Campaign ${campaign.name} statistics:`, campaign.statistics);
       
       totalSent += campaign.statistics.subscriber_count || 0;
+      totalDelivered += campaign.statistics.delivered_count || 0;
       totalOpened += campaign.statistics.open_count || 0;
       totalClicked += campaign.statistics.click_count || 0;
       totalBounced += campaign.statistics.bounce_count || 0;
@@ -59,11 +62,12 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   });
   
   console.log("Final calculated stats:", {
-    totalSent, totalOpened, totalClicked, totalBounced
+    totalSent, totalDelivered, totalOpened, totalClicked, totalBounced
   });
   
   return [
     { name: "Envoyés", value: totalSent },
+    { name: "Livrés", value: totalDelivered },
     { name: "Ouverts", value: totalOpened },
     { name: "Cliqués", value: totalClicked },
     { name: "Bounces", value: totalBounced }

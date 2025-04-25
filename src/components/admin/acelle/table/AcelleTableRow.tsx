@@ -15,6 +15,17 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
+  // Helper function to safely format dates
+  const formatDateSafely = (dateString: string | null | undefined) => {
+    if (!dateString) return "Non programmé";
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: fr });
+    } catch (error) {
+      console.error(`Invalid date: ${dateString}`, error);
+      return "Date invalide";
+    }
+  };
+
   return (
     <TableRow key={campaign.uid}>
       <TableCell className="font-medium max-w-[120px] truncate">
@@ -29,9 +40,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         </Badge>
       </TableCell>
       <TableCell>
-        {campaign.delivery_date 
-          ? format(new Date(campaign.delivery_date), "dd/MM/yyyy HH:mm", { locale: fr }) 
-          : "Non programmé"}
+        {formatDateSafely(campaign.delivery_date)}
       </TableCell>
       <TableCell>
         {campaign.delivery_info?.total || 0}
