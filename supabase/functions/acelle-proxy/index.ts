@@ -15,8 +15,11 @@ const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://dupguifqyjchlmzbadav.supabase.co';
 const SUPABASE_SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds timeout par défaut
-const ACELLE_EMAIL = Deno.env.get('ACELLE_EMAIL') || '';
-const ACELLE_PASSWORD = Deno.env.get('ACELLE_PASSWORD') || '';
+
+// Acelle Mail credentials - FIXED
+const ACELLE_EMAIL = Deno.env.get('ACELLE_EMAIL') || 'gironde@seventic.com';
+const ACELLE_PASSWORD = Deno.env.get('ACELLE_PASSWORD') || 'Seventic75$';
+const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`); // Pre-encode the credentials
 
 // Configuration des niveaux de log
 const LOG_LEVELS = {
@@ -98,9 +101,11 @@ async function testEndpointAccess(url: string, options: { timeout?: number, head
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
+    // FIXED: Use Basic auth with Acelle credentials
     const headers = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/1.5',
+      'Authorization': `Basic ${credentials}`,
       ...(options.headers || {})
     };
     
@@ -379,7 +384,7 @@ serve(async (req) => {
       // Test API accessibility with extended debugging
       const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/api/v1';
       
-      const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`);
+      // FIXED: Use Basic auth with Acelle credentials
       const accessTest = await testEndpointAccess(baseUrl, {
         timeout: 10000,
         headers: {
@@ -430,17 +435,7 @@ serve(async (req) => {
     // Make sure the endpoint doesn't end with a slash to properly join with the path
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     
-    // Create Basic Auth credentials
-    const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`);
-    
-    // Copy all query parameters except api_token which is handled specially
-    const queryParams = new URLSearchParams();
-    for (const [key, value] of url.searchParams.entries()) {
-      if (key !== 'api_token' && key !== 'cache_key' && key !== 'debug' && key !== 'debug_level' && key !== 'auth_method') {
-        queryParams.append(key, value);
-      }
-    }
-    
+    // FIXED: Use Basic auth with Acelle credentials
     // Don't add api/v1 if it's already in the endpoint
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     let acelleApiUrl;
@@ -453,7 +448,7 @@ serve(async (req) => {
 
     debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, {}, LOG_LEVELS.DEBUG);
 
-    // Prepare headers for the Acelle API request
+    // Prepare headers with Basic auth for the Acelle API request
     const headers: HeadersInit = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/1.5',

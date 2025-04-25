@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -28,7 +29,8 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       updated_at: account.updated_at,
       createdAt: account.created_at, // Adding compatibility fields
       updatedAt: account.updated_at, // Adding compatibility fields
-      lastSyncError: account.last_sync_error || null, // Handle the case where it could be undefined
+      // Handle the last_sync_error which might not exist in the database schema
+      lastSyncError: account.last_sync_error !== undefined ? account.last_sync_error : null,
       cachePriority: account.cache_priority || 0,
       apiKey: account.api_token // For compatibility
     }));
@@ -65,7 +67,8 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       updated_at: data.updated_at,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
-      lastSyncError: data.last_sync_error ?? null, // Use nullish coalescing to handle undefined
+      // Handle the last_sync_error which might not exist in the database schema
+      lastSyncError: data.last_sync_error !== undefined ? data.last_sync_error : null,
       cachePriority: data.cache_priority || 0,
       apiKey: data.api_token
     };

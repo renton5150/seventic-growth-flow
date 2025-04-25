@@ -22,9 +22,7 @@ export const SystemStatus = () => {
   const runDiagnostics = async () => {
     setIsTesting(true);
     try {
-      // Instead of using checkApiAccess which doesn't exist, 
-      // we'll use the wakeUpEdgeFunctions method which returns a boolean
-      // indicating if the API is available
+      // Use wakeUpEdgeFunctions to check API accessibility
       const apiAccess = await wakeUpEdgeFunctions();
       
       const status = {
