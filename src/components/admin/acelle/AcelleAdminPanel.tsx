@@ -3,14 +3,13 @@ import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
-import AcelleCampaignsTable from "./AcelleAccountsTable";
+import AcelleCampaignsTable from "./AcelleCampaignsTable";
 import AcelleAccountsTable from "./AcelleAccountsTable";
 import { AcelleAccount } from "@/types/acelle.types";
 import { useQuery } from "@tanstack/react-query";
 import { acelleService } from "@/services/acelle";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export default function AcelleAdminPanel() {
   const [selectedAccount, setSelectedAccount] = useState<AcelleAccount | null>(null);
@@ -22,10 +21,18 @@ export default function AcelleAdminPanel() {
   });
 
   const handleAccountSelect = (account: AcelleAccount) => {
-    console.log("Sélection du compte:", account);
+    console.log("Compte sélectionné:", account);
     setSelectedAccount(account);
+    // Afficher un toast pour confirmer la sélection
     toast.success(`Compte ${account.name} sélectionné`);
   };
+
+  // Log pour le débogage
+  useEffect(() => {
+    console.log("Onglet actif:", activeTab);
+    console.log("Compte sélectionné:", selectedAccount);
+    console.log("Comptes disponibles:", accounts);
+  }, [activeTab, selectedAccount, accounts]);
 
   return (
     <div className="space-y-6">
@@ -61,20 +68,24 @@ export default function AcelleAdminPanel() {
                 </Card>
               ) : (
                 <div className="space-y-4">
-                  {/* Nouveau sélecteur de comptes */}
                   <div className="flex flex-wrap gap-2">
                     {accounts.map((account) => (
-                      <Button
+                      <button
                         key={account.id}
-                        variant={selectedAccount?.id === account.id ? "default" : "secondary"}
                         onClick={() => handleAccountSelect(account)}
-                        className="relative z-10"
+                        className={`
+                          px-4 py-2 rounded-md transition-colors text-sm font-medium 
+                          ${selectedAccount?.id === account.id 
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}
+                          focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                          active:scale-95 pointer-events-auto z-10 relative
+                        `}
                       >
                         {account.name}
-                      </Button>
+                      </button>
                     ))}
                   </div>
-                  
                   {selectedAccount ? (
                     <AcelleCampaignsTable account={selectedAccount} />
                   ) : (
