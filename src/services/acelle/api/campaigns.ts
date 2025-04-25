@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -346,5 +345,87 @@ export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignU
     console.error(`Error fetching campaign details ${campaignUid}:`, error);
     toast.error(`Erreur lors du chargement des détails: ${error.message || "Erreur inconnue"}`);
     return null;
+  }
+};
+
+// Helper function to check API availability
+export const checkApiAvailability = async (account?: AcelleAccount): Promise<{
+  available: boolean;
+  endpoints: { [key: string]: boolean };
+  debugInfo?: AcelleConnectionDebug;
+}> => {
+  try {
+    const endpoints = {
+      campaigns: false,
+      details: false
+    };
+    
+    const debugInfo: AcelleConnectionDebug = {
+      success: false,
+      timestamp: new Date().toISOString(),
+      request: {
+        url: ACELLE_PROXY_BASE_URL,
+        headers: {}
+      }
+    };
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!accessToken) {
+      return { available: false, endpoints, debugInfo: { ...debugInfo, errorMessage: "No auth token available" } };
+    }
+
+    // Test campaigns endpoint
+    try {
+      const campaignsResponse = await fetch(`${ACELLE_PROXY_BASE_URL}/ping`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Cache-Control': 'no-cache'
+        }
+      });
+      endpoints.campaigns = campaignsResponse.ok;
+    } catch (error) {
+      console.error("Error testing campaigns endpoint:", error);
+    }
+
+    // Test details endpoint
+    if (account) {
+      try {
+        const detailsResponse = await fetch(`${ACELLE_PROXY_BASE_URL}/ping?api_token=${account.apiToken}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'X-Acelle-Endpoint': account.apiEndpoint,
+            'Cache-Control': 'no-cache'
+          }
+        });
+        endpoints.details = detailsResponse.ok;
+      } catch (error) {
+        console.error("Error testing details endpoint:", error);
+      }
+    }
+
+    const available = Object.values(endpoints).some(status => status);
+    
+    return {
+      available,
+      endpoints,
+      debugInfo: {
+        ...debugInfo,
+        success: available,
+        timestamp: new Date().toISOString()
+      }
+    };
+  } catch (error) {
+    console.error("Error checking API availability:", error);
+    return {
+      available: false,
+      endpoints: { campaigns: false, details: false },
+      debugInfo: {
+        success: false,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString()
+      }
+    };
   }
 };
