@@ -4,7 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 const supabaseUrl = 'https://dupguifqyjchlmzbadav.supabase.co';
@@ -192,8 +193,13 @@ serve(async (req) => {
   lastActivity = Date.now();
   await recordHeartbeat();
   
+  // Handle CORS preflight requests with proper status code
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    console.log("Handling OPTIONS preflight request for sync-email-campaigns");
+    return new Response(null, { 
+      status: 204, // Standard status for successful OPTIONS requests
+      headers: corsHeaders 
+    });
   }
 
   try {
