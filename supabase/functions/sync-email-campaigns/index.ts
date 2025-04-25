@@ -73,8 +73,9 @@ async function fetchCampaignsForAccount(account: any) {
         method: 'GET',
         headers: { 
           'Accept': 'application/json',
-          'User-Agent': 'Seventic-Acelle-Sync/1.2', // Updated version
-          'Connection': 'keep-alive'
+          'User-Agent': 'Seventic-Acelle-Sync/1.3', // Updated version
+          'Connection': 'keep-alive',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
         },
         signal: controller.signal
       });
@@ -192,6 +193,14 @@ serve(async (req) => {
   // Record activity and update heartbeat
   lastActivity = Date.now();
   await recordHeartbeat();
+  
+  // Log the authorization header to help debug authentication issues
+  const authHeader = req.headers.get('authorization');
+  if (authHeader) {
+    console.log("Authorization header provided:", authHeader.substring(0, 15) + "...");
+  } else {
+    console.warn("No authorization header provided");
+  }
   
   // Handle CORS preflight requests with proper status code
   if (req.method === 'OPTIONS') {

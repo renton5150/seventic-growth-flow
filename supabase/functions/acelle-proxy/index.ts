@@ -75,6 +75,14 @@ serve(async (req) => {
   }
 
   try {
+    // Get authorization header from the request
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      console.warn("No authorization header provided");
+    } else {
+      console.log("Authorization header provided:", authHeader.substring(0, 15) + "...");
+    }
+
     // Get API token from query parameters
     const url = new URL(req.url);
     const apiToken = url.searchParams.get('api_token');
@@ -146,9 +154,15 @@ serve(async (req) => {
     // Prepare headers for the Acelle API request
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Proxy/1.2',
-      'Connection': 'keep-alive'
+      'User-Agent': 'Seventic-Acelle-Proxy/1.3', // Updated version
+      'Connection': 'keep-alive',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
     };
+
+    // Also forward the auth header if present
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
 
     // Only add Content-Type for requests with body
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {

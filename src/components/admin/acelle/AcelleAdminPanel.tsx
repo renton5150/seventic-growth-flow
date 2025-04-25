@@ -1,11 +1,12 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 import AcelleAccountsTable from "./AcelleAccountsTable";
 import AcelleCampaignsTable from "./AcelleCampaignsTable";
@@ -15,6 +16,7 @@ import { AcelleAccount } from "@/types/acelle.types";
 
 export default function AcelleAdminPanel() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [isButtonLoading, setIsButtonLoading] = useState<string | null>(null);
   
   const { 
     data: accounts = [], 
@@ -26,7 +28,26 @@ export default function AcelleAdminPanel() {
     queryFn: getAcelleAccounts,
   });
 
+  // Sélectionner automatiquement le premier compte si disponible
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(accounts[0].id);
+    }
+  }, [accounts, selectedAccountId]);
+
   const selectedAccount = accounts.find(acc => acc.id === selectedAccountId) || accounts[0];
+
+  const handleAccountSelect = (accountId: string) => {
+    console.log("Bouton cliqué pour le compte :", accountId);
+    setIsButtonLoading(accountId);
+    
+    // Simuler un léger délai pour montrer le changement visuel du bouton
+    setTimeout(() => {
+      setSelectedAccountId(accountId);
+      setIsButtonLoading(null);
+      toast.success(`Compte ${accounts.find(acc => acc.id === accountId)?.name} sélectionné`);
+    }, 300);
+  };
 
   if (isLoading) {
     return (
@@ -92,10 +113,17 @@ export default function AcelleAdminPanel() {
                     <Button
                       key={account.id}
                       variant={selectedAccountId === account.id ? "default" : "outline"}
-                      onClick={() => setSelectedAccountId(account.id)}
-                      disabled={account.status !== "active"}
+                      onClick={() => handleAccountSelect(account.id)}
+                      disabled={account.status !== "active" || isButtonLoading === account.id}
                     >
-                      {account.name}
+                      {isButtonLoading === account.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Chargement...
+                        </>
+                      ) : (
+                        account.name
+                      )}
                       {account.status !== "active" && " (inactif)"}
                     </Button>
                   ))}

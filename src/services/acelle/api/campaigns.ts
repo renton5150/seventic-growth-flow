@@ -1,6 +1,7 @@
 
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
+import { supabase } from "@/integrations/supabase/client";
 
 // Base URL for the Acelle API proxy
 const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
@@ -18,12 +19,21 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       return null;
     }
     
+    // Get the auth session for the current user
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    
+    if (!accessToken) {
+      console.error("No auth token available for API request");
+    }
+    
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
         "X-Acelle-Endpoint": apiEndpoint,
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
       }
     });
 
@@ -60,23 +70,37 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     
     console.log(`Making request to endpoint: ${apiEndpoint}`);
     
+    // Get the auth session for the current user
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    
+    if (!accessToken) {
+      console.error("No auth token available for campaigns API request");
+    }
+    
     // Get campaign list with pagination and included stats
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Acelle-Endpoint": apiEndpoint
+        "X-Acelle-Endpoint": apiEndpoint,
+        ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
       }
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error API: ${response.status}`, errorText);
       throw new Error(`Error API: ${response.status}`);
     }
 
     const campaigns = await response.json();
     console.log(`Received ${campaigns.length} campaigns from API`);
-    console.log("Sample campaign data:", campaigns[0]);
+    
+    if (campaigns.length > 0) {
+      console.log("Sample campaign data:", campaigns[0]);
+    }
     
     // Map the campaigns with their included statistics
     const mappedCampaigns = campaigns.map((campaign: any) => {
@@ -140,16 +164,27 @@ export const getAcelleCampaignDetails = async (account: AcelleAccount, campaignU
       return null;
     }
     
+    // Get the auth session for the current user
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    
+    if (!accessToken) {
+      console.error("No auth token available for campaign details API request");
+    }
+    
     const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Acelle-Endpoint": apiEndpoint
+        "X-Acelle-Endpoint": apiEndpoint,
+        ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
       }
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error fetching campaign details: ${response.status}`, errorText);
       throw new Error(`Error API: ${response.status}`);
     }
 
