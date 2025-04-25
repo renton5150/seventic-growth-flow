@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
@@ -24,7 +25,6 @@ import { Badge } from "@/components/ui/badge";
 
 import { AcelleAccount } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
-import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 
 interface AcelleCampaignDetailsProps {
   account: AcelleAccount;
@@ -32,11 +32,41 @@ interface AcelleCampaignDetailsProps {
 }
 
 export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCampaignDetailsProps) {
-  const { data: campaign, isLoading, isError, error } = useQuery<AcelleCampaignDetail>({
+  const { data: campaign, isLoading, isError, error } = useQuery({
     queryKey: ["acelleCampaignDetails", account.id, campaignUid],
     queryFn: () => acelleService.getAcelleCampaignDetails(account, campaignUid),
   });
 
+  const translateStatus = (status: string) => {
+    switch (status) {
+      case "new": return "Nouveau";
+      case "queued": return "En attente";
+      case "sending": return "En cours d'envoi";
+      case "sent": return "Envoyé";
+      case "paused": return "En pause";
+      case "failed": return "Échoué";
+      default: return status;
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "new": return "secondary";
+      case "queued": return "outline";
+      case "sending": return "default";
+      case "sent": return "success";
+      case "paused": return "warning";
+      case "failed": return "destructive";
+      default: return "outline";
+    }
+  };
+
+  const renderPercentage = (value: number | undefined) => {
+    if (value === undefined || isNaN(value)) return "N/A";
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
+  // Safe date formatting function to prevent errors
   const formatDateSafely = (dateString: string | null | undefined) => {
     if (!dateString) return "Non disponible";
     try {
@@ -66,31 +96,14 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
 
-  const deliveryInfo = campaign?.delivery_info || {
-    total: 0,
-    delivery_rate: 0,
-    unique_open_rate: 0,
-    click_rate: 0,
-    bounce_rate: 0,
-    unsubscribe_rate: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
-    bounced: {
-      soft: 0,
-      hard: 0,
-      total: 0
-    },
-    unsubscribed: 0,
-    complained: 0
-  };
-
-  const total = deliveryInfo.total;
-  const delivered = deliveryInfo.delivered;
-  const opened = deliveryInfo.opened;
-  const clicked = deliveryInfo.clicked;
-  const bounced = deliveryInfo.bounced.total;
-  const unsubscribed = deliveryInfo.unsubscribed;
+  // Make sure we have valid delivery info data
+  const deliveryInfo = campaign.delivery_info || {};
+  const total = deliveryInfo.total || 0;
+  const delivered = deliveryInfo.delivered || 0;
+  const opened = deliveryInfo.opened || 0;
+  const clicked = deliveryInfo.clicked || 0;
+  const bounced = (deliveryInfo.bounced?.total || 0);
+  const unsubscribed = deliveryInfo.unsubscribed || 0;
 
   const deliveryData = [
     { name: "Livrés", value: delivered },

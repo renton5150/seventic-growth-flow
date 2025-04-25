@@ -1,3 +1,4 @@
+
 export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
@@ -57,25 +58,6 @@ export interface AcelleCampaign {
   };
 }
 
-export interface AcelleCampaignDeliveryInfo {
-  total: number;
-  delivery_rate: number;
-  unique_open_rate: number;
-  click_rate: number;
-  bounce_rate: number;
-  unsubscribe_rate: number;
-  delivered: number;
-  opened: number;
-  clicked: number;
-  bounced: {
-    soft: number;
-    hard: number;
-    total: number;
-  };
-  unsubscribed: number;
-  complained: number;
-}
-
 export interface AcelleCampaignDetail extends AcelleCampaign {
   html: string;
   plain: string;
@@ -88,7 +70,6 @@ export interface AcelleCampaignDetail extends AcelleCampaign {
     click_tracking: boolean;
     unsubscribe_url: string;
   };
-  delivery_info?: Partial<AcelleCampaignDeliveryInfo>;
 }
 
 // Interface pour le débogage de la connexion
