@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle, Power } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,19 @@ import { CampaignStatusChart } from "./charts/CampaignStatusChart";
 import { DeliveryStatsChart } from "./charts/DeliveryStatsChart";
 import { CampaignSummaryStats } from "./stats/CampaignSummaryStats";
 import { toast } from "sonner";
+import { useWakeUpEdgeFunctions } from "@/hooks/acelle/useWakeUpEdgeFunctions";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
 }
 
 export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDashboardProps) {
+  const [recoveryAttempts, setRecoveryAttempts] = useState<number>(0);
+  const [lastAlertTime, setLastAlertTime] = useState<number>(0);
+  const [showServiceAlert, setShowServiceAlert] = useState<boolean>(false);
+  
+  const { wakeUpEdgeFunctions, isWakingUp, wakeUpStatus } = useWakeUpEdgeFunctions();
+  
   const { 
     activeAccounts, 
     campaignsData, 
@@ -27,29 +34,58 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     handleRetry 
   } = useAcelleCampaigns(accounts);
 
-  // Recovery mechanism - if error detected, try to recover automatically
+  // Reduce alert frequency by limiting how often alerts can be shown
+  const showAlert = useCallback((message: string) => {
+    const now = Date.now();
+    if (now - lastAlertTime > 15000) { // Only show alerts every 15 seconds
+      toast.info(message);
+      setLastAlertTime(now);
+    }
+  }, [lastAlertTime]);
+
+  // Only display service alert when there are actual issues
   useEffect(() => {
-    if (syncError && (syncError.includes("Failed to fetch") || syncError.includes("timeout") || syncError.includes("shutdown"))) {
+    if (syncError) {
+      setShowServiceAlert(true);
+    } else if (campaignsData.length > 0) {
+      // Hide alert after successful data load
+      setShowServiceAlert(false);
+    }
+  }, [syncError, campaignsData]);
+  
+  // Recovery mechanism - if error detected, try to recover automatically but limit attempts
+  useEffect(() => {
+    if (syncError && recoveryAttempts < 3 && 
+       (syncError.includes("Failed to fetch") || 
+        syncError.includes("timeout") || 
+        syncError.includes("shutdown"))) {
+      
       // Schedule automatic recovery attempt after error detected
       const timer = setTimeout(() => {
-        console.log("Tentative de récupération automatique après erreur détectée");
-        toast.info("Tentative de récupération automatique...");
-        handleRetry();
-      }, 8000);
+        showAlert("Tentative de récupération automatique...");
+        wakeUpEdgeFunctions().then(() => {
+          setTimeout(() => handleRetry(), 5000);
+        });
+        setRecoveryAttempts(prev => prev + 1);
+      }, 10000); // Wait 10 seconds before attempting recovery
       
       return () => clearTimeout(timer);
     }
-  }, [syncError, handleRetry]);
+  }, [syncError, recoveryAttempts, handleRetry, wakeUpEdgeFunctions, showAlert]);
 
   const handleRefresh = useCallback(() => {
+    setRecoveryAttempts(0); // Reset recovery attempts on manual refresh
     toast.info("Actualisation des données en cours...");
     refetch();
   }, [refetch]);
 
   const handleWakeAndRefresh = useCallback(() => {
+    setRecoveryAttempts(0); // Reset recovery attempts on manual wake
     toast.info("Initialisation des services et actualisation...");
-    handleRetry();
-  }, [handleRetry]);
+    wakeUpEdgeFunctions().then(() => {
+      setTimeout(() => handleRetry(), 5000);
+    });
+  }, [handleRetry, wakeUpEdgeFunctions]);
 
   if (activeAccounts.length === 0) {
     return (
@@ -71,12 +107,21 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
         <div className="flex gap-2">
           <Button
             onClick={handleWakeAndRefresh}
-            disabled={isLoading}
+            disabled={isWakingUp}
             variant="outline"
             className="border-amber-500 text-amber-500 hover:bg-amber-50"
           >
-            <Power className="mr-2 h-4 w-4" />
-            Réveiller les services
+            {isWakingUp ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Initialisation...
+              </>
+            ) : (
+              <>
+                <Power className="mr-2 h-4 w-4" />
+                Réveiller les services
+              </>
+            )}
           </Button>
           <Button
             onClick={handleRefresh}
@@ -98,13 +143,13 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
         </div>
       </div>
 
-      {syncError && (
-        <Alert variant="destructive" className="bg-red-50 border-red-200">
+      {showServiceAlert && syncError && (
+        <Alert variant={syncError.includes("initialisation") ? "warning" : "destructive"} className={syncError.includes("initialisation") ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex flex-1 items-center justify-between">
             <span>
               {syncError.includes("timeout") || syncError.includes("Failed to fetch") ? 
-                "Les services semblent être en cours de démarrage. Veuillez patienter ou cliquer sur 'Réveiller les services'." : 
+                "Services en cours de démarrage. Veuillez patienter ou cliquer sur 'Réveiller les services'." : 
                 syncError}
             </span>
             <Button variant="outline" size="sm" onClick={handleWakeAndRefresh} className="ml-2">

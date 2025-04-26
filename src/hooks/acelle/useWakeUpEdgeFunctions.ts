@@ -7,18 +7,22 @@ export const useWakeUpEdgeFunctions = () => {
   const [isWakingUp, setIsWakingUp] = useState<boolean>(false);
   const [lastWakeUpAttempt, setLastWakeUpAttempt] = useState<number>(0);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [wakeUpStatus, setWakeUpStatus] = useState<Record<string, boolean>>({
+    'acelle-proxy': false,
+    'sync-email-campaigns': false
+  });
 
-  // Tentative automatique de réveil au chargement du composant
+  // Automatic wake-up attempt when component loads
   useEffect(() => {
     const attemptInitialWakeUp = async () => {
-      // Éviter les tentatives trop fréquentes (moins de 30 secondes d'intervalle)
+      // Avoid too frequent attempts (less than 30 seconds interval)
       const now = Date.now();
       if (now - lastWakeUpAttempt < 30000 && lastWakeUpAttempt > 0) {
-        console.log("Tentative de réveil trop récente, attente...");
+        console.log("Wake-up attempt too recent, waiting...");
         return;
       }
       
-      console.log("Tentative initiale de réveil des Edge Functions");
+      console.log("Initial attempt to wake up Edge Functions");
       await wakeUpEdgeFunctions();
     };
     
@@ -27,6 +31,20 @@ export const useWakeUpEdgeFunctions = () => {
       setIsInitialized(true);
     }
   }, [isInitialized, lastWakeUpAttempt]);
+
+  // Status reset after successful wake-up
+  useEffect(() => {
+    if (wakeUpStatus['acelle-proxy'] && wakeUpStatus['sync-email-campaigns']) {
+      const timer = setTimeout(() => {
+        setWakeUpStatus({
+          'acelle-proxy': false,
+          'sync-email-campaigns': false
+        });
+      }, 60000); // Reset status after 1 minute
+      
+      return () => clearTimeout(timer);
+    }
+  }, [wakeUpStatus]);
 
   const wakeUpEdgeFunctions = useCallback(async () => {
     if (isWakingUp) {
@@ -54,9 +72,9 @@ export const useWakeUpEdgeFunctions = () => {
 
       // Ping acelle-proxy function with multiple attempts
       const pingAcelleProxy = async () => {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 5; attempt++) {
           try {
-            console.log(`Tentative #${attempt + 1} de ping acelle-proxy`);
+            console.log(`Attempt #${attempt + 1} to ping acelle-proxy`);
             const response = await fetch(
               'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', 
               {
@@ -66,21 +84,22 @@ export const useWakeUpEdgeFunctions = () => {
                   'Content-Type': 'application/json',
                   'Cache-Control': 'no-cache, no-store, must-revalidate'
                 },
-                signal: AbortSignal.timeout(8000)
+                signal: AbortSignal.timeout(10000) // Increased timeout for more reliability
               }
             );
             
             if (response.ok) {
               console.log("acelle-proxy function is now awake");
+              setWakeUpStatus(prev => ({ ...prev, 'acelle-proxy': true }));
               return { service: 'acelle-proxy', success: true };
             }
             
-            // Si échec, attendre avant la prochaine tentative
+            // If failed, wait before next attempt
             console.error(`Failed to wake up acelle-proxy (attempt ${attempt + 1}): ${response.status}`);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+            if (attempt < 4) await new Promise(r => setTimeout(r, 2000 + (attempt * 500)));
           } catch (error) {
             console.error(`Error pinging acelle-proxy (attempt ${attempt + 1}):`, error);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+            if (attempt < 4) await new Promise(r => setTimeout(r, 2000 + (attempt * 500)));
           }
         }
         return { service: 'acelle-proxy', success: false };
@@ -90,9 +109,9 @@ export const useWakeUpEdgeFunctions = () => {
 
       // Ping sync-email-campaigns function with multiple attempts
       const pingSyncCampaigns = async () => {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 5; attempt++) {
           try {
-            console.log(`Tentative #${attempt + 1} de ping sync-email-campaigns`);
+            console.log(`Attempt #${attempt + 1} to ping sync-email-campaigns`);
             const response = await fetch(
               'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', 
               {
@@ -100,20 +119,21 @@ export const useWakeUpEdgeFunctions = () => {
                 headers: {
                   'Authorization': `Bearer ${accessToken}`
                 },
-                signal: AbortSignal.timeout(8000)
+                signal: AbortSignal.timeout(10000) // Increased timeout
               }
             );
             
             if (response.status === 204) { // OPTIONS usually returns 204 No Content
               console.log("sync-email-campaigns function is now awake");
+              setWakeUpStatus(prev => ({ ...prev, 'sync-email-campaigns': true }));
               return { service: 'sync-email-campaigns', success: true };
             }
             
             console.error(`Failed to wake up sync-email-campaigns (attempt ${attempt + 1}): ${response.status}`);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+            if (attempt < 4) await new Promise(r => setTimeout(r, 2000 + (attempt * 500)));
           } catch (error) {
             console.error(`Error pinging sync-email-campaigns (attempt ${attempt + 1}):`, error);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+            if (attempt < 4) await new Promise(r => setTimeout(r, 2000 + (attempt * 500)));
           }
         }
         return { service: 'sync-email-campaigns', success: false };
@@ -136,6 +156,7 @@ export const useWakeUpEdgeFunctions = () => {
           .map(result => result.service)
           .join(', ');
         
+        // Use a warning toast instead of error to reduce alert fatigue
         toast.warning(`Services en cours d'initialisation: ${failedServices}`);
         return false;
       }
@@ -144,9 +165,11 @@ export const useWakeUpEdgeFunctions = () => {
       toast.error(`Erreur d'initialisation des services: ${error.message}`);
       return false;
     } finally {
-      setIsWakingUp(false);
+      // Add slight delay before setting isWakingUp to false
+      // to prevent rapid repeated calls
+      setTimeout(() => setIsWakingUp(false), 2000);
     }
   }, [isWakingUp]);
 
-  return { wakeUpEdgeFunctions, isWakingUp };
+  return { wakeUpEdgeFunctions, isWakingUp, wakeUpStatus };
 };
