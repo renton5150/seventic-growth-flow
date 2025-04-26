@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -25,13 +24,13 @@ export const useCampaignSync = () => {
       let lastError = null;
       
       while (attempt <= retries) {
+        console.log(`Tentative #${attempt + 1} de vérification de l'API`);
+        
+        // Use AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
         try {
-          console.log(`Tentative #${attempt + 1} de vérification de l'API`);
-          
-          // Use AbortController for timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000);
-          
           // Ping service to check availability
           const pingResponse = await fetch(
             'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping', 
