@@ -28,28 +28,12 @@ export const useWakeUpEdgeFunctions = () => {
 
       toast.loading("Initialisation des services...", { id: "wake-up-toast" });
 
+      // Séquence de réveil qui utilise le token JWT de Supabase pour les edge functions
       const wakeupSequence = [
         {
           url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
           method: 'GET',
-          headers: { 
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Acelle-Endpoint': 'ping',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-          }
-        },
-        {
-          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me',
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Acelle-Endpoint': 'ping',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-          }
+          headers: { 'Authorization': `Bearer ${accessToken}` }
         },
         {
           url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',

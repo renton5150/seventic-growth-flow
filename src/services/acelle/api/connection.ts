@@ -43,12 +43,13 @@ export const testAcelleConnection = async (
       
     const url = `${ACELLE_PROXY_BASE_URL}/me`;
     
-    // UTILISER UNIQUEMENT BEARER TOKEN pour l'authentification
+    // Préparation des en-têtes pour l'edge function
+    // L'edge function s'attend à recevoir l'API token Acelle en tant que Bearer token
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
       "X-Acelle-Endpoint": cleanApiEndpoint,
-      "Authorization": `Bearer ${apiToken}`
+      "Authorization": `Bearer ${apiToken}`  // API Token Acelle (pas le token Supabase)
     };
     
     const debugInfo: AcelleConnectionDebug = {
@@ -80,6 +81,8 @@ export const testAcelleConnection = async (
     await new Promise(resolve => setTimeout(resolve, 500));
     
     console.log(`Envoi de la requête à: ${url}`);
+    console.log(`En-têtes de la requête:`, headers);
+    
     const response = await fetch(url, {
       method: "GET",
       headers,

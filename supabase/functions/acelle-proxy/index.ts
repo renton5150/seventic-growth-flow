@@ -57,37 +57,50 @@ serve(async (req) => {
   }
 
   try {
-    // Vérifier l'authentification - UNIQUEMENT AVEC BEARER TOKEN
+    // Special case for ping - only verify the JWT
+    const url = new URL(req.url);
+    if (url.pathname.includes('/ping')) {
+      debugLog("Requête ping reçue - vérification du token JWT uniquement");
+      
+      // Vérification du token JWT Supabase - NON le token Acelle
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        debugLog("Token JWT Supabase manquant ou invalide pour le ping", null, true);
+        return new Response(JSON.stringify({ 
+          error: 'Token JWT Supabase manquant ou invalide',
+          message: 'Authentification requise pour le ping'
+        }), { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        status: 'active',
+        timestamp: new Date().toISOString()
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Pour les autres requêtes, vérifier l'en-tête d'autorisation
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      debugLog("Authentification invalide: Bearer token manquant ou invalide", null, true);
+      debugLog("Token API Acelle manquant ou invalide", null, true);
       return new Response(JSON.stringify({ 
-        error: 'Bearer token manquant ou invalide',
-        message: 'L\'API Acelle Mail exige l\'authentification par Bearer Token'
+        error: 'Token API Acelle manquant ou invalide',
+        message: 'Le token API Acelle est requis'
       }), { 
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const accessToken = authHeader.substring(7);
-    debugLog("Bearer token détecté:", accessToken.substring(0, 10) + "...");
+    // Récupérer le token API Acelle depuis l'en-tête Authorization
+    const apiToken = authHeader.substring(7);
+    debugLog("Token API Acelle détecté:", apiToken.substring(0, 10) + "...");
 
-    const url = new URL(req.url);
-    const isPingRequest = url.searchParams.get('api_token') === 'ping';
-    
-    // Gestion spéciale pour les requêtes de ping/vérification de santé
-    if (isPingRequest) {
-      debugLog("Requête de ping reçue - service actif");
-      return new Response(JSON.stringify({ 
-        status: 'active',
-        timestamp: new Date().toISOString(),
-        uptime: Math.floor((Date.now() - lastActivity) / 1000)
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
+    // Récupérer le point de terminaison Acelle depuis les en-têtes
     const acelleEndpoint = req.headers.get('x-acelle-endpoint');
     if (!acelleEndpoint) {
       debugLog("Point de terminaison Acelle manquant dans les en-têtes de la requête", null, true);
@@ -101,15 +114,15 @@ serve(async (req) => {
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
     const resourceId = parts[parts.length - 2] === 'acelle-proxy' ? null : parts[parts.length - 1];
 
-    // Construire l'URL de l'API Acelle avec l'authentification appropriée
+    // Construire l'URL de l'API Acelle
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    // Construire les paramètres d'URL - MAIS NE PAS INCLURE api_token dans l'URL
-    // On utilise UNIQUEMENT Bearer Token pour l'authentification
+    // Construire les paramètres d'URL - AJOUTER api_token comme paramètre d'URL
     const queryParams = new URLSearchParams();
+    queryParams.append('api_token', apiToken);
     for (const [key, value] of url.searchParams.entries()) {
-      if (key !== 'api_token' && key !== 'cache_key') {
+      if (key !== 'cache_key') {
         queryParams.append(key, value);
       }
     }
@@ -123,10 +136,9 @@ serve(async (req) => {
 
     debugLog(`Transmission de la requête à l'API Acelle: ${acelleApiUrl}`);
 
-    // Préparer les en-têtes UNIQUEMENT avec Bearer token
+    // Préparer les en-têtes SANS token Bearer pour l'API Acelle
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'Authorization': `Bearer ${accessToken}`, // SEULE méthode d'authentification
       'User-Agent': 'Seventic-Acelle-Proxy/2.0',
       'X-Requested-With': 'XMLHttpRequest',
       'Connection': 'keep-alive',

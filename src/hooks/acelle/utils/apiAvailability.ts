@@ -24,17 +24,15 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
       try {
-        console.log("Envoi de la requête ping avec Bearer token:", accessToken.substring(0, 15) + "...");
+        console.log("Envoi de la requête ping avec Supabase token:", accessToken.substring(0, 15) + "...");
         
-        // UNIQUEMENT authentification Bearer Token
+        // Utiliser le Supabase token pour appeler notre Edge Function
         const pingResponse = await fetch(
-          'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me', 
+          'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', 
           {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'X-Acelle-Endpoint': 'ping',
-              'X-Requested-With': 'XMLHttpRequest',
+              'Authorization': `Bearer ${accessToken}`, // Token Supabase pour l'Edge Function
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache, no-store, must-revalidate'
             },
