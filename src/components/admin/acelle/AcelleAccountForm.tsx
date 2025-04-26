@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -88,7 +87,6 @@ export default function AcelleAccountForm({
     },
   });
 
-  // Effet pour nettoyer le statut de connexion si les champs importants changent
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === 'apiEndpoint' || name === 'apiToken') {
@@ -102,7 +100,6 @@ export default function AcelleAccountForm({
     return () => subscription.unsubscribe();
   }, [form, connectionStatus]);
 
-  // Fonction pour tenter de réveiller les services edge
   const handleWakeUpServices = async () => {
     toast.loading("Réveil des services en cours...", { id: "wakeup-toast" });
     setHasTriedWakeup(true);
@@ -277,7 +274,7 @@ export default function AcelleAccountForm({
         />
         
         {connectionStatus === "failure" && !hasTriedWakeup && (
-          <Alert variant="warning" className="bg-amber-50">
+          <Alert className="bg-amber-50 border-amber-200">
             <AlertTitle className="text-amber-800">Problème de connexion</AlertTitle>
             <AlertDescription className="text-amber-700">
               Les services Edge Functions sont peut-être en veille. Essayez de les réveiller avant de réessayer.

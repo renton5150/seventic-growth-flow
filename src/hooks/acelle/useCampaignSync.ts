@@ -67,7 +67,7 @@ export const useCampaignSync = () => {
             return { available: false, status: pingResponse.status };
           }
         } catch (pingError) {
-          clearTimeout?.();
+          clearTimeout(timeoutId);
           console.log(`Ping attempt #${attempt + 1} failed:`, pingError);
           lastError = pingError;
           
