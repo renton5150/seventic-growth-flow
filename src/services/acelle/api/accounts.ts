@@ -27,6 +27,7 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       status: account.status as AcelleAccount["status"],
       createdAt: account.created_at,
       updatedAt: account.updated_at
+      // Safely exclude last_sync_error since it doesn't exist in the database schema
     }));
   } catch (error) {
     console.error("Error fetching Acelle accounts:", error);
@@ -59,6 +60,7 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       status: data.status as AcelleAccount["status"],
       createdAt: data.created_at,
       updatedAt: data.updated_at
+      // Safely exclude last_sync_error since it doesn't exist in the database schema
     };
   } catch (error) {
     console.error(`Error fetching Acelle account ${id}:`, error);
@@ -139,21 +141,28 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
   }
 };
 
-// Delete account
+// Delete account - Fixed with better error handling and debugging
 export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
   try {
+    console.log(`Attempting to delete Acelle account with ID: ${id}`);
+    
+    // Add specific debug message before deletion
     const { error } = await supabase
       .from("acelle_accounts")
       .delete()
       .eq("id", id);
     
-    if (error) throw error;
+    if (error) {
+      console.error(`Database error deleting account ${id}:`, error);
+      throw error;
+    }
 
+    console.log(`Successfully deleted Acelle account with ID: ${id}`);
     toast.success("Compte Acelle supprimé avec succès");
     return true;
   } catch (error) {
     console.error(`Error deleting Acelle account ${id}:`, error);
-    toast.error("Échec de la suppression du compte Acelle");
+    toast.error(`Échec de la suppression du compte Acelle: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return false;
   }
 };
@@ -171,4 +180,3 @@ export const updateLastSyncDate = async (accountId: string): Promise<void> => {
     console.error(`Error updating last sync date for account ${accountId}:`, error);
   }
 };
-

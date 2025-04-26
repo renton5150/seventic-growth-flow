@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -38,6 +39,7 @@ export default function AcelleAccountsTable() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<AcelleAccount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   const { data: accounts = [], isLoading, isError, refetch } = useQuery({
@@ -88,18 +90,30 @@ export default function AcelleAccountsTable() {
     }
   };
 
+  // Improved delete handler with better state management
   const handleDeleteAccount = async () => {
     if (!selectedAccount) return;
     
     try {
+      setIsDeleting(true);
+      console.log(`Starting deletion process for account: ${selectedAccount.id}`);
+      
       const success = await deleteAcelleAccount(selectedAccount.id);
       
       if (success) {
-        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
+        console.log(`Account ${selectedAccount.id} successfully deleted, refreshing queries`);
+        // Force refresh data
+        await queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
+        await refetch();
+        toast.success(`Le compte ${selectedAccount.name} a été supprimé avec succès`);
+      } else {
+        toast.error(`La suppression du compte a échoué`);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error in handleDeleteAccount:", error);
+      toast.error(`Erreur lors de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
+      setIsDeleting(false);
       setIsDeleteDialogOpen(false);
       setSelectedAccount(null);
     }
@@ -215,6 +229,7 @@ export default function AcelleAccountsTable() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
+                          console.log("Delete button clicked for account:", account);
                           setSelectedAccount(account);
                           setIsDeleteDialogOpen(true);
                         }}
@@ -261,8 +276,10 @@ export default function AcelleAccountsTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de suppression de compte */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {/* Dialogue de suppression de compte - improved with loading state */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!isDeleting) setIsDeleteDialogOpen(open);
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
@@ -271,12 +288,23 @@ export default function AcelleAccountsTable() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteAccount}
+              onClick={(e) => {
+                e.preventDefault(); // Prevent default to handle manually
+                handleDeleteAccount();
+              }}
+              disabled={isDeleting}
               className="bg-red-500 hover:bg-red-600"
             >
-              Supprimer
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
