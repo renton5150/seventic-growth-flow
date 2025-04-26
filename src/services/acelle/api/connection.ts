@@ -46,12 +46,13 @@ export const testAcelleConnection = async (
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "X-Acelle-Endpoint": cleanApiEndpoint
+      "X-Acelle-Endpoint": cleanApiEndpoint,
+      "Authorization": `Bearer ${apiToken}` // Important: ajouter le token comme Bearer token
     };
 
     // Build query parameters with API token
     const params = new URLSearchParams();
-    params.append('api_token', apiToken);
+    params.append('api_token', apiToken); // Important: ajouter également le token en paramètre d'URL
     const urlWithParams = `${url}?${params.toString()}`;
     
     const debugInfo: AcelleConnectionDebug = {
@@ -158,7 +159,8 @@ export const testAcelleConnection = async (
           url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
           headers: { 
             "Accept": "application/json",
-            "X-Acelle-Endpoint": apiEndpoint
+            "X-Acelle-Endpoint": apiEndpoint,
+            "Authorization": `Bearer ${apiToken}`  // Important: inclure le Bearer token
           }
         }
       };

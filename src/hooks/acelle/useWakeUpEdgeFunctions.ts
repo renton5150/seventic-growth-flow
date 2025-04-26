@@ -39,7 +39,10 @@ export const useWakeUpEdgeFunctions = () => {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'X-Acelle-Endpoint': 'ping'
+            'X-Acelle-Endpoint': 'ping',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
           }
         },
         {

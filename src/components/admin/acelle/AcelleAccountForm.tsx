@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -145,6 +144,25 @@ export default function AcelleAccountForm({
           toast.success("Connexion réussie à l'API Acelle Mail");
         } else {
           toast.error(`Échec de la connexion: ${result.errorMessage || "Erreur inconnue"}`);
+          
+          if (!hasTriedWakeup && (result.statusCode === 401 || result.errorMessage?.includes('401'))) {
+            toast.info("Tentative de réveil des services...");
+            await handleWakeUpServices();
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const secondResult = await testAcelleConnection(apiEndpoint, apiToken, debugMode);
+            if (typeof secondResult !== 'boolean') {
+              setDebugInfo(secondResult);
+              setConnectionStatus(secondResult.success ? "success" : "failure");
+              
+              if (secondResult.success) {
+                toast.success("Connexion réussie à l'API Acelle Mail après réveil des services");
+              } else {
+                toast.error(`Échec de la connexion même après réveil: ${secondResult.errorMessage || "Erreur inconnue"}`);
+              }
+            }
+          }
         }
       } else if (typeof result === 'boolean') {
         setConnectionStatus(result ? "success" : "failure");
