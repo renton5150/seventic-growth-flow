@@ -46,12 +46,12 @@ export const useCampaignSync = () => {
           console.warn("Ping returned non-200 status:", pingResponse.status);
           return { available: false, status: pingResponse.status };
         }
-      } catch (pingError) {
+      } catch (pingError: any) {
         clearTimeout(timeoutId);
         console.log("Ping failed, service may need to wake up:", pingError);
         return { available: false, error: pingError.message };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error checking API availability:", error);
       return { available: false, error: error.message };
     }

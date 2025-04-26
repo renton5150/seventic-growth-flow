@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -141,12 +140,24 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
   }
 };
 
-// Delete account - Fixed with better error handling and debugging
+// Delete account - Fixed with better error handling, cascade removal of related records
 export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
   try {
     console.log(`Attempting to delete Acelle account with ID: ${id}`);
     
-    // Add specific debug message before deletion
+    // First, delete all related email_campaigns_cache records
+    console.log(`Deleting related email_campaigns_cache records for account ${id}`);
+    const { error: cacheDeleteError } = await supabase
+      .from("email_campaigns_cache")
+      .delete()
+      .eq("account_id", id);
+    
+    if (cacheDeleteError) {
+      console.error(`Error deleting related cache records for account ${id}:`, cacheDeleteError);
+      throw cacheDeleteError;
+    }
+    
+    // Then delete the account itself
     const { error } = await supabase
       .from("acelle_accounts")
       .delete()
@@ -160,9 +171,9 @@ export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
     console.log(`Successfully deleted Acelle account with ID: ${id}`);
     toast.success("Compte Acelle supprimé avec succès");
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error deleting Acelle account ${id}:`, error);
-    toast.error(`Échec de la suppression du compte Acelle: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    toast.error(`Échec de la suppression du compte Acelle: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     return false;
   }
 };

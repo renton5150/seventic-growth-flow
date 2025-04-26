@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -90,7 +89,6 @@ export default function AcelleAccountsTable() {
     }
   };
 
-  // Improved delete handler with better state management
   const handleDeleteAccount = async () => {
     if (!selectedAccount) return;
     
@@ -98,20 +96,22 @@ export default function AcelleAccountsTable() {
       setIsDeleting(true);
       console.log(`Starting deletion process for account: ${selectedAccount.id}`);
       
+      toast.loading("Suppression en cours...", { id: "delete-toast" });
+      
       const success = await deleteAcelleAccount(selectedAccount.id);
       
       if (success) {
+        toast.success(`Le compte ${selectedAccount.name} a été supprimé avec succès`, { id: "delete-toast" });
         console.log(`Account ${selectedAccount.id} successfully deleted, refreshing queries`);
-        // Force refresh data
+        
         await queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
         await refetch();
-        toast.success(`Le compte ${selectedAccount.name} a été supprimé avec succès`);
       } else {
-        toast.error(`La suppression du compte a échoué`);
+        toast.error(`La suppression du compte a échoué`, { id: "delete-toast" });
       }
     } catch (error) {
       console.error("Error in handleDeleteAccount:", error);
-      toast.error(`Erreur lors de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      toast.error(`Erreur lors de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`, { id: "delete-toast" });
     } finally {
       setIsDeleting(false);
       setIsDeleteDialogOpen(false);
@@ -245,7 +245,6 @@ export default function AcelleAccountsTable() {
         </div>
       )}
 
-      {/* Dialogue d'ajout de compte */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -259,7 +258,6 @@ export default function AcelleAccountsTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de modification de compte */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -276,7 +274,6 @@ export default function AcelleAccountsTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de suppression de compte - improved with loading state */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
         if (!isDeleting) setIsDeleteDialogOpen(open);
       }}>
@@ -285,6 +282,10 @@ export default function AcelleAccountsTable() {
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
               Êtes-vous sûr de vouloir supprimer le compte "{selectedAccount?.name}" ? Cette action est irréversible.
+              <div className="mt-4 p-2 bg-red-50 border border-red-200 rounded-md text-sm">
+                <p className="font-medium text-red-700">⚠️ Attention : </p>
+                <p className="text-red-600">Toutes les données de campagnes en cache pour ce compte seront également supprimées.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
