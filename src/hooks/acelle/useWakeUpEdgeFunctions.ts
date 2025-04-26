@@ -2,97 +2,111 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { checkApiAvailability } from "./utils/apiAvailability";
 
 export const useWakeUpEdgeFunctions = () => {
   const [isWakingUp, setIsWakingUp] = useState<boolean>(false);
 
   const wakeUpEdgeFunctions = useCallback(async () => {
     if (isWakingUp) {
-      console.log("Réveil déjà en cours, ignoré...");
-      return false;
+      console.log("Already waking up edge functions, skipping duplicate request");
+      return true;
     }
-    
+
     setIsWakingUp(true);
-    
     try {
-      console.log("Tentative de réveil des edge functions...");
       const { data, error } = await supabase.auth.getSession();
       const accessToken = data?.session?.access_token;
       
       if (!accessToken) {
-        console.error("Pas de token d'accès disponible pour le réveil");
-        setIsWakingUp(false);
+        console.error("No access token available for wake up");
+        toast.error("Authentification requise pour initialiser les services");
         return false;
       }
 
-      toast.loading("Initialisation des services...", { id: "wake-up-toast" });
+      // First ping the acelle-proxy function to wake it up
+      console.log("Waking up acelle-proxy function...");
+      
+      const promises = [];
 
-      // Séquence de réveil qui utilise le token JWT de Supabase pour les edge functions
-      const wakeupSequence = [
+      // Ping acelle-proxy function
+      promises.push(fetch(
+        'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', 
         {
-          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
           method: 'GET',
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        },
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          },
+          // Add a timeout to prevent hanging requests
+          signal: AbortSignal.timeout(8000)
+        }
+      ).then(response => {
+        if (response.ok) {
+          console.log("acelle-proxy function is now awake");
+          return { service: 'acelle-proxy', success: true };
+        } else {
+          console.error(`Failed to wake up acelle-proxy: ${response.status}`);
+          return { service: 'acelle-proxy', success: false, status: response.status };
+        }
+      }).catch(error => {
+        console.error("Error during acelle-proxy wake-up:", error);
+        return { service: 'acelle-proxy', success: false, error: error.message };
+      }));
+
+      // Ping sync-email-campaigns function
+      promises.push(fetch(
+        'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', 
         {
-          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
           method: 'OPTIONS',
-          headers: { 'Authorization': `Bearer ${accessToken}` }
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          // Add a timeout to prevent hanging requests
+          signal: AbortSignal.timeout(8000)
         }
-      ];
-      
-      const attemptRequest = async (requestConfig: any, retries = 1) => {
-        for (let i = 0; i <= retries; i++) {
-          try {
-            console.log(`Tentative ${i+1} pour ${requestConfig.url}`);
-            const response = await fetch(requestConfig.url, {
-              method: requestConfig.method,
-              headers: requestConfig.headers,
-              signal: AbortSignal.timeout(i === 0 ? 5000 : 8000)
-            });
-            
-            console.log(`Réponse pour ${requestConfig.url}: ${response.status} ${response.statusText}`);
-            return true;
-          } catch (err) {
-            console.log(`La requête à ${requestConfig.url} a échoué à la tentative ${i + 1}:`, err.name);
-            if (i < retries) {
-              await new Promise(r => setTimeout(r, 1000));
-            }
-          }
+      ).then(response => {
+        if (response.status === 204) { // OPTIONS usually returns 204 No Content
+          console.log("sync-email-campaigns function is now awake");
+          return { service: 'sync-email-campaigns', success: true };
+        } else {
+          console.error(`Failed to wake up sync-email-campaigns: ${response.status}`);
+          return { service: 'sync-email-campaigns', success: false, status: response.status };
         }
-        return false;
-      };
+      }).catch(error => {
+        console.error("Error during sync-email-campaigns wake-up:", error);
+        return { service: 'sync-email-campaigns', success: false, error: error.message };
+      }));
+
+      // Wait for all wake-up calls to complete
+      const results = await Promise.allSettled(promises);
+      console.log("Wake-up results:", results);
       
-      await Promise.allSettled(wakeupSequence.map(req => attemptRequest(req)));
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const allServicesAwake = results.every(
+        result => result.status === 'fulfilled' && result.value.success
+      );
       
-      const apiStatus = await checkApiAvailability(1, 2000);
-      
-      if (apiStatus.available) {
-        toast.success("Services initialisés avec succès", { id: "wake-up-toast" });
-        setIsWakingUp(false);
+      if (allServicesAwake) {
+        toast.success("Services initialisés avec succès");
         return true;
       } else {
-        toast.info("Services en cours d'initialisation, veuillez patienter...", { id: "wake-up-toast" });
-        await new Promise(resolve => setTimeout(resolve, 4000));
+        const failedServices = results
+          .filter(result => result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.success))
+          .map(result => {
+            if (result.status === 'rejected') return result.reason;
+            return result.value.service;
+          })
+          .join(', ');
         
-        const finalCheck = await checkApiAvailability(1, 2000);
-        if (finalCheck.available) {
-          toast.success("Services initialisés avec succès", { id: "wake-up-toast" });
-          setIsWakingUp(false);
-          return true;
-        } else {
-          toast.warning("Initialisation des services en cours, veuillez réessayer plus tard", { id: "wake-up-toast" });
-          setIsWakingUp(false);
-          return false;
-        }
+        toast.warning(`Certains services n'ont pas pu être initialisés: ${failedServices}`);
+        return false;
       }
     } catch (error) {
-      console.error("Erreur lors du réveil des edge functions:", error);
-      toast.error("Erreur lors de l'initialisation des services", { id: "wake-up-toast" });
-      setIsWakingUp(false);
+      console.error("Error waking up edge functions:", error);
+      toast.error(`Erreur d'initialisation des services: ${error.message}`);
       return false;
+    } finally {
+      setIsWakingUp(false);
     }
   }, [isWakingUp]);
 

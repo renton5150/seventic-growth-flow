@@ -21,15 +21,17 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
     throw error;
   }
 
-  if (campaigns.length === 0) {
+  if (!campaigns || campaigns.length === 0) {
     console.log("No campaigns found in cache");
     return [];
   }
 
   console.log(`Found ${campaigns.length} campaigns in cache`);
-  console.log("Sample campaign data:", campaigns[0]);
+  if (campaigns.length > 0) {
+    console.log("Sample raw cached campaign data:", campaigns[0]);
+  }
 
-  return campaigns.map(campaign => {
+  const mappedCampaigns = campaigns.map(campaign => {
     // Initialize default delivery info structure
     let deliveryInfo = {
       total: 0,
@@ -54,20 +56,26 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
       try {
         // Handle if delivery_info is a JSON string
         if (typeof campaign.delivery_info === 'string') {
-          const parsedInfo = JSON.parse(campaign.delivery_info);
-          if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
-            deliveryInfo = {
-              ...deliveryInfo,
-              ...parsedInfo,
-            };
+          try {
+            const parsedInfo = JSON.parse(campaign.delivery_info);
+            console.log(`Parsed delivery_info for ${campaign.name}:`, parsedInfo);
             
-            // Handle bounced data separately with type safety
-            if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced)) {
-              deliveryInfo.bounced = {
-                ...deliveryInfo.bounced,
-                ...(parsedInfo.bounced as { soft?: number; hard?: number; total?: number })
+            if (parsedInfo && typeof parsedInfo === 'object' && !Array.isArray(parsedInfo)) {
+              deliveryInfo = {
+                ...deliveryInfo,
+                ...parsedInfo,
               };
+              
+              // Handle bounced data separately with type safety
+              if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced)) {
+                deliveryInfo.bounced = {
+                  ...deliveryInfo.bounced,
+                  ...(parsedInfo.bounced as { soft?: number; hard?: number; total?: number })
+                };
+              }
             }
+          } catch (parseError) {
+            console.error(`Error parsing delivery_info string for campaign ${campaign.campaign_uid}:`, parseError);
           }
         } 
         // Handle if delivery_info is already an object
@@ -75,6 +83,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
           // Ensure we're not working with an array
           if (!Array.isArray(campaign.delivery_info)) {
             const deliveryInfoObj = campaign.delivery_info as Record<string, any>;
+            console.log(`Object delivery_info for ${campaign.name}:`, deliveryInfoObj);
             
             // Copy all non-nested properties
             Object.entries(deliveryInfoObj).forEach(([key, value]) => {
@@ -103,7 +112,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
     }
 
     // Create a campaign object with properly formatted statistics
-    return {
+    const mappedCampaign = {
       uid: campaign.campaign_uid,
       name: campaign.name,
       subject: campaign.subject,
@@ -129,5 +138,11 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
         abuse_complaint_count: deliveryInfo.complained || 0
       }
     };
+    
+    console.log(`Processed cache campaign ${campaign.name}, delivery_info:`, mappedCampaign.delivery_info);
+    return mappedCampaign;
   });
+  
+  console.log(`Returning ${mappedCampaigns.length} processed campaigns from cache`);
+  return mappedCampaigns;
 };

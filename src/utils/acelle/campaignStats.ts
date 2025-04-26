@@ -30,14 +30,15 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalClicked = 0;
   let totalBounced = 0;
   
-  // Debug log pour voir les données des campagnes
+  // Debug log for campaign data
   console.log("calculateDeliveryStats - processing campaigns:", campaigns.length);
   
   campaigns.forEach(campaign => {
+    // Log each campaign's delivery data for debugging
+    console.log(`Campaign ${campaign.name} - delivery info:`, campaign.delivery_info);
+    
     // Prioritize delivery_info as it's our primary structure
     if (campaign.delivery_info) {
-      console.log(`Campaign ${campaign.name} delivery info:`, campaign.delivery_info);
-      
       // Use existing delivery_info structure
       totalSent += campaign.delivery_info.total || 0;
       totalDelivered += campaign.delivery_info.delivered || 0;
@@ -51,7 +52,7 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     } 
     // Fall back to statistics if available
     else if (campaign.statistics) {
-      console.log(`Campaign ${campaign.name} statistics:`, campaign.statistics);
+      console.log(`Campaign ${campaign.name} - statistics fallback:`, campaign.statistics);
       
       totalSent += campaign.statistics.subscriber_count || 0;
       totalDelivered += campaign.statistics.delivered_count || 0;
@@ -61,7 +62,7 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     }
   });
   
-  console.log("Final calculated stats:", {
+  console.log("Final calculated delivery stats:", {
     totalSent, totalDelivered, totalOpened, totalClicked, totalBounced
   });
   
@@ -85,4 +86,22 @@ export const translateStatus = (status: string): string => {
   };
   
   return translations[status] || status;
+};
+
+export const getStatusBadgeVariant = (status: string): string => {
+  const variants: Record<string, string> = {
+    "new": "default",
+    "queued": "secondary",
+    "sending": "warning",
+    "sent": "success",
+    "paused": "outline",
+    "failed": "destructive"
+  };
+  
+  return variants[status] || "default";
+};
+
+export const renderPercentage = (value?: number): string => {
+  if (value === undefined || value === null) return "0%";
+  return `${(value * 100).toFixed(1)}%`;
 };
