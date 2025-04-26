@@ -66,7 +66,7 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const apiToken = url.searchParams.get('api_token');
-
+    
     // Special case for ping/health check
     if (apiToken === 'ping') {
       debugLog("Received ping request - service is active");
@@ -79,10 +79,21 @@ serve(async (req) => {
       });
     }
 
-    if (!apiToken) {
-      debugLog("Missing API token in request", null, true);
+    // IMPORTANT: Maintenant nous extrayons le token soit de l'URL, soit du header Authorization
+    let accessToken = apiToken;
+    
+    // Si pas de token dans l'URL, essayons d'extraire du header Authorization
+    if (!accessToken && authHeader) {
+      if (authHeader.startsWith('Bearer ')) {
+        accessToken = authHeader.substring(7);
+        debugLog("Using Bearer token from Authorization header");
+      }
+    }
+    
+    if (!accessToken) {
+      debugLog("No API token found in request parameters or Authorization header", null, true);
       return new Response(JSON.stringify({ 
-        error: 'API token is required',
+        error: 'API token is required in URL parameter or Authorization header',
         url: req.url,
         path: url.pathname,
       }), { 
@@ -108,15 +119,17 @@ serve(async (req) => {
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    let acelleApiUrl;
+    // Construire les paramètres d'URL - toujours inclure api_token même si on utilise Bearer
     const queryParams = new URLSearchParams();
     for (const [key, value] of url.searchParams.entries()) {
       if (key !== 'api_token' && key !== 'cache_key') {
         queryParams.append(key, value);
       }
     }
-    queryParams.append('api_token', apiToken);
+    // Toujours ajouter le token API en paramètre d'URL comme méthode d'authentification principale
+    queryParams.append('api_token', accessToken);
 
+    let acelleApiUrl;
     if (resourceId) {
       acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}/${resourceId}?${queryParams.toString()}`;
     } else {
@@ -128,8 +141,8 @@ serve(async (req) => {
     // Prepare headers with both Bearer token and API token
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'Authorization': `Bearer ${apiToken}`,
-      'User-Agent': 'Seventic-Acelle-Proxy/1.6',
+      'Authorization': `Bearer ${accessToken}`, // Ajouter Bearer Token comme méthode d'authentification secondaire
+      'User-Agent': 'Seventic-Acelle-Proxy/1.7',
       'X-Requested-With': 'XMLHttpRequest',
       'Connection': 'keep-alive',
       'Cache-Control': 'no-cache, no-store, must-revalidate'

@@ -25,12 +25,13 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
       try {
         console.log("Sending ping request with bearer token:", accessToken.substring(0, 15) + "...");
         
+        // Utilisez la double méthode d'authentification : token dans l'URL ET Bearer token
         const pingResponse = await fetch(
           'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping', 
           {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${accessToken}`,
+              'Authorization': `Bearer ${accessToken}`, // Authentification principale : Bearer token
               'X-Acelle-Endpoint': 'ping',
               'X-Requested-With': 'XMLHttpRequest',
               'Content-Type': 'application/json',
