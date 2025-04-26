@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -6,7 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-acelle-endpoint, x-acelle-token, x-page, x-per-page, x-include-stats, Origin, Accept',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 heures de cache pour les préflights
 };
@@ -276,6 +275,106 @@ serve(async (req) => {
       status: 204, // Standard status for successful OPTIONS requests
       headers: corsHeaders 
     });
+  }
+  
+  const url = new URL(req.url);
+  
+  // Add test endpoint
+  if (url.pathname.includes('/test-acelle-connection')) {
+    try {
+      debugLog("Test connection request received");
+      
+      const { data: accounts, error } = await supabase
+        .from('acelle_accounts')
+        .select('*')
+        .eq('status', 'active')
+        .limit(1);
+      
+      if (error || !accounts || accounts.length === 0) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: "No active Acelle accounts found",
+          error: error?.message
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      const account = accounts[0];
+      const apiEndpoint = account.api_endpoint?.endsWith('/') 
+        ? account.api_endpoint.slice(0, -1) 
+        : account.api_endpoint;
+      
+      if (!apiEndpoint || !account.api_token) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: "Invalid API configuration for account"
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Test the connection
+      const accessTest = await testEndpointAccess(apiEndpoint);
+      
+      // Add API test with actual token
+      let apiTest = { success: false, message: "API test not performed", response: null };
+      
+      try {
+        const apiPath = apiEndpoint.includes('/api/v1') ? '' : '/api/v1';
+        const testUrl = `${apiEndpoint}${apiPath}/me?api_token=${account.api_token}`;
+        
+        const response = await fetch(testUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Seventic-Acelle-Tester/1.0'
+          }
+        });
+        
+        const statusCode = response.status;
+        let responseData;
+        
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          responseData = await response.text();
+        }
+        
+        apiTest = {
+          success: statusCode >= 200 && statusCode < 300,
+          message: `API responded with status ${statusCode}`,
+          response: responseData
+        };
+      } catch (error) {
+        apiTest = {
+          success: false,
+          message: `API test error: ${error.message}`,
+          response: null
+        };
+      }
+      
+      return new Response(JSON.stringify({
+        endpoint: apiEndpoint,
+        endpointAccess: accessTest,
+        apiTest: apiTest,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      debugLog("Error in test connection:", error, true);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error.message,
+        message: "Error testing connection to Acelle API"
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
   }
 
   try {

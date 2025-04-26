@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-acelle-endpoint, x-acelle-token, x-page, x-per-page, x-include-stats, Origin, Accept',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400'
 };
@@ -75,6 +75,71 @@ serve(async (req) => {
 
     // Special case for ping - only verify the JWT
     const url = new URL(req.url);
+    
+    // Add test endpoint for Acelle connection
+    if (url.pathname.includes('/test-acelle-connection')) {
+      try {
+        debugLog("Test connection request received");
+        
+        // Get acelle endpoint and token from headers
+        const acelleEndpoint = req.headers.get('x-acelle-endpoint');
+        const acelleToken = req.headers.get('x-acelle-token');
+        
+        if (!acelleEndpoint || !acelleToken) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: "Missing x-acelle-endpoint or x-acelle-token headers"
+          }), { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          });
+        }
+        
+        const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
+        const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
+        
+        // Build test URL
+        const testUrl = `${cleanEndpoint}${apiPath}/me?api_token=${acelleToken}`;
+        
+        // Test the connection
+        const response = await fetch(testUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Seventic-Acelle-Tester/1.0'
+          }
+        });
+        
+        const statusCode = response.status;
+        let responseData;
+        
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          responseData = await response.text();
+        }
+        
+        return new Response(JSON.stringify({
+          success: statusCode >= 200 && statusCode < 300,
+          statusCode: statusCode,
+          response: responseData,
+          message: "Test connection to Acelle API"
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        debugLog("Error in test connection:", error, true);
+        return new Response(JSON.stringify({
+          success: false,
+          error: error.message,
+          message: "Error testing connection to Acelle API"
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+    
     if (url.pathname.includes('/ping')) {
       debugLog("Requête ping reçue");
       
