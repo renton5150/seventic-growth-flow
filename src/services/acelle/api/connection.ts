@@ -29,11 +29,9 @@ export const testAcelleConnection = async (
     
     const debugInfo: AcelleConnectionDebug = {
       success: false,
-      timestamp: new Date().toISOString(),
       request: {
         url,
-        headers,
-        method: "GET"
+        headers
       }
     };
     
@@ -84,14 +82,12 @@ export const testAcelleConnection = async (
       return {
         success: false,
         errorMessage: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
         request: {
           url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
           headers: { 
             "Accept": "application/json",
             "X-Acelle-Endpoint": apiEndpoint
-          },
-          method: "GET"
+          }
         }
       };
     }
