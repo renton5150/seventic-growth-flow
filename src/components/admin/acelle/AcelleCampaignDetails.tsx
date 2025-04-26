@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -67,7 +67,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
             </div>
             <div>
               <h3 className="font-medium mb-1">Date d'envoi</h3>
-              <p>{new Date(campaignDetails.runAt).toLocaleDateString('fr-FR')}</p>
+              <p>{new Date(campaignDetails.run_at).toLocaleDateString('fr-FR')}</p>
             </div>
             {/* Add more campaign details as needed */}
           </div>
@@ -78,19 +78,19 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-50 p-3 rounded-md">
               <h3 className="text-sm font-medium text-muted-foreground">Envoyés</h3>
-              <p className="text-2xl font-bold">{campaignDetails.statistics?.deliveryRate || 0}%</p>
+              <p className="text-2xl font-bold">{campaignDetails.statistics?.delivered_rate || 0}%</p>
             </div>
             <div className="bg-slate-50 p-3 rounded-md">
               <h3 className="text-sm font-medium text-muted-foreground">Taux d'ouverture</h3>
-              <p className="text-2xl font-bold">{campaignDetails.statistics?.openRate || 0}%</p>
+              <p className="text-2xl font-bold">{campaignDetails.statistics?.uniq_open_rate || 0}%</p>
             </div>
             <div className="bg-slate-50 p-3 rounded-md">
               <h3 className="text-sm font-medium text-muted-foreground">Taux de clic</h3>
-              <p className="text-2xl font-bold">{campaignDetails.statistics?.clickRate || 0}%</p>
+              <p className="text-2xl font-bold">{campaignDetails.statistics?.click_rate || 0}%</p>
             </div>
             <div className="bg-slate-50 p-3 rounded-md">
               <h3 className="text-sm font-medium text-muted-foreground">Désabonnements</h3>
-              <p className="text-2xl font-bold">{campaignDetails.statistics?.unsubscribeRate || 0}%</p>
+              <p className="text-2xl font-bold">{(campaignDetails.statistics?.unsubscribe_count / (campaignDetails.statistics?.subscriber_count || 1) * 100).toFixed(2) || 0}%</p>
             </div>
           </div>
         </TabsContent>
@@ -105,7 +105,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
               <div>
                 <div className="font-medium">Campagne créée</div>
                 <div className="text-sm text-muted-foreground">
-                  {new Date(campaignDetails.createdAt).toLocaleString('fr-FR')}
+                  {new Date(campaignDetails.created_at).toLocaleString('fr-FR')}
                 </div>
               </div>
             </div>
@@ -117,19 +117,19 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
               <div>
                 <div className="font-medium">Campagne envoyée</div>
                 <div className="text-sm text-muted-foreground">
-                  {new Date(campaignDetails.runAt).toLocaleString('fr-FR')}
+                  {new Date(campaignDetails.run_at).toLocaleString('fr-FR')}
                 </div>
               </div>
             </div>
             
-            {campaignDetails.lastError && (
+            {campaignDetails.last_error && (
               <div className="flex items-start space-x-3">
                 <div className="bg-red-100 p-1 rounded-full">
                   <div className="h-2 w-2 bg-red-600 rounded-full"></div>
                 </div>
                 <div>
                   <div className="font-medium">Erreur détectée</div>
-                  <div className="text-sm text-red-600">{campaignDetails.lastError}</div>
+                  <div className="text-sm text-red-600">{campaignDetails.last_error}</div>
                 </div>
               </div>
             )}
