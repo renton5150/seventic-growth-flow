@@ -39,13 +39,18 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`, {
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Authorization": `Bearer ${accessToken}`,
         "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`
+        "X-Acelle-Token": account.apiToken,
+        "X-Cache-Key": cacheKey,
+        "X-Page": page.toString(),
+        "X-Per-Page": limit.toString(),
+        "X-Include-Stats": "true"
       }
     });
 

@@ -34,13 +34,14 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       return null;
     }
     
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
         "X-Acelle-Endpoint": apiEndpoint,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Authorization": `Bearer ${accessToken}`
+        "X-Acelle-Token": account.apiToken,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     });
 

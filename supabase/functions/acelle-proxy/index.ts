@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-requested-with, x-acelle-endpoint',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-requested-with, x-acelle-endpoint, x-acelle-token, x-cache-key, x-page, x-per-page, x-include-stats',
   'Access-Control-Max-Age': '86400'
 };
 
@@ -57,24 +57,27 @@ serve(async (req) => {
   }
 
   try {
+    // Vérification obligatoire du JWT Supabase
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      debugLog("Token JWT Supabase manquant ou invalide", null, true);
+      return new Response(JSON.stringify({ 
+        error: 'Token JWT Supabase manquant ou invalide',
+        message: 'Authentification requise'
+      }), { 
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Le token Supabase est dans l'en-tête Authorization
+    const supabaseToken = authHeader.substring(7);
+
     // Special case for ping - only verify the JWT
     const url = new URL(req.url);
     if (url.pathname.includes('/ping')) {
-      debugLog("Requête ping reçue - vérification du token JWT uniquement");
+      debugLog("Requête ping reçue");
       
-      // Vérification du token JWT Supabase - NON le token Acelle
-      const authHeader = req.headers.get('authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        debugLog("Token JWT Supabase manquant ou invalide pour le ping", null, true);
-        return new Response(JSON.stringify({ 
-          error: 'Token JWT Supabase manquant ou invalide',
-          message: 'Authentification requise pour le ping'
-        }), { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
       return new Response(JSON.stringify({ 
         status: 'active',
         timestamp: new Date().toISOString()
@@ -83,24 +86,7 @@ serve(async (req) => {
       });
     }
     
-    // Pour les autres requêtes, vérifier l'en-tête d'autorisation
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      debugLog("Token API Acelle manquant ou invalide", null, true);
-      return new Response(JSON.stringify({ 
-        error: 'Token API Acelle manquant ou invalide',
-        message: 'Le token API Acelle est requis'
-      }), { 
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Récupérer le token API Acelle depuis l'en-tête Authorization
-    const apiToken = authHeader.substring(7);
-    debugLog("Token API Acelle détecté:", apiToken.substring(0, 10) + "...");
-
-    // Récupérer le point de terminaison Acelle depuis les en-têtes
+    // Pour les autres requêtes, récupérer les informations Acelle
     const acelleEndpoint = req.headers.get('x-acelle-endpoint');
     if (!acelleEndpoint) {
       debugLog("Point de terminaison Acelle manquant dans les en-têtes de la requête", null, true);
@@ -110,6 +96,22 @@ serve(async (req) => {
       });
     }
 
+    // Récupérer le token API Acelle
+    const acelleToken = req.headers.get('x-acelle-token');
+    if (!acelleToken) {
+      debugLog("Token API Acelle manquant", null, true);
+      return new Response(JSON.stringify({ 
+        error: 'Token API Acelle manquant',
+        message: 'Le token API Acelle est requis'
+      }), { 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    debugLog("Token API Acelle détecté:", acelleToken.substring(0, 10) + "...");
+
+    // Analyser l'URL pour récupérer la ressource et l'ID
     const parts = url.pathname.split('/');
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
     const resourceId = parts[parts.length - 2] === 'acelle-proxy' ? null : parts[parts.length - 1];
@@ -118,9 +120,20 @@ serve(async (req) => {
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    // Construire les paramètres d'URL - AJOUTER api_token comme paramètre d'URL
+    // Construire les paramètres d'URL avec le token API
     const queryParams = new URLSearchParams();
-    queryParams.append('api_token', apiToken);
+    queryParams.append('api_token', acelleToken);
+    
+    // Ajouter les paramètres additionnels de la requête
+    const page = req.headers.get('x-page');
+    const perPage = req.headers.get('x-per-page');
+    const includeStats = req.headers.get('x-include-stats');
+    
+    if (page) queryParams.append('page', page);
+    if (perPage) queryParams.append('per_page', perPage);
+    if (includeStats === 'true') queryParams.append('include_stats', 'true');
+    
+    // Ajouter d'autres paramètres de l'URL d'origine
     for (const [key, value] of url.searchParams.entries()) {
       if (key !== 'cache_key') {
         queryParams.append(key, value);
@@ -136,7 +149,7 @@ serve(async (req) => {
 
     debugLog(`Transmission de la requête à l'API Acelle: ${acelleApiUrl}`);
 
-    // Préparer les en-têtes SANS token Bearer pour l'API Acelle
+    // Préparer les en-têtes pour l'API Acelle (sans token d'authentification)
     const headers: HeadersInit = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/2.0',

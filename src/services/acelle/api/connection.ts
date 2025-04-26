@@ -1,6 +1,7 @@
 
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
 
@@ -38,18 +39,45 @@ export const testAcelleConnection = async (
       return false;
     }
 
+    console.log(`Test de connexion avec endpoint: ${cleanApiEndpoint}, token: ${apiToken.substring(0, 10)}...`);
+    
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    
+    if (!accessToken) {
+      const errorMessage = "Authentification Supabase requise";
+      console.error(errorMessage);
+      
+      if (!debug) {
+        toast.error(errorMessage);
+      }
+      
+      if (debug) {
+        return {
+          success: false,
+          errorMessage,
+          request: {
+            url: `${ACELLE_PROXY_BASE_URL}/me`,
+            headers: {}
+          }
+        };
+      }
+      
+      return false;
+    }
+      
     console.log(`Tentative de connexion à Acelle avec URL: ${cleanApiEndpoint}`);
     console.log(`Token API (premiers caractères): ${apiToken.substring(0, 10)}...`);
       
     const url = `${ACELLE_PROXY_BASE_URL}/me`;
     
     // Préparation des en-têtes pour l'edge function
-    // L'edge function s'attend à recevoir l'API token Acelle en tant que Bearer token
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
       "X-Acelle-Endpoint": cleanApiEndpoint,
-      "Authorization": `Bearer ${apiToken}`  // API Token Acelle (pas le token Supabase)
+      "X-Acelle-Token": apiToken,
+      "Authorization": `Bearer ${accessToken}`  // Utilisation du token JWT Supabase
     };
     
     const debugInfo: AcelleConnectionDebug = {
@@ -67,7 +95,7 @@ export const testAcelleConnection = async (
           method: "OPTIONS",
           headers: {
             "Accept": "application/json",
-            "Authorization": `Bearer ${apiToken}`
+            "Authorization": `Bearer ${accessToken}`
           },
           signal: AbortSignal.timeout(3000)
         });
@@ -157,7 +185,8 @@ export const testAcelleConnection = async (
           headers: { 
             "Accept": "application/json",
             "X-Acelle-Endpoint": apiEndpoint,
-            "Authorization": `Bearer ${apiToken}`
+            "Authorization": "Bearer [SUPABASE_TOKEN]",
+            "X-Acelle-Token": apiToken
           }
         }
       };

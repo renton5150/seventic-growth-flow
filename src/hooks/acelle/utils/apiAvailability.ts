@@ -42,19 +42,6 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
         
         clearTimeout(timeoutId);
         
-        if (pingResponse.status === 302) {
-          console.error("Échec d'authentification - redirigé vers la page de connexion");
-          lastError = { status: 401, message: "Échec d'authentification" };
-          
-          if (attempt < retries) {
-            await new Promise(r => setTimeout(r, retryDelay));
-            attempt++;
-            continue;
-          }
-          
-          return { available: false, error: "Échec d'authentification" };
-        }
-        
         console.log(`Réponse ping reçue: ${pingResponse.status} ${pingResponse.statusText}`);
         
         if (pingResponse.ok) {

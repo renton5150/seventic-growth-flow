@@ -26,12 +26,13 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
       return false;
     }
 
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/me?api_token=ping&endpoint=${encodeURIComponent(apiEndpoint)}`, {
+    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/me`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
         "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`
+        "X-Acelle-Token": account.apiToken
       }
     });
 
