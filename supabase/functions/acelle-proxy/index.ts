@@ -57,19 +57,28 @@ serve(async (req) => {
   }
 
   try {
+    // Vérifier l'authentification - UNIQUEMENT AVEC BEARER TOKEN
     const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      debugLog("No authorization header provided", null, true);
-    } else {
-      debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...");
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      debugLog("Authentification invalide: Bearer token manquant ou invalide", null, true);
+      return new Response(JSON.stringify({ 
+        error: 'Bearer token manquant ou invalide',
+        message: 'L\'API Acelle Mail exige l\'authentification par Bearer Token'
+      }), { 
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
+    const accessToken = authHeader.substring(7);
+    debugLog("Bearer token détecté:", accessToken.substring(0, 10) + "...");
+
     const url = new URL(req.url);
-    const apiToken = url.searchParams.get('api_token');
+    const isPingRequest = url.searchParams.get('api_token') === 'ping';
     
-    // Special case for ping/health check
-    if (apiToken === 'ping') {
-      debugLog("Received ping request - service is active");
+    // Gestion spéciale pour les requêtes de ping/vérification de santé
+    if (isPingRequest) {
+      debugLog("Requête de ping reçue - service actif");
       return new Response(JSON.stringify({ 
         status: 'active',
         timestamp: new Date().toISOString(),
@@ -79,33 +88,10 @@ serve(async (req) => {
       });
     }
 
-    // IMPORTANT: Maintenant nous extrayons le token soit de l'URL, soit du header Authorization
-    let accessToken = apiToken;
-    
-    // Si pas de token dans l'URL, essayons d'extraire du header Authorization
-    if (!accessToken && authHeader) {
-      if (authHeader.startsWith('Bearer ')) {
-        accessToken = authHeader.substring(7);
-        debugLog("Using Bearer token from Authorization header");
-      }
-    }
-    
-    if (!accessToken) {
-      debugLog("No API token found in request parameters or Authorization header", null, true);
-      return new Response(JSON.stringify({ 
-        error: 'API token is required in URL parameter or Authorization header',
-        url: req.url,
-        path: url.pathname,
-      }), { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
     const acelleEndpoint = req.headers.get('x-acelle-endpoint');
     if (!acelleEndpoint) {
-      debugLog("Missing Acelle endpoint in request headers", null, true);
-      return new Response(JSON.stringify({ error: 'Acelle endpoint is missing' }), {
+      debugLog("Point de terminaison Acelle manquant dans les en-têtes de la requête", null, true);
+      return new Response(JSON.stringify({ error: 'Le point de terminaison Acelle est manquant' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -115,19 +101,18 @@ serve(async (req) => {
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
     const resourceId = parts[parts.length - 2] === 'acelle-proxy' ? null : parts[parts.length - 1];
 
-    // Build Acelle API URL with proper authentication
+    // Construire l'URL de l'API Acelle avec l'authentification appropriée
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    // Construire les paramètres d'URL - toujours inclure api_token même si on utilise Bearer
+    // Construire les paramètres d'URL - MAIS NE PAS INCLURE api_token dans l'URL
+    // On utilise UNIQUEMENT Bearer Token pour l'authentification
     const queryParams = new URLSearchParams();
     for (const [key, value] of url.searchParams.entries()) {
       if (key !== 'api_token' && key !== 'cache_key') {
         queryParams.append(key, value);
       }
     }
-    // Toujours ajouter le token API en paramètre d'URL comme méthode d'authentification principale
-    queryParams.append('api_token', accessToken);
 
     let acelleApiUrl;
     if (resourceId) {
@@ -136,13 +121,13 @@ serve(async (req) => {
       acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}?${queryParams.toString()}`;
     }
 
-    debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`);
+    debugLog(`Transmission de la requête à l'API Acelle: ${acelleApiUrl}`);
 
-    // Prepare headers with both Bearer token and API token
+    // Préparer les en-têtes UNIQUEMENT avec Bearer token
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'Authorization': `Bearer ${accessToken}`, // Ajouter Bearer Token comme méthode d'authentification secondaire
-      'User-Agent': 'Seventic-Acelle-Proxy/1.7',
+      'Authorization': `Bearer ${accessToken}`, // SEULE méthode d'authentification
+      'User-Agent': 'Seventic-Acelle-Proxy/2.0',
       'X-Requested-With': 'XMLHttpRequest',
       'Connection': 'keep-alive',
       'Cache-Control': 'no-cache, no-store, must-revalidate'
@@ -152,7 +137,7 @@ serve(async (req) => {
       headers['Content-Type'] = req.headers.get('Content-Type') || 'application/json';
     }
 
-    debugLog("Request headers being sent:", headers);
+    debugLog("En-têtes de requête envoyés:", headers);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
@@ -161,7 +146,7 @@ serve(async (req) => {
       let requestBody;
       if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         requestBody = await req.text();
-        debugLog("Request body:", requestBody);
+        debugLog("Corps de la requête:", requestBody);
       }
 
       const response = await fetch(acelleApiUrl, {
@@ -173,30 +158,30 @@ serve(async (req) => {
 
       clearTimeout(timeoutId);
 
-      // Check for authentication redirect
+      // Vérification de la redirection d'authentification
       if (response.status === 302) {
-        debugLog("Authentication failed - redirected to login", null, true);
+        debugLog("Échec d'authentification - redirigé vers la page de connexion", null, true);
         return new Response(JSON.stringify({
-          error: "Authentication failed",
-          message: "API redirected to login page"
+          error: "Échec d'authentification",
+          message: "L'API a redirigé vers la page de connexion"
         }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 
-      debugLog(`Acelle API response: ${response.status} ${response.statusText}`);
+      debugLog(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`);
 
       const data = await response.text();
       let responseData;
 
       try {
         responseData = JSON.parse(data);
-        debugLog("Successfully parsed JSON response");
+        debugLog("Analyse réussie de la réponse JSON");
       } catch (e) {
-        debugLog('Error parsing response from Acelle API:', e, true);
+        debugLog('Erreur d\'analyse de la réponse de l\'API Acelle:', e, true);
         responseData = { 
-          error: 'Failed to parse response',
+          error: 'Échec de l\'analyse de la réponse',
           status: response.status,
           message: data.substring(0, 1000)
         };
@@ -210,9 +195,9 @@ serve(async (req) => {
       clearTimeout(timeoutId);
       
       if (fetchError.name === 'AbortError') {
-        debugLog(`Request to ${acelleApiUrl} timed out`, null, true);
+        debugLog(`La requête à ${acelleApiUrl} a expiré`, null, true);
         return new Response(JSON.stringify({ 
-          error: 'Request timed out',
+          error: 'La requête a expiré',
           endpoint: acelleEndpoint,
           url: acelleApiUrl 
         }), { 
@@ -224,7 +209,7 @@ serve(async (req) => {
       throw fetchError;
     }
   } catch (error) {
-    debugLog('Error in Acelle Proxy:', error, true);
+    debugLog('Erreur dans le proxy Acelle:', error, true);
     
     return new Response(JSON.stringify({ 
       error: error.message,

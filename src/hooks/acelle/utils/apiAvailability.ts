@@ -9,8 +9,8 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
     const accessToken = data?.session?.access_token;
     
     if (!accessToken) {
-      console.error("No access token available for API check");
-      return { available: false, error: "Authentication required" };
+      console.error("Pas de token d'accès disponible pour la vérification de l'API");
+      return { available: false, error: "Authentification requise" };
     }
     
     let attempt = 0;
@@ -23,15 +23,15 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
       try {
-        console.log("Sending ping request with bearer token:", accessToken.substring(0, 15) + "...");
+        console.log("Envoi de la requête ping avec Bearer token:", accessToken.substring(0, 15) + "...");
         
-        // Utilisation simultanée des deux méthodes d'authentification pour garantir la compatibilité
+        // Utilisation EXCLUSIVE de l'authentification Bearer Token
         const pingResponse = await fetch(
-          'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping', 
+          'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me', 
           {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${accessToken}`, // Authentification principale : Bearer token
+              'Authorization': `Bearer ${accessToken}`, // SEULE méthode d'authentification
               'X-Acelle-Endpoint': 'ping',
               'X-Requested-With': 'XMLHttpRequest',
               'Content-Type': 'application/json',
@@ -44,8 +44,8 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
         clearTimeout(timeoutId);
         
         if (pingResponse.status === 302) {
-          console.error("Authentication failed - redirected to login");
-          lastError = { status: 401, message: "Authentication failed" };
+          console.error("Échec d'authentification - redirigé vers la page de connexion");
+          lastError = { status: 401, message: "Échec d'authentification" };
           
           if (attempt < retries) {
             await new Promise(r => setTimeout(r, retryDelay));
@@ -53,24 +53,24 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
             continue;
           }
           
-          return { available: false, error: "Authentication failed" };
+          return { available: false, error: "Échec d'authentification" };
         }
         
-        console.log(`Ping response received: ${pingResponse.status} ${pingResponse.statusText}`);
+        console.log(`Réponse ping reçue: ${pingResponse.status} ${pingResponse.statusText}`);
         
         if (pingResponse.ok) {
           const pingData = await pingResponse.json();
-          console.log("Ping successful, service status:", pingData);
+          console.log("Ping réussi, statut du service:", pingData);
           return { available: true, data: pingData };
         } else {
-          console.warn(`Ping returned non-200 status: ${pingResponse.status}`);
+          console.warn(`Le ping a renvoyé un statut non-200: ${pingResponse.status}`);
           
           try {
             const errorData = await pingResponse.json();
-            console.warn("Ping error response:", errorData);
+            console.warn("Réponse d'erreur de ping:", errorData);
             lastError = errorData;
           } catch (e) {
-            console.warn("Could not parse ping error response");
+            console.warn("Impossible d'analyser la réponse d'erreur de ping");
             lastError = { status: pingResponse.status };
           }
           
@@ -84,7 +84,7 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
         }
       } catch (pingError) {
         clearTimeout(timeoutId);
-        console.error(`Ping attempt #${attempt + 1} failed:`, pingError);
+        console.error(`Échec de la tentative de ping #${attempt + 1}:`, pingError);
         lastError = pingError;
         
         if (attempt < retries) {
@@ -97,9 +97,9 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
       }
     }
     
-    return { available: false, error: lastError?.message || "Max retries reached" };
+    return { available: false, error: lastError?.message || "Nombre maximal de tentatives atteint" };
   } catch (error) {
-    console.error("Error checking API availability:", error);
+    console.error("Erreur lors de la vérification de la disponibilité de l'API:", error);
     return { available: false, error: error.message };
   }
 };

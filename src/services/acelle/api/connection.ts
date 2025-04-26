@@ -43,17 +43,16 @@ export const testAcelleConnection = async (
       
     const url = `${ACELLE_PROXY_BASE_URL}/me`;
     
+    // UTILISER UNIQUEMENT BEARER TOKEN pour l'authentification
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
       "X-Acelle-Endpoint": cleanApiEndpoint,
-      "Authorization": `Bearer ${apiToken}` // Important: ajouter le token comme Bearer token
+      "Authorization": `Bearer ${apiToken}`
     };
 
-    // Build query parameters with API token
-    const params = new URLSearchParams();
-    params.append('api_token', apiToken); // Important: ajouter également le token en paramètre d'URL
-    const urlWithParams = `${url}?${params.toString()}`;
+    // NE PAS ajouter le token comme paramètre d'URL - utiliser uniquement Bearer
+    const urlWithParams = url;
     
     const debugInfo: AcelleConnectionDebug = {
       success: false,
@@ -69,14 +68,15 @@ export const testAcelleConnection = async (
         await fetch(`${ACELLE_PROXY_BASE_URL}/ping`, {
           method: "OPTIONS",
           headers: {
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "Authorization": `Bearer ${apiToken}` // Également ajouter le Bearer token ici
           },
           // Add abort signal to limit timeout
           signal: AbortSignal.timeout(3000)
         });
-        console.log("Sent wake-up ping to Edge Function");
+        console.log("Envoi du ping de réveil à la Edge Function");
       } catch (e) {
-        console.log("Wake-up ping failed or timed out (normal for cold starts)");
+        console.log("Le ping de réveil a échoué ou expiré (normal pour les démarrages à froid)");
       }
     }
     
@@ -156,11 +156,11 @@ export const testAcelleConnection = async (
         success: false,
         errorMessage,
         request: {
-          url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
+          url: `${ACELLE_PROXY_BASE_URL}/me`,
           headers: { 
             "Accept": "application/json",
             "X-Acelle-Endpoint": apiEndpoint,
-            "Authorization": `Bearer ${apiToken}`  // Important: inclure le Bearer token
+            "Authorization": `Bearer ${apiToken}`
           }
         }
       };

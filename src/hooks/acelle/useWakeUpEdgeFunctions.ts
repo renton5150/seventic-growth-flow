@@ -9,19 +9,19 @@ export const useWakeUpEdgeFunctions = () => {
 
   const wakeUpEdgeFunctions = useCallback(async () => {
     if (isWakingUp) {
-      console.log("Wake-up already in progress, skipping...");
+      console.log("Réveil déjà en cours, ignoré...");
       return false;
     }
     
     setIsWakingUp(true);
     
     try {
-      console.log("Attempting to wake up edge functions...");
+      console.log("Tentative de réveil des edge functions...");
       const { data, error } = await supabase.auth.getSession();
       const accessToken = data?.session?.access_token;
       
       if (!accessToken) {
-        console.error("No access token available for wake up");
+        console.error("Pas de token d'accès disponible pour le réveil");
         setIsWakingUp(false);
         return false;
       }
@@ -32,10 +32,16 @@ export const useWakeUpEdgeFunctions = () => {
         {
           url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
           method: 'GET',
-          headers: { 'Authorization': `Bearer ${accessToken}` }
+          headers: { 
+            'Authorization': `Bearer ${accessToken}`,
+            'X-Acelle-Endpoint': 'ping',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          }
         },
         {
-          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping',
+          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me',
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -65,7 +71,7 @@ export const useWakeUpEdgeFunctions = () => {
             console.log(`Réponse pour ${requestConfig.url}: ${response.status} ${response.statusText}`);
             return true;
           } catch (err) {
-            console.log(`Request to ${requestConfig.url} failed on attempt ${i + 1}:`, err.name);
+            console.log(`La requête à ${requestConfig.url} a échoué à la tentative ${i + 1}:`, err.name);
             if (i < retries) {
               await new Promise(r => setTimeout(r, 1000));
             }
@@ -99,7 +105,7 @@ export const useWakeUpEdgeFunctions = () => {
         }
       }
     } catch (error) {
-      console.error("Error waking up edge functions:", error);
+      console.error("Erreur lors du réveil des edge functions:", error);
       toast.error("Erreur lors de l'initialisation des services", { id: "wake-up-toast" });
       setIsWakingUp(false);
       return false;
