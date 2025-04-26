@@ -1,3 +1,4 @@
+
 export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
@@ -76,7 +77,8 @@ export interface AcelleCampaignDeliveryInfo {
   complained: number;
 }
 
-export interface AcelleCampaignDetail extends AcelleCampaign {
+// Modified the interface to make it compatible with AcelleCampaign
+export interface AcelleCampaignDetail extends Omit<AcelleCampaign, 'delivery_info'> {
   html: string;
   plain: string;
   template: {
@@ -88,7 +90,7 @@ export interface AcelleCampaignDetail extends AcelleCampaign {
     click_tracking: boolean;
     unsubscribe_url: string;
   };
-  delivery_info?: Partial<AcelleCampaignDeliveryInfo>;
+  delivery_info?: AcelleCampaignDeliveryInfo;
 }
 
 // Interface pour le débogage de la connexion
