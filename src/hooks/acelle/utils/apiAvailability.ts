@@ -23,7 +23,7 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
       try {
-        console.log("Envoi d'une requête ping avec bearer token:", accessToken.substring(0, 15) + "...");
+        console.log("Sending ping request with bearer token:", accessToken.substring(0, 15) + "...");
         
         const pingResponse = await fetch(
           'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping', 
@@ -32,6 +32,7 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
               'X-Acelle-Endpoint': 'ping',
+              'X-Requested-With': 'XMLHttpRequest',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache, no-store, must-revalidate'
             },
@@ -41,7 +42,20 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
         
         clearTimeout(timeoutId);
         
-        console.log(`Réponse ping reçue: ${pingResponse.status} ${pingResponse.statusText}`);
+        if (pingResponse.status === 302) {
+          console.error("Authentication failed - redirected to login");
+          lastError = { status: 401, message: "Authentication failed" };
+          
+          if (attempt < retries) {
+            await new Promise(r => setTimeout(r, retryDelay));
+            attempt++;
+            continue;
+          }
+          
+          return { available: false, error: "Authentication failed" };
+        }
+        
+        console.log(`Ping response received: ${pingResponse.status} ${pingResponse.statusText}`);
         
         if (pingResponse.ok) {
           const pingData = await pingResponse.json();
@@ -51,13 +65,13 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
           console.warn(`Ping returned non-200 status: ${pingResponse.status}`);
           
           try {
-            const responseText = await pingResponse.text();
-            console.warn("Ping error response:", responseText);
+            const errorData = await pingResponse.json();
+            console.warn("Ping error response:", errorData);
+            lastError = errorData;
           } catch (e) {
-            console.warn("Could not read ping error response");
+            console.warn("Could not parse ping error response");
+            lastError = { status: pingResponse.status };
           }
-          
-          lastError = { status: pingResponse.status };
           
           if (attempt < retries) {
             await new Promise(r => setTimeout(r, retryDelay));
@@ -65,11 +79,11 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
             continue;
           }
           
-          return { available: false, status: pingResponse.status };
+          return { available: false, error: lastError };
         }
       } catch (pingError) {
         clearTimeout(timeoutId);
-        console.log(`Ping attempt #${attempt + 1} failed:`, pingError);
+        console.error(`Ping attempt #${attempt + 1} failed:`, pingError);
         lastError = pingError;
         
         if (attempt < retries) {
