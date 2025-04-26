@@ -17,13 +17,14 @@ export const translateStatus = (status: string): string => {
 };
 
 // Get appropriate badge variant based on campaign status
+// Update to use only variants that are supported by the Badge component
 export const getStatusBadgeVariant = (status: string): string => {
   switch (status) {
     case "new": return "secondary";
     case "queued": return "outline";
-    case "sending": return "default";
-    case "sent": return "success";
-    case "paused": return "warning";
+    case "sending": return "default"; // Changed from "warning" to "default"
+    case "sent": return "default";    // Changed from "success" to "default" if "success" isn't supported
+    case "paused": return "outline";  // Changed to "outline" if "warning" isn't supported
     case "failed": return "destructive";
     default: return "outline";
   }

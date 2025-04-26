@@ -130,11 +130,12 @@ export const translateStatus = (status: string): string => {
 };
 
 export const getStatusBadgeVariant = (status: string): string => {
+  // Update variant mapping to use only those supported by the Badge component
   const variants: Record<string, string> = {
     "new": "default",
-    "queued": "secondary",
-    "sending": "warning",
-    "sent": "success",
+    "queued": "secondary", // This might need to be changed if not supported
+    "sending": "default", // Changed from "warning" to "default"
+    "sent": "success", // This might need to be changed if not supported
     "paused": "outline",
     "failed": "destructive"
   };

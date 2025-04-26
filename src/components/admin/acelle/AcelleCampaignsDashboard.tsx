@@ -144,7 +144,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
       </div>
 
       {showServiceAlert && syncError && (
-        <Alert variant={syncError.includes("initialisation") ? "warning" : "destructive"} className={syncError.includes("initialisation") ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}>
+        <Alert variant={syncError.includes("initialisation") ? "default" : "destructive"} className={syncError.includes("initialisation") ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex flex-1 items-center justify-between">
             <span>
