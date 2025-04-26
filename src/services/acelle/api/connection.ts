@@ -50,14 +50,11 @@ export const testAcelleConnection = async (
       "X-Acelle-Endpoint": cleanApiEndpoint,
       "Authorization": `Bearer ${apiToken}`
     };
-
-    // NE PAS ajouter le token comme paramètre d'URL - utiliser uniquement Bearer
-    const urlWithParams = url;
     
     const debugInfo: AcelleConnectionDebug = {
       success: false,
       request: {
-        url: urlWithParams,
+        url: url,
         headers
       }
     };
@@ -69,9 +66,8 @@ export const testAcelleConnection = async (
           method: "OPTIONS",
           headers: {
             "Accept": "application/json",
-            "Authorization": `Bearer ${apiToken}` // Également ajouter le Bearer token ici
+            "Authorization": `Bearer ${apiToken}`
           },
-          // Add abort signal to limit timeout
           signal: AbortSignal.timeout(3000)
         });
         console.log("Envoi du ping de réveil à la Edge Function");
@@ -83,13 +79,11 @@ export const testAcelleConnection = async (
     // Add a short delay to allow edge function to wake up
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    console.log(`Envoi de la requête à: ${urlWithParams}`);
-    const response = await fetch(urlWithParams, {
+    console.log(`Envoi de la requête à: ${url}`);
+    const response = await fetch(url, {
       method: "GET",
       headers,
-      // Add cache control headers to prevent browser caching
       cache: "no-store",
-      // Add abort signal with timeout
       signal: AbortSignal.timeout(15000)
     });
     

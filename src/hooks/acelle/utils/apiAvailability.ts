@@ -5,6 +5,7 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
   try {
     console.log("Vérification de la disponibilité de l'API...");
     
+    // Obtenir le token d'accès Supabase
     const { data, error } = await supabase.auth.getSession();
     const accessToken = data?.session?.access_token;
     
@@ -25,13 +26,13 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
       try {
         console.log("Envoi de la requête ping avec Bearer token:", accessToken.substring(0, 15) + "...");
         
-        // Utilisation EXCLUSIVE de l'authentification Bearer Token
+        // UNIQUEMENT authentification Bearer Token
         const pingResponse = await fetch(
           'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me', 
           {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${accessToken}`, // SEULE méthode d'authentification
+              'Authorization': `Bearer ${accessToken}`,
               'X-Acelle-Endpoint': 'ping',
               'X-Requested-With': 'XMLHttpRequest',
               'Content-Type': 'application/json',
