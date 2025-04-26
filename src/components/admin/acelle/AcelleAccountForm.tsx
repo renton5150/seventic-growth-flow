@@ -1,11 +1,11 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, X, Loader2, Info } from "lucide-react";
+import { Check, X, Loader2, Info, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +24,8 @@ import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { testAcelleConnection } from "@/services/acelle/acelle-service";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
 
 const formSchema = z.object({
   missionId: z.string({
@@ -65,6 +68,9 @@ export default function AcelleAccountForm({
   const [connectionStatus, setConnectionStatus] = useState<"untested" | "success" | "failure">("untested");
   const [debugMode, setDebugMode] = useState<boolean>(false);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
+  const [hasTriedWakeup, setHasTriedWakeup] = useState(false);
+  
+  const { wakeUpEdgeFunctions } = useCampaignSync();
   
   const { data: missions = [] } = useQuery({
     queryKey: ["missions"],
@@ -81,6 +87,38 @@ export default function AcelleAccountForm({
       status: account?.status || "inactive",
     },
   });
+
+  // Effet pour nettoyer le statut de connexion si les champs importants changent
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'apiEndpoint' || name === 'apiToken') {
+        if (connectionStatus !== 'untested') {
+          setConnectionStatus('untested');
+          setDebugInfo(null);
+        }
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form, connectionStatus]);
+
+  // Fonction pour tenter de réveiller les services edge
+  const handleWakeUpServices = async () => {
+    toast.loading("Réveil des services en cours...", { id: "wakeup-toast" });
+    setHasTriedWakeup(true);
+    
+    try {
+      const result = await wakeUpEdgeFunctions();
+      
+      if (result) {
+        toast.success("Services initialisés avec succès", { id: "wakeup-toast" });
+      } else {
+        toast.warning("Services en cours d'initialisation, veuillez réessayer dans quelques instants", { id: "wakeup-toast" });
+      }
+    } catch (error) {
+      toast.error("Erreur lors de l'initialisation des services", { id: "wakeup-toast" });
+    }
+  };
 
   const handleTestConnection = async () => {
     const apiEndpoint = form.getValues("apiEndpoint");
@@ -183,6 +221,9 @@ export default function AcelleAccountForm({
                   disabled={isSubmitting}
                 />
               </FormControl>
+              <FormDescription className="text-xs text-muted-foreground">
+                Exemple: https://emailing.plateforme-solution.net/api/v1
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -196,11 +237,14 @@ export default function AcelleAccountForm({
               <FormLabel>Token API</FormLabel>
               <FormControl>
                 <Input 
-                  placeholder="SiWiMzuDxJuTIcOTMtBmfzYxdZ7HBlIqZU4zJIbVhtZp..." 
+                  placeholder="E7yCMWfRiDD1Gd4ycEAk4g0iQrCJFLgLIARgJ56KtBfKpXuQVkSep0OTacWB..." 
                   {...field} 
                   disabled={isSubmitting}
                 />
               </FormControl>
+              <FormDescription className="text-xs text-muted-foreground">
+                Vérifiez que le token est correctement copié depuis votre compte Acelle Mail
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -232,7 +276,25 @@ export default function AcelleAccountForm({
           )}
         />
         
-        <div className="flex items-center gap-2 flex-wrap">
+        {connectionStatus === "failure" && !hasTriedWakeup && (
+          <Alert variant="warning" className="bg-amber-50">
+            <AlertTitle className="text-amber-800">Problème de connexion</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              Les services Edge Functions sont peut-être en veille. Essayez de les réveiller avant de réessayer.
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="ml-2 bg-amber-100 hover:bg-amber-200 mt-2"
+                onClick={handleWakeUpServices}
+                disabled={isSubmitting}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" /> Réveiller les services
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <div className="flex items-start gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Button 
               type="button" 
@@ -260,18 +322,18 @@ export default function AcelleAccountForm({
                 <X className="h-4 w-4 mr-1" /> Échec de connexion
               </div>
             )}
-            
-            <div className="flex items-center ml-2">
-              <label className="flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={debugMode} 
-                  onChange={() => setDebugMode(!debugMode)}
-                  className="mr-2"
-                />
-                <span className="text-sm">Mode debug</span>
-              </label>
-            </div>
+          </div>
+          
+          <div className="flex items-center ml-2">
+            <label className="flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={debugMode} 
+                onChange={() => setDebugMode(!debugMode)}
+                className="mr-2"
+              />
+              <span className="text-sm">Mode debug</span>
+            </label>
           </div>
           
           {debugInfo && (
