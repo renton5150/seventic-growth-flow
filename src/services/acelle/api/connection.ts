@@ -37,25 +37,30 @@ export const testAcelleConnection = async (
       
       return false;
     }
+
+    console.log(`Tentative de connexion à Acelle avec URL: ${cleanApiEndpoint}`);
+    console.log(`Token API (premiers caractères): ${apiToken.substring(0, 10)}...`);
       
-    const url = `${ACELLE_PROXY_BASE_URL}/me?api_token=${encodeURIComponent(apiToken)}`;
+    const url = `${ACELLE_PROXY_BASE_URL}/me`;
     
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
       "X-Acelle-Endpoint": cleanApiEndpoint
     };
+
+    // Build query parameters with API token
+    const params = new URLSearchParams();
+    params.append('api_token', apiToken);
+    const urlWithParams = `${url}?${params.toString()}`;
     
     const debugInfo: AcelleConnectionDebug = {
       success: false,
       request: {
-        url,
+        url: urlWithParams,
         headers
       }
     };
-    
-    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint}`);
-    console.log(`API token (first 5 chars): ${apiToken.substring(0, 5)}...`);
     
     // Attempt to wake up the Edge Function if it's cold
     if (debug) {
@@ -77,7 +82,8 @@ export const testAcelleConnection = async (
     // Add a short delay to allow edge function to wake up
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    const response = await fetch(url, {
+    console.log(`Envoi de la requête à: ${urlWithParams}`);
+    const response = await fetch(urlWithParams, {
       method: "GET",
       headers,
       // Add cache control headers to prevent browser caching
@@ -85,6 +91,8 @@ export const testAcelleConnection = async (
       // Add abort signal with timeout
       signal: AbortSignal.timeout(15000)
     });
+    
+    console.log(`Réponse reçue avec statut: ${response.status}`);
     
     if (debug) {
       debugInfo.statusCode = response.status;
@@ -104,6 +112,13 @@ export const testAcelleConnection = async (
       const errorMessage = `Erreur API: ${response.status} ${response.statusText}`;
       console.error(errorMessage);
       
+      try {
+        const errorText = await response.clone().text();
+        console.error("Contenu de la réponse d'erreur:", errorText);
+      } catch (e) {
+        console.error("Impossible de lire le contenu de l'erreur");
+      }
+      
       if (debug) {
         debugInfo.errorMessage = errorMessage;
         return debugInfo;
@@ -113,6 +128,8 @@ export const testAcelleConnection = async (
     }
     
     const data = await response.json();
+    console.log("Données reçues:", JSON.stringify(data).substring(0, 200));
+    
     const success = !!data.id;
     
     if (debug) {

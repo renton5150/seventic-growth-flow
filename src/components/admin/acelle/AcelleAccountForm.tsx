@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -131,7 +132,10 @@ export default function AcelleAccountForm({
     setDebugInfo(null);
     
     try {
+      console.log(`Test de connexion avec endpoint: ${apiEndpoint}, token: ${apiToken.substring(0, 10)}...`);
+      
       const result = await testAcelleConnection(apiEndpoint, apiToken, debugMode);
+      console.log("Résultat du test de connexion:", result);
       
       if (debugMode && typeof result !== 'boolean') {
         setDebugInfo(result);
@@ -152,6 +156,7 @@ export default function AcelleAccountForm({
         }
       }
     } catch (error) {
+      console.error("Erreur lors du test de connexion:", error);
       setConnectionStatus("failure");
       toast.error("Erreur lors du test de connexion");
     } finally {
@@ -219,7 +224,7 @@ export default function AcelleAccountForm({
                 />
               </FormControl>
               <FormDescription className="text-xs text-muted-foreground">
-                Exemple: https://emailing.plateforme-solution.net/api/v1
+                Exemple: https://emailing.plateforme-solution.net/api/v1 (vérifiez que l'URL se termine par /api/v1)
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -240,7 +245,7 @@ export default function AcelleAccountForm({
                 />
               </FormControl>
               <FormDescription className="text-xs text-muted-foreground">
-                Vérifiez que le token est correctement copié depuis votre compte Acelle Mail
+                Vérifiez que le token est correctement copié depuis votre compte Acelle Mail (sans espaces ni caractères supplémentaires)
               </FormDescription>
               <FormMessage />
             </FormItem>

@@ -125,6 +125,8 @@ serve(async (req) => {
     // Get API token from query parameters
     const url = new URL(req.url);
     const apiToken = url.searchParams.get('api_token');
+
+    debugLog("Query parameters:", Object.fromEntries(url.searchParams.entries()));
     
     // Special case for ping/health check
     if (apiToken === 'ping') {
@@ -148,7 +150,18 @@ serve(async (req) => {
     
     if (!apiToken) {
       debugLog("Missing API token in request", null, true);
-      return new Response(JSON.stringify({ error: 'API token is required' }), { 
+      
+      // Log full request details for debugging
+      debugLog("Full request URL:", req.url);
+      debugLog("Full request headers:", Object.fromEntries(req.headers.entries()));
+      
+      return new Response(JSON.stringify({ 
+        error: 'API token is required', 
+        url: req.url,
+        path: url.pathname,
+        query_params: Object.fromEntries(url.searchParams.entries()),
+        headers: Object.fromEntries(req.headers.entries())
+      }), { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -171,6 +184,8 @@ serve(async (req) => {
     const parts = url.pathname.split('/');
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
     const resourceId = parts[parts.length - 2] === 'acelle-proxy' ? null : parts[parts.length - 1];
+
+    debugLog(`Parsed resource: ${resource}, resourceId: ${resourceId}`);
 
     // Build Acelle API URL - FIXED: Avoid double api/v1 path
     // Make sure the endpoint doesn't end with a slash to properly join with the path
@@ -201,7 +216,7 @@ serve(async (req) => {
     // Prepare headers for the Acelle API request
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Proxy/1.4', // Updated version
+      'User-Agent': 'Seventic-Acelle-Proxy/1.5', // Updated version
       'Connection': 'keep-alive',
       'Cache-Control': 'no-cache, no-store, must-revalidate'
     };
@@ -231,6 +246,8 @@ serve(async (req) => {
         debugLog("Request body:", requestBody);
       }
 
+      debugLog(`Envoi de la requête à ${acelleApiUrl} avec méthode ${req.method}`);
+      
       const response = await fetch(acelleApiUrl, {
         method: req.method,
         headers,

@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -32,6 +33,8 @@ export const useCampaignSync = () => {
         
         try {
           // Ping service to check availability
+          console.log("Envoi d'une requête ping avec bearer token:", accessToken.substring(0, 15) + "...");
+          
           const pingResponse = await fetch(
             'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping', 
             {
@@ -48,12 +51,22 @@ export const useCampaignSync = () => {
           
           clearTimeout(timeoutId);
           
+          console.log(`Réponse ping reçue: ${pingResponse.status} ${pingResponse.statusText}`);
+          
           if (pingResponse.ok) {
             const pingData = await pingResponse.json();
             console.log("Ping successful, service status:", pingData);
             return { available: true, data: pingData };
           } else {
             console.warn(`Ping returned non-200 status: ${pingResponse.status}`);
+            
+            try {
+              const responseText = await pingResponse.text();
+              console.warn("Ping error response:", responseText);
+            } catch (e) {
+              console.warn("Could not read ping error response");
+            }
+            
             lastError = { status: pingResponse.status };
             
             // Si on n'a pas atteint le nombre max de retries, on attend avant de réessayer
@@ -260,11 +273,14 @@ export const useCampaignSync = () => {
       const attemptRequest = async (requestConfig, retries = 1) => {
         for (let i = 0; i <= retries; i++) {
           try {
-            await fetch(requestConfig.url, {
+            console.log(`Tentative ${i+1} pour ${requestConfig.url}`);
+            const response = await fetch(requestConfig.url, {
               method: requestConfig.method,
               headers: requestConfig.headers,
               signal: AbortSignal.timeout(i === 0 ? 5000 : 8000)
             });
+            
+            console.log(`Réponse pour ${requestConfig.url}: ${response.status} ${response.statusText}`);
             console.log(`Successful request to ${requestConfig.url} on attempt ${i + 1}`);
             return true;
           } catch (err) {
