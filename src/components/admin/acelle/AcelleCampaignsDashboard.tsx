@@ -32,6 +32,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     if (syncError && (syncError.includes("Failed to fetch") || syncError.includes("timeout") || syncError.includes("shutdown"))) {
       // Schedule automatic recovery attempt after error detected
       const timer = setTimeout(() => {
+        console.log("Tentative de récupération automatique après erreur détectée");
         toast.info("Tentative de récupération automatique...");
         handleRetry();
       }, 8000);
@@ -68,17 +69,15 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Tableau de bord des campagnes</h2>
         <div className="flex gap-2">
-          {syncError && (
-            <Button
-              onClick={handleWakeAndRefresh}
-              disabled={isLoading}
-              variant="outline"
-              className="border-amber-500 text-amber-500 hover:bg-amber-50"
-            >
-              <Power className="mr-2 h-4 w-4" />
-              Réveiller les services
-            </Button>
-          )}
+          <Button
+            onClick={handleWakeAndRefresh}
+            disabled={isLoading}
+            variant="outline"
+            className="border-amber-500 text-amber-500 hover:bg-amber-50"
+          >
+            <Power className="mr-2 h-4 w-4" />
+            Réveiller les services
+          </Button>
           <Button
             onClick={handleRefresh}
             disabled={isLoading}

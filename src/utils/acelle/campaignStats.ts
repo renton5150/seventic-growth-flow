@@ -30,35 +30,54 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalClicked = 0;
   let totalBounced = 0;
   
+  // Ajouter une vérification pour s'assurer que campaigns est un tableau valide
+  if (!Array.isArray(campaigns)) {
+    console.error("calculateDeliveryStats - invalid campaigns data:", campaigns);
+    return [
+      { name: "Envoyés", value: 0 },
+      { name: "Livrés", value: 0 },
+      { name: "Ouverts", value: 0 },
+      { name: "Cliqués", value: 0 },
+      { name: "Bounces", value: 0 }
+    ];
+  }
+  
   // Debug log for campaign data
   console.log("calculateDeliveryStats - processing campaigns:", campaigns.length);
   
   campaigns.forEach(campaign => {
     // Log each campaign's delivery data for debugging
-    console.log(`Campaign ${campaign.name} - delivery info:`, campaign.delivery_info);
+    console.log(`Campaign ${campaign.name || 'unnamed'} - status: ${campaign.status}, delivery info:`, 
+      campaign.delivery_info ? JSON.stringify(campaign.delivery_info).substring(0, 100) + '...' : 'undefined');
+    
+    // Vérifier que campaign est un objet valide
+    if (!campaign || typeof campaign !== 'object') {
+      console.warn("Invalid campaign object:", campaign);
+      return;
+    }
     
     // Prioritize delivery_info as it's our primary structure
     if (campaign.delivery_info) {
       // Use existing delivery_info structure
-      totalSent += campaign.delivery_info.total || 0;
-      totalDelivered += campaign.delivery_info.delivered || 0;
-      totalOpened += campaign.delivery_info.opened || 0;
-      totalClicked += campaign.delivery_info.clicked || 0;
+      totalSent += Number(campaign.delivery_info.total) || 0;
+      totalDelivered += Number(campaign.delivery_info.delivered) || 0;
+      totalOpened += Number(campaign.delivery_info.opened) || 0;
+      totalClicked += Number(campaign.delivery_info.clicked) || 0;
       
       // Handle bounces from the bounced subobject
-      const softBounce = campaign.delivery_info.bounced?.soft || 0;
-      const hardBounce = campaign.delivery_info.bounced?.hard || 0;
+      const softBounce = Number(campaign.delivery_info.bounced?.soft) || 0;
+      const hardBounce = Number(campaign.delivery_info.bounced?.hard) || 0;
       totalBounced += softBounce + hardBounce;
     } 
     // Fall back to statistics if available
     else if (campaign.statistics) {
-      console.log(`Campaign ${campaign.name} - statistics fallback:`, campaign.statistics);
+      console.log(`Campaign ${campaign.name || 'unnamed'} - statistics fallback:`, campaign.statistics);
       
-      totalSent += campaign.statistics.subscriber_count || 0;
-      totalDelivered += campaign.statistics.delivered_count || 0;
-      totalOpened += campaign.statistics.open_count || 0;
-      totalClicked += campaign.statistics.click_count || 0;
-      totalBounced += campaign.statistics.bounce_count || 0;
+      totalSent += Number(campaign.statistics.subscriber_count) || 0;
+      totalDelivered += Number(campaign.statistics.delivered_count) || 0;
+      totalOpened += Number(campaign.statistics.open_count) || 0;
+      totalClicked += Number(campaign.statistics.click_count) || 0;
+      totalBounced += Number(campaign.statistics.bounce_count) || 0;
     }
   });
   
