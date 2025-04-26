@@ -30,7 +30,9 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       createdAt: account.created_at, // Adding compatibility fields
       updatedAt: account.updated_at, // Adding compatibility fields
       // Handle last_sync_error which might not exist in the database schema
-      lastSyncError: account.last_sync_error !== undefined ? account.last_sync_error : null,
+      lastSyncError: (account as any).last_sync_error !== undefined 
+        ? (account as any).last_sync_error 
+        : null,
       cachePriority: account.cache_priority || 0,
       apiKey: account.api_token // For compatibility
     }));
@@ -68,7 +70,9 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       // Handle last_sync_error which might not exist in the database schema
-      lastSyncError: data.last_sync_error !== undefined ? data.last_sync_error : null,
+      lastSyncError: (data as any).last_sync_error !== undefined 
+        ? (data as any).last_sync_error 
+        : null,
       cachePriority: data.cache_priority || 0,
       apiKey: data.api_token
     };
