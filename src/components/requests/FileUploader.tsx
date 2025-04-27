@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { downloadFile } from "@/services/database";
+import { downloadFile, extractFileName } from "@/services/database";
 
 interface FileUploaderProps {
   icon: React.ReactNode;
@@ -62,20 +62,18 @@ export const FileUploader = ({
     try {
       setDownloading(true);
       
-      if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('uploads/') || value.includes('storage')) {
-        const fileName = value.split('/').pop() || 'document';
-        
-        // Afficher un toast de chargement
-        const loadingToast = toast.loading("Téléchargement en cours...");
-        
-        const success = await downloadFile(value, decodeURIComponent(fileName));
-        
-        // Supprimer le toast de chargement
-        toast.dismiss(loadingToast);
-        
-        if (!success) {
-          toast.error("Erreur lors du téléchargement du fichier");
-        }
+      const loadingToast = toast.loading("Téléchargement en cours...");
+      
+      // Extraire le nom de fichier de l'URL
+      const fileName = extractFileName(value);
+      console.log(`Téléchargement demandé pour: ${value}, nom extrait: ${fileName}`);
+      
+      const success = await downloadFile(value, fileName);
+      
+      toast.dismiss(loadingToast);
+      
+      if (!success) {
+        toast.error("Erreur lors du téléchargement du fichier");
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
@@ -87,13 +85,13 @@ export const FileUploader = ({
   
   const renderFilePreview = () => {
     if (typeof value === 'string' && value) {
-      const fileName = value.split('/').pop() || value;
+      const fileName = extractFileName(value);
       
       return (
         <div className="flex flex-col items-center">
           <div className="flex items-center space-x-2">
             {icon}
-            <span className="text-sm font-medium">{decodeURIComponent(fileName)}</span>
+            <span className="text-sm font-medium break-all max-w-full">{fileName}</span>
           </div>
           <button 
             onClick={handleDownload}

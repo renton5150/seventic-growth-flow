@@ -40,3 +40,23 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
     return false;
   }
 };
+
+// Fonction pour rendre un bucket public s'il ne l'est pas déjà
+export const ensureBucketIsPublic = async (bucketName: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase.storage.updateBucket(bucketName, {
+      public: true
+    });
+    
+    if (error) {
+      console.error(`Erreur lors de la mise à jour du bucket ${bucketName}:`, error);
+      return false;
+    }
+    
+    console.log(`Bucket ${bucketName} rendu public avec succès`);
+    return true;
+  } catch (error) {
+    console.error(`Erreur lors de la mise à jour du bucket ${bucketName}:`, error);
+    return false;
+  }
+};

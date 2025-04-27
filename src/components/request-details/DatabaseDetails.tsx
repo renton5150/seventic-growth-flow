@@ -5,7 +5,7 @@ import { DatabaseRequest } from '@/types/types';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { downloadFile } from "@/services/database";
+import { downloadFile, extractFileName } from "@/services/database";
 
 interface DatabaseDetailsProps {
   request: DatabaseRequest;
@@ -16,7 +16,7 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
   const [downloading, setDownloading] = useState<string | null>(null);
 
   // Fonction pour télécharger un fichier à partir d'une URL
-  const handleFileDownload = async (fileUrl: string | undefined, filename: string = "document") => {
+  const handleFileDownload = async (fileUrl: string | undefined, defaultFilename: string = "document") => {
     if (!fileUrl) {
       toast.error("URL du fichier invalide");
       return;
@@ -28,19 +28,21 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
     
     try {
       setDownloading(fileUrl);
-      console.log(`Tentative de téléchargement: ${fileUrl}, nom: ${filename}`);
       
       // Afficher un toast de chargement
       const loadingToast = toast.loading("Téléchargement en cours...");
       
-      const success = await downloadFile(fileUrl, filename);
+      // Extraire le nom de fichier de l'URL ou utiliser le nom par défaut
+      const fileName = extractFileName(fileUrl) || defaultFilename;
+      console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
+      
+      const success = await downloadFile(fileUrl, fileName);
       
       // Supprimer le toast de chargement
       toast.dismiss(loadingToast);
       
       if (!success) {
-        // Afficher un message d'erreur spécifique si le téléchargement échoue
-        toast.error("Le fichier n'a pas pu être téléchargé");
+        toast.error("Erreur lors du téléchargement du fichier");
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);

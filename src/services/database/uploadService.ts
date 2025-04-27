@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DatabaseFile } from '@/types/database.types';
 import { getUserById } from "@/services/userService";
+import { ensureDatabaseBucketExists } from "./config";
 
 export type UploadResult = {
   success: boolean;
@@ -12,6 +13,15 @@ export type UploadResult = {
 
 export const uploadDatabaseFile = async (file: File, userId: string): Promise<UploadResult> => {
   try {
+    // S'assurer que le bucket 'databases' existe
+    const bucketExists = await ensureDatabaseBucketExists();
+    if (!bucketExists) {
+      return { 
+        success: false, 
+        error: "Impossible de créer ou d'accéder au bucket de stockage" 
+      };
+    }
+    
     const fileName = file.name.replace(/\s+/g, '_'); // Remplacer les espaces par des tirets bas
     const fileExt = fileName.split('.').pop();
     const filePath = `${Date.now()}_${fileName}`;

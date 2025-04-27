@@ -6,7 +6,7 @@ import { Database, Download, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { deleteDatabaseFile, downloadFile } from "@/services/database";
+import { deleteDatabaseFile, downloadFile, extractFileName } from "@/services/database";
 import { toast } from "sonner";
 import { DatabaseFile } from "@/types/database.types";
 import { useState } from "react";
@@ -63,14 +63,15 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
     
     try {
       setDownloadingFile(fileUrl);
-      console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
-      
-      // Afficher un toast de chargement
       const loadingToast = toast.loading("Téléchargement en cours...");
       
-      const success = await downloadFile(fileUrl, fileName);
+      console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
       
-      // Supprimer le toast de chargement
+      // Utiliser le nom de fichier extrait si disponible, sinon utiliser celui fourni
+      const finalFileName = extractFileName(fileUrl) || fileName;
+      
+      const success = await downloadFile(fileUrl, finalFileName);
+      
       toast.dismiss(loadingToast);
       
       if (!success) {
@@ -123,7 +124,7 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleFileDownload(file.fileUrl, file.name)}
+                        onClick={() => handleFileDownload(file.fileUrl, file.fileName)}
                         title="Télécharger"
                         disabled={downloadingFile === file.fileUrl}
                       >

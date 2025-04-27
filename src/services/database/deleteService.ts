@@ -19,11 +19,15 @@ export const deleteDatabaseFile = async (id: string): Promise<boolean> => {
     let filePath = "";
     try {
       if (fileData.file_url) {
-        const url = new URL(fileData.file_url);
-        // Get the path after /storage/v1/object/public/databases/
-        const pathParts = url.pathname.split('/storage/v1/object/public/databases/');
-        if (pathParts.length > 1) {
-          filePath = pathParts[1];
+        if (fileData.file_url.includes('/storage/v1/object/public/databases/')) {
+          const pathParts = fileData.file_url.split('/storage/v1/object/public/databases/');
+          if (pathParts.length > 1) {
+            filePath = pathParts[1];
+          }
+        } else {
+          // Essayer d'extraire le nom du fichier directement
+          const segments = fileData.file_url.split('/');
+          filePath = segments[segments.length - 1];
         }
       }
     } catch (error) {
