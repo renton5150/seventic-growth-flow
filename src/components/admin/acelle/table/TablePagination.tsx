@@ -9,7 +9,7 @@ interface TablePaginationProps {
   onPageChange: (page: number) => void;
 }
 
-export const CampaignsTablePagination = ({ currentPage, hasNextPage, onPageChange }: TablePaginationProps) => {
+export const TablePagination = ({ currentPage, hasNextPage, onPageChange }: TablePaginationProps) => {
   return (
     <div className="flex justify-between items-center mt-4">
       <div>
@@ -40,3 +40,6 @@ export const CampaignsTablePagination = ({ currentPage, hasNextPage, onPageChang
     </div>
   );
 };
+
+// Add alias for backward compatibility
+export const CampaignsTablePagination = TablePagination;

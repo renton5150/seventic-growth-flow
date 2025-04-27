@@ -1,210 +1,116 @@
+import { useState, useMemo } from "react";
+import { Request, WorkflowStatus } from "@/types/types";
 
-import { useState, useMemo } from 'react';
-import { Request } from '@/types/types';
-
-// Export the DateFilterType and DateFilterValues types
-export type DateFilterType = 'equals' | 'before' | 'after' | 'between' | null;
-
-export interface DateFilterValues {
-  date?: Date | null;
-  startDate?: Date | null;
-  endDate?: Date | null;
-}
-
-// Export the DateFilter interface
 export interface DateFilter {
-  type: DateFilterType;
-  values: DateFilterValues;
+  from: Date | null;
+  to: Date | null;
 }
 
-export function useGrowthRequestsFilters(requests: Request[]) {
-  // Column filters
+export const useGrowthRequestsFilters = (requests: Request[]) => {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [missionFilter, setMissionFilter] = useState<string[]>([]);
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [sdrFilter, setSdrFilter] = useState<string[]>([]);
-  
-  // Date filters
   const [createdDateFilter, setCreatedDateFilter] = useState<DateFilter | null>(null);
   const [dueDateFilter, setDueDateFilter] = useState<DateFilter | null>(null);
 
-  // Extract unique values for filter options
-  const uniqueTypes = useMemo(() => {
-    const types = [...new Set(requests.map(r => r.type))];
-    return types.map(type => {
-      switch(type) {
-        case "email": return "Campagne Email";
-        case "database": return "Base de données";
-        case "linkedin": return "Scraping LinkedIn";
-        default: return type;
-      }
-    });
-  }, [requests]);
-
-  const uniqueMissions = useMemo(() => {
-    return [...new Set(requests.map(r => r.missionName || "Sans mission"))];
-  }, [requests]);
-
-  const uniqueAssignees = useMemo(() => {
-    return [...new Set(requests.map(r => r.assignedToName || "Non assigné"))];
-  }, [requests]);
-
-  // Correction pour extraire tous les statuts possibles
-  const uniqueStatuses = useMemo(() => {
-    // Collecter tous les statuts de workflow possibles
-    const allStatuses = requests.map(r => {
-      let status = "";
-      
-      // Déterminer le statut à afficher en priorité
-      if (r.isLate && (r.workflow_status === "pending_assignment" || r.workflow_status === "in_progress")) {
-        status = "En retard";
-      } else {
-        switch(r.workflow_status) {
-          case "pending_assignment": status = "En attente"; break;
-          case "in_progress": status = "En cours"; break;
-          case "completed": status = "Terminée"; break;
-          case "canceled": status = "Annulée"; break;
-          default: status = r.workflow_status || "En attente";
-        }
-      }
-      
-      return status;
-    });
-    
-    // Log pour le débogage
-    console.log("Statuts extraits des requêtes:", allStatuses);
-    
-    // S'assurer d'inclure tous les statuts possibles même s'ils ne sont pas présents
-    const possibleStatuses = ["En attente", "En cours", "Terminée", "Annulée", "En retard"];
-    const combinedStatuses = [...allStatuses, ...possibleStatuses];
-    
-    // Retourner un ensemble unique et trié
-    return [...new Set(combinedStatuses)].sort();
-  }, [requests]);
-
-  const uniqueSdrs = useMemo(() => {
-    return [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
-  }, [requests]);
-
-  // Handle date filtering
-  const applyDateFilter = (request: Request, dateField: 'createdAt' | 'dueDate', filter: DateFilter | null): boolean => {
-    if (!filter || !filter.type) return true;
-    
-    const requestDate = request[dateField];
-    if (!requestDate) return false;
-    
-    const date = new Date(requestDate);
-    
-    switch (filter.type) {
-      case 'equals':
-        if (!filter.values.date) return true;
-        return date.toDateString() === filter.values.date.toDateString();
-      case 'before':
-        if (!filter.values.date) return true;
-        return date < filter.values.date;
-      case 'after':
-        if (!filter.values.date) return true;
-        return date > filter.values.date;
-      case 'between':
-        if (!filter.values.startDate || !filter.values.endDate) return true;
-        return date >= filter.values.startDate && date <= filter.values.endDate;
-      default:
-        return true;
-    }
+  const handleCreatedDateFilterChange = (type: "from" | "to", value: Date | null) => {
+    setCreatedDateFilter(prev => ({
+      ...prev,
+      [type]: value
+    }));
   };
 
-  // Apply all filters to requests
+  const handleDueDateFilterChange = (type: "from" | "to", value: Date | null) => {
+    setDueDateFilter(prev => ({
+      ...prev,
+      [type]: value
+    }));
+  };
+
   const filteredRequests = useMemo(() => {
-    return requests.filter(request => {
-      // Apply type filter
-      if (typeFilter.length > 0) {
-        const requestTypeLabel = (() => {
-          switch(request.type) {
-            case "email": return "Campagne Email";
-            case "database": return "Base de données";
-            case "linkedin": return "Scraping LinkedIn";
-            default: return request.type;
-          }
-        })();
-        if (!typeFilter.includes(requestTypeLabel)) return false;
-      }
+    return requests.filter(item => {
+      const typeCondition = typeFilter.length === 0 || typeFilter.includes(item.type);
+      const missionCondition = missionFilter.length === 0 || missionFilter.includes(item.missionName || "");
+      const assigneeCondition = assigneeFilter.length === 0 || assigneeFilter.includes(item.assigned_to_name || "");
+      const statusCondition = statusFilter.length === 0 || statusFilter.includes(item.workflow_status || "");
+      const sdrCondition = sdrFilter.length === 0 || sdrFilter.includes(item.sdrName || "");
 
-      // Apply mission filter
-      if (missionFilter.length > 0) {
-        const missionName = request.missionName || "Sans mission";
-        if (!missionFilter.includes(missionName)) return false;
-      }
+      const createdDateCondition = !createdDateFilter || (
+        (!createdDateFilter.from || new Date(item.created_at) >= createdDateFilter.from) &&
+        (!createdDateFilter.to || new Date(item.created_at) <= createdDateFilter.to)
+      );
 
-      // Apply assignee filter
-      if (assigneeFilter.length > 0) {
-        const assigneeName = request.assignedToName || "Non assigné";
-        if (!assigneeFilter.includes(assigneeName)) return false;
-      }
+      const dueDateCondition = !dueDateFilter || (
+        (!dueDateFilter.from || new Date(item.due_date) >= dueDateFilter.from) &&
+        (!dueDateFilter.to || new Date(item.due_date) <= dueDateFilter.to)
+      );
 
-      // Apply status filter - avec correction pour prendre en compte tous les statuts
-      if (statusFilter.length > 0) {
-        let statusLabel = "";
-        
-        // Déterminer le statut à afficher en priorité
-        if (request.isLate && (request.workflow_status === "pending_assignment" || request.workflow_status === "in_progress")) {
-          statusLabel = "En retard";
-        } else {
-          switch(request.workflow_status) {
-            case "pending_assignment": statusLabel = "En attente"; break;
-            case "in_progress": statusLabel = "En cours"; break;
-            case "completed": statusLabel = "Terminée"; break;
-            case "canceled": statusLabel = "Annulée"; break;
-            default: statusLabel = request.workflow_status || "En attente";
-          }
-        }
-        
-        if (!statusFilter.includes(statusLabel)) return false;
-      }
-
-      // Apply SDR filter
-      if (sdrFilter.length > 0) {
-        const sdrName = request.sdrName || "Non assigné";
-        if (!sdrFilter.includes(sdrName)) return false;
-      }
-
-      // Apply date filters
-      if (!applyDateFilter(request, 'createdAt', createdDateFilter)) return false;
-      if (!applyDateFilter(request, 'dueDate', dueDateFilter)) return false;
-
-      return true;
+      return (
+        typeCondition &&
+        missionCondition &&
+        assigneeCondition &&
+        statusCondition &&
+        sdrCondition &&
+        createdDateCondition &&
+        dueDateCondition
+      );
     });
   }, [requests, typeFilter, missionFilter, assigneeFilter, statusFilter, sdrFilter, createdDateFilter, dueDateFilter]);
 
-  // Handle date filter changes
-  const handleCreatedDateFilterChange = (type: DateFilterType, values: DateFilterValues) => {
-    setCreatedDateFilter(type ? { type, values } : null);
+  const uniqueTypes = useMemo(() => {
+    return [...new Set(requests.map(item => item.type))];
+  }, [requests]);
+
+  const uniqueMissions = useMemo(() => {
+    return [...new Set(requests.map(item => item.missionName || ""))];
+  }, [requests]);
+
+  const uniqueAssignees = useMemo(() => {
+    return [...new Set(requests.map(item => item.assigned_to_name || ""))];
+  }, [requests]);
+
+  const uniqueStatuses = useMemo(() => {
+    return [...new Set(requests.map(item => item.workflow_status || ""))];
+  }, [requests]);
+
+  const uniqueSdrs = useMemo(() => {
+    return [...new Set(requests.map(item => item.sdrName || ""))];
+  }, [requests]);
+
+  const isStatusType = (status: string): status is WorkflowStatus => {
+    return status === "pending_assignment" || status === "assigned" || status === "in_progress" || status === "review" || status === "completed";
   };
 
-  const handleDueDateFilterChange = (type: DateFilterType, values: DateFilterValues) => {
-    setDueDateFilter(type ? { type, values } : null);
+  const isValidStatus = (status: string): boolean => {
+    if (isStatusType(status)) {
+      return true;
+    }
+    return status === "canceled";
   };
 
   return {
     filteredRequests,
     typeFilter,
-    missionFilter,
-    assigneeFilter,
-    statusFilter,
-    sdrFilter,
-    createdDateFilter,
-    dueDateFilter,
     setTypeFilter,
+    missionFilter,
     setMissionFilter,
+    assigneeFilter,
     setAssigneeFilter,
+    statusFilter,
     setStatusFilter,
+    sdrFilter,
     setSdrFilter,
+    createdDateFilter,
     handleCreatedDateFilterChange,
+    dueDateFilter,
     handleDueDateFilterChange,
     uniqueTypes,
     uniqueMissions,
     uniqueAssignees,
     uniqueStatuses,
-    uniqueSdrs
+    uniqueSdrs,
+    isValidStatus
   };
-}
+};

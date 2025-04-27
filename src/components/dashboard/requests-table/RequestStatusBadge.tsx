@@ -1,68 +1,90 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
+import { CheckCircle, Clock, AlertCircle, X, UserCheck, Loader2, RotateCw } from "lucide-react";
 import { RequestStatus, WorkflowStatus } from "@/types/types";
 
 interface RequestStatusBadgeProps {
   status: RequestStatus | WorkflowStatus;
-  large?: boolean;
+  isLate?: boolean; // Add isLate property
 }
 
-export const RequestStatusBadge: React.FC<RequestStatusBadgeProps> = ({ status, large }) => {
-  // Normalize status string for comparison
-  const normalizedStatus = normalizeStatus(status);
-  const className = large ? "px-2 py-1 text-xs" : "";
-
-  if (
-    normalizedStatus === "completed" ||
-    normalizedStatus === "done" ||
-    status === "review"
-  ) {
-    return <Badge className={`bg-green-500 hover:bg-green-600 ${className}`}>{getStatusLabel(status)}</Badge>;
-  }
-
-  if (normalizedStatus === "in_progress" || normalizedStatus === "assigned") {
-    return <Badge className={`bg-blue-500 hover:bg-blue-600 ${className}`}>{getStatusLabel(status)}</Badge>;
-  }
-
-  if (normalizedStatus === "pending" || normalizedStatus === "pending_assignment") {
-    return <Badge className={`bg-yellow-500 hover:bg-yellow-600 ${className}`}>{getStatusLabel(status)}</Badge>;
-  }
-
-  if (normalizedStatus === "canceled") {
-    return <Badge className={`bg-gray-500 hover:bg-gray-600 ${className}`}>{getStatusLabel(status)}</Badge>;
-  }
-
-  // Default fallback badge
-  return <Badge className={className}>{getStatusLabel(status)}</Badge>;
-};
-
-// Helper function to normalize status strings
-function normalizeStatus(status: string): string {
-  if (status === "inprogress") return "in_progress";
-  if (status === "rejected") return "canceled";
-  return status;
-}
-
-function getStatusLabel(status: string): string {
+export const RequestStatusBadge = ({ status, isLate = false }: RequestStatusBadgeProps) => {
   switch (status) {
     case "pending":
-      return "En attente";
+      return (
+        <Badge 
+          variant="outline" 
+          className={`flex items-center gap-1 ${isLate ? 'bg-red-50 text-red-600 border-red-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200'}`}
+        >
+          <Clock size={14} /> En attente
+          {isLate && <span className="ml-1 text-xs">• En retard</span>}
+        </Badge>
+      );
+      
     case "in_progress":
-    case "inprogress":
-      return "En cours";
+      return (
+        <Badge 
+          variant="outline" 
+          className={`flex items-center gap-1 ${isLate ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}
+        >
+          <Loader2 size={14} className="animate-spin" /> En cours
+          {isLate && <span className="ml-1 text-xs">• En retard</span>}
+        </Badge>
+      );
+      
     case "completed":
-      return "Terminé";
+      return (
+        <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 flex items-center gap-1">
+          <CheckCircle size={14} /> Terminé
+        </Badge>
+      );
+      
     case "canceled":
-    case "rejected":
-      return "Annulé";
+      return (
+        <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200 flex items-center gap-1">
+          <X size={14} /> Annulé
+        </Badge>
+      );
+      
     case "pending_assignment":
-      return "En attente d'assignation";
+      return (
+        <Badge 
+          variant="outline" 
+          className={`flex items-center gap-1 ${isLate ? 'bg-red-50 text-red-600 border-red-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200'}`}
+        >
+          <Clock size={14} /> Non assigné
+          {isLate && <span className="ml-1 text-xs">• En retard</span>}
+        </Badge>
+      );
+      
     case "assigned":
-      return "Assigné";
+      return (
+        <Badge 
+          variant="outline" 
+          className={`flex items-center gap-1 ${isLate ? 'bg-red-50 text-red-600 border-red-200' : 'bg-purple-50 text-purple-600 border-purple-200'}`}
+        >
+          <UserCheck size={14} /> Assigné
+          {isLate && <span className="ml-1 text-xs">• En retard</span>}
+        </Badge>
+      );
+      
     case "review":
-      return "En révision";
+      return (
+        <Badge 
+          variant="outline" 
+          className={`flex items-center gap-1 ${isLate ? 'bg-red-50 text-red-600 border-red-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}
+        >
+          <RotateCw size={14} /> En révision
+          {isLate && <span className="ml-1 text-xs">• En retard</span>}
+        </Badge>
+      );
+      
     default:
-      return status;
+      return (
+        <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200 flex items-center gap-1">
+          <AlertCircle size={14} /> {status}
+        </Badge>
+      );
   }
-}
+};

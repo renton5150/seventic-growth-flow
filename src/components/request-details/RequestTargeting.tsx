@@ -8,19 +8,47 @@ interface RequestTargetingProps {
 }
 
 export const RequestTargeting: React.FC<RequestTargetingProps> = ({ request }) => {
-  const targeting = request.details?.targeting || {};
-  
-  const renderList = (items: string[] | undefined) => {
-    if (!items || items.length === 0) {
-      return <p className="text-muted-foreground text-sm">Non spécifié</p>;
-    }
+  const renderTargetingInfo = () => {
+    const targeting = request.details?.targeting || request.targeting || {};
+    if (!targeting) return <p>Aucune information de ciblage disponible</p>;
     
     return (
-      <ul className="list-disc pl-5 space-y-1">
-        {items.map((item, index) => (
-          <li key={index} className="text-sm">{item}</li>
-        ))}
-      </ul>
+      <div className="space-y-4">
+        {targeting.jobTitles && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Titres de poste</h3>
+            <p className="text-base">{Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join(", ") : targeting.jobTitles}</p>
+          </div>
+        )}
+        
+        {targeting.industries && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Industries</h3>
+            <p className="text-base">{Array.isArray(targeting.industries) ? targeting.industries.join(", ") : targeting.industries}</p>
+          </div>
+        )}
+        
+        {targeting.locations && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Localisations</h3>
+            <p className="text-base">{Array.isArray(targeting.locations) ? targeting.locations.join(", ") : targeting.locations}</p>
+          </div>
+        )}
+        
+        {targeting.companySize && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Taille d'entreprise</h3>
+            <p className="text-base">{targeting.companySize}</p>
+          </div>
+        )}
+        
+        {targeting.seniority && targeting.seniority.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Niveaux de séniorité</h3>
+            <p className="text-base">{Array.isArray(targeting.seniority) ? targeting.seniority.join(", ") : targeting.seniority}</p>
+          </div>
+        )}
+      </div>
     );
   };
   
@@ -29,31 +57,8 @@ export const RequestTargeting: React.FC<RequestTargetingProps> = ({ request }) =
       <CardHeader>
         <CardTitle>Ciblage</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div>
-          <h3 className="text-sm font-medium mb-2">Industries</h3>
-          {renderList(targeting.industries)}
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium mb-2">Taille d'entreprise</h3>
-          <p className="text-sm">{targeting.companySize || "Non spécifié"}</p>
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium mb-2">Localisations</h3>
-          {renderList(targeting.locations)}
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium mb-2">Titres de poste</h3>
-          {renderList(targeting.jobTitles)}
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium mb-2">Ancienneté</h3>
-          {renderList(targeting.seniority)}
-        </div>
+      <CardContent>
+        {renderTargetingInfo()}
       </CardContent>
     </Card>
   );

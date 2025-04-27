@@ -13,37 +13,25 @@ export const RequestDetailsCard: React.FC<RequestDetailsCardProps> = ({ request 
       <CardHeader>
         <CardTitle>Détails de la demande</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Titre</p>
-            <p className="text-base">{request.title}</p>
-          </div>
-          
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Type</p>
-            <p className="text-base capitalize">{request.type}</p>
-          </div>
-          
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Statut</p>
-            <p className="text-base capitalize">{request.status}</p>
-          </div>
-          
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Date d'échéance</p>
-            <p className="text-base">
-              {request.due_date 
-                ? new Date(request.due_date).toLocaleDateString() 
-                : "Non définie"}
-            </p>
-          </div>
-          
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Mission</p>
-            <p className="text-base">{request.missionName || "Non assignée"}</p>
-          </div>
+      <CardContent className="space-y-4">
+        <div>
+          <h3 className="text-sm font-medium mb-2">Titre</h3>
+          <p className="text-base">{request.title}</p>
         </div>
+        
+        {request.details?.description && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Description</h3>
+            <p className="text-base">{request.details.description}</p>
+          </div>
+        )}
+        
+        {request.details?.additionalNotes && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Notes additionnelles</h3>
+            <p className="text-base">{request.details.additionalNotes}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

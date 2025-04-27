@@ -1,68 +1,114 @@
 
+import { AcelleCampaignDeliveryInfo } from "@/types/acelle.types";
+
 export const translateStatus = (status: string): string => {
-  switch (status) {
-    case "new": return "Nouveau";
-    case "queued": return "En attente";
-    case "sending": return "En cours d'envoi";
-    case "sent": return "Envoyé";
-    case "paused": return "En pause";
-    case "failed": return "Échoué";
-    default: return status || "Inconnu";
+  switch (status.toLowerCase()) {
+    case "queuing":
+      return "En file d'attente";
+    case "queued":
+      return "En file d'attente";
+    case "sending":
+      return "En cours d'envoi";
+    case "sent":
+      return "Envoyé";
+    case "ready":
+      return "Prêt à envoyer";
+    case "failed":
+      return "Échec";
+    case "paused":
+      return "En pause";
+    case "draft":
+      return "Brouillon";
+    case "scheduled":
+      return "Programmé";
+    default:
+      return status;
   }
 };
 
 export const getStatusBadgeVariant = (status: string): string => {
-  switch (status) {
-    case "new": return "secondary";
-    case "queued": return "warning";
-    case "sending": return "default";
-    case "sent": return "success";
-    case "paused": return "outline";
-    case "failed": return "destructive";
-    default: return "secondary";
+  switch (status.toLowerCase()) {
+    case "queuing":
+    case "queued":
+      return "secondary";
+    case "sending":
+      return "default";
+    case "sent":
+      return "success";
+    case "ready":
+      return "outline";
+    case "failed":
+      return "destructive";
+    case "paused":
+      return "warning";
+    case "draft":
+      return "outline";
+    case "scheduled":
+      return "secondary";
+    default:
+      return "outline";
   }
 };
 
-export const renderPercentage = (value: number | undefined): string => {
-  if (value === undefined || value === null) return "0%";
-  return `${(value * 100).toFixed(1)}%`;
+export const renderPercentage = (value: number): string => {
+  if (value === null || value === undefined) return "0%";
+  
+  // Ensure the value is a number
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  
+  // If the value is already a percentage (less than 1), multiply by 100
+  const percentage = numValue <= 1 ? numValue * 100 : numValue;
+  
+  return `${percentage.toFixed(1)}%`;
 };
 
-export const safeDeliveryInfo = (info: any = {}) => {
+export const safeDeliveryInfo = (deliveryInfo?: AcelleCampaignDeliveryInfo | null): AcelleCampaignDeliveryInfo => {
   return {
-    total: info.total || 0,
-    delivered: info.delivered || 0,
-    delivery_rate: info.delivery_rate || 0,
-    opened: info.opened || 0,
-    unique_open_rate: info.unique_open_rate || 0,
-    clicked: info.clicked || 0,
-    click_rate: info.click_rate || 0,
+    total: deliveryInfo?.total || 0,
+    delivery_rate: deliveryInfo?.delivery_rate || 0,
+    unique_open_rate: deliveryInfo?.unique_open_rate || 0,
+    click_rate: deliveryInfo?.click_rate || 0,
+    bounce_rate: deliveryInfo?.bounce_rate || 0,
+    unsubscribe_rate: deliveryInfo?.unsubscribe_rate || 0,
+    delivered: deliveryInfo?.delivered || 0,
+    opened: deliveryInfo?.opened || 0,
+    clicked: deliveryInfo?.clicked || 0,
     bounced: {
-      soft: info.bounced?.soft || 0,
-      hard: info.bounced?.hard || 0,
-      total: info.bounced?.total || 0
+      soft: deliveryInfo?.bounced?.soft || 0,
+      hard: deliveryInfo?.bounced?.hard || 0,
+      total: deliveryInfo?.bounced?.total || 0
     },
-    bounce_rate: info.bounce_rate || 0,
-    unsubscribed: info.unsubscribed || 0,
-    unsubscribe_rate: info.unsubscribe_rate || 0,
-    complained: info.complained || 0
+    unsubscribed: deliveryInfo?.unsubscribed || 0,
+    complained: deliveryInfo?.complained || 0
   };
 };
 
-export const isConnectionError = (error: any): boolean => {
-  if (!error) return false;
-  const errorMsg = typeof error === 'string' ? error : error.message || '';
-  return errorMsg.includes('Failed to fetch') || 
-         errorMsg.includes('timeout') || 
-         errorMsg.includes('network') ||
-         errorMsg.includes('connection') ||
-         errorMsg.includes('ECONNREFUSED');
+export const isConnectionError = (error: string): boolean => {
+  const connectionErrors = [
+    "failed to fetch",
+    "network error",
+    "timeout",
+    "connection failed",
+    "cannot connect",
+    "service unavailable",
+    "no response",
+    "refused to connect"
+  ];
+  return connectionErrors.some(e => error.toLowerCase().includes(e));
 };
 
-export const getTroubleshootingMessage = (error: any): string => {
-  if (!error) return "";
+export const getTroubleshootingMessage = (error: string): string => {
   if (isConnectionError(error)) {
-    return "Les services semblent être en cours de démarrage ou indisponibles. Veuillez patienter ou cliquer sur 'Réveiller les services'.";
+    return "Les services Acelle semblent indisponibles. Cela peut être dû à une maintenance ou à une panne temporaire.";
   }
-  return typeof error === 'string' ? error : error.message || "Une erreur est survenue";
+  if (error.includes("401") || error.includes("unauthorized")) {
+    return "Problème d'authentification avec l'API Acelle. Vérifiez votre token API.";
+  }
+  if (error.includes("404") || error.includes("not found")) {
+    return "Ressource introuvable. L'URL de l'API est peut-être incorrecte.";
+  }
+  if (error.includes("500") || error.includes("server error")) {
+    return "Erreur interne du serveur Acelle. Veuillez contacter l'administrateur de votre instance Acelle.";
+  }
+  return "Une erreur s'est produite lors de la communication avec l'API Acelle.";
 };

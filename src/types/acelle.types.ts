@@ -2,52 +2,49 @@
 export interface AcelleAccount {
   id: string;
   name: string;
-  missionId?: string;
-  missionName?: string;
   api_endpoint: string;
   api_token: string;
   status: "active" | "inactive";
+  created_at: string;
+  updated_at: string;
   last_sync_date: string | null;
-  createdAt?: string;
-  updatedAt?: string;
+  mission_id?: string | null;
   
-  // Aliases for compatibility
-  apiEndpoint?: string; // Alias for api_endpoint
-  apiToken?: string; // Alias for api_token
-  lastSyncDate?: string | null; // Alias for last_sync_date
+  // Backward compatibility aliases
+  apiEndpoint?: string; // alias for api_endpoint
+  apiToken?: string;    // alias for api_token
+  lastSyncDate?: string | null; // alias for last_sync_date
+  missionId?: string;   // alias for mission_id
 }
 
-export interface AcelleConnectionDebug {
-  success: boolean;
-  request?: {
-    url?: string;
-    method?: string;
-    headers?: Record<string, string>;
-    params?: any;
-  };
-  responseData?: any;
-  statusCode?: number;
-  errorMessage?: string;
-}
-
-export interface AcelleCampaignBounced {
-  soft: number;
-  hard: number;
-  total: number;
+export interface AcelleCampaign {
+  uid: string;
+  name: string;
+  subject: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  run_at: string | null;
+  delivery_info: AcelleCampaignDeliveryInfo;
+  tracking?: AcelleCampaignTracking;
 }
 
 export interface AcelleCampaignDeliveryInfo {
   total: number;
-  delivered: number;
   delivery_rate: number;
-  opened: number;
   unique_open_rate: number;
-  clicked: number;
   click_rate: number;
-  bounced: AcelleCampaignBounced;
   bounce_rate: number;
-  unsubscribed: number;
   unsubscribe_rate: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: {
+    soft: number;
+    hard: number;
+    total: number;
+  };
+  unsubscribed: number;
   complained: number;
 }
 
@@ -56,20 +53,20 @@ export interface AcelleCampaignTracking {
   click_tracking: boolean;
 }
 
-export interface AcelleCampaign {
-  uid: string;
-  name: string;
-  subject?: string;
-  status: string;
-  created_at?: string;
-  updated_at?: string;
-  run_at?: string;
-  delivery_info?: AcelleCampaignDeliveryInfo;
-}
-
 export interface AcelleCampaignDetail extends AcelleCampaign {
-  html?: string;
+  html?: string; 
   plain?: string;
   statistics?: any;
-  tracking?: AcelleCampaignTracking;
+}
+
+export interface AcelleConnectionDebug {
+  success: boolean;
+  errorMessage?: string;
+  statusCode?: number;
+  request?: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+  };
+  response?: any;
 }

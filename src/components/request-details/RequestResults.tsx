@@ -2,130 +2,109 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Request } from "@/types/types";
-import { DatabaseRequest, EmailCampaignRequest } from "@/types/types";
-import { FileText, FileSpreadsheet } from "lucide-react";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface RequestResultsProps {
   request: Request;
 }
 
 export const RequestResults: React.FC<RequestResultsProps> = ({ request }) => {
-  const renderDatabaseResults = () => {
-    const dbRequest = request as DatabaseRequest;
-    const results = dbRequest.details?.results;
-
-    if (!results) {
-      return (
-        <p className="text-muted-foreground text-center py-4">
-          Aucun résultat disponible pour le moment
-        </p>
-      );
-    }
-
+  const results = request.details?.results || {};
+  
+  if (request.status !== "completed" || !results || Object.keys(results).length === 0) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-secondary/20 p-4 rounded-md">
-            <p className="text-sm font-medium">Contacts</p>
-            <p className="text-2xl font-bold">{results.contactsCount || 0}</p>
-          </div>
-          <div className="bg-secondary/20 p-4 rounded-md">
-            <p className="text-sm font-medium">Entreprises</p>
-            <p className="text-2xl font-bold">{results.companiesCount || 0}</p>
-          </div>
-        </div>
-
-        {results.fileUrl && (
-          <div className="border rounded-md p-4 flex items-center space-x-3">
-            <FileSpreadsheet className="h-10 w-10 text-green-600" />
-            <div>
-              <p className="font-medium">Fichier de résultats</p>
-              <a 
-                href={results.fileUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-sm text-blue-500 hover:underline"
-              >
-                Télécharger le fichier
-              </a>
-            </div>
-          </div>
-        )}
-      </div>
+      <Card>
+        <CardContent className="py-10 text-center">
+          <p className="text-muted-foreground">
+            Les résultats seront disponibles une fois la demande traitée.
+          </p>
+        </CardContent>
+      </Card>
     );
+  }
+  
+  const handleDownload = (fileUrl: string, filename: string) => {
+    // Open the file URL in a new tab or download it
+    window.open(fileUrl, '_blank');
   };
-
-  const renderEmailResults = () => {
-    const emailRequest = request as EmailCampaignRequest;
-    const results = emailRequest.details?.results;
-
-    if (!results) {
-      return (
-        <p className="text-muted-foreground text-center py-4">
-          Aucun résultat disponible pour le moment
-        </p>
-      );
-    }
-
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-secondary/20 p-4 rounded-md">
-            <p className="text-sm font-medium">Emails envoyés</p>
-            <p className="text-2xl font-bold">{results.emailsSent || 0}</p>
-          </div>
-          <div className="bg-secondary/20 p-4 rounded-md">
-            <p className="text-sm font-medium">Taux d'ouverture</p>
-            <p className="text-2xl font-bold">{results.openRate ? `${(results.openRate * 100).toFixed(1)}%` : '0%'}</p>
-          </div>
-          <div className="bg-secondary/20 p-4 rounded-md">
-            <p className="text-sm font-medium">Taux de clic</p>
-            <p className="text-2xl font-bold">{results.clickRate ? `${(results.clickRate * 100).toFixed(1)}%` : '0%'}</p>
-          </div>
-          <div className="bg-secondary/20 p-4 rounded-md">
-            <p className="text-sm font-medium">Conversions</p>
-            <p className="text-2xl font-bold">{results.conversions || 0}</p>
-          </div>
-        </div>
-
-        {results.fileUrl && (
-          <div className="border rounded-md p-4 flex items-center space-x-3">
-            <FileText className="h-10 w-10 text-blue-600" />
-            <div>
-              <p className="font-medium">Rapport détaillé</p>
-              <a 
-                href={results.fileUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-sm text-blue-500 hover:underline"
-              >
-                Télécharger le rapport
-              </a>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderResults = () => {
-    switch (request.type) {
-      case 'database':
-        return renderDatabaseResults();
-      case 'email':
-        return renderEmailResults();
-      default:
-        return <p className="text-muted-foreground text-center py-4">Aucun résultat disponible</p>;
-    }
-  };
-
+  
   return (
     <Card>
       <CardHeader>
         <CardTitle>Résultats</CardTitle>
       </CardHeader>
-      <CardContent>
-        {renderResults()}
+      <CardContent className="space-y-6">
+        {request.type === "database" && (
+          <>
+            {results.contactsCount !== undefined && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Nombre de contacts</h3>
+                <p className="text-2xl font-bold">{results.contactsCount}</p>
+              </div>
+            )}
+            
+            {results.companiesCount !== undefined && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Nombre d'entreprises</h3>
+                <p className="text-2xl font-bold">{results.companiesCount}</p>
+              </div>
+            )}
+          </>
+        )}
+        
+        {request.type === "email" && (
+          <>
+            {results.emailsSent !== undefined && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Emails envoyés</h3>
+                <p className="text-2xl font-bold">{results.emailsSent}</p>
+              </div>
+            )}
+            
+            {results.openRate !== undefined && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Taux d'ouverture</h3>
+                <p className="text-2xl font-bold">{results.openRate}%</p>
+              </div>
+            )}
+            
+            {results.clickRate !== undefined && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Taux de clics</h3>
+                <p className="text-2xl font-bold">{results.clickRate}%</p>
+              </div>
+            )}
+            
+            {results.conversions !== undefined && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Conversions</h3>
+                <p className="text-2xl font-bold">{results.conversions}</p>
+              </div>
+            )}
+          </>
+        )}
+        
+        {request.type === "linkedin" && results.profilesFound !== undefined && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Profils trouvés</h3>
+            <p className="text-2xl font-bold">{results.profilesFound}</p>
+          </div>
+        )}
+        
+        {(results.fileUrl || request.details?.resultFileUrl) && (
+          <div className="pt-4">
+            <h3 className="text-sm font-medium mb-2">Fichier de résultats</h3>
+            <Button 
+              variant="outline"
+              onClick={() => handleDownload(results.fileUrl || request.details?.resultFileUrl, "resultats.xlsx")}
+              className="flex items-center"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger les résultats
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

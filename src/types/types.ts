@@ -109,4 +109,56 @@ export interface DatabaseRequest extends Request {
       fileUrl?: string;
     };
   };
+  // Additional properties for backward compatibility
+  tool?: string;
+  blacklist?: any;
+  contactsCreated?: number;
+  resultFileUrl?: string;
+}
+
+export interface LinkedInScrapingRequest extends Request {
+  details: {
+    targeting?: {
+      jobTitles?: string[];
+      industries?: string[];
+      locations?: string[];
+      companySize?: string;
+      seniority?: string[];
+    };
+    additionalNotes?: string;
+    results?: {
+      profilesFound?: number;
+      fileUrl?: string;
+    };
+  };
+}
+
+// Additional types needed for email campaign components
+export interface EmailTemplate {
+  content?: string;
+  webLink?: string;
+  fileUrl?: string;
+}
+
+export interface DatabaseDetails {
+  notes?: string;
+  webLink?: string;
+  fileUrl?: string;
+}
+
+export interface BlacklistFile {
+  notes?: string;
+  fileUrl?: string;
+}
+
+export interface Blacklist {
+  accounts?: BlacklistFile;
+  emails?: BlacklistFile;
+}
+
+// App data type for mock data
+export interface AppData {
+  missions: Mission[];
+  requests: Request[];
+  users: User[];
 }

@@ -3,8 +3,14 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { EmailCampaignRequest } from "@/types/types";
 
-export default function EmailCampaignForm() {
+interface EmailCampaignFormProps {
+  editMode?: boolean;
+  initialData?: EmailCampaignRequest;
+}
+
+const EmailCampaignForm: React.FC<EmailCampaignFormProps> = ({ editMode = false, initialData }) => {
   return (
     <Card>
       <CardContent className="pt-6">
@@ -21,3 +27,5 @@ export default function EmailCampaignForm() {
 
 // Add named export for backward compatibility
 export { EmailCampaignForm };
+
+export default EmailCampaignForm;
