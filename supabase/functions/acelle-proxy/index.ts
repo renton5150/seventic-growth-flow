@@ -66,7 +66,6 @@ serve(async (req) => {
     }
     
     const supabaseToken = authHeader.substring(7);
-
     const url = new URL(req.url);
     
     if (url.pathname.includes('/test-acelle-connection')) {
@@ -170,10 +169,10 @@ serve(async (req) => {
             responseData = await response.json();
           } catch (e) {
             try {
-              responseData = await response.text();
-              responseData = { text: responseData.substring(0, 500) };
+              const textResponse = await response.clone().text();
+              responseData = { error: textResponse };
             } catch (textErr) {
-              responseData = { error: "Failed to parse response" };
+              responseData = { error: "Failed to read response" };
             }
           }
           
@@ -226,18 +225,9 @@ serve(async (req) => {
       }
     }
     
-    if (url.pathname.includes('/ping')) {
-      debugLog("Requête ping reçue");
-      
-      return new Response(JSON.stringify({ 
-        status: 'active',
-        timestamp: new Date().toISOString()
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
     const acelleEndpoint = req.headers.get('x-acelle-endpoint');
+    const acelleToken = req.headers.get('x-acelle-token');
+    
     if (!acelleEndpoint) {
       debugLog("Point de terminaison Acelle manquant dans les en-têtes de la requête", null, true);
       return new Response(JSON.stringify({ error: 'Le point de terminaison Acelle est manquant' }), {
@@ -246,7 +236,6 @@ serve(async (req) => {
       });
     }
 
-    const acelleToken = req.headers.get('x-acelle-token');
     if (!acelleToken) {
       debugLog("Token API Acelle manquant", null, true);
       return new Response(JSON.stringify({ 
@@ -267,31 +256,17 @@ serve(async (req) => {
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    const queryParams = new URLSearchParams();
-    queryParams.append('api_token', acelleToken);
+    let requestPath = resourceId ? `${apiPath}/${resource}/${resourceId}` : `${apiPath}/${resource}`;
+    requestPath += (requestPath.includes('?') ? '&' : '?') + `api_token=${acelleToken}`;
     
-    const page = req.headers.get('x-page');
-    const perPage = req.headers.get('x-per-page');
-    const includeStats = req.headers.get('x-include-stats');
-    
-    if (page) queryParams.append('page', page);
-    if (perPage) queryParams.append('per_page', perPage);
-    if (includeStats === 'true') queryParams.append('include_stats', 'true');
-    
-    for (const [key, value] of url.searchParams.entries()) {
-      if (key !== 'cache_key') {
-        queryParams.append(key, value);
+    const queryParams = new URLSearchParams(url.search);
+    for (const [key, value] of queryParams.entries()) {
+      if (key !== 'api_token' && key !== 'cache_key') {
+        requestPath += `&${key}=${value}`;
       }
     }
 
-    let acelleApiUrl;
-    if (resourceId) {
-      acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}/${resourceId}?${queryParams.toString()}`;
-    } else {
-      acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}?${queryParams.toString()}`;
-    }
-
-    debugLog(`Transmission de la requête à l'API Acelle: ${acelleApiUrl}`);
+    debugLog(`Transmission de la requête à l'API Acelle: ${cleanEndpoint}${requestPath}`);
 
     const headers: HeadersInit = {
       'Accept': 'application/json',
@@ -317,7 +292,7 @@ serve(async (req) => {
         debugLog("Corps de la requête:", requestBody);
       }
 
-      const response = await fetch(acelleApiUrl, {
+      const response = await fetch(`${cleanEndpoint}${requestPath}`, {
         method: req.method,
         headers,
         body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : requestBody,
@@ -362,11 +337,10 @@ serve(async (req) => {
       clearTimeout(timeoutId);
       
       if (fetchError.name === 'AbortError') {
-        debugLog(`La requête à ${acelleApiUrl} a expiré`, null, true);
+        debugLog(`La requête a expiré`, null, true);
         return new Response(JSON.stringify({ 
           error: 'La requête a expiré',
-          endpoint: acelleEndpoint,
-          url: acelleApiUrl 
+          endpoint: acelleEndpoint
         }), { 
           status: 504,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
