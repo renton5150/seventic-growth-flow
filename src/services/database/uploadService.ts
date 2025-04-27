@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DatabaseFile } from '@/types/database.types';
 import { getUserById } from "@/services/userService";
-import { ensureDatabaseBucketExists } from "./config";
+import { ensureDatabaseBucketExists, ensureBucketIsPublic } from "./config";
 
 export type UploadResult = {
   success: boolean;
@@ -15,40 +15,21 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
   try {
     console.log(`Début du téléversement: ${file.name} par utilisateur ${userId}`);
     
-    // Vérifier que le bucket existe
-    console.log("Vérification du bucket...");
-    try {
-      const { data: buckets, error } = await supabase.storage.listBuckets();
-      
-      if (error) {
-        console.error("Erreur lors de la vérification des buckets:", error);
-        return { success: false, error: "Erreur lors de la connexion au stockage" };
-      }
-      
-      const databaseBucket = buckets?.find(b => b.name === 'databases');
-      
-      if (!databaseBucket) {
-        console.log("Le bucket 'databases' n'existe pas. Tentative de création...");
-        const { error: createError } = await supabase.storage.createBucket('databases', {
-          public: true
-        });
-        
-        if (createError) {
-          console.error("Erreur lors de la création du bucket:", createError);
-          return { success: false, error: "Impossible de créer le bucket de stockage" };
-        }
-        
-        console.log("Bucket 'databases' créé avec succès");
-      } else {
-        console.log("Le bucket 'databases' existe déjà");
-      }
-    } catch (e) {
-      console.error("Erreur lors de la vérification du bucket:", e);
+    // S'assurer que le bucket existe et est public
+    const bucketExists = await ensureDatabaseBucketExists();
+    if (!bucketExists) {
+      console.error("Impossible de créer ou vérifier le bucket 'databases'");
+      toast.error("Erreur de configuration du stockage");
+      return { success: false, error: "Erreur de configuration du stockage" };
     }
+    
+    // S'assurer que le bucket est public
+    await ensureBucketIsPublic('databases');
     
     const fileName = file.name.replace(/\s+/g, '_'); // Remplacer les espaces par des tirets bas
     const fileExt = fileName.split('.').pop();
-    const filePath = `${Date.now()}_${fileName}`;
+    const timestamp = Date.now();
+    const filePath = `uploads/${timestamp}_${fileName}`;
     
     console.log(`Téléchargement du fichier ${fileName} (${fileExt}) vers le chemin ${filePath}`);
     
@@ -59,6 +40,18 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
     
     if (uploadError) {
       console.error("Erreur lors du téléversement:", uploadError);
+      
+      // Messages d'erreur plus spécifiques
+      if (uploadError.message.includes('JWT')) {
+        toast.error("Problème d'authentification avec le serveur de stockage");
+      } else if (uploadError.message.includes('size')) {
+        toast.error("Fichier trop volumineux");
+      } else if (uploadError.message.includes('not found')) {
+        toast.error("Le service de stockage n'est pas disponible");
+      } else {
+        toast.error(`Erreur: ${uploadError.message}`);
+      }
+      
       return { 
         success: false, 
         error: uploadError.message 
@@ -66,6 +59,7 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
     }
     
     if (!uploadData) {
+      console.error("Aucune donnée renvoyée par le service de stockage");
       return { 
         success: false, 
         error: "Aucune donnée renvoyée par le service de stockage" 
@@ -79,9 +73,59 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
     
     if (!publicUrlData || !publicUrlData.publicUrl) {
       console.error("Impossible d'obtenir l'URL publique");
+      
+      // Tentative de réparer le bucket et réessayer
+      await ensureBucketIsPublic('databases');
+      
+      // Réessayer d'obtenir l'URL publique
+      const { data: retryUrlData } = await supabase.storage
+        .from('databases')
+        .getPublicUrl(filePath);
+        
+      if (!retryUrlData || !retryUrlData.publicUrl) {
+        toast.error("Impossible d'obtenir l'URL du fichier");
+        return { 
+          success: false, 
+          error: "Impossible d'obtenir l'URL publique" 
+        };
+      }
+      
+      console.log("URL publique obtenue après correction du bucket:", retryUrlData.publicUrl);
+      
+      // Obtenir les informations de l'utilisateur
+      const user = await getUserById(userId);
+      const uploaderName = user?.name || 'Utilisateur';
+      
+      // Enregistrer les informations du fichier dans la base de données
+      try {
+        const { data: dbData, error: dbError } = await supabase
+          .from('database_files')
+          .insert([
+            { 
+              name: fileName,
+              file_name: fileName,
+              file_url: retryUrlData.publicUrl,
+              file_type: fileExt || 'unknown',
+              file_size: file.size,
+              uploaded_by: userId,
+              uploader_name: uploaderName
+            }
+          ])
+          .select('*')
+          .single();
+        
+        if (dbError) {
+          console.error("Erreur lors de l'enregistrement dans la base de données:", dbError);
+        } else {
+          console.log("Fichier enregistré avec succès dans la base de données:", dbData);
+        }
+      } catch (error) {
+        console.error("Erreur lors de l'enregistrement du fichier:", error);
+      }
+      
       return { 
-        success: false, 
-        error: "Impossible d'obtenir l'URL publique" 
+        success: true, 
+        fileUrl: retryUrlData.publicUrl 
       };
     }
     
@@ -92,38 +136,39 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
     const uploaderName = user?.name || 'Utilisateur';
     
     // Enregistrer les informations du fichier dans la base de données
-    const { data: dbData, error: dbError } = await supabase
-      .from('database_files')
-      .insert([
-        { 
-          name: fileName,
-          file_name: fileName,
-          file_url: publicUrlData.publicUrl,
-          file_type: fileExt || 'unknown',
-          file_size: file.size,
-          uploaded_by: userId,
-          uploader_name: uploaderName
-        }
-      ])
-      .select('*')
-      .single();
-    
-    if (dbError) {
-      console.error("Erreur lors de l'enregistrement dans la base de données:", dbError);
-      return { 
-        success: true, 
-        fileUrl: publicUrlData.publicUrl,
-        error: "Le fichier a été téléversé mais son enregistrement a échoué" 
-      };
+    try {
+      const { data: dbData, error: dbError } = await supabase
+        .from('database_files')
+        .insert([
+          { 
+            name: fileName,
+            file_name: fileName,
+            file_url: publicUrlData.publicUrl,
+            file_type: fileExt || 'unknown',
+            file_size: file.size,
+            uploaded_by: userId,
+            uploader_name: uploaderName
+          }
+        ])
+        .select('*')
+        .single();
+      
+      if (dbError) {
+        console.error("Erreur lors de l'enregistrement dans la base de données:", dbError);
+      } else {
+        console.log("Fichier enregistré avec succès dans la base de données:", dbData);
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement du fichier:", error);
     }
     
-    console.log("Fichier téléversé et enregistré avec succès:", dbData);
     return { 
       success: true, 
       fileUrl: publicUrlData.publicUrl 
     };
   } catch (error) {
     console.error("Erreur lors du téléversement:", error);
+    toast.error("Une erreur inattendue s'est produite");
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Erreur inconnue" 

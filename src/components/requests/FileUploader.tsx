@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { downloadFile, extractFileName } from "@/services/database";
+import { AlertCircle } from "lucide-react";
 
 interface FileUploaderProps {
   icon: React.ReactNode;
@@ -26,9 +27,26 @@ export const FileUploader = ({
 }: FileUploaderProps) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
+    
+    setError(null);
+    
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      
+      // Vérifier la taille du fichier si maxSize est défini
+      if (maxSize && file.size > maxSize * 1024 * 1024) {
+        setError(`Le fichier est trop volumineux (max ${maxSize}MB)`);
+        toast.error(`Le fichier est trop volumineux (max ${maxSize}MB)`);
+        return;
+      }
+      
+      console.log(`Fichier sélectionné: ${file.name}, taille: ${file.size}, type: ${file.type}`);
+    }
+    
     onChange(e.target.files);
   };
   
@@ -37,7 +55,19 @@ export const FileUploader = ({
     e.preventDefault();
     e.stopPropagation();
     
-    if (e.dataTransfer.files) {
+    setError(null);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      
+      // Vérifier la taille du fichier si maxSize est défini
+      if (maxSize && file.size > maxSize * 1024 * 1024) {
+        setError(`Le fichier est trop volumineux (max ${maxSize}MB)`);
+        toast.error(`Le fichier est trop volumineux (max ${maxSize}MB)`);
+        return;
+      }
+      
+      console.log(`Fichier déposé: ${file.name}, taille: ${file.size}, type: ${file.type}`);
       onChange(e.dataTransfer.files);
     }
   };
@@ -61,6 +91,7 @@ export const FileUploader = ({
     
     try {
       setDownloading(true);
+      setError(null);
       
       const loadingToast = toast.loading("Téléchargement en cours...");
       
@@ -73,10 +104,14 @@ export const FileUploader = ({
       toast.dismiss(loadingToast);
       
       if (!success) {
+        setError("Erreur lors du téléchargement du fichier");
         toast.error("Erreur lors du téléchargement du fichier");
+      } else {
+        toast.success(`Fichier "${fileName}" téléchargé avec succès`);
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
+      setError("Erreur lors du téléchargement du fichier");
       toast.error("Erreur lors du téléchargement du fichier");
     } finally {
       setDownloading(false);
@@ -126,22 +161,32 @@ export const FileUploader = ({
   };
   
   return (
-    <div
-      className={`border-2 border-dashed rounded-lg px-6 py-8 flex flex-col items-center justify-center cursor-pointer
-        ${disabled ? 'bg-gray-50 border-gray-200 cursor-not-allowed' : 'hover:border-muted-foreground/20'}`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onClick={handleClick}
-    >
-      {renderFilePreview()}
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFileSelect}
-        accept={accept}
-        disabled={disabled}
-      />
+    <div className="space-y-2">
+      <div
+        className={`border-2 border-dashed rounded-lg px-6 py-8 flex flex-col items-center justify-center cursor-pointer
+          ${disabled ? 'bg-gray-50 border-gray-200 cursor-not-allowed' : 'hover:border-muted-foreground/20'}
+          ${error ? 'border-red-300 bg-red-50' : ''}`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onClick={handleClick}
+      >
+        {renderFilePreview()}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleFileSelect}
+          accept={accept}
+          disabled={disabled}
+        />
+      </div>
+      
+      {error && (
+        <div className="flex items-center text-red-500 text-xs mt-1">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          {error}
+        </div>
+      )}
     </div>
   );
 };
