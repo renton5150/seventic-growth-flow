@@ -13,7 +13,7 @@ interface DatabaseDetailsProps {
 
 export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
   const { tool, targeting, blacklist, contactsCreated, resultFileUrl } = request;
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   // Fonction pour télécharger un fichier à partir d'une URL
   const handleFileDownload = async (fileUrl: string | undefined, filename: string = "document") => {
@@ -22,12 +22,12 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
       return;
     }
     
-    if (downloading) {
+    if (downloading === fileUrl) {
       return; // Éviter les téléchargements multiples
     }
     
     try {
-      setDownloading(true);
+      setDownloading(fileUrl);
       console.log(`Tentative de téléchargement: ${fileUrl}, nom: ${filename}`);
       
       // Afficher un toast de chargement
@@ -46,7 +46,7 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   };
 
@@ -78,10 +78,10 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
                 size="sm" 
                 onClick={() => handleFileDownload(resultFileUrl, "database-result.xlsx")}
                 className="flex items-center gap-2 mt-1"
-                disabled={downloading}
+                disabled={downloading === resultFileUrl}
               >
                 <Download className="h-4 w-4" />
-                {downloading ? 'Téléchargement...' : 'Télécharger le fichier résultat'}
+                {downloading === resultFileUrl ? 'Téléchargement...' : 'Télécharger le fichier résultat'}
               </Button>
             </div>
           )}
@@ -165,9 +165,10 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
                   size="sm" 
                   onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts.xlsx")}
                   className="flex items-center gap-2 mt-1"
+                  disabled={downloading === blacklist.accounts.fileUrl}
                 >
                   <Download className="h-4 w-4" />
-                  Télécharger la liste de comptes exclus
+                  {downloading === blacklist.accounts.fileUrl ? 'Téléchargement...' : 'Télécharger la liste de comptes exclus'}
                 </Button>
               )}
             </div>

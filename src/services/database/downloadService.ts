@@ -8,51 +8,56 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     
     if (!filePath) {
       console.error("Chemin de fichier vide ou non défini");
-      toast.error("Chemin de fichier invalide");
       return false;
     }
-    
-    // Extraire le nom du fichier et le chemin du bucket
+
+    // Traiter le chemin du fichier selon son format
     let path = filePath;
+    let bucketName = 'databases'; // Le bucket par défaut
     
     if (filePath.startsWith('http')) {
       try {
         const url = new URL(filePath);
-        // Extraire le chemin complet à partir de l'URL
-        path = url.pathname;
         
-        // Enlever le préfixe '/storage/v1/object/public/databases/'
-        const storagePrefix = '/storage/v1/object/public/databases/';
-        if (path.includes(storagePrefix)) {
-          path = path.substring(path.indexOf(storagePrefix) + storagePrefix.length);
+        // Si l'URL est une URL Supabase Storage
+        if (url.pathname.includes('/storage/v1/object/public/')) {
+          const parts = url.pathname.split('/storage/v1/object/public/');
+          if (parts.length > 1) {
+            // Extraire le nom du bucket et le chemin
+            const pathParts = parts[1].split('/', 1);
+            bucketName = pathParts[0];
+            path = parts[1].substring(bucketName.length + 1); // +1 pour le slash
+          }
         }
         
-        console.log("Chemin extrait de l'URL:", path);
+        console.log(`URL analysée: bucket=${bucketName}, path=${path}`);
       } catch (error) {
         console.error("Erreur lors du parsing de l'URL:", error);
       }
-    } else if (filePath.startsWith('uploads/')) {
-      // Si le chemin commence par 'uploads/', considérer que c'est déjà le chemin relatif
-      path = filePath;
-      console.log("Utilisation du chemin relatif:", path);
+    } else if (filePath.includes('/')) {
+      // Si c'est un chemin relatif, essayer d'extraire le bucket et le chemin
+      const pathParts = filePath.split('/', 1);
+      if (pathParts.length > 0 && pathParts[0]) {
+        bucketName = pathParts[0];
+        path = filePath.substring(bucketName.length + 1); // +1 pour le slash
+      }
     }
     
-    // Si le chemin contient encore des segments de chemin ou des dossiers, on les garde
-    // Cela permet de télécharger des fichiers dans des sous-dossiers du bucket
+    console.log(`Téléchargement depuis le bucket '${bucketName}' avec le chemin: ${path}`);
     
-    console.log(`Téléchargement du fichier depuis le bucket 'databases' avec le chemin: ${path}`);
-    
-    // Télécharger le fichier depuis le bucket "databases"
+    // Télécharger le fichier depuis le bucket
     const { data, error } = await supabase.storage
-      .from('databases')
+      .from(bucketName)
       .download(path);
     
     if (error) {
       console.error("Erreur lors du téléchargement:", error);
       
-      // Si l'erreur est liée à l'authentification, informer l'utilisateur
+      // Afficher des messages d'erreur plus spécifiques
       if (error.message.includes('JWT')) {
         toast.error("Vous devez être connecté pour télécharger des fichiers");
+      } else if (error.message.includes('404') || error.message.includes('not found')) {
+        toast.error("Le fichier n'a pas été trouvé");
       } else {
         toast.error(`Erreur: ${error.message}`);
       }

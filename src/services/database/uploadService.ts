@@ -1,86 +1,96 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { DatabaseFile } from "@/types/database.types";
-import { isSupabaseConfigured } from "./config";
+import { toast } from "sonner";
+import { DatabaseFile } from '@/types/database.types';
+import { getUserById } from "@/services/userService";
 
-export const uploadDatabaseFile = async (file: File, userId: string): Promise<{success: boolean; fileUrl?: string}> => {
+export type UploadResult = {
+  success: boolean;
+  fileUrl?: string;
+  error?: string;
+};
+
+export const uploadDatabaseFile = async (file: File, userId: string): Promise<UploadResult> => {
   try {
-    // Check if Supabase is configured
-    if (!isSupabaseConfigured) {
-      console.error("Supabase n'est pas configuré correctement");
-      return { success: false };
+    const fileName = file.name.replace(/\s+/g, '_'); // Remplacer les espaces par des tirets bas
+    const fileExt = fileName.split('.').pop();
+    const filePath = `${Date.now()}_${fileName}`;
+    
+    console.log(`Téléchargement du fichier ${fileName} (${fileExt}) vers le chemin ${filePath}`);
+    
+    // Téléverser le fichier
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('databases')
+      .upload(filePath, file);
+    
+    if (uploadError) {
+      console.error("Erreur lors du téléversement:", uploadError);
+      return { 
+        success: false, 
+        error: uploadError.message 
+      };
     }
     
-    // Générer un nom unique pour le fichier (garder les caractères spéciaux au minimum)
-    const uniquePrefix = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const fileName = `${uniquePrefix}_${safeFileName}`;
-    
-    console.log(`Téléchargement du fichier ${fileName} vers le bucket 'databases'...`);
-    
-    // Télécharger le fichier dans le bucket "databases" avec les bons headers
-    const { data: fileData, error: fileError } = await supabase.storage
-      .from("databases")
-      .upload(fileName, file, {
-        cacheControl: "3600",
-        contentType: file.type,
-        upsert: false
-      });
-      
-    if (fileError) {
-      console.error("Erreur lors du téléchargement du fichier:", fileError);
-      return { success: false };
+    if (!uploadData) {
+      return { 
+        success: false, 
+        error: "Aucune donnée renvoyée par le service de stockage" 
+      };
     }
     
-    console.log("Fichier téléchargé avec succès. Récupération de l'URL publique...");
-    
-    // Obtenir l'URL publique du fichier
+    // Créer un URL public pour le fichier téléversé
     const { data: publicUrlData } = await supabase.storage
-      .from("databases")
-      .getPublicUrl(fileName);
+      .from('databases')
+      .getPublicUrl(filePath);
     
     if (!publicUrlData || !publicUrlData.publicUrl) {
-      console.error("Impossible d'obtenir l'URL publique du fichier");
-      return { success: false };
+      console.error("Impossible d'obtenir l'URL publique");
+      return { 
+        success: false, 
+        error: "Impossible d'obtenir l'URL publique" 
+      };
     }
     
-    // Obtenir les informations de l'utilisateur pour stocker le nom de l'uploader
-    const { data: userData, error: userError } = await supabase
-      .from("profiles")
-      .select("name")
-      .eq("id", userId)
-      .maybeSingle();
-      
-    if (userError) {
-      console.error("Erreur lors de la récupération des informations de l'utilisateur:", userError);
-    }
+    // Obtenir les informations de l'utilisateur
+    const user = await getUserById(userId);
+    const uploaderName = user?.name || 'Utilisateur';
     
-    // Enregistrer les métadonnées du fichier dans la table "database_files"
-    const { data: insertedData, error: metadataError } = await supabase
-      .from("database_files")
-      .insert({
-        name: file.name,
-        file_name: fileName,
-        file_url: publicUrlData.publicUrl,
-        file_type: file.type,
-        file_size: file.size,
-        uploaded_by: userId,
-        uploader_name: userData?.name || "Utilisateur"
-      })
-      .select()
+    // Enregistrer les informations du fichier dans la base de données
+    const { data: dbData, error: dbError } = await supabase
+      .from('database_files')
+      .insert([
+        { 
+          name: fileName,
+          file_name: fileName,
+          file_url: publicUrlData.publicUrl,
+          file_type: fileExt || 'unknown',
+          file_size: file.size,
+          uploaded_by: userId,
+          uploader_name: uploaderName
+        }
+      ])
+      .select('*')
       .single();
-      
-    if (metadataError) {
-      console.error("Erreur lors de l'enregistrement des métadonnées du fichier:", metadataError);
-      // Même en cas d'erreur avec les métadonnées, le fichier a été téléchargé
-      // Nous pouvons donc retourner success: true
-      return { success: true, fileUrl: publicUrlData.publicUrl };
+    
+    if (dbError) {
+      console.error("Erreur lors de l'enregistrement dans la base de données:", dbError);
+      return { 
+        success: true, 
+        fileUrl: publicUrlData.publicUrl,
+        error: "Le fichier a été téléversé mais son enregistrement a échoué" 
+      };
     }
     
-    console.log("Fichier téléchargé et enregistré avec succès:", publicUrlData.publicUrl);
-    return { success: true, fileUrl: publicUrlData.publicUrl };
+    console.log("Fichier téléversé et enregistré avec succès:", dbData);
+    return { 
+      success: true, 
+      fileUrl: publicUrlData.publicUrl 
+    };
   } catch (error) {
-    console.error("Erreur inattendue lors du téléchargement de la base de données:", error);
-    return { success: false };
+    console.error("Erreur lors du téléversement:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Erreur inconnue" 
+    };
   }
 };

@@ -31,7 +31,10 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
       // Afficher un toast de chargement
       const loadingToast = toast.loading("Téléchargement en cours...");
       
-      const success = await downloadFile(url, filename);
+      // Version simplifiée du nom de fichier
+      const simpleFilename = filename.replace(/[^a-zA-Z0-9.]/g, '_');
+      
+      const success = await downloadFile(url, simpleFilename);
       
       // Supprimer le toast de chargement
       toast.dismiss(loadingToast);

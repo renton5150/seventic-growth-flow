@@ -1,63 +1,61 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { isSupabaseConfigured, demoDatabases } from "./config";
 
-// Supprimer un fichier de base de données
-export const deleteDatabaseFile = async (fileId: string): Promise<boolean> => {
+export const deleteDatabaseFile = async (id: string): Promise<boolean> => {
   try {
-    if (!isSupabaseConfigured) {
-      console.log("Mode démo: simulation de suppression de fichier");
-      
-      // En mode démo, on retire simplement de la liste locale
-      const index = demoDatabases.findIndex(db => db.id === fileId);
-      if (index !== -1) {
-        demoDatabases.splice(index, 1);
-      }
-      
-      return true;
-    }
-    
-    // Récupérer les métadonnées du fichier
-    const { data: fileData, error: fetchError } = await supabase
-      .from("database_files")
-      .select("file_name")
-      .eq("id", fileId)
+    // Récupérer d'abord les informations du fichier
+    const { data: fileData, error: fileError } = await supabase
+      .from('database_files')
+      .select('file_url')
+      .eq('id', id)
       .single();
-      
-    if (fetchError) {
-      console.error("Erreur lors de la récupération des métadonnées du fichier:", fetchError);
+    
+    if (fileError || !fileData) {
+      console.error("Erreur lors de la récupération du fichier:", fileError);
       return false;
     }
     
-    if (!fileData || !fileData.file_name) {
-      console.error("Aucune donnée de fichier trouvée");
-      return false;
+    // Extraire le chemin du fichier à partir de l'URL
+    let filePath = "";
+    try {
+      if (fileData.file_url) {
+        const url = new URL(fileData.file_url);
+        // Get the path after /storage/v1/object/public/databases/
+        const pathParts = url.pathname.split('/storage/v1/object/public/databases/');
+        if (pathParts.length > 1) {
+          filePath = pathParts[1];
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'extraction du chemin du fichier:", error);
     }
     
-    // Supprimer le fichier du stockage
-    const { error: storageError } = await supabase.storage
-      .from("databases")
-      .remove([fileData.file_name]);
+    // Supprimer le fichier du stockage si nous avons pu extraire son chemin
+    if (filePath) {
+      const { error: storageError } = await supabase.storage
+        .from('databases')
+        .remove([filePath]);
       
-    if (storageError) {
-      console.error("Erreur lors de la suppression du fichier du stockage:", storageError);
-      // Continuer pour supprimer les métadonnées même si la suppression du fichier a échoué
+      if (storageError) {
+        console.error("Erreur lors de la suppression du fichier du stockage:", storageError);
+        // Continuer la suppression de l'entrée de la base de données même si la suppression du fichier échoue
+      }
     }
     
-    // Supprimer les métadonnées du fichier
-    const { error: deleteError } = await supabase
-      .from("database_files")
+    // Supprimer l'entrée de la base de données
+    const { error: dbError } = await supabase
+      .from('database_files')
       .delete()
-      .eq("id", fileId);
-      
-    if (deleteError) {
-      console.error("Erreur lors de la suppression des métadonnées du fichier:", deleteError);
+      .eq('id', id);
+    
+    if (dbError) {
+      console.error("Erreur lors de la suppression de l'entrée de la base de données:", dbError);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error("Erreur inattendue lors de la suppression de la base de données:", error);
+    console.error("Erreur lors de la suppression de la base de données:", error);
     return false;
   }
 };

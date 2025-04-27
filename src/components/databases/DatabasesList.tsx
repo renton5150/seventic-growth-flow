@@ -9,6 +9,7 @@ import { fr } from "date-fns/locale";
 import { deleteDatabaseFile, downloadFile } from "@/services/database";
 import { toast } from "sonner";
 import { DatabaseFile } from "@/types/database.types";
+import { useState } from "react";
 
 interface DatabasesListProps {
   databases: DatabaseFile[];
@@ -17,6 +18,7 @@ interface DatabasesListProps {
 
 export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
   const { user, isAdmin } = useAuth();
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
   
   const getRoleColor = () => {
     if (isAdmin) return "border-blue-300";
@@ -55,7 +57,12 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
       return;
     }
     
+    if (downloadingFile === fileUrl) {
+      return; // Éviter les téléchargements multiples
+    }
+    
     try {
+      setDownloadingFile(fileUrl);
       console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
       
       // Afficher un toast de chargement
@@ -72,6 +79,8 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");
+    } finally {
+      setDownloadingFile(null);
     }
   };
 
@@ -116,8 +125,13 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
                         size="icon"
                         onClick={() => handleFileDownload(file.fileUrl, file.name)}
                         title="Télécharger"
+                        disabled={downloadingFile === file.fileUrl}
                       >
-                        <Download className="h-4 w-4" />
+                        {downloadingFile === file.fileUrl ? (
+                          <div className="h-4 w-4 border-2 border-t-transparent border-gray-600 rounded-full animate-spin"></div>
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
                       </Button>
                       <Button
                         variant="ghost"
