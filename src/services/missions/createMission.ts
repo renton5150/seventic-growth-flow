@@ -25,11 +25,11 @@ export const createSupaMission = async (data: {
       throw new Error("Le nom est requis pour créer une mission");
     }
     
-    const missionId = uuidv4();
+    // Ne pas générer l'ID manuellement, laisser Supabase le faire
     
     // Prepare data for Supabase
     const missionData = {
-      id: missionId,
+      // id: missionId, // Supprimé pour laisser Supabase générer l'ID
       name: data.name,
       sdr_id: data.sdrId || null, // Accepte null pour les missions sans SDR attribué
       description: data.description || "",

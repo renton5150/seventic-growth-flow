@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
 
@@ -90,7 +89,6 @@ export const createSupaMission = async (missionData: any) => {
   try {
     // Convert mission data to match Supabase column names
     const supabaseMissionData = {
-      id: missionData.id || undefined,
       name: missionData.name,
       sdr_id: missionData.sdrId || null, // Use null if sdrId is empty
       description: missionData.description || "",
