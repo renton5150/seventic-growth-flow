@@ -1,3 +1,4 @@
+
 import {
   getAllMissionsFromSupabase,
   getMissionById,
@@ -5,8 +6,12 @@ import {
   getMissionsBySdrId,
   getMissionsByUserId
 } from "./operations/readMissions";
-import { createMission, updateMission, deleteMission } from './operations/writeMissions';
-import { isMockDataEnabled } from './mockMissions';
+import { 
+  createSupabaseMission as createMission, 
+  updateSupabaseMission as updateMission, 
+  deleteSupabaseMission as deleteMission 
+} from './operations/writeMissions';
+import { isMockDataEnabled } from '@/services/missions/mockMissions';
 import { getAllMissions as getAllMockMissions } from '@/services/missions/mockMissions';
 
 // Main function to get all missions, either from Supabase or mock data

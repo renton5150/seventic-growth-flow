@@ -16,7 +16,7 @@ export const getAllMissionsFromSupabase = async (): Promise<Mission[]> => {
     }
 
     const missions = await getAllSupaMissions();
-    return missions;
+    return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Error fetching missions from Supabase:", error);
     return [];
@@ -34,7 +34,7 @@ export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => 
     }
 
     const missions = await getSupaMissionsByUserId(userId);
-    return missions;
+    return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Error fetching user missions from Supabase:", error);
     return [];
@@ -54,7 +54,7 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
     }
 
     const mission = await getSupaMissionById(missionId);
-    return mission;
+    return mission ? mapSupaMissionToMission(mission) : undefined;
   } catch (error) {
     console.error("Error fetching mission from Supabase:", error);
     return undefined;
