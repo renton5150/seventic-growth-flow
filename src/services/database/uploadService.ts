@@ -13,13 +13,37 @@ export type UploadResult = {
 
 export const uploadDatabaseFile = async (file: File, userId: string): Promise<UploadResult> => {
   try {
-    // S'assurer que le bucket 'databases' existe
-    const bucketExists = await ensureDatabaseBucketExists();
-    if (!bucketExists) {
-      return { 
-        success: false, 
-        error: "Impossible de créer ou d'accéder au bucket de stockage" 
-      };
+    console.log(`Début du téléversement: ${file.name} par utilisateur ${userId}`);
+    
+    // Vérifier que le bucket existe
+    console.log("Vérification du bucket...");
+    try {
+      const { data: buckets, error } = await supabase.storage.listBuckets();
+      
+      if (error) {
+        console.error("Erreur lors de la vérification des buckets:", error);
+        return { success: false, error: "Erreur lors de la connexion au stockage" };
+      }
+      
+      const databaseBucket = buckets?.find(b => b.name === 'databases');
+      
+      if (!databaseBucket) {
+        console.log("Le bucket 'databases' n'existe pas. Tentative de création...");
+        const { error: createError } = await supabase.storage.createBucket('databases', {
+          public: true
+        });
+        
+        if (createError) {
+          console.error("Erreur lors de la création du bucket:", createError);
+          return { success: false, error: "Impossible de créer le bucket de stockage" };
+        }
+        
+        console.log("Bucket 'databases' créé avec succès");
+      } else {
+        console.log("Le bucket 'databases' existe déjà");
+      }
+    } catch (e) {
+      console.error("Erreur lors de la vérification du bucket:", e);
     }
     
     const fileName = file.name.replace(/\s+/g, '_'); // Remplacer les espaces par des tirets bas
@@ -60,6 +84,8 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
         error: "Impossible d'obtenir l'URL publique" 
       };
     }
+    
+    console.log("URL publique du fichier:", publicUrlData.publicUrl);
     
     // Obtenir les informations de l'utilisateur
     const user = await getUserById(userId);

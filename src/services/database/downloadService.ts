@@ -12,9 +12,6 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       return false;
     }
 
-    // S'assurer que le bucket 'databases' existe
-    await ensureDatabaseBucketExists();
-    
     // Nettoyer et standardiser le chemin du fichier
     let bucketName = 'databases'; // Le bucket par défaut
     let path = filePath;
@@ -34,6 +31,8 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     } 
     // Traiter les URLs complètes (non-Supabase)
     else if (filePath.startsWith('http')) {
+      console.log("Téléchargement direct via URL:", filePath);
+      
       // Pour les URLs non-Supabase, télécharger directement
       const response = await fetch(filePath);
       if (!response.ok) {
@@ -61,13 +60,22 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       toast.success(`Téléchargement de "${fileName}" réussi`);
       return true;
     }
-    // Pour les chemins simples (non URLs)
-    else if (!filePath.startsWith('/')) {
-      // Considérer qu'il s'agit d'un chemin direct dans le bucket
-      path = filePath;
-    }
     
     console.log(`Téléchargement depuis le bucket '${bucketName}' avec le chemin: ${path}`);
+    console.log(`URL complète: ${supabase.storage.from(bucketName).getPublicUrl(path).data.publicUrl}`);
+    
+    // Vérifier si le fichier existe avant de le télécharger
+    const { data: fileExists } = await supabase.storage
+      .from(bucketName)
+      .list(path.split('/').slice(0, -1).join('/') || '', {
+        search: path.split('/').pop() || ''
+      });
+      
+    if (!fileExists || fileExists.length === 0) {
+      console.error(`Fichier non trouvé: ${path}`);
+      toast.error("Le fichier n'a pas été trouvé");
+      return false;
+    }
     
     // Télécharger le fichier depuis Supabase Storage
     const { data, error } = await supabase.storage
@@ -77,10 +85,7 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     if (error) {
       console.error("Erreur lors du téléchargement depuis Supabase Storage:", error);
       
-      // Afficher des messages d'erreur plus spécifiques selon le type d'erreur
-      if (error.message.includes('JWT')) {
-        toast.error("Vous devez être connecté pour télécharger des fichiers");
-      } else if (error.message.includes('404') || error.message.includes('not found')) {
+      if (error.message.includes('The resource was not found')) {
         toast.error("Le fichier n'a pas été trouvé sur le serveur");
       } else {
         toast.error(`Erreur de téléchargement: ${error.message}`);

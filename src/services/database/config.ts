@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 // Vérifier et créer le bucket de stockage si nécessaire
 export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
   try {
+    console.log("Vérification de l'existence du bucket 'databases'...");
+    
     // Vérifier si le bucket existe déjà
     const { data: buckets, error: listError } = await supabase.storage.listBuckets();
     
@@ -17,6 +19,19 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
     
     if (databaseBucketExists) {
       console.log("Le bucket 'databases' existe déjà");
+      
+      // Si le bucket existe, vérifier qu'il est public
+      const { error: updateError } = await supabase.storage.updateBucket('databases', {
+        public: true,
+        fileSizeLimit: 52428800 // 50 Mo en octets
+      });
+      
+      if (updateError) {
+        console.error("Erreur lors de la mise à jour du bucket 'databases':", updateError);
+      } else {
+        console.log("Le bucket 'databases' est configuré comme public");
+      }
+      
       return true;
     }
     
@@ -44,6 +59,8 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
 // Fonction pour rendre un bucket public s'il ne l'est pas déjà
 export const ensureBucketIsPublic = async (bucketName: string): Promise<boolean> => {
   try {
+    console.log(`Vérification que le bucket ${bucketName} est public...`);
+    
     const { error } = await supabase.storage.updateBucket(bucketName, {
       public: true
     });

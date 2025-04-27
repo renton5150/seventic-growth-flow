@@ -57,6 +57,7 @@ export const DatabaseUploader = () => {
     
     try {
       setUploading(true);
+      toast.loading("Téléversement en cours...");
       
       // Vérifier que le user.id existe avant de l'utiliser
       if (!user.id) {
@@ -70,6 +71,8 @@ export const DatabaseUploader = () => {
       console.log("Téléchargement du fichier:", file.name, "par utilisateur:", user.id);
       const result = await uploadDatabaseFile(file, user.id);
       
+      toast.dismiss();
+      
       if (result.success) {
         toast.success("Base de données téléchargée avec succès");
         setFile(null);
@@ -77,7 +80,7 @@ export const DatabaseUploader = () => {
         window.dispatchEvent(new CustomEvent("database-uploaded"));
       } else {
         toast.error("Erreur lors du téléchargement", {
-          description: "Impossible de télécharger la base de données",
+          description: result.error || "Impossible de télécharger la base de données",
         });
       }
     } catch (error) {

@@ -35,13 +35,20 @@ export const extractFileName = (path: string): string => {
 // Vérifier si un fichier existe dans un bucket
 export const checkFileExists = async (bucketName: string, filePath: string): Promise<boolean> => {
   try {
-    const { data, error } = await supabase
-      .storage
+    console.log(`Vérification de l'existence du fichier: bucket=${bucketName}, path=${filePath}`);
+    
+    // Séparer le chemin du dossier et le nom de fichier
+    const pathParts = filePath.split('/');
+    const fileName = pathParts.pop() || '';
+    const folderPath = pathParts.join('/');
+    
+    console.log(`Dossier: ${folderPath}, Fichier: ${fileName}`);
+    
+    const { data, error } = await supabase.storage
       .from(bucketName)
-      .list(filePath.split('/').slice(0, -1).join('/'), {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: 'name', order: 'asc' },
+      .list(folderPath, {
+        search: fileName,
+        limit: 1
       });
     
     if (error) {
@@ -49,8 +56,9 @@ export const checkFileExists = async (bucketName: string, filePath: string): Pro
       return false;
     }
     
-    const fileName = filePath.split('/').pop();
-    return data?.some(file => file.name === fileName) || false;
+    const fileExists = data && data.length > 0;
+    console.log(`Résultat de la vérification: ${fileExists ? 'Fichier trouvé' : 'Fichier non trouvé'}`);
+    return fileExists;
   } catch (error) {
     console.error("Erreur lors de la vérification du fichier:", error);
     return false;

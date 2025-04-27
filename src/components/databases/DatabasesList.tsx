@@ -19,6 +19,7 @@ interface DatabasesListProps {
 export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
   const { user, isAdmin } = useAuth();
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
   
   const getRoleColor = () => {
     if (isAdmin) return "border-blue-300";
@@ -38,7 +39,14 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
   
   const handleDeleteFile = async (id: string) => {
     try {
+      setDeletingFile(id);
+      
+      const loadingToast = toast.loading("Suppression en cours...");
+      
       const result = await deleteDatabaseFile(id);
+      
+      toast.dismiss(loadingToast);
+      
       if (result) {
         toast.success("Base de données supprimée avec succès");
         window.dispatchEvent(new CustomEvent("database-deleted"));
@@ -48,6 +56,8 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
     } catch (error) {
       console.error("Erreur lors de la suppression de la base de données:", error);
       toast.error("Erreur lors de la suppression");
+    } finally {
+      setDeletingFile(null);
     }
   };
 
@@ -139,8 +149,13 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
                         size="icon"
                         onClick={() => handleDeleteFile(file.id)}
                         title="Supprimer"
+                        disabled={deletingFile === file.id}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {deletingFile === file.id ? (
+                          <div className="h-4 w-4 border-2 border-t-transparent border-gray-600 rounded-full animate-spin"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>
