@@ -1,5 +1,6 @@
 
-// Export all auth related components and hooks
-export { AuthProvider } from './AuthProviderComponent';
+// Export tout le nécessaire pour l'authentification
+export { default as AuthContext } from './AuthContext';
 export { useAuth } from './useAuth';
-export type { AuthContextType, AuthState } from './types';
+export { AuthProvider } from './AuthProviderComponent';
+export * from './types';
