@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatabaseRequest } from '@/types/types';
@@ -13,6 +12,7 @@ interface DatabaseDetailsProps {
 
 export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
   const { tool, targeting, blacklist, contactsCreated, resultFileUrl } = request;
+  const [downloading, setDownloading] = useState(false);
 
   // Fonction pour télécharger un fichier à partir d'une URL
   const handleFileDownload = async (fileUrl: string | undefined, filename: string = "document") => {
@@ -22,15 +22,27 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
     }
     
     try {
-      console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${filename}`);
+      setDownloading(true);
+      console.log(`Tentative de téléchargement: ${fileUrl}, nom: ${filename}`);
+      
+      // Afficher un toast de chargement
+      const loadingToast = toast.loading("Téléchargement en cours...");
+      
       const success = await downloadFile(fileUrl, filename);
+      
+      // Supprimer le toast de chargement
+      toast.dismiss(loadingToast);
       
       if (success) {
         toast.success(`Téléchargement de "${filename}" réussi`);
+      } else {
+        toast.error("Le fichier n'a pas pu être téléchargé");
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -62,9 +74,10 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
                 size="sm" 
                 onClick={() => handleFileDownload(resultFileUrl, "database-result.xlsx")}
                 className="flex items-center gap-2 mt-1"
+                disabled={downloading}
               >
                 <Download className="h-4 w-4" />
-                Télécharger le fichier résultat
+                {downloading ? 'Téléchargement...' : 'Télécharger le fichier résultat'}
               </Button>
             </div>
           )}
