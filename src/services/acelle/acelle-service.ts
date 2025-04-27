@@ -15,7 +15,18 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       return [];
     }
     
-    return data || [];
+    // Cast the status to ensure it matches the expected "active" | "inactive" type
+    return (data || []).map(account => ({
+      ...account,
+      status: account.status === 'active' ? 'active' : 'inactive',
+      // Add backward compatibility fields
+      apiEndpoint: account.api_endpoint,
+      apiToken: account.api_token,
+      lastSyncDate: account.last_sync_date,
+      missionId: account.mission_id,
+      createdAt: account.created_at,
+      updatedAt: account.updated_at
+    })) as AcelleAccount[];
   } catch (error) {
     console.error("Erreur lors de la récupération des comptes Acelle:", error);
     return [];
@@ -42,7 +53,18 @@ export const createAcelleAccount = async (account: Partial<AcelleAccount>): Prom
       return null;
     }
     
-    return data;
+    // Ensure status is properly typed
+    return {
+      ...data,
+      status: data.status === 'active' ? 'active' : 'inactive',
+      // Add backward compatibility fields
+      apiEndpoint: data.api_endpoint,
+      apiToken: data.api_token,
+      lastSyncDate: data.last_sync_date,
+      missionId: data.mission_id,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    } as AcelleAccount;
   } catch (error) {
     console.error("Erreur lors de la création du compte Acelle:", error);
     toast.error("Une erreur est survenue lors de la création du compte");
@@ -72,7 +94,18 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
       return null;
     }
     
-    return data;
+    // Ensure status is properly typed
+    return {
+      ...data,
+      status: data.status === 'active' ? 'active' : 'inactive',
+      // Add backward compatibility fields
+      apiEndpoint: data.api_endpoint,
+      apiToken: data.api_token,
+      lastSyncDate: data.last_sync_date,
+      missionId: data.mission_id,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    } as AcelleAccount;
   } catch (error) {
     console.error("Erreur lors de la mise à jour du compte Acelle:", error);
     toast.error("Une erreur est survenue lors de la mise à jour du compte");
