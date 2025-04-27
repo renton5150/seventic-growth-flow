@@ -1,6 +1,7 @@
+
 import { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/types";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     console.log("Accès autorisé:", isAuthenticated && (!allowedRoles || (user && allowedRoles.includes(user.role))));
   }, [isAuthenticated, user, allowedRoles, location.pathname]);
 
+  // Afficher un indicateur de chargement pendant la vérification de l'authentification
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">

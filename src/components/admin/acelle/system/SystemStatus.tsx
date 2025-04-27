@@ -4,12 +4,14 @@ import { Check, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import * as acelleService from "@/services/acelle";
-import { useAuth } from "@/contexts/AuthContext";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
+import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
+import { useAuth } from "@/contexts/AuthContext";
+import { testAcelleConnection } from "@/services/acelle/api/connection";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();
+  const { syncCampaignsCache, wakeUpEdgeFunctions } = useCampaignSync();
   const [isTesting, setIsTesting] = useState(false);
   const [endpointStatus, setEndpointStatus] = useState<{[key: string]: boolean}>({});
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
@@ -20,12 +22,20 @@ export const SystemStatus = () => {
   const runDiagnostics = async () => {
     setIsTesting(true);
     try {
-      const status = await acelleService.checkApiAvailability();
+      // Use wakeUpEdgeFunctions to check API accessibility
+      const apiAccess = await wakeUpEdgeFunctions();
+      
+      const status = {
+        endpoints: {
+          campaigns: apiAccess,
+          details: apiAccess
+        }
+      };
+      
       setEndpointStatus(status.endpoints || {});
-      setDebugInfo(status.debugInfo || null);
       setLastTestTime(new Date());
       
-      if (status.available) {
+      if (apiAccess) {
         toast.success("Tous les services sont opérationnels");
       } else {
         toast.error("Certains services sont indisponibles");

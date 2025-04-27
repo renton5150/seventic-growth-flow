@@ -1,49 +1,101 @@
 
-import React from "react";
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
-import { getMissions } from "@/services/missions";
+import { useState, useEffect } from "react";
+import { useFormContext } from "react-hook-form";
+import { supabase } from "@/integrations/supabase/client";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface MissionSelectProps {
-  control: any;
-  disabled?: boolean;
-}
+export function MissionSelect() {
+  const [missions, setMissions] = useState<{ id: string; name: string; client: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { register, setValue, watch } = useFormContext();
+  const { user } = useAuth();
+  const isSDR = user?.role === 'sdr';
 
-export const MissionSelect: React.FC<MissionSelectProps> = ({ control, disabled = false }) => {
-  const { data: missions = [] } = useQuery({
-    queryKey: ["missions"],
-    queryFn: getMissions,
-  });
+  useEffect(() => {
+    const fetchMissions = async () => {
+      setLoading(true);
+      try {
+        let query = supabase.from("missions").select("id, name, client");
+        
+        if (isSDR && user?.id) {
+          query = query.eq('sdr_id', user.id);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error("Erreur lors de la récupération des missions:", error);
+          return;
+        }
+        
+        if (data) {
+          // S'assurer que les missions ont des IDs uniques
+          const uniqueMissions = Array.from(
+            new Map(data.map(item => [item.id, item])).values()
+          );
+          setMissions(uniqueMissions);
+        }
+      } catch (error) {
+        console.error("Exception lors de la récupération des missions:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchMissions();
+  }, [isSDR, user?.id]);
+
+  const handleMissionChange = (value: string) => {
+    setValue("missionId", value, { shouldValidate: true });
+  };
+
+  const selectedMissionId = watch("missionId");
+  
   return (
-    <FormField
-      control={control}
-      name="missionId"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>Mission</FormLabel>
-          <Select 
-            onValueChange={field.onChange} 
-            defaultValue={field.value} 
-            disabled={disabled}
-          >
-            <FormControl>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner une mission" />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {missions.map((mission) => (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <Label htmlFor="missionId" className="text-base">
+          Mission*
+        </Label>
+      </div>
+      
+      <Select onValueChange={handleMissionChange} value={selectedMissionId || ""}>
+        <SelectTrigger className="w-full h-10">
+          <SelectValue placeholder="Sélectionner une mission" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {loading ? (
+              <SelectItem value="loading" disabled>
+                Chargement...
+              </SelectItem>
+            ) : missions.length > 0 ? (
+              missions.map((mission) => (
                 <SelectItem key={mission.id} value={mission.id}>
-                  {mission.name} - {mission.client}
+                  {mission.name}{mission.client && mission.client !== mission.name ? ` - ${mission.client}` : ''}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
+              ))
+            ) : (
+              <SelectItem value="empty" disabled>
+                {isSDR 
+                  ? "Aucune mission ne vous est assignée" 
+                  : "Aucune mission trouvée"}
+              </SelectItem>
+            )}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      
+      <input type="hidden" {...register("missionId")} />
+    </div>
   );
-};
+}

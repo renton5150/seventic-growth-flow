@@ -1,51 +1,97 @@
 
-import React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface TablePaginationProps {
   currentPage: number;
-  totalPages?: number;
-  hasNextPage?: boolean;
+  hasNextPage: boolean;
   onPageChange: (page: number) => void;
-  isLoading?: boolean;
 }
 
-export const TablePagination: React.FC<TablePaginationProps> = ({ 
-  currentPage, 
-  totalPages, 
+export const CampaignsTablePagination = ({
+  currentPage,
   hasNextPage,
   onPageChange,
-  isLoading
-}) => {
+}: TablePaginationProps) => {
   return (
-    <div className="flex items-center justify-end space-x-2 py-4">
-      <div className="flex-1 text-sm text-muted-foreground">
-        Page {currentPage} sur {totalPages || 1}
-      </div>
-      <div className="space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1 || isLoading}
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="sr-only">Page précédente</span>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={(totalPages ? currentPage >= totalPages : !hasNextPage) || isLoading}
-        >
-          <ChevronRight className="h-4 w-4" />
-          <span className="sr-only">Page suivante</span>
-        </Button>
-      </div>
-    </div>
+    <Pagination>
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              if (currentPage > 1) onPageChange(currentPage - 1);
+            }}
+            className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+        
+        {[...Array(Math.min(3, currentPage))].map((_, i) => {
+          const pageNumber = currentPage - (Math.min(3, currentPage) - i);
+          return (
+            <PaginationItem key={`prev-${pageNumber}`}>
+              <PaginationLink 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  onPageChange(pageNumber);
+                }}
+                isActive={pageNumber === currentPage}
+              >
+                {pageNumber}
+              </PaginationLink>
+            </PaginationItem>
+          );
+        })}
+        
+        {currentPage + 1 <= 10 && (
+          <PaginationItem>
+            <PaginationLink 
+              href="#" 
+              onClick={(e) => {
+                e.preventDefault();
+                onPageChange(currentPage + 1);
+              }}
+            >
+              {currentPage + 1}
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        
+        {currentPage + 2 <= 10 && (
+          <PaginationItem>
+            <PaginationLink 
+              href="#" 
+              onClick={(e) => {
+                e.preventDefault();
+                onPageChange(currentPage + 2);
+              }}
+            >
+              {currentPage + 2}
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        
+        <PaginationItem>
+          <PaginationNext 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              if (hasNextPage) {
+                onPageChange(currentPage + 1);
+              }
+            }}
+            className={!hasNextPage ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
   );
 };
-
-// Also export the CampaignsTablePagination for backward compatibility
-export const CampaignsTablePagination = TablePagination;

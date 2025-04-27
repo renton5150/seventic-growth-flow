@@ -1,133 +1,86 @@
 
 import React from "react";
 import { Input } from "@/components/ui/input";
-import { ChevronsUpDown, Search, SlidersHorizontal, ChevronDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AcelleTableFiltersProps {
   searchTerm: string;
-  setSearchTerm: (value: string) => void;
+  onSearchChange: (value: string) => void;
   statusFilter: string | null;
-  setStatusFilter: (value: string | null) => void;
+  onStatusFilterChange: (value: string) => void;
   sortBy: string;
-  setSortBy: (value: string) => void;
+  onSortByChange: (value: string) => void;
   sortOrder: "asc" | "desc";
-  setSortOrder: (value: "asc" | "desc") => void;
+  onSortOrderChange: (value: "asc" | "desc") => void;
 }
 
-export const AcelleTableFilters: React.FC<AcelleTableFiltersProps> = ({
+export const AcelleTableFilters = ({
   searchTerm,
-  setSearchTerm,
+  onSearchChange,
   statusFilter,
-  setStatusFilter,
+  onStatusFilterChange,
   sortBy,
-  setSortBy,
+  onSortByChange,
   sortOrder,
-  setSortOrder
-}) => {
-  // Statuses for filtering
-  const statuses = [
-    { value: null, label: "Tous" },
-    { value: "sent", label: "Envoyé" },
-    { value: "sending", label: "En cours d'envoi" },
-    { value: "scheduled", label: "Programmé" },
-    { value: "draft", label: "Brouillon" },
-    { value: "queued", label: "En file d'attente" },
-    { value: "paused", label: "En pause" },
-    { value: "failed", label: "Échoué" }
-  ];
-
-  // Sort options
-  const sortOptions = [
-    { value: "created_at", label: "Date de création" },
-    { value: "updated_at", label: "Dernière mise à jour" },
-    { value: "name", label: "Nom" },
-    { value: "subject", label: "Sujet" },
-    { value: "status", label: "Statut" },
-    { value: "open_rate", label: "Taux d'ouverture" },
-    { value: "click_rate", label: "Taux de clic" },
-  ];
-
-  // Toggle sort order
-  const handleToggleSortOrder = () => {
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-  };
-
+  onSortOrderChange
+}: AcelleTableFiltersProps) => {
   return (
-    <div className="flex flex-col md:flex-row gap-3 mb-4">
-      {/* Search box */}
-      <div className="flex-1 relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+    <div className="flex flex-col md:flex-row gap-4 items-center">
+      <div className="w-full md:w-1/3">
         <Input
           placeholder="Rechercher une campagne..."
-          className="pl-8"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
       
-      {/* Status filter */}
-      <div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex gap-2 items-center">
-              <SlidersHorizontal className="h-4 w-4" />
-              <span className="hidden sm:inline">Statut:</span>
-              {statusFilter ? (
-                <Badge variant="secondary" className="ml-1">
-                  {statuses.find(s => s.value === statusFilter)?.label || statusFilter}
-                </Badge>
-              ) : (
-                "Tous"
-              )}
-              <ChevronDown className="h-4 w-4 ml-2" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            {statuses.map((status) => (
-              <DropdownMenuItem
-                key={status.label}
-                onClick={() => setStatusFilter(status.value)}
-              >
-                {status.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="w-full md:w-1/4">
+        <Select
+          value={statusFilter || "all"}
+          onValueChange={(value) => onStatusFilterChange(value === "all" ? "" : value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Filtrer par statut" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les statuts</SelectItem>
+            <SelectItem value="new">Nouveau</SelectItem>
+            <SelectItem value="queued">En attente</SelectItem>
+            <SelectItem value="sending">En cours d'envoi</SelectItem>
+            <SelectItem value="sent">Envoyé</SelectItem>
+            <SelectItem value="paused">En pause</SelectItem>
+            <SelectItem value="failed">Échoué</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       
-      {/* Sort options */}
-      <div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex gap-2 items-center">
-              <span className="hidden sm:inline">Trier par:</span>
-              {sortOptions.find(option => option.value === sortBy)?.label || "Date de création"}
-              <ChevronsUpDown className="h-4 w-4 ml-1" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            {sortOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
-                onClick={() => setSortBy(option.value)}
-              >
-                {option.label}
-              </DropdownMenuItem>
-            ))}
-            <hr className="my-1" />
-            <DropdownMenuItem onClick={handleToggleSortOrder}>
-              {sortOrder === "asc" ? "Ordre croissant" : "Ordre décroissant"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="w-full md:w-1/4">
+        <Select value={sortBy} onValueChange={onSortByChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Trier par" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created_at">Date de création</SelectItem>
+            <SelectItem value="run_at">Date d'envoi</SelectItem>
+            <SelectItem value="name">Nom</SelectItem>
+            <SelectItem value="subject">Sujet</SelectItem>
+            <SelectItem value="status">Statut</SelectItem>
+            <SelectItem value="open_rate">Taux d'ouverture</SelectItem>
+            <SelectItem value="click_rate">Taux de clic</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="w-full md:w-1/6">
+        <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => onSortOrderChange(value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Ordre" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="asc">Ascendant</SelectItem>
+            <SelectItem value="desc">Descendant</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -14,6 +13,11 @@ const corsHeaders = {
 const supabaseUrl = 'https://dupguifqyjchlmzbadav.supabase.co';
 const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// FIXED: Use Basic auth with Acelle credentials
+const ACELLE_EMAIL = Deno.env.get('ACELLE_EMAIL') || 'gironde@seventic.com';
+const ACELLE_PASSWORD = Deno.env.get('ACELLE_PASSWORD') || 'Seventic75$';
+const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`); // Pre-encode the credentials
 
 // Configuration
 const DEFAULT_TIMEOUT = 30000; // 30 seconds default timeout
@@ -104,9 +108,11 @@ async function testEndpointAccess(url: string, options: {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
+    // FIXED: Use Basic auth with Acelle credentials
     const headers = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Sync/1.5',
+      'Authorization': `Basic ${credentials}`,
       ...(options.headers || {})
     };
     
@@ -377,9 +383,11 @@ async function fetchCampaignsForAccount(account: any, options: {
     }
     
     // Test d'accessibilité de l'endpoint avant de procéder
+    // FIXED: Use Basic auth with Acelle credentials
     const accessTest = await testEndpointAccess(apiEndpoint, { 
       timeout: options.timeout || DEFAULT_TIMEOUT,
       headers: {
+        'Authorization': `Basic ${credentials}`,
         'User-Agent': 'Seventic-Acelle-Sync/1.5 (Diagnostic)',
         'X-Debug-Marker': 'true'
       }
@@ -428,40 +436,24 @@ async function fetchCampaignsForAccount(account: any, options: {
     // Check if the API endpoint already includes /api/v1
     const apiPath = apiEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    // Use the successful authentication method
-    const bestAuthMethod = authTest.method || 'token';
-    let url: string;
+    // FIXED: Use Basic auth with Acelle credentials for the API request
+    // Use Basic auth
+    let url = `${apiEndpoint}${apiPath}/campaigns?include_stats=true`;
     let headers: Record<string, string> = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Sync/1.5',
+      'Authorization': `Basic ${credentials}`,
       'Connection': 'keep-alive',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'X-Auth-Method': bestAuthMethod
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
     };
     
-    if (bestAuthMethod === 'token') {
-      // Token in URL
-      url = `${apiEndpoint}${apiPath}/campaigns?api_token=${apiToken}&include_stats=true`;
-    } else if (bestAuthMethod === 'basic') {
-      // Basic Auth
-      url = `${apiEndpoint}${apiPath}/campaigns?include_stats=true`;
-      headers['Authorization'] = `Basic ${btoa(`${apiToken}:`)}`;
-    } else {
-      // Header Auth
-      url = `${apiEndpoint}${apiPath}/campaigns?include_stats=true`;
-      headers['X-API-Key'] = apiToken;
-    }
-    
-    debugLog(`Making request to: ${url} with auth method: ${bestAuthMethod}`, { headers }, LOG_LEVELS.DEBUG);
+    debugLog(`Making request to: ${url} with headers:`, headers, LOG_LEVELS.DEBUG);
     
     // Set up timeout for the request
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT);
     
     try {
-      // Log all request headers
-      debugLog(`Request headers for ${accountName}:`, headers, LOG_LEVELS.DEBUG);
-      
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -495,7 +487,6 @@ async function fetchCampaignsForAccount(account: any, options: {
             status: response.status,
             responseHeaders: responseHeadersObj,
             errorText: errorText.substring(0, 1000),
-            authMethod: bestAuthMethod,
             url,
             timestamp: new Date().toISOString()
           }
@@ -577,8 +568,7 @@ async function fetchCampaignsForAccount(account: any, options: {
         count: campaignsData.length,
         diagnostic: {
           timeTaken: Date.now() - startTime,
-          authMethod: bestAuthMethod,
-          url: url.replace(apiToken, '***API_TOKEN***'), // Masquer le token pour la sécurité
+          url: url.replace(ACELLE_PASSWORD, '***REDACTED***'), // Masquer le token pour la sécurité
           timestamp: new Date().toISOString()
         }
       };
@@ -594,8 +584,7 @@ async function fetchCampaignsForAccount(account: any, options: {
           endpoint: apiEndpoint,
           diagnostic: {
             timeout: options.timeout || DEFAULT_TIMEOUT,
-            authMethod: bestAuthMethod,
-            url: url.replace(apiToken, '***API_TOKEN***'), // Masquer le token pour la sécurité
+            url: url.replace(ACELLE_PASSWORD, '***REDACTED***'), // Masquer le token pour la sécurité
             timestamp: new Date().toISOString()
           }
         };
@@ -610,8 +599,7 @@ async function fetchCampaignsForAccount(account: any, options: {
         diagnostic: {
           errorName: fetchError.name,
           errorMessage: fetchError.message,
-          authMethod: bestAuthMethod,
-          url: url.replace(apiToken, '***API_TOKEN***'), // Masquer le token pour la sécurité
+          url: url.replace(ACELLE_PASSWORD, '***REDACTED***'), // Masquer le token pour la sécurité
           timestamp: new Date().toISOString()
         }
       };

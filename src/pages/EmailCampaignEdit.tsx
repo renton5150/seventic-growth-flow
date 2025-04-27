@@ -69,12 +69,7 @@ const EmailCampaignEdit = () => {
           <h1 className="text-2xl font-bold">Modifier la campagne email</h1>
         </div>
         
-        {request && 
-          <EmailCampaignForm 
-            editMode={true} 
-            initialData={request} 
-          />
-        }
+        {request && <EmailCampaignForm editMode={true} initialData={request} />}
       </div>
     </AppLayout>
   );

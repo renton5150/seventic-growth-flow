@@ -1,135 +1,101 @@
 
-import { supabase } from "@/integrations/supabase/client";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 
-/**
- * Vérifie la disponibilité de l'API Acelle
- */
-export const checkApiAvailability = async (accountId?: string): Promise<{
-  available: boolean;
-  endpoints?: Record<string, boolean>;
-  debugInfo?: AcelleConnectionDebug;
-}> => {
+const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
+
+// Test Acelle API connection
+export const testAcelleConnection = async (
+  apiEndpoint: string, 
+  apiToken: string, 
+  debug: boolean = false
+): Promise<boolean | AcelleConnectionDebug> => {
   try {
-    // Utilise l'Edge Function pour vérifier la disponibilité
-    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
-      body: {
-        action: 'check-availability',
-        accountId: accountId || ''
+    // Fix potential URL issues by ensuring there's no trailing slash
+    const cleanApiEndpoint = apiEndpoint?.endsWith('/') 
+      ? apiEndpoint.slice(0, -1) 
+      : apiEndpoint;
+      
+    if (!cleanApiEndpoint || !apiToken) {
+      throw new Error("API endpoint and token are required");
+    }
+      
+    const url = `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`;
+    
+    const headers = {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "X-Acelle-Endpoint": cleanApiEndpoint
+    };
+    
+    const debugInfo: AcelleConnectionDebug = {
+      success: false,
+      timestamp: new Date().toISOString(),
+      request: {
+        url,
+        headers,
+        method: "GET"
       }
+    };
+    
+    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint}`);
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      // Add cache control headers to prevent browser caching
+      cache: "no-store"
     });
-
-    if (error) {
-      console.error("Erreur lors de la vérification de l'API Acelle:", error);
-      return {
-        available: false,
-        endpoints: {
-          campaigns: false,
-          details: false
-        },
-        debugInfo: {
-          success: false,
-          errorMessage: error.message,
-          statusCode: 500
+    
+    if (debug) {
+      debugInfo.statusCode = response.status;
+      
+      try {
+        debugInfo.responseData = await response.clone().json();
+      } catch (e) {
+        try {
+          debugInfo.responseData = await response.clone().text();
+        } catch (textError) {
+          debugInfo.responseData = "Error reading response";
         }
-      };
-    }
-
-    return data || {
-      available: false,
-      endpoints: {
-        campaigns: false,
-        details: false
       }
-    };
+    }
+    
+    if (!response.ok) {
+      if (debug) {
+        debugInfo.errorMessage = `API Error: ${response.status} ${response.statusText}`;
+        return debugInfo;
+      }
+      throw new Error(`API Error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const success = !!data.id;
+    
+    if (debug) {
+      debugInfo.success = success;
+      return debugInfo;
+    }
+    
+    return success;
   } catch (error) {
-    console.error("Erreur lors de la vérification de l'API Acelle:", error);
-    return {
-      available: false,
-      endpoints: {
-        campaigns: false,
-        details: false
-      },
-      debugInfo: {
-        success: false,
-        errorMessage: error instanceof Error ? error.message : "Erreur inconnue",
-        statusCode: 500
-      }
-    };
-  }
-};
-
-/**
- * Teste la connexion à un compte Acelle
- */
-export const testConnection = async (
-  apiEndpoint: string,
-  apiToken: string
-): Promise<{ success: boolean; message: string; debugInfo?: AcelleConnectionDebug }> => {
-  try {
-    console.log("Test de connexion Acelle via Edge Function");
+    console.error("Error testing Acelle API connection:", error);
     
-    // S'assurer que l'endpoint ne se termine pas par un slash
-    const cleanEndpoint = apiEndpoint.endsWith('/') ? apiEndpoint.slice(0, -1) : apiEndpoint;
-    
-    // Utilise l'Edge Function pour contourner les problèmes CORS
-    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
-      body: {
-        action: 'test-connection',
-        apiEndpoint: cleanEndpoint,
-        apiToken,
-        debug: true,
-        authMethods: ['token', 'basic', 'header']
-      }
-    });
-
-    if (error) {
-      console.error("Erreur lors du test de connexion Acelle:", error);
-      return { 
-        success: false, 
-        message: `Erreur Edge Function: ${error.message}`,
-        debugInfo: {
-          success: false,
-          errorMessage: `Erreur Edge Function: ${error.message}`,
-          statusCode: 500,
-          request: {
-            url: cleanEndpoint,
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-          }
-        }
-      };
-    }
-
-    console.log("Réponse du test de connexion:", data);
-    
-    // Si la réponse contient des informations de débogage, les retourner
-    if (data && typeof data === 'object' && 'debugInfo' in data) {
+    if (debug) {
       return {
-        success: data.success || false,
-        message: data.message || (data.success ? "Connexion réussie" : "Échec de la connexion"),
-        debugInfo: data.debugInfo
-      };
-    }
-
-    return data || { 
-      success: false, 
-      message: "Réponse invalide du serveur"
-    };
-  } catch (error) {
-    console.error("Erreur lors du test de connexion Acelle:", error);
-    return { 
-      success: false, 
-      message: `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
-      debugInfo: {
         success: false,
-        errorMessage: error instanceof Error ? error.message : "Erreur inconnue",
-        statusCode: 500,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
         request: {
-          url: apiEndpoint,
-          method: 'GET'
+          url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
+          headers: { 
+            "Accept": "application/json",
+            "X-Acelle-Endpoint": apiEndpoint
+          },
+          method: "GET"
         }
-      }
-    };
+      };
+    }
+    
+    return false;
   }
 };

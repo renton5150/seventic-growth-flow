@@ -1,55 +1,143 @@
+import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CheckboxColumnFilter } from "../filters/CheckboxColumnFilter";
+import { DateColumnFilter } from "../filters/DateColumnFilter";
+import { Calendar } from "lucide-react";
+import { columns, ColumnDefinition } from "./columns";
+import { TableFilterProps } from "./types";
 
-import React from "react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import {
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { ChevronsUpDown } from "lucide-react";
-
-// Define DateFilter type
-export interface DateFilter {
-  type?: string;
-  values?: { date: Date };
-}
-
-// Use this component as a simplified version that matches the props passed from GrowthRequestsTable
-export const GrowthTableHeader = ({
-  searchTerm,
-  setSearchTerm,
+export function GrowthTableHeader({
+  typeFilter,
+  missionFilter,
+  assigneeFilter,
   statusFilter,
+  sdrFilter,
+  createdDateFilter,
+  dueDateFilter,
+  setTypeFilter,
+  setMissionFilter,
+  setAssigneeFilter,
   setStatusFilter,
-  dateFilter,
-  setDateFilter,
-  handleDownload,
-  resetFilters,
-}) => {
+  setSdrFilter,
+  handleCreatedDateFilterChange,
+  handleDueDateFilterChange,
+  uniqueTypes,
+  uniqueMissions,
+  uniqueAssignees,
+  uniqueStatuses,
+  uniqueSdrs,
+}: TableFilterProps) {
   return (
     <TableHeader>
       <TableRow>
-        <TableHead>
-          <span className="sr-only">Actions</span>
-        </TableHead>
-        <TableHead>Type</TableHead>
-        <TableHead>Mission</TableHead>
-        <TableHead>Titre</TableHead>
-        <TableHead>SDR</TableHead>
-        <TableHead>Assigné à</TableHead>
-        <TableHead>Statut</TableHead>
-        <TableHead>Date limite</TableHead>
-        <TableHead>Créée le</TableHead>
+        {columns.map((column) => (
+          <TableHead key={column.key} className={column.width}>
+            {column.key === "requestType" ? (
+              <div className="flex items-center justify-between">
+                {column.header}
+                <CheckboxColumnFilter
+                  columnName="Type"
+                  options={uniqueTypes}
+                  selectedValues={typeFilter}
+                  onFilterChange={setTypeFilter}
+                  hasFilter={typeFilter.length > 0}
+                  onClearFilter={() => setTypeFilter([])}
+                />
+              </div>
+            ) : column.key === "mission" ? (
+              <div className="flex items-center justify-between">
+                {column.header}
+                <CheckboxColumnFilter
+                  columnName="Mission"
+                  options={uniqueMissions}
+                  selectedValues={missionFilter}
+                  onFilterChange={setMissionFilter}
+                  hasFilter={missionFilter.length > 0}
+                  onClearFilter={() => setMissionFilter([])}
+                />
+              </div>
+            ) : column.key === "sdr" ? (
+              <div className="flex items-center justify-between">
+                {column.header}
+                <CheckboxColumnFilter
+                  columnName="SDR"
+                  options={uniqueSdrs}
+                  selectedValues={sdrFilter}
+                  onFilterChange={setSdrFilter}
+                  hasFilter={sdrFilter.length > 0}
+                  onClearFilter={() => setSdrFilter([])}
+                />
+              </div>
+            ) : column.key === "assignedTo" ? (
+              <div className="flex items-center justify-between">
+                {column.header}
+                <CheckboxColumnFilter
+                  columnName="Assigné à"
+                  options={uniqueAssignees}
+                  selectedValues={assigneeFilter}
+                  onFilterChange={setAssigneeFilter}
+                  hasFilter={assigneeFilter.length > 0}
+                  onClearFilter={() => setAssigneeFilter([])}
+                />
+              </div>
+            ) : column.key === "emailPlatform" ? (
+              <div className="flex items-center justify-between">
+                {column.header}
+                <CheckboxColumnFilter
+                  columnName="Plateforme d'emailing"
+                  options={["Acelmail", "Brevo", "Mindbaz", "Mailjet", "Postyman", "Mailwizz"]}
+                  selectedValues={[]}
+                  onFilterChange={() => {}} // wiring up filter left for implementation depending on state logic
+                  hasFilter={false}
+                  onClearFilter={() => {}}
+                />
+              </div>
+            ) : column.key === "createdAt" ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                  {column.header}
+                </div>
+                <DateColumnFilter
+                  columnName="Date de création"
+                  hasFilter={!!createdDateFilter}
+                  onFilterChange={handleCreatedDateFilterChange}
+                  onClearFilter={() => handleCreatedDateFilterChange(null, {})}
+                  currentFilter={createdDateFilter || undefined}
+                />
+              </div>
+            ) : column.key === "dueDate" ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                  {column.header}
+                </div>
+                <DateColumnFilter
+                  columnName="Date prévue"
+                  hasFilter={!!dueDateFilter}
+                  onFilterChange={handleDueDateFilterChange}
+                  onClearFilter={() => handleDueDateFilterChange(null, {})}
+                  currentFilter={dueDateFilter || undefined}
+                />
+              </div>
+            ) : column.key === "status" ? (
+              <div className="flex items-center justify-between">
+                {column.header}
+                <CheckboxColumnFilter
+                  columnName="Statut"
+                  options={uniqueStatuses}
+                  selectedValues={statusFilter}
+                  onFilterChange={setStatusFilter}
+                  hasFilter={statusFilter.length > 0}
+                  onClearFilter={() => setStatusFilter([])}
+                />
+              </div>
+            ) : (
+              column.header
+            )}
+          </TableHead>
+        ))}
         <TableHead className="text-right">Actions</TableHead>
       </TableRow>
     </TableHeader>
   );
-};
+}

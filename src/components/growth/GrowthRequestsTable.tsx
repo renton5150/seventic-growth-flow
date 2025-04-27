@@ -3,10 +3,8 @@ import { Request } from "@/types/types";
 import { Table, TableBody } from "@/components/ui/table";
 import { EmptyRequestsRow } from "../dashboard/requests-table/EmptyRequestsRow";
 import { useGrowthRequestsFilters } from "@/hooks/useGrowthRequestsFilters";
+import { GrowthTableHeader } from "./table/GrowthTableHeader";
 import { GrowthTableRow } from "./table/GrowthTableRow";
-
-// Import a simpler header component
-import { TableHeader } from "@/components/ui/table";
 
 interface GrowthRequestsTableProps {
   requests: Request[];
@@ -55,19 +53,27 @@ export function GrowthRequestsTable({
   return (
     <div className="border rounded-md">
       <Table>
-        <TableHeader>
-          <tr>
-            <th>Type</th>
-            <th>Mission</th>
-            <th>Titre</th>
-            <th>SDR</th>
-            <th>Assigné à</th>
-            <th>Statut</th>
-            <th>Date limite</th>
-            <th>Créé le</th>
-            <th>Actions</th>
-          </tr>
-        </TableHeader>
+        <GrowthTableHeader
+          typeFilter={typeFilter}
+          missionFilter={missionFilter}
+          assigneeFilter={assigneeFilter}
+          statusFilter={statusFilter}
+          sdrFilter={sdrFilter}
+          createdDateFilter={createdDateFilter}
+          dueDateFilter={dueDateFilter}
+          setTypeFilter={setTypeFilter}
+          setMissionFilter={setMissionFilter}
+          setAssigneeFilter={setAssigneeFilter}
+          setStatusFilter={setStatusFilter}
+          setSdrFilter={setSdrFilter}
+          handleCreatedDateFilterChange={handleCreatedDateFilterChange}
+          handleDueDateFilterChange={handleDueDateFilterChange}
+          uniqueTypes={uniqueTypes}
+          uniqueMissions={uniqueMissions}
+          uniqueAssignees={uniqueAssignees}
+          uniqueStatuses={uniqueStatuses}
+          uniqueSdrs={uniqueSdrs}
+        />
         <TableBody>
           {filteredRequests.length === 0 ? (
             <EmptyRequestsRow colSpan={10} />

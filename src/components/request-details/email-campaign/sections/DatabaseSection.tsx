@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { downloadFile } from '@/services/database';
 import { toast } from 'sonner';
 import { DatabaseDetails } from '@/types/types';
-import { Loader2 } from 'lucide-react';
 
 interface DatabaseSectionProps {
   database: DatabaseDetails;
@@ -61,7 +60,7 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
         {database.notes && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Notes</h4>
-            <p className="whitespace-pre-wrap">{database.notes}</p>
+            <p>{database.notes}</p>
           </div>
         )}
         {database.fileUrl && (
@@ -74,29 +73,15 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
               className="flex items-center gap-2 mt-1"
               disabled={downloading}
             >
-              {downloading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Téléchargement...
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4" />
-                  Télécharger la base de données
-                </>
-              )}
+              <Download className="h-4 w-4" />
+              {downloading ? 'Téléchargement...' : 'Télécharger la base de données'}
             </Button>
           </div>
         )}
         {database.webLink && (
           <div>
             <h4 className="font-semibold text-sm">Lien web</h4>
-            <a 
-              href={database.webLink} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-blue-500 hover:underline break-all"
-            >
+            <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
               {database.webLink}
             </a>
           </div>

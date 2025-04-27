@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatabaseRequest } from '@/types/types';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ interface DatabaseDetailsProps {
 }
 
 export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
-  const [downloading, setDownloading] = useState<{[key: string]: boolean}>({});
   const { tool, targeting, blacklist, contactsCreated, resultFileUrl } = request;
 
   // Fonction pour télécharger un fichier à partir d'une URL
@@ -23,29 +22,15 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
     }
     
     try {
-      // Marquer ce fichier comme en cours de téléchargement
-      setDownloading(prev => ({ ...prev, [fileUrl]: true }));
-      
       console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${filename}`);
-      
-      // Afficher un toast de chargement
-      const loadingToast = toast.loading("Téléchargement en cours...");
-      
       const success = await downloadFile(fileUrl, filename);
-      
-      // Supprimer le toast de chargement
-      toast.dismiss(loadingToast);
       
       if (success) {
         toast.success(`Téléchargement de "${filename}" réussi`);
-      } else {
-        toast.error("Erreur lors du téléchargement du fichier");
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
       toast.error("Erreur lors du téléchargement du fichier");
-    } finally {
-      setDownloading(prev => ({ ...prev, [fileUrl]: false }));
     }
   };
 
@@ -77,10 +62,9 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
                 size="sm" 
                 onClick={() => handleFileDownload(resultFileUrl, "database-result.xlsx")}
                 className="flex items-center gap-2 mt-1"
-                disabled={downloading[resultFileUrl]}
               >
                 <Download className="h-4 w-4" />
-                {downloading[resultFileUrl] ? 'Téléchargement...' : 'Télécharger le fichier résultat'}
+                Télécharger le fichier résultat
               </Button>
             </div>
           )}
@@ -149,49 +133,27 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
         </CardContent>
       </Card>
 
-      {blacklist && (blacklist.accounts || blacklist.emails) && (
+      {blacklist && blacklist.accounts && (
         <Card>
           <CardHeader>
             <CardTitle>Liste noire</CardTitle>
           </CardHeader>
           <CardContent>
-            {blacklist.accounts && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Comptes exclus</h4>
-                <p>{blacklist.accounts.notes || "Aucune note"}</p>
-                {blacklist.accounts.fileUrl && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts.xlsx")}
-                    className="flex items-center gap-2 mt-1"
-                    disabled={downloading[blacklist.accounts.fileUrl]}
-                  >
-                    <Download className="h-4 w-4" />
-                    {downloading[blacklist.accounts.fileUrl] ? 'Téléchargement...' : 'Télécharger la liste de comptes exclus'}
-                  </Button>
-                )}
-              </div>
-            )}
-            
-            {blacklist.emails && (
-              <div>
-                <h4 className="font-semibold text-sm">Emails exclus</h4>
-                <p>{blacklist.emails.notes || "Aucune note"}</p>
-                {blacklist.emails.fileUrl && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleFileDownload(blacklist.emails.fileUrl, "blacklist-emails.xlsx")}
-                    className="flex items-center gap-2 mt-1"
-                    disabled={downloading[blacklist.emails.fileUrl]}
-                  >
-                    <Download className="h-4 w-4" />
-                    {downloading[blacklist.emails.fileUrl] ? 'Téléchargement...' : 'Télécharger la liste d\'emails exclus'}
-                  </Button>
-                )}
-              </div>
-            )}
+            <div>
+              <h4 className="font-semibold text-sm">Comptes exclus</h4>
+              <p>{blacklist.accounts.notes || "Aucune note"}</p>
+              {blacklist.accounts.fileUrl && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts.xlsx")}
+                  className="flex items-center gap-2 mt-1"
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger la liste de comptes exclus
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

@@ -1,18 +1,18 @@
 
-import { AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import React from 'react';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface DataUnavailableAlertProps {
-  message?: string;
+  message: string;
 }
 
-export const DataUnavailableAlert = ({ message }: DataUnavailableAlertProps) => {
+export function DataUnavailableAlert({ message }: DataUnavailableAlertProps) {
   return (
-    <Alert className="mb-4 border-yellow-500 bg-yellow-50">
-      <AlertTriangle className="h-4 w-4 text-yellow-500" />
-      <AlertDescription>
-        {message || "Certaines données sont temporairement indisponibles"}
-      </AlertDescription>
+    <Alert variant="destructive" className="my-6">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Données indisponibles</AlertTitle>
+      <AlertDescription>{message}</AlertDescription>
     </Alert>
   );
-};
+}

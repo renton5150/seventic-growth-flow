@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
@@ -16,6 +15,11 @@ const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://dupguifqyjchlmzbadav.supabase.co';
 const SUPABASE_SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds timeout par défaut
+
+// Acelle Mail credentials - FIXED
+const ACELLE_EMAIL = Deno.env.get('ACELLE_EMAIL') || 'gironde@seventic.com';
+const ACELLE_PASSWORD = Deno.env.get('ACELLE_PASSWORD') || 'Seventic75$';
+const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`); // Pre-encode the credentials
 
 // Configuration des niveaux de log
 const LOG_LEVELS = {
@@ -97,9 +101,11 @@ async function testEndpointAccess(url: string, options: { timeout?: number, head
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
+    // FIXED: Use Basic auth with Acelle credentials
     const headers = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/1.5',
+      'Authorization': `Basic ${credentials}`,
       ...(options.headers || {})
     };
     
@@ -371,138 +377,23 @@ serve(async (req) => {
       debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...", LOG_LEVELS.DEBUG);
     }
 
-    // Extraire le body s'il est présent
-    let requestBody;
-    if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
-      try {
-        requestBody = await req.json();
-        debugLog("Request body:", requestBody, LOG_LEVELS.DEBUG);
-      } catch (e) {
-        debugLog("Failed to parse request body as JSON", e, LOG_LEVELS.WARN);
-      }
-    }
-
-    // Gérer les actions spécifiques
-    if (requestBody && requestBody.action === 'test-connection') {
-      debugLog("Processing test-connection action", requestBody, LOG_LEVELS.INFO);
-      
-      const apiEndpoint = requestBody.apiEndpoint;
-      const apiToken = requestBody.apiToken;
-      const debug = requestBody.debug || false;
-      const authMethods = requestBody.authMethods || ['token', 'basic', 'header'];
-      
-      if (!apiEndpoint || !apiToken) {
-        return new Response(JSON.stringify({
-          success: false,
-          message: "API endpoint and token are required",
-          debugInfo: {
-            success: false,
-            errorMessage: "Missing required parameters: apiEndpoint and apiToken",
-            statusCode: 400,
-            request: { url: apiEndpoint || "N/A" }
-          }
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      // Vérifier d'abord l'accessibilité de base de l'endpoint
-      const baseAccessTest = await testEndpointAccess(apiEndpoint, {
-        timeout: 20000,
-        headers: {
-          'User-Agent': 'Seventic-Acelle-Proxy/1.5'
-        }
-      });
-      
-      // Puis tester l'authentification si l'endpoint est accessible
-      let authTest = null;
-      let finalResult: any = {
-        success: false, 
-        message: ""
-      };
-      
-      if (baseAccessTest.success) {
-        // L'endpoint est accessible, on teste l'authentification
-        authTest = await testAuthMethods(
-          apiEndpoint, 
-          '/api/v1/me', // Standard endpoint for testing auth
-          apiToken,
-          { timeout: 20000, authMethods }
-        );
-        
-        finalResult = {
-          success: authTest.success,
-          message: authTest.message,
-          method: authTest.method,
-          baseAccessible: true
-        };
-      } else {
-        // L'endpoint n'est pas accessible
-        finalResult = {
-          success: false,
-          message: `L'API n'est pas accessible: ${baseAccessTest.message}`,
-          baseAccessible: false
-        };
-      }
-      
-      // Si debug est activé, ajouter les informations détaillées
-      if (debug) {
-        finalResult.debugInfo = {
-          success: finalResult.success,
-          errorMessage: finalResult.success ? undefined : finalResult.message,
-          statusCode: (authTest?.statusCode || baseAccessTest.statusCode),
-          request: {
-            url: apiEndpoint,
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            }
-          },
-          responseData: authTest?.responseText || baseAccessTest.responseText,
-          endpointTested: apiEndpoint,
-          baseAccessTest,
-          authTest
-        };
-      }
-      
-      return new Response(JSON.stringify(finalResult), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
     // Special case for ping/health check
-    if (url.pathname.endsWith('/ping') || requestBody?.action === 'ping') {
+    if (req.url.includes('ping')) {
       debugLog("Received ping request - service is active", {}, LOG_LEVELS.INFO);
       
       // Test API accessibility with extended debugging
-      const baseUrl = url.searchParams.get('endpoint') || requestBody?.endpoint || 'https://emailing.plateforme-solution.net/api/v1';
+      const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/api/v1';
       
-      // Test different auth methods for the endpoint
-      const authMethodsToTest = url.searchParams.get('auth_methods')?.split(',') || requestBody?.authMethods || ['token'];
+      // FIXED: Use Basic auth with Acelle credentials
       const accessTest = await testEndpointAccess(baseUrl, {
-        timeout: 10000, // 10 seconds timeout for quick response
+        timeout: 10000,
         headers: {
+          'Authorization': `Basic ${credentials}`,
           'User-Agent': 'Seventic-Acelle-Proxy/1.5 (Diagnostic)',
           'Accept': 'application/json',
           'X-Debug-Marker': 'true'
         }
       });
-      
-      // Test authentication methods if basic connection works
-      let authTest = null;
-      if (accessTest.success) {
-        authTest = await testAuthMethods(
-          baseUrl, 
-          '/api/v1/me', // Standard endpoint for testing auth
-          url.searchParams.get('test_token') || requestBody?.testToken || 'test', 
-          { 
-            timeout: 8000,
-            authMethods: authMethodsToTest
-          }
-        );
-      }
       
       debugLog("API endpoint accessibility test:", accessTest, LOG_LEVELS.DEBUG);
       
@@ -511,76 +402,14 @@ serve(async (req) => {
         timestamp: new Date().toISOString(),
         uptime: Math.floor((Date.now() - lastActivity) / 1000),
         endpoint_test: accessTest,
-        auth_test: authTest,
         debug_level: currentLogLevel
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-    
-    if (requestBody && requestBody.action === 'check-availability') {
-      debugLog("Processing check-availability action", requestBody, LOG_LEVELS.INFO);
-      
-      const baseUrl = 'https://emailing.plateforme-solution.net/api/v1';
-      
-      // Tester si l'API est accessible de base
-      const baseAccessTest = await testEndpointAccess(`${baseUrl}`, {
-        timeout: 10000
-      });
-      
-      // Tester des endpoints spécifiques
-      const campaignsTest = await testEndpointAccess(`${baseUrl}/campaigns`, {
-        timeout: 5000
-      });
-      
-      const detailsTest = await testEndpointAccess(`${baseUrl}/templates`, {
-        timeout: 5000
-      });
-      
-      const result = {
-        available: baseAccessTest.success,
-        endpoints: {
-          campaigns: campaignsTest.success,
-          details: detailsTest.success
-        },
-        debugInfo: {
-          success: baseAccessTest.success,
-          errorMessage: baseAccessTest.success ? undefined : baseAccessTest.message,
-          statusCode: baseAccessTest.statusCode,
-          responseData: baseAccessTest.responseText,
-          endpointTested: baseUrl,
-          request: {
-            url: baseUrl,
-            method: 'GET'
-          }
-        }
-      };
-      
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Traitement générique pour les requêtes au service Acelle
-    // Get API token from query parameters
-    const apiToken = url.searchParams.get('api_token') || requestBody?.apiToken;
-    
-    if (!apiToken) {
-      debugLog("Missing API token in request", {}, LOG_LEVELS.ERROR);
-      return new Response(JSON.stringify({ 
-        error: 'API token is required',
-        timestamp: new Date().toISOString()
-      }), { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
 
     // Get the Acelle API endpoint from the request headers with fallback
-    const acelleEndpoint = req.headers.get('x-acelle-endpoint') || 
-                           url.searchParams.get('endpoint') || 
-                           requestBody?.apiEndpoint ||
-                           'https://emailing.plateforme-solution.net/api/v1';
+    const acelleEndpoint = req.headers.get('x-acelle-endpoint') || url.searchParams.get('endpoint');
     
     if (!acelleEndpoint) {
       debugLog("Missing Acelle endpoint in request headers", {}, LOG_LEVELS.ERROR);
@@ -606,63 +435,27 @@ serve(async (req) => {
     // Make sure the endpoint doesn't end with a slash to properly join with the path
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     
+    // FIXED: Use Basic auth with Acelle credentials
+    // Don't add api/v1 if it's already in the endpoint
+    const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     let acelleApiUrl;
     
-    // Select auth method if specified
-    const authMethod = req.headers.get('x-auth-method') || 'token'; // Default to token auth
-    
-    // Determine if we should use URL token or alternative auth
-    const useUrlToken = authMethod === 'token';
-    
     if (resourceId) {
-      // Don't add api/v1 if it's already in the endpoint
-      const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
-      acelleApiUrl = useUrlToken ?
-        `${cleanEndpoint}${apiPath}/${resource}/${resourceId}?api_token=${apiToken}` :
-        `${cleanEndpoint}${apiPath}/${resource}/${resourceId}`;
+      acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}/${resourceId}?${queryParams.toString()}`;
     } else {
-      // Copy all query parameters except api_token which is handled specially
-      const queryParams = new URLSearchParams();
-      for (const [key, value] of url.searchParams.entries()) {
-        if (key !== 'api_token' && key !== 'cache_key' && key !== 'debug' && key !== 'debug_level' && key !== 'auth_method') {
-          queryParams.append(key, value);
-        }
-      }
-      
-      // Add API token to URL only with token auth method
-      if (useUrlToken) {
-        queryParams.append('api_token', apiToken);
-      }
-      
-      // Don't add api/v1 if it's already in the endpoint
-      const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
       acelleApiUrl = `${cleanEndpoint}${apiPath}/${resource}?${queryParams.toString()}`;
     }
 
-    debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, { authMethod }, LOG_LEVELS.DEBUG);
+    debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, {}, LOG_LEVELS.DEBUG);
 
-    // Prepare headers for the Acelle API request with selected auth method
+    // Prepare headers with Basic auth for the Acelle API request
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Proxy/1.5', // Updated version
+      'User-Agent': 'Seventic-Acelle-Proxy/1.5',
+      'Authorization': `Basic ${credentials}`,
       'Connection': 'keep-alive',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Origin': 'https://dupguifqyjchlmzbadav.supabase.co'
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
     };
-
-    // Add appropriate authentication based on selected method
-    if (authMethod === 'basic') {
-      // Use Basic Auth with token as username
-      headers['Authorization'] = `Basic ${btoa(`${apiToken}:`)}`;
-    } else if (authMethod === 'header') {
-      // Use X-API-Key header
-      headers['X-API-Key'] = apiToken;
-    }
-    
-    // Also forward the auth header if present
-    if (authHeader) {
-      headers['Authorization'] = authHeader;
-    }
 
     // Only add Content-Type for requests with body
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -684,24 +477,46 @@ serve(async (req) => {
         debugLog("Request body (text):", requestBodyText, LOG_LEVELS.VERBOSE);
       }
 
-      // Log the full request information
-      debugLog("Full request details:", {
-        method: req.method,
-        url: acelleApiUrl,
-        headers,
-        body: requestBodyText || null,
-        authMethod,
-        timestamp: new Date().toISOString()
-      }, LOG_LEVELS.VERBOSE);
-
       const response = await fetch(acelleApiUrl, {
         method: req.method,
         headers,
         body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : requestBodyText,
-        signal: controller.signal
+        signal: controller.signal,
+        redirect: 'manual' // Important: prevent automatic redirects
       });
 
       clearTimeout(timeoutId);
+
+      // Check for redirects which indicate auth failure
+      if (response.status === 302) {
+        debugLog("Authentication failed - received redirect response", {}, LOG_LEVELS.ERROR);
+        return new Response(JSON.stringify({
+          error: "Authentication failed",
+          message: "Invalid credentials or insufficient permissions",
+          timestamp: new Date().toISOString()
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Handle server errors with retry mechanism
+      if (response.status === 500) {
+        debugLog("Server error from Acelle API", {}, LOG_LEVELS.ERROR);
+        return new Response(JSON.stringify({
+          error: "Internal Server Error",
+          message: "Le serveur Acelle Mail a rencontré une erreur interne. Veuillez réessayer plus tard.",
+          retryAfter: 30,
+          timestamp: new Date().toISOString()
+        }), {
+          status: 500,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': '30'
+          }
+        });
+      }
 
       // Log the response status
       debugLog(`Acelle API response: ${response.status} ${response.statusText} for ${acelleApiUrl}`, {
@@ -726,6 +541,17 @@ serve(async (req) => {
       try {
         responseData = JSON.parse(data);
         debugLog(`Successfully parsed JSON response for ${resource}`, {}, LOG_LEVELS.DEBUG);
+        
+        // Log a sanitized sample of the response for debugging
+        const sampleData = typeof responseData === 'object' ? 
+          (Array.isArray(responseData) ? 
+            responseData.slice(0, 2) : 
+            responseData) : 
+          responseData;
+          
+        debugLog("Response data sample:", 
+          JSON.stringify(sampleData).substring(0, 1000) + "...", 
+          LOG_LEVELS.DEBUG);
       } catch (e) {
         debugLog('Error parsing response from Acelle API:', e, LOG_LEVELS.ERROR);
         debugLog('Raw response data:', data.substring(0, 1000) + (data.length > 1000 ? '...' : ''), LOG_LEVELS.DEBUG);

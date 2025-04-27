@@ -1,3 +1,4 @@
+
 import { Request } from "@/types/types";
 
 // Helper to translate filter values for status comparison
@@ -7,7 +8,7 @@ const getStatusFilterValue = (statusValue: string): string => {
   // Map French translations back to English for internal processing
   if (lowercaseStatus === "en attente") return "pending";
   if (lowercaseStatus === "en attente d'affectation") return "pending_assignment";
-  if (lowercaseStatus === "en cours") return "in_progress"; // Keep for backwards compatibility
+  if (lowercaseStatus === "en cours") return "inprogress"; // Keep for backwards compatibility
   if (lowercaseStatus === "terminé") return "completed";
   if (lowercaseStatus === "annulé") return "canceled";
   
@@ -21,15 +22,15 @@ export const sortRequests = (
   filters: {[key: string]: string[]},
   dateFilters: {[key: string]: any}
 ): Request[] => {
-  // Filter requests based on the filters
+  // Filtrer les demandes en fonction des filtres
   let filteredRequests = [...requests];
   
-  // Apply type filters
+  // Appliquer les filtres de type
   if (filters.type && filters.type.length > 0) {
     filteredRequests = filteredRequests.filter(r => filters.type.includes(r.type));
   }
   
-  // Apply mission filters
+  // Appliquer les filtres de mission
   if (filters.mission && filters.mission.length > 0) {
     filteredRequests = filteredRequests.filter(r => {
       const missionName = r.missionName || "Sans mission";
@@ -37,7 +38,7 @@ export const sortRequests = (
     });
   }
   
-  // Apply SDR filters
+  // Appliquer les filtres de SDR
   if (filters.sdr && filters.sdr.length > 0) {
     filteredRequests = filteredRequests.filter(r => {
       const sdrName = r.sdrName || "Non assigné";
@@ -45,29 +46,29 @@ export const sortRequests = (
     });
   }
   
-  // Apply status filters with improved support for different status formats
+  // Appliquer les filtres de statut avec support amélioré pour les différents formats de statut
   if (filters.status && filters.status.length > 0) {
     filteredRequests = filteredRequests.filter(r => {
       // Check if status matches any of the selected filter values
       return filters.status.some(filterStatus => {
         const normalizedFilterStatus = getStatusFilterValue(filterStatus);
         
-        // Check both standard status and workflow_status
+        // Vérifie le statut standard et le workflow_status
         return r.status === normalizedFilterStatus || 
                r.workflow_status === normalizedFilterStatus ||
-               // Special case for in_progress that may correspond to inprogress
+               // Cas spécial pour in_progress qui peut correspondre à inprogress
                (normalizedFilterStatus === "inprogress" && r.workflow_status === "in_progress") ||
-               (normalizedFilterStatus === "in_progress" && r.status === "in_progress");
+               (normalizedFilterStatus === "in_progress" && r.status === "inprogress");
       });
     });
   }
   
-  // Apply title filters
+  // Appliquer les filtres de titre
   if (filters.title && filters.title.length > 0) {
     filteredRequests = filteredRequests.filter(r => filters.title.includes(r.title));
   }
   
-  // Apply email platform filters
+  // Appliquer les filtres de plateforme d'emailing
   if (filters.emailPlatform && filters.emailPlatform.length > 0) {
     filteredRequests = filteredRequests.filter(r => {
       const platform = r.details?.emailPlatform || "Non spécifié";
@@ -75,15 +76,15 @@ export const sortRequests = (
     });
   }
   
-  // Apply creation date filters
+  // Appliquer les filtres de date de création
   if (dateFilters.createdAt && dateFilters.createdAt.type) {
     const { type, values } = dateFilters.createdAt;
     const filterDate = new Date(values.date);
     
     filteredRequests = filteredRequests.filter(r => {
-      if (!r.created_at) return false;
+      if (!r.createdAt) return false;
       
-      const createdDate = new Date(r.created_at);
+      const createdDate = new Date(r.createdAt);
       
       switch (type) {
         case "equals":
@@ -102,15 +103,15 @@ export const sortRequests = (
     });
   }
   
-  // Apply due date filters
+  // Appliquer les filtres de date d'échéance
   if (dateFilters.dueDate && dateFilters.dueDate.type) {
     const { type, values } = dateFilters.dueDate;
     const filterDate = new Date(values.date);
     
     filteredRequests = filteredRequests.filter(r => {
-      if (!r.due_date) return false;
+      if (!r.dueDate) return false;
       
-      const dueDate = new Date(r.due_date);
+      const dueDate = new Date(r.dueDate);
       
       switch (type) {
         case "equals":
@@ -129,7 +130,7 @@ export const sortRequests = (
     });
   }
 
-  // Sort the requests
+  // Trier les demandes
   return filteredRequests.sort((a, b) => {
     let valueA: any;
     let valueB: any;
@@ -156,20 +157,20 @@ export const sortRequests = (
         valueB = b.status.toLowerCase();
         break;
       case "dueDate":
-        valueA = new Date(a.due_date).getTime();
-        valueB = new Date(b.due_date).getTime();
+        valueA = new Date(a.dueDate).getTime();
+        valueB = new Date(b.dueDate).getTime();
         break;
       case "createdAt":
-        valueA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        valueB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        valueA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        valueB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         break;
       case "emailPlatform":
         valueA = (a.details?.emailPlatform || "").toLowerCase();
         valueB = (b.details?.emailPlatform || "").toLowerCase();
         break;
       default:
-        valueA = new Date(a.due_date).getTime();
-        valueB = new Date(b.due_date).getTime();
+        valueA = new Date(a.dueDate).getTime();
+        valueB = new Date(b.dueDate).getTime();
     }
 
     const comparison = valueA > valueB ? 1 : valueA < valueB ? -1 : 0;

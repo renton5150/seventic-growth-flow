@@ -1,97 +1,86 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from "react";
+import { supabase, checkSupabaseConnection } from "@/integrations/supabase/client";
+
+export type ConnectionStatus = "online" | "offline" | "checking";
 
 export const useConnectionCheck = () => {
-  const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("checking");
+  const [networkStatus, setNetworkStatus] = useState<ConnectionStatus>("checking");
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const checkServerConnection = async (): Promise<boolean> => {
-    setNetworkStatus("checking");
-    
-    // Check if browser is online
-    if (!navigator.onLine) {
-      console.log("Network connection unavailable");
-      setNetworkStatus("offline");
-      setError("Vous semblez être hors ligne. Vérifiez votre connexion internet.");
-      return false;
-    }
-    
+  const checkServerConnection = useCallback(async () => {
     try {
-      console.log(`Test de connexion Supabase: tentative ${retryCount + 1}/3`);
-      const start = Date.now();
+      setNetworkStatus("checking");
+      setError(null);
       
-      // Try a simple query to test connection
-      const { error: queryError } = await supabase.from("profiles").select("count").limit(1);
-      
-      const elapsed = Date.now() - start;
-      console.log(`Temps de réponse du serveur Supabase: ${elapsed}ms`);
-      
-      if (queryError) {
-        console.error("Erreur de connexion à Supabase:", queryError);
+      // Vérifier d'abord si le navigateur est en ligne
+      if (!navigator.onLine) {
         setNetworkStatus("offline");
-        setError(`Problème de connexion au serveur: ${queryError.message}`);
+        setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
         return false;
       }
       
-      console.log(`Test de connexion Supabase: Succès en ${elapsed}ms`);
-      console.log(`Connexion à Supabase réussie en ${elapsed}ms`);
+      // Tester la connexion à Supabase avec nouvelles tentatives
+      const isConnected = await checkSupabaseConnection(3, 500);
       
-      setNetworkStatus("online");
-      setError(null);
-      return true;
+      if (isConnected) {
+        setNetworkStatus("online");
+        setError(null);
+        setRetryCount(0); // Réinitialiser le compteur de tentatives
+        return true;
+      } else {
+        setNetworkStatus("offline");
+        setRetryCount(prev => prev + 1);
+        
+        // Message d'erreur adaptatif
+        if (retryCount >= 3) {
+          setError("Impossible d'établir une connexion stable avec le serveur. Veuillez réessayer plus tard ou contacter le support.");
+        } else {
+          setError("Le serveur met trop de temps à répondre. Vérifiez votre connexion ou réessayez.");
+        }
+        return false;
+      }
     } catch (err) {
-      console.error("Erreur lors du test de connexion:", err);
+      console.error("Exception lors de la vérification de la connexion:", err);
+      
       setNetworkStatus("offline");
-      const errorMessage = err instanceof Error ? err.message : "Erreur inconnue";
-      setError(`Problème de connexion au serveur: ${errorMessage}`);
+      setError("Une erreur inattendue s'est produite lors de la vérification de la connexion.");
       return false;
     }
-  };
-  
-  // Check connection on component load
+  }, [retryCount]);
+
+  // Vérifier la connexion au chargement du composant
   useEffect(() => {
-    const checkConnection = async () => {
-      console.log("Vérification de la connexion au serveur...");
-      await checkServerConnection();
-    };
+    console.log("Vérification de la connexion au serveur...");
+    checkServerConnection();
     
-    checkConnection();
-    
-    // Watch for connectivity changes
+    // Vérifier à nouveau la connexion si l'utilisateur revient en ligne
     const handleOnline = () => {
-      console.log("Network connection restored");
+      console.log("Connexion internet rétablie, vérification du serveur...");
       checkServerConnection();
     };
     
     const handleOffline = () => {
-      console.log("Network connection lost");
+      console.log("Connexion internet perdue");
       setNetworkStatus("offline");
       setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
     };
     
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-  }, []);
-  
-  // Function to retry connection
-  const handleRetryConnection = async () => {
-    setRetryCount(prev => prev + 1);
-    await checkServerConnection();
-  };
-  
-  return { 
-    networkStatus, 
-    error, 
-    setError, 
-    checkServerConnection, 
-    retryCount, 
-    handleRetry: handleRetryConnection 
+  }, [checkServerConnection]);
+
+  return {
+    networkStatus,
+    error,
+    setError,
+    checkServerConnection,
+    retryCount
   };
 };

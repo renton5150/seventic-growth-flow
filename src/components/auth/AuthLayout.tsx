@@ -1,6 +1,7 @@
+
 import { ReactNode, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 

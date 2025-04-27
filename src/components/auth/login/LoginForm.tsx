@@ -15,8 +15,13 @@ interface LoginFormProps {
 
 export const LoginForm = ({ showDemoMode = true }: LoginFormProps) => {
   const [formMode, setFormMode] = useState<"login" | "signup">("login");
-  const { networkStatus, error, setError, checkServerConnection, retryCount, handleRetry } = useConnectionCheck();
+  const { networkStatus, error, setError, checkServerConnection, retryCount } = useConnectionCheck();
   const { isSigningUp, handleLogin, handleSignup } = useAuthSubmit(checkServerConnection, setError);
+
+  const handleRetry = async () => {
+    setError(null);
+    await checkServerConnection();
+  };
 
   return (
     <div className="w-full max-w-md space-y-6">
