@@ -39,15 +39,16 @@ export const createSupabaseMission = async (data: {
     };
     
     console.log("Calling createSupaMission with:", missionData);
-    const mission = await createSupaMission(missionData);
-    console.log("Result from createSupaMission:", mission);
+    const missionResponse = await createSupaMission(missionData);
+    console.log("Result from createSupaMission:", missionResponse);
 
-    if (!mission) {
+    if (!missionResponse) {
       console.error("No mission returned from createSupaMission");
       return undefined;
     }
 
-    return mission;
+    // Make sure we map the Supabase response to our application's Mission type
+    return mapSupaMissionToMission(missionResponse);
   } catch (error) {
     console.error("Error creating mission in Supabase:", error);
     throw error;
