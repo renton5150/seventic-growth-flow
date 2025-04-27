@@ -29,8 +29,8 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       updated_at: account.updated_at,
       createdAt: account.created_at, // Adding compatibility fields
       updatedAt: account.updated_at, // Adding compatibility fields
-      // Handle last_sync_error which might not exist in the database schema
-      lastSyncError: account.last_sync_error !== undefined ? account.last_sync_error : null,
+      // Handle last_sync_error safely - it might not exist in the database schema
+      lastSyncError: account.last_sync_error || null,
       cachePriority: account.cache_priority || 0,
       apiKey: account.api_token // For compatibility
     }));
@@ -96,7 +96,8 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
         api_token: account.apiToken,
         status: account.status,
         last_sync_date: lastSyncDate,
-        last_sync_error: account.lastSyncError,
+        // Utiliser last_sync_error uniquement s'il existe dans l'objet
+        ...(account.lastSyncError !== undefined && { last_sync_error: account.lastSyncError }),
         cache_priority: account.cachePriority || 0
       })
       .select()
@@ -130,18 +131,24 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
       lastSyncDate = account.lastSyncDate;
     }
       
+    const updateData: Record<string, any> = {
+      mission_id: account.missionId,
+      name: account.name,
+      api_endpoint: account.apiEndpoint,
+      api_token: account.apiToken,
+      status: account.status,
+      last_sync_date: lastSyncDate,
+      cache_priority: account.cachePriority || 0
+    };
+
+    // Ajouter last_sync_error uniquement s'il est défini
+    if (account.lastSyncError !== undefined) {
+      updateData.last_sync_error = account.lastSyncError;
+    }
+
     const { data, error } = await supabase
       .from("acelle_accounts")
-      .update({
-        mission_id: account.missionId,
-        name: account.name,
-        api_endpoint: account.apiEndpoint,
-        api_token: account.apiToken,
-        status: account.status,
-        last_sync_date: lastSyncDate,
-        last_sync_error: account.lastSyncError,
-        cache_priority: account.cachePriority || 0
-      })
+      .update(updateData)
       .eq("id", account.id)
       .select()
       .single();
