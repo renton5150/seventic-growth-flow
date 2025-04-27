@@ -8,28 +8,26 @@ export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
       .from('database_files')
       .select('*')
       .order('created_at', { ascending: false });
-    
+
     if (error) {
-      console.error("Erreur lors de la récupération des bases de données:", error);
-      throw error;
+      console.error("Error fetching databases:", error);
+      return [];
     }
-    
-    // Transformer les données pour correspondre à l'interface DatabaseFile
-    const transformedData: DatabaseFile[] = data?.map(item => ({
-      id: item.id,
-      name: item.name,
-      fileName: item.file_name,
-      fileUrl: item.file_url,
-      fileType: item.file_type,
-      fileSize: item.file_size,
-      uploadedBy: item.uploaded_by || '',
-      uploaderName: item.uploader_name || '',
-      createdAt: item.created_at
-    })) || [];
-    
-    return transformedData;
+
+    // Transform the Supabase data to match DatabaseFile interface
+    return data.map(file => ({
+      id: file.id,
+      name: file.name,
+      fileName: file.file_name,
+      fileUrl: file.file_url,
+      fileType: file.file_type,
+      fileSize: file.file_size,
+      uploadedBy: file.uploaded_by,
+      uploaderName: file.uploader_name,
+      createdAt: file.created_at
+    }));
   } catch (error) {
-    console.error("Erreur lors de la récupération des bases de données:", error);
+    console.error("Unexpected error in getAllDatabases:", error);
     return [];
   }
 };
