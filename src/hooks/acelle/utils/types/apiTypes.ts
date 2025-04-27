@@ -11,5 +11,6 @@ export interface AcelleConnectionResponse {
   statusCode?: number;
   account?: string;
   endpoint?: string;
+  details?: string;
   data?: any;
 }

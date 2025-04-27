@@ -1,4 +1,3 @@
-
 import React from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -12,9 +11,10 @@ import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/util
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
   onViewCampaign: (uid: string) => void;
+  Simplified?: boolean;
 }
 
-export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
+export const AcelleTableRow = ({ campaign, onViewCampaign, Simplified }: AcelleTableRowProps) => {
   // Helper function to safely format dates
   const formatDateSafely = (dateString: string | null | undefined) => {
     if (!dateString) return "Non programmé";
