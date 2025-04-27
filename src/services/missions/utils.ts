@@ -161,24 +161,29 @@ export const updateSupaMission = async (missionData: any) => {
 /**
  * Maps a Supabase mission data object to the Mission type used in the application
  */
-export const mapSupaMissionToMission = (missionData: any): Mission => {
-  // Handle case when mission has nested profile data
-  let sdrName = "";
-  if (missionData.profiles) {
-    sdrName = missionData.profiles.name || "";
-  }
+export const mapSupaMissionToMission = (mission: any): Mission => {
+  // Extract SDR profile information properly
+  const sdrProfile = mission.profiles || null;
+  const sdrName = sdrProfile?.name || null;
+  
+  console.log('Mapping mission to display format:', {
+    id: mission.id,
+    rawMission: mission,
+    sdrProfile,
+    sdrName
+  });
 
   return {
-    id: missionData.id,
-    name: missionData.name,
-    sdrId: missionData.sdr_id || "",
+    id: mission.id,
+    name: mission.name || '',
+    description: mission.description || '',
+    sdrId: mission.sdr_id || null,
     sdrName: sdrName,
-    description: missionData.description || "",
-    startDate: missionData.start_date ? new Date(missionData.start_date) : new Date(),
-    endDate: missionData.end_date ? new Date(missionData.end_date) : null,
-    createdAt: missionData.created_at ? new Date(missionData.created_at) : new Date(),
-    type: (missionData.type || "Full") as MissionType,
-    status: missionData.status || "En cours",
+    createdAt: new Date(mission.created_at),
+    startDate: mission.start_date ? new Date(mission.start_date) : null,
+    endDate: mission.end_date ? new Date(mission.end_date) : null,
+    type: (mission.type as MissionType) || 'Full',
+    status: mission.status || 'En cours',
     requests: []
   };
 };

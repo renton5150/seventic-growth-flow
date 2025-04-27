@@ -48,6 +48,7 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
       throw error;
     }
 
+    console.log("Missions d'un utilisateur:", missions);
     return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Erreur lors de la récupération des missions:", error);
@@ -79,6 +80,7 @@ export const getSupaMissionById = async (missionId: string): Promise<Mission | u
 
     if (!mission) return undefined;
 
+    console.log("Mission individuelle récupérée:", mission);
     return mapSupaMissionToMission(mission);
   } catch (error) {
     console.error("Erreur lors de la récupération de la mission:", error);
