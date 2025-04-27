@@ -12,7 +12,7 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
   };
   
   campaigns.forEach(campaign => {
-    if (campaign.status in counts) {
+    if (campaign.status && campaign.status in counts) {
       counts[campaign.status]++;
     }
   });
@@ -38,16 +38,24 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     if (campaign.delivery_info) {
       console.log(`Campaign ${campaign.name} delivery info:`, campaign.delivery_info);
       
-      // Use existing delivery_info structure
-      totalSent += campaign.delivery_info.total || 0;
+      // Use existing delivery_info structure with support for both property naming conventions
+      totalSent += campaign.delivery_info.total || campaign.delivery_info.total_emails || 0;
       totalDelivered += campaign.delivery_info.delivered || 0;
       totalOpened += campaign.delivery_info.opened || 0;
       totalClicked += campaign.delivery_info.clicked || 0;
       
       // Handle bounces from the bounced subobject
-      const softBounce = campaign.delivery_info.bounced?.soft || 0;
-      const hardBounce = campaign.delivery_info.bounced?.hard || 0;
-      totalBounced += softBounce + hardBounce;
+      if (campaign.delivery_info.bounced) {
+        const softBounce = campaign.delivery_info.bounced.soft || 0;
+        const hardBounce = campaign.delivery_info.bounced.hard || 0;
+        totalBounced += softBounce + hardBounce;
+      } else {
+        // Try to use bounce_rate if bounced object isn't available
+        if (campaign.delivery_info.bounce_rate) {
+          const totalEmails = campaign.delivery_info.total || campaign.delivery_info.total_emails || 0;
+          totalBounced += Math.round(totalEmails * campaign.delivery_info.bounce_rate);
+        }
+      }
     } 
     // Fall back to statistics if available
     else if (campaign.statistics) {

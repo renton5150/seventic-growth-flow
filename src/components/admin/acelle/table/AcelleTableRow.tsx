@@ -30,23 +30,29 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
 
   // Make sure delivery_info has default values if it's empty
   const deliveryInfo = campaign.delivery_info || {
-    total: 0,
+    total_emails: 0,
     delivered: 0,
+    open_rate: 0,
+    click_rate: 0,
+    bounce_rate: 0,
+    unsubscribe_rate: 0,
+    // Backwards compatibility fields
+    total: 0,
     opened: 0,
     clicked: 0,
     bounced: { total: 0 },
     unsubscribed: 0,
-    unique_open_rate: 0,
-    click_rate: 0
+    unique_open_rate: 0
   };
   
-  const total = deliveryInfo.total || 0;
+  // Use both old and new property names for compatibility
+  const total = deliveryInfo.total || deliveryInfo.total_emails || 0;
   const delivered = deliveryInfo.delivered || 0;
   const opened = deliveryInfo.opened || 0;
   const clicked = deliveryInfo.clicked || 0;
-  const bounced = deliveryInfo.bounced?.total || 0;
+  const bounced = (deliveryInfo.bounced?.total) || 0;
   const unsubscribed = deliveryInfo.unsubscribed || 0;
-  const openRate = deliveryInfo.unique_open_rate || 0;
+  const openRate = deliveryInfo.unique_open_rate || deliveryInfo.open_rate || 0;
   const clickRate = deliveryInfo.click_rate || 0;
 
   return (
@@ -54,7 +60,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
       <TableCell>{campaign.name}</TableCell>
       <TableCell>{campaign.subject}</TableCell>
       <TableCell>
-        <Badge variant={getStatusVariant(campaign.status)}>
+        <Badge variant={getStatusVariant(campaign.status || '')}>
           {campaign.status}
         </Badge>
       </TableCell>

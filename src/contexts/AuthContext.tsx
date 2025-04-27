@@ -8,6 +8,8 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isGrowth: boolean;
+  isSDR: boolean;
   loading: boolean;
   logout: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<boolean>;
@@ -43,11 +45,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Derived state
   const isAuthenticated = !!user;
   const isAdmin = !!user && user.role === "admin";
+  const isGrowth = !!user && user.role === "growth";
+  const isSDR = !!user && user.role === "sdr";
 
   const value = {
     user,
     isAuthenticated,
     isAdmin,
+    isGrowth,
+    isSDR,
     loading,
     logout,
     login

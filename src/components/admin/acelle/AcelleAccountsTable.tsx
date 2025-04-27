@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -45,12 +46,12 @@ export default function AcelleAccountsTable() {
     queryFn: getAcelleAccounts,
   });
 
-  const handleAddAccount = async (data: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt" | "lastSyncDate">) => {
+  const handleAddAccount = async (data: Omit<AcelleAccount, "id" | "created_at" | "updated_at" | "last_sync_date">) => {
     setIsSubmitting(true);
     try {
       const newAccount = await createAcelleAccount({
         ...data,
-        lastSyncDate: null
+        last_sync_date: null
       });
       
       if (newAccount) {
@@ -65,7 +66,7 @@ export default function AcelleAccountsTable() {
     }
   };
 
-  const handleEditAccount = async (data: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt" | "lastSyncDate">) => {
+  const handleEditAccount = async (data: Omit<AcelleAccount, "id" | "created_at" | "updated_at" | "last_sync_date">) => {
     if (!selectedAccount) return;
     
     setIsSubmitting(true);
@@ -73,7 +74,7 @@ export default function AcelleAccountsTable() {
       const updatedAccount = await updateAcelleAccount({
         ...selectedAccount,
         ...data,
-        lastSyncDate: selectedAccount.lastSyncDate
+        last_sync_date: selectedAccount.last_sync_date
       });
       
       if (updatedAccount) {
@@ -173,7 +174,7 @@ export default function AcelleAccountsTable() {
                   <TableCell className="font-medium">{account.name}</TableCell>
                   <TableCell>{account.missionName}</TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    {account.apiEndpoint}
+                    {account.api_endpoint}
                   </TableCell>
                   <TableCell>
                     {account.status === "active" ? (
@@ -183,8 +184,8 @@ export default function AcelleAccountsTable() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {account.lastSyncDate 
-                      ? format(new Date(account.lastSyncDate), "dd/MM/yyyy HH:mm", { locale: fr }) 
+                    {account.last_sync_date 
+                      ? format(new Date(account.last_sync_date), "dd/MM/yyyy HH:mm", { locale: fr }) 
                       : "Jamais"}
                   </TableCell>
                   <TableCell className="text-right">

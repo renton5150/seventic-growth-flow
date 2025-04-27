@@ -12,6 +12,15 @@ export interface AcelleAccount {
   last_sync_date?: string;
   cache_last_updated?: string;
   cache_priority?: number;
+  
+  // For compatibility with existing code
+  apiEndpoint?: string;
+  apiToken?: string;
+  lastSyncDate?: string;
+  missionId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  missionName?: string;
 }
 
 // Debug de la connexion à l'API Acelle
@@ -21,6 +30,14 @@ export interface AcelleConnectionDebug {
   statusCode?: number;
   timeTaken?: number;
   endpointTested?: string;
+  request?: {
+    url?: string;
+    method?: string;
+    headers?: Record<string, string>;
+  };
+  responseData?: any;
+  responseHeaders?: Record<string, string>;
+  responseText?: string;
 }
 
 // AcelleDeliveryInfo contient les statistiques d'une campagne
@@ -35,6 +52,17 @@ export interface AcelleDeliveryInfo {
   unsubscribe_rate?: number;
   feedback_rate?: number;
   abuse_rate?: number;
+  
+  // For compatibility with existing code
+  total?: number;
+  opened?: number;
+  clicked?: number;
+  bounced?: {
+    soft?: number;
+    hard?: number;
+    total?: number;
+  };
+  unsubscribed?: number;
 }
 
 // AcelleCampaign représente une campagne email sur Acelle
@@ -48,6 +76,21 @@ export interface AcelleCampaign {
   run_at?: string;
   delivery_info?: AcelleDeliveryInfo;
   delivery_date?: string;
+  
+  // For compatibility with existing code
+  statistics?: {
+    subscriber_count?: number;
+    unique_open_count?: number;
+    open_count?: number;
+    unique_click_count?: number;
+    click_count?: number;
+    unsubscribe_count?: number;
+    bounce_count?: number;
+    feedback_count?: number;
+    delivered_count?: number;
+    delivered_rate?: number;
+    last_activity?: string;
+  };
 }
 
 // AcelleCampaignDetail contient les détails d'une campagne
@@ -61,6 +104,8 @@ export interface AcelleCampaignDetail extends AcelleCampaign {
     open_track?: boolean;
     click_track?: boolean;
     unsubscribe_url?: boolean;
+    open_tracking?: boolean;
+    click_tracking?: boolean;
   };
   statistics?: {
     subscriber_count?: number;
@@ -73,6 +118,10 @@ export interface AcelleCampaignDetail extends AcelleCampaign {
     feedback_count?: number;
     last_activity?: string;
   };
+  
+  // For compatibility with existing code
+  html?: string;
+  plain?: string;
 }
 
 // Options de filtrage des campagnes

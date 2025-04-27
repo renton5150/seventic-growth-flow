@@ -45,7 +45,8 @@ export const testApiConnection = async (apiEndpoint: string, apiToken: string, d
         "Content-Type": "application/json",
         "Accept": "application/json"
       }
-    }
+    },
+    responseData: null
   };
 };
 

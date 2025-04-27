@@ -86,7 +86,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
         </TabsList>
         
         <TabsContent value="content" className="space-y-4">
-          {campaign.html ? (
+          {(campaign.html_content || campaign.html) ? (
             <Card>
               <CardHeader>
                 <CardTitle>Contenu HTML</CardTitle>
@@ -94,7 +94,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
               <CardContent>
                 <div
                   className="border p-4 rounded-md h-[400px] overflow-y-auto"
-                  dangerouslySetInnerHTML={{ __html: campaign.html }}
+                  dangerouslySetInnerHTML={{ __html: campaign.html_content || campaign.html || "" }}
                 />
               </CardContent>
             </Card>
@@ -106,14 +106,14 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
             </Alert>
           )}
 
-          {campaign.plain && (
+          {(campaign.plain_content || campaign.plain) && (
             <Card>
               <CardHeader>
                 <CardTitle>Contenu texte</CardTitle>
               </CardHeader>
               <CardContent>
                 <pre className="border p-4 rounded-md h-[200px] overflow-y-auto whitespace-pre-wrap">
-                  {campaign.plain}
+                  {campaign.plain_content || campaign.plain}
                 </pre>
               </CardContent>
             </Card>
@@ -129,7 +129,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Envoyés</p>
-                  <p className="text-xl font-bold">{campaign.delivery_info?.total || 0}</p>
+                  <p className="text-xl font-bold">{campaign.delivery_info?.total || campaign.delivery_info?.total_emails || 0}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Livrés</p>
@@ -172,10 +172,10 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
                 {campaign.tracking && (
                   <>
                     <p>
-                      <span className="font-medium">Suivi d'ouvertures :</span> {campaign.tracking.open_tracking ? "Activé" : "Désactivé"}
+                      <span className="font-medium">Suivi d'ouvertures :</span> {campaign.tracking.open_track ? "Activé" : "Désactivé"}
                     </p>
                     <p>
-                      <span className="font-medium">Suivi de clics :</span> {campaign.tracking.click_tracking ? "Activé" : "Désactivé"}
+                      <span className="font-medium">Suivi de clics :</span> {campaign.tracking.click_track ? "Activé" : "Désactivé"}
                     </p>
                   </>
                 )}
