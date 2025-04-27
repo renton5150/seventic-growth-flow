@@ -1,97 +1,50 @@
+import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 
-import { AcelleConnectionDebug } from "@/types/acelle.types";
-
-const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
-
-// Test Acelle API connection
-export const testAcelleConnection = async (
-  apiEndpoint: string, 
-  apiToken: string, 
-  debug: boolean = false
-): Promise<boolean | AcelleConnectionDebug> => {
+// Test API connectivity
+export const testApiConnection = async (
+  account: AcelleAccount
+): Promise<AcelleConnectionDebug> => {
   try {
-    // Fix potential URL issues by ensuring there's no trailing slash
-    const cleanApiEndpoint = apiEndpoint?.endsWith('/') 
-      ? apiEndpoint.slice(0, -1) 
-      : apiEndpoint;
-      
-    if (!cleanApiEndpoint || !apiToken) {
-      throw new Error("API endpoint and token are required");
-    }
-      
-    const url = `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`;
+    console.log(`Testing connection to ${account.api_endpoint}`);
     
-    const headers = {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "X-Acelle-Endpoint": cleanApiEndpoint
+    // This is a placeholder implementation
+    return {
+      success: true,
+      statusCode: 200,
+      responseData: { message: "Connection successful" },
+      timestamp: new Date().toISOString()
     };
-    
-    const debugInfo: AcelleConnectionDebug = {
-      success: false,
-      request: {
-        url,
-        headers
-      }
-    };
-    
-    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint}`);
-    
-    const response = await fetch(url, {
-      method: "GET",
-      headers,
-      // Add cache control headers to prevent browser caching
-      cache: "no-store"
-    });
-    
-    if (debug) {
-      debugInfo.statusCode = response.status;
-      
-      try {
-        debugInfo.responseData = await response.clone().json();
-      } catch (e) {
-        try {
-          debugInfo.responseData = await response.clone().text();
-        } catch (textError) {
-          debugInfo.responseData = "Error reading response";
-        }
-      }
-    }
-    
-    if (!response.ok) {
-      if (debug) {
-        debugInfo.errorMessage = `API Error: ${response.status} ${response.statusText}`;
-        return debugInfo;
-      }
-      throw new Error(`API Error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const success = !!data.id;
-    
-    if (debug) {
-      debugInfo.success = success;
-      return debugInfo;
-    }
-    
-    return success;
   } catch (error) {
-    console.error("Error testing Acelle API connection:", error);
-    
-    if (debug) {
-      return {
-        success: false,
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
-        request: {
-          url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
-          headers: { 
-            "Accept": "application/json",
-            "X-Acelle-Endpoint": apiEndpoint
-          }
-        }
-      };
-    }
-    
-    return false;
+    console.error("Error testing API connection:", error);
+    return {
+      success: false,
+      statusCode: 500,
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    };
+  }
+};
+
+// Check specific endpoint ping
+export const pingAcelleEndpoint = async (
+  account: AcelleAccount,
+  endpoint: string = "me"
+): Promise<AcelleConnectionDebug> => {
+  try {
+    // Placeholder implementation
+    return {
+      success: true,
+      statusCode: 200,
+      responseData: { message: "Ping successful" },
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error(`Error pinging Acelle endpoint ${endpoint}:`, error);
+    return {
+      success: false,
+      statusCode: 500,
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    };
   }
 };

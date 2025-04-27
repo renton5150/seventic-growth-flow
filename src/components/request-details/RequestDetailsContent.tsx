@@ -1,91 +1,76 @@
 
-import { useAuth } from "@/contexts/AuthContext";
-import { Request, Mission, WorkflowStatus } from "@/types/types";
-import { RequestCompleteEditDialog } from "./RequestCompleteEditDialog";
-import { RequestHeader } from "./RequestHeader";
-import { RequestStatusControls } from "./RequestStatusControls";
+import { Fragment } from "react";
+import { Request } from "@/types/types";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import { RequestTabs } from "./RequestTabs";
-import { RequestInfo } from "./RequestInfo";
 
 interface RequestDetailsContentProps {
   request: Request;
-  mission: Mission | null;
   comment: string;
   commentLoading: boolean;
-  isEditDialogOpen: boolean;
-  workflowStatus: WorkflowStatus;
-  emailPlatform: string;
   onCommentChange: (value: string) => void;
-  onEditDialogChange: (open: boolean) => void;
-  onWorkflowStatusChange: (status: WorkflowStatus) => void;
-  onEmailPlatformChange: (platform: string) => void;
   onAddComment: () => void;
-  onRequestUpdated: () => void;
-  onBack: () => void;
 }
 
 export const RequestDetailsContent = ({
   request,
-  mission,
   comment,
   commentLoading,
-  isEditDialogOpen,
-  workflowStatus,
-  emailPlatform,
   onCommentChange,
-  onEditDialogChange,
-  onWorkflowStatusChange,
-  onEmailPlatformChange,
-  onAddComment,
-  onRequestUpdated,
-  onBack,
+  onAddComment
 }: RequestDetailsContentProps) => {
-  const { user } = useAuth();
-  const isGrowthOrAdmin = user?.role === "admin" || user?.role === "growth";
-  const canEdit = user?.role === "admin" || user?.id === request.createdBy || user?.role === "growth";
+  const hasComments = request.comments && request.comments.length > 0;
 
   return (
-    <div className="space-y-6">
-      <RequestHeader
-        request={request}
-        onBack={onBack}
-        onEdit={() => onEditDialogChange(true)}
-        canEdit={canEdit}
-      />
+    <Fragment>
+      <RequestTabs request={request} />
 
-      <RequestStatusControls
-        isGrowthOrAdmin={isGrowthOrAdmin}
-        workflowStatus={workflowStatus}
-        onWorkflowStatusChange={onWorkflowStatusChange}
-        isEmailRequest={request.type === "email"}
-        emailPlatform={emailPlatform}
-        onEmailPlatformChange={onEmailPlatformChange}
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <RequestTabs
-            request={request}
-            comment={comment}
-            commentLoading={commentLoading}
-            onCommentChange={onCommentChange}
-            onAddComment={onAddComment}
+      <Separator className="my-6" />
+      
+      <div className="space-y-6">
+        <h3 className="text-lg font-medium">Commentaires</h3>
+        
+        {hasComments && (
+          <div className="space-y-4 mb-6">
+            {request.comments?.map((item, index) => (
+              <div key={index} className="p-4 rounded-md border bg-muted/30">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="font-medium">{item.userName || "Utilisateur"}</p>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(item.date).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="text-sm whitespace-pre-line">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className="space-y-4">
+          <Textarea
+            placeholder="Ajouter un commentaire..."
+            value={comment}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className="min-h-32"
           />
-        </div>
-
-        <div>
-          <RequestInfo request={request} mission={mission} />
+          <Button 
+            onClick={onAddComment}
+            disabled={!comment.trim() || commentLoading}
+          >
+            {commentLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Envoi en cours...
+              </>
+            ) : (
+              "Ajouter un commentaire"
+            )}
+          </Button>
         </div>
       </div>
-
-      {request && (
-        <RequestCompleteEditDialog
-          open={isEditDialogOpen}
-          onOpenChange={onEditDialogChange}
-          request={request}
-          onRequestUpdated={onRequestUpdated}
-        />
-      )}
-    </div>
+    </Fragment>
   );
 };

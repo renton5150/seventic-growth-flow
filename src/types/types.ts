@@ -1,131 +1,100 @@
 
+export type MissionType = "Full" | "Part";
+export type MissionStatus = "En cours" | "Fin";
+
+export type RequestStatus = "pending" | "in_progress" | "completed" | "canceled";
+export type RequestType = "database" | "linkedin" | "email";
+export type WorkflowStatus = "pending_assignment" | "assigned" | "in_progress" | "review" | "completed";
+
 export interface User {
   id: string;
-  email: string;
   name: string;
-  role: UserRole;
+  email: string;
+  role: "admin" | "user" | "sdr" | "growth";
   avatar?: string;
 }
 
-export type UserRole = "admin" | "sdr" | "growth";
-
-export type RequestStatus = "pending" | "inprogress" | "completed" | "rejected";
-export type WorkflowStatus = "pending_assignment" | "in_progress" | "completed" | "canceled";
-
-export interface Request {
-  id: string;
-  title: string;
-  type: string;
-  status: RequestStatus;
-  createdBy?: string;
-  missionId?: string;
-  missionName?: string;
-  sdrName?: string;
-  dueDate: string | Date;
-  details?: any;
-  workflow_status?: WorkflowStatus;
-  assigned_to?: string;
-  assignedToName?: string;
-  isLate?: boolean;
-  createdAt: Date | string;
-  lastUpdated: Date | string;
-  target_role?: string;
-  // Type-specific properties
-  template?: EmailTemplate;
-  database?: DatabaseDetails;
-  blacklist?: Blacklist;
-  platform?: string;
-  statistics?: EmailCampaignStatistics;
-  tool?: string;
-  targeting?: TargetingCriteria;
-  contactsCreated?: number;
-  profilesScraped?: number;
-  resultFileUrl?: string;
+export interface Comment {
+  id?: string;
+  text: string;
+  userId: string;
+  userName?: string;
+  date: Date | string;
 }
-
-export interface EmailCampaignRequest extends Request {
-  type: "email";
-  template: EmailTemplate;
-  database?: DatabaseDetails;
-  blacklist?: Blacklist;
-  platform: string;
-  statistics: EmailCampaignStatistics;
-}
-
-export interface DatabaseRequest extends Request {
-  type: "database";
-  tool: string;
-  targeting: TargetingCriteria;
-  blacklist?: Blacklist;
-  contactsCreated?: number;
-  otherCriteria?: string;
-  resultFileUrl?: string;
-}
-
-export interface LinkedInScrapingRequest extends Request {
-  type: "linkedin";
-  targeting: TargetingCriteria;
-  profilesScraped?: number;
-  resultFileUrl?: string;
-}
-
-export interface EmailTemplate {
-  subject?: string;
-  content: string;
-  webLink?: string;
-  fileUrl?: string;
-}
-
-export interface DatabaseDetails {
-  notes: string;
-  fileUrl?: string;
-  webLink?: string;
-}
-
-export interface Blacklist {
-  accounts?: { 
-    notes: string;
-    fileUrl?: string;
-  };
-  emails?: { 
-    notes: string;
-    fileUrl?: string;
-  };
-}
-
-export interface TargetingCriteria {
-  jobTitles: string[];
-  locations?: string[];
-  industries: string[];
-  companySize: string[];
-  otherCriteria?: string;
-}
-
-export interface EmailCampaignStatistics {
-  sent: number;
-  opened: number;
-  clicked: number;
-  bounced: number;
-}
-
-export type MissionType = "Full" | "Part";
 
 export interface Mission {
   id: string;
   name: string;
-  sdrId: string;
-  sdrName?: string;
+  client?: string;
   description?: string;
-  createdAt: Date;
+  sdrId?: string;
+  sdrName?: string;
+  createdAt: Date | null;
+  updatedAt?: Date | null;
   startDate: Date | null;
   endDate: Date | null;
   type: MissionType;
-  status: "En cours" | "Fin";
-  requests: Request[];
+  status: MissionStatus;
+  requests?: Request[];
 }
 
-export interface AppData {
-  users: User[];
-  missions: Mission[];
-  requests: Request[];
+export interface Request {
+  id: string;
+  title: string;
+  type: RequestType;
+  status: RequestStatus;
+  created_at: string | Date;
+  updated_at?: string | Date;
+  created_by?: string;
+  created_by_name?: string;
+  missionId?: string;
+  missionName?: string;
+  assigned_to?: string;
+  assigned_to_name?: string;
+  target_role?: string;
+  due_date: string | Date;
+  last_updated: string | Date;
+  workflow_status?: WorkflowStatus;
+  details?: any;
+  comments?: Comment[];
+}
+
+export interface EmailCampaignRequest extends Request {
+  details: {
+    title: string;
+    content?: string;
+    subject?: string;
+    targetAudience?: string;
+    callToAction?: string;
+    objectives?: string;
+    additionalNotes?: string;
+    attachedFiles?: string[];
+    results?: {
+      emailsSent?: number;
+      openRate?: number;
+      clickRate?: number;
+      conversions?: number;
+      fileUrl?: string;
+    };
+  };
+}
+
+export interface DatabaseRequest extends Request {
+  details: {
+    targeting: {
+      industries?: string[];
+      companySize?: string;
+      locations?: string[];
+      jobTitles?: string[];
+      seniority?: string[];
+    };
+    format?: string;
+    fieldsNeeded?: string[];
+    additionalNotes?: string;
+    results?: {
+      contactsCount?: number;
+      companiesCount?: number;
+      fileUrl?: string;
+    };
+  };
 }

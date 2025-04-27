@@ -1,34 +1,34 @@
 
-import { Loader2, RefreshCw } from "lucide-react";
+import React from "react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface TableHeaderProps {
+interface CampaignsTableHeaderProps {
   accountName: string;
   onRefresh: () => void;
   isSyncing: boolean;
 }
 
-export const CampaignsTableHeader = ({ accountName, onRefresh, isSyncing }: TableHeaderProps) => {
+export const CampaignsTableHeader = ({
+  accountName,
+  onRefresh,
+  isSyncing,
+}: CampaignsTableHeaderProps) => {
   return (
     <div className="flex justify-between items-center">
-      <h2 className="text-xl font-semibold">Campagnes - {accountName}</h2>
-      <Button 
-        onClick={onRefresh} 
-        disabled={isSyncing} 
+      <h3 className="text-lg font-medium">
+        Campagnes de <span className="font-semibold">{accountName}</span>
+      </h3>
+      <Button
+        onClick={onRefresh}
         variant="outline"
+        size="sm"
+        disabled={isSyncing}
       >
-        {isSyncing ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Synchronisation...
-          </>
-        ) : (
-          <>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Synchroniser
-          </>
-        )}
+        <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+        {isSyncing ? "Actualisation..." : "Actualiser"}
       </Button>
     </div>
   );
 };
+

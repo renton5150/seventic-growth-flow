@@ -3,12 +3,23 @@ import { useState, useEffect } from "react";
 import { AcelleAccount } from "@/types/acelle.types";
 
 export const useAcelleAccountsFilter = (accounts: AcelleAccount[]) => {
-  const [activeAccounts, setActiveAccounts] = useState<AcelleAccount[]>([]);
+  const [filter, setFilter] = useState<string>("");
+  const [filteredAccounts, setFilteredAccounts] = useState<AcelleAccount[]>([]);
 
   useEffect(() => {
-    const filteredAccounts = accounts.filter(acc => acc.status === "active");
-    setActiveAccounts(filteredAccounts);
-  }, [accounts]);
+    if (!filter) {
+      setFilteredAccounts(accounts);
+    } else {
+      const filtered = accounts.filter(account => 
+        account.name.toLowerCase().includes(filter.toLowerCase())
+      );
+      setFilteredAccounts(filtered);
+    }
+  }, [accounts, filter]);
 
-  return activeAccounts;
+  return {
+    filter,
+    setFilter,
+    filteredAccounts
+  };
 };

@@ -3,12 +3,12 @@ export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
   id: string;
-  missionId: string;
+  missionId?: string;
   missionName?: string;
   name: string;
-  apiEndpoint: string;
-  apiToken: string;
-  lastSyncDate: Date | string | null;
+  api_endpoint: string;
+  api_token: string;
+  last_sync_date: Date | string | null;
   status: AcelleAccountStatus;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -60,22 +60,21 @@ export interface AcelleCampaignDeliveryInfo {
   complained: number;
 }
 
-export interface AcelleCampaignDetail extends Omit<AcelleCampaign, 'delivery_info'> {
-  html: string;
-  plain: string;
-  template: {
+export interface AcelleCampaignDetail extends AcelleCampaign {
+  html?: string;
+  plain?: string;
+  template?: {
     uid: string;
     name: string;
   };
-  tracking: {
+  tracking?: {
     open_tracking: boolean;
     click_tracking: boolean;
     unsubscribe_url: string;
   };
-  delivery_info?: Partial<AcelleCampaignDeliveryInfo>;
 }
 
-// Interface pour le débogage de la connexion
+// Interface for the debugging of connection
 export interface AcelleConnectionDebug {
   success: boolean;
   statusCode?: number;

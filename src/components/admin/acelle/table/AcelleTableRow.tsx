@@ -2,10 +2,10 @@
 import React from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Eye } from "lucide-react";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Eye } from "lucide-react";
 import { AcelleCampaign } from "@/types/acelle.types";
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 
@@ -15,23 +15,39 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
-  // Helper function to safely format dates
-  const formatDateSafely = (dateString: string | null | undefined) => {
-    if (!dateString) return "Non programmé";
+  const formatDate = (date: string | null | undefined) => {
+    if (!date) return "-";
     try {
-      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: fr });
+      return format(new Date(date), "dd/MM/yyyy HH:mm", { locale: fr });
     } catch (error) {
-      console.error(`Invalid date: ${dateString}`, error);
-      return "Date invalide";
+      console.error(`Invalid date: ${date}`, error);
+      return "-";
     }
   };
 
+  const renderDeliveryInfo = () => {
+    const info = campaign.delivery_info || {};
+    
+    return {
+      total: info.total || 0,
+      delivered: info.delivered || 0,
+      opened: info.opened || 0,
+      clicked: info.clicked || 0,
+      bounced: info.bounced?.total || 0,
+      unsubscribed: info.unsubscribed || 0,
+      openRate: info.unique_open_rate || 0,
+      clickRate: info.click_rate || 0
+    };
+  };
+
+  const info = renderDeliveryInfo();
+
   return (
-    <TableRow key={campaign.uid}>
-      <TableCell className="font-medium max-w-[120px] truncate">
+    <TableRow>
+      <TableCell className="font-medium max-w-[150px] truncate" title={campaign.name}>
         {campaign.name}
       </TableCell>
-      <TableCell className="max-w-[180px] truncate">
+      <TableCell className="max-w-[150px] truncate" title={campaign.subject || ""}>
         {campaign.subject}
       </TableCell>
       <TableCell>
@@ -39,61 +55,24 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
           {translateStatus(campaign.status)}
         </Badge>
       </TableCell>
-      <TableCell>
-        {formatDateSafely(campaign.delivery_date)}
-      </TableCell>
-      <TableCell>
-        {campaign.delivery_info?.total || 0}
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.delivered || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.delivery_rate)}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.opened || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.unique_open_rate)}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.clicked || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.click_rate)}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.bounced?.total || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.bounce_rate)}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.unsubscribed || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.unsubscribe_rate)}
-          </div>
-        </div>
-      </TableCell>
+      <TableCell>{formatDate(campaign.run_at)}</TableCell>
+      <TableCell>{info.total}</TableCell>
+      <TableCell>{info.delivered}</TableCell>
+      <TableCell>{renderPercentage(info.openRate)}</TableCell>
+      <TableCell>{renderPercentage(info.clickRate)}</TableCell>
+      <TableCell>{info.bounced}</TableCell>
+      <TableCell>{info.unsubscribed}</TableCell>
       <TableCell className="text-right">
-        <Button
-          variant="ghost"
-          size="icon"
+        <Button 
+          variant="ghost" 
+          size="sm" 
           onClick={() => onViewCampaign(campaign.uid)}
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-4 w-4 mr-1" />
+          Voir
         </Button>
       </TableCell>
     </TableRow>
   );
-}
+};
+

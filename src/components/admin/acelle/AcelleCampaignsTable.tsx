@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -12,7 +12,6 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
-import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
 import { CampaignsTableHeader } from "./table/TableHeader";
@@ -33,11 +32,16 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   
+  // Make sure to call the service with the right number of arguments
   const fetchCampaigns = React.useCallback(async () => {
-    console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
-    return acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
-  }, [account, currentPage, itemsPerPage]);
+    console.log(`Fetching campaigns for account: ${account.name}`);
+    return acelleService.getAcelleCampaigns(account);
+  }, [account]);
   
   const { 
     data: campaigns = [], 
@@ -53,20 +57,41 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     refetchOnWindowFocus: false,
   });
   
-  const {
-    searchTerm,
-    setSearchTerm,
-    statusFilter,
-    setStatusFilter,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
-    filteredCampaigns
-  } = useAcelleCampaignsTable(campaigns);
+  // Filter campaigns based on search term and status
+  const filteredCampaigns = React.useMemo(() => {
+    return campaigns
+      .filter(campaign => 
+        campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        campaign.subject?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .filter(campaign => !statusFilter || campaign.status === statusFilter)
+      .sort((a, b) => {
+        let valueA: any;
+        let valueB: any;
+
+        if (sortBy === "created_at" || sortBy === "updated_at" || sortBy === "run_at") {
+          valueA = a[sortBy] ? new Date(a[sortBy]).getTime() : 0;
+          valueB = b[sortBy] ? new Date(b[sortBy]).getTime() : 0;
+        } else if (sortBy === "name" || sortBy === "subject" || sortBy === "status") {
+          valueA = (a[sortBy] || "").toLowerCase();
+          valueB = (b[sortBy] || "").toLowerCase();
+        } else if (sortBy === "open_rate") {
+          valueA = a.delivery_info?.unique_open_rate || 0;
+          valueB = b.delivery_info?.unique_open_rate || 0;
+        } else if (sortBy === "click_rate") {
+          valueA = a.delivery_info?.click_rate || 0;
+          valueB = b.delivery_info?.click_rate || 0;
+        } else {
+          valueA = 0;
+          valueB = 0;
+        }
+
+        return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
+      });
+  }, [campaigns, searchTerm, statusFilter, sortBy, sortOrder]);
 
   // Reset to page 1 when filters change
-  useEffect(() => {
+  React.useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
@@ -99,13 +124,13 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       
       <AcelleTableFilters
         searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        setSearchTerm={setSearchTerm}
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        setStatusFilter={setStatusFilter}
         sortBy={sortBy}
-        onSortByChange={setSortBy}
+        setSortBy={setSortBy}
         sortOrder={sortOrder}
-        onSortOrderChange={setSortOrder}
+        setSortOrder={setSortOrder}
       />
       
       {campaigns.length === 0 ? (

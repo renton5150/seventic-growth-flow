@@ -2,16 +2,18 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { useAcelleAccountsFilter } from "./useAcelleAccountsFilter";
-import { useCampaignSync } from "./useCampaignSync";
 import { fetchCampaignsFromCache } from "./useCampaignFetch";
+import { useCampaignSync } from "./useCampaignSync";
+import { toast } from "sonner";
 
 export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
-  const activeAccounts = useAcelleAccountsFilter(accounts);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [retryCount, setRetryCount] = useState<number>(0);
-  const { syncCampaignsCache, wakeUpEdgeFunctions } = useCampaignSync();
+  const { syncAllCampaigns, wakeUpEdgeFunctions } = useCampaignSync();
+
+  // Filter to only active accounts
+  const activeAccounts = accounts.filter(acc => acc.status === "active");
 
   const fetchCampaigns = useCallback(async () => {
     console.log('Fetching campaigns from cache...');
@@ -30,7 +32,7 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
         console.log(`Returned ${cachedCampaigns.length} campaigns from cache`);
         
         // Sync in background without waiting for the result
-        syncCampaignsCache().catch(err => {
+        syncAllCampaigns().catch(err => {
           console.error("Background sync error:", err);
           setSyncError("Erreur de synchronisation en arrière-plan");
         });
@@ -42,27 +44,22 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
       setIsInitializing(true);
       
       console.log("No cache data found, performing full synchronization");
-      const syncResult = await syncCampaignsCache();
+      const syncResult = await syncAllCampaigns();
       
-      if (syncResult.error) {
-        console.error("Sync error:", syncResult.error);
-        setSyncError(syncResult.error);
+      if (!syncResult.success) {
+        console.error("Sync failed");
+        setSyncError("Échec de la synchronisation");
         
         // If service is down, try one more explicit wake-up
-        if (syncResult.error.includes("Failed to fetch") || 
-            syncResult.error.includes("Request timed out")) {
-          console.log("Attempting explicit wake-up of edge functions");
-          await wakeUpEdgeFunctions();
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          
-          console.log("Retrying sync after wake-up attempt");
-          const retryResult = await syncCampaignsCache();
-          
-          if (retryResult.error) {
-            throw new Error(retryResult.error);
-          }
-        } else {
-          throw new Error(syncResult.error);
+        console.log("Attempting explicit wake-up of edge functions");
+        await wakeUpEdgeFunctions();
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        console.log("Retrying sync after wake-up attempt");
+        const retryResult = await syncAllCampaigns();
+        
+        if (!retryResult.success) {
+          throw new Error("Failed to sync after retry");
         }
       }
       
@@ -74,7 +71,6 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
       
       if (freshCampaigns.length === 0) {
         console.log("No campaigns found after sync, might be empty account or sync issue");
-        // This is not necessarily an error - the account might genuinely have no campaigns
       }
       
       return freshCampaigns;
@@ -84,7 +80,7 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     } finally {
       setIsInitializing(false);
     }
-  }, [activeAccounts, syncCampaignsCache, wakeUpEdgeFunctions]);
+  }, [activeAccounts, syncAllCampaigns, wakeUpEdgeFunctions]);
 
   const handleRetry = useCallback(() => {
     setRetryCount(prev => prev + 1);

@@ -1,7 +1,6 @@
 
-import { useState } from "react";
-import { Request, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
-import { toast } from "sonner";
+import React from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,111 +8,48 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmailCampaignForm } from "@/components/requests/EmailCampaignForm";
-import { DatabaseCreationForm } from "@/components/requests/DatabaseCreationForm";
-import { LinkedInScrapingForm } from "@/components/requests/LinkedInScrapingForm";
-import { Badge } from "@/components/ui/badge";
+import { Request } from "@/types/types";
+import EmailCampaignForm from "@/components/requests/EmailCampaignForm";
 
 interface RequestCompleteEditDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  request: Request | null;
-  onRequestUpdated: () => void;
+  request: Request;
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete: () => void;
 }
 
-export function RequestCompleteEditDialog({
-  open,
-  onOpenChange,
+export const RequestCompleteEditDialog = ({
   request,
-  onRequestUpdated,
-}: RequestCompleteEditDialogProps) {
-  if (!request) return null;
-
-  // Logs détaillés pour déboguer le problème de nom de mission
-  console.log("Mission dans RequestCompleteEditDialog:", request.missionName, request);
-  console.log("Request mission ID:", request.missionId);
-  console.log("Type de missionId:", typeof request.missionId);
-
-  // S'assurer que missionId est une chaîne de caractères valide
-  const preparedRequest = {
-    ...request,
-    missionId: request.missionId ? String(request.missionId) : "",
-  };
-
-  console.log("Prepared request missionId:", preparedRequest.missionId);
-  console.log("Type du missionId préparé:", typeof preparedRequest.missionId);
-
-  const handleRequestUpdated = () => {
-    onOpenChange(false);
-    onRequestUpdated();
-    toast.success("Demande mise à jour avec succès");
-  };
-
-  // Fonction pour obtenir le libellé du type de requête
-  const getRequestTypeLabel = (type: string): string => {
-    switch(type) {
-      case "email": return "Campagne Email";
-      case "database": return "Base de données";
-      case "linkedin": return "Scraping LinkedIn";
-      default: return type;
-    }
+  isOpen,
+  onClose,
+  onComplete,
+}: RequestCompleteEditDialogProps) => {
+  const handleComplete = () => {
+    onComplete();
+    onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Modifier la demande</DialogTitle>
+          <DialogTitle>Compléter la demande</DialogTitle>
           <DialogDescription>
-            Modifiez tous les aspects de cette demande.
+            Ajoutez les résultats finaux pour compléter cette demande
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Mission</p>
-              <p className="text-sm font-semibold">{request.missionName || "Non assignée"}</p>
-            </div>
-            
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">SDR</p>
-              <p className="text-sm font-semibold">{request.sdrName || "Non assigné"}</p>
-            </div>
-            
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Type</p>
-              <Badge variant="outline" className="bg-gray-100">
-                {getRequestTypeLabel(request.type)}
-              </Badge>
-            </div>
-          </div>
+        {request.type === "email" && <EmailCampaignForm />}
+        
+        <div className="flex justify-end space-x-4 mt-4">
+          <Button variant="outline" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button onClick={handleComplete}>
+            Marquer comme terminé
+          </Button>
         </div>
-
-        {request.type === "email" && (
-          <EmailCampaignForm 
-            editMode={true}
-            initialData={preparedRequest as EmailCampaignRequest}
-            onSuccess={handleRequestUpdated}
-          />
-        )}
-
-        {request.type === "database" && (
-          <DatabaseCreationForm
-            editMode={true}
-            initialData={preparedRequest as DatabaseRequest}
-            onSuccess={handleRequestUpdated}
-          />
-        )}
-
-        {request.type === "linkedin" && (
-          <LinkedInScrapingForm
-            editMode={true}
-            initialData={preparedRequest as LinkedInScrapingRequest}
-            onSuccess={handleRequestUpdated}
-          />
-        )}
       </DialogContent>
     </Dialog>
   );
-}
+};
