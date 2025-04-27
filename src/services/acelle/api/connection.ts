@@ -28,6 +28,7 @@ export const checkApiAvailability = async (accountId?: string): Promise<{
           details: false
         },
         debugInfo: {
+          success: false,
           errorMessage: error.message,
           statusCode: 500
         }
@@ -50,6 +51,7 @@ export const checkApiAvailability = async (accountId?: string): Promise<{
         details: false
       },
       debugInfo: {
+        success: false,
         errorMessage: error instanceof Error ? error.message : "Erreur inconnue",
         statusCode: 500
       }
