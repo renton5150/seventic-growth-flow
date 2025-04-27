@@ -7,10 +7,10 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ allowedRoles = [] }: ProtectedRouteProps) => {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   
   // Si toujours en chargement, on ne redirige pas encore
-  if (isLoading) {
+  if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Chargement...</div>;
   }
   
