@@ -53,7 +53,12 @@ export const formatRequestFromDb = (dbRequest: any): Request => {
     assignedToName,
     lastUpdated,
     isLate,
-    details
+    details,
+    
+    // Ajout des propriétés requises par le type Request (qui sont des alias)
+    created_at: dbRequest.created_at,
+    due_date: dbRequest.due_date,
+    last_updated: dbRequest.last_updated || dbRequest.created_at
   };
 
   // Type-specific fields are now added to the details property

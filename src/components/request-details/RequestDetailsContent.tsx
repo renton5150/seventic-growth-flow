@@ -1,7 +1,7 @@
 
 import React from "react";
 import { RequestTabs } from "./RequestTabs";
-import { Request, Mission } from "@/types/types";
+import { Request, Mission, WorkflowStatus } from "@/types/types";
 
 interface RequestDetailsContentProps {
   request: Request;
@@ -46,5 +46,15 @@ export const RequestDetailsContent: React.FC<RequestDetailsContentProps> = ({
     commentLoading={commentLoading}
     onCommentChange={onCommentChange}
     onAddComment={onAddComment}
+    mission={mission}
+    isEditDialogOpen={isEditDialogOpen}
+    workflowStatus={workflowStatus}
+    emailPlatform={emailPlatform}
+    onStatusChange={onStatusChange}
+    onWorkflowStatusChange={onWorkflowStatusChange}
+    onOpenEditDialog={onOpenEditDialog}
+    onCloseEditDialog={onCloseEditDialog}
+    onEditDialogChange={onEditDialogChange}
+    onEmailPlatformChange={onEmailPlatformChange}
   />;
 };
