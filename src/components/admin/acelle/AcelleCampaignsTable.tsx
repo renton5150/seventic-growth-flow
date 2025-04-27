@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -10,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount } from "@/types/acelle.types";
-import * as acelleService from "@/services/acelle";
+import { getAcelleCampaigns } from "@/services/acelle";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
 import { CampaignsTableHeader } from "./table/TableHeader";
@@ -38,7 +39,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   
   const fetchCampaigns = React.useCallback(async () => {
     console.log(`Fetching campaigns for account: ${account.name}`);
-    return acelleService.getAcelleCampaigns(account);
+    return getAcelleCampaigns(account);
   }, [account]);
   
   const { 
