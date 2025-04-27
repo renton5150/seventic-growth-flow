@@ -25,9 +25,8 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
     }
     
     try {
-      console.log(`Téléchargement demandé pour: ${url}`);
-      
       setDownloading(true);
+      console.log(`Téléchargement demandé pour: ${url}`);
       
       // Afficher un toast de chargement
       const loadingToast = toast.loading("Téléchargement en cours...");
@@ -37,9 +36,7 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
       // Supprimer le toast de chargement
       toast.dismiss(loadingToast);
       
-      if (success) {
-        toast.success(`Téléchargement de "${filename}" réussi`);
-      } else {
+      if (!success) {
         // Afficher un message d'erreur spécifique si le téléchargement échoue
         toast.error("Le fichier n'a pas pu être téléchargé");
       }

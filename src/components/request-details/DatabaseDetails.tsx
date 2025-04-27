@@ -22,6 +22,10 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
       return;
     }
     
+    if (downloading) {
+      return; // Éviter les téléchargements multiples
+    }
+    
     try {
       setDownloading(true);
       console.log(`Tentative de téléchargement: ${fileUrl}, nom: ${filename}`);
@@ -34,9 +38,8 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
       // Supprimer le toast de chargement
       toast.dismiss(loadingToast);
       
-      if (success) {
-        toast.success(`Téléchargement de "${filename}" réussi`);
-      } else {
+      if (!success) {
+        // Afficher un message d'erreur spécifique si le téléchargement échoue
         toast.error("Le fichier n'a pas pu être téléchargé");
       }
     } catch (error) {

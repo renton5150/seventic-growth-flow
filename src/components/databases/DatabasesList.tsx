@@ -57,10 +57,17 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
     
     try {
       console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
+      
+      // Afficher un toast de chargement
+      const loadingToast = toast.loading("Téléchargement en cours...");
+      
       const success = await downloadFile(fileUrl, fileName);
       
-      if (success) {
-        toast.success(`Téléchargement de "${fileName}" réussi`);
+      // Supprimer le toast de chargement
+      toast.dismiss(loadingToast);
+      
+      if (!success) {
+        toast.error("Erreur lors du téléchargement du fichier");
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);

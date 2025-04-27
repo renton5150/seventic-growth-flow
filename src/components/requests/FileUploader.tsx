@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { downloadFile } from "@/services/database";
@@ -73,9 +72,7 @@ export const FileUploader = ({
         // Supprimer le toast de chargement
         toast.dismiss(loadingToast);
         
-        if (success) {
-          toast.success(`Téléchargement de "${decodeURIComponent(fileName)}" réussi`);
-        } else {
+        if (!success) {
           toast.error("Erreur lors du téléchargement du fichier");
         }
       }
