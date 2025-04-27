@@ -3,69 +3,77 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DatabaseFile } from '@/types/database.types';
 import { getUserById } from "@/services/userService";
-import { ensureDatabaseBucketExists } from "./config";
 
-export type UploadResult = {
-  success: boolean;
-  fileUrl?: string;
-  error?: string;
-};
-
-export const uploadDatabaseFile = async (file: File, userId: string): Promise<UploadResult> => {
+export const uploadFile = async (file: File, bucket: string = 'databases') => {
   try {
-    console.log(`Début du téléversement pour ${file.name}`);
+    // Vérification de l'authentification
+    const { data: session } = await supabase.auth.getSession();
+    if (!session || !session.session) {
+      console.error('Utilisateur non authentifié');
+      toast.error('Vous devez être connecté pour télécharger des fichiers');
+      return null;
+    }
+    console.log('Utilisateur authentifié:', session.session.user.id);
+
+    // Toast de chargement
+    toast.loading('Téléchargement en cours...');
     
-    // Vérifier que l'utilisateur est authentifié
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session) {
-      console.error("Erreur d'authentification:", sessionError);
-      toast.error("Vous devez être connecté pour téléverser un fichier");
-      return { success: false, error: "Non authentifié" };
+    // Vérification du fichier
+    if (!file) {
+      toast.error('Aucun fichier sélectionné');
+      return null;
     }
     
-    // S'assurer que le bucket existe et est public
-    const bucketExists = await ensureDatabaseBucketExists();
-    if (!bucketExists) {
-      toast.error("Erreur de configuration du stockage");
-      return { success: false, error: "Erreur de configuration du stockage" };
-    }
+    // Nom de fichier unique
+    const uniqueFileName = `${Date.now()}_${file.name}`;
     
-    const timestamp = Date.now();
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filePath = `uploads/${timestamp}_${safeName}`;
+    // Log pour déboguer
+    console.log('Téléversement du fichier:', uniqueFileName);
     
-    console.log("Téléversement vers:", filePath);
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('databases')
-      .upload(filePath, file, {
+    // Téléverser le fichier avec upsert à true
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(uniqueFileName, file, {
         cacheControl: '3600',
-        upsert: false
+        upsert: true
       });
     
-    if (uploadError) {
-      console.error("Erreur lors du téléversement:", uploadError);
-      console.error("Message d'erreur:", uploadError.message);
-      toast.error("Erreur lors du téléversement du fichier");
-      return { success: false, error: uploadError.message };
+    // Gérer les erreurs
+    if (error) {
+      console.error('Erreur de téléversement:', error);
+      toast.error(`Erreur: ${error.message}`);
+      return null;
     }
     
-    if (!uploadData) {
-      toast.error("Erreur lors du téléversement");
-      return { success: false, error: "Aucune donnée renvoyée" };
+    // Obtenir l'URL publique du fichier
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(uniqueFileName);
+    
+    // Notification de succès
+    toast.success('Fichier téléchargé avec succès');
+    console.log('Téléversement réussi:', urlData.publicUrl);
+    
+    return urlData.publicUrl;
+  } catch (err) {
+    // Log des exceptions
+    const error = err as Error;
+    console.error('Exception:', error);
+    toast.error(`Exception: ${error.message}`);
+    return null;
+  } finally {
+    toast.dismiss();
+  }
+};
+
+// Fonction spécifique pour le téléversement de bases de données
+export const uploadDatabaseFile = async (file: File, userId: string): Promise<{ success: boolean; fileUrl?: string; error?: string }> => {
+  try {
+    const fileUrl = await uploadFile(file);
+    
+    if (!fileUrl) {
+      return { success: false, error: "Échec du téléversement du fichier" };
     }
-    
-    const { data: publicUrlData } = await supabase.storage
-      .from('databases')
-      .getPublicUrl(filePath);
-    
-    if (!publicUrlData?.publicUrl) {
-      toast.error("Impossible d'obtenir l'URL du fichier");
-      return { success: false, error: "URL invalide" };
-    }
-    
-    console.log("URL publique obtenue:", publicUrlData.publicUrl);
     
     // Obtenir les informations de l'utilisateur
     const user = await getUserById(userId);
@@ -78,8 +86,8 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
         .insert([
           { 
             name: file.name,
-            file_name: safeName,
-            file_url: publicUrlData.publicUrl,
+            file_name: file.name,
+            file_url: fileUrl,
             file_type: file.type || 'application/octet-stream',
             file_size: file.size,
             uploaded_by: userId,
@@ -89,24 +97,22 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
       
       if (dbError) {
         console.error("Erreur lors de l'enregistrement:", dbError);
-        console.error("Message d'erreur:", dbError.message);
-        toast.error("Erreur lors de l'enregistrement des informations");
-        // On continue malgré l'erreur car le fichier a bien été téléversé
-      } else {
-        console.log("Informations du fichier enregistrées avec succès dans la table database_files");
+        return { success: false, error: dbError.message };
       }
+      
+      // Déclencher l'événement pour actualiser la liste
+      window.dispatchEvent(new CustomEvent('database-uploaded'));
+      
+      return { 
+        success: true, 
+        fileUrl: fileUrl 
+      };
     } catch (error) {
       console.error("Erreur inattendue lors de l'enregistrement:", error);
+      return { success: false, error: "Erreur lors de l'enregistrement des informations" };
     }
-    
-    toast.success("Fichier téléversé avec succès");
-    return { 
-      success: true, 
-      fileUrl: publicUrlData.publicUrl 
-    };
   } catch (error) {
     console.error("Erreur inattendue:", error);
-    toast.error("Une erreur inattendue s'est produite");
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Erreur inconnue" 
