@@ -29,10 +29,13 @@ export const getAllMissions = async (): Promise<Mission[]> => {
   console.log("Getting all missions");
   
   try {
-    const supaMissions = await getSupabaseMissions();
-    if (supaMissions.length > 0) {
-      console.log(`Retrieved ${supaMissions.length} missions from Supabase`);
-      return supaMissions;
+    const isAuthenticated = await isSupabaseAuthenticated();
+    if (isAuthenticated) {
+      const supaMissions = await getSupabaseMissions();
+      if (supaMissions.length > 0) {
+        console.log(`Retrieved ${supaMissions.length} missions from Supabase`);
+        return supaMissions;
+      }
     }
   } catch (error) {
     console.error("Error getting missions from Supabase:", error);
@@ -49,10 +52,13 @@ export const getMissionsByUserId = async (userId: string): Promise<Mission[]> =>
   console.log(`Getting missions for user ${userId}`);
   
   try {
-    const supaMissions = await getSupabaseUserMissions(userId);
-    if (supaMissions.length > 0) {
-      console.log(`Retrieved ${supaMissions.length} missions for user from Supabase`);
-      return supaMissions;
+    const isAuthenticated = await isSupabaseAuthenticated();
+    if (isAuthenticated) {
+      const supaMissions = await getSupabaseUserMissions(userId);
+      if (supaMissions.length > 0) {
+        console.log(`Retrieved ${supaMissions.length} missions for user from Supabase`);
+        return supaMissions;
+      }
     }
   } catch (error) {
     console.error("Error getting user missions from Supabase:", error);
@@ -69,10 +75,13 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
   console.log(`Getting mission with ID ${missionId}`);
   
   try {
-    const supaMission = await getSupabaseMissionById(missionId);
-    if (supaMission) {
-      console.log("Retrieved mission from Supabase");
-      return supaMission;
+    const isAuthenticated = await isSupabaseAuthenticated();
+    if (isAuthenticated) {
+      const supaMission = await getSupabaseMissionById(missionId);
+      if (supaMission) {
+        console.log("Retrieved mission from Supabase");
+        return supaMission;
+      }
     }
   } catch (error) {
     console.error("Error getting mission from Supabase:", error);
@@ -98,8 +107,16 @@ export const createMission = async (data: {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
     if (isAuthenticated) {
-      console.log("Attempting to create mission in Supabase");
-      return await createSupabaseMission(data);
+      console.log("Authenticated with Supabase, attempting to create mission");
+      const createdMission = await createSupabaseMission(data);
+      if (createdMission) {
+        console.log("Mission created successfully in Supabase:", createdMission);
+        return createdMission;
+      } else {
+        console.error("Failed to create mission in Supabase, no mission returned");
+      }
+    } else {
+      console.log("Not authenticated with Supabase");
     }
   } catch (error) {
     console.error("Error creating mission in Supabase:", error);

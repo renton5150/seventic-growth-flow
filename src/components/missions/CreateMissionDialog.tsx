@@ -72,19 +72,34 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       // Log pour débogage
       console.log("Données du formulaire:", data);
       
-      await createMission({
+      // Utilisez une chaîne vide au lieu de 'unassigned' pour un SDR non attribué
+      const sdrId = data.sdrId === 'unassigned' ? '' : (data.sdrId || '');
+      console.log("SDR ID qui sera utilisé:", sdrId);
+      
+      const createdMission = await createMission({
         name: data.name,
-        sdrId: data.sdrId === 'unassigned' ? '' : (data.sdrId || ''),
+        sdrId: sdrId,
         description: data.description,
         startDate: data.startDate,
         endDate: data.endDate,
         type: data.type
       });
       
-      toast.success('Mission créée avec succès');
-      form.reset();
-      onOpenChange(false);
-      onSuccess(); // Refresh missions list
+      console.log("Mission créée:", createdMission);
+      
+      if (createdMission) {
+        toast.success('Mission créée avec succès');
+        
+        // Invalider les requêtes pour forcer un rechargement
+        await queryClient.invalidateQueries({ queryKey: ['missions'] });
+        await queryClient.invalidateQueries({ queryKey: ['existing-missions'] });
+        
+        form.reset();
+        onOpenChange(false);
+        onSuccess(); // Refresh missions list
+      } else {
+        toast.error('Erreur: La mission n\'a pas pu être créée');
+      }
     } catch (error) {
       console.error('Erreur lors de la création de la mission:', error);
       toast.error('Erreur lors de la création de la mission');

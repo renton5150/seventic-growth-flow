@@ -19,10 +19,10 @@ export const createSupaMission = async (data: {
     console.log("Mission reçue dans createSupaMission:", data);
     console.log("SDR ID reçu:", data.sdrId);
     
-    // Validate sdrId
-    if (!data.sdrId) {
-      console.error("SDR ID manquant dans createSupaMission!");
-      throw new Error("Le SDR est requis pour créer une mission");
+    // Validate data
+    if (!data.name || data.name.trim() === '') {
+      console.error("Nom de mission manquant dans createSupaMission!");
+      throw new Error("Le nom est requis pour créer une mission");
     }
     
     const missionId = uuidv4();
@@ -31,7 +31,7 @@ export const createSupaMission = async (data: {
     const missionData = {
       id: missionId,
       name: data.name,
-      sdr_id: data.sdrId,
+      sdr_id: data.sdrId || null, // Accepte null pour les missions sans SDR attribué
       description: data.description || "",
       start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
       end_date: data.endDate ? new Date(data.endDate).toISOString() : null,
@@ -42,6 +42,7 @@ export const createSupaMission = async (data: {
     console.log("Données formatées pour Supabase:", missionData);
     console.log("SDR ID qui sera inséré:", missionData.sdr_id);
 
+    // Explicitement utiliser single() pour capturer les erreurs
     const { data: mission, error } = await supabase
       .from("missions")
       .insert([missionData])
@@ -62,16 +63,22 @@ export const createSupaMission = async (data: {
       }
     }
 
-    console.log("Données retournées par Supabase après insertion:", mission);
-    
-    // Verify sdr_id was properly saved
-    if (!mission.sdr_id) {
-      console.error("sdr_id manquant dans les données retournées:", mission);
+    if (!mission) {
+      console.error("Aucune donnée retournée après insertion de la mission");
+      return undefined;
     }
 
+    console.log("Données retournées par Supabase après insertion:", mission);
+    
+    // Vérifier que l'ID de mission est bien défini
+    if (!mission.id) {
+      console.error("ID de mission manquant dans les données retournées");
+      return undefined;
+    }
+    
     return mapSupaMissionToMission(mission);
   } catch (error) {
-    console.error("Erreur lors de la création de la mission:", error);
+    console.error("Exception lors de la création de la mission:", error);
     throw error;
   }
 };

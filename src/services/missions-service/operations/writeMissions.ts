@@ -22,19 +22,32 @@ export const createSupabaseMission = async (data: {
       return undefined;
     }
     
-    if (!data.sdrId) {
-      console.error("Missing SDR ID!");
-      throw new Error("SDR is required to create a mission");
-    }
+    // La valeur sdrId peut être vide pour les missions sans SDR attribué
+    console.log("Creating mission with data:", data);
+    console.log("SDR ID:", data.sdrId);
 
     const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
     
-    const mission = await createSupaMission({
-      ...data,
+    // Appel direct à createSupaMission
+    const missionData = {
+      name: data.name,
+      sdrId: data.sdrId,
+      description: data.description,
+      startDate: data.startDate,
+      endDate: data.endDate,
       type: missionType
-    });
+    };
+    
+    console.log("Calling createSupaMission with:", missionData);
+    const mission = await createSupaMission(missionData);
+    console.log("Result from createSupaMission:", mission);
 
-    return mission ? mapSupaMissionToMission(mission) : undefined;
+    if (!mission) {
+      console.error("No mission returned from createSupaMission");
+      return undefined;
+    }
+
+    return mission;
   } catch (error) {
     console.error("Error creating mission in Supabase:", error);
     throw error;
@@ -59,9 +72,9 @@ export const updateSupabaseMission = async (data: {
       return undefined;
     }
     
-    if (!data.sdrId) {
-      console.error("Missing SDR ID!");
-      throw new Error("SDR is required to update a mission");
+    if (!data.id) {
+      console.error("Missing mission ID!");
+      throw new Error("Mission ID is required to update a mission");
     }
 
     const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
