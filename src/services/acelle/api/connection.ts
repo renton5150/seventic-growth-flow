@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 
 // Test API connectivity
@@ -11,7 +12,8 @@ export const testApiConnection = async (
     return {
       success: true,
       statusCode: 200,
-      responseData: { message: "Connection successful" },
+      response: { message: "Connection successful" },
+      responseData: { message: "Connection successful" }, // For backward compatibility
       timestamp: new Date().toISOString()
     };
   } catch (error) {
@@ -35,7 +37,8 @@ export const pingAcelleEndpoint = async (
     return {
       success: true,
       statusCode: 200,
-      responseData: { message: "Ping successful" },
+      response: { message: "Ping successful" },
+      responseData: { message: "Ping successful" }, // For backward compatibility
       timestamp: new Date().toISOString()
     };
   } catch (error) {

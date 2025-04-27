@@ -1,78 +1,72 @@
 
-import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, AlertOctagon, PowerOff } from "lucide-react";
+import React from 'react';
+import { Loader2, AlertTriangle, Ban, Database } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+
+interface ErrorStateProps {
+  onRetry: () => void;
+}
 
 export const LoadingState = () => {
   return (
-    <div className="flex justify-center items-center h-64 my-4">
-      <div className="text-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
-        <p className="text-lg font-medium">Chargement des campagnes...</p>
-        <p className="text-muted-foreground">Veuillez patienter</p>
-      </div>
+    <div className="flex flex-col items-center justify-center py-12">
+      <Loader2 className="h-8 w-8 text-primary animate-spin mb-4" />
+      <p className="text-center text-muted-foreground">
+        Chargement des campagnes en cours...
+      </p>
     </div>
   );
 };
 
-export const ErrorState = ({ onRetry }: { onRetry: () => void }) => {
+export const ErrorState: React.FC<ErrorStateProps> = ({ onRetry }) => {
   return (
-    <Card>
-      <CardContent className="py-10">
-        <div className="flex flex-col items-center justify-center text-center">
-          <AlertOctagon className="h-10 w-10 text-red-500 mb-4" />
-          <h3 className="text-lg font-medium mb-2">Erreur de chargement</h3>
-          <p className="text-muted-foreground mb-4">
-            Les données n'ont pas pu être chargées depuis l'API Acelle.
-            <br />
-            Veuillez vérifier votre connexion et réessayer.
-          </p>
-          <Button onClick={onRetry} className="mt-2">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Réessayer
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <Alert variant="destructive" className="mb-6">
+      <AlertTriangle className="h-5 w-5 mr-2" />
+      <AlertTitle>Erreur de chargement</AlertTitle>
+      <AlertDescription className="flex flex-col gap-4">
+        <p>
+          Une erreur est survenue lors du chargement des campagnes. Veuillez réessayer.
+        </p>
+        <Button onClick={onRetry} variant="outline" size="sm" className="w-fit">
+          Réessayer
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 };
 
 export const EmptyState = () => {
   return (
-    <Card>
-      <CardContent className="py-10">
-        <div className="flex flex-col items-center justify-center text-center">
-          <p className="text-lg font-medium mb-2">Aucune campagne trouvée</p>
-          <p className="text-muted-foreground">
-            Aucune campagne n'a été trouvée pour ce compte.
-            <br />
-            Créez votre première campagne dans Acelle Mail.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <Database className="h-12 w-12 text-muted-foreground mb-4" />
+      <h3 className="text-xl font-medium mb-2">Aucune campagne disponible</h3>
+      <p className="text-muted-foreground max-w-md">
+        Il n'y a actuellement aucune campagne dans ce compte Acelle Mail.
+        Vous pouvez créer des campagnes directement dans votre plateforme Acelle Mail.
+      </p>
+    </div>
   );
 };
 
 export const InactiveAccountState = () => {
   return (
-    <Card>
-      <CardContent className="py-10">
-        <div className="flex flex-col items-center justify-center text-center">
-          <PowerOff className="h-10 w-10 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium mb-2">Compte inactif</h3>
-          <p className="text-muted-foreground mb-4">
-            Ce compte Acelle est actuellement inactif.
-            <br />
-            Activez-le dans les paramètres pour voir ses campagnes.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="border rounded-lg p-8 bg-gray-50 text-center">
+      <Ban className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+      <h3 className="text-xl font-medium mb-2">Compte inactif</h3>
+      <p className="text-muted-foreground max-w-lg mx-auto">
+        Ce compte est actuellement inactif. Veuillez l'activer dans les paramètres
+        du compte pour afficher et gérer les campagnes.
+      </p>
+    </div>
   );
 };
 
-// Aliases for backward compatibility
-export const TableLoadingState = LoadingState;
-export const TableErrorState = ErrorState;
+export const DataUnavailableAlert = ({ message }: { message: string }) => {
+  return (
+    <Alert className="mb-6" variant="warning">
+      <AlertTriangle className="h-5 w-5 mr-2" />
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
+  );
+};

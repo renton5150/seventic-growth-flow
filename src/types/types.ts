@@ -4,7 +4,7 @@ export type MissionStatus = "En cours" | "Fin";
 
 export type RequestStatus = "pending" | "in_progress" | "completed" | "canceled";
 export type RequestType = "database" | "linkedin" | "email";
-export type WorkflowStatus = "pending_assignment" | "assigned" | "in_progress" | "review" | "completed";
+export type WorkflowStatus = "pending_assignment" | "assigned" | "in_progress" | "review" | "completed" | "canceled";
 export type UserRole = "admin" | "user" | "sdr" | "growth";
 
 export interface User {
@@ -67,19 +67,28 @@ export interface Request {
   assignedToName?: string; // Alias for assigned_to_name
   sdrName?: string;
   isLate?: boolean;
+  
+  // Properties for backward compatibility
   targeting?: any;
   template?: any;
+  tool?: string;
+  blacklist?: any;
+  database?: any;
+  contactsCreated?: number;
+  resultFileUrl?: string;
+  statistics?: any;
 }
 
 export interface EmailCampaignRequest extends Request {
   details: {
-    title: string;
+    title?: string;
+    description?: string;
+    additionalNotes?: string;
     content?: string;
     subject?: string;
     targetAudience?: string;
     callToAction?: string;
     objectives?: string;
-    additionalNotes?: string;
     attachedFiles?: string[];
     results?: {
       emailsSent?: number;
@@ -89,20 +98,25 @@ export interface EmailCampaignRequest extends Request {
       fileUrl?: string;
     };
   };
+  template?: EmailTemplate;
+  database?: DatabaseDetails;
+  blacklist?: Blacklist;
 }
 
 export interface DatabaseRequest extends Request {
   details: {
-    targeting: {
+    description?: string;
+    additionalNotes?: string;
+    targeting?: {
       industries?: string[];
-      companySize?: string;
+      companySize?: string[];
       locations?: string[];
       jobTitles?: string[];
       seniority?: string[];
+      otherCriteria?: string;
     };
     format?: string;
     fieldsNeeded?: string[];
-    additionalNotes?: string;
     results?: {
       contactsCount?: number;
       companiesCount?: number;
@@ -112,25 +126,31 @@ export interface DatabaseRequest extends Request {
   // Additional properties for backward compatibility
   tool?: string;
   blacklist?: any;
+  targeting?: any;
   contactsCreated?: number;
   resultFileUrl?: string;
 }
 
 export interface LinkedInScrapingRequest extends Request {
   details: {
+    description?: string;
+    additionalNotes?: string;
     targeting?: {
       jobTitles?: string[];
       industries?: string[];
       locations?: string[];
-      companySize?: string;
+      companySize?: string[];
       seniority?: string[];
+      otherCriteria?: string;
     };
-    additionalNotes?: string;
     results?: {
       profilesFound?: number;
       fileUrl?: string;
     };
   };
+  targeting?: any;
+  profilesScraped?: number;
+  resultFileUrl?: string;
 }
 
 // Additional types needed for email campaign components
@@ -154,6 +174,20 @@ export interface BlacklistFile {
 export interface Blacklist {
   accounts?: BlacklistFile;
   emails?: BlacklistFile;
+}
+
+// Type for date filters
+export interface DateFilter {
+  type: DateFilterType;
+  values: DateFilterValues;
+}
+
+export type DateFilterType = "relative" | "absolute" | "none";
+
+export interface DateFilterValues {
+  start?: Date | null;
+  end?: Date | null;
+  period?: string;
 }
 
 // App data type for mock data

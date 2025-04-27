@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle";
+import * as acelleService from "@/services/acelle";
 import { useCampaignSync } from "./useCampaignSync";
 import { useCampaignFetch } from "./useCampaignFetch";
 

@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -68,7 +69,12 @@ const EmailCampaignEdit = () => {
           <h1 className="text-2xl font-bold">Modifier la campagne email</h1>
         </div>
         
-        {request && <EmailCampaignForm editMode={true} initialData={request as EmailCampaignRequest} />}
+        {request && 
+          <EmailCampaignForm 
+            editMode={true} 
+            initialData={request} 
+          />
+        }
       </div>
     </AppLayout>
   );

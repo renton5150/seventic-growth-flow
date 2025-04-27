@@ -1,114 +1,89 @@
 
-import { AcelleCampaignDeliveryInfo } from "@/types/acelle.types";
-
 export const translateStatus = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case "queuing":
-      return "En file d'attente";
-    case "queued":
-      return "En file d'attente";
-    case "sending":
-      return "En cours d'envoi";
-    case "sent":
-      return "Envoyé";
-    case "ready":
-      return "Prêt à envoyer";
-    case "failed":
-      return "Échec";
-    case "paused":
-      return "En pause";
-    case "draft":
-      return "Brouillon";
-    case "scheduled":
-      return "Programmé";
-    default:
-      return status;
-  }
+  const statusMap: Record<string, string> = {
+    new: "Nouveau",
+    queuing: "En file d'attente",
+    queued: "En file d'attente",
+    sending: "En cours d'envoi",
+    sent: "Envoyé",
+    failed: "Échoué",
+    ready: "Prêt",
+    paused: "En pause",
+    done: "Terminé",
+    rejected: "Rejeté",
+    delivered: "Livré",
+    bounced: "Rebond",
+    undelivered: "Non livré",
+    unsubscribed: "Désabonné",
+    opened: "Ouvert",
+    clicked: "Cliqué",
+    aborted: "Annulé",
+    cancelled: "Annulé",
+    scheduled: "Planifié",
+    draft: "Brouillon",
+  };
+
+  return statusMap[status.toLowerCase()] || status;
 };
 
 export const getStatusBadgeVariant = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case "queuing":
-    case "queued":
-      return "secondary";
-    case "sending":
-      return "default";
-    case "sent":
-      return "success";
-    case "ready":
-      return "outline";
-    case "failed":
-      return "destructive";
-    case "paused":
-      return "warning";
-    case "draft":
-      return "outline";
-    case "scheduled":
-      return "secondary";
-    default:
-      return "outline";
+  const lowerStatus = status.toLowerCase();
+
+  if (["sent", "done", "delivered", "opened", "clicked"].includes(lowerStatus)) {
+    return "success";
   }
+
+  if (["sending", "queuing", "queued", "scheduled"].includes(lowerStatus)) {
+    return "primary";
+  }
+
+  if (["new", "ready", "paused", "draft"].includes(lowerStatus)) {
+    return "warning";
+  }
+
+  if (["failed", "bounced", "undelivered", "rejected", "aborted", "cancelled", "unsubscribed"].includes(lowerStatus)) {
+    return "danger";
+  }
+
+  return "default";
 };
 
 export const renderPercentage = (value: number): string => {
-  if (value === null || value === undefined) return "0%";
+  if (typeof value !== 'number' || isNaN(value)) {
+    return "0%";
+  }
   
-  // Ensure the value is a number
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  // If value is already between 0 and 1
+  if (value >= 0 && value <= 1) {
+    return `${(value * 100).toFixed(1)}%`;
+  }
   
-  // If the value is already a percentage (less than 1), multiply by 100
-  const percentage = numValue <= 1 ? numValue * 100 : numValue;
-  
-  return `${percentage.toFixed(1)}%`;
+  // If value is already represented as percentage (0-100)
+  return `${value.toFixed(1)}%`;
 };
 
-export const safeDeliveryInfo = (deliveryInfo?: AcelleCampaignDeliveryInfo | null): AcelleCampaignDeliveryInfo => {
-  return {
-    total: deliveryInfo?.total || 0,
-    delivery_rate: deliveryInfo?.delivery_rate || 0,
-    unique_open_rate: deliveryInfo?.unique_open_rate || 0,
-    click_rate: deliveryInfo?.click_rate || 0,
-    bounce_rate: deliveryInfo?.bounce_rate || 0,
-    unsubscribe_rate: deliveryInfo?.unsubscribe_rate || 0,
-    delivered: deliveryInfo?.delivered || 0,
-    opened: deliveryInfo?.opened || 0,
-    clicked: deliveryInfo?.clicked || 0,
-    bounced: {
-      soft: deliveryInfo?.bounced?.soft || 0,
-      hard: deliveryInfo?.bounced?.hard || 0,
-      total: deliveryInfo?.bounced?.total || 0
-    },
-    unsubscribed: deliveryInfo?.unsubscribed || 0,
-    complained: deliveryInfo?.complained || 0
-  };
-};
-
-export const isConnectionError = (error: string): boolean => {
-  const connectionErrors = [
-    "failed to fetch",
-    "network error",
-    "timeout",
-    "connection failed",
-    "cannot connect",
-    "service unavailable",
-    "no response",
-    "refused to connect"
-  ];
-  return connectionErrors.some(e => error.toLowerCase().includes(e));
-};
-
-export const getTroubleshootingMessage = (error: string): string => {
+// Function to help troubleshoot connection errors
+export const getTroubleshootingMessage = (error: Error): string => {
   if (isConnectionError(error)) {
-    return "Les services Acelle semblent indisponibles. Cela peut être dû à une maintenance ou à une panne temporaire.";
+    return "Problème de connexion à l'API Acelle. Veuillez vérifier que le point d'accès API est correct et accessible.";
   }
-  if (error.includes("401") || error.includes("unauthorized")) {
-    return "Problème d'authentification avec l'API Acelle. Vérifiez votre token API.";
+  
+  if (error.message.includes("401") || error.message.includes("unauthorized")) {
+    return "Erreur d'authentification. Veuillez vérifier votre jeton API.";
   }
-  if (error.includes("404") || error.includes("not found")) {
-    return "Ressource introuvable. L'URL de l'API est peut-être incorrecte.";
-  }
-  if (error.includes("500") || error.includes("server error")) {
-    return "Erreur interne du serveur Acelle. Veuillez contacter l'administrateur de votre instance Acelle.";
-  }
-  return "Une erreur s'est produite lors de la communication avec l'API Acelle.";
+  
+  return "Erreur lors de la communication avec l'API Acelle. Veuillez réessayer plus tard.";
+};
+
+export const isConnectionError = (error: Error): boolean => {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("network") ||
+    message.includes("connection") ||
+    message.includes("connect") ||
+    message.includes("cors") ||
+    message.includes("cross-origin") ||
+    message.includes("fetch") ||
+    message.includes("timeout")
+  );
 };

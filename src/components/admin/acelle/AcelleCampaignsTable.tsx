@@ -11,14 +11,14 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle/acelle-service";
+import * as acelleService from "@/services/acelle";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
 import { CampaignsTableHeader } from "./table/TableHeader";
-import { CampaignsTablePagination } from "./table/TablePagination";
+import { TablePagination } from "./table/TablePagination";
 import {
-  TableLoadingState,
-  TableErrorState,
+  LoadingState as TableLoadingState,
+  ErrorState as TableErrorState,
   EmptyState,
   InactiveAccountState
 } from "./table/LoadingAndErrorStates";

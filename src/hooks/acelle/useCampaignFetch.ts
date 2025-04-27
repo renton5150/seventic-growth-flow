@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle";
+import * as acelleService from "@/services/acelle";
 
 export const useCampaignFetch = () => {
   const [isLoading, setIsLoading] = useState(false);

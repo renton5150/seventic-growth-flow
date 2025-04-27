@@ -4,7 +4,7 @@ import { Check, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { acelleService } from "@/services/acelle/acelle-service";
+import * as acelleService from "@/services/acelle";
 import { useAuth } from "@/contexts/AuthContext";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 

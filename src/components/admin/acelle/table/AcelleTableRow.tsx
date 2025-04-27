@@ -45,12 +45,22 @@ export const AcelleTableRow: React.FC<AcelleTableRowProps> = ({ campaign, onView
   const openRate = deliveryInfo.unique_open_rate || 0;
   const clickRate = deliveryInfo.click_rate || 0;
 
+  // Convert to a valid badge variant
+  const getBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    const variant = getStatusBadgeVariant(status);
+    // Ensure we return a valid variant type
+    if (variant === "success" || variant === "primary") return "default";
+    if (variant === "warning") return "secondary";
+    if (variant === "danger") return "destructive";
+    return "outline";
+  };
+
   return (
     <TableRow>
       <TableCell className="font-medium">{campaign.name}</TableCell>
       <TableCell>{campaign.subject || "—"}</TableCell>
       <TableCell>
-        <Badge variant={getStatusBadgeVariant(campaign.status)}>
+        <Badge variant={getBadgeVariant(campaign.status)}>
           {translateStatus(campaign.status)}
         </Badge>
       </TableCell>

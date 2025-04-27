@@ -9,12 +9,15 @@ export interface AcelleAccount {
   updated_at: string;
   last_sync_date: string | null;
   mission_id?: string | null;
+  missionName?: string; // Added for compatibility
   
   // Backward compatibility aliases
   apiEndpoint?: string; // alias for api_endpoint
   apiToken?: string;    // alias for api_token
   lastSyncDate?: string | null; // alias for last_sync_date
   missionId?: string;   // alias for mission_id
+  createdAt?: string;   // alias for created_at
+  updatedAt?: string;   // alias for updated_at
 }
 
 export interface AcelleCampaign {
@@ -27,6 +30,7 @@ export interface AcelleCampaign {
   run_at: string | null;
   delivery_info: AcelleCampaignDeliveryInfo;
   tracking?: AcelleCampaignTracking;
+  statistics?: any; // Adding this property
 }
 
 export interface AcelleCampaignDeliveryInfo {
@@ -69,4 +73,6 @@ export interface AcelleConnectionDebug {
     headers: Record<string, string>;
   };
   response?: any;
+  responseData?: any; // Adding this for backward compatibility
+  timestamp?: string; // Adding this for backward compatibility
 }

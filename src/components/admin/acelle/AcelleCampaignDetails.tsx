@@ -24,8 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { DataUnavailableAlert } from "./errors/DataUnavailableAlert";
 
 import { AcelleAccount, AcelleCampaignDetail, AcelleCampaignDeliveryInfo } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle/acelle-service";
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
+import * as acelleService from "@/services/acelle";
 
 interface AcelleCampaignDetailsProps {
   account: AcelleAccount;
@@ -79,7 +79,6 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
     );
   }
 
-  // Affichage en mode dégradé si certaines données sont manquantes
   const hasIncompleteData = campaign && (!campaign.delivery_info || !campaign.statistics);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
@@ -180,7 +179,7 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
                 <dt className="text-sm font-medium text-muted-foreground">Tracking</dt>
                 <dd className="text-sm">
                   {campaign?.tracking?.open_tracking ? "Ouvertures: Activé" : "Ouvertures: Désactivé"}{", "}
-                  {campaign?.tracking?.click_tracking ? "Clics: Activé" : "Clics: Désactivé"}
+                  {campaign?.tracking?.click_tracking ? "Clics: Activé" : "Clics: D��sactivé"}
                 </dd>
               </div>
             </dl>

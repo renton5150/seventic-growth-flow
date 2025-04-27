@@ -14,4 +14,12 @@ export const acelleService = {
   ...connection
 };
 
+// For backward compatibility with existing code
+const acelleServiceInstance = {
+  ...accounts,
+  ...campaigns,
+  ...connection
+};
+
+export { acelleServiceInstance as acelleService };
 export default acelleService;

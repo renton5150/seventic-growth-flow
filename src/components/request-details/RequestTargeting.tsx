@@ -1,65 +1,90 @@
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Request } from "@/types/types";
+import React from 'react';
+import { Request, DatabaseRequest, LinkedInScrapingRequest } from '@/types/types';
 
 interface RequestTargetingProps {
   request: Request;
 }
 
 export const RequestTargeting: React.FC<RequestTargetingProps> = ({ request }) => {
-  const renderTargetingInfo = () => {
-    const targeting = request.details?.targeting || request.targeting || {};
-    if (!targeting) return <p>Aucune information de ciblage disponible</p>;
-    
+  // Access targeting based on request type
+  const getTargeting = () => {
+    if (request.type === 'database') {
+      // Try to access targeting from different possible locations based on the data structure
+      return (request as DatabaseRequest).details?.targeting || request.targeting;
+    } else if (request.type === 'linkedin') {
+      // Try to access targeting from different possible locations based on the data structure
+      return (request as LinkedInScrapingRequest).details?.targeting || request.targeting;
+    }
+    return null;
+  };
+
+  const targeting = getTargeting();
+
+  if (!targeting) {
     return (
-      <div className="space-y-4">
-        {targeting.jobTitles && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Titres de poste</h3>
-            <p className="text-base">{Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join(", ") : targeting.jobTitles}</p>
-          </div>
-        )}
-        
-        {targeting.industries && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Industries</h3>
-            <p className="text-base">{Array.isArray(targeting.industries) ? targeting.industries.join(", ") : targeting.industries}</p>
-          </div>
-        )}
-        
-        {targeting.locations && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Localisations</h3>
-            <p className="text-base">{Array.isArray(targeting.locations) ? targeting.locations.join(", ") : targeting.locations}</p>
-          </div>
-        )}
-        
-        {targeting.companySize && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Taille d'entreprise</h3>
-            <p className="text-base">{targeting.companySize}</p>
-          </div>
-        )}
-        
-        {targeting.seniority && targeting.seniority.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Niveaux de séniorité</h3>
-            <p className="text-base">{Array.isArray(targeting.seniority) ? targeting.seniority.join(", ") : targeting.seniority}</p>
-          </div>
-        )}
+      <div className="text-center p-8">
+        <p className="text-muted-foreground">Aucune information de ciblage disponible.</p>
       </div>
     );
-  };
-  
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ciblage</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {renderTargetingInfo()}
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      {targeting.jobTitles && targeting.jobTitles.length > 0 && (
+        <div>
+          <h3 className="text-lg font-medium mb-2">Titres de poste</h3>
+          <ul className="list-disc pl-5">
+            {targeting.jobTitles.map((title: string, index: number) => (
+              <li key={index}>{title}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {targeting.industries && targeting.industries.length > 0 && (
+        <div>
+          <h3 className="text-lg font-medium mb-2">Industries</h3>
+          <ul className="list-disc pl-5">
+            {targeting.industries.map((industry: string, index: number) => (
+              <li key={index}>{industry}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {targeting.locations && targeting.locations.length > 0 && (
+        <div>
+          <h3 className="text-lg font-medium mb-2">Localisations</h3>
+          <ul className="list-disc pl-5">
+            {targeting.locations.map((location: string, index: number) => (
+              <li key={index}>{location}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {targeting.companySize && (
+        <div>
+          <h3 className="text-lg font-medium mb-2">Taille d'entreprise</h3>
+          {Array.isArray(targeting.companySize) ? (
+            <ul className="list-disc pl-5">
+              {targeting.companySize.map((size: string, index: number) => (
+                <li key={index}>{size}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>{targeting.companySize}</p>
+          )}
+        </div>
+      )}
+
+      {targeting.otherCriteria && (
+        <div>
+          <h3 className="text-lg font-medium mb-2">Autres critères</h3>
+          <p>{targeting.otherCriteria}</p>
+        </div>
+      )}
+    </div>
   );
 };
