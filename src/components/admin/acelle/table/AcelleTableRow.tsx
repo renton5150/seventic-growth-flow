@@ -1,3 +1,4 @@
+
 import React from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -43,17 +44,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign, Simplified }: AcelleT
         {formatDateSafely(campaign.delivery_date)}
       </TableCell>
       <TableCell>
-        {campaign.delivery_info?.total || 0}
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.delivered || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.delivery_rate)}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
         <div>
           <div>{campaign.delivery_info?.opened || 0}</div>
           <div className="text-xs text-muted-foreground">
@@ -66,22 +56,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign, Simplified }: AcelleT
           <div>{campaign.delivery_info?.clicked || 0}</div>
           <div className="text-xs text-muted-foreground">
             {renderPercentage(campaign.delivery_info?.click_rate)}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.bounced?.total || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.bounce_rate)}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <div>{campaign.delivery_info?.unsubscribed || 0}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.unsubscribe_rate)}
           </div>
         </div>
       </TableCell>

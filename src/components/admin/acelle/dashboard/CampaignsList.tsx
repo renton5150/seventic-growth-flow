@@ -60,7 +60,7 @@ const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns }) => {
                     key={campaign.uid}
                     campaign={campaign}
                     onViewCampaign={() => {}}
-                    simplified
+                    Simplified
                   />
                 ))}
               </TableBody>

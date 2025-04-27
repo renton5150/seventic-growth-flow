@@ -2,9 +2,9 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
-import CampaignStatusChart from "../charts/CampaignStatusChart";
-import DeliveryStatsChart from "../charts/DeliveryStatsChart";
-import CampaignSummaryStats from "../stats/CampaignSummaryStats";
+import { CampaignStatusChart } from "../charts/CampaignStatusChart";
+import { DeliveryStatsChart } from "../charts/DeliveryStatsChart";
+import { CampaignSummaryStats } from "../stats/CampaignSummaryStats";
 
 interface CampaignsOverviewProps {
   campaigns: AcelleCampaign[];
