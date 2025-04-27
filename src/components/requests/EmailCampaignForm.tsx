@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -33,7 +32,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
 
   const getInitialValues = () => {
     if (editMode && initialData) {
-      console.log("Initialisation du formulaire avec les données:", initialData);
+      console.log("Initialisation du formulaire d'édition avec les valeurs de mission:", initialData);
       
       const template = initialData.template || {
         content: "",
@@ -44,8 +43,13 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       const database = initialData.database || {
         notes: "",
         fileUrl: "",
-        webLink: ""
+        webLinks: []
       };
+      
+      const databaseWebLinks = [...(database.webLinks || [])];
+      while (databaseWebLinks.length < 5) {
+        databaseWebLinks.push("");
+      }
       
       const blacklist = initialData.blacklist || {
         accounts: { notes: "", fileUrl: "" },
@@ -68,7 +72,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         templateFileUrl: template.fileUrl || "",
         templateWebLink: template.webLink || "",
         databaseFileUrl: database.fileUrl || "",
-        databaseWebLink: database.webLink || "",
+        databaseWebLinks,
         databaseNotes: database.notes || "",
         blacklistAccountsFileUrl: blacklistAccounts.fileUrl || "",
         blacklistAccountsNotes: blacklistAccounts.notes || "",
@@ -84,7 +88,6 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     defaultValues: getInitialValues()
   });
   
-  // Réinitialiser le formulaire si initialData change
   useEffect(() => {
     if (editMode && initialData) {
       const values = getInitialValues();
@@ -130,7 +133,6 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     checkSupabaseConnection();
   }, []);
   
-  // Afficher les valeurs du formulaire pour débogage
   useEffect(() => {
     if (editMode) {
       console.log("Valeurs actuelles du formulaire:", form.getValues());
@@ -167,7 +169,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         },
         database: {
           fileUrl: data.databaseFileUrl || "",
-          webLink: data.databaseWebLink || "",
+          webLinks: data.databaseWebLinks.filter(link => !!link),
           notes: data.databaseNotes || ""
         },
         blacklist: {

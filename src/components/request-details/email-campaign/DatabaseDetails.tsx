@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { downloadFile } from '@/services/database';
 import { toast } from 'sonner';
@@ -57,12 +57,23 @@ export const DatabaseDetails = ({ database }: DatabaseDetailsProps) => {
             </Button>
           </div>
         )}
-        {database.webLink && (
+        {database.webLinks && database.webLinks.length > 0 && (
           <div>
-            <h4 className="font-semibold text-sm">Lien web</h4>
-            <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-              {database.webLink}
-            </a>
+            <h4 className="font-semibold text-sm mb-2">Liens web</h4>
+            <div className="space-y-2">
+              {database.webLinks.map((link, index) => (
+                <a 
+                  key={index}
+                  href={link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-blue-500 hover:text-blue-600"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  {link}
+                </a>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

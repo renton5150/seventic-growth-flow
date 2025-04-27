@@ -9,7 +9,7 @@ export const formSchema = z.object({
   templateFileUrl: z.string().optional(),
   templateWebLink: z.string().optional(),
   databaseFileUrl: z.string().optional(),
-  databaseWebLink: z.string().optional(),
+  databaseWebLinks: z.array(z.string().url("URL invalide").optional()).max(5),
   databaseNotes: z.string().optional(),
   blacklistAccountsFileUrl: z.string().optional(),
   blacklistAccountsNotes: z.string().optional(),
@@ -23,7 +23,7 @@ export const formSchema = z.object({
   path: ["templateContent"],
 }).refine(data => {
   // Au moins un champ database doit être rempli
-  return !!data.databaseFileUrl || !!data.databaseWebLink || !!data.databaseNotes;
+  return !!data.databaseFileUrl || data.databaseWebLinks.some(link => !!link) || !!data.databaseNotes;
 }, {
   message: "Veuillez fournir une base de données via un fichier, un lien ou des notes explicatives",
   path: ["databaseFileUrl"],
@@ -39,7 +39,7 @@ export const defaultValues = {
   templateFileUrl: "",
   templateWebLink: "",
   databaseFileUrl: "",
-  databaseWebLink: "",
+  databaseWebLinks: ["", "", "", "", ""],
   databaseNotes: "",
   blacklistAccountsFileUrl: "",
   blacklistAccountsNotes: "",

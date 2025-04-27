@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/requests/FileUploader";
@@ -23,7 +22,7 @@ export const DatabaseSection = ({
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
 
-  const handleDatabaseFileUpload = async (files: FileList | null) => {
+  const handleDatabaseFileUpload = async (files: FileList | null | string) => {
     if (!files || files.length === 0) {
       handleFileUpload("databaseFileUrl", null);
       return;
@@ -108,26 +107,29 @@ export const DatabaseSection = ({
             />
           </div>
 
-          <div>
-            <h4 className="font-medium text-sm mb-2">Lien web</h4>
-            <FormField
-              control={control}
-              name="databaseWebLink"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <div className="flex items-center space-x-2">
-                      <Link className="h-5 w-5 text-muted-foreground" />
-                      <Input 
-                        placeholder="https://example.com/database" 
-                        {...field} 
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm mb-2">Liens web</h4>
+            {[0, 1, 2, 3, 4].map((index) => (
+              <FormField
+                key={index}
+                control={control}
+                name={`databaseWebLinks.${index}`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <div className="flex items-center space-x-2">
+                        <Link className="h-5 w-5 text-muted-foreground" />
+                        <Input 
+                          placeholder={`Lien web ${index + 1}`}
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
           </div>
 
           <div>
