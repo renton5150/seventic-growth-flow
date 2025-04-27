@@ -3,9 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const extractFileName = (url: string): string => {
   try {
+    console.log("Extraction du nom de fichier à partir de l'URL:", url);
+    // Essayer d'extraire à partir d'une URL complète
     const pathSegments = new URL(url).pathname.split('/');
-    return decodeURIComponent(pathSegments[pathSegments.length - 1]);
-  } catch {
+    const fileName = decodeURIComponent(pathSegments[pathSegments.length - 1]);
+    console.log("Nom de fichier extrait:", fileName);
+    return fileName;
+  } catch (error) {
+    console.error("Erreur lors de l'extraction du nom de fichier:", error);
     return 'document';
   }
 };
@@ -13,15 +18,21 @@ export const extractFileName = (url: string): string => {
 export const checkFileExists = async (url: string): Promise<boolean> => {
   try {
     if (!url) return false;
+    console.log("Vérification de l'existence du fichier:", url);
     
     // Extraire le chemin du fichier de l'URL
-    const path = url.split('/').slice(-2).join('/');
-    if (!path) return false;
+    const pathInfo = extractPathFromSupabaseUrl(url);
+    if (!pathInfo) {
+      console.warn("Impossible d'extraire les informations de chemin");
+      return false;
+    }
+    
+    console.log(`Vérification dans le bucket ${pathInfo.bucketName}, chemin: ${pathInfo.filePath}`);
     
     const { data, error } = await supabase.storage
-      .from('databases')
-      .list('uploads', {
-        search: path
+      .from(pathInfo.bucketName)
+      .list(pathInfo.filePath.split('/').slice(0, -1).join('/'), {
+        search: pathInfo.filePath.split('/').pop() || ''
       });
     
     if (error) {
@@ -29,7 +40,9 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
       return false;
     }
     
-    return data && data.length > 0;
+    const exists = data && data.length > 0;
+    console.log("Le fichier existe:", exists);
+    return exists;
   } catch (error) {
     console.error("Erreur lors de la vérification du fichier:", error);
     return false;
@@ -38,8 +51,13 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
 
 export const downloadFile = async (url: string, fileName: string = 'document'): Promise<boolean> => {
   try {
+    console.log(`Téléchargement du fichier: ${url} avec le nom ${fileName}`);
     const response = await fetch(url);
-    if (!response.ok) return false;
+    
+    if (!response.ok) {
+      console.error("Erreur de réponse HTTP:", response.status, response.statusText);
+      return false;
+    }
     
     const blob = await response.blob();
     const downloadUrl = window.URL.createObjectURL(blob);
@@ -51,6 +69,7 @@ export const downloadFile = async (url: string, fileName: string = 'document'): 
     document.body.removeChild(link);
     window.URL.revokeObjectURL(downloadUrl);
     
+    console.log("Téléchargement terminé avec succès");
     return true;
   } catch (error) {
     console.error("Erreur lors du téléchargement:", error);
@@ -66,11 +85,13 @@ export const downloadFile = async (url: string, fileName: string = 'document'): 
 export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; filePath: string } | null => {
   try {
     if (!url) return null;
+    console.log("Extraction du chemin à partir de l'URL:", url);
 
     // Pour les URL complètes de Supabase Storage
     if (url.includes('/storage/v1/object/public/')) {
       const match = url.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
       if (match && match.length >= 3) {
+        console.log(`Chemin extrait - Bucket: ${match[1]}, Fichier: ${match[2]}`);
         return {
           bucketName: match[1],
           filePath: match[2]
@@ -86,6 +107,7 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
       const path = segments.slice(1).join('/');
       
       if (bucket && path) {
+        console.log(`Chemin relatif extrait - Bucket: ${bucket}, Fichier: ${path}`);
         return {
           bucketName: bucket,
           filePath: path
@@ -93,6 +115,7 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
       }
     }
     
+    console.warn("Impossible d'extraire les informations de chemin");
     return null;
   } catch (error) {
     console.error("Erreur lors de l'extraction du chemin:", error);
