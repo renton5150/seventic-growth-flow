@@ -11,6 +11,7 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
     
     if (listError) {
       console.error("Erreur lors de la récupération des buckets:", listError);
+      console.error("Message d'erreur:", listError.message);
       return false;
     }
     
@@ -26,6 +27,7 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
         
         if (getBucketError) {
           console.error("Erreur lors de la récupération des détails du bucket:", getBucketError);
+          console.error("Message d'erreur:", getBucketError.message);
         } else {
           console.log("Détails actuels du bucket:", bucketDetails);
           
@@ -40,9 +42,7 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
             
             if (updateError) {
               console.error("Erreur lors de la mise à jour du bucket 'databases':", updateError);
-              console.log("Code d'erreur:", updateError.code);
-              console.log("Message d'erreur:", updateError.message);
-              console.log("Détails:", updateError.details);
+              console.error("Message d'erreur:", updateError.message);
             } else {
               console.log("Le bucket 'databases' est maintenant configuré comme public");
             }
@@ -67,9 +67,7 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
     
     if (createError) {
       console.error("Erreur lors de la création du bucket 'databases':", createError);
-      console.log("Code d'erreur:", createError.code);
-      console.log("Message d'erreur:", createError.message);
-      console.log("Détails:", createError.details);
+      console.error("Message d'erreur:", createError.message);
       return false;
     }
     
@@ -91,9 +89,7 @@ export const ensureBucketIsPublic = async (bucketName: string): Promise<boolean>
     
     if (getBucketError) {
       console.error(`Erreur lors de la récupération des détails du bucket ${bucketName}:`, getBucketError);
-      console.log("Code d'erreur:", getBucketError.code);
-      console.log("Message d'erreur:", getBucketError.message);
-      console.log("Détails:", getBucketError.details);
+      console.error("Message d'erreur:", getBucketError.message);
       return false;
     }
     
@@ -110,9 +106,7 @@ export const ensureBucketIsPublic = async (bucketName: string): Promise<boolean>
       
       if (error) {
         console.error(`Erreur lors de la mise à jour du bucket ${bucketName}:`, error);
-        console.log("Code d'erreur:", error.code);
-        console.log("Message d'erreur:", error.message);
-        console.log("Détails:", error.details);
+        console.error("Message d'erreur:", error.message);
         return false;
       }
       

@@ -53,9 +53,7 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
     
     if (uploadError) {
       console.error("Erreur lors du téléversement:", uploadError);
-      console.log("Code d'erreur:", uploadError.code);
-      console.log("Message d'erreur:", uploadError.message);
-      console.log("Détails:", uploadError.details);
+      console.error("Message d'erreur:", uploadError.message);
       
       // Messages d'erreur plus spécifiques
       if (uploadError.message.includes('JWT')) {
