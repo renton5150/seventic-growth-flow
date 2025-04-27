@@ -35,7 +35,8 @@ export const createSupabaseMission = async (data: {
       description: data.description,
       startDate: data.startDate,
       endDate: data.endDate,
-      type: missionType
+      type: missionType,
+      client: data.name // Utilise le nom comme valeur pour client (requis par le schéma)
     };
     
     console.log("Calling createSupaMission with:", missionData);

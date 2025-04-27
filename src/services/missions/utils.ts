@@ -88,43 +88,75 @@ export const getSupaMissionById = async (missionId: string) => {
 // Create a new mission
 export const createSupaMission = async (missionData: any) => {
   try {
+    // Convert mission data to match Supabase column names
+    const supabaseMissionData = {
+      id: missionData.id || undefined,
+      name: missionData.name,
+      sdr_id: missionData.sdrId || null, // Use null if sdrId is empty
+      description: missionData.description || "",
+      start_date: missionData.startDate ? new Date(missionData.startDate).toISOString() : null,
+      end_date: missionData.endDate ? new Date(missionData.endDate).toISOString() : null,
+      type: missionData.type || "Full",
+      client: missionData.client || missionData.name, // Use name as client if not provided
+      status: missionData.status || "En cours"
+    };
+    
+    console.log("Formatted data for Supabase insertion:", supabaseMissionData);
+
     const { data, error } = await supabase
       .from('missions')
-      .insert([missionData])
+      .insert([supabaseMissionData])
       .select()
       .single();
-      
+
     if (error) {
-      console.error("Error creating mission:", error);
-      return null;
+      console.error("Error creating mission in Supabase:", error);
+      throw error;
     }
     
+    if (!data) {
+      console.error("No data returned after mission creation");
+      return null;
+    }
+
+    console.log("Mission created successfully:", data);
     return data;
   } catch (error) {
     console.error("Error in createSupaMission:", error);
-    return null;
+    throw error;
   }
 };
 
 // Update an existing mission
 export const updateSupaMission = async (missionData: any) => {
   try {
+    // Format the data to match Supabase column names
+    const supabaseMissionData = {
+      name: missionData.name,
+      sdr_id: missionData.sdrId || null,
+      description: missionData.description || "",
+      start_date: missionData.startDate ? new Date(missionData.startDate).toISOString() : null,
+      end_date: missionData.endDate ? new Date(missionData.endDate).toISOString() : null,
+      type: missionData.type || "Full",
+      status: missionData.status || "En cours"
+    };
+    
     const { data, error } = await supabase
       .from('missions')
-      .update(missionData)
+      .update(supabaseMissionData)
       .eq('id', missionData.id)
       .select()
       .single();
       
     if (error) {
       console.error(`Error updating mission ${missionData.id}:`, error);
-      return null;
+      throw error;
     }
     
     return data;
   } catch (error) {
     console.error("Error in updateSupaMission:", error);
-    return null;
+    throw error;
   }
 };
 
