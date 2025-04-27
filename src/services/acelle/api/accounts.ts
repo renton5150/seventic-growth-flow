@@ -38,7 +38,7 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       
       // Only assign last_sync_error if it exists in the data
       if ('last_sync_error' in account) {
-        accountData.lastSyncError = account.last_sync_error;
+        accountData.lastSyncError = account.last_sync_error as string | null;
       }
       
       return accountData;
@@ -84,7 +84,7 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
     
     // Only assign last_sync_error if it exists in the data
     if ('last_sync_error' in data) {
-      accountData.lastSyncError = data.last_sync_error;
+      accountData.lastSyncError = data.last_sync_error as string | null;
     }
     
     return accountData;
@@ -219,4 +219,3 @@ export const updateLastSyncDate = async (accountId: string): Promise<void> => {
     console.error(`Error updating last sync date for account ${accountId}:`, error);
   }
 };
-
