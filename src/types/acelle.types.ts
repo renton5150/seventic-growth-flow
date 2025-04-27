@@ -1,4 +1,3 @@
-
 export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
@@ -77,7 +76,6 @@ export interface AcelleCampaignDeliveryInfo {
   complained: number;
 }
 
-// Modified the interface to make it compatible with AcelleCampaign
 export interface AcelleCampaignDetail extends Omit<AcelleCampaign, 'delivery_info'> {
   html: string;
   plain: string;
@@ -93,13 +91,23 @@ export interface AcelleCampaignDetail extends Omit<AcelleCampaign, 'delivery_inf
   delivery_info?: AcelleCampaignDeliveryInfo;
 }
 
-// Interface pour le débogage de la connexion
-export interface AcelleConnectionDebug {
+export interface AcelleConnectionResponse {
   success: boolean;
   statusCode?: number;
-  responseData?: any;
+  error?: string;
+  data?: any;
+  details?: any;
+  message?: string;
+  account?: string;
+  endpoint?: string;
+}
+
+export interface AcelleConnectionDebug {
+  success: boolean;
   errorMessage?: string;
-  request?: {
+  statusCode?: number;
+  responseData?: any;
+  request: {
     url: string;
     headers: Record<string, string>;
   };

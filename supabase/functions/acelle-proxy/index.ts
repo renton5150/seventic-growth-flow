@@ -9,16 +9,13 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400'
 };
 
-// Improved heartbeat mechanism
 let lastActivity = Date.now();
 const HEARTBEAT_INTERVAL = 30 * 1000;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://dupguifqyjchlmzbadav.supabase.co';
 const SUPABASE_SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || '';
 
-// Create Supabase client for heartbeat recording
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// Heartbeat recorder
 setInterval(async () => {
   if (Date.now() - lastActivity > HEARTBEAT_INTERVAL) {
     console.log(`Heartbeat at ${new Date().toISOString()} - Service active`);
@@ -48,7 +45,6 @@ function debugLog(message: string, data?: any, isError = false) {
 serve(async (req) => {
   lastActivity = Date.now();
 
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
       status: 204,
@@ -57,7 +53,6 @@ serve(async (req) => {
   }
 
   try {
-    // Vérification obligatoire du JWT Supabase
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       debugLog("Token JWT Supabase manquant ou invalide", null, true);
@@ -70,25 +65,25 @@ serve(async (req) => {
       });
     }
     
-    // Le token Supabase est dans l'en-tête Authorization
     const supabaseToken = authHeader.substring(7);
 
-    // Special case for ping - only verify the JWT
     const url = new URL(req.url);
     
-    // Add test endpoint for Acelle connection
     if (url.pathname.includes('/test-acelle-connection')) {
       try {
         debugLog("Test connection request received");
         
-        // Get acelle endpoint and token from headers
         const acelleEndpoint = req.headers.get('x-acelle-endpoint');
         const acelleToken = req.headers.get('x-acelle-token');
         
         if (!acelleEndpoint || !acelleToken) {
           return new Response(JSON.stringify({
             success: false,
-            message: "Missing x-acelle-endpoint or x-acelle-token headers"
+            message: "Missing x-acelle-endpoint or x-acelle-token headers",
+            details: {
+              endpoint: acelleEndpoint ? "présent" : "manquant",
+              token: acelleToken ? "présent" : "manquant"
+            }
           }), { 
             status: 400, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -98,41 +93,132 @@ serve(async (req) => {
         const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
         const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
         
-        // Build test URL
-        const testUrl = `${cleanEndpoint}${apiPath}/me?api_token=${acelleToken}`;
-        
-        // Test the connection
-        const response = await fetch(testUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Seventic-Acelle-Tester/1.0'
-          }
-        });
-        
-        const statusCode = response.status;
-        let responseData;
+        debugLog(`Verifying endpoint availability: ${cleanEndpoint}`);
         
         try {
-          responseData = await response.json();
-        } catch (e) {
-          responseData = await response.text();
+          const pingController = new AbortController();
+          const pingTimeout = setTimeout(() => pingController.abort(), 5000);
+          
+          const pingResponse = await fetch(cleanEndpoint, {
+            method: "HEAD",
+            headers: {
+              'User-Agent': 'Seventic-Acelle-Tester/1.1',
+              'Accept': '*/*'
+            },
+            signal: pingController.signal
+          });
+          
+          clearTimeout(pingTimeout);
+          
+          if (!pingResponse.ok) {
+            return new Response(JSON.stringify({
+              success: false,
+              statusCode: pingResponse.status,
+              message: `L'API n'est pas disponible - Erreur ${pingResponse.status} ${pingResponse.statusText}`,
+              details: {
+                endpoint: cleanEndpoint,
+                status: pingResponse.status,
+                statusText: pingResponse.statusText
+              }
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          debugLog(`Endpoint is accessible: ${cleanEndpoint}`);
+        } catch (pingError) {
+          debugLog(`Error pinging endpoint: ${pingError.message}`, null, true);
+          return new Response(JSON.stringify({
+            success: false,
+            error: pingError.message,
+            message: `Impossible d'accéder à l'endpoint - ${pingError.name === "AbortError" ? "Délai dépassé" : pingError.message}`,
+            details: {
+              endpoint: cleanEndpoint,
+              error: pingError.message,
+              timeout: pingError.name === "AbortError"
+            }
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
         
-        return new Response(JSON.stringify({
-          success: statusCode >= 200 && statusCode < 300,
-          statusCode: statusCode,
-          response: responseData,
-          message: "Test connection to Acelle API"
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const testUrl = `${cleanEndpoint}${apiPath}/me?api_token=${acelleToken}`;
+        
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          
+          debugLog(`Testing API connection with URL: ${testUrl}`);
+          
+          const response = await fetch(testUrl, {
+            method: "GET",
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'Seventic-Acelle-Tester/1.1'
+            },
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          const statusCode = response.status;
+          let responseData;
+          
+          try {
+            responseData = await response.json();
+          } catch (e) {
+            try {
+              responseData = await response.text();
+              responseData = { text: responseData.substring(0, 500) };
+            } catch (textErr) {
+              responseData = { error: "Failed to parse response" };
+            }
+          }
+          
+          return new Response(JSON.stringify({
+            success: statusCode >= 200 && statusCode < 300,
+            statusCode: statusCode,
+            response: responseData,
+            message: statusCode === 403 ? 
+              "Accès API refusé (403). Vérifiez votre token API et les paramètres d'autorisation." : 
+              `L'API a répondu avec le statut ${statusCode}`,
+            details: {
+              endpoint: cleanEndpoint,
+              status: statusCode,
+              isError: statusCode >= 400
+            }
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (fetchError) {
+          const isTimeout = fetchError.name === "AbortError";
+          debugLog(`API test error: ${fetchError.message}`, null, true);
+          
+          return new Response(JSON.stringify({
+            success: false,
+            error: fetchError.message,
+            message: isTimeout ? 
+              "Délai d'attente dépassé lors de la connexion à l'API. Le serveur est peut-être lent ou inaccessible." : 
+              `Erreur lors du test de connexion: ${fetchError.message}`,
+            details: {
+              endpoint: cleanEndpoint,
+              timeout: isTimeout,
+              error: fetchError.message
+            }
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
       } catch (error) {
         debugLog("Error in test connection:", error, true);
         return new Response(JSON.stringify({
           success: false,
           error: error.message,
-          message: "Error testing connection to Acelle API"
+          message: `Erreur lors du test de connexion à l'API: ${error.message}`
         }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -151,7 +237,6 @@ serve(async (req) => {
       });
     }
     
-    // Pour les autres requêtes, récupérer les informations Acelle
     const acelleEndpoint = req.headers.get('x-acelle-endpoint');
     if (!acelleEndpoint) {
       debugLog("Point de terminaison Acelle manquant dans les en-têtes de la requête", null, true);
@@ -161,7 +246,6 @@ serve(async (req) => {
       });
     }
 
-    // Récupérer le token API Acelle
     const acelleToken = req.headers.get('x-acelle-token');
     if (!acelleToken) {
       debugLog("Token API Acelle manquant", null, true);
@@ -176,20 +260,16 @@ serve(async (req) => {
     
     debugLog("Token API Acelle détecté:", acelleToken.substring(0, 10) + "...");
 
-    // Analyser l'URL pour récupérer la ressource et l'ID
     const parts = url.pathname.split('/');
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
     const resourceId = parts[parts.length - 2] === 'acelle-proxy' ? null : parts[parts.length - 1];
 
-    // Construire l'URL de l'API Acelle
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    // Construire les paramètres d'URL avec le token API
     const queryParams = new URLSearchParams();
     queryParams.append('api_token', acelleToken);
     
-    // Ajouter les paramètres additionnels de la requête
     const page = req.headers.get('x-page');
     const perPage = req.headers.get('x-per-page');
     const includeStats = req.headers.get('x-include-stats');
@@ -198,7 +278,6 @@ serve(async (req) => {
     if (perPage) queryParams.append('per_page', perPage);
     if (includeStats === 'true') queryParams.append('include_stats', 'true');
     
-    // Ajouter d'autres paramètres de l'URL d'origine
     for (const [key, value] of url.searchParams.entries()) {
       if (key !== 'cache_key') {
         queryParams.append(key, value);
@@ -214,7 +293,6 @@ serve(async (req) => {
 
     debugLog(`Transmission de la requête à l'API Acelle: ${acelleApiUrl}`);
 
-    // Préparer les en-têtes pour l'API Acelle (sans token d'authentification)
     const headers: HeadersInit = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/2.0',
@@ -248,7 +326,6 @@ serve(async (req) => {
 
       clearTimeout(timeoutId);
 
-      // Vérification de la redirection d'authentification
       if (response.status === 302) {
         debugLog("Échec d'authentification - redirigé vers la page de connexion", null, true);
         return new Response(JSON.stringify({

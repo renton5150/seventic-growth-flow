@@ -69,7 +69,7 @@ export const testAcelleConnection = async (
     console.log(`Tentative de connexion à Acelle avec URL: ${cleanApiEndpoint}`);
     console.log(`Token API (premiers caractères): ${apiToken.substring(0, 10)}...`);
       
-    const url = `${ACELLE_PROXY_BASE_URL}/me`;
+    const url = `${ACELLE_PROXY_BASE_URL}/test-acelle-connection`;
     
     // Préparation des en-têtes pour l'edge function
     const headers = {
@@ -156,12 +156,12 @@ export const testAcelleConnection = async (
     const data = await response.json();
     console.log("Données reçues:", JSON.stringify(data).substring(0, 200));
     
-    const success = !!data.id;
+    const success = data.success === true;
     
     if (debug) {
       debugInfo.success = success;
       if (!success) {
-        debugInfo.errorMessage = "La réponse ne contient pas l'ID d'utilisateur attendu";
+        debugInfo.errorMessage = data.message || "La réponse n'indique pas un succès";
       }
       return debugInfo;
     }
@@ -181,7 +181,7 @@ export const testAcelleConnection = async (
         success: false,
         errorMessage,
         request: {
-          url: `${ACELLE_PROXY_BASE_URL}/me`,
+          url: `${ACELLE_PROXY_BASE_URL}/test-acelle-connection`,
           headers: { 
             "Accept": "application/json",
             "X-Acelle-Endpoint": apiEndpoint,

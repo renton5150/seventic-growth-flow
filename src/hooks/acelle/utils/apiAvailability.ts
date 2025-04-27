@@ -3,10 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ACELLE_PROXY_BASE_URL } from "./config/acelleApiConfig";
 
+export interface ApiAvailabilityResponse {
+  available: boolean;
+  error?: string;
+  data?: any;
+}
+
 /**
  * Vérifie si l'API Acelle est disponible
  */
-export const checkApiAvailability = async (retries = 2, retryDelay = 1500): Promise<{ available: boolean, error?: string }> => {
+export const checkApiAvailability = async (retries = 2, retryDelay = 1500): Promise<ApiAvailabilityResponse> => {
   console.log("Vérification de la disponibilité de l'API Acelle...");
   
   try {
@@ -30,7 +36,7 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500): Prom
         
         // Configuration de la requête avec timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         
         const pingUrl = `${ACELLE_PROXY_BASE_URL}/ping`;
         console.log(`Ping vers: ${pingUrl}`);
@@ -49,17 +55,45 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500): Prom
         
         if (response.ok) {
           const data = await response.json();
-          console.log("API disponible:", data);
+          console.log("API Edge Function disponible:", data);
           
-          if (data.status === "active") {
-            return { available: true };
-          } else {
-            lastError = `Service inactif: ${data.status}`;
-            console.warn(lastError);
+          // Now test an actual Acelle API endpoint functionality
+          try {
+            const testUrl = `${ACELLE_PROXY_BASE_URL}/test-connection`;
+            console.log(`Test de fonctionnalité: ${testUrl}`);
+            
+            const testController = new AbortController();
+            const testTimeoutId = setTimeout(() => testController.abort(), 8000);
+            
+            const testResponse = await fetch(testUrl, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+              },
+              signal: testController.signal
+            });
+            
+            clearTimeout(testTimeoutId);
+            
+            if (testResponse.ok) {
+              const testData = await testResponse.json();
+              console.log("Test de connexion API réussi:", testData);
+              available = true;
+              return { available: true, data: testData };
+            } else {
+              const errorText = await testResponse.text();
+              lastError = `L'API répond mais le test a échoué: ${testResponse.status} ${testResponse.statusText}`;
+              console.error(lastError, errorText);
+            }
+          } catch (testError) {
+            lastError = `Erreur pendant le test de l'API: ${testError.message || "Erreur inconnue"}`;
+            console.error(lastError);
           }
         } else {
           lastError = `Erreur ${response.status} ${response.statusText}`;
-          console.error("API non disponible:", lastError);
+          console.error("Edge Function non disponible:", lastError);
         }
       } catch (error) {
         if (error.name === "AbortError") {

@@ -1,9 +1,11 @@
-import React, { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Edit, Trash2, RefreshCw, Check, X, Loader2 } from "lucide-react";
 
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { AcelleAccount } from "@/types/acelle.types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -12,304 +14,188 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-import { getAcelleAccounts, deleteAcelleAccount, createAcelleAccount, updateAcelleAccount, getAcelleCampaigns } from "@/services/acelle/acelle-service";
-import { AcelleAccount } from "@/types/acelle.types";
-import AcelleAccountForm from "./AcelleAccountForm";
-import { toast } from "sonner";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RefreshCw, Plus } from "lucide-react";
+import { getAcelleAccounts, updateAcelleAccountStatus } from "@/services/acelle/acelle-service";
+import { ApiConnectionTester } from "./diagnostic/ApiConnectionTester";
 
 export default function AcelleAccountsTable() {
-  const queryClient = useQueryClient();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState<AcelleAccount | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [refreshingId, setRefreshingId] = useState<string | null>(null);
-
-  const { data: accounts = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["acelleAccounts"],
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  
+  const { 
+    data = [], 
+    isLoading, 
+    isError,
+    refetch 
+  } = useQuery({
+    queryKey: ['acelleAccounts'],
     queryFn: getAcelleAccounts,
   });
 
-  const handleAddAccount = async (data: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt" | "lastSyncDate">) => {
-    setIsSubmitting(true);
+  const handleToggleStatus = async (account: AcelleAccount) => {
     try {
-      const newAccount = await createAcelleAccount({
-        ...data,
-        lastSyncDate: null
-      });
-      
-      if (newAccount) {
-        setIsAddDialogOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
-      }
+      const newStatus = account.status === 'active' ? 'inactive' : 'active';
+      await updateAcelleAccountStatus(account.id, newStatus);
+      refetch();
     } catch (error) {
-      console.error("Erreur lors de l'ajout du compte:", error);
-      toast.error("Erreur lors de l'ajout du compte");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error updating account status:", error);
     }
   };
-
-  const handleEditAccount = async (data: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt" | "lastSyncDate">) => {
-    if (!selectedAccount) return;
-    
-    setIsSubmitting(true);
-    try {
-      const updatedAccount = await updateAcelleAccount({
-        ...selectedAccount,
-        ...data,
-        lastSyncDate: selectedAccount.lastSyncDate
-      });
-      
-      if (updatedAccount) {
-        setIsEditDialogOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
-      }
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour du compte:", error);
-      toast.error("Erreur lors de la mise à jour du compte");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!selectedAccount) return;
-    
-    try {
-      setIsDeleting(true);
-      console.log(`Starting deletion process for account: ${selectedAccount.id}`);
-      
-      toast.loading("Suppression en cours...", { id: "delete-toast" });
-      
-      const success = await deleteAcelleAccount(selectedAccount.id);
-      
-      if (success) {
-        toast.success(`Le compte ${selectedAccount.name} a été supprimé avec succès`, { id: "delete-toast" });
-        console.log(`Account ${selectedAccount.id} successfully deleted, refreshing queries`);
-        
-        await queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
-        await refetch();
-      } else {
-        toast.error(`La suppression du compte a échoué`, { id: "delete-toast" });
-      }
-    } catch (error) {
-      console.error("Error in handleDeleteAccount:", error);
-      toast.error(`Erreur lors de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`, { id: "delete-toast" });
-    } finally {
-      setIsDeleting(false);
-      setIsDeleteDialogOpen(false);
-      setSelectedAccount(null);
-    }
-  };
-
-  const handleRefreshAccount = async (account: AcelleAccount) => {
-    setRefreshingId(account.id);
-    try {
-      await getAcelleCampaigns(account);
-      toast.success(`Données synchronisées pour ${account.name}`);
-      queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
-    } catch (error) {
-      console.error(`Erreur lors de la synchronisation pour ${account.name}:`, error);
-      toast.error(`Échec de la synchronisation pour ${account.name}`);
-    } finally {
-      setRefreshingId(null);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-red-500 mb-4">Une erreur est survenue lors du chargement des comptes</p>
-        <Button onClick={() => refetch()}>Réessayer</Button>
-      </div>
-    );
-  }
+  
+  const selectedAccount = data.find(account => account.id === selectedAccountId);
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Comptes Acelle Mail</h2>
-        <Button onClick={() => setIsAddDialogOpen(true)}>Ajouter un compte</Button>
-      </div>
-      
-      {accounts.length === 0 ? (
-        <div className="text-center py-8 border rounded-md bg-muted/20">
-          <p className="text-muted-foreground">Aucun compte Acelle Mail configuré</p>
-          <Button 
-            variant="outline" 
-            className="mt-4"
-            onClick={() => setIsAddDialogOpen(true)}
-          >
-            Ajouter votre premier compte
+    <>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-medium">Comptes Acelle Mail</h3>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualiser
+          </Button>
+          <Button onClick={() => setIsCreatingNew(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouveau compte
           </Button>
         </div>
-      ) : (
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Mission</TableHead>
-                <TableHead>URL API</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Dernière synchronisation</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {accounts.map((account) => (
-                <TableRow key={account.id}>
-                  <TableCell className="font-medium">{account.name}</TableCell>
-                  <TableCell>{account.missionName}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nom</TableHead>
+              <TableHead>URL API</TableHead>
+              <TableHead>Token API</TableHead>
+              <TableHead>Dernière synchronisation</TableHead>
+              <TableHead>Priorité</TableHead>
+              <TableHead>Statut</TableHead>
+              <TableHead>Diagnostic</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.map((account: AcelleAccount) => (
+              <TableRow key={account.id}>
+                <TableCell>{account.name}</TableCell>
+                <TableCell>
+                  <span className="text-xs font-mono truncate max-w-[200px] inline-block">
                     {account.apiEndpoint}
-                  </TableCell>
-                  <TableCell>
-                    {account.status === "active" ? (
-                      <Badge className="bg-green-500">Actif</Badge>
-                    ) : (
-                      <Badge variant="secondary">Inactif</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {account.lastSyncDate 
-                      ? format(new Date(account.lastSyncDate), "dd/MM/yyyy HH:mm", { locale: fr }) 
-                      : "Jamais"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRefreshAccount(account)}
-                        disabled={refreshingId === account.id}
-                      >
-                        {refreshingId === account.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedAccount(account);
-                          setIsEditDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          console.log("Delete button clicked for account:", account);
-                          setSelectedAccount(account);
-                          setIsDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-xs font-mono">
+                    {account.apiToken ? `${account.apiToken.substring(0, 10)}...` : "Non défini"}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  {account.lastSyncDate ? 
+                    new Date(account.lastSyncDate).toLocaleString() : 
+                    "Jamais"
+                  }
+                </TableCell>
+                <TableCell>{account.cachePriority}</TableCell>
+                <TableCell>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={account.status === 'active'}
+                      onCheckedChange={() => handleToggleStatus(account)}
+                    />
+                    <Badge variant={account.status === 'active' ? "success" : "outline"}>
+                      {account.status === 'active' ? 'Actif' : 'Inactif'}
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setSelectedAccountId(account.id)}
+                  >
+                    Tester
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      Modifier
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            
+            {data.length === 0 && !isLoading && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8">
+                  Aucun compte Acelle Mail configuré. Créez-en un pour commencer.
+                </TableCell>
+              </TableRow>
+            )}
+            
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8">
+                  <div className="flex items-center justify-center">
+                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                    Chargement des comptes...
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+      
+      <Dialog open={!!selectedAccountId} onOpenChange={(open) => !open && setSelectedAccountId(null)}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Ajouter un compte Acelle Mail</DialogTitle>
+            <DialogTitle>Test de connexion API</DialogTitle>
           </DialogHeader>
-          <AcelleAccountForm
-            onSubmit={handleAddAccount}
-            onCancel={() => setIsAddDialogOpen(false)}
-            isSubmitting={isSubmitting}
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Modifier le compte Acelle Mail</DialogTitle>
-          </DialogHeader>
+          
           {selectedAccount && (
-            <AcelleAccountForm
-              account={selectedAccount}
-              onSubmit={handleEditAccount}
-              onCancel={() => setIsEditDialogOpen(false)}
-              isSubmitting={isSubmitting}
+            <ApiConnectionTester 
+              account={selectedAccount} 
+              onTestComplete={(success) => {
+                if (success) {
+                  setTimeout(() => setSelectedAccountId(null), 3000);
+                }
+              }}
             />
           )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedAccountId(null)}>
+              Fermer
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-        if (!isDeleting) setIsDeleteDialogOpen(open);
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer le compte "{selectedAccount?.name}" ? Cette action est irréversible.
-              <div className="mt-4 p-2 bg-red-50 border border-red-200 rounded-md text-sm">
-                <p className="font-medium text-red-700">⚠️ Attention : </p>
-                <p className="text-red-600">Toutes les données de campagnes en cache pour ce compte seront également supprimées.</p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault(); // Prevent default to handle manually
-                handleDeleteAccount();
-              }}
-              disabled={isDeleting}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Suppression...
-                </>
-              ) : (
-                "Supprimer"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+      
+      {/* Formulaire de création */}
+      <Dialog open={isCreatingNew} onOpenChange={setIsCreatingNew}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nouveau compte Acelle Mail</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <p className="text-muted-foreground">
+              Formulaire de création du compte à implémenter
+            </p>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreatingNew(false)}>
+              Annuler
+            </Button>
+            <Button type="submit">
+              Créer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

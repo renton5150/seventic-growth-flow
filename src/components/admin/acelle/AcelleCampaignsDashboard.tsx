@@ -1,13 +1,15 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAcelleCampaigns } from "@/hooks/acelle/useAcelleCampaigns";
 import { AcelleAccount } from "@/types/acelle.types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, AlertCircle, Power } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, RefreshCw, AlertCircle, Power, ExternalLink, HelpCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import CampaignsOverview from "./dashboard/CampaignsOverview";
 import CampaignsList from "./dashboard/CampaignsList";
+import { getTroubleshootingMessage, isConnectionError } from "@/utils/acelle/campaignStatusUtils";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
@@ -22,6 +24,20 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     handleRetry,
     initializeServices 
   } = useAcelleCampaigns(accounts);
+  
+  const [detailedError, setDetailedError] = useState<string | null>(null);
+
+  // Extract API endpoint from the first active account for error messages
+  const apiEndpoint = activeAccounts.length > 0 ? activeAccounts[0].apiEndpoint : undefined;
+
+  // Prepare detailed error message when connection error occurs
+  useEffect(() => {
+    if (syncError && isConnectionError(syncError)) {
+      setDetailedError(getTroubleshootingMessage(syncError, apiEndpoint));
+    } else {
+      setDetailedError(null);
+    }
+  }, [syncError, apiEndpoint]);
 
   // Initialisation automatique au chargement du composant
   useEffect(() => {
@@ -86,7 +102,7 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
               Nous n'avons pas pu récupérer vos campagnes. Vérifiez votre connexion internet et les paramètres API dans vos comptes Acelle.
             </p>
             
-            <div className="flex gap-4">
+            <div className="flex gap-4 mb-8">
               <Button onClick={handleRetry} className="flex items-center">
                 <RefreshCw className="h-4 w-4 mr-2" /> Réessayer
               </Button>
@@ -95,6 +111,31 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
                 <Power className="h-4 w-4 mr-2" /> Réveiller les services
               </Button>
             </div>
+            
+            {detailedError && (
+              <Accordion type="single" collapsible className="w-full max-w-xl bg-gray-50 rounded-lg">
+                <AccordionItem value="troubleshooting">
+                  <AccordionTrigger className="px-4 py-2">
+                    <span className="flex items-center">
+                      <HelpCircle className="h-4 w-4 mr-2" />
+                      Informations de dépannage
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-2 text-left bg-gray-50 text-sm">
+                    <div className="space-y-2">
+                      <p className="font-medium">Erreur détectée: problème d'accès à l'API</p>
+                      <p className="whitespace-pre-line">{detailedError}</p>
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <p className="text-xs text-muted-foreground">Pour plus d'informations, contactez votre administrateur système</p>
+                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => window.open('https://acellemail.com/documentation', '_blank')}>
+                          <ExternalLink className="h-3 w-3 mr-1" /> Documentation Acelle
+                        </Button>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
           </div>
         </CardContent>
       </Card>
