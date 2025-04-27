@@ -124,12 +124,23 @@ export const testAcelleConnection = async (
       debugInfo.statusCode = response.status;
       
       try {
-        debugInfo.responseData = await response.clone().json();
+        // Fix: We need to ensure responseData is properly structured as an object
+        const responseJson = await response.clone().json();
+        debugInfo.responseData = responseJson;
       } catch (e) {
         try {
-          debugInfo.responseData = await response.clone().text();
+          const textResponse = await response.clone().text();
+          // Fix: Instead of assigning the string directly, create an object with error message
+          debugInfo.responseData = {
+            error: textResponse,
+            message: "Response couldn't be parsed as JSON"
+          };
         } catch (textError) {
-          debugInfo.responseData = "Error reading response";
+          // Fix: Create an object instead of assigning a string
+          debugInfo.responseData = {
+            error: "Error reading response",
+            message: "Failed to read response body"
+          };
         }
       }
     }
