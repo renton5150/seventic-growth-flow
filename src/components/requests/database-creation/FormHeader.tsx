@@ -1,4 +1,3 @@
-
 import { Control } from "react-hook-form";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -19,7 +18,6 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { getMissionsByUserId } from "@/services/missionService";
-import { useState, useEffect } from "react";
 
 interface FormHeaderProps {
   control: Control<any>;

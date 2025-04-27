@@ -1,4 +1,3 @@
-
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PlanningHeader, PlanningFilters } from "@/components/planning/PlanningHeader";
@@ -33,36 +32,29 @@ const Planning = () => {
     enabled: !!user
   });
 
-  // Appliquer les filtres aux missions
   useEffect(() => {
     let filtered = [...missions];
     
-    // Filtrer par SDR
     if (filters.sdrIds.length > 0) {
       filtered = filtered.filter(mission => filters.sdrIds.includes(mission.sdrId));
     }
     
-    // Filtrer par type de mission
     if (filters.missionTypes.length > 0) {
       filtered = filtered.filter(mission => filters.missionTypes.includes(mission.type));
     }
     
-    // Filtrer par plage de dates
     if (filters.dateRange) {
       const { from, to } = filters.dateRange;
       filtered = filtered.filter(mission => {
-        // Vérifier si la mission se chevauche avec la plage de dates sélectionnée
         const missionStart = mission.startDate ? new Date(mission.startDate) : null;
         const missionEnd = mission.endDate ? new Date(mission.endDate) : null;
         
         if (!missionStart) return false;
         
-        // Si pas de date de fin, on considère que la mission est toujours en cours
         if (!missionEnd) {
           return missionStart <= to;
         }
         
-        // Vérifier le chevauchement
         return (missionStart <= to) && (missionEnd >= from);
       });
     }

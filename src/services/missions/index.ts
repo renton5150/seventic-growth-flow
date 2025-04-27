@@ -17,3 +17,6 @@ export * from "./updateDeleteMission";
 
 // Add the getMissions function that was missing
 export { getAllSupaMissions as getMissions } from './utils';
+
+// Export getMissionsByUserId for backward compatibility
+export { getSupaMissionsByUserId as getMissionsByUserId } from './utils';

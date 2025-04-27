@@ -1,7 +1,8 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { Mission } from "@/types/types";
 import { deleteSupabaseMission, createSupabaseMission, updateSupabaseMission } from "./operations/writeMissions";
-import { getAllMissionsFromSupabase, getMissionById, getMissionsByGrowthId, getMissionsBySdrId } from "./operations/readMissions";
+import { getAllMissionsFromSupabase, getMissionById, getMissionsByGrowthId, getMissionsBySdrId, getMissionsByUserId } from "./operations/readMissions";
 import { createMockedMission } from "./mockMissions";
 
 // Create a new mission (auto-detects backend source)
@@ -38,8 +39,12 @@ export const createMission = async (data: {
       // En cas d'échec de Supabase, essayer la création de mission simulée
       console.log("Falling back to mock mission creation");
       return createMockedMission({
-        ...data,
-        id: uuidv4()
+        name: data.name,
+        sdrId: data.sdrId || "",
+        description: data.description,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        type: data.type
       });
     }
   } catch (error) {

@@ -5,7 +5,8 @@ import { isSupabaseAuthenticated } from "../auth/supabaseAuth";
 import { mapSupaMissionToMission } from "@/services/missions/utils";
 import { getAllSupaMissions, getSupaMissionsByUserId, getSupaMissionById } from "@/services/missions/utils";
 
-export const getSupabaseMissions = async (): Promise<Mission[]> => {
+// Rename to better match our calling convention throughout the app
+export const getAllMissionsFromSupabase = async (): Promise<Mission[]> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
     
@@ -22,7 +23,8 @@ export const getSupabaseMissions = async (): Promise<Mission[]> => {
   }
 };
 
-export const getSupabaseUserMissions = async (userId: string): Promise<Mission[]> => {
+// Rename to getMissionsBySdrId for consistency with other method names
+export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
     
@@ -39,7 +41,10 @@ export const getSupabaseUserMissions = async (userId: string): Promise<Mission[]
   }
 };
 
-export const getSupabaseMissionById = async (missionId: string): Promise<Mission | undefined> => {
+// Alias function for backward compatibility
+export const getMissionsByUserId = getMissionsBySdrId;
+
+export const getMissionById = async (missionId: string): Promise<Mission | undefined> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
     
@@ -53,5 +58,17 @@ export const getSupabaseMissionById = async (missionId: string): Promise<Mission
   } catch (error) {
     console.error("Error fetching mission from Supabase:", error);
     return undefined;
+  }
+};
+
+export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]> => {
+  try {
+    // Implementation of getMissionsByGrowthId
+    // For now, we can return an empty array as this functionality might not be fully implemented yet
+    console.log(`Fetching missions by growth ID ${growthId} - This functionality may be expanded in the future`);
+    return [];
+  } catch (error) {
+    console.error(`Error fetching missions by growth ID ${growthId}:`, error);
+    return [];
   }
 };

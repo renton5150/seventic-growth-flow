@@ -1,11 +1,11 @@
-
 import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mission } from "@/types/types";
-import { getAllMissions, getMissionsByUserId } from "@/services/missions-service"; 
+import { getAllMissions } from "@/services/missions-service"; 
+import { getMissionsByUserId } from "@/services/missions-service";
 import { MissionsTable } from "@/components/missions/MissionsTable";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
@@ -27,7 +27,6 @@ const Missions = () => {
 
   console.log("Page Missions - utilisateur:", user);
 
-  // Fonction rafraîchissement optimisée
   const handleRefreshMissions = useCallback(() => {
     console.log("Rafraîchissement des missions");
     queryClient.invalidateQueries({ 
@@ -36,7 +35,6 @@ const Missions = () => {
     setRefreshKey(prev => prev + 1);
   }, [queryClient, user?.id, isAdmin]);
 
-  // Utiliser react-query pour gérer les missions
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions', user?.id, isAdmin, refreshKey],
     queryFn: async () => {
@@ -57,7 +55,6 @@ const Missions = () => {
     enabled: !!user
   });
     
-  // Handlers
   const handleViewMission = (mission: Mission) => {
     console.log("Affichage de la mission:", mission);
     setSelectedMission(mission);
@@ -74,7 +71,6 @@ const Missions = () => {
     setIsCreateModalOpen(true);
   };
 
-  // Handler de mise à jour avec délai
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour, rafraîchissement programmé");
     setTimeout(() => {
@@ -120,7 +116,6 @@ const Missions = () => {
           />
         )}
         
-        {/* Dialogs */}
         <CreateMissionDialog 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen} 
