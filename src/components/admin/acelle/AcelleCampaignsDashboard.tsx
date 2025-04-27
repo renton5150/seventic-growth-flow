@@ -1,15 +1,15 @@
 
-import React, { useEffect, useState } from "react";
-import { useAcelleCampaigns } from "@/hooks/acelle/useAcelleCampaigns";
-import { AcelleAccount } from "@/types/acelle.types";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useCallback, useEffect } from "react";
+import { Loader2, RefreshCw, AlertTriangle, Power } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, AlertCircle, Power, ExternalLink, HelpCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import CampaignsOverview from "./dashboard/CampaignsOverview";
-import CampaignsList from "./dashboard/CampaignsList";
-import { getTroubleshootingMessage, isConnectionError } from "@/utils/acelle/campaignStatusUtils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AcelleAccount } from "@/types/acelle.types";
+import { useAcelleCampaigns } from "@/hooks/acelle/useAcelleCampaigns";
+import { CampaignStatusChart } from "./charts/CampaignStatusChart";
+import { DeliveryStatsChart } from "./charts/DeliveryStatsChart";
+import { CampaignSummaryStats } from "./stats/CampaignSummaryStats";
+import { toast } from "sonner";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
@@ -20,141 +20,43 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     activeAccounts, 
     campaignsData, 
     isLoading, 
+    isError, 
+    error, 
     syncError, 
-    handleRetry,
-    initializeServices 
+    refetch, 
+    handleRetry 
   } = useAcelleCampaigns(accounts);
-  
-  const [detailedError, setDetailedError] = useState<string | null>(null);
 
-  // Extract API endpoint from the first active account for error messages
-  const apiEndpoint = activeAccounts.length > 0 ? activeAccounts[0].apiEndpoint : undefined;
-
-  // Prepare detailed error message when connection error occurs
+  // Recovery mechanism - if error detected, try to recover automatically
   useEffect(() => {
-    if (syncError && isConnectionError(syncError)) {
-      setDetailedError(getTroubleshootingMessage(syncError, apiEndpoint));
-    } else {
-      setDetailedError(null);
+    if (syncError && (syncError.includes("Failed to fetch") || syncError.includes("timeout") || syncError.includes("shutdown"))) {
+      // Schedule automatic recovery attempt after error detected
+      const timer = setTimeout(() => {
+        toast.info("Tentative de récupération automatique...");
+        handleRetry();
+      }, 8000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [syncError, apiEndpoint]);
+  }, [syncError, handleRetry]);
 
-  // Initialisation automatique au chargement du composant
-  useEffect(() => {
-    if (activeAccounts.length > 0) {
-      console.log("Initialisation automatique des services depuis le dashboard");
-      initializeServices().catch(err => {
-        console.error("Erreur d'initialisation automatique:", err);
-      });
-    }
-  }, [activeAccounts, initializeServices]);
+  const handleRefresh = useCallback(() => {
+    toast.info("Actualisation des données en cours...");
+    refetch();
+  }, [refetch]);
+
+  const handleWakeAndRefresh = useCallback(() => {
+    toast.info("Initialisation des services et actualisation...");
+    handleRetry();
+  }, [handleRetry]);
 
   if (activeAccounts.length === 0) {
     return (
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Aucun compte actif trouvé</h3>
-            <p className="text-muted-foreground max-w-md">
-              Aucun compte Acelle Mail actif n'est configuré. Veuillez activer un compte dans l'onglet "Comptes".
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Connexion aux services Acelle en cours...</h3>
-            <p className="text-muted-foreground max-w-md mb-6">
-              Initialisation des services et récupération des données. Cela peut prendre quelques instants.
-            </p>
-            <Button variant="outline" onClick={handleRetry}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Forcer l'actualisation
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (syncError) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4 mr-2" />
-            <AlertDescription>
-              Échec de la synchronisation: {syncError}
-            </AlertDescription>
-          </Alert>
-
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Problème de connexion aux services</h3>
-            <p className="text-muted-foreground max-w-md mb-6">
-              Nous n'avons pas pu récupérer vos campagnes. Vérifiez votre connexion internet et les paramètres API dans vos comptes Acelle.
-            </p>
-            
-            <div className="flex gap-4 mb-8">
-              <Button onClick={handleRetry} className="flex items-center">
-                <RefreshCw className="h-4 w-4 mr-2" /> Réessayer
-              </Button>
-              
-              <Button variant="outline" onClick={initializeServices} className="flex items-center">
-                <Power className="h-4 w-4 mr-2" /> Réveiller les services
-              </Button>
-            </div>
-            
-            {detailedError && (
-              <Accordion type="single" collapsible className="w-full max-w-xl bg-gray-50 rounded-lg">
-                <AccordionItem value="troubleshooting">
-                  <AccordionTrigger className="px-4 py-2">
-                    <span className="flex items-center">
-                      <HelpCircle className="h-4 w-4 mr-2" />
-                      Informations de dépannage
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 py-2 text-left bg-gray-50 text-sm">
-                    <div className="space-y-2">
-                      <p className="font-medium">Erreur détectée: problème d'accès à l'API</p>
-                      <p className="whitespace-pre-line">{detailedError}</p>
-                      <div className="flex items-center justify-between pt-2 border-t">
-                        <p className="text-xs text-muted-foreground">Pour plus d'informations, contactez votre administrateur système</p>
-                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => window.open('https://acellemail.com/documentation', '_blank')}>
-                          <ExternalLink className="h-3 w-3 mr-1" /> Documentation Acelle
-                        </Button>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (campaignsData.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Aucune campagne trouvée</h3>
-            <p className="text-muted-foreground max-w-md mb-6">
-              Nous n'avons pas trouvé de campagnes pour les comptes sélectionnés. Vous pouvez créer de nouvelles campagnes depuis Acelle Mail.
-            </p>
-            <Button onClick={handleRetry}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Actualiser
-            </Button>
+        <CardContent className="py-6">
+          <div className="text-center">
+            <p>Aucun compte actif trouvé.</p>
+            <p className="text-sm text-muted-foreground mt-2">Activez au moins un compte Acelle Mail pour voir les statistiques.</p>
           </div>
         </CardContent>
       </Card>
@@ -165,14 +67,108 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Tableau de bord des campagnes</h2>
-        <Button onClick={handleRetry} size="sm" variant="outline" className="h-8">
-          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-          Actualiser
-        </Button>
+        <div className="flex gap-2">
+          {syncError && (
+            <Button
+              onClick={handleWakeAndRefresh}
+              disabled={isLoading}
+              variant="outline"
+              className="border-amber-500 text-amber-500 hover:bg-amber-50"
+            >
+              <Power className="mr-2 h-4 w-4" />
+              Réveiller les services
+            </Button>
+          )}
+          <Button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            variant="outline"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Chargement...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Actualiser
+              </>
+            )}
+          </Button>
+        </div>
       </div>
-      
-      <CampaignsOverview campaigns={campaignsData} accounts={activeAccounts} />
-      <CampaignsList campaigns={campaignsData} />
+
+      {syncError && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex flex-1 items-center justify-between">
+            <span>
+              {syncError.includes("timeout") || syncError.includes("Failed to fetch") ? 
+                "Les services semblent être en cours de démarrage. Veuillez patienter ou cliquer sur 'Réveiller les services'." : 
+                syncError}
+            </span>
+            <Button variant="outline" size="sm" onClick={handleWakeAndRefresh} className="ml-2">
+              <Power className="mr-2 h-4 w-4" />
+              Réessayer
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <div className="flex flex-col justify-center items-center h-64 space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Connexion aux services Acelle en cours...</p>
+        </div>
+      ) : isError ? (
+        <Card>
+          <CardContent className="py-6">
+            <div className="text-center">
+              <p className="text-red-500 mb-2">Erreur lors du chargement des données</p>
+              <p className="text-sm text-muted-foreground mb-4">{error instanceof Error ? error.message : "Une erreur s'est produite"}</p>
+              <div className="flex justify-center gap-3">
+                <Button onClick={handleRefresh} className="mt-2" variant="outline">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Réessayer
+                </Button>
+                <Button onClick={handleWakeAndRefresh} className="mt-2" variant="default">
+                  <Power className="mr-2 h-4 w-4" />
+                  Réveiller les services
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : campaignsData.length === 0 ? (
+        <Card>
+          <CardContent className="py-6">
+            <div className="text-center">
+              <p>Aucune campagne trouvée.</p>
+              <p className="text-sm text-muted-foreground mt-2">Créez votre première campagne ou vérifiez la connexion à l'API Acelle.</p>
+              <div className="flex justify-center gap-3 mt-4">
+                <Button onClick={handleRefresh} variant="outline">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Synchroniser les données
+                </Button>
+                <Button onClick={handleWakeAndRefresh} variant="default">
+                  <Power className="mr-2 h-4 w-4" />
+                  Réveiller les services
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <CampaignSummaryStats campaigns={campaignsData} />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CampaignStatusChart campaigns={campaignsData} />
+            <DeliveryStatsChart campaigns={campaignsData} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

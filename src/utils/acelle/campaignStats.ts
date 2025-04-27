@@ -11,16 +11,8 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
     "failed": 0
   };
   
-  if (!Array.isArray(campaigns)) {
-    console.error("Invalid campaigns data for status counts:", campaigns);
-    return Object.entries(counts).map(([status, count]) => ({
-      status: translateStatus(status),
-      count
-    }));
-  }
-  
   campaigns.forEach(campaign => {
-    if (campaign && campaign.status in counts) {
+    if (campaign.status in counts) {
       counts[campaign.status]++;
     }
   });
@@ -38,56 +30,38 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalClicked = 0;
   let totalBounced = 0;
   
-  // Add validation to ensure campaigns is a valid array
-  if (!Array.isArray(campaigns)) {
-    console.error("calculateDeliveryStats - invalid campaigns data:", campaigns);
-    return [
-      { name: "Envoyés", value: 0 },
-      { name: "Livrés", value: 0 },
-      { name: "Ouverts", value: 0 },
-      { name: "Cliqués", value: 0 },
-      { name: "Bounces", value: 0 }
-    ];
-  }
-  
-  // Debug log for campaign data
-  console.log(`Processing ${campaigns.length} campaigns for statistics`);
+  // Debug log pour voir les données des campagnes
+  console.log("calculateDeliveryStats - processing campaigns:", campaigns.length);
   
   campaigns.forEach(campaign => {
-    // Skip invalid campaigns
-    if (!campaign || typeof campaign !== 'object') {
-      console.warn("Invalid campaign object skipped");
-      return;
-    }
-    
-    try {
-      // Prioritize delivery_info as it's our primary structure
-      if (campaign.delivery_info) {
-        // Ensure all values are numbers
-        totalSent += ensureNumber(campaign.delivery_info.total);
-        totalDelivered += ensureNumber(campaign.delivery_info.delivered);
-        totalOpened += ensureNumber(campaign.delivery_info.opened);
-        totalClicked += ensureNumber(campaign.delivery_info.clicked);
-        
-        // Handle bounces from the bounced subobject
-        const softBounce = ensureNumber(campaign.delivery_info.bounced?.soft);
-        const hardBounce = ensureNumber(campaign.delivery_info.bounced?.hard);
-        totalBounced += softBounce + hardBounce;
-      } 
-      // Fall back to statistics if available
-      else if (campaign.statistics) {
-        totalSent += ensureNumber(campaign.statistics.subscriber_count);
-        totalDelivered += ensureNumber(campaign.statistics.delivered_count);
-        totalOpened += ensureNumber(campaign.statistics.open_count);
-        totalClicked += ensureNumber(campaign.statistics.click_count);
-        totalBounced += ensureNumber(campaign.statistics.bounce_count);
-      }
-    } catch (error) {
-      console.error(`Error processing campaign statistics for ${campaign.name || 'unnamed campaign'}:`, error);
+    // Prioritize delivery_info as it's our primary structure
+    if (campaign.delivery_info) {
+      console.log(`Campaign ${campaign.name} delivery info:`, campaign.delivery_info);
+      
+      // Use existing delivery_info structure
+      totalSent += campaign.delivery_info.total || 0;
+      totalDelivered += campaign.delivery_info.delivered || 0;
+      totalOpened += campaign.delivery_info.opened || 0;
+      totalClicked += campaign.delivery_info.clicked || 0;
+      
+      // Handle bounces from the bounced subobject
+      const softBounce = campaign.delivery_info.bounced?.soft || 0;
+      const hardBounce = campaign.delivery_info.bounced?.hard || 0;
+      totalBounced += softBounce + hardBounce;
+    } 
+    // Fall back to statistics if available
+    else if (campaign.statistics) {
+      console.log(`Campaign ${campaign.name} statistics:`, campaign.statistics);
+      
+      totalSent += campaign.statistics.subscriber_count || 0;
+      totalDelivered += campaign.statistics.delivered_count || 0;
+      totalOpened += campaign.statistics.open_count || 0;
+      totalClicked += campaign.statistics.click_count || 0;
+      totalBounced += campaign.statistics.bounce_count || 0;
     }
   });
   
-  console.log("Final calculated delivery stats:", {
+  console.log("Final calculated stats:", {
     totalSent, totalDelivered, totalOpened, totalClicked, totalBounced
   });
   
@@ -98,22 +72,6 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     { name: "Cliqués", value: totalClicked },
     { name: "Bounces", value: totalBounced }
   ];
-};
-
-// Helper function to ensure we always have valid numbers
-const ensureNumber = (value?: any): number => {
-  if (value === undefined || value === null) return 0;
-  
-  // If it's already a number, return it
-  if (typeof value === 'number') return value;
-  
-  // If it's a string, parse it
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  
-  return 0;
 };
 
 export const translateStatus = (status: string): string => {
@@ -127,23 +85,4 @@ export const translateStatus = (status: string): string => {
   };
   
   return translations[status] || status;
-};
-
-export const getStatusBadgeVariant = (status: string): string => {
-  // Update variant mapping to use only those supported by the Badge component
-  const variants: Record<string, string> = {
-    "new": "default",
-    "queued": "secondary", // This might need to be changed if not supported
-    "sending": "default", // Changed from "warning" to "default"
-    "sent": "success", // This might need to be changed if not supported
-    "paused": "outline",
-    "failed": "destructive"
-  };
-  
-  return variants[status] || "default";
-};
-
-export const renderPercentage = (value?: number): string => {
-  if (value === undefined || value === null) return "0%";
-  return `${(value * 100).toFixed(1)}%`;
 };

@@ -1,85 +1,97 @@
 
-import React from 'react';
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface TablePaginationProps {
   currentPage: number;
-  totalPages: number;
+  hasNextPage: boolean;
   onPageChange: (page: number) => void;
-  itemsPerPage: number;
-  onItemsPerPageChange: (value: number) => void;
 }
 
-export const TablePagination: React.FC<TablePaginationProps> = ({
+export const CampaignsTablePagination = ({
   currentPage,
-  totalPages,
+  hasNextPage,
   onPageChange,
-  itemsPerPage,
-  onItemsPerPageChange
-}) => {
+}: TablePaginationProps) => {
   return (
-    <div className="flex flex-col md:flex-row justify-between items-center mt-4">
-      <div className="flex items-center space-x-2 mb-4 md:mb-0">
-        <p className="text-sm text-muted-foreground">
-          Éléments par page:
-        </p>
-        <Select
-          value={itemsPerPage.toString()}
-          onValueChange={(value) => onItemsPerPageChange(parseInt(value))}
-        >
-          <SelectTrigger className="w-[80px]">
-            <SelectValue placeholder="10" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="5">5</SelectItem>
-            <SelectItem value="10">10</SelectItem>
-            <SelectItem value="20">20</SelectItem>
-            <SelectItem value="50">50</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      
-      <div className="flex items-center space-x-2">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-        >
-          <ChevronsLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+    <Pagination>
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              if (currentPage > 1) onPageChange(currentPage - 1);
+            }}
+            className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
         
-        <span className="text-sm">
-          Page {currentPage} sur {totalPages || 1}
-        </span>
+        {[...Array(Math.min(3, currentPage))].map((_, i) => {
+          const pageNumber = currentPage - (Math.min(3, currentPage) - i);
+          return (
+            <PaginationItem key={`prev-${pageNumber}`}>
+              <PaginationLink 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  onPageChange(pageNumber);
+                }}
+                isActive={pageNumber === currentPage}
+              >
+                {pageNumber}
+              </PaginationLink>
+            </PaginationItem>
+          );
+        })}
         
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage >= totalPages}
-        >
-          <ChevronsRight className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
+        {currentPage + 1 <= 10 && (
+          <PaginationItem>
+            <PaginationLink 
+              href="#" 
+              onClick={(e) => {
+                e.preventDefault();
+                onPageChange(currentPage + 1);
+              }}
+            >
+              {currentPage + 1}
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        
+        {currentPage + 2 <= 10 && (
+          <PaginationItem>
+            <PaginationLink 
+              href="#" 
+              onClick={(e) => {
+                e.preventDefault();
+                onPageChange(currentPage + 2);
+              }}
+            >
+              {currentPage + 2}
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        
+        <PaginationItem>
+          <PaginationNext 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              if (hasNextPage) {
+                onPageChange(currentPage + 1);
+              }
+            }}
+            className={!hasNextPage ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
   );
 };

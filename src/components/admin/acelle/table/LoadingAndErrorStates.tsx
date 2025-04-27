@@ -1,56 +1,40 @@
 
-import React from 'react';
-import { TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 
-interface LoadingStateProps {
-  colSpan: number;
+interface ErrorStateProps {
+  onRetry: () => void;
 }
 
-export const LoadingState: React.FC<LoadingStateProps> = ({ colSpan }) => {
+export const TableLoadingState = () => {
   return (
-    <TableBody>
-      <TableRow>
-        <TableCell colSpan={colSpan} className="h-24 text-center">
-          <div className="flex flex-col items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
-            <span className="text-sm text-muted-foreground">Chargement des données...</span>
-          </div>
-        </TableCell>
-      </TableRow>
-    </TableBody>
+    <div className="flex justify-center items-center h-64">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
   );
 };
 
-interface ErrorStateProps {
-  colSpan: number;
-  message: string;
-  onRetry?: () => void;
-}
-
-export const ErrorState: React.FC<ErrorStateProps> = ({ colSpan, message, onRetry }) => {
+export const TableErrorState = ({ onRetry }: ErrorStateProps) => {
   return (
-    <TableBody>
-      <TableRow>
-        <TableCell colSpan={colSpan} className="h-24 text-center">
-          <div className="flex flex-col items-center justify-center">
-            <AlertCircle className="h-8 w-8 text-destructive mb-2" />
-            <span className="text-sm text-muted-foreground mb-2">{message}</span>
-            {onRetry && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onRetry}
-                className="mt-2"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Réessayer
-              </Button>
-            )}
-          </div>
-        </TableCell>
-      </TableRow>
-    </TableBody>
+    <div className="text-center py-8 border rounded-md bg-muted/20">
+      <p className="text-red-500 mb-4">Erreur lors du chargement des campagnes</p>
+      <Button onClick={onRetry}>Réessayer</Button>
+    </div>
+  );
+};
+
+export const EmptyState = () => {
+  return (
+    <div className="text-center py-8 border rounded-md bg-muted/20">
+      <p className="text-muted-foreground">Aucune campagne trouvée pour ce compte</p>
+    </div>
+  );
+};
+
+export const InactiveAccountState = () => {
+  return (
+    <div className="text-center py-8 border rounded-md bg-muted/20">
+      <p className="text-muted-foreground">Le compte est inactif. Activez-le pour voir les campagnes.</p>
+    </div>
   );
 };

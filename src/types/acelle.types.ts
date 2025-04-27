@@ -1,71 +1,97 @@
 
-// Define Acelle types for backward compatibility with existing components
-export type LegacyType = 'removed';
+export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
   id: string;
+  missionId: string;
+  missionName?: string;
   name: string;
-  api_endpoint: string;
-  api_token: string;
-  status: "active" | "inactive";
-  created_at: string;
-  updated_at: string;
-  last_sync_date?: string;
-  last_sync_error?: string;
-  cache_priority?: number;
-  // Adding missing properties to fix type errors
-  apiEndpoint?: string;
-  apiToken?: string;
-  lastSyncDate?: string;
-  missionId?: string;
+  apiEndpoint: string;
+  apiToken: string;
+  lastSyncDate: Date | string | null;
+  status: AcelleAccountStatus;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
-export interface AcelleCampaignDetail {
-  id: string;
+export interface AcelleCampaign {
   uid: string;
   name: string;
   subject: string;
   status: string;
   created_at: string;
   updated_at: string;
-  delivery_at?: string;
-  delivery_info?: Record<string, any>;
-  // Adding missing properties to fix type errors
-  run_at?: string; 
-  html?: string;
-  plain?: string;
-  tracking?: {
-    open_tracking: boolean;
-    click_tracking: boolean;
+  last_error: string | null;
+  run_at: string | null;
+  delivery_date?: string | null;
+  delivery_info?: AcelleCampaignDeliveryInfo;
+  statistics?: {
+    subscriber_count: number;
+    delivered_count: number;
+    delivered_rate: number;
+    open_count: number;
+    uniq_open_rate: number;
+    click_count: number;
+    click_rate: number;
+    bounce_count: number;
+    soft_bounce_count: number;
+    hard_bounce_count: number;
+    unsubscribe_count: number;
+    abuse_complaint_count: number;
   };
 }
 
+export interface AcelleCampaignDeliveryInfo {
+  total: number;
+  delivery_rate: number;
+  unique_open_rate: number;
+  click_rate: number;
+  bounce_rate: number;
+  unsubscribe_rate: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: {
+    soft: number;
+    hard: number;
+    total: number;
+  };
+  unsubscribed: number;
+  complained: number;
+}
+
+export interface AcelleCampaignDetail extends Omit<AcelleCampaign, 'delivery_info'> {
+  html: string;
+  plain: string;
+  template: {
+    uid: string;
+    name: string;
+  };
+  tracking: {
+    open_tracking: boolean;
+    click_tracking: boolean;
+    unsubscribe_url: string;
+  };
+  delivery_info?: Partial<AcelleCampaignDeliveryInfo>;
+}
+
+// Interface pour le débogage de la connexion
 export interface AcelleConnectionDebug {
   success: boolean;
-  message?: string;
-  error?: string;
+  statusCode?: number;
+  responseData?: any;
   errorMessage?: string;
   request?: {
     url: string;
-    method: string;
-    headers?: Record<string, string>;
+    headers: Record<string, string>;
+    body?: any;
+    method?: string;
   };
-  responseData?: {
+  response?: {
     statusCode?: number;
-    message?: string;
-    error?: string;
-    [key: string]: any;
+    headers?: Record<string, string>;
+    body?: any;
   };
-  statusCode?: number;
-}
-
-// Add AcelleCampaign type to fix missing type errors
-export interface AcelleCampaign {
-  id: string;
-  uid: string;
-  name: string;
-  subject: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
+  timestamp?: string;
+  duration?: number;
 }

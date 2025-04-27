@@ -1,62 +1,42 @@
 
-// Utilitaires de statuts pour les campagnes Acelle (version placeholder)
+/**
+ * Utility functions for campaign status formatting and display
+ */
 
-export const getCampaignStatusVariant = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'sent':
-    case 'done':
-      return 'success';
-    case 'sending':
-      return 'warning';
-    case 'paused':
-    case 'scheduled':
-      return 'info';
-    case 'error':
-    case 'failed':
-      return 'destructive';
-    default:
-      return 'outline';
+// Translate campaign status to French
+export const translateStatus = (status: string): string => {
+  switch (status) {
+    case "new": return "Nouveau";
+    case "queued": return "En attente";
+    case "sending": return "En cours d'envoi";
+    case "sent": return "Envoyé";
+    case "paused": return "En pause";
+    case "failed": return "Échoué";
+    default: return status;
   }
 };
 
-export const getCampaignStats = () => {
-  return {
-    total: 0,
-    sent: 0,
-    pending: 0,
-    active: 0,
-    failed: 0
-  };
-};
-
-export const getFormattedStatus = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'sent':
-      return 'Envoyé';
-    case 'sending':
-      return 'En cours d\'envoi';
-    case 'paused':
-      return 'En pause';
-    case 'scheduled':
-      return 'Planifié';
-    case 'error':
-    case 'failed':
-      return 'Échoué';
-    case 'deleted':
-      return 'Supprimé';
-    case 'draft':
-      return 'Brouillon';
-    default:
-      return status;
+// Get appropriate badge variant based on campaign status
+export const getStatusBadgeVariant = (status: string): string => {
+  switch (status) {
+    case "new": return "secondary";
+    case "queued": return "outline";
+    case "sending": return "default";
+    case "sent": return "success";
+    case "paused": return "warning";
+    case "failed": return "destructive";
+    default: return "outline";
   }
 };
 
-export const getCampaignStatusGroups = () => {
-  return {
-    all: 0,
-    active: 0,
-    completed: 0,
-    failed: 0,
-    scheduled: 0
-  };
+// Format percentage value for display
+export const renderPercentage = (value: number | undefined): string => {
+  if (value === undefined || isNaN(value)) return "0%";
+  return `${(value * 100).toFixed(1)}%`;
+};
+
+// Format statistics with absolute numbers and percentages
+export const formatStat = (value: number = 0, total: number = 0): string => {
+  const percentage = total > 0 ? (value / total * 100).toFixed(1) : '0';
+  return `${value} (${percentage}%)`;
 };

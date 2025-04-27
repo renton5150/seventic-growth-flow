@@ -1,10 +1,11 @@
 
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { EmailCampaignForm } from "@/components/requests/EmailCampaignForm";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 
-const LinkedInRequestPage = () => {
+const EmailCampaignRequest = () => {
   const navigate = useNavigate();
 
   return (
@@ -14,18 +15,13 @@ const LinkedInRequestPage = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Nouvelle demande de scraping LinkedIn</h1>
+          <h1 className="text-2xl font-bold">Nouvelle demande de campagne email</h1>
         </div>
         
-        <div className="rounded-md border p-6 text-center">
-          <h2 className="text-lg font-semibold mb-2">Formulaire de demande</h2>
-          <p className="text-muted-foreground mb-4">
-            Le formulaire de demande de scraping LinkedIn sera implémenté prochainement.
-          </p>
-        </div>
+        <EmailCampaignForm />
       </div>
     </AppLayout>
   );
 };
 
-export default LinkedInRequestPage;
+export default EmailCampaignRequest;

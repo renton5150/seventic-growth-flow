@@ -59,9 +59,6 @@ export const TemplateSection = ({ control, handleFileUpload }: TemplateSectionPr
     <Card className="border-t-4 border-t-seventic-500">
       <CardContent className="pt-6">
         <h3 className="text-lg font-semibold mb-4">Template de l'emailing</h3>
-        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md mb-4">
-          <p className="text-yellow-700">Les fonctionnalités d'emailing ont été désactivées.</p>
-        </div>
         
         <div className="space-y-6">
           <div>

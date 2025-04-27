@@ -7,7 +7,8 @@ import {
   Users,
   BrainCircuit,
   LogOut,
-  CalendarDays
+  CalendarDays,
+  Mail
 } from "lucide-react";
 import React from "react";
 
@@ -53,7 +54,7 @@ export const growthMenuItems: MenuItem[] = [
   }
 ];
 
-// Menu Administration réordonné
+// Menu Administration réordonné et renommage de Growth
 export const adminMenuItems: MenuItem[] = [
   {
     title: "Utilisateurs",
@@ -70,10 +71,16 @@ export const adminMenuItems: MenuItem[] = [
     path: "/planning",
     icon: CalendarDays
   },
+  // Growth renommé dans le menu admin
   {
     title: "Growth",
     path: "/growth",
     icon: FileText
+  },
+  {
+    title: "Campagnes emailing",
+    path: "/admin/email-campaigns",
+    icon: Mail
   },
   {
     title: "AI Insights",
