@@ -1,61 +1,74 @@
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useMemo } from "react";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
+import { Card } from "@/components/ui/card";
 
 interface CampaignSummaryStatsProps {
   campaigns: AcelleCampaign[];
 }
 
-export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) => {
-  const deliveryStats = calculateDeliveryStats(campaigns);
-  
-  // Extraction des valeurs pour une meilleure lisibilité
-  const totalEmails = deliveryStats[0]?.value || 0;
-  const openedEmails = deliveryStats[1]?.value || 0;
-  const clickedEmails = deliveryStats[2]?.value || 0;
-  
-  const formatRate = (value: number, total: number) => {
-    if (total === 0) return "0%";
-    return `${((value / total) * 100).toFixed(1)}%`;
-  };
+export const CampaignSummaryStats: React.FC<CampaignSummaryStatsProps> = ({ campaigns }) => {
+  const stats = useMemo(() => {
+    if (!campaigns.length) return null;
+    
+    let totalDelivered = 0;
+    let totalOpened = 0;
+    let totalClicked = 0;
+    let totalBounced = 0;
+    let totalEmails = 0;
 
-  console.log("CampaignSummaryStats - deliveryStats:", deliveryStats);
-  console.log("CampaignSummaryStats - campaigns count:", campaigns.length);
-  console.log("CampaignSummaryStats - sample campaign data:", campaigns[0]?.delivery_info);
+    campaigns.forEach(campaign => {
+      const info = campaign.delivery_info || {};
+      
+      totalEmails += info.total || 0;
+      totalDelivered += info.delivered || 0;
+      totalOpened += info.opened || 0;
+      totalClicked += info.clicked || 0;
+      totalBounced += (info.bounced?.total || 0);
+    });
+
+    const avgDeliveryRate = totalEmails > 0 ? totalDelivered / totalEmails * 100 : 0;
+    const avgOpenRate = totalDelivered > 0 ? totalOpened / totalDelivered * 100 : 0;
+    const avgClickRate = totalDelivered > 0 ? totalClicked / totalDelivered * 100 : 0;
+    
+    return {
+      totalCampaigns: campaigns.length,
+      totalEmails,
+      totalDelivered,
+      totalOpened,
+      totalClicked,
+      totalBounced,
+      avgDeliveryRate: avgDeliveryRate.toFixed(1),
+      avgOpenRate: avgOpenRate.toFixed(1),
+      avgClickRate: avgClickRate.toFixed(1)
+    };
+  }, [campaigns]);
+  
+  if (!stats) {
+    return <div>Chargement des statistiques...</div>;
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Résumé</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{campaigns.length}</p>
-            <p className="text-muted-foreground">Campagnes</p>
-          </div>
-          <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{totalEmails}</p>
-            <p className="text-muted-foreground">Emails envoyés</p>
-          </div>
-          <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{openedEmails}</p>
-            <p className="text-sm text-muted-foreground">
-              {formatRate(openedEmails, totalEmails)}
-            </p>
-            <p className="text-muted-foreground">Taux d'ouverture</p>
-          </div>
-          <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{clickedEmails}</p>
-            <p className="text-sm text-muted-foreground">
-              {formatRate(clickedEmails, totalEmails)}
-            </p>
-            <p className="text-muted-foreground">Taux de clic</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Campagnes</p>
+        <p className="text-2xl font-bold">{stats.totalCampaigns}</p>
+      </div>
+      
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Emails envoyés</p>
+        <p className="text-2xl font-bold">{stats.totalEmails}</p>
+      </div>
+      
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Taux moyen d'ouverture</p>
+        <p className="text-2xl font-bold">{stats.avgOpenRate}%</p>
+      </div>
+      
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Taux moyen de clic</p>
+        <p className="text-2xl font-bold">{stats.avgClickRate}%</p>
+      </div>
+    </div>
   );
 };

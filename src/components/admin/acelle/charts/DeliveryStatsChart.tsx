@@ -1,66 +1,87 @@
 
-import React from "react";
-import { BarChart } from "lucide-react";
-import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useMemo } from "react";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip, Legend, ResponsiveContainer, TooltipProps 
+} from "recharts";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
 
 interface DeliveryStatsChartProps {
   campaigns: AcelleCampaign[];
 }
 
-export const DeliveryStatsChart = ({ campaigns }: DeliveryStatsChartProps) => {
-  const deliveryStats = calculateDeliveryStats(campaigns);
-  
-  // Format data to show both number and percentage
-  const formattedStats = deliveryStats.map(stat => {
-    let percentage = 0;
-    if (deliveryStats[0].value > 0) {
-      percentage = (stat.value / deliveryStats[0].value) * 100;
-    }
+export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaigns }) => {
+  // Aggregate and prepare data for the chart
+  const chartData = useMemo(() => {
+    // Take the 10 most recent campaigns
+    const recentCampaigns = [...campaigns]
+      .sort((a, b) => {
+        const dateA = new Date(a.delivery_date || a.created_at || 0).getTime();
+        const dateB = new Date(b.delivery_date || b.created_at || 0).getTime();
+        return dateB - dateA;
+      })
+      .slice(0, 10);
     
-    return {
-      ...stat,
-      percentage: percentage.toFixed(1)
-    };
-  });
+    return recentCampaigns.map(campaign => {
+      // Calculate percentages safely
+      const deliveryInfo = campaign.delivery_info || {};
+      const total = deliveryInfo.total || 0;
+      
+      const deliveryRate = deliveryInfo.delivery_rate !== undefined 
+        ? deliveryInfo.delivery_rate 
+        : (total > 0 ? (deliveryInfo.delivered || 0) / total : 0);
+      
+      const openRate = deliveryInfo.unique_open_rate !== undefined 
+        ? deliveryInfo.unique_open_rate 
+        : (deliveryInfo.delivered ? (deliveryInfo.opened || 0) / (deliveryInfo.delivered || 1) : 0);
+      
+      const clickRate = deliveryInfo.click_rate !== undefined 
+        ? deliveryInfo.click_rate 
+        : (deliveryInfo.delivered ? (deliveryInfo.clicked || 0) / (deliveryInfo.delivered || 1) : 0);
+      
+      return {
+        name: campaign.name.length > 15 ? `${campaign.name.substring(0, 15)}...` : campaign.name,
+        fullName: campaign.name,
+        "Taux d'envoi": Math.round(deliveryRate * 100),
+        "Taux d'ouverture": Math.round(openRate * 100),
+        "Taux de clic": Math.round(clickRate * 100)
+      };
+    }).reverse(); // Reverse to show in chronological order
+  }, [campaigns]);
+
+  if (!campaigns.length) {
+    return <div className="flex items-center justify-center h-full">Aucune donnée disponible</div>;
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <BarChart className="mr-2 h-5 w-5" />
-          Statistiques d'envoi
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {formattedStats.some(item => item.value > 0) ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <RechartsBarChart data={formattedStats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <Tooltip 
-                formatter={(value, name, props) => {
-                  if (name === "value") {
-                    // Format number with percentage for tooltip
-                    const percentage = props.payload.percentage;
-                    return [`${value} (${percentage}%)`, ""];
-                  }
-                  return [value, ""];
-                }}
-              />
-              <Legend />
-              <Bar dataKey="value" name="Nombre" fill="#82ca9d" />
-            </RechartsBarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="py-10 text-center">
-            <p className="text-muted-foreground">Aucune donnée disponible</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart
+        data={chartData}
+        margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis 
+          dataKey="name" 
+          angle={-45} 
+          textAnchor="end"
+          height={70}
+          interval={0}
+        />
+        <YAxis unit="%" />
+        <Tooltip 
+          formatter={(value, name) => [`${value}%`, name]}
+          labelFormatter={(label, payload) => {
+            if (payload && payload.length > 0 && payload[0].payload) {
+              return payload[0].payload.fullName;
+            }
+            return label;
+          }}
+        />
+        <Legend />
+        <Bar dataKey="Taux d'envoi" fill="#8884d8" />
+        <Bar dataKey="Taux d'ouverture" fill="#82ca9d" />
+        <Bar dataKey="Taux de clic" fill="#ffc658" />
+      </BarChart>
+    </ResponsiveContainer>
   );
 };
