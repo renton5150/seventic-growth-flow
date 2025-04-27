@@ -171,6 +171,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             currentPage={currentPage}
             hasNextPage={campaigns.length === itemsPerPage}
             onPageChange={handlePageChange}
+            isLoading={isFetching}
           />
         </>
       )}

@@ -3,16 +3,18 @@ import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface CampaignsTablePaginationProps {
+interface TablePaginationProps {
   currentPage: number;
-  totalPages: number;
+  totalPages?: number;
+  hasNextPage?: boolean;
   onPageChange: (page: number) => void;
   isLoading?: boolean;
 }
 
-export const CampaignsTablePagination: React.FC<CampaignsTablePaginationProps> = ({ 
+export const TablePagination: React.FC<TablePaginationProps> = ({ 
   currentPage, 
   totalPages, 
+  hasNextPage,
   onPageChange,
   isLoading
 }) => {
@@ -35,7 +37,7 @@ export const CampaignsTablePagination: React.FC<CampaignsTablePaginationProps> =
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages || isLoading}
+          disabled={(totalPages ? currentPage >= totalPages : !hasNextPage) || isLoading}
         >
           <ChevronRight className="h-4 w-4" />
           <span className="sr-only">Page suivante</span>
@@ -44,3 +46,6 @@ export const CampaignsTablePagination: React.FC<CampaignsTablePaginationProps> =
     </div>
   );
 };
+
+// Also export the CampaignsTablePagination for backward compatibility
+export const CampaignsTablePagination = TablePagination;

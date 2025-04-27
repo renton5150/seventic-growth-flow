@@ -1,28 +1,59 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { AcelleConnectionDebug } from "@/types/acelle.types";
 
 /**
  * Vérifie la disponibilité de l'API Acelle
  */
-export const checkApiAvailability = async (accountId: string): Promise<boolean> => {
+export const checkApiAvailability = async (accountId?: string): Promise<{
+  available: boolean;
+  endpoints?: Record<string, boolean>;
+  debugInfo?: AcelleConnectionDebug;
+}> => {
   try {
     // Utilise l'Edge Function pour vérifier la disponibilité
     const { data, error } = await supabase.functions.invoke('acelle-proxy', {
       body: {
         action: 'check-availability',
-        accountId
+        accountId: accountId || ''
       }
     });
 
     if (error) {
       console.error("Erreur lors de la vérification de l'API Acelle:", error);
-      return false;
+      return {
+        available: false,
+        endpoints: {
+          campaigns: false,
+          details: false
+        },
+        debugInfo: {
+          errorMessage: error.message,
+          statusCode: 500
+        }
+      };
     }
 
-    return data?.available === true;
+    return data || {
+      available: false,
+      endpoints: {
+        campaigns: false,
+        details: false
+      }
+    };
   } catch (error) {
     console.error("Erreur lors de la vérification de l'API Acelle:", error);
-    return false;
+    return {
+      available: false,
+      endpoints: {
+        campaigns: false,
+        details: false
+      },
+      debugInfo: {
+        errorMessage: error instanceof Error ? error.message : "Erreur inconnue",
+        statusCode: 500
+      }
+    };
   }
 };
 
