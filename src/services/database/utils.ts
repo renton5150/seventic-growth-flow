@@ -57,3 +57,45 @@ export const downloadFile = async (url: string, fileName: string = 'document'): 
     return false;
   }
 };
+
+/**
+ * Extrait les informations de chemin d'une URL Supabase Storage
+ * @param url L'URL à analyser
+ * @returns Un objet contenant le nom du bucket et le chemin du fichier, ou null si l'URL n'est pas valide
+ */
+export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; filePath: string } | null => {
+  try {
+    if (!url) return null;
+
+    // Pour les URL complètes de Supabase Storage
+    if (url.includes('/storage/v1/object/public/')) {
+      const match = url.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
+      if (match && match.length >= 3) {
+        return {
+          bucketName: match[1],
+          filePath: match[2]
+        };
+      }
+    }
+    
+    // Pour les chemins relatifs
+    const segments = url.split('/');
+    if (segments.length >= 2) {
+      // On suppose que le premier segment est le bucket et le reste est le chemin
+      const bucket = segments[0];
+      const path = segments.slice(1).join('/');
+      
+      if (bucket && path) {
+        return {
+          bucketName: bucket,
+          filePath: path
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Erreur lors de l'extraction du chemin:", error);
+    return null;
+  }
+};
