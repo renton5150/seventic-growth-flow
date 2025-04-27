@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -37,7 +36,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   
-  // Make sure to call the service with the right number of arguments
   const fetchCampaigns = React.useCallback(async () => {
     console.log(`Fetching campaigns for account: ${account.name}`);
     return acelleService.getAcelleCampaigns(account);
@@ -57,7 +55,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     refetchOnWindowFocus: false,
   });
   
-  // Filter campaigns based on search term and status
   const filteredCampaigns = React.useMemo(() => {
     return campaigns
       .filter(campaign => 
@@ -90,7 +87,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       });
   }, [campaigns, searchTerm, statusFilter, sortBy, sortOrder]);
 
-  // Reset to page 1 when filters change
   React.useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
@@ -171,7 +167,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             </Table>
           </div>
           
-          <CampaignsTablePagination
+          <TablePagination
             currentPage={currentPage}
             hasNextPage={campaigns.length === itemsPerPage}
             onPageChange={handlePageChange}

@@ -3,23 +3,17 @@ export * from './api/accounts';
 export * from './api/campaigns';
 export * from './api/connection';
 
-// Export as a service object
+// Export as a single service object
 import * as accounts from './api/accounts';
 import * as campaigns from './api/campaigns';
 import * as connection from './api/connection';
 
+// Create a single service object that combines all the APIs
 export const acelleService = {
   ...accounts,
   ...campaigns,
   ...connection
 };
 
-// For backward compatibility with existing code
-const acelleServiceInstance = {
-  ...accounts,
-  ...campaigns,
-  ...connection
-};
-
-export { acelleServiceInstance as acelleService };
+// Export default for easier imports
 export default acelleService;

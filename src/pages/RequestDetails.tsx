@@ -44,11 +44,12 @@ const RequestDetails = () => {
         workflowStatus={workflowStatus}
         emailPlatform={emailPlatform}
         onCommentChange={setComment}
-        onEditDialogChange={setIsEditDialogOpen}
+        onOpenEditDialog={() => setIsEditDialogOpen(true)}
+        onCloseEditDialog={() => setIsEditDialogOpen(false)}
         onWorkflowStatusChange={updateWorkflowStatus}
+        onStatusChange={updateWorkflowStatus} // Alias for backward compatibility
         onEmailPlatformChange={updateEmailPlatform}
         onAddComment={addComment}
-        onRequestUpdated={fetchRequestDetails}
         onBack={() => navigate(-1)}
       />
     </AppLayout>

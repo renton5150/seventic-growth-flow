@@ -13,7 +13,6 @@ export const testApiConnection = async (
       success: true,
       statusCode: 200,
       response: { message: "Connection successful" },
-      responseData: { message: "Connection successful" }, // For backward compatibility
       timestamp: new Date().toISOString()
     };
   } catch (error) {
@@ -38,7 +37,6 @@ export const pingAcelleEndpoint = async (
       success: true,
       statusCode: 200,
       response: { message: "Ping successful" },
-      responseData: { message: "Ping successful" }, // For backward compatibility
       timestamp: new Date().toISOString()
     };
   } catch (error) {
@@ -48,6 +46,39 @@ export const pingAcelleEndpoint = async (
       statusCode: 500,
       errorMessage: error instanceof Error ? error.message : "Unknown error",
       timestamp: new Date().toISOString()
+    };
+  }
+};
+
+// Check overall API availability across multiple endpoints
+export const checkApiAvailability = async (): Promise<{
+  available: boolean;
+  endpoints?: Record<string, boolean>;
+  debugInfo?: AcelleConnectionDebug;
+}> => {
+  try {
+    // Placeholder implementation
+    return {
+      available: true,
+      endpoints: {
+        campaigns: true,
+        details: true
+      }
+    };
+  } catch (error) {
+    console.error("Error checking API availability:", error);
+    return {
+      available: false,
+      endpoints: {
+        campaigns: false,
+        details: false
+      },
+      debugInfo: {
+        success: false,
+        statusCode: 500,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString()
+      }
     };
   }
 };

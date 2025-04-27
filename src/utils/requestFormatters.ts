@@ -6,13 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
  * Formats a request object from database format to application format
  */
 export const formatRequestFromDb = (dbRequest: any): Request => {
-  // Ajouter des logs pour voir les données exactes reçues de Supabase
-  console.log("Données brutes de la requête reçue de Supabase:", dbRequest);
+  // Add logging to see the exact data received from Supabase
+  console.log("Raw data for request from Supabase:", dbRequest);
   
   const createdAt = new Date(dbRequest.created_at);
   const dueDate = new Date(dbRequest.due_date);
   const lastUpdated = new Date(dbRequest.last_updated || dbRequest.created_at);
   
+  // Check if request is late
   const isLate = dueDate < new Date() && 
                  (dbRequest.workflow_status !== 'completed' && dbRequest.workflow_status !== 'canceled');
   
@@ -25,81 +26,42 @@ export const formatRequestFromDb = (dbRequest: any): Request => {
   // Get specific details for the request type
   const details = dbRequest.details || {};
   
-  // Récupération du nom de la mission - s'assurer qu'il n'est jamais null/undefined
-  // Conversion explicite en string pour garantir la cohérence du type
+  // Get mission name and ensure it's never null/undefined
+  // Explicit conversion to string to ensure type consistency
   const missionId = dbRequest.mission_id ? String(dbRequest.mission_id) : "";
   let missionName = dbRequest.mission_name || "Mission sans nom";
   
-  console.log("Mission name final pour la requête", dbRequest.id, ":", missionName);
-  console.log("Mission ID final pour la requête", dbRequest.id, ":", missionId);
-  console.log("Type du mission ID:", typeof missionId);
+  console.log("Final mission name for request", dbRequest.id, ":", missionName);
+  console.log("Final mission ID for request", dbRequest.id, ":", missionId);
+  console.log("Type of mission ID:", typeof missionId);
   
-  // Build the base request
+  // Build the base request with all required properties
   const baseRequest: Request = {
     id: dbRequest.id,
     title: dbRequest.title,
     type: dbRequest.type,
-    missionId: missionId,
-    missionName: missionName,
-    createdBy: dbRequest.created_by,
-    sdrName,
-    createdAt,
-    dueDate,
+    mission_id: dbRequest.mission_id, // Keep original property
+    missionId: missionId, // Alias for backward compatibility
+    missionName: missionName, // Alias for backward compatibility
+    created_by: dbRequest.created_by,
+    createdBy: dbRequest.created_by, // Alias
+    sdrName, // Alias
+    created_at: createdAt,
+    createdAt, // Alias
+    due_date: dueDate,
+    dueDate, // Alias
     status: dbRequest.status as RequestStatus,
     workflow_status: dbRequest.workflow_status as WorkflowStatus || 'pending_assignment',
     target_role: dbRequest.target_role || 'growth',
     assigned_to: dbRequest.assigned_to || null,
-    assignedToName,
-    lastUpdated,
-    isLate,
+    assigned_to_name: assignedToName, // Original property
+    assignedToName, // Alias
+    last_updated: lastUpdated,
+    lastUpdated, // Alias
+    isLate, // Custom property
     details
   };
 
-  // Add type-specific fields
-  switch(dbRequest.type) {
-    case 'email':
-      return {
-        ...baseRequest,
-        template: details.template || { content: "", fileUrl: "", webLink: "" },
-        database: details.database || { notes: "", fileUrl: "", webLink: "" },
-        blacklist: details.blacklist || {
-          accounts: { notes: "", fileUrl: "" },
-          emails: { notes: "", fileUrl: "" }
-        },
-        platform: details.platform || "",
-        statistics: details.statistics || { sent: 0, opened: 0, clicked: 0, bounced: 0 }
-      };
-    case 'database':
-      return {
-        ...baseRequest,
-        tool: details.tool || "",
-        targeting: details.targeting || {
-          jobTitles: [],
-          industries: [],
-          locations: [],
-          companySize: [],
-          otherCriteria: ""
-        },
-        blacklist: details.blacklist || {
-          accounts: { notes: "", fileUrl: "" }
-        },
-        contactsCreated: details.contactsCreated || 0,
-        resultFileUrl: details.resultFileUrl || ""
-      };
-    case 'linkedin':
-      return {
-        ...baseRequest,
-        targeting: details.targeting || {
-          jobTitles: [],
-          industries: [],
-          locations: [],
-          companySize: [],
-          otherCriteria: ""
-        },
-        profilesScraped: details.profilesScraped || 0,
-        resultFileUrl: details.resultFileUrl || ""
-      };
-    default:
-      return baseRequest;
-  }
+  // Type-specific fields are now added to the details property
+  return baseRequest;
 }

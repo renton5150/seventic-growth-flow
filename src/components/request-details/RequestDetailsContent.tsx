@@ -18,6 +18,7 @@ interface RequestDetailsContentProps {
   onOpenEditDialog?: () => void;
   onCloseEditDialog?: () => void;
   onBack?: () => void;
+  onEmailPlatformChange?: (platform: string) => void;
 }
 
 export const RequestDetailsContent: React.FC<RequestDetailsContentProps> = ({ 
@@ -34,7 +35,8 @@ export const RequestDetailsContent: React.FC<RequestDetailsContentProps> = ({
   onWorkflowStatusChange,
   onOpenEditDialog,
   onCloseEditDialog,
-  onBack
+  onBack,
+  onEmailPlatformChange
 }) => {
   return <RequestTabs 
     request={request}

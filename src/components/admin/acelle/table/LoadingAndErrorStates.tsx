@@ -64,7 +64,7 @@ export const InactiveAccountState = () => {
 
 export const DataUnavailableAlert = ({ message }: { message: string }) => {
   return (
-    <Alert className="mb-6" variant="warning">
+    <Alert className="mb-6" variant="destructive">
       <AlertTriangle className="h-5 w-5 mr-2" />
       <AlertDescription>{message}</AlertDescription>
     </Alert>
