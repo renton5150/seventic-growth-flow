@@ -57,12 +57,13 @@ export const DatabaseDetails = ({ database }: DatabaseDetailsProps) => {
             </Button>
           </div>
         )}
+        {/* Support pour l'affichage des webLinks (plusieurs liens) */}
         {database.webLinks && database.webLinks.length > 0 && (
-          <div>
+          <div className="space-y-2">
             <h4 className="font-semibold text-sm mb-2">Liens web</h4>
             <div className="space-y-2">
               {database.webLinks.map((link, index) => (
-                <a 
+                link && <a 
                   key={index}
                   href={link}
                   target="_blank"
@@ -74,6 +75,15 @@ export const DatabaseDetails = ({ database }: DatabaseDetailsProps) => {
                 </a>
               ))}
             </div>
+          </div>
+        )}
+        {/* Support pour l'affichage du webLink (pour la rétrocompatibilité) */}
+        {!database.webLinks && database.webLink && (
+          <div>
+            <h4 className="font-semibold text-sm">Lien web</h4>
+            <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              {database.webLink}
+            </a>
           </div>
         )}
       </CardContent>

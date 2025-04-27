@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -80,6 +79,7 @@ export interface DatabaseDetails {
   notes: string;
   fileUrl?: string;
   webLink?: string;
+  webLinks?: string[];
 }
 
 export interface Blacklist {

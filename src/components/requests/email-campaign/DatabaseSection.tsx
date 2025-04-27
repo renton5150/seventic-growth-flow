@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
@@ -23,7 +24,12 @@ export const DatabaseSection = ({
   const { user } = useAuth();
 
   const handleDatabaseFileUpload = async (files: FileList | null | string) => {
-    if (!files || files.length === 0) {
+    if (!files || typeof files === 'string') {
+      handleFileUpload("databaseFileUrl", null);
+      return;
+    }
+
+    if (files.length === 0) {
       handleFileUpload("databaseFileUrl", null);
       return;
     }
