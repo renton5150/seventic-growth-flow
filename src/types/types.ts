@@ -91,6 +91,10 @@ export interface Blacklist {
     notes: string;
     fileUrl?: string;
   };
+  contacts?: {
+    notes: string;
+    fileUrl?: string;
+  };
 }
 
 export interface TargetingCriteria {

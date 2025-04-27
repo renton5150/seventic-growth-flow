@@ -49,7 +49,7 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
         
         // Construire l'objet des statuts
         const newStatuses = statusesArray.reduce((acc, [url, exists]) => {
-          if (url) acc[url as string] = exists;
+          if (url) acc[url as string] = exists as boolean;
           return acc;
         }, {} as Record<string, boolean>);
         
