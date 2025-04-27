@@ -3,7 +3,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { LuLayoutDashboard, LuDatabase, LuLinkedin, LuBriefcase } from "react-icons/lu";
+import { 
+  LayoutDashboard, 
+  Database, 
+  Briefcase, 
+  Linkedin 
+} from "lucide-react";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -25,7 +30,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
               asChild
             >
               <Link to="/dashboard">
-                <LuLayoutDashboard className="mr-2 h-4 w-4" />
+                <LayoutDashboard className="mr-2 h-4 w-4" />
                 Tableau de bord
               </Link>
             </Button>
@@ -36,7 +41,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
               asChild
             >
               <Link to="/missions">
-                <LuBriefcase className="mr-2 h-4 w-4" />
+                <Briefcase className="mr-2 h-4 w-4" />
                 Missions
               </Link>
             </Button>
@@ -54,7 +59,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
               asChild
             >
               <Link to="/database-request">
-                <LuDatabase className="mr-2 h-4 w-4" />
+                <Database className="mr-2 h-4 w-4" />
                 Base de données
               </Link>
             </Button>
@@ -65,7 +70,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
               asChild
             >
               <Link to="/linkedin-request">
-                <LuLinkedin className="mr-2 h-4 w-4" />
+                <Linkedin className="mr-2 h-4 w-4" />
                 Scraping LinkedIn
               </Link>
             </Button>
@@ -84,7 +89,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
                 asChild
               >
                 <Link to="/admin/dashboard">
-                  <LuLayoutDashboard className="mr-2 h-4 w-4" />
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
                   Dashboard Admin
                 </Link>
               </Button>
@@ -95,7 +100,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
                 asChild
               >
                 <Link to="/admin/team">
-                  <LuBriefcase className="mr-2 h-4 w-4" />
+                  <Briefcase className="mr-2 h-4 w-4" />
                   Équipe
                 </Link>
               </Button>
@@ -106,7 +111,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
                 asChild
               >
                 <Link to="/admin/requests">
-                  <LuDatabase className="mr-2 h-4 w-4" />
+                  <Database className="mr-2 h-4 w-4" />
                   Toutes les demandes
                 </Link>
               </Button>

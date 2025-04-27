@@ -13,7 +13,14 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
 
 export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount> => {
   console.warn("updateAcelleAccount: Email campaign functionality has been removed");
-  return account;
+  // Update the account with correct properties
+  return {
+    ...account,
+    // Ensure compatibility with both property sets
+    api_endpoint: account.apiEndpoint || account.api_endpoint,
+    api_token: account.apiToken || account.api_token,
+    last_sync_date: account.lastSyncDate || account.last_sync_date
+  };
 };
 
 export const testAcelleConnection = async (
@@ -26,6 +33,8 @@ export const testAcelleConnection = async (
     success: false,
     message: "Email campaign functionality has been removed from the application.",
     error: "Service unavailable",
+    errorMessage: "Service unavailable",
+    statusCode: 404,
     request: {
       url: `${endpoint}/sample-path`,
       method: "GET",

@@ -19,6 +19,19 @@ export const useCampaignSync = () => {
       return false;
     },
     isSyncing: false,
-    lastSyncResult: null
+    lastSyncResult: null,
+    // Adding missing properties to fix type errors
+    syncCampaignsCache: async () => {
+      console.warn("syncCampaignsCache: Email campaign functionality has been removed");
+      return { success: false };
+    },
+    checkApiAvailability: async () => {
+      console.warn("checkApiAvailability: Email campaign functionality has been removed");
+      return false;
+    },
+    initializeServices: async () => {
+      console.warn("initializeServices: Email campaign functionality has been removed");
+      return { success: false };
+    }
   };
 };

@@ -1,42 +1,85 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface CampaignsTablePaginationProps {
+interface TablePaginationProps {
   currentPage: number;
-  hasNextPage: boolean;
+  totalPages: number;
   onPageChange: (page: number) => void;
+  itemsPerPage: number;
+  onItemsPerPageChange: (value: number) => void;
 }
 
-export const CampaignsTablePagination: React.FC<CampaignsTablePaginationProps> = ({
+export const TablePagination: React.FC<TablePaginationProps> = ({
   currentPage,
-  hasNextPage,
-  onPageChange
+  totalPages,
+  onPageChange,
+  itemsPerPage,
+  onItemsPerPageChange
 }) => {
   return (
-    <div className="flex items-center justify-end space-x-2 py-4">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage <= 1}
-      >
-        <ChevronLeft className="h-4 w-4" />
-        <span className="sr-only">Page précédente</span>
-      </Button>
-      <div className="text-sm">
-        Page {currentPage}
+    <div className="flex flex-col md:flex-row justify-between items-center mt-4">
+      <div className="flex items-center space-x-2 mb-4 md:mb-0">
+        <p className="text-sm text-muted-foreground">
+          Éléments par page:
+        </p>
+        <Select
+          value={itemsPerPage.toString()}
+          onValueChange={(value) => onItemsPerPageChange(parseInt(value))}
+        >
+          <SelectTrigger className="w-[80px]">
+            <SelectValue placeholder="10" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="5">5</SelectItem>
+            <SelectItem value="10">10</SelectItem>
+            <SelectItem value="20">20</SelectItem>
+            <SelectItem value="50">50</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={!hasNextPage}
-      >
-        <ChevronRight className="h-4 w-4" />
-        <span className="sr-only">Page suivante</span>
-      </Button>
+      
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <span className="text-sm">
+          Page {currentPage} sur {totalPages || 1}
+        </span>
+        
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage >= totalPages}
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 };

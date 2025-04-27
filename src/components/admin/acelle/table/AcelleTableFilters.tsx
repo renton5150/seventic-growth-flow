@@ -1,81 +1,64 @@
 
-import React from "react";
+import React from 'react';
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface AcelleTableFiltersProps {
   searchTerm: string;
-  onSearchChange: (value: string) => void;
+  setSearchTerm: (term: string) => void;
   statusFilter: string;
-  onStatusFilterChange: (value: string) => void;
-  sortBy: string;
-  onSortByChange: (value: string) => void;
-  sortOrder: 'asc' | 'desc';
-  onSortOrderChange: (value: 'asc' | 'desc') => void;
+  setStatusFilter: (status: string) => void;
 }
 
 export const AcelleTableFilters: React.FC<AcelleTableFiltersProps> = ({
   searchTerm,
-  onSearchChange,
+  setSearchTerm,
   statusFilter,
-  onStatusFilterChange,
-  sortBy,
-  onSortByChange,
-  sortOrder,
-  onSortOrderChange
+  setStatusFilter
 }) => {
   return (
-    <div className="flex flex-wrap gap-4">
-      <div className="w-full md:w-auto flex-grow">
-        <Input
-          placeholder="Rechercher par nom ou sujet..."
+    <div className="flex flex-col md:flex-row gap-4 mb-4">
+      <div className="w-full md:w-1/2">
+        <Input 
+          placeholder="Rechercher une campagne..."
           value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="max-w-sm"
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full"
         />
       </div>
       
-      <div>
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Tous les statuts" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="sent">Envoyés</SelectItem>
-            <SelectItem value="sending">En cours d'envoi</SelectItem>
-            <SelectItem value="queued">En attente</SelectItem>
-            <SelectItem value="paused">En pause</SelectItem>
-            <SelectItem value="failed">Échec</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Select 
+        value={statusFilter} 
+        onValueChange={setStatusFilter}
+      >
+        <SelectTrigger className="w-full md:w-[180px]">
+          <SelectValue placeholder="Statut" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Tous les statuts</SelectItem>
+          <SelectItem value="sent">Envoyés</SelectItem>
+          <SelectItem value="sending">En cours</SelectItem>
+          <SelectItem value="scheduled">Planifiés</SelectItem>
+          <SelectItem value="failed">Échoués</SelectItem>
+        </SelectContent>
+      </Select>
       
-      <div>
-        <Select value={sortBy} onValueChange={onSortByChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Trier par" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="created_at">Date de création</SelectItem>
-            <SelectItem value="run_at">Date d'envoi</SelectItem>
-            <SelectItem value="name">Nom</SelectItem>
-            <SelectItem value="subject">Sujet</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      
-      <div>
-        <Select value={sortOrder} onValueChange={onSortOrderChange as any}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Ordre" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="desc">Plus récent d'abord</SelectItem>
-            <SelectItem value="asc">Plus ancien d'abord</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Button 
+        variant="outline"
+        onClick={() => {
+          setSearchTerm('');
+          setStatusFilter('all');
+        }}
+      >
+        Réinitialiser
+      </Button>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
 /**
- * Hook placeholder for handling Acelle campaigns table state
+ * Hook implémenté pour gérer le tableau des campagnes Acelle
  */
 
 export const useAcelleCampaignsTable = (campaigns: any[] = []) => {

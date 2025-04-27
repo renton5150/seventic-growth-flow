@@ -1,38 +1,39 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode } from 'react';
 
-type Language = 'fr' | 'en';
+type LanguageType = 'fr' | 'en';
 
 interface I18nContextType {
-  language: Language;
-  setLanguage: (lang: Language) => void;
+  language: LanguageType;
+  setLanguage: (lang: LanguageType) => void;
   t: (key: string) => string;
 }
 
+const I18nContext = createContext<I18nContextType | undefined>(undefined);
+
+// Translations simplifiées pour démonstration
 const translations = {
   fr: {
+    'app.title': 'Application Seventic',
     'dashboard.title': 'Tableau de bord',
-    'missions.title': 'Missions',
-    'requests.title': 'Demandes',
-    'admin.title': 'Administration',
-    // Ajoutez d'autres traductions ici
+    'login.submit': 'Se connecter',
+    'register.submit': 'S\'inscrire',
+    // Ajoutez d'autres traductions au besoin
   },
   en: {
+    'app.title': 'Seventic App',
     'dashboard.title': 'Dashboard',
-    'missions.title': 'Missions',
-    'requests.title': 'Requests',
-    'admin.title': 'Administration',
-    // Ajoutez d'autres traductions ici
+    'login.submit': 'Login',
+    'register.submit': 'Register',
+    // Ajoutez d'autres traductions au besoin
   }
 };
 
-const I18nContext = createContext<I18nContextType | undefined>(undefined);
-
-export const I18nProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLanguage] = useState<Language>('fr');
+export const I18nProvider: React.FC<{children: ReactNode}> = ({ children }) => {
+  const [language, setLanguage] = useState<LanguageType>('fr');
 
   const t = (key: string): string => {
-    return translations[language][key] || key;
+    return translations[language][key as keyof typeof translations[typeof language]] || key;
   };
 
   return (
@@ -42,7 +43,7 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useI18n = () => {
+export const useI18n = (): I18nContextType => {
   const context = useContext(I18nContext);
   if (context === undefined) {
     throw new Error('useI18n must be used within an I18nProvider');

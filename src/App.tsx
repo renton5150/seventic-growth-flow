@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -37,45 +37,43 @@ function App() {
     <ThemeProvider defaultTheme="light" storageKey="ui-theme">
       <AuthProvider>
         <I18nProvider>
-          <Router>
-            <MobileFeedback />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          <MobileFeedback />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            
+            {/* Routes protégées nécessitant une authentification */}
+            <Route element={<ProtectedRoute allowedRoles={["admin", "growth", "sdr"]} />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/requests/:id" element={<RequestDetails />} />
+              <Route path="/database-request" element={<DatabaseRequestPage />} />
+              <Route path="/linkedin-request" element={<LinkedInRequestPage />} />
+              <Route path="/edit/database-request/:id" element={<DatabaseEditPage />} />
+              <Route path="/edit/linkedin-request/:id" element={<LinkedInScrapingEditPage />} />
+              <Route path="/missions" element={<MissionsListPage />} />
+              <Route path="/missions/:id" element={<MissionDetailsPage />} />
+            </Route>
+            
+            {/* Routes Admin */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/team" element={<TeamPage />} />
+              <Route path="/admin/requests" element={<AdminRequestsPage />} />
+              <Route path="/admin/missions/create" element={<MissionCreationPage />} />
+              <Route path="/admin/missions/:id/edit" element={<MissionEditPage />} />
               
-              {/* Routes protégées nécessitant une authentification */}
-              <Route element={<ProtectedRoute allowedRoles={["admin", "growth", "sdr"]} />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/requests/:id" element={<RequestDetails />} />
-                <Route path="/database-request" element={<DatabaseRequestPage />} />
-                <Route path="/linkedin-request" element={<LinkedInRequestPage />} />
-                <Route path="/edit/database-request/:id" element={<DatabaseEditPage />} />
-                <Route path="/edit/linkedin-request/:id" element={<LinkedInScrapingEditPage />} />
-                <Route path="/missions" element={<MissionsListPage />} />
-                <Route path="/missions/:id" element={<MissionDetailsPage />} />
-              </Route>
-              
-              {/* Routes Admin */}
-              <Route element={<AdminRoute />}>
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/admin/team" element={<TeamPage />} />
-                <Route path="/admin/requests" element={<AdminRequestsPage />} />
-                <Route path="/admin/missions/create" element={<MissionCreationPage />} />
-                <Route path="/admin/missions/:id/edit" element={<MissionEditPage />} />
-                
-                {/* Tests & Développement */}
-                <Route path="/test" element={<TestPage />} />
-              </Route>
-              
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-            <Toaster position="top-center" closeButton richColors />
-          </Router>
+              {/* Tests & Développement */}
+              <Route path="/test" element={<TestPage />} />
+            </Route>
+            
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+          <Toaster position="top-center" closeButton richColors />
         </I18nProvider>
       </AuthProvider>
     </ThemeProvider>

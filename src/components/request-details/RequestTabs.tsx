@@ -1,47 +1,36 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EmailCampaignDetails } from "./email-campaign/EmailCampaignDetails";
-import { DatabaseDetails } from "./DatabaseDetails";
-import { LinkedInDetails } from "./LinkedInDetails";
-import { RequestComments } from "./RequestComments";
-import { Request, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
+import { Request } from "@/types/types";
+import EmailCampaignDetails from "@/components/requests/email-campaign/EmailCampaignDetails";
+import { RequestDetailsCard } from "./RequestDetailsCard";
+import { RequestTargeting } from "./RequestTargeting";
+import { RequestTimeline } from "./RequestTimeline";
+import { RequestResults } from "./RequestResults";
 
 interface RequestTabsProps {
   request: Request;
-  comment: string;
-  commentLoading: boolean;
-  onCommentChange: (value: string) => void;
-  onAddComment: () => void;
 }
 
-export const RequestTabs = ({
-  request,
-  comment,
-  commentLoading,
-  onCommentChange,
-  onAddComment,
-}: RequestTabsProps) => {
+export const RequestTabs: React.FC<RequestTabsProps> = ({ request }) => {
   return (
-    <Tabs defaultValue="details" className="w-full">
-      <TabsList className="mb-4">
+    <Tabs defaultValue="details" className="mt-6">
+      <TabsList className="grid grid-cols-4">
         <TabsTrigger value="details">Détails</TabsTrigger>
-        <TabsTrigger value="comments">Commentaires</TabsTrigger>
+        <TabsTrigger value="targeting">Ciblage</TabsTrigger>
+        <TabsTrigger value="timeline">Timeline</TabsTrigger>
+        <TabsTrigger value="results">Résultats</TabsTrigger>
       </TabsList>
-      
-      <TabsContent value="details">
-        {request.type === "email" && <EmailCampaignDetails request={request as EmailCampaignRequest} />}
-        {request.type === "database" && <DatabaseDetails request={request as DatabaseRequest} />}
-        {request.type === "linkedin" && <LinkedInDetails request={request as LinkedInScrapingRequest} />}
+      <TabsContent value="details" className="mt-4 space-y-4">
+        <RequestDetailsCard request={request} />
       </TabsContent>
-      
-      <TabsContent value="comments">
-        <RequestComments
-          comments={request.details?.comments || []}
-          comment={comment}
-          commentLoading={commentLoading}
-          onCommentChange={onCommentChange}
-          onAddComment={onAddComment}
-        />
+      <TabsContent value="targeting" className="mt-4">
+        <RequestTargeting request={request} />
+      </TabsContent>
+      <TabsContent value="timeline" className="mt-4">
+        <RequestTimeline request={request} />
+      </TabsContent>
+      <TabsContent value="results" className="mt-4">
+        <RequestResults request={request} />
       </TabsContent>
     </Tabs>
   );

@@ -1,79 +1,62 @@
 
-/**
- * This is a placeholder utility file for Acelle campaign related functions
- */
+// Utilitaires de statuts pour les campagnes Acelle (version placeholder)
 
-export const translateStatus = (status: string): string => {
-  switch (status) {
-    case "queued":
-      return "En attente";
-    case "sending":
-      return "En cours d'envoi";
-    case "sent":
-      return "Envoyé";
-    case "paused":
-      return "En pause";
-    case "failed":
-      return "Échec";
+export const getCampaignStatusVariant = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'sent':
+    case 'done':
+      return 'success';
+    case 'sending':
+      return 'warning';
+    case 'paused':
+    case 'scheduled':
+      return 'info';
+    case 'error':
+    case 'failed':
+      return 'destructive';
     default:
-      return "Inconnu";
+      return 'outline';
   }
 };
 
-export const getStatusBadgeVariant = (status: string): string => {
-  switch (status) {
-    case "sent":
-      return "success";
-    case "sending":
-      return "info";
-    case "queued":
-      return "warning";
-    case "paused":
-      return "warning";
-    case "failed":
-      return "destructive";
-    default:
-      return "default";
-  }
-};
-
-export const renderPercentage = (value: number | null | undefined): string => {
-  if (value === null || value === undefined || isNaN(value)) {
-    return "0%";
-  }
-  return `${(value * 100).toFixed(1)}%`;
-};
-
-export const safeDeliveryInfo = (campaign: any): any => {
-  const defaultInfo = {
+export const getCampaignStats = () => {
+  return {
     total: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
-    bounced: { total: 0, hard: 0, soft: 0 },
-    unsubscribed: 0,
-    complained: 0,
-    delivery_rate: 0,
-    open_rate: 0,
-    click_rate: 0,
-    unsubscribe_rate: 0,
-    unique_open_rate: 0
+    sent: 0,
+    pending: 0,
+    active: 0,
+    failed: 0
   };
-
-  return campaign?.delivery_info || defaultInfo;
 };
 
-export const isConnectionError = (error: any): boolean => {
-  if (!error) return false;
-  
-  const errorStr = typeof error === 'string' ? error : JSON.stringify(error);
-  return errorStr.toLowerCase().includes('connect') || 
-         errorStr.toLowerCase().includes('network') || 
-         errorStr.toLowerCase().includes('fetch') ||
-         errorStr.toLowerCase().includes('404') ||
-         errorStr.toLowerCase().includes('403');
+export const getFormattedStatus = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'sent':
+      return 'Envoyé';
+    case 'sending':
+      return 'En cours d\'envoi';
+    case 'paused':
+      return 'En pause';
+    case 'scheduled':
+      return 'Planifié';
+    case 'error':
+    case 'failed':
+      return 'Échoué';
+    case 'deleted':
+      return 'Supprimé';
+    case 'draft':
+      return 'Brouillon';
+    default:
+      return status;
+  }
 };
 
-export const getTroubleshootingMessage = (error: string | null, apiEndpoint?: string): string => {
-  return "Email campaign functionality has been removed from the application.";
+export const getCampaignStatusGroups = () => {
+  return {
+    all: 0,
+    active: 0,
+    completed: 0,
+    failed: 0,
+    scheduled: 0
+  };
 };
