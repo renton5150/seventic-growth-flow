@@ -16,24 +16,33 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
     
     if (error) throw error;
 
-    return data.map(account => ({
-      id: account.id,
-      missionId: account.mission_id,
-      missionName: account.missions?.name || "Mission inconnue",
-      name: account.name,
-      apiEndpoint: account.api_endpoint,
-      apiToken: account.api_token,
-      lastSyncDate: account.last_sync_date,
-      status: account.status as AcelleAccount["status"],
-      created_at: account.created_at,
-      updated_at: account.updated_at,
-      createdAt: account.created_at, // Adding compatibility fields
-      updatedAt: account.updated_at, // Adding compatibility fields
-      // Safely handle last_sync_error 
-      lastSyncError: account.last_sync_error || null,
-      cachePriority: account.cache_priority || 0,
-      apiKey: account.api_token // For compatibility
-    }));
+    return data.map(account => {
+      // Create the base account object
+      const accountData: AcelleAccount = {
+        id: account.id,
+        missionId: account.mission_id,
+        missionName: account.missions?.name || "Mission inconnue",
+        name: account.name,
+        apiEndpoint: account.api_endpoint,
+        apiToken: account.api_token,
+        lastSyncDate: account.last_sync_date,
+        status: account.status as AcelleAccount["status"],
+        created_at: account.created_at,
+        updated_at: account.updated_at,
+        createdAt: account.created_at, // Adding compatibility fields
+        updatedAt: account.updated_at, // Adding compatibility fields
+        cachePriority: account.cache_priority || 0,
+        apiKey: account.api_token, // For compatibility
+        lastSyncError: null // Default to null
+      };
+      
+      // Only assign last_sync_error if it exists in the data
+      if ('last_sync_error' in account) {
+        accountData.lastSyncError = account.last_sync_error;
+      }
+      
+      return accountData;
+    });
   } catch (error) {
     console.error("Error fetching Acelle accounts:", error);
     return [];
@@ -54,7 +63,8 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
     
     if (error) throw error;
     
-    return {
+    // Create the base account object
+    const accountData: AcelleAccount = {
       id: data.id,
       missionId: data.mission_id,
       missionName: data.missions?.name || "Mission inconnue",
@@ -67,11 +77,17 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       updated_at: data.updated_at,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
-      // Handle last_sync_error with a type assertion to ensure it exists
-      lastSyncError: (data as any).last_sync_error || null,
       cachePriority: data.cache_priority || 0,
-      apiKey: data.api_token
+      apiKey: data.api_token,
+      lastSyncError: null // Default to null
     };
+    
+    // Only assign last_sync_error if it exists in the data
+    if ('last_sync_error' in data) {
+      accountData.lastSyncError = data.last_sync_error;
+    }
+    
+    return accountData;
   } catch (error) {
     console.error(`Error fetching Acelle account ${id}:`, error);
     return null;
