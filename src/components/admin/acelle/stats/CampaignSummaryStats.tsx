@@ -2,6 +2,7 @@
 import React, { useMemo } from "react";
 import { AcelleCampaign } from "@/types/acelle.types";
 import { Card } from "@/components/ui/card";
+import { safeDeliveryInfo } from "@/utils/acelle/campaignStatusUtils";
 
 interface CampaignSummaryStatsProps {
   campaigns: AcelleCampaign[];
@@ -18,13 +19,15 @@ export const CampaignSummaryStats: React.FC<CampaignSummaryStatsProps> = ({ camp
     let totalEmails = 0;
 
     campaigns.forEach(campaign => {
-      const info = campaign.delivery_info || {};
+      // Use our safe helper to get delivery info with default values
+      const info = safeDeliveryInfo(campaign);
       
-      totalEmails += info.total || 0;
-      totalDelivered += info.delivered || 0;
-      totalOpened += info.opened || 0;
-      totalClicked += info.clicked || 0;
-      totalBounced += (info.bounced?.total || 0);
+      // Now we can safely access all properties
+      totalEmails += info.total;
+      totalDelivered += info.delivered;
+      totalOpened += info.opened;
+      totalClicked += info.clicked;
+      totalBounced += info.bounced.total;
     });
 
     const avgDeliveryRate = totalEmails > 0 ? totalDelivered / totalEmails * 100 : 0;

@@ -2,9 +2,10 @@
 import React, { useMemo } from "react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer, TooltipProps 
+  Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 import { AcelleCampaign } from "@/types/acelle.types";
+import { safeDeliveryInfo } from "@/utils/acelle/campaignStatusUtils";
 
 interface DeliveryStatsChartProps {
   campaigns: AcelleCampaign[];
@@ -23,21 +24,14 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaign
       .slice(0, 10);
     
     return recentCampaigns.map(campaign => {
-      // Calculate percentages safely
-      const deliveryInfo = campaign.delivery_info || {};
-      const total = deliveryInfo.total || 0;
+      // Use the safe helper to get delivery info with default values
+      const deliveryInfo = safeDeliveryInfo(campaign);
       
-      const deliveryRate = deliveryInfo.delivery_rate !== undefined 
-        ? deliveryInfo.delivery_rate 
-        : (total > 0 ? (deliveryInfo.delivered || 0) / total : 0);
-      
-      const openRate = deliveryInfo.unique_open_rate !== undefined 
-        ? deliveryInfo.unique_open_rate 
-        : (deliveryInfo.delivered ? (deliveryInfo.opened || 0) / (deliveryInfo.delivered || 1) : 0);
-      
-      const clickRate = deliveryInfo.click_rate !== undefined 
-        ? deliveryInfo.click_rate 
-        : (deliveryInfo.delivered ? (deliveryInfo.clicked || 0) / (deliveryInfo.delivered || 1) : 0);
+      // All properties are now safely accessible
+      const total = deliveryInfo.total;
+      const deliveryRate = deliveryInfo.delivery_rate;
+      const openRate = deliveryInfo.unique_open_rate;
+      const clickRate = deliveryInfo.click_rate;
       
       return {
         name: campaign.name.length > 15 ? `${campaign.name.substring(0, 15)}...` : campaign.name,

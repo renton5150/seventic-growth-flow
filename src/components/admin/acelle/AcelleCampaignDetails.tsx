@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { AcelleAccount, AcelleCampaignDetail } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
-import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
+import { translateStatus, getStatusBadgeVariant, renderPercentage, safeDeliveryInfo } from "@/utils/acelle/campaignStatusUtils";
 
 interface AcelleCampaignDetailsProps {
   account: AcelleAccount;
@@ -66,24 +66,7 @@ export default function AcelleCampaignDetails({ account, campaignUid }: AcelleCa
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF6384'];
 
-  const deliveryInfo = campaign?.delivery_info || {
-    total: 0,
-    delivery_rate: 0,
-    unique_open_rate: 0,
-    click_rate: 0,
-    bounce_rate: 0,
-    unsubscribe_rate: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
-    bounced: {
-      soft: 0,
-      hard: 0,
-      total: 0
-    },
-    unsubscribed: 0,
-    complained: 0
-  };
+  const deliveryInfo = safeDeliveryInfo(campaign);
 
   const total = deliveryInfo.total;
   const delivered = deliveryInfo.delivered;

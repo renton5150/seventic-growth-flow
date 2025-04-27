@@ -38,3 +38,29 @@ export const renderPercentage = (value: number | undefined | null): string => {
   const percentage = (value * 100).toFixed(1);
   return `${percentage}%`;
 };
+
+// Helper to get default delivery info structure with safe values
+export const getDefaultDeliveryInfo = () => ({
+  total: 0,
+  delivery_rate: 0,
+  unique_open_rate: 0,
+  click_rate: 0,
+  bounce_rate: 0,
+  unsubscribe_rate: 0,
+  delivered: 0,
+  opened: 0,
+  clicked: 0,
+  bounced: {
+    soft: 0,
+    hard: 0,
+    total: 0
+  },
+  unsubscribed: 0,
+  complained: 0
+});
+
+// Helper to safely access delivery_info properties
+export const safeDeliveryInfo = (campaign: any) => {
+  if (!campaign) return getDefaultDeliveryInfo();
+  return campaign.delivery_info || getDefaultDeliveryInfo();
+};
