@@ -15,6 +15,15 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
   try {
     console.log(`Début du téléversement: ${file.name} par utilisateur ${userId}`);
     
+    // Vérifier que l'utilisateur est bien authentifié
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      console.error("Erreur d'authentification:", sessionError);
+      toast.error("Vous devez être connecté pour téléverser un fichier");
+      return { success: false, error: "Non authentifié" };
+    }
+    
     // S'assurer que le bucket existe et est public
     const bucketExists = await ensureDatabaseBucketExists();
     if (!bucketExists) {
@@ -32,14 +41,21 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
     const filePath = `uploads/${timestamp}_${fileName}`;
     
     console.log(`Téléchargement du fichier ${fileName} (${fileExt}) vers le chemin ${filePath}`);
+    console.log("Session utilisateur:", session.user.id);
     
     // Téléverser le fichier
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('databases')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
     
     if (uploadError) {
       console.error("Erreur lors du téléversement:", uploadError);
+      console.log("Code d'erreur:", uploadError.code);
+      console.log("Message d'erreur:", uploadError.message);
+      console.log("Détails:", uploadError.details);
       
       // Messages d'erreur plus spécifiques
       if (uploadError.message.includes('JWT')) {
@@ -48,6 +64,8 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
         toast.error("Fichier trop volumineux");
       } else if (uploadError.message.includes('not found')) {
         toast.error("Le service de stockage n'est pas disponible");
+      } else if (uploadError.message.includes('permission')) {
+        toast.error("Vous n'avez pas les permissions nécessaires");
       } else {
         toast.error(`Erreur: ${uploadError.message}`);
       }
@@ -65,6 +83,8 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<Up
         error: "Aucune donnée renvoyée par le service de stockage" 
       };
     }
+    
+    console.log("Téléversement réussi:", uploadData);
     
     // Créer un URL public pour le fichier téléversé
     const { data: publicUrlData } = await supabase.storage

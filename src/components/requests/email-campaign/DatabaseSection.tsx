@@ -53,8 +53,11 @@ export const DatabaseSection = ({
 
     try {
       setUploading(true);
+      toast.loading("Téléchargement en cours...", { id: "file-upload" });
       
       const result = await uploadDatabaseFile(file, user.id);
+      
+      toast.dismiss("file-upload");
       
       if (result.success && result.fileUrl) {
         toast.success(`Fichier ${file.name} téléchargé avec succès`);
@@ -63,11 +66,12 @@ export const DatabaseSection = ({
         // Déclencher l'événement pour actualiser la liste des bases de données
         window.dispatchEvent(new CustomEvent('database-uploaded'));
       } else {
-        toast.error("Erreur lors du téléchargement du fichier");
+        toast.error(`Erreur lors du téléchargement du fichier: ${result.error || "Erreur inconnue"}`);
       }
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast.error("Erreur lors du téléchargement du fichier");
+      toast.dismiss("file-upload");
     } finally {
       setUploading(false);
     }
