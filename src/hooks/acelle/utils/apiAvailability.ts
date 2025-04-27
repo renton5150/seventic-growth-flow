@@ -24,7 +24,7 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
       try {
-        console.log("Envoi de la requête ping avec Supabase token:", accessToken.substring(0, 15) + "...");
+        console.log("Envoi de la requête ping...");
         
         // Utiliser le Supabase token pour appeler notre Edge Function
         const pingResponse = await fetch(
@@ -32,7 +32,6 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
           {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache, no-store, must-revalidate'
             },
@@ -90,7 +89,6 @@ export const checkApiAvailability = async (retries = 2, retryDelay = 1500) => {
   }
 };
 
-// Add a function to directly test the Acelle API connection
 export const testAcelleConnection = async (accountId?: string) => {
   try {
     console.log("Test direct de la connexion API Acelle...");
@@ -144,8 +142,8 @@ export const testAcelleConnection = async (accountId?: string) => {
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'x-acelle-endpoint': account.api_endpoint,
             'x-acelle-token': account.api_token
           },
