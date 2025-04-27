@@ -22,8 +22,8 @@ export const testAcelleConnection = async (accountId?: string): Promise<AcelleCo
     }
     
     return makeApiRequest({
-      endpoint: account.api_endpoint,
-      token: account.api_token,
+      endpoint: account.apiEndpoint,
+      token: account.apiToken,
       accountName: account.name
     });
   } catch (error) {
@@ -31,4 +31,3 @@ export const testAcelleConnection = async (accountId?: string): Promise<AcelleCo
     return { success: false, error: error.message };
   }
 };
-
