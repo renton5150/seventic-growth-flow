@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,17 +24,13 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
       setTestResult(result);
       
       if (withDebug) {
-        // If debugging, store the full debug info
         setDebugInfo(result as AcelleConnectionDebug);
       }
       
-      // Call the callback if provided
       if (onTestComplete) {
-        // For boolean results
         if (typeof result === "boolean") {
           onTestComplete(result);
         } 
-        // For debug objects
         else if (result && 'success' in result) {
           onTestComplete(result.success);
         }
@@ -49,14 +44,12 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
     }
   };
 
-  // Helper to determine if test was successful
   const isSuccess = () => {
     if (testResult === null) return false;
     if (typeof testResult === "boolean") return testResult;
     return testResult.success;
   };
 
-  // Helper to get error message
   const getErrorMessage = () => {
     if (testResult === null || testResult === true) return null;
     if (typeof testResult === "boolean") return "La connexion à l'API a échoué";
@@ -110,7 +103,7 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
           </Alert>
           
           {!isSuccess() && (
-            <Alert variant="warning">
+            <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Dépannage</AlertTitle>
               <AlertDescription className="text-sm">
@@ -121,7 +114,6 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
         </>
       )}
       
-      {/* Debug information section */}
       {debugInfo && (
         <div className="mt-4 space-y-2">
           <Separator />
