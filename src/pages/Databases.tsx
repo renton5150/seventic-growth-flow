@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DatabasesList } from "@/components/databases/DatabasesList";
 import { DatabaseUploader } from "@/components/databases/DatabaseUploader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { getAllDatabases } from "@/services/database";
+import { getAllDatabaseFiles } from "@/services/database";
 
 const Databases = () => {
   const { user, loading: authLoading } = useAuth();
@@ -12,7 +13,7 @@ const Databases = () => {
   
   const { data: databases = [], isLoading: databasesLoading, refetch, error } = useQuery({
     queryKey: ['databases'],
-    queryFn: getAllDatabases,
+    queryFn: getAllDatabaseFiles,
     enabled: !!user
   });
   
