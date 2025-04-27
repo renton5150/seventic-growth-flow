@@ -23,7 +23,9 @@ export const formSchema = z.object({
   path: ["templateContent"],
 }).refine(data => {
   // Au moins un champ database doit être rempli
-  return !!data.databaseFileUrl || data.databaseWebLinks.some(link => !!link) || !!data.databaseNotes;
+  return !!data.databaseFileUrl || 
+         data.databaseWebLinks.some(link => !!link) || 
+         !!data.databaseNotes;
 }, {
   message: "Veuillez fournir une base de données via un fichier, un lien ou des notes explicatives",
   path: ["databaseFileUrl"],
