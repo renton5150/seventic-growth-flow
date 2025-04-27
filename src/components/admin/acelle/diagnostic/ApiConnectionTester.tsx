@@ -5,13 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { testAcelleConnection } from "@/services/acelle/acelle-service";
-import { getTroubleshootingMessage } from "@/utils/acelle/campaignStatusUtils";
 
 interface ApiConnectionTesterProps {
   account: AcelleAccount;
   onTestComplete?: (success: boolean) => void;
 }
+
+// Mock function since the actual service is removed
+const testAcelleConnection = async (endpoint: string, token: string, debug = false): Promise<boolean | AcelleConnectionDebug> => {
+  console.warn("testAcelleConnection is mocked and always returns false as email campaign functionality has been removed");
+  return false;
+};
+
+// Mock function for troubleshooting messages
+const getTroubleshootingMessage = (errorMessage: string | null, endpoint: string): string => {
+  return "Email campaign functionality has been removed from the application.";
+};
 
 export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTesterProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +32,7 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
     setIsLoading(true);
     setErrorDetails(null);
     try {
-      const result = await testAcelleConnection(account.apiEndpoint, account.apiToken, withDebug);
+      const result = await testAcelleConnection(account.api_endpoint, account.api_token, withDebug);
       setTestResult(result);
       
       if (withDebug) {
@@ -95,7 +104,7 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
         <div>
           <h3 className="font-medium">Tester la connexion API</h3>
           <p className="text-sm text-muted-foreground">
-            {account.name} ({account.apiEndpoint})
+            {account.name} ({account.api_endpoint})
           </p>
         </div>
         
@@ -140,7 +149,7 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Dépannage</AlertTitle>
               <AlertDescription className="text-sm">
-                {getTroubleshootingMessage(getErrorMessage(), account.apiEndpoint)}
+                {getTroubleshootingMessage(getErrorMessage(), account.api_endpoint)}
                 {renderErrorHelp()}
               </AlertDescription>
             </Alert>

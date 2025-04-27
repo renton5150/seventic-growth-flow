@@ -1,34 +1,36 @@
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
-import Home from "@/pages/Home";
-import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import Register from "@/pages/Register";
-import ForgotPassword from "@/pages/ForgotPassword";
-import ResetPassword from "@/pages/ResetPassword";
-import NotFoundPage from "@/pages/NotFoundPage";
-import RequestDetails from "@/pages/RequestDetails";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { ThemeProvider } from "./components/theme/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import AdminRoute from "@/components/auth/AdminRoute";
-import UnauthorizedPage from "@/pages/UnauthorizedPage";
-import AdminDashboard from "@/pages/AdminDashboard";
-import MobileFeedback from "@/components/ui/mobile-feedback";
-import DatabaseRequestPage from "@/pages/DatabaseRequestPage";
-import LinkedInRequestPage from "@/pages/LinkedInRequestPage";
-import DatabaseEditPage from "@/pages/DatabaseEditPage";
-import LinkedInScrapingEditPage from "@/pages/LinkedInScrapingEditPage";
-import TestPage from "@/pages/TestPage";
-import MissionsListPage from "@/pages/MissionsListPage";
-import MissionDetailsPage from "@/pages/MissionDetailsPage";
-import MissionCreationPage from "@/pages/MissionCreationPage";
-import MissionEditPage from "@/pages/MissionEditPage";
-import AdminRequestsPage from "@/pages/AdminRequestsPage";
-import ProfilePage from "@/pages/ProfilePage";
-import TeamPage from "@/pages/TeamPage";
-import { I18nProvider } from "@/contexts/I18nContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import AdminRoute from "./components/auth/AdminRoute";
+import MobileFeedback from "./components/ui/mobile-feedback";
+import { I18nProvider } from "./contexts/I18nContext";
+
+// Import pages
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import NotFoundPage from "./pages/NotFoundPage";
+import UnauthorizedPage from "./pages/UnauthorizedPage";
+import RequestDetails from "./pages/RequestDetails";
+import AdminDashboard from "./pages/AdminDashboard";
+import DatabaseRequestPage from "./pages/DatabaseRequestPage";
+import LinkedInRequestPage from "./pages/LinkedInRequestPage";
+import DatabaseEditPage from "./pages/DatabaseEditPage";
+import LinkedInScrapingEditPage from "./pages/LinkedInScrapingEditPage";
+import TestPage from "./pages/TestPage";
+import MissionsListPage from "./pages/MissionsListPage";
+import MissionDetailsPage from "./pages/MissionDetailsPage";
+import MissionCreationPage from "./pages/MissionCreationPage";
+import MissionEditPage from "./pages/MissionEditPage";
+import AdminRequestsPage from "./pages/AdminRequestsPage";
+import ProfilePage from "./pages/ProfilePage";
+import TeamPage from "./pages/TeamPage";
 
 function App() {
   return (
