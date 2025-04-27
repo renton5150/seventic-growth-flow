@@ -1,99 +1,119 @@
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, AlertTriangle, Power } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AcelleAccount } from "@/types/acelle.types";
+import React, { useEffect } from "react";
 import { useAcelleCampaigns } from "@/hooks/acelle/useAcelleCampaigns";
-import { CampaignStatusChart } from "./charts/CampaignStatusChart";
-import { DeliveryStatsChart } from "./charts/DeliveryStatsChart";
-import { CampaignSummaryStats } from "./stats/CampaignSummaryStats";
-import { toast } from "sonner";
-import { useWakeUpEdgeFunctions } from "@/hooks/acelle/useWakeUpEdgeFunctions";
+import { AcelleAccount } from "@/types/acelle.types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Loader2, RefreshCw, AlertCircle, Power } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import CampaignsOverview from "./dashboard/CampaignsOverview";
+import CampaignsList from "./dashboard/CampaignsList";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
 }
 
 export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDashboardProps) {
-  const [recoveryAttempts, setRecoveryAttempts] = useState<number>(0);
-  const [lastAlertTime, setLastAlertTime] = useState<number>(0);
-  const [showServiceAlert, setShowServiceAlert] = useState<boolean>(false);
-  
-  const { wakeUpEdgeFunctions, isWakingUp, wakeUpStatus } = useWakeUpEdgeFunctions();
-  
   const { 
     activeAccounts, 
     campaignsData, 
     isLoading, 
-    isError, 
-    error, 
     syncError, 
-    refetch, 
-    handleRetry 
+    handleRetry,
+    initializeServices 
   } = useAcelleCampaigns(accounts);
 
-  // Reduce alert frequency by limiting how often alerts can be shown
-  const showAlert = useCallback((message: string) => {
-    const now = Date.now();
-    if (now - lastAlertTime > 15000) { // Only show alerts every 15 seconds
-      toast.info(message);
-      setLastAlertTime(now);
-    }
-  }, [lastAlertTime]);
-
-  // Only display service alert when there are actual issues
+  // Initialisation automatique au chargement du composant
   useEffect(() => {
-    if (syncError) {
-      setShowServiceAlert(true);
-    } else if (campaignsData.length > 0) {
-      // Hide alert after successful data load
-      setShowServiceAlert(false);
+    if (activeAccounts.length > 0) {
+      console.log("Initialisation automatique des services depuis le dashboard");
+      initializeServices().catch(err => {
+        console.error("Erreur d'initialisation automatique:", err);
+      });
     }
-  }, [syncError, campaignsData]);
-  
-  // Recovery mechanism - if error detected, try to recover automatically but limit attempts
-  useEffect(() => {
-    if (syncError && recoveryAttempts < 3 && 
-       (syncError.includes("Failed to fetch") || 
-        syncError.includes("timeout") || 
-        syncError.includes("shutdown"))) {
-      
-      // Schedule automatic recovery attempt after error detected
-      const timer = setTimeout(() => {
-        showAlert("Tentative de récupération automatique...");
-        wakeUpEdgeFunctions().then(() => {
-          setTimeout(() => handleRetry(), 5000);
-        });
-        setRecoveryAttempts(prev => prev + 1);
-      }, 10000); // Wait 10 seconds before attempting recovery
-      
-      return () => clearTimeout(timer);
-    }
-  }, [syncError, recoveryAttempts, handleRetry, wakeUpEdgeFunctions, showAlert]);
-
-  const handleRefresh = useCallback(() => {
-    setRecoveryAttempts(0); // Reset recovery attempts on manual refresh
-    toast.info("Actualisation des données en cours...");
-    refetch();
-  }, [refetch]);
-
-  const handleWakeAndRefresh = useCallback(() => {
-    setRecoveryAttempts(0); // Reset recovery attempts on manual wake
-    toast.info("Initialisation des services et actualisation...");
-    wakeUpEdgeFunctions().then(() => {
-      setTimeout(() => handleRetry(), 5000);
-    });
-  }, [handleRetry, wakeUpEdgeFunctions]);
+  }, [activeAccounts, initializeServices]);
 
   if (activeAccounts.length === 0) {
     return (
       <Card>
-        <CardContent className="py-6">
-          <div className="text-center">
-            <p>Aucun compte actif trouvé.</p>
-            <p className="text-sm text-muted-foreground mt-2">Activez au moins un compte Acelle Mail pour voir les statistiques.</p>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Aucun compte actif trouvé</h3>
+            <p className="text-muted-foreground max-w-md">
+              Aucun compte Acelle Mail actif n'est configuré. Veuillez activer un compte dans l'onglet "Comptes".
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Connexion aux services Acelle en cours...</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Initialisation des services et récupération des données. Cela peut prendre quelques instants.
+            </p>
+            <Button variant="outline" onClick={handleRetry}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Forcer l'actualisation
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (syncError) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4 mr-2" />
+            <AlertDescription>
+              Échec de la synchronisation: {syncError}
+            </AlertDescription>
+          </Alert>
+
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Problème de connexion aux services</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Nous n'avons pas pu récupérer vos campagnes. Vérifiez votre connexion internet et les paramètres API dans vos comptes Acelle.
+            </p>
+            
+            <div className="flex gap-4">
+              <Button onClick={handleRetry} className="flex items-center">
+                <RefreshCw className="h-4 w-4 mr-2" /> Réessayer
+              </Button>
+              
+              <Button variant="outline" onClick={initializeServices} className="flex items-center">
+                <Power className="h-4 w-4 mr-2" /> Réveiller les services
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (campaignsData.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Aucune campagne trouvée</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Nous n'avons pas trouvé de campagnes pour les comptes sélectionnés. Vous pouvez créer de nouvelles campagnes depuis Acelle Mail.
+            </p>
+            <Button onClick={handleRetry}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Actualiser
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -104,115 +124,14 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Tableau de bord des campagnes</h2>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleWakeAndRefresh}
-            disabled={isWakingUp}
-            variant="outline"
-            className="border-amber-500 text-amber-500 hover:bg-amber-50"
-          >
-            {isWakingUp ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Initialisation...
-              </>
-            ) : (
-              <>
-                <Power className="mr-2 h-4 w-4" />
-                Réveiller les services
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            variant="outline"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Chargement...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Actualiser
-              </>
-            )}
-          </Button>
-        </div>
+        <Button onClick={handleRetry} size="sm" variant="outline" className="h-8">
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+          Actualiser
+        </Button>
       </div>
-
-      {showServiceAlert && syncError && (
-        <Alert variant={syncError.includes("initialisation") ? "default" : "destructive"} className={syncError.includes("initialisation") ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="flex flex-1 items-center justify-between">
-            <span>
-              {syncError.includes("timeout") || syncError.includes("Failed to fetch") ? 
-                "Services en cours de démarrage. Veuillez patienter ou cliquer sur 'Réveiller les services'." : 
-                syncError}
-            </span>
-            <Button variant="outline" size="sm" onClick={handleWakeAndRefresh} className="ml-2">
-              <Power className="mr-2 h-4 w-4" />
-              Réessayer
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isLoading ? (
-        <div className="flex flex-col justify-center items-center h-64 space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Connexion aux services Acelle en cours...</p>
-        </div>
-      ) : isError ? (
-        <Card>
-          <CardContent className="py-6">
-            <div className="text-center">
-              <p className="text-red-500 mb-2">Erreur lors du chargement des données</p>
-              <p className="text-sm text-muted-foreground mb-4">{error instanceof Error ? error.message : "Une erreur s'est produite"}</p>
-              <div className="flex justify-center gap-3">
-                <Button onClick={handleRefresh} className="mt-2" variant="outline">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Réessayer
-                </Button>
-                <Button onClick={handleWakeAndRefresh} className="mt-2" variant="default">
-                  <Power className="mr-2 h-4 w-4" />
-                  Réveiller les services
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : campaignsData.length === 0 ? (
-        <Card>
-          <CardContent className="py-6">
-            <div className="text-center">
-              <p>Aucune campagne trouvée.</p>
-              <p className="text-sm text-muted-foreground mt-2">Créez votre première campagne ou vérifiez la connexion à l'API Acelle.</p>
-              <div className="flex justify-center gap-3 mt-4">
-                <Button onClick={handleRefresh} variant="outline">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Synchroniser les données
-                </Button>
-                <Button onClick={handleWakeAndRefresh} variant="default">
-                  <Power className="mr-2 h-4 w-4" />
-                  Réveiller les services
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <CampaignSummaryStats campaigns={campaignsData} />
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <CampaignStatusChart campaigns={campaignsData} />
-            <DeliveryStatsChart campaigns={campaignsData} />
-          </div>
-        </>
-      )}
+      
+      <CampaignsOverview campaigns={campaignsData} accounts={activeAccounts} />
+      <CampaignsList campaigns={campaignsData} />
     </div>
   );
 }

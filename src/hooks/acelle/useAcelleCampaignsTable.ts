@@ -9,13 +9,19 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
 
-  const filteredCampaigns = campaigns
+  // S'assurer que campaigns est toujours un tableau
+  const safeCampaigns = Array.isArray(campaigns) ? campaigns : [];
+
+  const filteredCampaigns = safeCampaigns
     .filter(campaign => 
-      campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      campaign.subject.toLowerCase().includes(searchTerm.toLowerCase())
+      campaign && campaign.name && 
+      campaign.name.toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+      (campaign.subject && campaign.subject.toLowerCase().includes((searchTerm || "").toLowerCase()))
     )
-    .filter(campaign => !statusFilter || campaign.status === statusFilter)
+    .filter(campaign => !statusFilter || (campaign && campaign.status === statusFilter))
     .sort((a, b) => {
+      if (!a || !b) return 0;
+      
       let valueA: any;
       let valueB: any;
 
@@ -23,8 +29,8 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
         valueA = a[sortBy] ? new Date(a[sortBy]).getTime() : 0;
         valueB = b[sortBy] ? new Date(b[sortBy]).getTime() : 0;
       } else if (sortBy === "name" || sortBy === "subject" || sortBy === "status") {
-        valueA = a[sortBy].toLowerCase();
-        valueB = b[sortBy].toLowerCase();
+        valueA = (a[sortBy] || "").toLowerCase();
+        valueB = (b[sortBy] || "").toLowerCase();
       } else if (sortBy === "open_rate") {
         valueA = a.delivery_info?.unique_open_rate || 0;
         valueB = b.delivery_info?.unique_open_rate || 0;

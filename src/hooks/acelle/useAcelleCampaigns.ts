@@ -5,156 +5,149 @@ import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { useAcelleAccountsFilter } from "./useAcelleAccountsFilter";
 import { useCampaignSync } from "./useCampaignSync";
 import { fetchCampaignsFromCache } from "./useCampaignFetch";
+import { toast } from "sonner";
 
 export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
   const activeAccounts = useAcelleAccountsFilter(accounts);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [retryCount, setRetryCount] = useState<number>(0);
-  const { syncCampaignsCache, wakeUpEdgeFunctions, checkApiAvailability } = useCampaignSync();
+  const { 
+    syncCampaignsCache, 
+    wakeUpEdgeFunctions, 
+    checkApiAvailability,
+    initializeServices
+  } = useCampaignSync();
   const [autoRetryAttempts, setAutoRetryAttempts] = useState<number>(0);
   const initialCheckRef = useRef<boolean>(false);
   const initialCheckTimeoutRef = useRef<number | null>(null);
 
-  // Add initial check when component mounts, but ensure we only do it once
+  // Ajouter une initialisation complète automatique au chargement
   useEffect(() => {
-    const initialCheck = async () => {
-      if (initialCheckRef.current) return;
+    const runInitialization = async () => {
+      if (initialCheckRef.current || !activeAccounts.length) return;
       initialCheckRef.current = true;
-
+      
+      console.log("Initialisation automatique des services...");
+      setIsInitializing(true);
+      
       try {
-        // Start with optimistic assumption
-        console.log("Performing initial API availability check...");
-        const apiStatus = await checkApiAvailability(2, 2000);
-        console.log("Initial API availability check:", apiStatus);
-        
-        if (!apiStatus.available) {
-          console.log("API not initially available, attempting to wake up services...");
-          await wakeUpEdgeFunctions();
-          
-          // Schedule an automatic synchronization attempt after initialization
-          if (initialCheckTimeoutRef.current) clearTimeout(initialCheckTimeoutRef.current);
-          initialCheckTimeoutRef.current = window.setTimeout(() => {
-            if (autoRetryAttempts < 2) {
-              console.log("Auto-retry after wake up");
-              setRetryCount(prev => prev + 1);
-              setAutoRetryAttempts(prev => prev + 1);
-            }
-          }, 5000) as unknown as number;
-        }
+        await initializeServices();
       } catch (err) {
-        console.error("Error during initial API check:", err);
+        console.error("Erreur pendant l'initialisation automatique:", err);
+        toast.error("Erreur d'initialisation automatique");
+      } finally {
+        setIsInitializing(false);
       }
     };
     
-    if (activeAccounts.length > 0) {
-      initialCheck();
-    }
+    runInitialization();
     
     return () => {
       if (initialCheckTimeoutRef.current) {
         clearTimeout(initialCheckTimeoutRef.current);
       }
     };
-  }, [activeAccounts, wakeUpEdgeFunctions, checkApiAvailability, autoRetryAttempts]);
+  }, [activeAccounts, initializeServices]);
 
   const fetchCampaigns = useCallback(async () => {
-    console.log('Fetching campaigns from cache...');
+    console.log('Récupération des campagnes depuis le cache...');
     setSyncError(null);
     
     try {
-      // Always try to wake up the edge functions first to ensure they're running
-      // But don't await this call - let it run in the background to reduce loading time
-      console.log("Preemptively waking up edge functions");
+      // Toujours essayer de réveiller les edge functions en premier
+      // Mais ne pas attendre cette opération pour réduire le temps de chargement
+      console.log("Réveil préventif des edge functions");
       wakeUpEdgeFunctions().catch(err => {
-        console.error("Error during edge functions wake-up:", err);
+        console.error("Erreur lors du réveil des edge functions:", err);
       });
       
-      // Try to get data from cache first - this should be fast
+      if (activeAccounts.length === 0) {
+        console.log("Aucun compte actif trouvé");
+        return [];
+      }
+
+      // Essayer d'abord d'obtenir les données du cache - cela devrait être rapide
       let cachedCampaigns: AcelleCampaign[] = [];
       try {
         cachedCampaigns = await fetchCampaignsFromCache(activeAccounts);
-        console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache`);
+        console.log(`Récupération de ${cachedCampaigns.length} campagnes depuis le cache`);
       } catch (err) {
-        console.error("Error fetching from cache:", err);
+        console.error("Erreur lors de la récupération depuis le cache:", err);
       }
       
-      // If we have cache data, return it immediately but sync in background
+      // Si nous avons des données en cache, les renvoyer immédiatement mais synchroniser en arrière-plan
       if (cachedCampaigns.length > 0) {
-        console.log(`Returned ${cachedCampaigns.length} campaigns from cache`);
+        console.log(`Renvoi de ${cachedCampaigns.length} campagnes depuis le cache`);
         
-        // Sync in background without waiting for the result
+        // Synchronisation en arrière-plan sans attendre le résultat
         syncCampaignsCache().catch(err => {
-          console.error("Background sync error:", err);
-          setSyncError("Synchronisation en arrière-plan : en cours");
+          console.error("Erreur de synchronisation en arrière-plan:", err);
         });
         
         return cachedCampaigns;
       }
       
-      // No cache data, try a full sync
+      // Pas de données en cache, faire une synchronisation complète
       setIsInitializing(true);
       
-      console.log("No cache data found, performing full synchronization");
+      console.log("Aucune donnée en cache trouvée, exécution d'une synchronisation complète");
+      
+      // Vérifier d'abord si l'API est disponible
+      const apiStatus = await checkApiAvailability(2, 2000);
+      
+      if (!apiStatus.available) {
+        console.log("API non disponible, tentative de réveil des services...");
+        await wakeUpEdgeFunctions();
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Vérifier à nouveau la disponibilité de l'API
+        const retryApiStatus = await checkApiAvailability(1, 1000);
+        
+        if (!retryApiStatus.available) {
+          setSyncError("Services en cours d'initialisation, veuillez réessayer");
+          return [];
+        }
+      }
+      
       const syncResult = await syncCampaignsCache();
       
       if (syncResult.error) {
-        console.error("Sync error:", syncResult.error);
+        console.error("Erreur de synchronisation:", syncResult.error);
         setSyncError(syncResult.error);
-        
-        // If service is down, try explicit wake-up
-        if (syncResult.error.includes("Failed to fetch") || 
-            syncResult.error.includes("Request timed out") ||
-            syncResult.error.includes("unavailable")) {
-          console.log("Attempting explicit wake-up of edge functions");
-          await wakeUpEdgeFunctions();
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          
-          console.log("Retrying sync after wake-up attempt");
-          const retryResult = await syncCampaignsCache();
-          
-          if (retryResult.error) {
-            setSyncError("Services en cours d'initialisation, veuillez patienter");
-          } else {
-            setSyncError(null);
-          }
-        } else {
-          setSyncError(syncResult.error);
-        }
-      } else {
-        setSyncError(null);
+        return [];
       }
       
-      // Wait a moment for the sync to complete
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      setSyncError(null);
       
-      // Get the freshly synced data
+      // Attendre un moment pour que la synchronisation se termine
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Obtenir les données fraîchement synchronisées
       let freshCampaigns: AcelleCampaign[] = [];
       try {
         freshCampaigns = await fetchCampaignsFromCache(activeAccounts);
-        console.log("Fresh campaigns after sync:", freshCampaigns.length);
+        console.log("Campagnes fraîches après synchronisation:", freshCampaigns.length);
       } catch (err) {
-        console.error("Error fetching fresh campaigns:", err);
-      }
-      
-      if (freshCampaigns.length === 0) {
-        console.log("No campaigns found after sync, might be empty account or sync issue");
-        // This is not necessarily an error - the account might genuinely have no campaigns
+        console.error("Erreur lors de la récupération des campagnes fraîches:", err);
       }
       
       return freshCampaigns;
     } catch (error) {
-      console.error("Error in fetchCampaigns:", error);
+      console.error("Erreur dans fetchCampaigns:", error);
       setSyncError(error.message || "Erreur de connexion");
       throw error;
     } finally {
       setIsInitializing(false);
     }
-  }, [activeAccounts, syncCampaignsCache, wakeUpEdgeFunctions]);
+  }, [activeAccounts, syncCampaignsCache, wakeUpEdgeFunctions, checkApiAvailability]);
 
   const handleRetry = useCallback(() => {
+    console.log("Nouvelle tentative initiée par l'utilisateur");
     setRetryCount(prev => prev + 1);
-  }, []);
+    toast.loading("Initialisation des services et actualisation...");
+    initializeServices();
+  }, [initializeServices]);
 
   const { data: campaignsData = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["acelleCampaignsDashboard", activeAccounts.map(acc => acc.id), retryCount],
@@ -175,6 +168,7 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     error,
     syncError,
     refetch,
-    handleRetry
+    handleRetry,
+    initializeServices
   };
 };
