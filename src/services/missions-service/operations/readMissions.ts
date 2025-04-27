@@ -3,9 +3,9 @@ import { Mission } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import { isSupabaseAuthenticated } from "../auth/supabaseAuth";
 import { mapSupaMissionToMission } from "@/services/missions/utils";
-import { getAllSupaMissions, getSupaMissionsByUserId, getSupaMissionById } from "@/services/missions/utils";
+import { supabase } from "@/integrations/supabase/client";
 
-// Rename to better match our calling convention throughout the app
+// Function to get all missions with SDR information
 export const getAllMissionsFromSupabase = async (): Promise<Mission[]> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
@@ -15,7 +15,21 @@ export const getAllMissionsFromSupabase = async (): Promise<Mission[]> => {
       return [];
     }
 
-    const missions = await getAllSupaMissions();
+    // Use a JOIN to get SDR profile information with the mission
+    const { data: missions, error } = await supabase
+      .from('missions')
+      .select(`
+        *,
+        profiles:sdr_id (id, name, email)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching missions from Supabase:", error);
+      return [];
+    }
+
+    console.log("Missions retrieved with SDR data:", missions);
     return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Error fetching missions from Supabase:", error);
@@ -23,7 +37,7 @@ export const getAllMissionsFromSupabase = async (): Promise<Mission[]> => {
   }
 };
 
-// Rename to getMissionsBySdrId for consistency with other method names
+// Function to get missions by SDR ID with SDR information
 export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
@@ -33,7 +47,22 @@ export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => 
       return [];
     }
 
-    const missions = await getSupaMissionsByUserId(userId);
+    // Use a JOIN to get SDR profile information with the mission
+    const { data: missions, error } = await supabase
+      .from('missions')
+      .select(`
+        *,
+        profiles:sdr_id (id, name, email)
+      `)
+      .eq('sdr_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching user missions from Supabase:", error);
+      return [];
+    }
+
+    console.log("User missions retrieved with SDR data:", missions);
     return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error("Error fetching user missions from Supabase:", error);
@@ -53,7 +82,21 @@ export const getMissionById = async (missionId: string): Promise<Mission | undef
       return undefined;
     }
 
-    const mission = await getSupaMissionById(missionId);
+    // Use a JOIN to get SDR profile information with the mission
+    const { data: mission, error } = await supabase
+      .from('missions')
+      .select(`
+        *,
+        profiles:sdr_id (id, name, email)
+      `)
+      .eq('id', missionId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching mission from Supabase:", error);
+      return undefined;
+    }
+
     return mission ? mapSupaMissionToMission(mission) : undefined;
   } catch (error) {
     console.error("Error fetching mission from Supabase:", error);

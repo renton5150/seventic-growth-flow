@@ -1,133 +1,69 @@
 
-import { Mission, MissionType } from "@/types/types";
-import { isSupabaseConfigured } from "@/services/missions/config";
-import { isSupabaseAuthenticated } from "../auth/supabaseAuth";
 import { createSupaMission, updateSupaMission } from "@/services/missions/utils";
-import { mapSupaMissionToMission } from "@/services/missions/utils";
+import { isSupabaseAuthenticated } from "../auth/supabaseAuth";
+import { isSupabaseConfigured } from "@/services/missions/config";
 import { supabase } from "@/integrations/supabase/client";
+import { Mission } from "@/types/types";
 
-export const createSupabaseMission = async (data: {
-  name: string;
-  description?: string;
-  sdrId: string;
-  startDate?: Date | null;
-  endDate?: Date | null;
-  type?: string;
-}): Promise<Mission | undefined> => {
+// Create a new mission in Supabase
+export const createSupabaseMission = async (data: any): Promise<any> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
     
     if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Supabase not configured or user not authenticated");
-      return undefined;
-    }
-    
-    // La valeur sdrId peut être vide pour les missions sans SDR attribué
-    console.log("Creating mission with data:", data);
-    console.log("SDR ID:", data.sdrId);
-
-    const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
-    
-    // Appel direct à createSupaMission
-    const missionData = {
-      name: data.name,
-      sdrId: data.sdrId,
-      description: data.description,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      type: missionType,
-      client: data.name // Utilise le nom comme valeur pour client (requis par le schéma)
-    };
-    
-    console.log("Calling createSupaMission with:", missionData);
-    const missionResponse = await createSupaMission(missionData);
-    console.log("Result from createSupaMission:", missionResponse);
-
-    if (!missionResponse) {
-      console.error("No mission returned from createSupaMission");
-      return undefined;
+      throw new Error("Unable to create mission: Supabase not configured or user not authenticated");
     }
 
-    // Make sure we map the Supabase response to our application's Mission type
-    return mapSupaMissionToMission(missionResponse);
+    const mission = await createSupaMission(data);
+    return mission;
   } catch (error) {
-    console.error("Error creating mission in Supabase:", error);
+    console.error("Error creating mission:", error);
     throw error;
   }
 };
 
-export const updateSupabaseMission = async (data: {
-  id: string;
-  name: string;
-  sdrId: string;
-  description?: string;
-  startDate: Date | null;
-  endDate: Date | null;
-  type: string;
-  status?: "En cours" | "Fin";
-}): Promise<Mission | undefined> => {
+// Update an existing mission in Supabase
+export const updateSupabaseMission = async (data: any): Promise<any> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
     
     if (!isSupabaseConfigured || !isAuthenticated) {
       console.log("Supabase not configured or user not authenticated");
-      return undefined;
-    }
-    
-    if (!data.id) {
-      console.error("Missing mission ID!");
-      throw new Error("Mission ID is required to update a mission");
+      throw new Error("Unable to update mission: Supabase not configured or user not authenticated");
     }
 
-    const missionType: MissionType = data.type === "Part" ? "Part" : "Full";
-    
-    const mission = await updateSupaMission({
-      ...data,
-      type: missionType,
-      status: data.status || "En cours"
-    });
-
-    return mission ? mapSupaMissionToMission(mission) : undefined;
+    const mission = await updateSupaMission(data);
+    return mission;
   } catch (error) {
-    console.error("Error updating mission in Supabase:", error);
+    console.error("Error updating mission:", error);
     throw error;
   }
 };
 
+// Delete a mission from Supabase
 export const deleteSupabaseMission = async (missionId: string): Promise<boolean> => {
-  if (!missionId) {
-    throw new Error("Invalid mission ID");
-  }
-
   try {
-    console.log("Starting mission deletion:", missionId);
+    const isAuthenticated = await isSupabaseAuthenticated();
     
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      console.error("Session error:", sessionError);
-      throw new Error("Authentication error");
+    if (!isSupabaseConfigured || !isAuthenticated) {
+      console.log("Supabase not configured or user not authenticated");
+      throw new Error("Unable to delete mission: Supabase not configured or user not authenticated");
     }
-    
-    if (!sessionData.session) {
-      throw new Error("User not authenticated");
-    }
-    
-    console.log("Valid session, executing deletion...");
-    
+
     const { error } = await supabase
-      .from("missions")
+      .from('missions')
       .delete()
-      .eq("id", missionId);
-    
+      .eq('id', missionId);
+
     if (error) {
-      console.error("Supabase deletion error:", error);
-      throw new Error(`Deletion error: ${error.message}`);
+      console.error("Error deleting mission:", error);
+      throw error;
     }
-    
-    console.log("Mission successfully deleted in Supabase");
+
     return true;
-  } catch (error: any) {
-    console.error("Critical error during deletion:", error);
+  } catch (error) {
+    console.error("Error deleting mission:", error);
     throw error;
   }
 };

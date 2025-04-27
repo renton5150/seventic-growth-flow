@@ -7,12 +7,17 @@ import {
   getMissionsByUserId
 } from "./operations/readMissions";
 import { 
-  createSupabaseMission as createMission, 
-  updateSupabaseMission as updateMission, 
-  deleteSupabaseMission as deleteMission 
+  createSupabaseMission,
+  updateSupabaseMission,
+  deleteSupabaseMission
 } from './operations/writeMissions';
 import { isMockDataEnabled } from '@/services/missions/mockMissions';
-import { getAllMissions as getAllMockMissions } from '@/services/missions/mockMissions';
+import { getAllMockMissions } from '@/services/missions/mockMissions';
+
+// Aliases for backward compatibility
+export const createMission = createSupabaseMission;
+export const updateMission = updateSupabaseMission;
+export const deleteMission = deleteSupabaseMission;
 
 // Main function to get all missions, either from Supabase or mock data
 export const getAllMissions = async () => {
@@ -28,9 +33,6 @@ export const getAllMissions = async () => {
 
 // Main functions to be exported and used by the application
 export {
-  createMission,
-  updateMission,
-  deleteMission,
   getMissionById,
   getMissionsBySdrId,
   getMissionsByGrowthId,

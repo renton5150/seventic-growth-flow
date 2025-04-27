@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
 
@@ -162,15 +163,15 @@ export const updateSupaMission = async (missionData: any) => {
  * Maps a Supabase mission data object to the Mission type used in the application
  */
 export const mapSupaMissionToMission = (mission: any): Mission => {
-  // Extract SDR profile information properly
+  // Extract SDR profile information 
+  // When we join with profiles, Supabase returns it as an object under the relation name
   const sdrProfile = mission.profiles || null;
-  const sdrName = sdrProfile?.name || null;
   
+  // Log the mission data and extracted profile for debugging
   console.log('Mapping mission to display format:', {
     id: mission.id,
     rawMission: mission,
-    sdrProfile,
-    sdrName
+    sdrProfile
   });
 
   return {
@@ -178,7 +179,8 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
     name: mission.name || '',
     description: mission.description || '',
     sdrId: mission.sdr_id || null,
-    sdrName: sdrName,
+    // Use the name from the joined profiles table if available
+    sdrName: sdrProfile?.name || null,
     createdAt: new Date(mission.created_at),
     startDate: mission.start_date ? new Date(mission.start_date) : null,
     endDate: mission.end_date ? new Date(mission.end_date) : null,
