@@ -9,7 +9,19 @@ export const formSchema = z.object({
   templateFileUrl: z.string().optional(),
   templateWebLink: z.string().optional(),
   databaseFileUrl: z.string().optional(),
-  databaseWebLinks: z.array(z.string().url("URL invalide").optional()).max(5),
+  databaseWebLinks: z.array(
+    z.string().refine(value => {
+      // Si le champ est vide, on le considère comme valide
+      // Sinon on vérifie que c'est une URL valide
+      if (!value || value.trim() === '') return true;
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "URL invalide")
+  ).max(5),
   databaseNotes: z.string().optional(),
   blacklistAccountsFileUrl: z.string().optional(),
   blacklistAccountsNotes: z.string().optional(),
