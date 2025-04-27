@@ -14,7 +14,20 @@ export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
       throw error;
     }
     
-    return data || [];
+    // Transformer les données pour correspondre à l'interface DatabaseFile
+    const transformedData: DatabaseFile[] = data?.map(item => ({
+      id: item.id,
+      name: item.name,
+      fileName: item.file_name,
+      fileUrl: item.file_url,
+      fileType: item.file_type,
+      fileSize: item.file_size,
+      uploadedBy: item.uploaded_by || '',
+      uploaderName: item.uploader_name || '',
+      createdAt: item.created_at
+    })) || [];
+    
+    return transformedData;
   } catch (error) {
     console.error("Erreur lors de la récupération des bases de données:", error);
     return [];
