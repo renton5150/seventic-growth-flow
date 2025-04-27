@@ -81,7 +81,12 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
         {database.webLink && (
           <div>
             <h4 className="font-semibold text-sm">Lien web</h4>
-            <a href={database.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+            <a 
+              href={database.webLink} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-blue-500 hover:underline"
+            >
               {database.webLink}
             </a>
           </div>
