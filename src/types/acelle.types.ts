@@ -1,4 +1,3 @@
-
 export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
@@ -107,7 +106,21 @@ export interface AcelleConnectionDebug {
   success: boolean;
   errorMessage?: string;
   statusCode?: number;
-  responseData?: any;
+  responseData?: {
+    success?: boolean;
+    statusCode?: number;
+    message?: string;
+    error?: string;
+    details?: {
+      endpoint?: string;
+      status?: number;
+      statusText?: string;
+      isError?: boolean;
+      timeout?: boolean;
+      error?: string;
+    };
+    response?: any;
+  };
   request: {
     url: string;
     headers: Record<string, string>;

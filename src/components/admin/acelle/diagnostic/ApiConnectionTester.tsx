@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -17,15 +17,27 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
   const [isLoading, setIsLoading] = useState(false);
   const [testResult, setTestResult] = useState<boolean | AcelleConnectionDebug | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
+  const [errorDetails, setErrorDetails] = useState<{code: number, message: string} | null>(null);
 
   const handleTest = async (withDebug = false) => {
     setIsLoading(true);
+    setErrorDetails(null);
     try {
       const result = await testAcelleConnection(account.apiEndpoint, account.apiToken, withDebug);
       setTestResult(result);
       
       if (withDebug) {
         setDebugInfo(result as AcelleConnectionDebug);
+        
+        // Extraire les détails d'erreur pour une meilleure visualisation
+        if (typeof result === 'object' && 'responseData' in result && result.responseData) {
+          if (result.responseData.statusCode) {
+            setErrorDetails({
+              code: result.responseData.statusCode,
+              message: result.responseData.message || result.responseData.error || 'Erreur inconnue'
+            });
+          }
+        }
       }
       
       if (onTestComplete) {
@@ -55,6 +67,26 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
     if (testResult === null || testResult === true) return null;
     if (typeof testResult === "boolean") return "La connexion à l'API a échoué";
     return testResult.errorMessage || "Erreur de connexion inconnue";
+  };
+
+  const renderErrorHelp = () => {
+    if (!errorDetails) return null;
+    
+    if (errorDetails.code === 403) {
+      return (
+        <div className="mt-2 text-sm">
+          <p className="font-medium">Solutions possibles pour l'erreur 403 :</p>
+          <ul className="list-disc pl-5 space-y-1 mt-1">
+            <li>Vérifiez que votre token API est correctement copié, sans espaces supplémentaires</li>
+            <li>Assurez-vous que le token n'a pas expiré dans votre compte Acelle Mail</li>
+            <li>Vérifiez les restrictions d'IP dans les paramètres d'Acelle Mail</li>
+            <li>Essayez de générer un nouveau token API dans votre interface Acelle Mail</li>
+          </ul>
+        </div>
+      );
+    }
+    
+    return null;
   };
 
   return (
@@ -109,6 +141,7 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
               <AlertTitle>Dépannage</AlertTitle>
               <AlertDescription className="text-sm">
                 {getTroubleshootingMessage(getErrorMessage(), account.apiEndpoint)}
+                {renderErrorHelp()}
               </AlertDescription>
             </Alert>
           )}
@@ -124,6 +157,18 @@ export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTe
             <pre className="whitespace-pre-wrap">
               {JSON.stringify(debugInfo, null, 2)}
             </pre>
+          </div>
+
+          <div className="mt-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-2"
+              onClick={() => window.open("https://acelle.com/api-docs", "_blank")}
+            >
+              <ExternalLink className="h-3 w-3" />
+              Documentation Acelle API
+            </Button>
           </div>
         </div>
       )}
