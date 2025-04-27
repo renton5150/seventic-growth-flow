@@ -20,26 +20,35 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
     if (databaseBucket) {
       console.log("Le bucket 'databases' existe déjà");
       
-      // Si le bucket existe, vérifier qu'il est public
-      const { error: updateError } = await supabase.storage.updateBucket('databases', {
-        public: true,
-        fileSizeLimit: 52428800 // 50 Mo en octets
-      });
-      
-      if (updateError) {
-        console.error("Erreur lors de la mise à jour du bucket 'databases':", updateError);
-        console.log("Tentative de récupération des détails du bucket pour diagnostic...");
+      // Si le bucket existe, vérifier qu'il est public et mettre à jour si nécessaire
+      try {
+        const { data: bucketDetails, error: getBucketError } = await supabase.storage.getBucket('databases');
         
-        const { data: bucketDetails, error: detailsError } = await supabase.storage.getBucket('databases');
-        
-        if (detailsError) {
-          console.error("Impossible d'obtenir les détails du bucket:", detailsError);
+        if (getBucketError) {
+          console.error("Erreur lors de la récupération des détails du bucket:", getBucketError);
         } else {
-          console.log("Détails du bucket 'databases':", bucketDetails);
-          // Le bucket existe mais ne peut pas être mis à jour, on continue quand même
+          console.log("Détails actuels du bucket:", bucketDetails);
+          
+          // Si le bucket n'est pas public, le rendre public
+          if (!bucketDetails.public) {
+            console.log("Le bucket n'est pas public, tentative de le rendre public...");
+            
+            const { error: updateError } = await supabase.storage.updateBucket('databases', {
+              public: true,
+              fileSizeLimit: 52428800 // 50 Mo en octets
+            });
+            
+            if (updateError) {
+              console.error("Erreur lors de la mise à jour du bucket 'databases':", updateError);
+            } else {
+              console.log("Le bucket 'databases' est maintenant configuré comme public");
+            }
+          } else {
+            console.log("Le bucket 'databases' est déjà public");
+          }
         }
-      } else {
-        console.log("Le bucket 'databases' est configuré comme public");
+      } catch (error) {
+        console.error("Erreur lors de la vérification/mise à jour du bucket:", error);
       }
       
       return true;

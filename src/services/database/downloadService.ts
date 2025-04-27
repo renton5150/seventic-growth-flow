@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ensureDatabaseBucketExists } from "./config";
+import { extractPathFromSupabaseUrl } from "./utils";
 
 export const downloadFile = async (filePath: string, fileName: string = "document"): Promise<boolean> => {
   try {
@@ -12,35 +13,11 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       return false;
     }
 
-    // Nettoyer et standardiser le chemin du fichier
-    let bucketName = 'databases'; // Le bucket par défaut
-    let path = filePath;
-    
-    // Traiter les URL complètes
-    if (filePath.includes('/storage/v1/object/public/')) {
-      try {
-        const parts = filePath.split('/storage/v1/object/public/');
-        if (parts.length > 1) {
-          const pathParts = parts[1].split('/', 1);
-          bucketName = pathParts[0];
-          path = parts[1].substring(bucketName.length + 1);
-          console.log(`URL Supabase détectée - Bucket: ${bucketName}, Chemin: ${path}`);
-        }
-      } catch (error) {
-        console.error("Erreur lors du parsing de l'URL:", error);
-      }
-    } 
-    // Si c'est simplement un chemin sans URL complète
-    else if (filePath.includes('uploads/') || !filePath.includes('http')) {
-      path = filePath;
-      console.log(`Chemin relatif détecté: ${path}`);
-    }
-    // Pour les URLs externes
-    else if (filePath.startsWith('http')) {
+    // Pour les URLs externes (non-Supabase)
+    if (filePath.startsWith('http') && !filePath.includes('/storage/v1/object/public/')) {
       console.log("Téléchargement direct via URL externe:", filePath);
       
       try {
-        // Pour les URLs non-Supabase, télécharger directement
         const response = await fetch(filePath);
         if (!response.ok) {
           console.error(`Erreur HTTP lors du téléchargement: ${response.status} ${response.statusText}`);
@@ -64,7 +41,6 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
           URL.revokeObjectURL(blobUrl);
         }, 100);
         
-        toast.success(`Téléchargement de "${fileName}" réussi`);
         return true;
       } catch (error) {
         console.error("Erreur lors du téléchargement depuis URL externe:", error);
@@ -72,47 +48,28 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       }
     }
     
-    console.log(`Préparation du téléchargement depuis le bucket '${bucketName}' avec le chemin: ${path}`);
+    // Pour les chemins Supabase Storage ou les chemins relatifs
+    const pathInfo = extractPathFromSupabaseUrl(filePath);
     
-    // Si le chemin est vide après traitement, c'est une erreur
-    if (!path) {
-      console.error("Chemin de fichier invalide après traitement");
+    // Si l'extraction a échoué et que ce n'est pas un chemin relatif
+    if (!pathInfo && filePath.includes('http')) {
+      console.error("Format d'URL non reconnu:", filePath);
+      toast.error("Format d'URL non reconnu");
       return false;
     }
     
-    // Vérifier si le bucket existe et est accessible
-    try {
-      const { data: bucketInfo, error: bucketError } = await supabase.storage.getBucket(bucketName);
-      if (bucketError) {
-        console.error(`Erreur lors de la vérification du bucket ${bucketName}:`, bucketError);
-        if (bucketError.message.includes('The resource was not found')) {
-          toast.error(`Le bucket ${bucketName} n'existe pas`);
-        }
-        return false;
-      }
-      
-      console.log(`Bucket '${bucketName}' trouvé et accessible:`, bucketInfo);
-      
-      // Si le bucket n'est pas public, tenter de le rendre public
-      if (bucketInfo && !bucketInfo.public) {
-        console.log(`Le bucket ${bucketName} n'est pas public, tentative de le rendre public...`);
-        const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
-          public: true
-        });
-        
-        if (updateError) {
-          console.error(`Impossible de rendre le bucket ${bucketName} public:`, updateError);
-        } else {
-          console.log(`Bucket ${bucketName} rendu public avec succès`);
-        }
-      }
-    } catch (error) {
-      console.error(`Erreur lors de la vérification du bucket ${bucketName}:`, error);
+    // Si c'est un chemin relatif sans URL complète (ex: uploads/...)
+    const bucketName = pathInfo?.bucketName || 'databases';
+    const path = pathInfo?.filePath || filePath;
+    
+    console.log(`Préparation du téléchargement depuis le bucket '${bucketName}' avec le chemin: ${path}`);
+    
+    // S'assurer que le bucket existe
+    if (bucketName === 'databases') {
+      await ensureDatabaseBucketExists();
     }
     
     // Télécharger le fichier depuis Supabase Storage
-    console.log(`Tentative de téléchargement depuis ${bucketName}/${path}`);
-    
     const { data, error } = await supabase.storage
       .from(bucketName)
       .download(path);
@@ -120,19 +77,18 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     if (error) {
       console.error("Erreur lors du téléchargement depuis Supabase Storage:", error);
       
-      // Essayer une méthode alternative en cas d'échec
       if (error.message.includes('The resource was not found')) {
-        console.log("Fichier non trouvé. Tentative avec URL publique...");
+        // Essayer de télécharger via l'URL publique comme solution de secours
+        console.log("Fichier non trouvé via download. Tentative via URL publique...");
         
-        // Essayer de télécharger via l'URL publique
-        try {
-          const { data: urlData } = await supabase.storage
-            .from(bucketName)
-            .getPublicUrl(path);
-            
-          if (urlData && urlData.publicUrl) {
-            console.log("URL publique obtenue:", urlData.publicUrl);
-            
+        const { data: urlData } = await supabase.storage
+          .from(bucketName)
+          .getPublicUrl(path);
+          
+        if (urlData && urlData.publicUrl) {
+          console.log("URL publique obtenue:", urlData.publicUrl);
+          
+          try {
             const response = await fetch(urlData.publicUrl);
             if (!response.ok) {
               toast.error("Le fichier n'a pas été trouvé sur le serveur");
@@ -154,18 +110,19 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
             }, 100);
             
             return true;
+          } catch (fetchError) {
+            console.error("Erreur lors de la tentative alternative:", fetchError);
+            toast.error("Erreur lors du téléchargement");
+            return false;
           }
-        } catch (fetchError) {
-          console.error("Erreur lors de la tentative alternative:", fetchError);
+        } else {
+          toast.error("Le fichier n'a pas été trouvé sur le serveur");
+          return false;
         }
-      }
-      
-      if (error.message.includes('The resource was not found')) {
-        toast.error("Le fichier n'a pas été trouvé sur le serveur");
       } else {
         toast.error(`Erreur de téléchargement: ${error.message}`);
+        return false;
       }
-      return false;
     }
     
     if (!data) {
@@ -190,7 +147,6 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
       URL.revokeObjectURL(blobUrl);
     }, 100);
     
-    toast.success(`Téléchargement de "${fileName}" réussi`);
     return true;
   } catch (error) {
     console.error("Erreur inattendue lors du téléchargement:", error);
