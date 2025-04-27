@@ -6,22 +6,42 @@ import { RequestDetailsCard } from "./RequestDetailsCard";
 import { RequestTargeting } from "./RequestTargeting";
 import { RequestTimeline } from "./RequestTimeline";
 import { RequestResults } from "./RequestResults";
-import { Request } from "@/types/types";
+import { Request, Mission, WorkflowStatus } from "@/types/types";
 
 interface RequestTabsProps {
   request: Request;
+  mission?: Mission;
   comment?: string;
   commentLoading?: boolean;
   onCommentChange?: (value: string) => void;
   onAddComment?: () => void;
+  isEditDialogOpen?: boolean;
+  workflowStatus?: string;
+  emailPlatform?: string;
+  onStatusChange?: (status: string) => void;
+  onWorkflowStatusChange?: (status: string) => void;
+  onOpenEditDialog?: () => void;
+  onCloseEditDialog?: () => void;
+  onEditDialogChange?: (isOpen: boolean) => void;
+  onEmailPlatformChange?: (platform: string) => void;
 }
 
 export const RequestTabs: React.FC<RequestTabsProps> = ({ 
   request,
+  mission,
   comment,
   commentLoading,
   onCommentChange,
-  onAddComment
+  onAddComment,
+  isEditDialogOpen,
+  workflowStatus,
+  emailPlatform,
+  onStatusChange,
+  onWorkflowStatusChange,
+  onOpenEditDialog,
+  onCloseEditDialog,
+  onEditDialogChange,
+  onEmailPlatformChange
 }) => {
   return (
     <Tabs defaultValue="details" className="mt-6">

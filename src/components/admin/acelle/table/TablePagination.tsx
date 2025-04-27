@@ -1,45 +1,46 @@
 
 import React from "react";
-import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-interface TablePaginationProps {
+interface CampaignsTablePaginationProps {
   currentPage: number;
-  hasNextPage: boolean;
+  totalPages: number;
   onPageChange: (page: number) => void;
+  isLoading?: boolean;
 }
 
-export const TablePagination = ({ currentPage, hasNextPage, onPageChange }: TablePaginationProps) => {
+export const CampaignsTablePagination: React.FC<CampaignsTablePaginationProps> = ({ 
+  currentPage, 
+  totalPages, 
+  onPageChange,
+  isLoading
+}) => {
   return (
-    <div className="flex justify-between items-center mt-4">
-      <div>
+    <div className="flex items-center justify-end space-x-2 py-4">
+      <div className="flex-1 text-sm text-muted-foreground">
+        Page {currentPage} sur {totalPages || 1}
+      </div>
+      <div className="space-x-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
+          disabled={currentPage <= 1 || isLoading}
         >
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Précédent
+          <ChevronLeft className="h-4 w-4" />
+          <span className="sr-only">Page précédente</span>
         </Button>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Page {currentPage}
-      </div>
-      <div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={!hasNextPage}
+          disabled={currentPage >= totalPages || isLoading}
         >
-          Suivant
-          <ChevronRight className="h-4 w-4 ml-2" />
+          <ChevronRight className="h-4 w-4" />
+          <span className="sr-only">Page suivante</span>
         </Button>
       </div>
     </div>
   );
 };
-
-// Add alias for backward compatibility
-export const CampaignsTablePagination = TablePagination;

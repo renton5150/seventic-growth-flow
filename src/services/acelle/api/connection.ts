@@ -1,84 +1,65 @@
 
-import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
+import { supabase } from "@/integrations/supabase/client";
 
-// Test API connectivity
-export const testApiConnection = async (
-  account: AcelleAccount
-): Promise<AcelleConnectionDebug> => {
+/**
+ * Vérifie la disponibilité de l'API Acelle
+ */
+export const checkApiAvailability = async (accountId: string): Promise<boolean> => {
   try {
-    console.log(`Testing connection to ${account.api_endpoint}`);
-    
-    // This is a placeholder implementation
-    return {
-      success: true,
-      statusCode: 200,
-      response: { message: "Connection successful" },
-      timestamp: new Date().toISOString()
-    };
+    // Utilise l'Edge Function pour vérifier la disponibilité
+    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+      body: {
+        action: 'check-availability',
+        accountId
+      }
+    });
+
+    if (error) {
+      console.error("Erreur lors de la vérification de l'API Acelle:", error);
+      return false;
+    }
+
+    return data?.available === true;
   } catch (error) {
-    console.error("Error testing API connection:", error);
-    return {
-      success: false,
-      statusCode: 500,
-      errorMessage: error instanceof Error ? error.message : "Unknown error",
-      timestamp: new Date().toISOString()
-    };
+    console.error("Erreur lors de la vérification de l'API Acelle:", error);
+    return false;
   }
 };
 
-// Check specific endpoint ping
-export const pingAcelleEndpoint = async (
-  account: AcelleAccount,
-  endpoint: string = "me"
-): Promise<AcelleConnectionDebug> => {
+/**
+ * Teste la connexion à un compte Acelle
+ */
+export const testConnection = async (
+  apiEndpoint: string,
+  apiToken: string
+): Promise<{ success: boolean; message: string }> => {
   try {
-    // Placeholder implementation
-    return {
-      success: true,
-      statusCode: 200,
-      response: { message: "Ping successful" },
-      timestamp: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error(`Error pinging Acelle endpoint ${endpoint}:`, error);
-    return {
-      success: false,
-      statusCode: 500,
-      errorMessage: error instanceof Error ? error.message : "Unknown error",
-      timestamp: new Date().toISOString()
-    };
-  }
-};
+    // Utilise l'Edge Function pour tester la connexion
+    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+      body: {
+        action: 'test-connection',
+        apiEndpoint,
+        apiToken
+      }
+    });
 
-// Check overall API availability across multiple endpoints
-export const checkApiAvailability = async (): Promise<{
-  available: boolean;
-  endpoints?: Record<string, boolean>;
-  debugInfo?: AcelleConnectionDebug;
-}> => {
-  try {
-    // Placeholder implementation
-    return {
-      available: true,
-      endpoints: {
-        campaigns: true,
-        details: true
-      }
+    if (error) {
+      console.error("Erreur lors du test de connexion Acelle:", error);
+      return { 
+        success: false, 
+        message: `Erreur: ${error.message}` 
+      };
+    }
+
+    return data || { 
+      success: false, 
+      message: "Réponse invalide du serveur" 
     };
   } catch (error) {
-    console.error("Error checking API availability:", error);
-    return {
-      available: false,
-      endpoints: {
-        campaigns: false,
-        details: false
-      },
-      debugInfo: {
-        success: false,
-        statusCode: 500,
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString()
-      }
+    console.error("Erreur lors du test de connexion Acelle:", error);
+    return { 
+      success: false, 
+      message: `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}` 
     };
   }
 };
