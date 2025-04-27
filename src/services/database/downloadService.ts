@@ -13,16 +13,30 @@ export const downloadFile = async (filePath: string, fileName: string = "documen
     
     // Si c'est une URL complète, extraire le chemin du fichier
     let path = filePath;
+    
     if (filePath.startsWith('http')) {
       try {
         const url = new URL(filePath);
-        path = url.pathname.split('/storage/v1/object/public/databases/').pop() || '';
+        // Extraction du chemin du fichier à partir de l'URL
+        const pathParts = url.pathname.split('/');
+        // Prendre uniquement le nom du fichier à la fin du chemin
+        path = pathParts[pathParts.length - 1];
         console.log("Chemin extrait de l'URL:", path);
       } catch (error) {
         console.error("Erreur lors du parsing de l'URL:", error);
-        return false;
       }
+    } else if (filePath.startsWith('uploads/')) {
+      // Si le chemin commence par 'uploads/', considérer que c'est déjà le chemin relatif
+      path = filePath;
+      console.log("Utilisation du chemin relatif:", path);
     }
+    
+    // Si le path contient encore des segments de chemin ou des dossiers, les retirer
+    if (path.includes('/')) {
+      path = path.split('/').pop() || '';
+    }
+    
+    console.log(`Téléchargement du fichier depuis le bucket 'databases' avec le chemin: ${path}`);
     
     // Télécharger le fichier depuis le bucket "databases"
     const { data, error } = await supabase.storage
