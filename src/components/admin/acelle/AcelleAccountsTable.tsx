@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RefreshCw, Plus } from "lucide-react";
-import { getAcelleAccounts, updateAcelleAccountStatus } from "@/services/acelle/acelle-service";
+import { getAcelleAccounts, updateAcelleAccount } from "@/services/acelle/acelle-service";
 import { ApiConnectionTester } from "./diagnostic/ApiConnectionTester";
 
 export default function AcelleAccountsTable() {
@@ -36,7 +36,10 @@ export default function AcelleAccountsTable() {
   const handleToggleStatus = async (account: AcelleAccount) => {
     try {
       const newStatus = account.status === 'active' ? 'inactive' : 'active';
-      await updateAcelleAccountStatus(account.id, newStatus);
+      await updateAcelleAccount({
+        ...account,
+        status: newStatus
+      });
       refetch();
     } catch (error) {
       console.error("Error updating account status:", error);
@@ -69,7 +72,6 @@ export default function AcelleAccountsTable() {
               <TableHead>URL API</TableHead>
               <TableHead>Token API</TableHead>
               <TableHead>Dernière synchronisation</TableHead>
-              <TableHead>Priorité</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Diagnostic</TableHead>
               <TableHead>Actions</TableHead>
@@ -95,7 +97,6 @@ export default function AcelleAccountsTable() {
                     "Jamais"
                   }
                 </TableCell>
-                <TableCell>{account.cachePriority}</TableCell>
                 <TableCell>
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -128,7 +129,7 @@ export default function AcelleAccountsTable() {
             
             {data.length === 0 && !isLoading && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   Aucun compte Acelle Mail configuré. Créez-en un pour commencer.
                 </TableCell>
               </TableRow>
@@ -136,7 +137,7 @@ export default function AcelleAccountsTable() {
             
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <div className="flex items-center justify-center">
                     <RefreshCw className="h-5 w-5 animate-spin mr-2" />
                     Chargement des comptes...

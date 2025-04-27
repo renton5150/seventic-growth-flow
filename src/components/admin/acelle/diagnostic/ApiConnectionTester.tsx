@@ -1,177 +1,139 @@
 
 import React, { useState } from "react";
+import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
-import { Loader2, CheckCircle, XCircle, AlertTriangle, ExternalLink } from "lucide-react";
-import { testAcelleConnection } from "@/services/acelle/api/connection";
-import { AcelleAccount } from "@/types/acelle.types";
+import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
+import { testAcelleConnection } from "@/services/acelle/acelle-service";
+import { getTroubleshootingMessage } from "@/utils/acelle/campaignStatusUtils";
 
 interface ApiConnectionTesterProps {
   account: AcelleAccount;
   onTestComplete?: (success: boolean) => void;
 }
 
-export const ApiConnectionTester = ({ account, onTestComplete }: ApiConnectionTesterProps) => {
+export function ApiConnectionTester({ account, onTestComplete }: ApiConnectionTesterProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
-  const [testStartTime, setTestStartTime] = useState<number | null>(null);
+  const [testResult, setTestResult] = useState<boolean | AcelleConnectionDebug | null>(null);
+  const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
 
-  const runConnectionTest = async () => {
-    if (isLoading) return;
-    
+  const handleTest = async (withDebug = false) => {
     setIsLoading(true);
-    setTestResult(null);
-    setTestStartTime(Date.now());
-    toast.loading("Test de connexion en cours...", { id: "connection-test" });
-    
     try {
-      const result = await testAcelleConnection(account.apiEndpoint, account.apiToken, true);
+      const result = await testAcelleConnection(account.apiEndpoint, account.apiToken, withDebug);
       setTestResult(result);
       
-      if (typeof result === 'boolean') {
-        if (result) {
-          toast.success("Connexion réussie à l'API Acelle", { id: "connection-test" });
-        } else {
-          toast.error("Échec de connexion à l'API Acelle", { id: "connection-test" });
-        }
-      } else {
-        // We have detailed debug info
-        if (result.success) {
-          toast.success("Connexion réussie à l'API Acelle", { id: "connection-test" });
-        } else {
-          toast.error(`Échec de connexion: ${result.errorMessage || 'Erreur inconnue'}`, { id: "connection-test" });
-        }
+      if (withDebug) {
+        // If debugging, store the full debug info
+        setDebugInfo(result as AcelleConnectionDebug);
       }
       
+      // Call the callback if provided
       if (onTestComplete) {
-        onTestComplete(result.success || result === true);
+        // For boolean results
+        if (typeof result === "boolean") {
+          onTestComplete(result);
+        } 
+        // For debug objects
+        else if (result && 'success' in result) {
+          onTestComplete(result.success);
+        }
       }
     } catch (error) {
-      console.error("Error during connection test:", error);
-      toast.error(`Erreur de test: ${error.message}`, { id: "connection-test" });
-      setTestResult({ success: false, errorMessage: error.message });
-      
-      if (onTestComplete) {
-        onTestComplete(false);
-      }
+      console.error("Test connection error:", error);
+      setTestResult(false);
+      if (onTestComplete) onTestComplete(false);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const renderTestResult = () => {
-    if (!testResult) return null;
-    
-    const elapsedTime = testStartTime ? ((Date.now() - testStartTime) / 1000).toFixed(2) + 's' : 'N/A';
-    const success = typeof testResult === 'boolean' ? testResult : testResult.success;
-    
-    return (
-      <div className="mt-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {success ? 
-              <CheckCircle className="h-5 w-5 text-green-500" /> : 
-              <XCircle className="h-5 w-5 text-red-500" />
-            }
-            <span className={`font-medium ${success ? 'text-green-700' : 'text-red-700'}`}>
-              {success ? 'Connexion réussie' : 'Échec de connexion'}
-            </span>
-          </div>
-          <span className="text-sm text-muted-foreground">Temps: {elapsedTime}</span>
-        </div>
-        
-        <Separator />
-        
-        {typeof testResult !== 'boolean' && (
-          <div className="space-y-4">
-            <div className="text-sm">
-              <div className="font-medium mb-1">Détails:</div>
-              <div className="p-3 bg-gray-50 rounded-md overflow-auto text-xs font-mono max-h-48 text-wrap">
-                {testResult.errorMessage && (
-                  <div className="mb-2 text-red-600">{testResult.errorMessage}</div>
-                )}
-                {testResult.statusCode && (
-                  <div className="mb-2">Status: <span className={testResult.statusCode >= 200 && testResult.statusCode < 300 ? 'text-green-600' : 'text-red-600'}>{testResult.statusCode}</span></div>
-                )}
-                {testResult.responseData && (
-                  <pre className="whitespace-pre-wrap">{JSON.stringify(testResult.responseData, null, 2)}</pre>
-                )}
-              </div>
-            </div>
-            
-            {!success && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                <div className="flex">
-                  <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
-                  <div className="text-sm text-amber-800">
-                    <p className="font-medium">Suggestions de dépannage:</p>
-                    <ul className="list-disc pl-5 mt-1 space-y-1">
-                      <li>Vérifiez que l'URL de l'API est correcte et accessible</li>
-                      <li>Assurez-vous que votre token API est valide et non expiré</li>
-                      <li>Vérifiez que l'adresse IP du serveur n'est pas bloquée</li>
-                      <li>Confirmez que votre compte Acelle a les permissions nécessaires</li>
-                      <li>Vérifiez les paramètres de sécurité dans votre installation Acelle</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
+  // Helper to determine if test was successful
+  const isSuccess = () => {
+    if (testResult === null) return false;
+    if (typeof testResult === "boolean") return testResult;
+    return testResult.success;
+  };
+
+  // Helper to get error message
+  const getErrorMessage = () => {
+    if (testResult === null || testResult === true) return null;
+    if (typeof testResult === "boolean") return "La connexion à l'API a échoué";
+    return testResult.errorMessage || "Erreur de connexion inconnue";
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Diagnostic de connexion API</CardTitle>
-        <CardDescription>
-          Teste la connectivité avec l'API Acelle Mail pour le compte {account.name}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex flex-col space-y-1">
-            <span className="text-sm font-medium">URL de l'API:</span>
-            <span className="text-sm font-mono bg-gray-50 p-2 rounded-md">
-              {account.apiEndpoint || "Non défini"}
-            </span>
-          </div>
-          
-          <div className="flex flex-col space-y-1">
-            <span className="text-sm font-medium">Token API:</span>
-            <span className="text-sm font-mono bg-gray-50 p-2 rounded-md">
-              {account.apiToken ? `${account.apiToken.substring(0, 10)}...` : "Non défini"}
-            </span>
-          </div>
-          
-          {renderTestResult()}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-medium">Tester la connexion API</h3>
+          <p className="text-sm text-muted-foreground">
+            {account.name} ({account.apiEndpoint})
+          </p>
         </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button 
-          variant="outline"
-          size="sm"
-          onClick={() => window.open('https://acellemail.com/documentation', '_blank')}
-          className="text-xs"
-        >
-          <ExternalLink className="h-3 w-3 mr-1" /> Documentation Acelle
-        </Button>
         
-        <Button onClick={runConnectionTest} disabled={isLoading}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Test en cours...
-            </>
-          ) : (
-            'Tester la connexion'
+        <div className="space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={() => handleTest()} 
+            disabled={isLoading}
+          >
+            Test simple
+          </Button>
+          <Button 
+            onClick={() => handleTest(true)} 
+            disabled={isLoading}
+          >
+            {isLoading ? "Test en cours..." : "Test détaillé"}
+          </Button>
+        </div>
+      </div>
+      
+      {testResult !== null && (
+        <>
+          <Alert variant={isSuccess() ? "default" : "destructive"}>
+            {isSuccess() ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            <AlertTitle>
+              {isSuccess() ? "Connexion établie" : "Échec de connexion"}
+            </AlertTitle>
+            <AlertDescription>
+              {isSuccess() 
+                ? "La connexion à l'API Acelle Mail a été établie avec succès." 
+                : getErrorMessage()
+              }
+            </AlertDescription>
+          </Alert>
+          
+          {!isSuccess() && (
+            <Alert variant="warning">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Dépannage</AlertTitle>
+              <AlertDescription className="text-sm">
+                {getTroubleshootingMessage(getErrorMessage(), account.apiEndpoint)}
+              </AlertDescription>
+            </Alert>
           )}
-        </Button>
-      </CardFooter>
-    </Card>
+        </>
+      )}
+      
+      {/* Debug information section */}
+      {debugInfo && (
+        <div className="mt-4 space-y-2">
+          <Separator />
+          <h4 className="text-sm font-medium pt-2">Informations de diagnostic</h4>
+          
+          <div className="rounded border p-3 bg-muted/30 text-xs font-mono overflow-auto max-h-[200px]">
+            <pre className="whitespace-pre-wrap">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
+    </div>
   );
-};
+}

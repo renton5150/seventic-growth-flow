@@ -1,3 +1,4 @@
+
 export type AcelleAccountStatus = "active" | "inactive";
 
 export interface AcelleAccount {
