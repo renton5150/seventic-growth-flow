@@ -1,9 +1,4 @@
 
-/**
- * Utility functions for campaign status formatting and display
- */
-
-// Translate campaign status to French
 export const translateStatus = (status: string): string => {
   switch (status) {
     case "new": return "Nouveau";
@@ -12,93 +7,62 @@ export const translateStatus = (status: string): string => {
     case "sent": return "Envoyé";
     case "paused": return "En pause";
     case "failed": return "Échoué";
-    default: return status;
+    default: return status || "Inconnu";
   }
 };
 
-// Get appropriate badge variant based on campaign status
 export const getStatusBadgeVariant = (status: string): string => {
   switch (status) {
     case "new": return "secondary";
-    case "queued": return "outline";
+    case "queued": return "warning";
     case "sending": return "default";
     case "sent": return "success";
-    case "paused": return "warning";
+    case "paused": return "outline";
     case "failed": return "destructive";
-    default: return "outline";
+    default: return "secondary";
   }
 };
 
-// Format percentage value for display
 export const renderPercentage = (value: number | undefined): string => {
-  if (value === undefined || isNaN(value)) return "0%";
+  if (value === undefined || value === null) return "0%";
   return `${(value * 100).toFixed(1)}%`;
 };
 
-// Format statistics with absolute numbers and percentages
-export const formatStat = (value: number = 0, total: number = 0): string => {
-  const percentage = total > 0 ? (value / total * 100).toFixed(1) : '0';
-  return `${value} (${percentage}%)`;
-};
-
-// Get safe delivery info object with defaults
 export const safeDeliveryInfo = (info: any = {}) => {
   return {
     total: info.total || 0,
-    delivery_rate: info.delivery_rate || 0,
-    unique_open_rate: info.unique_open_rate || 0,
-    click_rate: info.click_rate || 0,
-    bounce_rate: info.bounce_rate || 0,
-    unsubscribe_rate: info.unsubscribe_rate || 0,
     delivered: info.delivered || 0,
+    delivery_rate: info.delivery_rate || 0,
     opened: info.opened || 0,
+    unique_open_rate: info.unique_open_rate || 0,
     clicked: info.clicked || 0,
+    click_rate: info.click_rate || 0,
     bounced: {
       soft: info.bounced?.soft || 0,
       hard: info.bounced?.hard || 0,
       total: info.bounced?.total || 0
     },
+    bounce_rate: info.bounce_rate || 0,
     unsubscribed: info.unsubscribed || 0,
+    unsubscribe_rate: info.unsubscribe_rate || 0,
     complained: info.complained || 0
   };
 };
 
-// Check if an error is related to connection issues
-export const isConnectionError = (error: string): boolean => {
-  const connectionErrors = [
-    "failed to fetch",
-    "network error",
-    "timeout",
-    "connection refused",
-    "offline",
-    "request timed out",
-    "aborted",
-    "service unavailable",
-    "edge function",
-    "initializing"
-  ];
-  
+export const isConnectionError = (error: any): boolean => {
   if (!error) return false;
-  
-  return connectionErrors.some(phrase => 
-    error.toLowerCase().includes(phrase.toLowerCase())
-  );
+  const errorMsg = typeof error === 'string' ? error : error.message || '';
+  return errorMsg.includes('Failed to fetch') || 
+         errorMsg.includes('timeout') || 
+         errorMsg.includes('network') ||
+         errorMsg.includes('connection') ||
+         errorMsg.includes('ECONNREFUSED');
 };
 
-// Get user-friendly troubleshooting message based on error
-export const getTroubleshootingMessage = (error: string): string => {
+export const getTroubleshootingMessage = (error: any): string => {
+  if (!error) return "";
   if (isConnectionError(error)) {
-    return "Les services semblent être en cours de démarrage ou temporairement indisponibles. Veuillez patienter ou essayer de réveiller les services.";
+    return "Les services semblent être en cours de démarrage ou indisponibles. Veuillez patienter ou cliquer sur 'Réveiller les services'.";
   }
-  
-  if (error.includes("401") || error.includes("unauthorized")) {
-    return "Problème d'authentification. Veuillez vérifier les identifiants API ou vous reconnecter.";
-  }
-  
-  if (error.includes("403") || error.includes("forbidden")) {
-    return "Accès refusé à l'API. Veuillez vérifier les permissions du compte.";
-  }
-  
-  return error || "Une erreur s'est produite. Veuillez réessayer plus tard.";
+  return typeof error === 'string' ? error : error.message || "Une erreur est survenue";
 };
-

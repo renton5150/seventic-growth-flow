@@ -5,12 +5,13 @@ export type MissionStatus = "En cours" | "Fin";
 export type RequestStatus = "pending" | "in_progress" | "completed" | "canceled";
 export type RequestType = "database" | "linkedin" | "email";
 export type WorkflowStatus = "pending_assignment" | "assigned" | "in_progress" | "review" | "completed";
+export type UserRole = "admin" | "user" | "sdr" | "growth";
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "user" | "sdr" | "growth";
+  role: UserRole;
   avatar?: string;
 }
 
@@ -57,6 +58,17 @@ export interface Request {
   workflow_status?: WorkflowStatus;
   details?: any;
   comments?: Comment[];
+  
+  // Additional properties needed based on errors
+  createdAt?: string | Date; // Alias for created_at
+  createdBy?: string; // Alias for created_by
+  dueDate?: string | Date; // Alias for due_date
+  lastUpdated?: string | Date; // Alias for last_updated
+  assignedToName?: string; // Alias for assigned_to_name
+  sdrName?: string;
+  isLate?: boolean;
+  targeting?: any;
+  template?: any;
 }
 
 export interface EmailCampaignRequest extends Request {

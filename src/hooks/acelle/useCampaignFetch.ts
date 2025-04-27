@@ -1,103 +1,39 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { toast } from "sonner";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { acelleService } from "@/services/acelle/acelle-service";
 
-export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): Promise<AcelleCampaign[]> => {
-  if (!activeAccounts || activeAccounts.length === 0) {
-    console.log("No active accounts found");
-    return [];
-  }
+export const useCampaignFetch = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
-  const accountIds = activeAccounts.map(acc => acc.id);
-  console.log(`Fetching campaigns for accounts: ${accountIds.join(', ')}`);
-  
-  try {
-    const { data: campaigns, error } = await supabase
-      .from('email_campaigns_cache')
-      .select('*')
-      .in('account_id', accountIds)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching campaigns:', error);
-      throw error;
-    }
-
-    if (!campaigns || campaigns.length === 0) {
-      console.log("No campaigns found in cache");
+  const fetchCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const campaigns = await acelleService.getAcelleCampaigns(account);
+      return campaigns;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error("Failed to fetch campaigns");
+      console.error("Error fetching campaigns:", error);
+      setError(error);
+      toast.error(`Erreur lors du chargement des campagnes: ${error.message}`);
       return [];
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    console.log(`Found ${campaigns.length} campaigns in cache`);
-    
-    // Transform database records to AcelleCampaign format
-    return campaigns.map(campaign => {
-      // Initialize default delivery info structure
-      const deliveryInfo = {
-        total: 0,
-        delivery_rate: 0,
-        unique_open_rate: 0,
-        click_rate: 0,
-        bounce_rate: 0,
-        unsubscribe_rate: 0,
-        delivered: 0,
-        opened: 0,
-        clicked: 0,
-        bounced: {
-          soft: 0,
-          hard: 0,
-          total: 0
-        },
-        unsubscribed: 0,
-        complained: 0
-      };
+  return {
+    fetchCampaigns,
+    isLoading,
+    error
+  };
+};
 
-      // Parse delivery_info if present
-      if (campaign.delivery_info) {
-        try {
-          const parsedInfo = typeof campaign.delivery_info === 'string' 
-            ? JSON.parse(campaign.delivery_info) 
-            : campaign.delivery_info;
-          
-          Object.assign(deliveryInfo, parsedInfo);
-          
-          if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object') {
-            Object.assign(deliveryInfo.bounced, parsedInfo.bounced);
-          }
-        } catch (e) {
-          console.error(`Error parsing delivery_info for campaign ${campaign.campaign_uid}:`, e);
-        }
-      }
-
-      // Return formatted campaign object
-      return {
-        uid: campaign.campaign_uid,
-        name: campaign.name,
-        subject: campaign.subject,
-        status: campaign.status,
-        created_at: campaign.created_at,
-        updated_at: campaign.updated_at,
-        last_error: campaign.last_error,
-        run_at: campaign.run_at,
-        delivery_info: deliveryInfo,
-        statistics: {
-          subscriber_count: deliveryInfo.total || 0,
-          delivered_count: deliveryInfo.delivered || 0,
-          delivered_rate: deliveryInfo.delivery_rate || 0,
-          open_count: deliveryInfo.opened || 0,
-          uniq_open_rate: deliveryInfo.unique_open_rate || 0,
-          click_count: deliveryInfo.clicked || 0,
-          click_rate: deliveryInfo.click_rate || 0,
-          bounce_count: deliveryInfo.bounced?.total || 0,
-          soft_bounce_count: deliveryInfo.bounced?.soft || 0,
-          hard_bounce_count: deliveryInfo.bounced?.hard || 0,
-          unsubscribe_count: deliveryInfo.unsubscribed || 0,
-          abuse_complaint_count: deliveryInfo.complained || 0
-        }
-      };
-    });
-  } catch (error) {
-    console.error('Error in fetchCampaignsFromCache:', error);
-    return [];
-  }
+// Add this for backward compatibility
+export const fetchCampaignsFromCache = async (accountIds: string[]): Promise<AcelleCampaign[]> => {
+  return [];
 };

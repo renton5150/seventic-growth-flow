@@ -1,6 +1,7 @@
 
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmailCampaignDetails } from "./email-campaign/EmailCampaignDetails";
 import { Request } from "@/types/types";
 import { RequestDetailsCard } from "./RequestDetailsCard";
 import { RequestTargeting } from "./RequestTargeting";
@@ -11,14 +12,14 @@ export interface RequestTabsProps {
   request: Request;
 }
 
-export const RequestTabs = ({ request }: RequestTabsProps) => {
+export const RequestTabs: React.FC<RequestTabsProps> = ({ request }) => {
   return (
-    <Tabs defaultValue="details">
-      <TabsList className="grid grid-cols-4 mb-6">
+    <Tabs defaultValue="details" className="w-full">
+      <TabsList className="grid grid-cols-4 mb-4">
         <TabsTrigger value="details">Détails</TabsTrigger>
         <TabsTrigger value="targeting">Ciblage</TabsTrigger>
+        <TabsTrigger value="timeline">Chronologie</TabsTrigger>
         <TabsTrigger value="results">Résultats</TabsTrigger>
-        <TabsTrigger value="timeline">Historique</TabsTrigger>
       </TabsList>
       
       <TabsContent value="details">
@@ -29,12 +30,12 @@ export const RequestTabs = ({ request }: RequestTabsProps) => {
         <RequestTargeting request={request} />
       </TabsContent>
       
-      <TabsContent value="results">
-        <RequestResults request={request} />
-      </TabsContent>
-      
       <TabsContent value="timeline">
         <RequestTimeline request={request} />
+      </TabsContent>
+      
+      <TabsContent value="results">
+        <RequestResults request={request} />
       </TabsContent>
     </Tabs>
   );

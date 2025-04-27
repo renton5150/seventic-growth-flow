@@ -5,12 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery } from "@tanstack/react-query";
 import { getMissions } from "@/services/missions";
 
-interface MissionSelectProps {
+interface RequestMissionSelectProps {
   control: any;
   disabled?: boolean;
 }
 
-export const MissionSelect: React.FC<MissionSelectProps> = ({ control, disabled = false }) => {
+export const RequestMissionSelect: React.FC<RequestMissionSelectProps> = ({ control, disabled = false }) => {
   const { data: missions = [] } = useQuery({
     queryKey: ["missions"],
     queryFn: getMissions,

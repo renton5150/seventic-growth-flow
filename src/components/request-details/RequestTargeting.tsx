@@ -8,62 +8,52 @@ interface RequestTargetingProps {
 }
 
 export const RequestTargeting: React.FC<RequestTargetingProps> = ({ request }) => {
-  const renderTargetingContent = () => {
-    if (!request.details) return <p>Aucune information de ciblage disponible</p>;
-    
-    if (request.type === "database") {
-      const targeting = request.details.targeting || {};
-      return (
-        <div className="space-y-4">
-          {targeting.industries && targeting.industries.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium">Industries</h4>
-              <ul className="list-disc pl-5 mt-1">
-                {targeting.industries.map((industry: string, i: number) => (
-                  <li key={i}>{industry}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {targeting.companySize && (
-            <div>
-              <h4 className="text-sm font-medium">Taille d'entreprise</h4>
-              <p>{targeting.companySize}</p>
-            </div>
-          )}
-          
-          {targeting.locations && targeting.locations.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium">Localisation</h4>
-              <ul className="list-disc pl-5 mt-1">
-                {targeting.locations.map((location: string, i: number) => (
-                  <li key={i}>{location}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {request.target_role && (
-            <div>
-              <h4 className="text-sm font-medium">Fonction cible</h4>
-              <p>{request.target_role}</p>
-            </div>
-          )}
-        </div>
-      );
+  const targeting = request.details?.targeting || {};
+  
+  const renderList = (items: string[] | undefined) => {
+    if (!items || items.length === 0) {
+      return <p className="text-muted-foreground text-sm">Non spécifié</p>;
     }
     
-    return <p>Aucune information de ciblage disponible pour ce type de demande</p>;
+    return (
+      <ul className="list-disc pl-5 space-y-1">
+        {items.map((item, index) => (
+          <li key={index} className="text-sm">{item}</li>
+        ))}
+      </ul>
+    );
   };
-
+  
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Ciblage</CardTitle>
+        <CardTitle>Ciblage</CardTitle>
       </CardHeader>
-      <CardContent>
-        {renderTargetingContent()}
+      <CardContent className="space-y-6">
+        <div>
+          <h3 className="text-sm font-medium mb-2">Industries</h3>
+          {renderList(targeting.industries)}
+        </div>
+        
+        <div>
+          <h3 className="text-sm font-medium mb-2">Taille d'entreprise</h3>
+          <p className="text-sm">{targeting.companySize || "Non spécifié"}</p>
+        </div>
+        
+        <div>
+          <h3 className="text-sm font-medium mb-2">Localisations</h3>
+          {renderList(targeting.locations)}
+        </div>
+        
+        <div>
+          <h3 className="text-sm font-medium mb-2">Titres de poste</h3>
+          {renderList(targeting.jobTitles)}
+        </div>
+        
+        <div>
+          <h3 className="text-sm font-medium mb-2">Ancienneté</h3>
+          {renderList(targeting.seniority)}
+        </div>
       </CardContent>
     </Card>
   );

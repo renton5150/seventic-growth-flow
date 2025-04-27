@@ -18,3 +18,6 @@ export default function EmailCampaignForm() {
     </Card>
   );
 }
+
+// Add named export for backward compatibility
+export { EmailCampaignForm };

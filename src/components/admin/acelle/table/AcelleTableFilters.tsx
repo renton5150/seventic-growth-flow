@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Search, ChevronUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ChevronsUpDown, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -89,7 +89,7 @@ export const AcelleTableFilters = ({
                 ) : sortOrder === "desc" ? (
                   <ChevronDown className="h-4 w-4" />
                 ) : (
-                  <ChevronUpDown className="h-4 w-4" />
+                  <ChevronsUpDown className="h-4 w-4" />
                 )}
               </Button>
             </TooltipTrigger>
@@ -102,4 +102,3 @@ export const AcelleTableFilters = ({
     </div>
   );
 };
-

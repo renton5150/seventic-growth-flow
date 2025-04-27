@@ -1,28 +1,24 @@
 
 import React from "react";
-import { Loader2, AlertTriangle, RefreshCcw, PowerOff } from "lucide-react";
+import { Loader2, AlertTriangle, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
-type ErrorStateProps = {
-  onRetry: () => void;
-};
-
-export const TableLoadingState = () => {
+export const LoadingState = () => {
   return (
-    <div className="flex flex-col items-center justify-center h-64 space-y-4">
+    <div className="flex justify-center items-center h-64">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-muted-foreground">Chargement des campagnes...</p>
     </div>
   );
 };
 
-export const TableErrorState = ({ onRetry }: ErrorStateProps) => {
+export const ErrorState = ({ onRetry }: { onRetry: () => void }) => {
   return (
-    <div className="flex flex-col items-center justify-center h-64 space-y-4">
-      <AlertTriangle className="h-8 w-8 text-destructive" />
-      <p className="text-destructive font-medium">Erreur lors du chargement des campagnes</p>
-      <Button onClick={onRetry} variant="outline">
-        <RefreshCcw className="mr-2 h-4 w-4" />
+    <div className="text-center py-8">
+      <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+      <p className="text-red-500 mb-4">Une erreur est survenue lors du chargement des données</p>
+      <Button onClick={onRetry}>
+        <RefreshCw className="mr-2 h-4 w-4" />
         Réessayer
       </Button>
     </div>
@@ -31,27 +27,28 @@ export const TableErrorState = ({ onRetry }: ErrorStateProps) => {
 
 export const EmptyState = () => {
   return (
-    <div className="text-center py-12 border rounded-md">
-      <h3 className="font-medium text-gray-900">Aucune campagne</h3>
-      <p className="text-muted-foreground mt-1">
-        Aucune campagne n'a été trouvée pour ce compte.
-      </p>
-    </div>
+    <Card>
+      <CardContent className="p-6 text-center">
+        <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+        <p className="text-muted-foreground">Aucune campagne trouvée.</p>
+      </CardContent>
+    </Card>
   );
 };
 
 export const InactiveAccountState = () => {
   return (
-    <div className="text-center py-12 border rounded-md bg-muted/30">
-      <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-      <h3 className="font-medium text-gray-900">Compte inactif</h3>
-      <p className="text-muted-foreground mt-1">
-        Ce compte est actuellement inactif. Activez-le pour voir les campagnes.
-      </p>
-    </div>
+    <Card>
+      <CardContent className="p-6 text-center">
+        <AlertCircle className="h-8 w-8 text-amber-500 mx-auto mb-3" />
+        <p className="text-muted-foreground">
+          Ce compte est inactif. Veuillez l'activer pour voir les campagnes.
+        </p>
+      </CardContent>
+    </Card>
   );
 };
 
-export const LoadingState = TableLoadingState;
-export const ErrorState = TableErrorState;
-
+// Aliases for backward compatibility
+export const TableLoadingState = LoadingState;
+export const TableErrorState = ErrorState;

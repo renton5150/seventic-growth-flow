@@ -40,4 +40,3 @@ export const CampaignsTablePagination = ({ currentPage, hasNextPage, onPageChang
     </div>
   );
 };
-
