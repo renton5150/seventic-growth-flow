@@ -371,18 +371,116 @@ serve(async (req) => {
       debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...", LOG_LEVELS.DEBUG);
     }
 
-    // Get API token from query parameters
-    const apiToken = url.searchParams.get('api_token');
-    
+    // Extraire le body s'il est présent
+    let requestBody;
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
+      try {
+        requestBody = await req.json();
+        debugLog("Request body:", requestBody, LOG_LEVELS.DEBUG);
+      } catch (e) {
+        debugLog("Failed to parse request body as JSON", e, LOG_LEVELS.WARN);
+      }
+    }
+
+    // Gérer les actions spécifiques
+    if (requestBody && requestBody.action === 'test-connection') {
+      debugLog("Processing test-connection action", requestBody, LOG_LEVELS.INFO);
+      
+      const apiEndpoint = requestBody.apiEndpoint;
+      const apiToken = requestBody.apiToken;
+      const debug = requestBody.debug || false;
+      const authMethods = requestBody.authMethods || ['token', 'basic', 'header'];
+      
+      if (!apiEndpoint || !apiToken) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: "API endpoint and token are required",
+          debugInfo: {
+            success: false,
+            errorMessage: "Missing required parameters: apiEndpoint and apiToken",
+            statusCode: 400,
+            request: { url: apiEndpoint || "N/A" }
+          }
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Vérifier d'abord l'accessibilité de base de l'endpoint
+      const baseAccessTest = await testEndpointAccess(apiEndpoint, {
+        timeout: 20000,
+        headers: {
+          'User-Agent': 'Seventic-Acelle-Proxy/1.5'
+        }
+      });
+      
+      // Puis tester l'authentification si l'endpoint est accessible
+      let authTest = null;
+      let finalResult: any = {
+        success: false, 
+        message: ""
+      };
+      
+      if (baseAccessTest.success) {
+        // L'endpoint est accessible, on teste l'authentification
+        authTest = await testAuthMethods(
+          apiEndpoint, 
+          '/api/v1/me', // Standard endpoint for testing auth
+          apiToken,
+          { timeout: 20000, authMethods }
+        );
+        
+        finalResult = {
+          success: authTest.success,
+          message: authTest.message,
+          method: authTest.method,
+          baseAccessible: true
+        };
+      } else {
+        // L'endpoint n'est pas accessible
+        finalResult = {
+          success: false,
+          message: `L'API n'est pas accessible: ${baseAccessTest.message}`,
+          baseAccessible: false
+        };
+      }
+      
+      // Si debug est activé, ajouter les informations détaillées
+      if (debug) {
+        finalResult.debugInfo = {
+          success: finalResult.success,
+          errorMessage: finalResult.success ? undefined : finalResult.message,
+          statusCode: (authTest?.statusCode || baseAccessTest.statusCode),
+          request: {
+            url: apiEndpoint,
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          },
+          responseData: authTest?.responseText || baseAccessTest.responseText,
+          endpointTested: apiEndpoint,
+          baseAccessTest,
+          authTest
+        };
+      }
+      
+      return new Response(JSON.stringify(finalResult), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Special case for ping/health check
-    if (apiToken === 'ping') {
+    if (url.pathname.endsWith('/ping') || requestBody?.action === 'ping') {
       debugLog("Received ping request - service is active", {}, LOG_LEVELS.INFO);
       
       // Test API accessibility with extended debugging
-      const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/api/v1';
+      const baseUrl = url.searchParams.get('endpoint') || requestBody?.endpoint || 'https://emailing.plateforme-solution.net/api/v1';
       
       // Test different auth methods for the endpoint
-      const authMethodsToTest = url.searchParams.get('auth_methods')?.split(',') || ['token'];
+      const authMethodsToTest = url.searchParams.get('auth_methods')?.split(',') || requestBody?.authMethods || ['token'];
       const accessTest = await testEndpointAccess(baseUrl, {
         timeout: 10000, // 10 seconds timeout for quick response
         headers: {
@@ -397,8 +495,8 @@ serve(async (req) => {
       if (accessTest.success) {
         authTest = await testAuthMethods(
           baseUrl, 
-          '/me', // Standard endpoint for testing auth
-          url.searchParams.get('test_token') || 'test', 
+          '/api/v1/me', // Standard endpoint for testing auth
+          url.searchParams.get('test_token') || requestBody?.testToken || 'test', 
           { 
             timeout: 8000,
             authMethods: authMethodsToTest
@@ -420,6 +518,53 @@ serve(async (req) => {
       });
     }
     
+    if (requestBody && requestBody.action === 'check-availability') {
+      debugLog("Processing check-availability action", requestBody, LOG_LEVELS.INFO);
+      
+      const baseUrl = 'https://emailing.plateforme-solution.net/api/v1';
+      
+      // Tester si l'API est accessible de base
+      const baseAccessTest = await testEndpointAccess(`${baseUrl}`, {
+        timeout: 10000
+      });
+      
+      // Tester des endpoints spécifiques
+      const campaignsTest = await testEndpointAccess(`${baseUrl}/campaigns`, {
+        timeout: 5000
+      });
+      
+      const detailsTest = await testEndpointAccess(`${baseUrl}/templates`, {
+        timeout: 5000
+      });
+      
+      const result = {
+        available: baseAccessTest.success,
+        endpoints: {
+          campaigns: campaignsTest.success,
+          details: detailsTest.success
+        },
+        debugInfo: {
+          success: baseAccessTest.success,
+          errorMessage: baseAccessTest.success ? undefined : baseAccessTest.message,
+          statusCode: baseAccessTest.statusCode,
+          responseData: baseAccessTest.responseText,
+          endpointTested: baseUrl,
+          request: {
+            url: baseUrl,
+            method: 'GET'
+          }
+        }
+      };
+      
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Traitement générique pour les requêtes au service Acelle
+    // Get API token from query parameters
+    const apiToken = url.searchParams.get('api_token') || requestBody?.apiToken;
+    
     if (!apiToken) {
       debugLog("Missing API token in request", {}, LOG_LEVELS.ERROR);
       return new Response(JSON.stringify({ 
@@ -432,7 +577,10 @@ serve(async (req) => {
     }
 
     // Get the Acelle API endpoint from the request headers with fallback
-    const acelleEndpoint = req.headers.get('x-acelle-endpoint') || url.searchParams.get('endpoint');
+    const acelleEndpoint = req.headers.get('x-acelle-endpoint') || 
+                           url.searchParams.get('endpoint') || 
+                           requestBody?.apiEndpoint ||
+                           'https://emailing.plateforme-solution.net/api/v1';
     
     if (!acelleEndpoint) {
       debugLog("Missing Acelle endpoint in request headers", {}, LOG_LEVELS.ERROR);
@@ -498,7 +646,8 @@ serve(async (req) => {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/1.5', // Updated version
       'Connection': 'keep-alive',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Origin': 'https://dupguifqyjchlmzbadav.supabase.co'
     };
 
     // Add appropriate authentication based on selected method
@@ -529,20 +678,10 @@ serve(async (req) => {
 
     try {
       // Récupérer le body de la requête si nécessaire
-      let requestBody;
       let requestBodyText = '';
       if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         requestBodyText = await req.text();
         debugLog("Request body (text):", requestBodyText, LOG_LEVELS.VERBOSE);
-        
-        // Try to parse JSON for better logging
-        try {
-          requestBody = JSON.parse(requestBodyText);
-          debugLog("Request body (parsed):", requestBody, LOG_LEVELS.DEBUG);
-        } catch (e) {
-          // Not JSON, use raw text
-          requestBody = requestBodyText;
-        }
       }
 
       // Log the full request information
@@ -550,7 +689,7 @@ serve(async (req) => {
         method: req.method,
         url: acelleApiUrl,
         headers,
-        body: requestBody || null,
+        body: requestBodyText || null,
         authMethod,
         timestamp: new Date().toISOString()
       }, LOG_LEVELS.VERBOSE);
@@ -587,17 +726,6 @@ serve(async (req) => {
       try {
         responseData = JSON.parse(data);
         debugLog(`Successfully parsed JSON response for ${resource}`, {}, LOG_LEVELS.DEBUG);
-        
-        // Log a sanitized sample of the response for debugging
-        const sampleData = typeof responseData === 'object' ? 
-          (Array.isArray(responseData) ? 
-            responseData.slice(0, 2) : 
-            responseData) : 
-          responseData;
-          
-        debugLog("Response data sample:", 
-          JSON.stringify(sampleData).substring(0, 1000) + "...", 
-          LOG_LEVELS.DEBUG);
       } catch (e) {
         debugLog('Error parsing response from Acelle API:', e, LOG_LEVELS.ERROR);
         debugLog('Raw response data:', data.substring(0, 1000) + (data.length > 1000 ? '...' : ''), LOG_LEVELS.DEBUG);
