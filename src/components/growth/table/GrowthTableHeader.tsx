@@ -1,6 +1,6 @@
 
 import React from "react";
-import { format, isSameDay as dateFnsIsSameDay } from "date-fns";
+import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { DatePicker } from "@/components/ui/date-picker";
 import {

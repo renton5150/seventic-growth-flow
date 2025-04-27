@@ -40,25 +40,19 @@ export const formatRequestFromDb = (dbRequest: any): Request => {
     id: dbRequest.id,
     title: dbRequest.title,
     type: dbRequest.type,
-    mission_id: dbRequest.mission_id, // Keep original property
-    missionId: missionId, // Alias for backward compatibility
-    missionName: missionName, // Alias for backward compatibility
-    created_by: dbRequest.created_by,
-    createdBy: dbRequest.created_by, // Alias
-    sdrName, // Alias
-    created_at: createdAt,
-    createdAt, // Alias
-    due_date: dueDate,
-    dueDate, // Alias
+    missionId: missionId,
+    missionName: missionName,
+    createdBy: dbRequest.created_by,
+    sdrName,
+    createdAt,
+    dueDate,
     status: dbRequest.status as RequestStatus,
     workflow_status: dbRequest.workflow_status as WorkflowStatus || 'pending_assignment',
     target_role: dbRequest.target_role || 'growth',
     assigned_to: dbRequest.assigned_to || null,
-    assigned_to_name: assignedToName, // Original property
-    assignedToName, // Alias
-    last_updated: lastUpdated,
-    lastUpdated, // Alias
-    isLate, // Custom property
+    assignedToName,
+    lastUpdated,
+    isLate,
     details
   };
 
