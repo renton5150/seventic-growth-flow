@@ -2,7 +2,6 @@
 import { Mission, MissionType } from "@/types/types";
 import { v4 as uuidv4 } from "uuid";
 import { getRequestsByMissionId } from "@/data/requests";
-import { getMockUser } from "@/services/missions/mockMissions";
 
 /**
  * Get all mocked missions
@@ -42,9 +41,19 @@ export const createMockedMission = (data: {
   endDate?: Date | null;
   type?: string;
 }): Mission => {
-  // Import createMockMission dynamically
-  const { createMockMission } = require('@/services/missions/mockMissions');
-  return createMockMission(data);
+  const newMission: Mission = {
+    id: uuidv4(),
+    name: data.name,
+    sdrId: data.sdrId,
+    description: data.description || "",
+    createdAt: new Date(),
+    startDate: data.startDate || new Date(),
+    endDate: data.endDate || null,
+    type: (data.type as MissionType) || "Full",
+    status: "En cours",
+    requests: []
+  };
+  return newMission;
 };
 
 /**
@@ -60,16 +69,24 @@ export const updateMockedMission = async (data: {
   type: string;
   status?: "En cours" | "Fin";
 }): Promise<Mission> => {
-  // Import updateMockMission dynamically
-  const { updateMockMission } = require('@/services/missions/mockMissions');
-  return await updateMockMission(data);
+  const updatedMission: Mission = {
+    id: data.id,
+    name: data.name,
+    sdrId: data.sdrId,
+    description: data.description || "",
+    createdAt: new Date(),
+    startDate: data.startDate || new Date(),
+    endDate: data.endDate,
+    type: data.type as MissionType,
+    status: data.status || "En cours",
+    requests: []
+  };
+  return updatedMission;
 };
 
 /**
  * Delete a mocked mission
  */
 export const deleteMockedMission = (missionId: string): boolean => {
-  // Import deleteMockMission dynamically
-  const { deleteMockMission } = require('@/services/missions/mockMissions');
-  return deleteMockMission(missionId);
+  return true;
 };
