@@ -1,7 +1,6 @@
-
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { downloadFile, extractFileName } from "@/services/database";
+import { downloadDatabaseFile, extractFileName } from "@/services/database";
 import { AlertCircle } from "lucide-react";
 
 interface FileUploaderProps {
@@ -37,7 +36,6 @@ export const FileUploader = ({
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       
-      // Vérifier la taille du fichier si maxSize est défini
       if (maxSize && file.size > maxSize * 1024 * 1024) {
         setError(`Le fichier est trop volumineux (max ${maxSize}MB)`);
         toast.error(`Le fichier est trop volumineux (max ${maxSize}MB)`);
@@ -60,7 +58,6 @@ export const FileUploader = ({
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       
-      // Vérifier la taille du fichier si maxSize est défini
       if (maxSize && file.size > maxSize * 1024 * 1024) {
         setError(`Le fichier est trop volumineux (max ${maxSize}MB)`);
         toast.error(`Le fichier est trop volumineux (max ${maxSize}MB)`);
@@ -95,11 +92,10 @@ export const FileUploader = ({
       
       const loadingToast = toast.loading("Téléchargement en cours...");
       
-      // Extraire le nom de fichier de l'URL
       const fileName = extractFileName(value);
       console.log(`Téléchargement demandé pour: ${value}, nom extrait: ${fileName}`);
       
-      const success = await downloadFile(value, fileName);
+      const success = await downloadDatabaseFile(value, fileName);
       
       toast.dismiss(loadingToast);
       

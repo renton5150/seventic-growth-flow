@@ -6,7 +6,7 @@ import { Database, Download, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { deleteDatabaseFile, downloadFile, extractFileName } from "@/services/database";
+import { deleteDatabaseFile, downloadDatabaseFile, extractFileName } from "@/services/database";
 import { toast } from "sonner";
 import { DatabaseFile } from "@/types/database.types";
 import { useState } from "react";
@@ -80,7 +80,7 @@ export const DatabasesList = ({ databases, isLoading }: DatabasesListProps) => {
       // Utiliser le nom de fichier extrait si disponible, sinon utiliser celui fourni
       const finalFileName = extractFileName(fileUrl) || fileName;
       
-      const success = await downloadFile(fileUrl, finalFileName);
+      const success = await downloadDatabaseFile(fileUrl, finalFileName);
       
       toast.dismiss(loadingToast);
       
