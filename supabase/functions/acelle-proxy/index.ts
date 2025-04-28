@@ -190,7 +190,7 @@ async function testAuthMethods(baseUrl: string, endpoint: string, apiToken: stri
   
   debugLog(`Testing authentication methods for ${baseUrl + endpoint}`, { methods }, LOG_LEVELS.INFO);
   
-  // Méthode 1: Auth par token dans l'URL
+  // Méthode 1: Auth par token dans l'URL (recommandée par la documentation Acelle)
   if (methods.includes("token")) {
     const tokenResult = await testEndpointAccess(`${baseUrl}${endpoint}?api_token=${apiToken}`, {
       timeout,
@@ -350,6 +350,14 @@ serve(async (req) => {
     currentLogLevel = LOG_LEVELS.INFO; // Default info level
   }
   
+  // Log the authorization header to help debug authentication issues
+  const authHeader = req.headers.get('authorization');
+  if (authHeader) {
+    debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...", LOG_LEVELS.DEBUG);
+  } else {
+    debugLog("No authorization header provided", {}, LOG_LEVELS.WARN);
+  }
+  
   // Handle CORS preflight requests with en-têtes complets
   if (req.method === 'OPTIONS') {
     debugLog("Handling OPTIONS preflight request with complete CORS headers", {}, LOG_LEVELS.DEBUG);
@@ -363,14 +371,6 @@ serve(async (req) => {
     // Capture request start time for performance metrics
     const requestStartTime = Date.now();
     
-    // Get authorization header from the request
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      debugLog("No authorization header provided", null, LOG_LEVELS.ERROR);
-    } else {
-      debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...", LOG_LEVELS.DEBUG);
-    }
-
     // Special case for ping/health check
     if (req.url.includes('ping')) {
       debugLog("Received ping request - service is active", {}, LOG_LEVELS.INFO);
@@ -447,8 +447,9 @@ serve(async (req) => {
 
     debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, {}, LOG_LEVELS.DEBUG);
 
-    // Prepare headers with authentication for the Acelle API request
-    const authMethod = req.headers.get('x-auth-method') || 'token'; // Default to token auth
+    // Prepare headers for the Acelle API request
+    // Set token auth as default per Acelle Mail documentation recommendation
+    const authMethod = req.headers.get('x-auth-method') || 'token';
     const headers: HeadersInit = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/1.5',

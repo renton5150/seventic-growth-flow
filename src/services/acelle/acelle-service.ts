@@ -6,7 +6,7 @@ import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/
 // API proxy configuration
 export const ACELLE_PROXY_CONFIG = {
   BASE_URL: "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy",
-  AUTH_METHOD: "token" // Use "token" for API token in URL, "header" for X-API-Key header
+  AUTH_METHOD: "token" // Use "token" for API token in URL (recommended by Acelle Mail documentation)
 };
 
 // Export all functions under a single acelleService object

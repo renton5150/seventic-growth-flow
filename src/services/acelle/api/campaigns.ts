@@ -29,20 +29,22 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
       return false;
     }
 
-    // Use the ping endpoint to check API accessibility
-    // Use token authentication as recommended by Acelle Mail API
-    const response = await fetch(
-      `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${account.apiToken}&endpoint=${encodeURIComponent(apiEndpoint)}`, 
-      {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-          "X-Acelle-Endpoint": apiEndpoint,
-          "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token",
-          "Authorization": `Bearer ${accessToken}`
-        }
+    // Following Acelle Mail API documentation - use the token in URL
+    // https://api.acellemail.com/ recommends adding api_token as parameter
+    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${account.apiToken}`;
+    
+    console.log(`Checking API access with URL: ${url}`);
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "X-Acelle-Endpoint": apiEndpoint,
+        "X-Auth-Method": "token", // Explicitly use token method
+        "Authorization": `Bearer ${accessToken}`,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
-    );
+    });
 
     if (!response.ok) {
       console.error(`API accessibility check failed: ${response.status}`);
@@ -101,14 +103,19 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
     }
     
     // Use token authentication as recommended by Acelle Mail API
-    const response = await fetch(`${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
+    // https://api.acellemail.com/ recommends adding api_token as parameter
+    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`;
+    
+    console.log(`Fetching campaign details with URL: ${url}`);
+    
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         "Accept": "application/json",
         "X-Acelle-Endpoint": apiEndpoint,
-        "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Authorization": `Bearer ${accessToken}`
+        "X-Auth-Method": "token",
+        "Authorization": `Bearer ${accessToken}`,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     });
 
@@ -130,7 +137,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
     return campaignDetails;
   } catch (error) {
     console.error(`Error fetching details for campaign ${campaignUid}:`, error);
-    toast.error(`Erreur lors du chargement des détails: ${error.message || "Erreur inconnue"}`);
+    toast.error(`Erreur lors du chargement des détails: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
     return null;
   }
 };
@@ -174,21 +181,21 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     }
     
     // Use token authentication as recommended by Acelle Mail API
-    // Get campaign list with pagination and included stats
-    const response = await fetch(
-      `${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`, 
-      {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "X-Acelle-Endpoint": apiEndpoint,
-          "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token",
-          "Authorization": `Bearer ${accessToken}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate"
-        }
+    // https://api.acellemail.com/ recommends adding api_token as a URL parameter
+    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`;
+    
+    console.log(`Fetching campaigns with URL: ${url}`);
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "X-Acelle-Endpoint": apiEndpoint,
+        "X-Auth-Method": "token",
+        "Authorization": `Bearer ${accessToken}`,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
-    );
+    });
     
     if (!response.ok) {
       console.error(`Failed to fetch campaigns: ${response.status}`);
@@ -221,7 +228,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     return campaigns;
   } catch (error) {
     console.error(`Error fetching campaigns for account ${account.name}:`, error);
-    toast.error(`Erreur lors de la récupération des campagnes: ${error.message || "Erreur inconnue"}`);
+    toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
     return [];
   }
 };

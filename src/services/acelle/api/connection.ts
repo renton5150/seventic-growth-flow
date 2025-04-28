@@ -18,14 +18,17 @@ export const testAcelleConnection = async (
       throw new Error("API endpoint and token are required");
     }
     
-    // Use token authentication as recommended by Acelle Mail API
+    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint} with auth method: token (as per Acelle Mail docs)`);
+    
+    // Use token authentication as recommended by Acelle Mail API docs
+    // https://api.acellemail.com/ recommends adding api_token as a URL parameter
     const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${apiToken}`;
     
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
       "X-Acelle-Endpoint": cleanApiEndpoint,
-      "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token"
+      "X-Auth-Method": "token" // Ensure we're using token method
     };
     
     const debugInfo: AcelleConnectionDebug = {
@@ -37,8 +40,6 @@ export const testAcelleConnection = async (
         method: "GET"
       }
     };
-    
-    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint} with auth method: ${ACELLE_PROXY_CONFIG.AUTH_METHOD}`);
     
     const response = await fetch(url, {
       method: "GET",
@@ -62,6 +63,8 @@ export const testAcelleConnection = async (
     }
     
     if (!response.ok) {
+      console.error(`API Error: ${response.status} ${response.statusText}`);
+      
       if (debug) {
         debugInfo.errorMessage = `API Error: ${response.status} ${response.statusText}`;
         return debugInfo;
@@ -91,7 +94,7 @@ export const testAcelleConnection = async (
           headers: { 
             "Accept": "application/json",
             "X-Acelle-Endpoint": apiEndpoint,
-            "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token"
+            "X-Auth-Method": "token"
           },
           method: "GET"
         }

@@ -11,7 +11,7 @@ import { testAcelleConnection } from "@/services/acelle/api/connection";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();
-  const { syncCampaignsCache, wakeUpEdgeFunctions } = useCampaignSync();
+  const { syncCampaignsCache, wakeUpEdgeFunctions, checkApiAvailability } = useCampaignSync();
   const [isTesting, setIsTesting] = useState(false);
   const [endpointStatus, setEndpointStatus] = useState<{[key: string]: boolean}>({});
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
@@ -22,27 +22,57 @@ export const SystemStatus = () => {
   const runDiagnostics = async () => {
     setIsTesting(true);
     try {
-      // Use wakeUpEdgeFunctions to check API accessibility
-      const apiAccess = await wakeUpEdgeFunctions();
+      toast.loading("Test des services en cours...", { id: "api-test" });
+      
+      // First check API accessibility
+      const apiStatus = await checkApiAvailability();
+      
+      if (apiStatus.debugInfo) {
+        setDebugInfo(apiStatus.debugInfo);
+      }
       
       const status = {
         endpoints: {
-          campaigns: apiAccess,
-          details: apiAccess
+          campaigns: apiStatus.available,
+          details: apiStatus.available
         }
       };
       
       setEndpointStatus(status.endpoints || {});
       setLastTestTime(new Date());
       
-      if (apiAccess) {
-        toast.success("Tous les services sont opérationnels");
+      if (apiStatus.available) {
+        toast.success("Tous les services sont opérationnels", { id: "api-test" });
       } else {
-        toast.error("Certains services sont indisponibles");
+        // If API is not available, try to wake up services
+        toast.warning("Services indisponibles, tentative de réveil...", { id: "api-test" });
+        await wakeUpEdgeFunctions();
+        
+        // Check again after wake up attempt
+        const retryStatus = await checkApiAvailability();
+        
+        if (retryStatus.debugInfo) {
+          setDebugInfo(retryStatus.debugInfo);
+        }
+        
+        if (retryStatus.available) {
+          toast.success("Services réveillés avec succès", { id: "api-test" });
+          setEndpointStatus({
+            campaigns: true,
+            details: true
+          });
+        } else {
+          toast.error("Certains services restent indisponibles", { id: "api-test" });
+          
+          // Add more specific error information
+          if (retryStatus.error) {
+            toast.error(`Erreur: ${retryStatus.error}`, { id: "api-test-details", duration: 5000 });
+          }
+        }
       }
     } catch (error) {
       console.error("Erreur lors du diagnostic:", error);
-      toast.error("Erreur lors du test des services");
+      toast.error(`Erreur lors du test des services: ${error instanceof Error ? error.message : 'Erreur inconnue'}`, { id: "api-test" });
     } finally {
       setIsTesting(false);
     }
@@ -63,7 +93,7 @@ export const SystemStatus = () => {
           ) : (
             <RefreshCw className="h-4 w-4 mr-2" />
           )}
-          Tester les services
+          {isTesting ? "Test en cours..." : "Tester les services"}
         </Button>
       </CardHeader>
       <CardContent>
@@ -71,7 +101,9 @@ export const SystemStatus = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium">API Campaigns:</span>
-              {endpointStatus.campaigns ? (
+              {endpointStatus.campaigns === undefined ? (
+                <span className="text-sm text-muted-foreground">Non testé</span>
+              ) : endpointStatus.campaigns ? (
                 <Check className="h-4 w-4 text-green-500" />
               ) : (
                 <X className="h-4 w-4 text-red-500" />
@@ -79,7 +111,9 @@ export const SystemStatus = () => {
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium">API Details:</span>
-              {endpointStatus.details ? (
+              {endpointStatus.details === undefined ? (
+                <span className="text-sm text-muted-foreground">Non testé</span>
+              ) : endpointStatus.details ? (
                 <Check className="h-4 w-4 text-green-500" />
               ) : (
                 <X className="h-4 w-4 text-red-500" />
@@ -87,12 +121,41 @@ export const SystemStatus = () => {
             </div>
           </div>
           
-          {debugInfo && debugInfo.errorMessage && (
-            <div className="mt-4 p-4 bg-red-50 rounded-md">
+          {debugInfo && (
+            <div className={`mt-4 p-4 rounded-md ${debugInfo.success ? 'bg-green-50' : 'bg-red-50'}`}>
               <div className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
-                <span className="text-sm text-red-700">{debugInfo.errorMessage}</span>
+                {debugInfo.success ? (
+                  <Check className="h-4 w-4 text-green-500 mr-2" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+                )}
+                <span className={`text-sm ${debugInfo.success ? 'text-green-700' : 'text-red-700'}`}>
+                  {debugInfo.errorMessage || `Statut: ${debugInfo.statusCode || 'Inconnu'}`}
+                </span>
               </div>
+              
+              {debugInfo.statusCode && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Code HTTP: {debugInfo.statusCode}
+                </div>
+              )}
+              
+              {debugInfo.duration && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Temps de réponse: {debugInfo.duration}ms
+                </div>
+              )}
+              
+              {!debugInfo.success && debugInfo.request && (
+                <div className="mt-2 text-xs font-mono overflow-hidden text-ellipsis max-w-full">
+                  <details>
+                    <summary className="cursor-pointer text-muted-foreground">Détails de la requête</summary>
+                    <div className="p-2 mt-2 bg-gray-100 rounded text-muted-foreground">
+                      URL: {debugInfo.request.url?.substring(0, 100)}
+                    </div>
+                  </details>
+                </div>
+              )}
             </div>
           )}
           

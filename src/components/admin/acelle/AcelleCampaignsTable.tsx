@@ -33,10 +33,29 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   
   const fetchCampaigns = React.useCallback(async () => {
     console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
-    return acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
+    try {
+      // Clear any previous connection errors
+      setConnectionError(null);
+      
+      // First check API accessibility
+      const isAccessible = await acelleService.checkApiAccess(account);
+      if (!isAccessible) {
+        console.error(`API not accessible for account: ${account.name}`);
+        setConnectionError(`L'API Acelle Mail n'est pas accessible pour le compte ${account.name}. Veuillez vérifier la configuration du compte.`);
+        return [];
+      }
+      
+      // If accessible, fetch campaigns
+      return acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
+    } catch (error) {
+      console.error(`Error fetching campaigns:`, error);
+      setConnectionError(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      return [];
+    }
   }, [account, currentPage, itemsPerPage]);
   
   const { 
@@ -85,8 +104,13 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     return <TableLoadingState />;
   }
 
-  if (isError) {
-    return <TableErrorState onRetry={() => refetch()} />;
+  if (isError || connectionError) {
+    return (
+      <TableErrorState 
+        onRetry={() => refetch()} 
+        errorMessage={connectionError || "Une erreur est survenue lors de la récupération des campagnes"}
+      />
+    );
   }
 
   return (

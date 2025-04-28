@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -13,11 +14,6 @@ const corsHeaders = {
 const supabaseUrl = 'https://dupguifqyjchlmzbadav.supabase.co';
 const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// FIXED: Use Basic auth with Acelle credentials
-const ACELLE_EMAIL = Deno.env.get('ACELLE_EMAIL') || 'gironde@seventic.com';
-const ACELLE_PASSWORD = Deno.env.get('ACELLE_PASSWORD') || 'Seventic75$';
-const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`); // Pre-encode the credentials
 
 // Configuration
 const DEFAULT_TIMEOUT = 30000; // 30 seconds default timeout
@@ -108,11 +104,9 @@ async function testEndpointAccess(url: string, options: {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
-    // FIXED: Use Basic auth with Acelle credentials
     const headers = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Sync/1.5',
-      'Authorization': `Basic ${credentials}`,
       ...(options.headers || {})
     };
     
@@ -383,11 +377,10 @@ async function fetchCampaignsForAccount(account: any, options: {
     }
     
     // Test d'accessibilité de l'endpoint avant de procéder
-    // FIXED: Use Basic auth with Acelle credentials
+    // Use token authentication as recommended by Acelle Mail API docs
     const accessTest = await testEndpointAccess(apiEndpoint, { 
       timeout: options.timeout || DEFAULT_TIMEOUT,
       headers: {
-        'Authorization': `Basic ${credentials}`,
         'User-Agent': 'Seventic-Acelle-Sync/1.5 (Diagnostic)',
         'X-Debug-Marker': 'true'
       }
@@ -436,15 +429,16 @@ async function fetchCampaignsForAccount(account: any, options: {
     // Check if the API endpoint already includes /api/v1
     const apiPath = apiEndpoint.includes('/api/v1') ? '' : '/api/v1';
     
-    // FIXED: Use Basic auth with Acelle credentials for the API request
-    // Use Basic auth
-    let url = `${apiEndpoint}${apiPath}/campaigns?include_stats=true`;
+    // Use token auth as recommended by Acelle Mail API
+    // https://api.acellemail.com/ recommends adding api_token as parameter
+    const url = `${apiEndpoint}${apiPath}/campaigns?api_token=${apiToken}&include_stats=true`;
+    
     let headers: Record<string, string> = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Sync/1.5',
-      'Authorization': `Basic ${credentials}`,
       'Connection': 'keep-alive',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'X-Auth-Method': 'token'
     };
     
     debugLog(`Making request to: ${url} with headers:`, headers, LOG_LEVELS.DEBUG);
@@ -568,7 +562,7 @@ async function fetchCampaignsForAccount(account: any, options: {
         count: campaignsData.length,
         diagnostic: {
           timeTaken: Date.now() - startTime,
-          url: url.replace(ACELLE_PASSWORD, '***REDACTED***'), // Masquer le token pour la sécurité
+          url,
           timestamp: new Date().toISOString()
         }
       };
@@ -584,7 +578,7 @@ async function fetchCampaignsForAccount(account: any, options: {
           endpoint: apiEndpoint,
           diagnostic: {
             timeout: options.timeout || DEFAULT_TIMEOUT,
-            url: url.replace(ACELLE_PASSWORD, '***REDACTED***'), // Masquer le token pour la sécurité
+            url,
             timestamp: new Date().toISOString()
           }
         };
@@ -599,7 +593,7 @@ async function fetchCampaignsForAccount(account: any, options: {
         diagnostic: {
           errorName: fetchError.name,
           errorMessage: fetchError.message,
-          url: url.replace(ACELLE_PASSWORD, '***REDACTED***'), // Masquer le token pour la sécurité
+          url,
           timestamp: new Date().toISOString()
         }
       };
@@ -793,31 +787,19 @@ serve(async (req) => {
       diagnostics: requestOptions.debug ? diagnostics : undefined,
       nextScheduledSync: new Date(Date.now() + 30 * 60 * 1000).toISOString() // estimate next sync
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
     
-    debugLog(`Error in sync-email-campaigns:`, { errorMessage, errorStack }, LOG_LEVELS.ERROR);
+    debugLog("Error in sync-email-campaigns:", errorMessage, LOG_LEVELS.ERROR);
     
-    // Record error in stats
-    await supabase.from('edge_function_stats').upsert({
-      function_name: 'sync-email-campaigns',
-      last_heartbeat: new Date().toISOString(),
-      last_run_success: false,
-      last_error: errorMessage,
-      last_run_time: new Date().toISOString(),
-      status: 'error'
-    }, { onConflict: 'function_name' });
-    
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: errorMessage,
-      stack: errorStack,
       timestamp: new Date().toISOString()
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
