@@ -1,7 +1,6 @@
 
 import { AcelleConnectionDebug } from "@/types/acelle.types";
-
-const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
+import { ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
 
 // Test Acelle API connection
 export const testAcelleConnection = async (
@@ -18,13 +17,15 @@ export const testAcelleConnection = async (
     if (!cleanApiEndpoint || !apiToken) {
       throw new Error("API endpoint and token are required");
     }
-      
-    const url = `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`;
+    
+    // Use token authentication as recommended by Acelle Mail API
+    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${apiToken}`;
     
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "X-Acelle-Endpoint": cleanApiEndpoint
+      "X-Acelle-Endpoint": cleanApiEndpoint,
+      "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token"
     };
     
     const debugInfo: AcelleConnectionDebug = {
@@ -37,7 +38,7 @@ export const testAcelleConnection = async (
       }
     };
     
-    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint}`);
+    console.log(`Testing Acelle connection to endpoint: ${cleanApiEndpoint} with auth method: ${ACELLE_PROXY_CONFIG.AUTH_METHOD}`);
     
     const response = await fetch(url, {
       method: "GET",
@@ -86,10 +87,11 @@ export const testAcelleConnection = async (
         errorMessage: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
         request: {
-          url: `${ACELLE_PROXY_BASE_URL}/me?api_token=${apiToken}`,
+          url: `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${apiToken}`,
           headers: { 
             "Accept": "application/json",
-            "X-Acelle-Endpoint": apiEndpoint
+            "X-Acelle-Endpoint": apiEndpoint,
+            "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token"
           },
           method: "GET"
         }

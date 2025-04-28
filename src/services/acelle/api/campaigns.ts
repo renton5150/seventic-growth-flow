@@ -3,9 +3,7 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/ace
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-// Base URL for the Acelle API proxy
-const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
+import { ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
 
 // Helper function to check if API is accessible
 export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> => {
@@ -32,24 +30,38 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
     }
 
     // Use the ping endpoint to check API accessibility
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/me?api_token=ping&endpoint=${encodeURIComponent(apiEndpoint)}`, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`
+    // Use token authentication as recommended by Acelle Mail API
+    const response = await fetch(
+      `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${account.apiToken}&endpoint=${encodeURIComponent(apiEndpoint)}`, 
+      {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "X-Acelle-Endpoint": apiEndpoint,
+          "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token",
+          "Authorization": `Bearer ${accessToken}`
+        }
       }
-    });
+    );
 
     if (!response.ok) {
       console.error(`API accessibility check failed: ${response.status}`);
+      
+      // Log detailed response for debugging
+      try {
+        const errorText = await response.text();
+        console.error("API accessibility error details:", errorText);
+      } catch (e) {
+        console.error("Could not read error response");
+      }
+      
       return false;
     }
 
     const result = await response.json();
     console.log("API accessibility check result:", result);
     
-    return result.status === 'active';
+    return result && (result.status === 'active' || !!result.id);
   } catch (error) {
     console.error("Error checking API accessibility:", error);
     return false;
@@ -88,11 +100,13 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       return null;
     }
     
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
+    // Use token authentication as recommended by Acelle Mail API
+    const response = await fetch(`${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",
         "X-Acelle-Endpoint": apiEndpoint,
+        "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Authorization": `Bearer ${accessToken}`
       }
@@ -159,20 +173,33 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
+    // Use token authentication as recommended by Acelle Mail API
     // Get campaign list with pagination and included stats
-    const response = await fetch(`${ACELLE_PROXY_BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "Authorization": `Bearer ${accessToken}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+    const response = await fetch(
+      `${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`, 
+      {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "X-Acelle-Endpoint": apiEndpoint,
+          "X-Auth-Method": ACELLE_PROXY_CONFIG.AUTH_METHOD || "token",
+          "Authorization": `Bearer ${accessToken}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate"
+        }
       }
-    });
+    );
     
     if (!response.ok) {
       console.error(`Failed to fetch campaigns: ${response.status}`);
+      
+      // Log detailed response for debugging
+      try {
+        const errorText = await response.text();
+        console.error("Fetch campaigns error details:", errorText);
+      } catch (e) {
+        console.error("Could not read error response");
+      }
       
       if (response.status === 401 || response.status === 403) {
         toast.error("Erreur d'authentification avec l'API Acelle");

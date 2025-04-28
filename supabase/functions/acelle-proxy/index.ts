@@ -17,11 +17,6 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://dupguifqyjchlmzbad
 const SUPABASE_SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds timeout par défaut
 
-// Acelle Mail credentials - FIXED
-const ACELLE_EMAIL = Deno.env.get('ACELLE_EMAIL') || 'gironde@seventic.com';
-const ACELLE_PASSWORD = Deno.env.get('ACELLE_PASSWORD') || 'Seventic75$';
-const credentials = btoa(`${ACELLE_EMAIL}:${ACELLE_PASSWORD}`); // Pre-encode the credentials
-
 // Configuration des niveaux de log
 const LOG_LEVELS = {
   ERROR: 0,
@@ -102,11 +97,9 @@ async function testEndpointAccess(url: string, options: { timeout?: number, head
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
-    // FIXED: Use Basic auth with Acelle credentials
     const headers = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/1.5',
-      'Authorization': `Basic ${credentials}`,
       ...(options.headers || {})
     };
     
@@ -174,52 +167,6 @@ async function testEndpointAccess(url: string, options: { timeout?: number, head
       responseTime
     };
   }
-}
-
-// Logger amélioré avec niveaux de log et formatage JSON
-function debugLog(message: string, data?: any, level: number = LOG_LEVELS.INFO) {
-  // Skip logging if current log level is lower than requested
-  if (level > currentLogLevel) return;
-  
-  const timestamp = new Date().toISOString();
-  let levelName = "INFO";
-  let logMethod = console.log;
-  
-  switch(level) {
-    case LOG_LEVELS.ERROR:
-      levelName = "ERROR";
-      logMethod = console.error;
-      break;
-    case LOG_LEVELS.WARN:
-      levelName = "WARN";
-      logMethod = console.warn;
-      break;
-    case LOG_LEVELS.INFO:
-      levelName = "INFO";
-      logMethod = console.log;
-      break;
-    case LOG_LEVELS.DEBUG:
-      levelName = "DEBUG";
-      logMethod = console.log;
-      break;
-    case LOG_LEVELS.TRACE:
-      levelName = "TRACE";
-      logMethod = console.log;
-      break;
-    case LOG_LEVELS.VERBOSE:
-      levelName = "VERBOSE";
-      logMethod = console.log;
-      break;
-  }
-  
-  const logEntry = {
-    timestamp,
-    level: levelName,
-    message,
-    ...(data !== undefined ? { data: typeof data === 'object' ? data : { value: data } } : {})
-  };
-  
-  logMethod(JSON.stringify(logEntry));
 }
 
 // Fonction pour tester différentes méthodes d'authentification
@@ -333,6 +280,52 @@ async function testAuthMethods(baseUrl: string, endpoint: string, apiToken: stri
   };
 }
 
+// Logger amélioré avec niveaux de log et formatage JSON
+function debugLog(message: string, data?: any, level: number = LOG_LEVELS.INFO) {
+  // Skip logging if current log level is lower than requested
+  if (level > currentLogLevel) return;
+  
+  const timestamp = new Date().toISOString();
+  let levelName = "INFO";
+  let logMethod = console.log;
+  
+  switch(level) {
+    case LOG_LEVELS.ERROR:
+      levelName = "ERROR";
+      logMethod = console.error;
+      break;
+    case LOG_LEVELS.WARN:
+      levelName = "WARN";
+      logMethod = console.warn;
+      break;
+    case LOG_LEVELS.INFO:
+      levelName = "INFO";
+      logMethod = console.log;
+      break;
+    case LOG_LEVELS.DEBUG:
+      levelName = "DEBUG";
+      logMethod = console.log;
+      break;
+    case LOG_LEVELS.TRACE:
+      levelName = "TRACE";
+      logMethod = console.log;
+      break;
+    case LOG_LEVELS.VERBOSE:
+      levelName = "VERBOSE";
+      logMethod = console.log;
+      break;
+  }
+  
+  const logEntry = {
+    timestamp,
+    level: levelName,
+    message,
+    ...(data !== undefined ? { data: typeof data === 'object' ? data : { value: data } } : {})
+  };
+  
+  logMethod(JSON.stringify(logEntry));
+}
+
 // Point d'entrée principal de la fonction edge
 serve(async (req) => {
   // Update last activity time
@@ -385,11 +378,9 @@ serve(async (req) => {
       // Test API accessibility with extended debugging
       const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/api/v1';
       
-      // FIXED: Use Basic auth with Acelle credentials
       const accessTest = await testEndpointAccess(baseUrl, {
         timeout: 10000,
         headers: {
-          'Authorization': `Basic ${credentials}`,
           'User-Agent': 'Seventic-Acelle-Proxy/1.5 (Diagnostic)',
           'Accept': 'application/json',
           'X-Debug-Marker': 'true'
@@ -440,11 +431,10 @@ serve(async (req) => {
       }
     }
 
-    // Build Acelle API URL - FIXED: Avoid double api/v1 path
+    // Build Acelle API URL
     // Make sure the endpoint doesn't end with a slash to properly join with the path
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     
-    // FIXED: Use Basic auth with Acelle credentials
     // Don't add api/v1 if it's already in the endpoint
     const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
     let acelleApiUrl;
@@ -457,13 +447,14 @@ serve(async (req) => {
 
     debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, {}, LOG_LEVELS.DEBUG);
 
-    // Prepare headers with Basic auth for the Acelle API request
+    // Prepare headers with authentication for the Acelle API request
+    const authMethod = req.headers.get('x-auth-method') || 'token'; // Default to token auth
     const headers: HeadersInit = {
       'Accept': 'application/json',
       'User-Agent': 'Seventic-Acelle-Proxy/1.5',
-      'Authorization': `Basic ${credentials}`,
       'Connection': 'keep-alive',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'X-Auth-Method': authMethod
     };
 
     // Only add Content-Type for requests with body
