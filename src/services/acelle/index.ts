@@ -15,4 +15,3 @@ export const acelleService = {
 };
 
 export default acelleService;
-

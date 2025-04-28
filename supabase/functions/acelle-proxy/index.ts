@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
@@ -430,6 +431,14 @@ serve(async (req) => {
     const parts = url.pathname.split('/');
     const resource = parts[parts.length - 2] === 'acelle-proxy' ? parts[parts.length - 1] : parts[parts.length - 2];
     const resourceId = parts[parts.length - 2] === 'acelle-proxy' ? null : parts[parts.length - 1];
+
+    // Extract query parameters from the original URL
+    const queryParams = new URLSearchParams();
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key !== 'endpoint') { // Skip our internal 'endpoint' parameter
+        queryParams.append(key, value);
+      }
+    }
 
     // Build Acelle API URL - FIXED: Avoid double api/v1 path
     // Make sure the endpoint doesn't end with a slash to properly join with the path

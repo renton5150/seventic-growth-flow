@@ -37,7 +37,7 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
       apiEndpoint: account?.apiEndpoint || "",
       apiToken: account?.apiToken || "",
       status: account?.status || "inactive",
-      missionId: account?.missionId || "",
+      missionId: account?.missionId || "none", // Changé de "" à "none"
     },
   });
 
@@ -89,6 +89,10 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
 
   // Handle submit
   const handleSubmit = (values: AcelleFormValues) => {
+    // Si la mission est "none", remplacer par null pour la base de données
+    if (values.missionId === "none") {
+      values.missionId = null;
+    }
     onSubmit(values);
   };
 
@@ -266,7 +270,7 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
               <FormLabel>Mission associée (optionnel)</FormLabel>
               <Select
                 onValueChange={field.onChange}
-                value={field.value || ""}
+                value={field.value || "none"} // Utiliser "none" au lieu de ""
               >
                 <FormControl>
                   <SelectTrigger>
@@ -274,7 +278,7 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">Aucune mission</SelectItem>
+                  <SelectItem value="none">Aucune mission</SelectItem> {/* Changé de "" à "none" */}
                   {missions.map((mission: any) => (
                     <SelectItem key={mission.id} value={mission.id}>
                       {mission.name}
