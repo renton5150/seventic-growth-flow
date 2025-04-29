@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { downloadFile } from '@/services/database';
+import { downloadDatabaseFile } from '@/services/database';
 import { toast } from 'sonner';
 import { DatabaseDetails } from '@/types/types';
 
@@ -34,7 +34,8 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
       // Version simplifiée du nom de fichier
       const simpleFilename = filename.replace(/[^a-zA-Z0-9.]/g, '_');
       
-      const success = await downloadFile(url, simpleFilename);
+      // Utiliser la fonction downloadDatabaseFile au lieu de downloadFile
+      const success = await downloadDatabaseFile(url, simpleFilename);
       
       // Supprimer le toast de chargement
       toast.dismiss(loadingToast);
@@ -42,6 +43,8 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
       if (!success) {
         // Afficher un message d'erreur spécifique si le téléchargement échoue
         toast.error("Le fichier n'a pas pu être téléchargé");
+      } else {
+        toast.success(`Téléchargement de "${simpleFilename}" réussi`);
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);

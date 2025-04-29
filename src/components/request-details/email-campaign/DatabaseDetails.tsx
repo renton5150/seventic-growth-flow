@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { downloadFile } from '@/services/database';
+import { downloadDatabaseFile } from '@/services/database';
 import { toast } from 'sonner';
 import { DatabaseDetails as DatabaseDetailsType } from '@/types/types';
 
@@ -20,10 +20,15 @@ export const DatabaseDetails = ({ database }: DatabaseDetailsProps) => {
     
     try {
       console.log(`Téléchargement demandé pour: ${url}`);
-      const success = await downloadFile(url, filename);
+      
+      // Utiliser la fonction downloadDatabaseFile au lieu de downloadFile
+      // pour assurer la cohérence avec les autres parties de l'application
+      const success = await downloadDatabaseFile(url, filename);
       
       if (success) {
         toast.success(`Téléchargement de "${filename}" réussi`);
+      } else {
+        toast.error("Le téléchargement a échoué");
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);

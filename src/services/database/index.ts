@@ -6,5 +6,6 @@ export { getAllDatabases as getAllDatabaseFiles } from './queryService';
 export * from './utils';
 export * from './config';
 
-// Explicitly rename the downloadFile export to avoid conflicts
+// Export the downloadFile from downloadService
+export { downloadFile } from './downloadService';
 export { downloadFile as downloadDatabaseFile } from './downloadService';
