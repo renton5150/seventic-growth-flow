@@ -34,7 +34,8 @@ interface GrowthRequestActionsProps {
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
-  onRequestDeleted?: () => void; // Nouveau prop pour la suppression
+  onRequestDeleted?: () => void; // Callback pour la suppression
+  showDeleteButton?: boolean; // Nouveau prop pour contrôler l'affichage du bouton de suppression
 }
 
 export function GrowthRequestActions({
@@ -45,7 +46,8 @@ export function GrowthRequestActions({
   assignRequestToMe,
   updateRequestWorkflowStatus,
   activeTab,
-  onRequestDeleted
+  onRequestDeleted,
+  showDeleteButton = false // Par défaut, ne pas afficher le bouton
 }: GrowthRequestActionsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -141,15 +143,17 @@ export function GrowthRequestActions({
         <Pencil size={14} className="mr-1" /> Éditer
       </Button>
 
-      {/* Bouton de suppression */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:bg-destructive/10"
-        onClick={() => setIsDeleteDialogOpen(true)}
-      >
-        <Trash2 size={14} className="mr-1" /> Supprimer
-      </Button>
+      {/* Bouton de suppression - affiché uniquement si showDeleteButton est true */}
+      {showDeleteButton && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:bg-destructive/10"
+          onClick={() => setIsDeleteDialogOpen(true)}
+        >
+          <Trash2 size={14} className="mr-1" /> Supprimer
+        </Button>
+      )}
 
       {!request.assigned_to && (
         <GrowthRequestAssignMenu 

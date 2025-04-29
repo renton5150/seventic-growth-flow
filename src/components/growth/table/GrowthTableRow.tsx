@@ -42,6 +42,7 @@ export function GrowthTableRow({
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeTab={activeTab}
+          showDeleteButton={false} // Ne pas afficher le bouton de suppression dans le tableau
         />
       </TableCell>
     </TableRow>

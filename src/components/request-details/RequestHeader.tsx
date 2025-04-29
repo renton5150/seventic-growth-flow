@@ -95,6 +95,7 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
             </Button>
           )}
           
+          {/* Toujours afficher le bouton de suppression dans la vue détaillée */}
           <Button 
             variant="destructive"
             onClick={() => setIsDeleteDialogOpen(true)}
