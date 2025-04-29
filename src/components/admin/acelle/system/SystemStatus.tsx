@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
 import { useAuth } from "@/contexts/AuthContext";
-import { testAcelleConnection } from "@/services/acelle/api/connection";
+import { acelleService } from "@/services/acelle/acelle-service";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();

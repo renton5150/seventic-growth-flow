@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -37,8 +36,8 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       };
       
       // Only assign last_sync_error if it exists in the data
-      if ('last_sync_error' in account) {
-        accountData.lastSyncError = account.last_sync_error as string | null;
+      if (account.last_sync_error !== undefined) {
+        accountData.lastSyncError = account.last_sync_error;
       }
       
       return accountData;
@@ -83,8 +82,8 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
     };
     
     // Only assign last_sync_error if it exists in the data
-    if ('last_sync_error' in data) {
-      accountData.lastSyncError = data.last_sync_error as string | null;
+    if (data.last_sync_error !== undefined) {
+      accountData.lastSyncError = data.last_sync_error;
     }
     
     return accountData;

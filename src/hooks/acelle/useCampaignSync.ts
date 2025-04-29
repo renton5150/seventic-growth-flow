@@ -444,5 +444,11 @@ export const useCampaignSync = () => {
   // Export debug info for troubleshooting in UI
   const getDebugInfo = () => debugInfo;
 
-  return { syncCampaignsCache, wakeUpEdgeFunctions, checkApiAvailability, isSyncing, getDebugInfo };
+  return { 
+    syncCampaignsCache, 
+    wakeUpEdgeFunctions, 
+    checkApiAvailability, 
+    isSyncing, 
+    getDebugInfo 
+  };
 };

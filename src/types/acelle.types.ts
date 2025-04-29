@@ -7,7 +7,7 @@ export interface AcelleAccount {
   apiToken: string;
   status: 'active' | 'inactive' | 'error';
   lastSyncDate: string | null;
-  lastSyncError: string | null; // Add this line
+  lastSyncError: string | null;
   cachePriority: number;
   
   // Additional properties used in the codebase
