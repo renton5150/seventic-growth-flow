@@ -49,8 +49,14 @@ export const deleteRequest = async (requestId: string): Promise<boolean> => {
         // Tenter de supprimer en invalidant toutes les références
         try {
           // Mettre à jour les références avant de supprimer
+          // Utiliser une requête SQL directe plutôt que RPC pour contourner la limitation d'API
           const { error: updateError } = await supabase
-            .rpc('prepare_request_for_deletion', { request_id: requestId });
+            .from('requests')
+            .update({ 
+              assigned_to: null,
+              workflow_status: 'canceled'
+            })
+            .eq('id', requestId);
             
           if (updateError) {
             console.error("Échec de la préparation pour la suppression:", updateError);
