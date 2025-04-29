@@ -64,14 +64,23 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   
   // Fonction pour forcer le rafraîchissement de toutes les données pertinentes
   const forceRefreshAllData = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-    await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-    await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-    await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
-    
-    // Forcer un refetch explicite après l'invalidation
     try {
-      await queryClient.refetchQueries({ queryKey: ['growth-all-requests'] });
+      console.log("Invalidating and refreshing all request queries...");
+      
+      await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+      await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+      await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+      
+      // Forcer un refetch explicite après l'invalidation
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['growth-all-requests'] }),
+        queryClient.refetchQueries({ queryKey: ['growth-requests-to-assign'] }),
+        queryClient.refetchQueries({ queryKey: ['growth-requests-my-assignments'] }),
+        queryClient.refetchQueries({ queryKey: ['dashboard-requests-with-missions'] })
+      ]);
+      
+      console.log("All request queries refreshed successfully");
     } catch (error) {
       console.error("Erreur lors du refetch des données:", error);
     }
@@ -79,9 +88,16 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   
   // Handler for when a request is deleted
   const handleRequestDeleted = async () => {
+    console.log("Request deleted callback triggered, refreshing data...");
     toast.success("Liste des demandes mise à jour");
-    // Force refresh of all relevant queries
+    
+    // Force refresh of all relevant queries immediately 
     await forceRefreshAllData();
+    
+    // Schedule another refresh after a short delay to ensure consistency
+    setTimeout(() => {
+      forceRefreshAllData();
+    }, 1000);
   };
 
   return (

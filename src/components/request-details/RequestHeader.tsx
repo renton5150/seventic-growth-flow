@@ -16,6 +16,7 @@ import { deleteRequest } from "@/services/requests/deleteRequestService";
 import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RequestHeaderProps {
   request: Request;
@@ -30,12 +31,20 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  // Vérifier si l'utilisateur est admin ou growth pour montrer le bouton de suppression
+  const canDelete = user?.role === 'admin' || user?.role === 'growth';
 
   // Déterminer la page de redirection après suppression basée sur l'URL actuelle
   const getRedirectPath = () => {
     // Si l'utilisateur vient de /growth ou de sous-pages de growth, rediriger vers /growth
     if (location.pathname.includes('/growth')) {
       return '/growth';
+    }
+    // Si c'est un admin sur la page admin, rediriger vers dashboard admin
+    if (location.pathname.includes('/admin')) {
+      return '/admin/dashboard';
     }
     // Si venant de mission ou d'une page spécifique, rediriger vers celle-ci
     if (location.state && location.state.from) {
@@ -48,19 +57,29 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
+      console.log(`Tentative de suppression de la demande ${request.id} par ${user?.role}`);
+      
       const success = await deleteRequest(request.id);
       
       if (success) {
         toast.success("Demande supprimée avec succès");
         
         // Force refresh all queries before redirecting
+        console.log("Invalidation de toutes les requêtes après suppression");
         await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
         await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
         await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
         await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
         
+        // Force explicit refetch
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ['growth-all-requests'] })
+        ]);
+        
         // Rediriger vers la page appropriée
-        navigate(getRedirectPath());
+        const redirectPath = getRedirectPath();
+        console.log(`Redirection vers ${redirectPath} après suppression réussie`);
+        navigate(redirectPath);
       } else {
         toast.error("Erreur lors de la suppression de la demande");
       }
@@ -95,15 +114,17 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
             </Button>
           )}
           
-          {/* Toujours afficher le bouton de suppression dans la vue détaillée */}
-          <Button 
-            variant="destructive"
-            onClick={() => setIsDeleteDialogOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            Supprimer
-          </Button>
+          {/* Afficher le bouton de suppression uniquement pour admin et growth */}
+          {canDelete && (
+            <Button 
+              variant="destructive"
+              onClick={() => setIsDeleteDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Supprimer
+            </Button>
+          )}
         </div>
       </div>
 

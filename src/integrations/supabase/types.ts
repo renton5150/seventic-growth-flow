@@ -486,6 +486,10 @@ export type Database = {
         }
         Returns: Json
       }
+      user_has_admin_or_growth_role: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       user_has_growth_role: {
         Args: Record<PropertyKey, never>
         Returns: boolean

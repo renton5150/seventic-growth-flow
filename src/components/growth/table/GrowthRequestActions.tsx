@@ -77,6 +77,8 @@ export function GrowthRequestActions({
 
   // Fonction pour supprimer une demande
   const handleDeleteRequest = async () => {
+    if (isDeleting) return;
+    
     setIsDeleting(true);
     
     try {
@@ -93,6 +95,9 @@ export function GrowthRequestActions({
           onRequestDeleted();
         }
         
+        // Fermer la boîte de dialogue
+        setIsDeleteDialogOpen(false);
+        
         // Rediriger vers la page de liste si on est sur la vue détaillée
         const currentPath = window.location.pathname;
         if (currentPath.includes(`/requests/${request.type}/${request.id}`)) {
@@ -106,8 +111,24 @@ export function GrowthRequestActions({
       toast.error("Une erreur est survenue lors de la suppression");
     } finally {
       setIsDeleting(false);
-      setIsDeleteDialogOpen(false);
     }
+  };
+
+  // Fonction pour montrer le bouton de suppression en fonction des permissions
+  const canShowDeleteButton = () => {
+    // Si la prop showDeleteButton est true explicitement
+    if (showDeleteButton === true) {
+      return true;
+    }
+    
+    // Sur la page détaillée (pas dans le tableau), toujours montrer pour admin/growth
+    const isDetailPage = window.location.pathname.includes(`/requests/${request.type}/${request.id}`);
+    if (isDetailPage && isGrowthOrAdmin) {
+      return true;
+    }
+    
+    // Ne pas montrer dans les autres cas
+    return false;
   };
 
   return (
@@ -128,8 +149,8 @@ export function GrowthRequestActions({
         <Pencil size={14} className="mr-1" /> Éditer
       </Button>
 
-      {/* Bouton de suppression - affiché uniquement si showDeleteButton est true */}
-      {showDeleteButton && (
+      {/* Bouton de suppression - affiché uniquement si autorisé */}
+      {canShowDeleteButton() && (
         <Button
           variant="ghost"
           size="sm"
@@ -191,7 +212,10 @@ export function GrowthRequestActions({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleDeleteRequest}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteRequest();
+              }}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
