@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { deleteRequest } from "@/services/requests/deleteRequestService";
 import {
   AlertDialog,
@@ -24,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
 
 interface GrowthRequestActionsProps {
   request: Request;
@@ -51,7 +50,6 @@ export function GrowthRequestActions({
 }: GrowthRequestActionsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -62,12 +60,6 @@ export function GrowthRequestActions({
     const success = await updateRequestWorkflowStatus(request.id, newStatus);
     if (success) {
       toast.success(`Statut mis à jour : ${newStatus}`);
-      
-      // Invalider et actualiser toutes les requêtes liées aux demandes
-      queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-      queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-      queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
     } else {
       toast.error("Erreur lors de la mise à jour du statut");
     }
@@ -95,24 +87,17 @@ export function GrowthRequestActions({
       if (success) {
         toast.success("Demande supprimée avec succès");
         
-        // Invalider tous les caches pour forcer le rafraîchissement des données
-        console.log("Invalidation manuelle des caches après suppression");
-        queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-        queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-        queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+        // Notifier le parent si le callback existe
+        if (onRequestDeleted) {
+          console.log("Appel du callback onRequestDeleted");
+          onRequestDeleted();
+        }
         
-        // Forcer un rafraîchissement complet
-        setTimeout(() => {
-          console.log("Force refreshQueries");
-          queryClient.refetchQueries({ queryKey: ['growth-all-requests'] });
-          
-          // Notifier le parent si le callback existe
-          if (onRequestDeleted) {
-            console.log("Appel du callback onRequestDeleted");
-            onRequestDeleted();
-          }
-        }, 300);
+        // Rediriger vers la page de liste si on est sur la vue détaillée
+        const currentPath = window.location.pathname;
+        if (currentPath.includes(`/requests/${request.type}/${request.id}`)) {
+          navigate('/growth');
+        }
       } else {
         toast.error("Échec de la suppression de la demande");
       }

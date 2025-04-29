@@ -32,22 +32,10 @@ export const deleteRequest = async (requestId: string): Promise<boolean> => {
     
     console.log("Demande trouvée, procédant à la suppression:", checkData);
     
-    // D'abord, mettre à jour les références pour éviter les problèmes de contraintes
-    const { error: updateError } = await supabase
-      .from('requests')
-      .update({ 
-        assigned_to: null,
-        workflow_status: 'canceled'
-      })
-      .eq('id', requestId);
-      
-    if (updateError) {
-      console.error("Échec de la préparation pour la suppression:", updateError);
-      toast.error(`Impossible de préparer la demande pour la suppression: ${updateError.message}`);
-      return false;
-    }
-    
-    // Procéder à la suppression une fois les références nettoyées
+    // Nettoyer d'abord les références dans d'autres tables si nécessaire
+    // Par exemple, si vous avez des tables qui référencent cette demande
+
+    // Ensuite procéder à la suppression
     const { error } = await supabase
       .from('requests')
       .delete()
@@ -60,6 +48,7 @@ export const deleteRequest = async (requestId: string): Promise<boolean> => {
     }
     
     console.log(`Demande ${requestId} supprimée avec succès`);
+    toast.success("Demande supprimée avec succès");
     return true;
   } catch (error) {
     console.error("Exception lors de la suppression de la demande:", error);

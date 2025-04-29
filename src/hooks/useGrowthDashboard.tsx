@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -35,7 +34,8 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   const handleRequestDeleted = useCallback(() => {
     console.log("Demande supprimée, rafraîchissement des données...");
-    // Invalider tous les caches pour forcer le rafraîchissement
+    
+    // Forcer un rafraîchissement complet immédiatement
     queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
     queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
     queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
@@ -46,7 +46,10 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       refetchRequests();
       refetchToAssign();
       refetchMyAssignments();
-    }, 500);
+      
+      // Refetch explicite pour s'assurer que les données sont à jour
+      queryClient.refetchQueries({ queryKey: ['growth-all-requests'] });
+    }, 300);
   }, [refetchRequests, refetchToAssign, refetchMyAssignments, queryClient]);
 
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);

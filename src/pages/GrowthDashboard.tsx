@@ -47,10 +47,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   useEffect(() => {
     // Initial fetch when component mounts
     const initialRefresh = async () => {
-      await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-      await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+      await forceRefreshAllData();
       console.log("Growth Dashboard - Initial refresh triggered");
     };
     
@@ -58,24 +55,33 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     
     // Set up the interval for regular refreshes
     const interval = setInterval(async () => {
-      await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-      await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+      await forceRefreshAllData();
       console.log("Growth Dashboard - Automatic refresh triggered");
-    }, 3000); // Refresh every 3 seconds for better reactivity
+    }, 5000); // Refresh every 5 seconds for better reactivity
     
     return () => clearInterval(interval);
   }, [queryClient]);
+  
+  // Fonction pour forcer le rafraîchissement de toutes les données pertinentes
+  const forceRefreshAllData = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+    await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+    await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+    await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+    
+    // Forcer un refetch explicite après l'invalidation
+    try {
+      await queryClient.refetchQueries({ queryKey: ['growth-all-requests'] });
+    } catch (error) {
+      console.error("Erreur lors du refetch des données:", error);
+    }
+  };
   
   // Handler for when a request is deleted
   const handleRequestDeleted = async () => {
     toast.success("Liste des demandes mise à jour");
     // Force refresh of all relevant queries
-    await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-    await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-    await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-    await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+    await forceRefreshAllData();
   };
 
   return (
