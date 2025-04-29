@@ -221,11 +221,58 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     
     const campaigns = await response.json();
     console.log(`Fetched ${campaigns.length} campaigns for account ${account.name}`);
+    console.log("Sample campaign data:", campaigns.length > 0 ? campaigns[0] : "No campaigns");
+    
+    // Process campaigns to ensure all required fields are present
+    const processedCampaigns = campaigns.map((campaign: any) => {
+      // Ensure delivery_info has all required fields
+      const deliveryInfo = {
+        total: parseInt(campaign.statistics?.subscriber_count) || campaign.delivery_info?.total || 0,
+        delivery_rate: parseFloat(campaign.statistics?.delivered_rate) || campaign.delivery_info?.delivery_rate || 0,
+        unique_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || campaign.delivery_info?.unique_open_rate || 0,
+        click_rate: parseFloat(campaign.statistics?.click_rate) || campaign.delivery_info?.click_rate || 0,
+        bounce_rate: parseFloat(campaign.statistics?.bounce_rate) || campaign.delivery_info?.bounce_rate || 0,
+        unsubscribe_rate: parseFloat(campaign.statistics?.unsubscribe_rate) || campaign.delivery_info?.unsubscribe_rate || 0,
+        delivered: parseInt(campaign.statistics?.delivered_count) || campaign.delivery_info?.delivered || 0,
+        opened: parseInt(campaign.statistics?.open_count) || campaign.delivery_info?.opened || 0,
+        clicked: parseInt(campaign.statistics?.click_count) || campaign.delivery_info?.clicked || 0,
+        unsubscribed: parseInt(campaign.statistics?.unsubscribe_count) || campaign.delivery_info?.unsubscribed || 0,
+        complained: parseInt(campaign.statistics?.abuse_complaint_count) || campaign.delivery_info?.complained || 0,
+        bounced: {
+          soft: parseInt(campaign.statistics?.soft_bounce_count) || campaign.delivery_info?.bounced?.soft || 0,
+          hard: parseInt(campaign.statistics?.hard_bounce_count) || campaign.delivery_info?.bounced?.hard || 0,
+          total: parseInt(campaign.statistics?.bounce_count) || campaign.delivery_info?.bounced?.total || 0
+        }
+      };
+      
+      // Convert any existing stats
+      const statistics = {
+        subscriber_count: parseInt(campaign.statistics?.subscriber_count) || deliveryInfo.total || 0,
+        delivered_count: parseInt(campaign.statistics?.delivered_count) || deliveryInfo.delivered || 0,
+        delivered_rate: parseFloat(campaign.statistics?.delivered_rate) || deliveryInfo.delivery_rate || 0,
+        open_count: parseInt(campaign.statistics?.open_count) || deliveryInfo.opened || 0,
+        uniq_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || deliveryInfo.unique_open_rate || 0,
+        click_count: parseInt(campaign.statistics?.click_count) || deliveryInfo.clicked || 0,
+        click_rate: parseFloat(campaign.statistics?.click_rate) || deliveryInfo.click_rate || 0,
+        bounce_count: parseInt(campaign.statistics?.bounce_count) || deliveryInfo.bounced.total || 0,
+        soft_bounce_count: parseInt(campaign.statistics?.soft_bounce_count) || deliveryInfo.bounced.soft || 0,
+        hard_bounce_count: parseInt(campaign.statistics?.hard_bounce_count) || deliveryInfo.bounced.hard || 0,
+        unsubscribe_count: parseInt(campaign.statistics?.unsubscribe_count) || deliveryInfo.unsubscribed || 0,
+        abuse_complaint_count: parseInt(campaign.statistics?.abuse_complaint_count) || deliveryInfo.complained || 0
+      };
+
+      return {
+        ...campaign,
+        delivery_info: deliveryInfo,
+        statistics: statistics,
+        delivery_date: campaign.delivery_date || campaign.run_at || campaign.delivery_at
+      };
+    });
     
     // Update last sync date
     updateLastSyncDate(account.id);
     
-    return campaigns;
+    return processedCampaigns;
   } catch (error) {
     console.error(`Error fetching campaigns for account ${account.name}:`, error);
     toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);

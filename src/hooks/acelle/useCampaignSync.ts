@@ -25,6 +25,22 @@ export const useCampaignSync = () => {
       const startTime = Date.now();
       
       try {
+        // Essayer de réveiller les Edge Functions avant même de faire le ping
+        console.log("Tentative de réveil préventif des Edge Functions...");
+        await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping?api_token=wake&debug=true', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'X-Acelle-Endpoint': 'wake',
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'X-Wake-Request': 'true'
+          }
+        }).catch(e => console.log("Erreur de réveil ignorée:", e));
+        
+        // Attendre un court instant pour laisser les fonctions se réveiller
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // Ping service to check availability with advanced debugging
         const pingResponse = await fetch(
           'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true', 
@@ -57,7 +73,7 @@ export const useCampaignSync = () => {
           request: {
             url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true',
             headers: {
-              'Authorization': `Bearer ${accessToken}`, // Ajout crucial pour vérifier l'en-tête
+              'Authorization': `Bearer ${accessToken}`, 
               'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
@@ -87,6 +103,9 @@ export const useCampaignSync = () => {
           };
         } else {
           console.warn("Ping returned non-200 status:", pingResponse.status);
+          // Essayer une seconde tentative de réveil si le ping initial échoue
+          await wakeUpEdgeFunctions();
+          
           return { 
             available: false, 
             status: pingResponse.status, 
@@ -100,6 +119,10 @@ export const useCampaignSync = () => {
       } catch (pingError) {
         clearTimeout(timeoutId);
         
+        // Si erreur pendant le ping, tenter de réveiller les services
+        console.log("Erreur lors du ping, tentative de réveil des services...");
+        await wakeUpEdgeFunctions();
+        
         // Capture detailed error information
         const errorDebug: AcelleConnectionDebug = {
           success: false,
@@ -108,7 +131,7 @@ export const useCampaignSync = () => {
           request: {
             url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true',
             headers: {
-              'Authorization': `Bearer ${accessToken}`, // Ajout crucial pour vérifier l'en-tête
+              'Authorization': `Bearer ${accessToken}`, 
               'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
@@ -360,50 +383,67 @@ export const useCampaignSync = () => {
       
       const startTime = Date.now();
 
-      // Attempt to wake up acelle-proxy with ping and advanced diagnostics
-      try {
-        const proxyResponse = await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Acelle-Endpoint': 'ping',
-            'Content-Type': 'application/json',
-            'X-Debug-Level': 'verbose',
-            'X-Wake-Request': 'true'
-          },
-          signal: AbortSignal.timeout(15000)
-        });
-        
-        if (proxyResponse.ok) {
-          const proxyData = await proxyResponse.json();
-          console.log("Wake-up response from acelle-proxy:", proxyData);
-        }
-      } catch (error) {
-        console.log("First wake-up attempt for acelle-proxy failed as expected if service is cold starting:", error);
-      }
-      
-      // Attempt to wake up sync-email-campaigns function with diagnostics
-      try {
-        const syncResponse = await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
+      // Tentatives multiples de réveil des services
+      const wakeupEndpoints = [
+        // Réveil d'acelle-proxy
+        {
+          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me',
+          params: 'api_token=ping&debug=true',
+          retries: 2
+        },
+        // Réveil de sync-email-campaigns 
+        {
+          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
           method: 'OPTIONS',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Debug-Level': 'verbose',
-            'X-Wake-Request': 'true'
-          },
-          signal: AbortSignal.timeout(15000)
-        });
-        
-        if (syncResponse.ok) {
-          console.log("Wake-up response from sync-email-campaigns successful");
+          retries: 2
+        },
+        // Ping acelle-proxy sans paramètres
+        {
+          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
+          retries: 1
         }
-      } catch (error) {
-        console.log("First wake-up attempt for sync-email-campaigns failed as expected if service is cold starting:", error);
-      }
+      ];
 
-      // Try a second time after a short delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Exécuter toutes les tentatives de réveil en parallèle
+      const wakeupPromises = wakeupEndpoints.map(async endpoint => {
+        for (let i = 0; i < endpoint.retries; i++) {
+          try {
+            const response = await fetch(
+              `${endpoint.url}${endpoint.params ? `?${endpoint.params}` : ''}`, 
+              {
+                method: endpoint.method || 'GET',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'X-Acelle-Endpoint': 'ping',
+                  'Content-Type': 'application/json',
+                  'X-Debug-Level': 'verbose',
+                  'X-Wake-Request': 'true',
+                  'Cache-Control': 'no-store'
+                },
+                signal: AbortSignal.timeout(10000)
+              }
+            );
+            
+            if (response.ok) {
+              console.log(`Wake-up successful for ${endpoint.url}`);
+              return true;
+            }
+          } catch (error) {
+            console.log(`Wake-up attempt ${i+1} for ${endpoint.url} failed:`, error);
+            // Attendre un peu entre les tentatives
+            if (i < endpoint.retries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+        }
+        return false;
+      });
       
+      await Promise.all(wakeupPromises);
+      
+      // Attendre un peu pour laisser les services démarrer
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
       // Check if services are now responsive
       const apiStatus = await checkApiAvailability();
       

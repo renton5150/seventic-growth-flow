@@ -26,6 +26,20 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     }
   };
 
+  // Helper to safely render numeric values
+  const safeNumber = (value: any): number => {
+    if (value === undefined || value === null) return 0;
+    const num = Number(value);
+    return isNaN(num) ? 0 : num;
+  };
+
+  // Debug logging to troubleshoot missing data
+  console.log(`Rendering campaign ${campaign.name}:`, {
+    delivery_info: campaign.delivery_info,
+    statistics: campaign.statistics,
+    delivery_date: campaign.delivery_date
+  });
+
   return (
     <TableRow key={campaign.uid}>
       <TableCell className="font-medium max-w-[120px] truncate">
@@ -40,48 +54,54 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         </Badge>
       </TableCell>
       <TableCell>
-        {formatDateSafely(campaign.delivery_date)}
+        {formatDateSafely(campaign.delivery_date || campaign.run_at)}
       </TableCell>
       <TableCell>
-        {campaign.delivery_info?.total || 0}
+        {safeNumber(campaign.delivery_info?.total) || safeNumber(campaign.statistics?.subscriber_count) || 0}
       </TableCell>
       <TableCell>
         <div>
-          <div>{campaign.delivery_info?.delivered || 0}</div>
+          <div>{safeNumber(campaign.delivery_info?.delivered) || safeNumber(campaign.statistics?.delivered_count) || 0}</div>
           <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.delivery_rate)}
+            {renderPercentage(campaign.delivery_info?.delivery_rate || campaign.statistics?.delivered_rate)}
           </div>
         </div>
       </TableCell>
       <TableCell>
         <div>
-          <div>{campaign.delivery_info?.opened || 0}</div>
+          <div>{safeNumber(campaign.delivery_info?.opened) || safeNumber(campaign.statistics?.open_count) || 0}</div>
           <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.unique_open_rate)}
+            {renderPercentage(campaign.delivery_info?.unique_open_rate || campaign.statistics?.uniq_open_rate)}
           </div>
         </div>
       </TableCell>
       <TableCell>
         <div>
-          <div>{campaign.delivery_info?.clicked || 0}</div>
+          <div>{safeNumber(campaign.delivery_info?.clicked) || safeNumber(campaign.statistics?.click_count) || 0}</div>
           <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.click_rate)}
+            {renderPercentage(campaign.delivery_info?.click_rate || campaign.statistics?.click_rate)}
           </div>
         </div>
       </TableCell>
       <TableCell>
         <div>
-          <div>{campaign.delivery_info?.bounced?.total || 0}</div>
+          <div>
+            {safeNumber(campaign.delivery_info?.bounced?.total) || 
+             safeNumber(campaign.statistics?.bounce_count) || 0}
+          </div>
           <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.bounce_rate)}
+            {renderPercentage(campaign.delivery_info?.bounce_rate || (safeNumber(campaign.statistics?.bounce_count) / safeNumber(campaign.statistics?.subscriber_count) * 100))}
           </div>
         </div>
       </TableCell>
       <TableCell>
         <div>
-          <div>{campaign.delivery_info?.unsubscribed || 0}</div>
+          <div>
+            {safeNumber(campaign.delivery_info?.unsubscribed) || 
+             safeNumber(campaign.statistics?.unsubscribe_count) || 0}
+          </div>
           <div className="text-xs text-muted-foreground">
-            {renderPercentage(campaign.delivery_info?.unsubscribe_rate)}
+            {renderPercentage(campaign.delivery_info?.unsubscribe_rate || (safeNumber(campaign.statistics?.unsubscribe_count) / safeNumber(campaign.statistics?.subscriber_count) * 100))}
           </div>
         </div>
       </TableCell>

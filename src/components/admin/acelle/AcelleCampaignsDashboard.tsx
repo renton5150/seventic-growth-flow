@@ -104,8 +104,8 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex flex-1 items-center justify-between">
             <span>
-              {syncError.includes("timeout") || syncError.includes("Failed to fetch") ? 
-                "Les services semblent être en cours de démarrage. Veuillez patienter ou cliquer sur 'Réveiller les services'." : 
+              {syncError.includes("timeout") || syncError.includes("Failed to fetch") || syncError.includes("shutdown") ? 
+                "Les services semblent être arrêtés. Veuillez cliquer sur 'Réveiller les services'." : 
                 syncError}
             </span>
             <Button variant="outline" size="sm" onClick={handleWakeAndRefresh} className="ml-2">

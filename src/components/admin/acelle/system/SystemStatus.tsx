@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Check, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { Check, X, AlertTriangle, RefreshCw, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -97,19 +97,30 @@ export const SystemStatus = () => {
     <Card className="mb-6">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>État du système</CardTitle>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={runDiagnostics}
-          disabled={isTesting}
-        >
-          {isTesting ? (
-            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          {isTesting ? "Test en cours..." : "Tester les services"}
-        </Button>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={wakeUpEdgeFunctions}
+            disabled={isTesting}
+          >
+            <Power className="h-4 w-4 mr-2" />
+            Réveiller les services
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={runDiagnostics}
+            disabled={isTesting}
+          >
+            {isTesting ? (
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {isTesting ? "Test en cours..." : "Tester les services"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
