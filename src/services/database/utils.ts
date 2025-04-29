@@ -37,10 +37,18 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
     
     console.log(`Vérification dans le bucket ${pathInfo.bucketName}, chemin: ${pathInfo.filePath}`);
     
+    // Obtenir le répertoire parent et le nom du fichier pour la recherche
+    const filePath = pathInfo.filePath;
+    const pathParts = filePath.split('/');
+    const fileName = pathParts.pop() || '';
+    const directory = pathParts.join('/');
+    
+    console.log(`Recherche du fichier ${fileName} dans le répertoire ${directory || '.'}`);
+    
     const { data, error } = await supabase.storage
       .from(pathInfo.bucketName)
-      .list(pathInfo.filePath.split('/').slice(0, -1).join('/') || '.', {
-        search: pathInfo.filePath.split('/').pop() || ''
+      .list(directory || '.', {
+        search: fileName
       });
     
     if (error) {
@@ -48,8 +56,8 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
       return false;
     }
     
-    const exists = data && data.length > 0;
-    console.log("Le fichier existe:", exists);
+    const exists = data && data.some(item => item.name === fileName);
+    console.log("Le fichier existe:", exists, data?.map(d => d.name));
     return exists;
   } catch (error) {
     console.error("Erreur lors de la vérification du fichier:", error);
@@ -99,7 +107,7 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
     if (url.includes('/storage/v1/object/public/')) {
       const match = url.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
       if (match && match.length >= 3) {
-        console.log(`Chemin extrait - Bucket: ${match[1]}, Fichier: ${match[2]}`);
+        console.log(`Chemin extrait (URL complète) - Bucket: ${match[1]}, Fichier: ${match[2]}`);
         return {
           bucketName: match[1],
           filePath: match[2]
@@ -107,23 +115,32 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
       }
     }
     
-    // Pour les chemins relatifs à un bucket connu
-    const knownBuckets = ['databases', 'templates', 'blacklists'];
+    // Pour les chemins de base de données spécifiques
+    // Format typique: "databases/userId/fileName.xlsx"
+    if (url.startsWith('databases/')) {
+      console.log(`Chemin de base de données détecté: ${url}`);
+      return {
+        bucketName: 'databases',
+        filePath: url.replace('databases/', '')
+      };
+    }
+    
+    // Pour les autres types de ressources courantes
+    const knownBuckets = ['templates', 'blacklists'];
     for (const bucket of knownBuckets) {
-      if (url.startsWith(`${bucket}/`) || url === bucket) {
-        const path = url.replace(`${bucket}/`, '');
-        console.log(`Chemin relatif connu - Bucket: ${bucket}, Fichier: ${path}`);
+      if (url.startsWith(`${bucket}/`)) {
+        console.log(`Chemin relatif connu - Bucket: ${bucket}, Fichier: ${url.slice(bucket.length + 1)}`);
         return {
           bucketName: bucket,
-          filePath: path
+          filePath: url.slice(bucket.length + 1)
         };
       }
     }
     
-    // Pour les chemins relatifs
+    // Pour les chemins relatifs génériques
+    // Essaie d'identifier le bucket et le chemin à partir de segments
     const segments = url.split('/');
     if (segments.length >= 2) {
-      // On suppose que le premier segment est le bucket et le reste est le chemin
       const bucket = segments[0];
       const path = segments.slice(1).join('/');
       
@@ -136,8 +153,12 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
       }
     }
     
-    console.warn("Impossible d'extraire les informations de chemin");
-    return null;
+    // Si rien ne correspond, on essaie une dernière approche: considérer l'URL comme un chemin direct dans le bucket "databases"
+    console.log(`Aucun format reconnu, traitement comme chemin direct dans "databases": ${url}`);
+    return {
+      bucketName: 'databases',
+      filePath: url
+    };
   } catch (error) {
     console.error("Erreur lors de l'extraction du chemin:", error);
     return null;

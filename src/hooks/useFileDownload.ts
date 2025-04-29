@@ -20,8 +20,11 @@ export const useFileDownload = () => {
       setDownloading(fileUrl);
       
       // Vérifier si le fichier existe avant de tenter le téléchargement
+      console.log(`Vérification d'existence pour: ${fileUrl}`);
       const exists = await checkFileExists(fileUrl);
+      
       if (!exists) {
+        console.log(`Le fichier ${fileUrl} n'existe pas sur le serveur`);
         toast.error("Le fichier demandé n'existe plus sur le serveur", {
           description: "Veuillez contacter l'administrateur"
         });

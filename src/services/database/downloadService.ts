@@ -26,11 +26,13 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
       
       if (error) {
         console.error("Erreur lors du téléchargement depuis Supabase:", error);
+        toast.error(`Erreur: ${error.message}`);
         return false;
       }
       
       if (!data) {
         console.error("Aucune donnée reçue de Supabase Storage");
+        toast.error("Erreur lors du téléchargement: aucune donnée reçue");
         return false;
       }
       
