@@ -31,7 +31,7 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
     // Extraire le chemin du fichier de l'URL
     const pathInfo = extractPathFromSupabaseUrl(url);
     if (!pathInfo) {
-      console.warn("Impossible d'extraire les informations de chemin");
+      console.warn("Impossible d'extraire les informations de chemin pour:", url);
       return false;
     }
     
@@ -57,7 +57,7 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
     }
     
     const exists = data && data.some(item => item.name === fileName);
-    console.log("Le fichier existe:", exists, data?.map(d => d.name));
+    console.log(`Le fichier '${fileName}' existe:`, exists, data ? data.map(d => d.name) : "Aucune donnée");
     return exists;
   } catch (error) {
     console.error("Erreur lors de la vérification du fichier:", error);
@@ -115,6 +115,16 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
       }
     }
     
+    // Analyse spécifique pour les fichiers de base de données stockés avec un format spécifique
+    // Par exemple: "123456_userID/filename.xlsx"
+    if (/^\d+_[a-f0-9-]+\/[^\/]+\.[a-zA-Z0-9]+$/.test(url)) {
+      console.log(`Format spécifique de base de données détecté: ${url}`);
+      return {
+        bucketName: 'databases',
+        filePath: url
+      };
+    }
+    
     // Pour les chemins de base de données spécifiques
     // Format typique: "databases/userId/fileName.xlsx"
     if (url.startsWith('databases/')) {
@@ -137,8 +147,7 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
       }
     }
     
-    // Pour les chemins relatifs génériques
-    // Essaie d'identifier le bucket et le chemin à partir de segments
+    // Pour les chemins relatifs génériques avec format "bucket/path"
     const segments = url.split('/');
     if (segments.length >= 2) {
       const bucket = segments[0];
@@ -153,7 +162,8 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
       }
     }
     
-    // Si rien ne correspond, on essaie une dernière approche: considérer l'URL comme un chemin direct dans le bucket "databases"
+    // Dernier recours: considérer comme un chemin direct dans le bucket "databases"
+    // Utile pour les cas où l'URL est simplement un nom de fichier ou un chemin relatif
     console.log(`Aucun format reconnu, traitement comme chemin direct dans "databases": ${url}`);
     return {
       bucketName: 'databases',

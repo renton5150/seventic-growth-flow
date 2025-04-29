@@ -10,6 +10,8 @@ interface DatabaseSectionProps {
 }
 
 export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
+  console.log("Rendu du composant DatabaseSection avec:", database);
+  
   return (
     <Card className="mb-4">
       <CardHeader>

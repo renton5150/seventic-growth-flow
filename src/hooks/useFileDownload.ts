@@ -13,18 +13,21 @@ export const useFileDownload = () => {
     }
     
     if (downloading === fileUrl) {
+      console.log(`[useFileDownload] Téléchargement déjà en cours pour ${fileUrl}`);
       return false; // Éviter les téléchargements multiples
     }
     
     try {
       setDownloading(fileUrl);
+      const requestId = Math.random().toString(36).substring(7);
+      console.log(`[useFileDownload:${requestId}] Début du processus de téléchargement pour: ${fileUrl}`);
       
       // Vérifier si le fichier existe avant de tenter le téléchargement
-      console.log(`Vérification d'existence pour: ${fileUrl}`);
+      console.log(`[useFileDownload:${requestId}] Vérification d'existence pour: ${fileUrl}`);
       const exists = await checkFileExists(fileUrl);
       
       if (!exists) {
-        console.log(`Le fichier ${fileUrl} n'existe pas sur le serveur`);
+        console.log(`[useFileDownload:${requestId}] Le fichier ${fileUrl} n'existe pas sur le serveur`);
         toast.error("Le fichier demandé n'existe plus sur le serveur", {
           description: "Veuillez contacter l'administrateur"
         });
@@ -33,7 +36,7 @@ export const useFileDownload = () => {
       
       // Extraire le nom de fichier de l'URL ou utiliser le nom par défaut
       const fileName = extractFileName(fileUrl) || defaultFilename;
-      console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
+      console.log(`[useFileDownload:${requestId}] Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
       
       const downloadToast = toast.loading("Téléchargement en cours...");
       
@@ -43,9 +46,11 @@ export const useFileDownload = () => {
       toast.dismiss(downloadToast);
       
       if (!success) {
+        console.error(`[useFileDownload:${requestId}] Échec du téléchargement pour ${fileUrl}`);
         toast.error("Erreur lors du téléchargement du fichier");
         return false;
       } else {
+        console.log(`[useFileDownload:${requestId}] Téléchargement réussi pour ${fileUrl}`);
         toast.success(`Fichier "${fileName}" téléchargé avec succès`);
         return true;
       }
