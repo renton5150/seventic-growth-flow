@@ -18,6 +18,7 @@ export type Database = {
           created_at: string
           id: string
           last_sync_date: string | null
+          last_sync_error: string | null
           mission_id: string | null
           name: string
           status: string
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_sync_date?: string | null
+          last_sync_error?: string | null
           mission_id?: string | null
           name: string
           status?: string
@@ -44,6 +46,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_sync_date?: string | null
+          last_sync_error?: string | null
           mission_id?: string | null
           name?: string
           status?: string

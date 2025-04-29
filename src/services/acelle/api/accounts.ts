@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -32,13 +33,8 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
         updatedAt: account.updated_at, // Adding compatibility fields
         cachePriority: account.cache_priority || 0,
         apiKey: account.api_token, // For compatibility
-        lastSyncError: null // Default to null
+        lastSyncError: account.last_sync_error // Access the property directly now that it exists in the database
       };
-      
-      // Only assign last_sync_error if it exists in the data
-      if (account.last_sync_error !== undefined) {
-        accountData.lastSyncError = account.last_sync_error;
-      }
       
       return accountData;
     });
@@ -78,13 +74,8 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       updatedAt: data.updated_at,
       cachePriority: data.cache_priority || 0,
       apiKey: data.api_token,
-      lastSyncError: null // Default to null
+      lastSyncError: data.last_sync_error // Access the property directly
     };
-    
-    // Only assign last_sync_error if it exists in the data
-    if (data.last_sync_error !== undefined) {
-      accountData.lastSyncError = data.last_sync_error;
-    }
     
     return accountData;
   } catch (error) {
@@ -111,8 +102,7 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
         api_token: account.apiToken,
         status: account.status,
         last_sync_date: lastSyncDate,
-        // Utiliser last_sync_error uniquement s'il existe dans l'objet
-        ...(account.lastSyncError !== undefined && { last_sync_error: account.lastSyncError }),
+        last_sync_error: account.lastSyncError,
         cache_priority: account.cachePriority || 0
       })
       .select()
@@ -153,13 +143,9 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
       api_token: account.apiToken,
       status: account.status,
       last_sync_date: lastSyncDate,
+      last_sync_error: account.lastSyncError,
       cache_priority: account.cachePriority || 0
     };
-
-    // Ajouter last_sync_error uniquement s'il est défini
-    if (account.lastSyncError !== undefined) {
-      updateData.last_sync_error = account.lastSyncError;
-    }
 
     const { data, error } = await supabase
       .from("acelle_accounts")
