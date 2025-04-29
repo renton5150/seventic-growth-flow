@@ -15,6 +15,7 @@ interface GrowthDashboardContentProps {
   onCompleteRequest: (request: Request) => void;
   onViewDetails: (request: Request) => void;
   onRequestUpdated: () => void;
+  onRequestDeleted?: () => void; // Nouveau prop pour gérer la suppression
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeFilter: string | null;
@@ -31,6 +32,7 @@ export const GrowthDashboardContent = ({
   onCompleteRequest,
   onViewDetails,
   onRequestUpdated,
+  onRequestDeleted,
   assignRequestToMe,
   updateRequestWorkflowStatus,
   activeFilter,
@@ -72,6 +74,7 @@ export const GrowthDashboardContent = ({
         onCompleteRequest={onCompleteRequest}
         onViewDetails={onViewDetails}
         onRequestUpdated={onRequestUpdated}
+        onRequestDeleted={onRequestDeleted}
         assignRequestToMe={assignRequestToMe}
         updateRequestWorkflowStatus={updateRequestWorkflowStatus}
         activeTab={activeTab}

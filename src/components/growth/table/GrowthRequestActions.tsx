@@ -7,12 +7,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Pencil, CheckCircle, XCircle, ArrowRightLeft, Eye } from "lucide-react";
+import { Pencil, CheckCircle, XCircle, ArrowRightLeft, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { deleteRequest } from "@/services/requests/deleteRequestService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
 
 interface GrowthRequestActionsProps {
   request: Request;
@@ -37,6 +49,8 @@ export function GrowthRequestActions({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const handleStatusChange = async (newStatus: string) => {
     if (!updateRequestWorkflowStatus) return;
@@ -65,6 +79,30 @@ export function GrowthRequestActions({
     navigate(`/requests/${request.type}/${request.id}`);
   };
 
+  // Fonction pour supprimer une demande
+  const handleDeleteRequest = async () => {
+    setIsDeleting(true);
+    try {
+      const success = await deleteRequest(request.id);
+      if (success) {
+        toast.success("Demande supprimée avec succès");
+        // Force refresh all queries to update the UI
+        queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+        queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+        queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+      } else {
+        toast.error("Échec de la suppression de la demande");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
+      toast.error("Une erreur est survenue lors de la suppression");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
   return (
     <div className="flex justify-end space-x-2">
       <Button
@@ -81,6 +119,16 @@ export function GrowthRequestActions({
         onClick={handleEdit}
       >
         <Pencil size={14} className="mr-1" /> Éditer
+      </Button>
+
+      {/* Nouveau bouton de suppression */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:bg-destructive/10"
+        onClick={() => setIsDeleteDialogOpen(true)}
+      >
+        <Trash2 size={14} className="mr-1" /> Supprimer
       </Button>
 
       {!request.assigned_to && (
@@ -121,6 +169,28 @@ export function GrowthRequestActions({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      {/* Dialog de confirmation de suppression */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer cette demande ? Cette action ne peut pas être annulée.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteRequest}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Suppression..." : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

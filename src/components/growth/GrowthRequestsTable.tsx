@@ -12,6 +12,7 @@ interface GrowthRequestsTableProps {
   onCompleteRequest: (request: Request) => void;
   onViewDetails: (request: Request) => void;
   onRequestUpdated: () => void;
+  onRequestDeleted?: () => void; // Nouveau prop pour gérer la suppression
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
@@ -23,6 +24,7 @@ export function GrowthRequestsTable({
   onCompleteRequest,
   onViewDetails,
   onRequestUpdated,
+  onRequestDeleted,
   assignRequestToMe,
   updateRequestWorkflowStatus,
   activeTab = "all"
@@ -85,6 +87,7 @@ export function GrowthRequestsTable({
                 onEditRequest={onEditRequest}
                 onCompleteRequest={onCompleteRequest}
                 onViewDetails={onViewDetails}
+                onRequestDeleted={onRequestDeleted}
                 assignRequestToMe={assignRequestToMe}
                 updateRequestWorkflowStatus={updateRequestWorkflowStatus}
                 activeTab={activeTab}

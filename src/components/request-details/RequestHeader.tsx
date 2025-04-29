@@ -14,7 +14,8 @@ import {
 import { useState } from "react";
 import { deleteRequest } from "@/services/requests/deleteRequestService";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface RequestHeaderProps {
   request: Request;
@@ -27,6 +28,22 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+
+  // Déterminer la page de redirection après suppression basée sur l'URL actuelle
+  const getRedirectPath = () => {
+    // Si l'utilisateur vient de /growth ou de sous-pages de growth, rediriger vers /growth
+    if (location.pathname.includes('/growth')) {
+      return '/growth';
+    }
+    // Si venant de mission ou d'une page spécifique, rediriger vers celle-ci
+    if (location.state && location.state.from) {
+      return location.state.from;
+    }
+    // Par défaut, rediriger vers dashboard
+    return '/dashboard';
+  };
 
   const handleDelete = async () => {
     try {
@@ -35,7 +52,15 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
       
       if (success) {
         toast.success("Demande supprimée avec succès");
-        navigate("/dashboard");
+        
+        // Force refresh all queries before redirecting
+        await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+        await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+        await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+        await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+        
+        // Rediriger vers la page appropriée
+        navigate(getRedirectPath());
       } else {
         toast.error("Erreur lors de la suppression de la demande");
       }
