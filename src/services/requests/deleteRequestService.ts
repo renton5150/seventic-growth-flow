@@ -1,7 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * Supprime une demande par son ID
@@ -33,7 +32,22 @@ export const deleteRequest = async (requestId: string): Promise<boolean> => {
     
     console.log("Demande trouvée, procédant à la suppression:", checkData);
     
-    // Procéder à la suppression
+    // D'abord, mettre à jour les références pour éviter les problèmes de contraintes
+    const { error: updateError } = await supabase
+      .from('requests')
+      .update({ 
+        assigned_to: null,
+        workflow_status: 'canceled'
+      })
+      .eq('id', requestId);
+      
+    if (updateError) {
+      console.error("Échec de la préparation pour la suppression:", updateError);
+      toast.error(`Impossible de préparer la demande pour la suppression: ${updateError.message}`);
+      return false;
+    }
+    
+    // Procéder à la suppression une fois les références nettoyées
     const { error } = await supabase
       .from('requests')
       .delete()
@@ -41,69 +55,11 @@ export const deleteRequest = async (requestId: string): Promise<boolean> => {
       
     if (error) {
       console.error("Erreur lors de la suppression de la demande:", error);
-      
-      // Vérifier s'il s'agit d'une erreur de contrainte de clé étrangère
-      if (error.code === '23503') {
-        console.error("Erreur de contrainte de clé étrangère. Tentative de mise à jour des références...");
-        
-        // Tenter de supprimer en invalidant toutes les références
-        try {
-          // Mettre à jour les références avant de supprimer
-          // Utiliser une requête SQL directe plutôt que RPC pour contourner la limitation d'API
-          const { error: updateError } = await supabase
-            .from('requests')
-            .update({ 
-              assigned_to: null,
-              workflow_status: 'canceled'
-            })
-            .eq('id', requestId);
-            
-          if (updateError) {
-            console.error("Échec de la préparation pour la suppression:", updateError);
-            toast.error(`Impossible de supprimer cette demande: ${error.message}`);
-            return false;
-          }
-          
-          // Nouvelle tentative de suppression après préparation
-          const { error: secondDeleteError } = await supabase
-            .from('requests')
-            .delete()
-            .eq('id', requestId);
-            
-          if (secondDeleteError) {
-            console.error("Échec de la seconde tentative de suppression:", secondDeleteError);
-            toast.error(`Échec de la suppression: ${secondDeleteError.message}`);
-            return false;
-          }
-        } catch (prepError) {
-          console.error("Erreur lors de la préparation pour la suppression:", prepError);
-          toast.error("Erreur lors de la suppression de la demande");
-          return false;
-        }
-      } else {
-        toast.error(`Échec de la suppression: ${error.message}`);
-        return false;
-      }
+      toast.error(`Échec de la suppression: ${error.message}`);
+      return false;
     }
     
     console.log(`Demande ${requestId} supprimée avec succès`);
-    
-    // Force l'invalidation de tous les caches liés aux demandes
-    try {
-      const queryClient = useQueryClient();
-      if (queryClient) {
-        console.log("Invalidation du cache pour les requêtes");
-        // Invalidate query cache
-        queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-        queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-        queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
-      }
-    } catch (cacheError) {
-      // Ne pas échouer si l'invalidation du cache ne fonctionne pas
-      console.warn("Impossible d'invalider le cache automatiquement:", cacheError);
-    }
-    
     return true;
   } catch (error) {
     console.error("Exception lors de la suppression de la demande:", error);

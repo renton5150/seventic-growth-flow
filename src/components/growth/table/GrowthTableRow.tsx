@@ -9,7 +9,7 @@ interface GrowthTableRowProps {
   onEditRequest: (request: Request) => void;
   onCompleteRequest: (request: Request) => void;
   onViewDetails: (request: Request) => void;
-  onRequestDeleted?: () => void; // Callback pour la suppression
+  onRequestDeleted?: () => void;
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
@@ -42,7 +42,7 @@ export function GrowthTableRow({
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeTab={activeTab}
-          showDeleteButton={false} // Ne pas afficher le bouton de suppression dans le tableau
+          showDeleteButton={false} // Ne jamais afficher le bouton de suppression dans le tableau
         />
       </TableCell>
     </TableRow>

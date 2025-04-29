@@ -34,8 +34,8 @@ interface GrowthRequestActionsProps {
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
-  onRequestDeleted?: () => void; // Callback pour la suppression
-  showDeleteButton?: boolean; // Nouveau prop pour contrôler l'affichage du bouton de suppression
+  onRequestDeleted?: () => void;
+  showDeleteButton?: boolean;
 }
 
 export function GrowthRequestActions({
