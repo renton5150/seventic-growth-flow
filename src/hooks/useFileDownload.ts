@@ -22,7 +22,28 @@ export const useFileDownload = () => {
       const requestId = Math.random().toString(36).substring(7);
       console.log(`[useFileDownload:${requestId}] Début du processus de téléchargement pour: ${fileUrl}`);
       
-      // Vérifier si le fichier existe avant de tenter le téléchargement
+      // Pour les URL complètes, on peut essayer directement le téléchargement sans vérifier l'existence
+      // car certains buckets peuvent avoir des restrictions qui empêchent de vérifier l'existence
+      if (fileUrl.includes('https://') || fileUrl.includes('http://')) {
+        console.log(`[useFileDownload:${requestId}] URL complète détectée, téléchargement direct`);
+        const fileName = extractFileName(fileUrl) || defaultFilename;
+        
+        const downloadToast = toast.loading("Téléchargement en cours...");
+        const success = await downloadDatabaseFile(fileUrl, fileName);
+        toast.dismiss(downloadToast);
+        
+        if (success) {
+          console.log(`[useFileDownload:${requestId}] Téléchargement direct réussi pour ${fileUrl}`);
+          toast.success(`Fichier "${fileName}" téléchargé avec succès`);
+          return true;
+        } else {
+          console.error(`[useFileDownload:${requestId}] Échec du téléchargement direct pour ${fileUrl}`);
+          toast.error("Erreur lors du téléchargement du fichier");
+          return false;
+        }
+      }
+      
+      // Pour les chemins relatifs, vérifier si le fichier existe avant de tenter le téléchargement
       console.log(`[useFileDownload:${requestId}] Vérification d'existence pour: ${fileUrl}`);
       const exists = await checkFileExists(fileUrl);
       

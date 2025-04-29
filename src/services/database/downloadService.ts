@@ -14,6 +14,21 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
     const requestId = Math.random().toString(36).substring(7);
     console.log(`[downloadFile:${requestId}] Tentative de téléchargement: ${fileUrl} avec le nom ${fileName}`);
     
+    // Pour les URL complètes, essayer d'abord un téléchargement direct via fetch
+    if (fileUrl.includes('http')) {
+      try {
+        console.log(`[downloadFile:${requestId}] Tentative de téléchargement direct via fetch`);
+        const success = await utilsDownloadFile(fileUrl, fileName);
+        if (success) {
+          console.log(`[downloadFile:${requestId}] Téléchargement direct réussi pour: ${fileUrl}`);
+          return true;
+        }
+      } catch (fetchError) {
+        console.error(`[downloadFile:${requestId}] Échec du téléchargement direct:`, fetchError);
+        // Continuer avec la méthode Supabase si fetch échoue
+      }
+    }
+    
     // Vérifier si c'est une URL Supabase Storage
     const pathInfo = extractPathFromSupabaseUrl(fileUrl);
     

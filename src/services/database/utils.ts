@@ -37,6 +37,18 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
     
     console.log(`Vérification dans le bucket ${pathInfo.bucketName}, chemin: ${pathInfo.filePath}`);
     
+    // Pour les URLs complètes de Supabase, utiliser directement l'URL pour vérifier l'existence
+    if (url.includes('/storage/v1/object/public/')) {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        const exists = response.ok;
+        console.log(`Vérification directe de l'URL ${url}: ${exists}`);
+        return exists;
+      } catch (err) {
+        console.error("Erreur lors de la vérification directe:", err);
+      }
+    }
+    
     // Obtenir le répertoire parent et le nom du fichier pour la recherche
     const filePath = pathInfo.filePath;
     const pathParts = filePath.split('/');
@@ -45,6 +57,21 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
     
     console.log(`Recherche du fichier ${fileName} dans le répertoire ${directory || '.'}`);
     
+    // Essayer d'obtenir le fichier directement
+    try {
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from(pathInfo.bucketName)
+        .download(filePath);
+      
+      if (!fileError && fileData) {
+        console.log(`Le fichier existe (download direct): ${filePath}`);
+        return true;
+      }
+    } catch (downloadErr) {
+      console.log("Erreur lors du téléchargement direct:", downloadErr);
+    }
+    
+    // Fallback: essayer de lister les fichiers
     const { data, error } = await supabase.storage
       .from(pathInfo.bucketName)
       .list(directory || '.', {
@@ -58,6 +85,19 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
     
     const exists = data && data.some(item => item.name === fileName);
     console.log(`Le fichier '${fileName}' existe:`, exists, data ? data.map(d => d.name) : "Aucune donnée");
+    
+    // Si le fichier n'est pas trouvé avec le nom exact, essayons de chercher avec le nom URL-décodé
+    if (!exists && fileName.includes('%')) {
+      try {
+        const decodedFileName = decodeURIComponent(fileName);
+        const existsDecoded = data && data.some(item => item.name === decodedFileName);
+        console.log(`Le fichier décodé '${decodedFileName}' existe:`, existsDecoded);
+        return existsDecoded;
+      } catch (e) {
+        console.error("Erreur lors du décodage du nom de fichier:", e);
+      }
+    }
+    
     return exists;
   } catch (error) {
     console.error("Erreur lors de la vérification du fichier:", error);
@@ -103,68 +143,56 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
     if (!url) return null;
     console.log("Extraction du chemin à partir de l'URL:", url);
 
-    // Pour les URL complètes de Supabase Storage
+    // 1. Pour les URL complètes de Supabase Storage
     if (url.includes('/storage/v1/object/public/')) {
       const match = url.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
       if (match && match.length >= 3) {
-        console.log(`Chemin extrait (URL complète) - Bucket: ${match[1]}, Fichier: ${match[2]}`);
-        return {
-          bucketName: match[1],
-          filePath: match[2]
-        };
+        const bucketName = match[1];
+        let filePath = match[2];
+        
+        // Décode le chemin du fichier pour gérer les espaces et caractères spéciaux
+        try {
+          filePath = decodeURIComponent(filePath);
+        } catch (e) {
+          console.warn("Erreur lors du décodage du chemin:", e);
+        }
+        
+        console.log(`Chemin extrait (URL complète) - Bucket: ${bucketName}, Fichier: ${filePath}`);
+        return { bucketName, filePath };
       }
     }
     
-    // Analyse spécifique pour les fichiers de base de données stockés avec un format spécifique
-    // Par exemple: "123456_userID/filename.xlsx"
-    if (/^\d+_[a-f0-9-]+\/[^\/]+\.[a-zA-Z0-9]+$/.test(url)) {
-      console.log(`Format spécifique de base de données détecté: ${url}`);
+    // 2. Pour les chemins relatifs avec format "bucket/path"
+    const segments = url.split('/');
+    if (segments.length >= 2) {
+      const bucketName = segments[0];
+      const filePath = segments.slice(1).join('/');
+      
+      if (bucketName && filePath) {
+        console.log(`Chemin relatif extrait - Bucket: ${bucketName}, Fichier: ${filePath}`);
+        return { bucketName, filePath };
+      }
+    }
+    
+    // 3. Pour les fichiers de base de données avec un pattern spécifique
+    if (/^\d+_[a-zA-Z0-9-_]+\.[a-zA-Z0-9]+$/.test(url) || url.includes('database')) {
+      console.log(`Format de base de données détecté: ${url}`);
       return {
         bucketName: 'databases',
         filePath: url
       };
     }
     
-    // Pour les chemins de base de données spécifiques
-    // Format typique: "databases/userId/fileName.xlsx"
-    if (url.startsWith('databases/')) {
-      console.log(`Chemin de base de données détecté: ${url}`);
+    // 4. Si rien d'autre ne correspond, traiter comme un chemin direct dans le bucket approprié
+    if (url.includes('blacklist')) {
       return {
-        bucketName: 'databases',
-        filePath: url.replace('databases/', '')
+        bucketName: 'blacklists',
+        filePath: url
       };
     }
     
-    // Pour les autres types de ressources courantes
-    const knownBuckets = ['templates', 'blacklists'];
-    for (const bucket of knownBuckets) {
-      if (url.startsWith(`${bucket}/`)) {
-        console.log(`Chemin relatif connu - Bucket: ${bucket}, Fichier: ${url.slice(bucket.length + 1)}`);
-        return {
-          bucketName: bucket,
-          filePath: url.slice(bucket.length + 1)
-        };
-      }
-    }
-    
-    // Pour les chemins relatifs génériques avec format "bucket/path"
-    const segments = url.split('/');
-    if (segments.length >= 2) {
-      const bucket = segments[0];
-      const path = segments.slice(1).join('/');
-      
-      if (bucket && path) {
-        console.log(`Chemin relatif extrait - Bucket: ${bucket}, Fichier: ${path}`);
-        return {
-          bucketName: bucket,
-          filePath: path
-        };
-      }
-    }
-    
     // Dernier recours: considérer comme un chemin direct dans le bucket "databases"
-    // Utile pour les cas où l'URL est simplement un nom de fichier ou un chemin relatif
-    console.log(`Aucun format reconnu, traitement comme chemin direct dans "databases": ${url}`);
+    console.log(`Aucun format reconnu, traitement comme chemin direct: ${url}`);
     return {
       bucketName: 'databases',
       filePath: url
