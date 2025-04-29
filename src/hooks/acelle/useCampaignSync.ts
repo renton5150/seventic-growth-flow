@@ -57,6 +57,7 @@ export const useCampaignSync = () => {
           request: {
             url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true',
             headers: {
+              'Authorization': `Bearer ${accessToken}`, // Ajout crucial pour vérifier l'en-tête
               'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
@@ -107,6 +108,7 @@ export const useCampaignSync = () => {
           request: {
             url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true',
             headers: {
+              'Authorization': `Bearer ${accessToken}`, // Ajout crucial pour vérifier l'en-tête
               'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',

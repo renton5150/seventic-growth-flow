@@ -8,6 +8,7 @@ import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
 import { useAuth } from "@/contexts/AuthContext";
 import { acelleService } from "@/services/acelle/acelle-service";
+import { isSupabaseAuthenticated } from "@/services/missions-service/auth/supabaseAuth";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();
@@ -16,6 +17,7 @@ export const SystemStatus = () => {
   const [endpointStatus, setEndpointStatus] = useState<{[key: string]: boolean}>({});
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
+  const [authStatus, setAuthStatus] = useState<boolean | null>(null);
 
   if (!isAdmin) return null;
 
@@ -23,6 +25,19 @@ export const SystemStatus = () => {
     setIsTesting(true);
     try {
       toast.loading("Test des services en cours...", { id: "api-test" });
+      
+      // Vérifier d'abord l'état de l'authentification Supabase
+      const isAuthenticated = await isSupabaseAuthenticated();
+      setAuthStatus(isAuthenticated);
+      
+      if (!isAuthenticated) {
+        toast.error("Authentification Supabase requise", { id: "api-test" });
+        setIsTesting(false);
+        return;
+      }
+      
+      // Tenter de réveiller les fonctions Edge avant le test principal
+      await wakeUpEdgeFunctions();
       
       // First check API accessibility
       const apiStatus = await checkApiAvailability();
@@ -98,6 +113,18 @@ export const SystemStatus = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {authStatus === false && (
+            <div className="p-4 mb-4 bg-amber-50 text-amber-800 rounded-md">
+              <h3 className="font-semibold flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Authentification Supabase requise
+              </h3>
+              <p className="mt-1 text-sm">
+                Vous devez être connecté avec un compte Supabase valide pour utiliser cette fonctionnalité.
+              </p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium">API Campaigns:</span>
@@ -151,7 +178,25 @@ export const SystemStatus = () => {
                   <details>
                     <summary className="cursor-pointer text-muted-foreground">Détails de la requête</summary>
                     <div className="p-2 mt-2 bg-gray-100 rounded text-muted-foreground">
-                      URL: {debugInfo.request.url?.substring(0, 100)}
+                      <div>URL: {debugInfo.request.url?.substring(0, 100)}</div>
+                      {debugInfo.request.headers && (
+                        <div className="mt-1">
+                          Headers: {JSON.stringify(debugInfo.request.headers, null, 2)}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                </div>
+              )}
+              
+              {!debugInfo.success && debugInfo.responseData && (
+                <div className="mt-2 text-xs font-mono overflow-hidden text-ellipsis max-w-full">
+                  <details>
+                    <summary className="cursor-pointer text-muted-foreground">Détails de la réponse</summary>
+                    <div className="p-2 mt-2 bg-gray-100 rounded text-muted-foreground">
+                      {typeof debugInfo.responseData === 'object' 
+                        ? JSON.stringify(debugInfo.responseData, null, 2)
+                        : debugInfo.responseData}
                     </div>
                   </details>
                 </div>
