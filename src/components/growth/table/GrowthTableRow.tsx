@@ -9,7 +9,7 @@ interface GrowthTableRowProps {
   onEditRequest: (request: Request) => void;
   onCompleteRequest: (request: Request) => void;
   onViewDetails: (request: Request) => void;
-  onRequestDeleted?: () => void; // Nouveau prop pour gérer la suppression
+  onRequestDeleted?: () => void; // Callback pour la suppression
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
@@ -38,6 +38,7 @@ export function GrowthTableRow({
           onEditRequest={onEditRequest}
           onCompleteRequest={onCompleteRequest}
           onViewDetails={onViewDetails}
+          onRequestDeleted={onRequestDeleted}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeTab={activeTab}

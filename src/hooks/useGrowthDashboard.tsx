@@ -1,9 +1,11 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
 import { useRequestAssignment } from "@/hooks/useRequestAssignment";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const useGrowthDashboard = (defaultTab?: string) => {
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "all");
@@ -14,6 +16,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { 
     toAssignRequests,
@@ -29,6 +32,22 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     refetchToAssign();
     refetchMyAssignments();
   }, [refetchRequests, refetchToAssign, refetchMyAssignments]);
+
+  const handleRequestDeleted = useCallback(() => {
+    console.log("Demande supprimée, rafraîchissement des données...");
+    // Invalider tous les caches pour forcer le rafraîchissement
+    queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
+    queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+    queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+    
+    // Forcer un rafraîchissement manuel
+    setTimeout(() => {
+      refetchRequests();
+      refetchToAssign();
+      refetchMyAssignments();
+    }, 500);
+  }, [refetchRequests, refetchToAssign, refetchMyAssignments, queryClient]);
 
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);
 
@@ -158,6 +177,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     handleOpenCompletionDialog,
     handleViewDetails,
     handleRequestUpdated,
+    handleRequestDeleted,
     assignRequestToMe,
     updateRequestWorkflowStatus,
     handleStatCardClick,

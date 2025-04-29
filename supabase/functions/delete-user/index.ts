@@ -44,8 +44,92 @@ serve(async (req) => {
     console.log(`Tentative de suppression de l'utilisateur avec l'ID: ${userId}`);
 
     try {
-      // Supprimer d'abord le profil de l'utilisateur
-      console.log("1. Suppression du profil de l'utilisateur...");
+      // 0. Vérifier les contraintes de clé étrangère dans acelle_accounts
+      console.log("0. Vérification des contraintes avec acelle_accounts...");
+      const { data: acelleAccounts, error: acelleError } = await supabaseClient
+        .from("acelle_accounts")
+        .select("id, mission_id")
+        .eq("mission_id", userId);
+      
+      if (acelleError) {
+        console.warn("Erreur lors de la vérification des comptes Acelle:", acelleError);
+      } else if (acelleAccounts && acelleAccounts.length > 0) {
+        console.log(`${acelleAccounts.length} comptes Acelle trouvés avec l'utilisateur ${userId}`);
+        
+        // Mettre à null la référence mission_id dans acelle_accounts
+        const { error: updateError } = await supabaseClient
+          .from("acelle_accounts")
+          .update({ mission_id: null })
+          .in("id", acelleAccounts.map(account => account.id));
+        
+        if (updateError) {
+          console.error("Erreur lors de la mise à jour des comptes Acelle:", updateError);
+          // Continuer malgré l'erreur
+        } else {
+          console.log("Références aux missions supprimées des comptes Acelle");
+        }
+      }
+      
+      // 1. Vérifier et nettoyer les missions liées
+      console.log("1. Vérification des missions liées...");
+      const { data: relatedMissions, error: missionsError } = await supabaseClient
+        .from("missions")
+        .select("id")
+        .or(`sdr_id.eq.${userId},growth_id.eq.${userId}`);
+        
+      if (missionsError) {
+        console.warn("Erreur lors de la vérification des missions liées:", missionsError);
+      } else if (relatedMissions && relatedMissions.length > 0) {
+        console.log(`${relatedMissions.length} missions liées trouvées`);
+        
+        // Mettre à null les références aux utilisateurs dans ces missions
+        const { error: updateError } = await supabaseClient
+          .from("missions")
+          .update({ 
+            sdr_id: supabaseClient.rpc('CASE WHEN sdr_id = $1 THEN null ELSE sdr_id END', [userId]),
+            growth_id: supabaseClient.rpc('CASE WHEN growth_id = $1 THEN null ELSE growth_id END', [userId])
+          })
+          .in("id", relatedMissions.map(mission => mission.id));
+          
+        if (updateError) {
+          console.error("Erreur lors de la mise à jour des missions:", updateError);
+          // Continuer malgré l'erreur
+        } else {
+          console.log("Références aux utilisateurs supprimées des missions");
+        }
+      }
+
+      // 2. Nettoyer les requêtes créées par l'utilisateur
+      console.log("2. Nettoyage des requêtes créées par l'utilisateur...");
+      const { data: userRequests, error: requestsError } = await supabaseClient
+        .from("requests")
+        .select("id")
+        .or(`created_by.eq.${userId},assigned_to.eq.${userId}`);
+      
+      if (requestsError) {
+        console.warn("Erreur lors de la vérification des requêtes liées:", requestsError);
+      } else if (userRequests && userRequests.length > 0) {
+        console.log(`${userRequests.length} requêtes liées trouvées`);
+        
+        // Mettre à null les références aux utilisateurs dans ces requêtes
+        const { error: updateError } = await supabaseClient
+          .from("requests")
+          .update({ 
+            created_by: null,
+            assigned_to: null 
+          })
+          .in("id", userRequests.map(request => request.id));
+          
+        if (updateError) {
+          console.error("Erreur lors de la mise à jour des requêtes:", updateError);
+          // Continuer malgré l'erreur
+        } else {
+          console.log("Références aux utilisateurs supprimées des requêtes");
+        }
+      }
+
+      // 3. Supprimer le profil de l'utilisateur
+      console.log("3. Suppression du profil de l'utilisateur...");
       const { error: profileDeleteError } = await supabaseClient
         .from("profiles")
         .delete()
@@ -58,31 +142,21 @@ serve(async (req) => {
         console.log(`Profil de l'utilisateur ${userId} supprimé avec succès`);
       }
       
-      // Ensuite, supprimer l'utilisateur de auth.users
-      console.log("2. Suppression de l'utilisateur de auth.users...");
+      // 4. Supprimer l'utilisateur de auth.users
+      console.log("4. Suppression de l'utilisateur de auth.users...");
       const { error: userDeleteError } = await supabaseClient.auth.admin.deleteUser(userId);
       
       if (userDeleteError) {
         console.error("Erreur lors de la suppression de l'utilisateur:", userDeleteError);
         
         // Si le profil a été supprimé mais pas l'utilisateur, renvoyer un avertissement
-        if (!profileDeleteError) {
-          return new Response(
-            JSON.stringify({ 
-              success: true, 
-              warning: "Le profil a été supprimé mais il y a eu une erreur lors de la suppression du compte d'authentification." 
-            }),
-            { status: 207, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        } else {
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              error: userDeleteError.message 
-            }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: userDeleteError.message 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
       // Si nous arrivons ici, tout s'est bien passé

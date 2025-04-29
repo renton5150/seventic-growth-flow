@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Pencil, CheckCircle, XCircle, ArrowRightLeft, Eye, Trash2 } from "lucide-react";
+import { Pencil, CheckCircle, XCircle, ArrowRightLeft, Eye, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
 import { useNavigate } from "react-router-dom";
@@ -34,6 +34,7 @@ interface GrowthRequestActionsProps {
   assignRequestToMe?: (requestId: string) => Promise<boolean>;
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
+  onRequestDeleted?: () => void; // Nouveau prop pour la suppression
 }
 
 export function GrowthRequestActions({
@@ -43,7 +44,8 @@ export function GrowthRequestActions({
   onViewDetails,
   assignRequestToMe,
   updateRequestWorkflowStatus,
-  activeTab
+  activeTab,
+  onRequestDeleted
 }: GrowthRequestActionsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -59,7 +61,7 @@ export function GrowthRequestActions({
     if (success) {
       toast.success(`Statut mis à jour : ${newStatus}`);
       
-      // Invalidate and refetch all request-related queries
+      // Invalider et actualiser toutes les requêtes liées aux demandes
       queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
       queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
@@ -82,15 +84,33 @@ export function GrowthRequestActions({
   // Fonction pour supprimer une demande
   const handleDeleteRequest = async () => {
     setIsDeleting(true);
+    
     try {
+      console.log(`Tentative de suppression de la demande ${request.id} (${request.title})`);
+      
       const success = await deleteRequest(request.id);
+      
       if (success) {
         toast.success("Demande supprimée avec succès");
-        // Force refresh all queries to update the UI
+        
+        // Invalider tous les caches pour forcer le rafraîchissement des données
+        console.log("Invalidation manuelle des caches après suppression");
         queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
         queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
         queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
+        
+        // Forcer un rafraîchissement complet
+        setTimeout(() => {
+          console.log("Force refreshQueries");
+          queryClient.refetchQueries({ queryKey: ['growth-all-requests'] });
+          
+          // Notifier le parent si le callback existe
+          if (onRequestDeleted) {
+            console.log("Appel du callback onRequestDeleted");
+            onRequestDeleted();
+          }
+        }, 300);
       } else {
         toast.error("Échec de la suppression de la demande");
       }
@@ -121,7 +141,7 @@ export function GrowthRequestActions({
         <Pencil size={14} className="mr-1" /> Éditer
       </Button>
 
-      {/* Nouveau bouton de suppression */}
+      {/* Bouton de suppression */}
       <Button
         variant="ghost"
         size="sm"
@@ -176,7 +196,7 @@ export function GrowthRequestActions({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer cette demande ? Cette action ne peut pas être annulée.
+              Êtes-vous sûr de vouloir supprimer cette demande (<strong>{request.title}</strong>) ? Cette action ne peut pas être annulée.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -186,7 +206,14 @@ export function GrowthRequestActions({
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Suppression..." : "Supprimer"}
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
