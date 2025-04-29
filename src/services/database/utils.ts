@@ -10,8 +10,16 @@ export const extractFileName = (url: string): string => {
     console.log("Nom de fichier extrait:", fileName);
     return fileName;
   } catch (error) {
-    console.error("Erreur lors de l'extraction du nom de fichier:", error);
-    return 'document';
+    // Si l'URL n'est pas valide, essayons d'extraire le nom de fichier à partir du chemin
+    try {
+      const pathParts = url.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+      console.log("Nom de fichier extrait en mode fallback:", fileName);
+      return fileName;
+    } catch (e) {
+      console.error("Erreur lors de l'extraction du nom de fichier:", e);
+      return 'document';
+    }
   }
 };
 
@@ -31,7 +39,7 @@ export const checkFileExists = async (url: string): Promise<boolean> => {
     
     const { data, error } = await supabase.storage
       .from(pathInfo.bucketName)
-      .list(pathInfo.filePath.split('/').slice(0, -1).join('/'), {
+      .list(pathInfo.filePath.split('/').slice(0, -1).join('/') || '.', {
         search: pathInfo.filePath.split('/').pop() || ''
       });
     
@@ -95,6 +103,19 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
         return {
           bucketName: match[1],
           filePath: match[2]
+        };
+      }
+    }
+    
+    // Pour les chemins relatifs à un bucket connu
+    const knownBuckets = ['databases', 'templates', 'blacklists'];
+    for (const bucket of knownBuckets) {
+      if (url.startsWith(`${bucket}/`) || url === bucket) {
+        const path = url.replace(`${bucket}/`, '');
+        console.log(`Chemin relatif connu - Bucket: ${bucket}, Fichier: ${path}`);
+        return {
+          bucketName: bucket,
+          filePath: path
         };
       }
     }

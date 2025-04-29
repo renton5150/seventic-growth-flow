@@ -2,9 +2,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Liste des buckets requis par l'application
+const REQUIRED_BUCKETS = ['databases', 'templates', 'blacklists'];
+
 export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
+  return await ensureAllBucketsExist();
+};
+
+export const ensureAllBucketsExist = async (): Promise<boolean> => {
   try {
-    console.log("Vérification de l'existence du bucket 'databases'...");
+    console.log("Vérification de l'existence des buckets requis...");
     
     const { data: buckets, error: listError } = await supabase.storage.listBuckets();
     
@@ -15,30 +22,35 @@ export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
       return false;
     }
     
-    const databaseBucket = buckets?.find(bucket => bucket.name === 'databases');
+    let allBucketsExist = true;
     
-    if (databaseBucket) {
-      console.log("Le bucket 'databases' existe déjà");
-      const isPublic = await ensureBucketIsPublic('databases');
-      return isPublic;
+    // Vérifier et créer chaque bucket si nécessaire
+    for (const bucketName of REQUIRED_BUCKETS) {
+      const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+      
+      if (bucketExists) {
+        console.log(`Le bucket '${bucketName}' existe déjà`);
+        await ensureBucketIsPublic(bucketName);
+      } else {
+        console.log(`Le bucket '${bucketName}' n'existe pas. Création en cours...`);
+        
+        const { error: createError } = await supabase.storage.createBucket(bucketName, {
+          public: true,
+          fileSizeLimit: 52428800, // 50 Mo en octets
+        });
+        
+        if (createError) {
+          console.error(`Erreur lors de la création du bucket ${bucketName}:`, createError);
+          console.error("Message d'erreur:", createError.message);
+          toast.error(`Impossible de créer l'espace de stockage ${bucketName}`);
+          allBucketsExist = false;
+        } else {
+          console.log(`Bucket '${bucketName}' créé avec succès`);
+        }
+      }
     }
     
-    console.log("Le bucket 'databases' n'existe pas. Création en cours...");
-    
-    const { error: createError } = await supabase.storage.createBucket('databases', {
-      public: true,
-      fileSizeLimit: 52428800, // 50 Mo en octets
-    });
-    
-    if (createError) {
-      console.error("Erreur lors de la création du bucket:", createError);
-      console.error("Message d'erreur:", createError.message);
-      toast.error("Impossible de créer l'espace de stockage");
-      return false;
-    }
-    
-    console.log("Bucket 'databases' créé avec succès");
-    return true;
+    return allBucketsExist;
   } catch (error) {
     console.error("Erreur inattendue:", error);
     toast.error("Erreur lors de la configuration du stockage");

@@ -14,6 +14,7 @@ import { FormFooter } from "./email-campaign/FormFooter";
 import { formSchema, FormData, defaultValues } from "./email-campaign/schema";
 import { createEmailCampaignRequest, updateRequest } from "@/services/requestService";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadDatabaseFile, uploadTemplateFile, uploadBlacklistFile } from "@/services/database/uploadService";
 import { EmailCampaignRequest } from "@/types/types";
 
 interface EmailCampaignFormProps {
@@ -140,6 +141,57 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     }
   }, [editMode, form]);
 
+  const handleFileUpload = async (field: string, files: FileList | null | string) => {
+    if (typeof files === 'string') {
+      console.log("URL directe fournie:", files);
+      form.setValue(field as any, files);
+      setFileUploading(false);
+      return;
+    }
+    
+    if (!files || files.length === 0) {
+      console.log("Effacement du fichier");
+      form.setValue(field as any, "");
+      setFileUploading(false);
+      return;
+    }
+    
+    setFileUploading(true);
+    const file = files[0];
+    console.log(`Téléchargement du fichier pour le champ: ${field}, fichier: ${file.name}`);
+    
+    try {
+      let fileUrl: string | null = null;
+      
+      // Déterminer le type d'upload en fonction du champ
+      if (field === "templateFileUrl") {
+        fileUrl = await uploadTemplateFile(file);
+      } else if (field === "databaseFileUrl") {
+        if (user) {
+          const result = await uploadDatabaseFile(file, user.id);
+          if (result.success) {
+            fileUrl = result.fileUrl || null;
+          }
+        }
+      } else if (field === "blacklistAccountsFileUrl" || field === "blacklistEmailsFileUrl") {
+        fileUrl = await uploadBlacklistFile(file);
+      }
+      
+      if (fileUrl) {
+        form.setValue(field as any, fileUrl);
+        console.log(`Fichier téléversé avec succès pour ${field}: ${fileUrl}`);
+      } else {
+        console.error(`Échec du téléversement pour ${field}`);
+        toast.error("Échec du téléversement du fichier");
+      }
+    } catch (error) {
+      console.error("Erreur lors du téléversement:", error);
+      toast.error("Erreur lors du téléversement du fichier");
+    } finally {
+      setFileUploading(false);
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     if (fileUploading) {
       toast.error("Veuillez attendre la fin du téléchargement des fichiers");
@@ -232,31 +284,6 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       toast.error(`Erreur: ${errorMessage}`);
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleFileUpload = (field: string, files: FileList | null | string) => {
-    setFileUploading(true);
-    console.log("Téléchargement du fichier pour le champ:", field, files);
-    try {
-      if (typeof files === 'string') {
-        console.log("URL directe fournie:", files);
-        form.setValue(field as any, files);
-        return;
-      }
-      
-      if (files && files.length > 0) {
-        const file = files[0];
-        console.log("Fichier sélectionné:", file.name);
-        const fakeUrl = `uploads/${file.name}`;
-        form.setValue(field as any, fakeUrl);
-        return;
-      }
-      
-      console.log("Effacement du fichier");
-      form.setValue(field as any, "");
-    } finally {
-      setTimeout(() => setFileUploading(false), 100);
     }
   };
 

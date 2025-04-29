@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DatabaseFile } from '@/types/database.types';
 import { getUserById } from "@/services/userService";
+import { ensureDatabaseBucketExists, ensureBucketIsPublic } from "./config";
 
 export const uploadFile = async (file: File, bucket: string = 'databases') => {
   try {
@@ -13,22 +14,26 @@ export const uploadFile = async (file: File, bucket: string = 'databases') => {
       toast.error('Vous devez être connecté pour télécharger des fichiers');
       return null;
     }
-    console.log('Utilisateur authentifié:', session.session.user.id);
+    console.log(`Utilisateur authentifié: ${session.session.user.id}, bucket: ${bucket}`);
 
     // Toast de chargement
-    toast.loading('Téléchargement en cours...');
+    const loadingToast = toast.loading('Téléchargement en cours...');
     
     // Vérification du fichier
     if (!file) {
+      toast.dismiss(loadingToast);
       toast.error('Aucun fichier sélectionné');
       return null;
     }
+    
+    // Vérification que le bucket existe et est public
+    await ensureBucketIsPublic(bucket);
     
     // Nom de fichier unique
     const uniqueFileName = `${Date.now()}_${file.name}`;
     
     // Log pour déboguer
-    console.log('Téléversement du fichier:', uniqueFileName);
+    console.log(`Téléversement du fichier: ${uniqueFileName} dans le bucket ${bucket}`);
     
     // Téléverser le fichier avec upsert à true
     const { data, error } = await supabase.storage
@@ -41,6 +46,7 @@ export const uploadFile = async (file: File, bucket: string = 'databases') => {
     // Gérer les erreurs
     if (error) {
       console.error('Erreur de téléversement:', error);
+      toast.dismiss(loadingToast);
       toast.error(`Erreur: ${error.message}`);
       return null;
     }
@@ -51,8 +57,9 @@ export const uploadFile = async (file: File, bucket: string = 'databases') => {
       .getPublicUrl(uniqueFileName);
     
     // Notification de succès
+    toast.dismiss(loadingToast);
     toast.success('Fichier téléchargé avec succès');
-    console.log('Téléversement réussi:', urlData.publicUrl);
+    console.log(`Téléversement réussi: ${urlData.publicUrl}`);
     
     return urlData.publicUrl;
   } catch (err) {
@@ -61,15 +68,13 @@ export const uploadFile = async (file: File, bucket: string = 'databases') => {
     console.error('Exception:', error);
     toast.error(`Exception: ${error.message}`);
     return null;
-  } finally {
-    toast.dismiss();
   }
 };
 
 // Fonction spécifique pour le téléversement de bases de données
 export const uploadDatabaseFile = async (file: File, userId: string): Promise<{ success: boolean; fileUrl?: string; error?: string }> => {
   try {
-    const fileUrl = await uploadFile(file);
+    const fileUrl = await uploadFile(file, 'databases');
     
     if (!fileUrl) {
       return { success: false, error: "Échec du téléversement du fichier" };
@@ -118,6 +123,18 @@ export const uploadDatabaseFile = async (file: File, userId: string): Promise<{ 
       error: error instanceof Error ? error.message : "Erreur inconnue" 
     };
   }
+};
+
+// Fonction pour téléverser un fichier template d'emailing
+export const uploadTemplateFile = async (file: File): Promise<string | null> => {
+  console.log("Téléversement du fichier template:", file.name);
+  return await uploadFile(file, 'templates');
+};
+
+// Fonction pour téléverser un fichier de blacklist
+export const uploadBlacklistFile = async (file: File): Promise<string | null> => {
+  console.log("Téléversement du fichier blacklist:", file.name);
+  return await uploadFile(file, 'blacklists');
 };
 
 export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
