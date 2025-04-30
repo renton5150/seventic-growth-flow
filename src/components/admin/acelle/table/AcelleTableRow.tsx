@@ -47,7 +47,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   // Enhanced function to get statistic value with multiple fallbacks
   const getStatValue = (paths: string[][], campaign: AcelleCampaign): number => {
     for (const path of paths) {
-      let value = campaign;
+      let value: any = campaign;
       for (const key of path) {
         if (value === undefined || value === null || typeof value !== 'object') {
           break;
@@ -86,9 +86,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const getSubscriberCount = (): number => {
     return getStatValue([
       ['delivery_info', 'total'], 
-      ['statistics', 'subscriber_count'],
-      ['statistics', 'delivered_count'],
-      ['meta', 'subscribers_count']
+      ['statistics', 'subscriber_count']
     ], campaign);
   };
 

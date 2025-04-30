@@ -141,7 +141,8 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
         delivery_date: campaign.delivery_date || campaign.run_at,
         delivery_info: deliveryInfo,
         statistics: statistics,
-        meta: campaign.meta || {}
+        // Remove reference to 'meta' property that doesn't exist
+        meta: {} // Use empty object as default
       };
     });
   } catch (error) {

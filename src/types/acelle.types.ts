@@ -44,6 +44,7 @@ export interface AcelleCampaign {
   };
   last_error: string;
   run_at: string;
+  meta: Record<string, any>; // Add meta property with flexible object type
 }
 
 export interface AcelleCampaignDetail extends AcelleCampaign {
