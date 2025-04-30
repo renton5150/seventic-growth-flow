@@ -75,3 +75,4 @@ port = 9000
 # The configuration for the cors-proxy function
 [functions.cors-proxy]
 verify_jwt = true
+
