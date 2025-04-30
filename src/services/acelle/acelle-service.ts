@@ -55,6 +55,7 @@ export const acelleService = {
 };
 
 // Also export individual functions for direct imports
+// Remove duplicate buildProxyUrl export to avoid conflict
 export {
   getAcelleAccounts,
   getAcelleAccountById,
@@ -65,6 +66,6 @@ export {
   checkApiAccess,
   getAcelleCampaigns,
   fetchCampaignDetails,
-  updateLastSyncDate,
-  buildProxyUrl
+  updateLastSyncDate
+  // buildProxyUrl removed from here to avoid duplicate export
 };
