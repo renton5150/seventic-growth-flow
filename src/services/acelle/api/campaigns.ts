@@ -5,6 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
 
+// Fonction utilitaire pour construire l'URL du proxy
+const buildProxyUrl = (endpoint: string, queryParams: string = ""): string => {
+  const targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${endpoint}${queryParams ? "?" + queryParams : ""}`;
+  return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
+};
+
 // Helper function to check if API is accessible
 export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> => {
   try {
@@ -30,17 +36,16 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
     }
 
     // Following Acelle Mail API documentation - use the token in URL
-    // https://api.acellemail.com/ recommends adding api_token as parameter
-    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${account.apiToken}`;
+    // Using our CORS proxy
+    const targetUrl = `${apiEndpoint}/me?api_token=${account.apiToken}`;
+    const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
     
-    console.log(`Checking API access with URL: ${url}`);
+    console.log(`Checking API access with URL: ${proxyUrl}`);
     
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "X-Auth-Method": "token", // Explicitly use token method
         "Authorization": `Bearer ${accessToken}`,
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }
@@ -102,18 +107,16 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       return null;
     }
     
-    // Use token authentication as recommended by Acelle Mail API
-    // https://api.acellemail.com/ recommends adding api_token as parameter
-    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns/${campaignUid}?api_token=${account.apiToken}`;
+    // Using our CORS proxy
+    const targetUrl = `${apiEndpoint}/campaigns/${campaignUid}?api_token=${account.apiToken}`;
+    const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
     
-    console.log(`Fetching campaign details with URL: ${url}`);
+    console.log(`Fetching campaign details with URL: ${proxyUrl}`);
     
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "X-Auth-Method": "token",
         "Authorization": `Bearer ${accessToken}`,
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }
@@ -180,18 +183,16 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
-    // Use token authentication as recommended by Acelle Mail API
-    // https://api.acellemail.com/ recommends adding api_token as a URL parameter
-    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`;
+    // Using our CORS proxy
+    const targetUrl = `${apiEndpoint}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`;
+    const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
     
-    console.log(`Fetching campaigns with URL: ${url}`);
+    console.log(`Fetching campaigns with URL: ${proxyUrl}`);
     
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "X-Auth-Method": "token",
         "Authorization": `Bearer ${accessToken}`,
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }

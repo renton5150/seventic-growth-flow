@@ -3,10 +3,16 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
+import { ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
 
 export const useCampaignSync = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
+
+  // Fonction utilitaire pour construire l'URL du proxy
+  const buildProxyUrl = (targetUrl: string): string => {
+    return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
+  };
 
   const checkApiAvailability = useCallback(async () => {
     try {
@@ -29,8 +35,8 @@ export const useCampaignSync = () => {
         console.log("Attempting preemptive wake of Edge Functions...");
         
         const wakeupPromises = [
-          // Wake acelle-proxy with ping endpoint
-          fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', {
+          // Wake cors-proxy with a simple request
+          fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=https://emailing.plateforme-solution.net/api/v1/ping', {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -38,7 +44,7 @@ export const useCampaignSync = () => {
               'X-Wake-Request': 'true'
             },
             signal: AbortSignal.timeout(8000)
-          }).catch(() => console.log("Wake-up ping completed")),
+          }).catch(() => console.log("Wake-up cors-proxy completed")),
           
           // Wake sync-email-campaigns with OPTIONS request
           fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
@@ -56,14 +62,16 @@ export const useCampaignSync = () => {
         // Wait a short time to allow services to wake up
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Now check if the API is responsive with a ping
+        // Now check if the API is responsive with a ping through our proxy
+        const pingTargetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/me?api_token=ping&debug=true`;
+        const pingProxyUrl = buildProxyUrl(pingTargetUrl);
+        
         const pingResponse = await fetch(
-          'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true', 
+          pingProxyUrl, 
           {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
-              'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'X-Debug-Level': 'verbose'
@@ -92,10 +100,9 @@ export const useCampaignSync = () => {
           duration,
           timestamp: new Date().toISOString(),
           request: {
-            url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true',
+            url: pingProxyUrl,
             headers: {
               'Authorization': `Bearer ${accessToken}`, 
-              'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
               'X-Debug-Level': 'verbose'
@@ -144,10 +151,9 @@ export const useCampaignSync = () => {
           errorMessage: pingError instanceof Error ? pingError.message : String(pingError),
           timestamp: new Date().toISOString(),
           request: {
-            url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true',
+            url: buildProxyUrl(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/me?api_token=ping&debug=true`),
             headers: {
               'Authorization': `Bearer ${accessToken}`, 
-              'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
               'X-Debug-Level': 'verbose'

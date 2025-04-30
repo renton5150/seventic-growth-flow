@@ -5,7 +5,8 @@ import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/
 
 // API proxy configuration
 export const ACELLE_PROXY_CONFIG = {
-  BASE_URL: "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy",
+  BASE_URL: "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy",
+  ACELLE_API_URL: "https://emailing.plateforme-solution.net/api/v1",
   AUTH_METHOD: "token" // Use "token" for API token in URL (recommended by Acelle Mail documentation)
 };
 
