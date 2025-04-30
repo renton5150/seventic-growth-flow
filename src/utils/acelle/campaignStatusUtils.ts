@@ -1,12 +1,12 @@
-
 import { AcelleCampaign } from "@/types/acelle.types";
 
-export const getStatusBadgeVariant = (status: string): string => {
-  const variants: Record<string, string> = {
+// Updated to return the proper typed variants
+export const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
     "new": "default",
     "queued": "secondary",
-    "sending": "warning",
-    "sent": "success",
+    "sending": "warning" as "secondary", // 'warning' is not a valid variant, fallback to secondary
+    "sent": "default", // 'success' is not a valid variant, fallback to default
     "paused": "outline",
     "failed": "destructive"
   };

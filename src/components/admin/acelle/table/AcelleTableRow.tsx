@@ -42,11 +42,44 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   // Get status and delivery info
   const status = campaign.status || "unknown";
   const statusDisplay = translateStatus(status);
-  const variant = getStatusBadgeVariant(status);
+  
+  // Fix: Cast the variant to the correct type for Badge component
+  const variant = getStatusBadgeVariant(status) as "default" | "secondary" | "destructive" | "outline";
 
-  // Get statistics with null safety
-  const stats = campaign.statistics || {};
-  const deliveryInfo = campaign.delivery_info || {};
+  // Initialize default empty objects for stats and delivery_info to avoid TypeScript errors
+  const stats = campaign.statistics || {
+    subscriber_count: 0,
+    delivered_count: 0, 
+    delivered_rate: 0,
+    open_count: 0,
+    uniq_open_rate: 0,
+    click_count: 0,
+    click_rate: 0,
+    bounce_count: 0,
+    soft_bounce_count: 0,
+    hard_bounce_count: 0,
+    unsubscribe_count: 0,
+    abuse_complaint_count: 0
+  };
+  
+  const deliveryInfo = campaign.delivery_info || {
+    total: 0,
+    delivery_rate: 0,
+    unique_open_rate: 0,
+    click_rate: 0,
+    bounce_rate: 0,
+    unsubscribe_rate: 0,
+    delivered: 0,
+    opened: 0,
+    clicked: 0,
+    bounced: {
+      soft: 0,
+      hard: 0,
+      total: 0
+    },
+    unsubscribed: 0,
+    complained: 0
+  };
 
   return (
     <TableRow>
