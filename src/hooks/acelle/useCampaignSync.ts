@@ -25,23 +25,38 @@ export const useCampaignSync = () => {
       const startTime = Date.now();
       
       try {
-        // Essayer de réveiller les Edge Functions avant même de faire le ping
-        console.log("Tentative de réveil préventif des Edge Functions...");
-        await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping?api_token=wake&debug=true', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Acelle-Endpoint': 'wake',
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'X-Wake-Request': 'true'
-          }
-        }).catch(e => console.log("Erreur de réveil ignorée:", e));
+        // Proactive wake-up attempt for Edge Functions
+        console.log("Attempting preemptive wake of Edge Functions...");
         
-        // Attendre un court instant pour laisser les fonctions se réveiller
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const wakeupPromises = [
+          // Wake acelle-proxy with ping endpoint
+          fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Cache-Control': 'no-store',
+              'X-Wake-Request': 'true'
+            },
+            signal: AbortSignal.timeout(8000)
+          }).catch(() => console.log("Wake-up ping completed")),
+          
+          // Wake sync-email-campaigns with OPTIONS request
+          fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
+            method: 'OPTIONS',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Cache-Control': 'no-store'
+            },
+            signal: AbortSignal.timeout(8000)
+          }).catch(() => console.log("Wake-up options completed"))
+        ];
         
-        // Ping service to check availability with advanced debugging
+        await Promise.allSettled(wakeupPromises);
+        
+        // Wait a short time to allow services to wake up
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Now check if the API is responsive with a ping
         const pingResponse = await fetch(
           'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me?api_token=ping&debug=true', 
           {
@@ -50,7 +65,7 @@ export const useCampaignSync = () => {
               'Authorization': `Bearer ${accessToken}`,
               'X-Acelle-Endpoint': 'ping',
               'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
               'X-Debug-Level': 'verbose'
             },
             signal: controller.signal
@@ -60,7 +75,13 @@ export const useCampaignSync = () => {
         clearTimeout(timeoutId);
         
         // Capture detailed response information
-        const pingData = await pingResponse.json();
+        let pingData;
+        try {
+          pingData = await pingResponse.json();
+        } catch (e) {
+          pingData = { error: "Unable to parse response" };
+        }
+        
         const duration = Date.now() - startTime;
         
         // Store diagnostic information
@@ -86,7 +107,7 @@ export const useCampaignSync = () => {
           }
         };
         
-        // Store the debug info for UI display if needed
+        // Store the debug info for UI display
         setDebugInfo(debugData);
         console.log("API availability check debug info:", debugData);
         
@@ -103,8 +124,6 @@ export const useCampaignSync = () => {
           };
         } else {
           console.warn("Ping returned non-200 status:", pingResponse.status);
-          // Essayer une seconde tentative de réveil si le ping initial échoue
-          await wakeUpEdgeFunctions();
           
           return { 
             available: false, 
@@ -118,10 +137,6 @@ export const useCampaignSync = () => {
         }
       } catch (pingError) {
         clearTimeout(timeoutId);
-        
-        // Si erreur pendant le ping, tenter de réveiller les services
-        console.log("Erreur lors du ping, tentative de réveil des services...");
-        await wakeUpEdgeFunctions();
         
         // Capture detailed error information
         const errorDebug: AcelleConnectionDebug = {
@@ -146,7 +161,7 @@ export const useCampaignSync = () => {
         
         return { 
           available: false, 
-          error: pingError.message, 
+          error: pingError instanceof Error ? pingError.message : String(pingError), 
           debugInfo: errorDebug,
           endpoints: {
             campaigns: false,
@@ -158,7 +173,7 @@ export const useCampaignSync = () => {
       console.error("Error checking API availability:", error);
       return { 
         available: false, 
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         endpoints: {
           campaigns: false,
           details: false
@@ -167,50 +182,54 @@ export const useCampaignSync = () => {
     }
   }, []);
 
-  const syncCampaignsCache = useCallback(async () => {
-    if (isSyncing) {
+  const syncCampaignsCache = useCallback(async (options: { 
+    forceSync?: boolean, 
+    quietMode?: boolean 
+  } = {}) => {
+    const { forceSync = false, quietMode = false } = options;
+    
+    if (isSyncing && !forceSync) {
       console.log("Sync already in progress, skipping...");
       return { skipped: true };
     }
 
     setIsSyncing(true);
+    const syncStartTime = Date.now();
+    
     try {
-      // Vérifier d'abord si l'API est disponible
+      // Check API availability first
       const apiStatus = await checkApiAvailability();
       setDebugInfo(apiStatus.debugInfo || null);
       
       if (!apiStatus.available) {
         console.log("API not available, trying to wake up services...");
-        toast.warning("Les services sont indisponibles, tentative de réveil...");
+        if (!quietMode) toast.warning("Les services sont indisponibles, tentative de réveil...");
         await wakeUpEdgeFunctions();
-        toast.info("Services en cours d'initialisation, veuillez réessayer dans quelques instants");
-        return { error: "Services unavailable, wake-up initiated", debugInfo: apiStatus.debugInfo };
+        if (!quietMode) toast.info("Services en cours d'initialisation, veuillez réessayer dans quelques instants");
+        return { 
+          error: "Services unavailable, wake-up initiated", 
+          debugInfo: apiStatus.debugInfo 
+        };
       }
       
       const { data, error } = await supabase.auth.getSession();
       const accessToken = data?.session?.access_token;
       
       if (!accessToken) {
-        console.error("No access token available");
-        toast.error("Authentification requise");
+        console.error("No auth token available");
+        if (!quietMode) toast.error("Authentification requise");
         return { error: "Authentication required" };
       }
 
       console.log("Initiating campaign sync...");
-      toast.loading("Synchronisation des campagnes en cours...", { id: "sync-toast" });
+      if (!quietMode) toast.loading("Synchronisation des campagnes en cours...", { id: "sync-toast" });
       
       // Use AbortController for timeout
       const controller = new AbortController();
-      // Extend timeout to 35 seconds to account for cold starts
+      // Extended timeout to 35 seconds to account for cold starts
       const timeoutId = setTimeout(() => controller.abort(), 35000);
       
-      // Add diagnostic options to the sync request
-      const requestStartTime = Date.now();
-
       try {
-        // First check if the service is responsive with a ping
-        console.log("Service is responsive, proceeding with sync");
-        
         // Proceed with actual sync with diagnostic data
         const syncResponse = await fetch(
           'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', 
@@ -237,7 +256,7 @@ export const useCampaignSync = () => {
         clearTimeout(timeoutId);
         
         // Capture detailed response information
-        const responseTime = Date.now() - requestStartTime;
+        const responseTime = Date.now() - syncStartTime;
         
         if (!syncResponse.ok) {
           let errorMessage = `Erreur ${syncResponse.status}`;
@@ -273,7 +292,7 @@ export const useCampaignSync = () => {
           setDebugInfo(syncDebugInfo);
           console.log("Sync failed, debug info:", syncDebugInfo);
           
-          toast.error("Erreur lors de la synchronisation des campagnes", { id: "sync-toast" });
+          if (!quietMode) toast.error("Erreur lors de la synchronisation des campagnes", { id: "sync-toast" });
           return { error: errorMessage, debugInfo: syncDebugInfo };
         }
 
@@ -301,14 +320,16 @@ export const useCampaignSync = () => {
         const failedAccounts = syncResult.results?.filter((r: any) => !r.success);
         if (failedAccounts && failedAccounts.length > 0) {
           console.warn("Some accounts failed to sync:", failedAccounts);
-          if (failedAccounts.length === syncResult.results.length) {
-            const mainError = failedAccounts[0];
-            toast.error(`Erreur de synchronisation: ${mainError.error || "Échec de connexion"}`, { id: "sync-toast" });
-            return { error: `Échec de la synchronisation: ${mainError.error || "Problème de connexion API"}`, debugInfo: syncDebugInfo };
-          } else {
-            toast.warning(`${failedAccounts.length} compte(s) n'ont pas pu être synchronisés`, { id: "sync-toast" });
+          if (!quietMode) {
+            if (failedAccounts.length === syncResult.results.length) {
+              const mainError = failedAccounts[0];
+              toast.error(`Erreur de synchronisation: ${mainError.error || "Échec de connexion"}`, { id: "sync-toast" });
+              return { error: `Échec de la synchronisation: ${mainError.error || "Problème de connexion API"}`, debugInfo: syncDebugInfo };
+            } else {
+              toast.warning(`${failedAccounts.length} compte(s) n'ont pas pu être synchronisés`, { id: "sync-toast" });
+            }
           }
-        } else {
+        } else if (!quietMode) {
           toast.success("Synchronisation réussie", { id: "sync-toast" });
         }
 
@@ -318,11 +339,11 @@ export const useCampaignSync = () => {
         
         if (fetchError.name === "AbortError") {
           console.error("Sync request timed out");
-          toast.error("Délai d'attente dépassé lors de la synchronisation. Tentative de réveil des services...", { id: "sync-toast" });
+          if (!quietMode) toast.error("Délai d'attente dépassé lors de la synchronisation. Tentative de réveil des services...", { id: "sync-toast" });
           
           try {
             await wakeUpEdgeFunctions();
-            toast.info("Services en cours d'initialisation, veuillez réessayer dans quelques instants");
+            if (!quietMode) toast.info("Services en cours d'initialisation, veuillez réessayer dans quelques instants");
           } catch (wakeUpError) {
             console.error("Error during wake-up attempt:", wakeUpError);
           }
@@ -332,7 +353,7 @@ export const useCampaignSync = () => {
             success: false,
             errorMessage: "Request timeout exceeded",
             timestamp: new Date().toISOString(),
-            duration: Date.now() - requestStartTime,
+            duration: Date.now() - syncStartTime,
             request: {
               url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns'
             }
@@ -348,7 +369,7 @@ export const useCampaignSync = () => {
           success: false,
           errorMessage: fetchError.message || "Unknown fetch error",
           timestamp: new Date().toISOString(),
-          duration: Date.now() - requestStartTime,
+          duration: Date.now() - syncStartTime,
           request: {
             url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns'
           }
@@ -356,12 +377,12 @@ export const useCampaignSync = () => {
         
         setDebugInfo(errorDebugInfo);
         
-        toast.error(`Erreur: ${fetchError.message}`, { id: "sync-toast" });
+        if (!quietMode) toast.error(`Erreur: ${fetchError.message}`, { id: "sync-toast" });
         return { error: `Erreur: ${fetchError.message}`, debugInfo: errorDebugInfo };
       }
     } catch (error: any) {
       console.error("Error syncing campaigns cache:", error);
-      toast.error(`Erreur lors de la synchronisation: ${error.message}`, { id: "sync-toast" });
+      if (!quietMode) toast.error(`Erreur lors de la synchronisation: ${error.message}`, { id: "sync-toast" });
       return { error: `Erreur: ${error.message}` };
     } finally {
       setIsSyncing(false);
@@ -383,45 +404,61 @@ export const useCampaignSync = () => {
       
       const startTime = Date.now();
 
-      // Tentatives multiples de réveil des services
+      // Multiple wake-up attempts with different methods
       const wakeupEndpoints = [
-        // Réveil d'acelle-proxy
+        // Wake acelle-proxy with me endpoint (first attempt)
         {
           url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me',
           params: 'api_token=ping&debug=true',
-          retries: 2
+          retries: 1
         },
-        // Réveil de sync-email-campaigns 
+        // Wake acelle-proxy with ping endpoint (second attempt)
+        {
+          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
+          params: 'wake=true',
+          retries: 1
+        },
+        // Wake sync-email-campaigns with OPTIONS request (may wake function)
         {
           url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
           method: 'OPTIONS',
           retries: 2
         },
-        // Ping acelle-proxy sans paramètres
+        // Make direct POST to sync-email-campaigns with minimal payload
         {
-          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
+          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
+          method: 'POST',
+          body: {
+            startServices: true
+          },
           retries: 1
         }
       ];
 
-      // Exécuter toutes les tentatives de réveil en parallèle
+      // Execute all wake-up attempts in parallel for faster response
       const wakeupPromises = wakeupEndpoints.map(async endpoint => {
         for (let i = 0; i < endpoint.retries; i++) {
           try {
+            const requestInit: RequestInit = {
+              method: endpoint.method || 'GET',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                'X-Debug-Level': 'verbose',
+                'X-Wake-Request': 'true',
+                'Cache-Control': 'no-store'
+              },
+              signal: AbortSignal.timeout(10000)
+            };
+            
+            // Add body for POST requests
+            if (endpoint.method === 'POST' && endpoint.body) {
+              requestInit.body = JSON.stringify(endpoint.body);
+            }
+            
             const response = await fetch(
               `${endpoint.url}${endpoint.params ? `?${endpoint.params}` : ''}`, 
-              {
-                method: endpoint.method || 'GET',
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                  'X-Acelle-Endpoint': 'ping',
-                  'Content-Type': 'application/json',
-                  'X-Debug-Level': 'verbose',
-                  'X-Wake-Request': 'true',
-                  'Cache-Control': 'no-store'
-                },
-                signal: AbortSignal.timeout(10000)
-              }
+              requestInit
             );
             
             if (response.ok) {
@@ -430,7 +467,7 @@ export const useCampaignSync = () => {
             }
           } catch (error) {
             console.log(`Wake-up attempt ${i+1} for ${endpoint.url} failed:`, error);
-            // Attendre un peu entre les tentatives
+            // Wait between retry attempts
             if (i < endpoint.retries - 1) {
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
@@ -439,14 +476,17 @@ export const useCampaignSync = () => {
         return false;
       });
       
-      await Promise.all(wakeupPromises);
+      // Wait for all wake-up attempts to complete
+      const results = await Promise.all(wakeupPromises);
+      const anySuccessful = results.some(result => result);
       
-      // Attendre un peu pour laisser les services démarrer
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait for services to initialize
+      await new Promise(resolve => setTimeout(resolve, anySuccessful ? 3000 : 5000));
 
       // Check if services are now responsive
       const apiStatus = await checkApiAvailability();
       
+      // Record diagnostic information
       const wakeUpDebugInfo: AcelleConnectionDebug = {
         success: apiStatus.available || false,
         responseData: apiStatus.data || {},
@@ -464,7 +504,7 @@ export const useCampaignSync = () => {
         toast.success("Services initialisés avec succès", { id: "wake-up-toast" });
       } else {
         toast.info("Services en cours d'initialisation, veuillez patienter...", { id: "wake-up-toast" });
-        // Wait a bit more before final check
+        // Wait more before final check
         await new Promise(resolve => setTimeout(resolve, 5000));
         
         const finalCheck = await checkApiAvailability();
@@ -484,7 +524,7 @@ export const useCampaignSync = () => {
   }, [checkApiAvailability]);
 
   // Export debug info for troubleshooting in UI
-  const getDebugInfo = () => debugInfo;
+  const getDebugInfo = useCallback(() => debugInfo, [debugInfo]);
 
   return { 
     syncCampaignsCache, 

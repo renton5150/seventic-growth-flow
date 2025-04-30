@@ -58,6 +58,29 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
   }));
 };
 
+// Enhanced helper to safely get numeric values with multiple fallbacks
+const safeGetNumber = (paths: any[][], obj: any): number => {
+  for (const path of paths) {
+    try {
+      let value = obj;
+      for (const key of path) {
+        if (value === undefined || value === null || typeof value !== 'object') {
+          break;
+        }
+        value = value[key];
+      }
+      
+      if (value !== undefined && value !== null) {
+        const num = Number(value);
+        if (!isNaN(num)) return num;
+      }
+    } catch (e) {
+      // Continue to next path
+    }
+  }
+  return 0;
+};
+
 export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalSent = 0;
   let totalDelivered = 0;
@@ -66,36 +89,38 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalBounced = 0;
   
   campaigns.forEach(campaign => {
-    // Helper to safely extract numbers
-    const safeNumber = (value: any): number => {
-      if (value === undefined || value === null) return 0;
-      const num = Number(value);
-      return isNaN(num) ? 0 : num;
-    };
+    // Get total sent with fallbacks
+    totalSent += safeGetNumber([
+      ['delivery_info', 'total'], 
+      ['statistics', 'subscriber_count'],
+      ['meta', 'subscribers_count']
+    ], campaign);
     
-    // Process statistics from any available source
-    if (campaign.delivery_info) {
-      totalSent += safeNumber(campaign.delivery_info.total);
-      totalDelivered += safeNumber(campaign.delivery_info.delivered);
-      totalOpened += safeNumber(campaign.delivery_info.opened);
-      totalClicked += safeNumber(campaign.delivery_info.clicked);
-      
-      // Extract bounces
-      const softBounce = safeNumber(campaign.delivery_info.bounced?.soft);
-      const hardBounce = safeNumber(campaign.delivery_info.bounced?.hard);
-      const totalBouncesInfo = safeNumber(campaign.delivery_info.bounced?.total);
-      
-      // Use the specific bounce counts if available, otherwise use the total
-      totalBounced += softBounce + hardBounce > 0 ? softBounce + hardBounce : totalBouncesInfo;
-    } 
-    // Fall back to statistics if delivery_info is not available
-    else if (campaign.statistics) {
-      totalSent += safeNumber(campaign.statistics.subscriber_count);
-      totalDelivered += safeNumber(campaign.statistics.delivered_count);
-      totalOpened += safeNumber(campaign.statistics.open_count);
-      totalClicked += safeNumber(campaign.statistics.click_count);
-      totalBounced += safeNumber(campaign.statistics.bounce_count);
-    }
+    // Get delivered with fallbacks
+    totalDelivered += safeGetNumber([
+      ['delivery_info', 'delivered'], 
+      ['statistics', 'delivered_count']
+    ], campaign);
+    
+    // Get opened with fallbacks
+    totalOpened += safeGetNumber([
+      ['delivery_info', 'opened'], 
+      ['statistics', 'open_count']
+    ], campaign);
+    
+    // Get clicked with fallbacks
+    totalClicked += safeGetNumber([
+      ['delivery_info', 'clicked'], 
+      ['statistics', 'click_count']
+    ], campaign);
+    
+    // Get bounces with fallbacks
+    totalBounced += safeGetNumber([
+      ['delivery_info', 'bounced', 'total'], 
+      ['delivery_info', 'bounced', 'soft'],
+      ['delivery_info', 'bounced', 'hard'],
+      ['statistics', 'bounce_count']
+    ], campaign);
   });
   
   return [
