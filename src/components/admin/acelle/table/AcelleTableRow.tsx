@@ -44,11 +44,39 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const statusDisplay = translateStatus(status);
   
   // Fix: Cast the variant to the correct type for Badge component
-  const variant = getStatusBadgeVariant(status);
+  const variant = getStatusBadgeVariant(status) as "default" | "secondary" | "destructive" | "outline";
 
-  // Get statistics with null safety
-  const stats = campaign.statistics || {};
-  const deliveryInfo = campaign.delivery_info || {};
+  // Initialize statistics and delivery_info objects with default values to avoid TypeScript errors
+  // Define these with explicit types that include all properties we'll access
+  const stats = campaign.statistics || {
+    subscriber_count: undefined,
+    delivered_count: undefined,
+    delivered_rate: undefined,
+    open_count: undefined,
+    uniq_open_rate: undefined,
+    click_count: undefined,
+    click_rate: undefined,
+    bounce_count: undefined,
+    soft_bounce_count: undefined,
+    hard_bounce_count: undefined,
+    unsubscribe_count: undefined,
+    abuse_complaint_count: undefined
+  };
+
+  const deliveryInfo = campaign.delivery_info || {
+    total: undefined,
+    delivery_rate: undefined,
+    unique_open_rate: undefined,
+    click_rate: undefined,
+    bounce_rate: undefined,
+    unsubscribe_rate: undefined,
+    delivered: undefined,
+    opened: undefined,
+    clicked: undefined,
+    bounced: { soft: undefined, hard: undefined, total: undefined },
+    unsubscribed: undefined,
+    complained: undefined
+  };
 
   return (
     <TableRow>
