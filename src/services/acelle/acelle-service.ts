@@ -7,7 +7,7 @@ import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/
 export const ACELLE_PROXY_CONFIG = {
   // Always use the full URL to the Edge Function
   BASE_URL: "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy",
-  ACELLE_API_URL: "https://emailing.plateforme-solution.net/public/api/v1", // Updated to use public/api/v1 path
+  ACELLE_API_URL: "https://emailing.plateforme-solution.net/api/v1", // Fix: Use the correct base path without duplication
   AUTH_METHOD: "token" // Use "token" for API token in URL (recommended by Acelle Mail documentation)
 };
 

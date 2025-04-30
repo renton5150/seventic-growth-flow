@@ -1,8 +1,9 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ACELLE_PROXY_CONFIG, buildProxyUrl } from "@/services/acelle/acelle-service";
+import { buildProxyUrl, ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
 
 // Helper function to check if API is accessible
 export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> => {
@@ -28,10 +29,8 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
       return false;
     }
 
-    // Following Acelle Mail API documentation - use the token in URL
-    // Using our CORS proxy with proper URL encoding
-    const targetUrl = `${apiEndpoint}/public/api/v1/me?api_token=${account.apiToken}`;
-    const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
+    // Use the buildProxyUrl function to ensure proper URL construction
+    const proxyUrl = buildProxyUrl('me', { api_token: account.apiToken });
     
     console.log(`Checking API access with URL: ${proxyUrl}`);
     
@@ -41,6 +40,8 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
         "Accept": "application/json",
         "Authorization": `Bearer ${accessToken}`,
         "Cache-Control": "no-cache, no-store, must-revalidate",
+        "X-Acelle-Endpoint": apiEndpoint,
+        "X-Auth-Method": "token",
         "X-Debug-Level": "verbose"
       }
     });

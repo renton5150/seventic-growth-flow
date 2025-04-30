@@ -1,6 +1,6 @@
 
 import { AcelleConnectionDebug } from "@/types/acelle.types";
-import { ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
+import { ACELLE_PROXY_CONFIG, buildProxyUrl } from "@/services/acelle/acelle-service";
 import { supabase } from "@/integrations/supabase/client";
 
 // Test Acelle API connection
@@ -36,9 +36,9 @@ export const testAcelleConnection = async (
     
     const supabaseToken = sessionData.session.access_token;
     
-    // Use token authentication as recommended by Acelle Mail API docs
-    // https://api.acellemail.com/ recommends adding api_token as a URL parameter
-    const url = `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${apiToken}`;
+    // Construire l'URL correctement pour le test de connexion
+    // Utiliser la fonction buildProxyUrl pour éviter les erreurs de construction d'URL
+    const proxyUrl = buildProxyUrl('me', { api_token: apiToken });
     
     const headers = {
       "Accept": "application/json",
@@ -52,7 +52,7 @@ export const testAcelleConnection = async (
       success: false,
       timestamp: new Date().toISOString(),
       request: {
-        url,
+        url: proxyUrl,
         headers,
         method: "GET"
       }
@@ -61,11 +61,11 @@ export const testAcelleConnection = async (
     // Tentative d'éveil des Edge Functions avant la requête principale
     try {
       console.log("Tentative d'éveil des Edge Functions...");
-      await fetch(`${ACELLE_PROXY_CONFIG.BASE_URL}/ping?api_token=ping`, {
+      await fetch(`${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping`)}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${supabaseToken}`,
-          "X-Acelle-Endpoint": "ping",
+          "X-Acelle-Endpoint": cleanApiEndpoint,
           "Content-Type": "application/json"
         },
         cache: "no-store"
@@ -78,7 +78,7 @@ export const testAcelleConnection = async (
     // Attendre un court moment pour laisser les fonctions se réveiller
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
       method: "GET",
       headers,
       // Add cache control headers to prevent browser caching
@@ -127,7 +127,7 @@ export const testAcelleConnection = async (
         errorMessage: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
         request: {
-          url: `${ACELLE_PROXY_CONFIG.BASE_URL}/me?api_token=${apiToken}`,
+          url: buildProxyUrl('me', { api_token: apiToken }),
           headers: { 
             "Accept": "application/json",
             "X-Acelle-Endpoint": apiEndpoint,
