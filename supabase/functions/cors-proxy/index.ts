@@ -59,10 +59,10 @@ serve(async (req) => {
       "Content-Type": req.headers.get("Content-Type") || "application/json",
       "User-Agent": "AcelleProxy/1.0",
       "Cache-Control": "no-cache, no-store, must-revalidate",
-      // Preserve auth headers if present in the original request
-      ...(acelleEndpoint ? { "x-acelle-endpoint": acelleEndpoint } : {}),
-      ...(authMethod ? { "x-auth-method": authMethod } : {}),
-      ...(wakeRequest ? { "x-wake-request": wakeRequest } : {}),
+      // Preserve special headers for Acelle API
+      ...(acelleEndpoint ? { "X-Acelle-Endpoint": acelleEndpoint } : {}),
+      ...(authMethod ? { "X-Auth-Method": authMethod } : {}),
+      ...(wakeRequest ? { "X-Wake-Request": wakeRequest } : {})
     };
     
     // Handle various auth methods
@@ -139,17 +139,13 @@ serve(async (req) => {
       });
     }
     
-    // FIX: Don't try to read the response body multiple times
-    // Clone the response before reading it for different formats
+    // IMPORTANT: Correction of the "Body already consumed" error
+    // We need to clone the response before reading its body
     const responseClone = response.clone();
     
     // First try to parse as JSON
-    let responseData;
-    let isJson = false;
-    
     try {
-      responseData = await response.json();
-      isJson = true;
+      const responseData = await response.json();
       console.log("Réponse proxy envoyée:", response.status, "en " + duration + "ms");
       
       return new Response(JSON.stringify(responseData), {
