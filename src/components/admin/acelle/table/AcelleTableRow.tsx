@@ -26,253 +26,66 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     }
   };
 
-  // Enhanced helper to safely render numeric values with graceful fallbacks
-  const safeNumber = (value: any, fallbackSource?: any): number => {
-    // Try the primary value first
-    if (value !== undefined && value !== null) {
-      const num = Number(value);
-      if (!isNaN(num)) return num;
-    }
-    
-    // If fallback source is provided, try that next
-    if (fallbackSource !== undefined && fallbackSource !== null) {
-      const num = Number(fallbackSource);
-      if (!isNaN(num)) return num;
-    }
-    
-    // Ultimate fallback
-    return 0;
+  // Helper function to render numeric values safely
+  const renderNumeric = (value: number | undefined | null, suffix = "") => {
+    if (value === undefined || value === null) return "-";
+    return `${value}${suffix}`;
   };
 
-  // Enhanced function to get statistic value with multiple fallbacks
-  const getStatValue = (paths: string[][], campaign: AcelleCampaign): number => {
-    for (const path of paths) {
-      let value: any = campaign;
-      for (const key of path) {
-        if (value === undefined || value === null || typeof value !== 'object') {
-          break;
-        }
-        value = value[key as keyof typeof value];
-      }
-      
-      if (value !== undefined && value !== null) {
-        const num = Number(value);
-        if (!isNaN(num)) return num;
-      }
-    }
-    return 0;
+  // Helper function to render percentage values safely
+  const renderPercent = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return "-";
+    // Format as percentage with 2 decimal places
+    return `${(value * 100).toFixed(2)}%`;
   };
 
-  // Function to get rate with fallbacks
-  const getRate = (
-    primaryPath: string[][], 
-    fallbackNumeratorPath: string[][], 
-    fallbackDenominatorPath: string[][], 
-    campaign: AcelleCampaign
-  ): number => {
-    // Try direct rate first
-    const directRate = getStatValue(primaryPath, campaign);
-    if (directRate > 0) return directRate;
-    
-    // Calculate from numerator and denominator
-    const numerator = getStatValue(fallbackNumeratorPath, campaign);
-    const denominator = getStatValue(fallbackDenominatorPath, campaign);
-    
-    if (denominator > 0) return (numerator / denominator) * 100;
-    return 0;
-  };
+  // Get status and delivery info
+  const status = campaign.status || "unknown";
+  const statusDisplay = translateStatus(status);
+  const variant = getStatusBadgeVariant(status);
 
-  // Get subscriber count with fallbacks
-  const getSubscriberCount = (): number => {
-    return getStatValue([
-      ['delivery_info', 'total'], 
-      ['statistics', 'subscriber_count']
-    ], campaign);
-  };
-
-  // Get delivered count with fallbacks
-  const getDeliveredCount = (): number => {
-    return getStatValue([
-      ['delivery_info', 'delivered'], 
-      ['statistics', 'delivered_count']
-    ], campaign);
-  };
-
-  // Get opened count with fallbacks
-  const getOpenedCount = (): number => {
-    return getStatValue([
-      ['delivery_info', 'opened'], 
-      ['statistics', 'open_count']
-    ], campaign);
-  };
-
-  // Get clicked count with fallbacks
-  const getClickedCount = (): number => {
-    return getStatValue([
-      ['delivery_info', 'clicked'], 
-      ['statistics', 'click_count']
-    ], campaign);
-  };
-
-  // Get bounced count with fallbacks
-  const getBouncedCount = (): number => {
-    return getStatValue([
-      ['delivery_info', 'bounced', 'total'], 
-      ['statistics', 'bounce_count']
-    ], campaign);
-  };
-
-  // Get unsubscribed count with fallbacks
-  const getUnsubscribedCount = (): number => {
-    return getStatValue([
-      ['delivery_info', 'unsubscribed'], 
-      ['statistics', 'unsubscribe_count']
-    ], campaign);
-  };
-
-  // Get delivery rate with fallbacks (delivered / total)
-  const getDeliveryRate = (): number => {
-    return getRate(
-      [['delivery_info', 'delivery_rate'], ['statistics', 'delivered_rate']], 
-      [['delivery_info', 'delivered'], ['statistics', 'delivered_count']], 
-      [['delivery_info', 'total'], ['statistics', 'subscriber_count']], 
-      campaign
-    );
-  };
-
-  // Get open rate with fallbacks (opened / delivered)
-  const getOpenRate = (): number => {
-    return getRate(
-      [['delivery_info', 'unique_open_rate'], ['statistics', 'uniq_open_rate']], 
-      [['delivery_info', 'opened'], ['statistics', 'open_count']], 
-      [['delivery_info', 'delivered'], ['statistics', 'delivered_count']], 
-      campaign
-    );
-  };
-
-  // Get click rate with fallbacks (clicked / delivered)
-  const getClickRate = (): number => {
-    return getRate(
-      [['delivery_info', 'click_rate'], ['statistics', 'click_rate']], 
-      [['delivery_info', 'clicked'], ['statistics', 'click_count']], 
-      [['delivery_info', 'delivered'], ['statistics', 'delivered_count']], 
-      campaign
-    );
-  };
-
-  // Get bounce rate with fallbacks (bounced / total)
-  const getBounceRate = (): number => {
-    return getRate(
-      [['delivery_info', 'bounce_rate']], 
-      [['delivery_info', 'bounced', 'total'], ['statistics', 'bounce_count']], 
-      [['delivery_info', 'total'], ['statistics', 'subscriber_count']], 
-      campaign
-    );
-  };
-
-  // Get unsubscribe rate with fallbacks (unsubscribed / delivered)
-  const getUnsubscribeRate = (): number => {
-    return getRate(
-      [['delivery_info', 'unsubscribe_rate']], 
-      [['delivery_info', 'unsubscribed'], ['statistics', 'unsubscribe_count']], 
-      [['delivery_info', 'delivered'], ['statistics', 'delivered_count']], 
-      campaign
-    );
-  };
-
-  // Add extensive debugging
-  const debugStats = {
-    name: campaign.name,
-    stats: {
-      subscriber_count: getSubscriberCount(),
-      delivered: getDeliveredCount(),
-      delivery_rate: getDeliveryRate(),
-      opened: getOpenedCount(),
-      open_rate: getOpenRate(),
-      clicked: getClickedCount(),
-      click_rate: getClickRate(),
-      bounced: getBouncedCount(),
-      bounce_rate: getBounceRate(),
-      unsubscribed: getUnsubscribedCount(),
-      unsubscribe_rate: getUnsubscribeRate()
-    },
-    raw_data: {
-      delivery_info: campaign.delivery_info,
-      statistics: campaign.statistics,
-      delivery_date: campaign.delivery_date,
-      run_at: campaign.run_at
-    }
-  };
-
-  // Log complete stats only once per component lifecycle using a ref
-  React.useEffect(() => {
-    console.log(`Campaign Stats Debug for ${campaign.name}:`, debugStats);
-  }, [campaign.uid]);
+  // Get statistics with null safety
+  const stats = campaign.statistics || {};
+  const deliveryInfo = campaign.delivery_info || {};
 
   return (
-    <TableRow key={campaign.uid}>
-      <TableCell className="font-medium max-w-[120px] truncate">
-        {campaign.name}
+    <TableRow>
+      <TableCell className="font-medium truncate max-w-[200px]" title={campaign.name}>
+        {campaign.name || "Sans nom"}
       </TableCell>
-      <TableCell className="max-w-[180px] truncate">
-        {campaign.subject}
-      </TableCell>
-      <TableCell>
-        <Badge variant={getStatusBadgeVariant(campaign.status) as any}>
-          {translateStatus(campaign.status)}
-        </Badge>
+      <TableCell className="truncate max-w-[200px]" title={campaign.subject}>
+        {campaign.subject || "Sans sujet"}
       </TableCell>
       <TableCell>
-        {formatDateSafely(campaign.delivery_date || campaign.run_at)}
+        <Badge variant={variant}>{statusDisplay}</Badge>
       </TableCell>
       <TableCell>
-        {getSubscriberCount()}
+        {formatDateSafely(campaign.delivery_date)}
       </TableCell>
       <TableCell>
-        <div>
-          <div>{getDeliveredCount()}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(getDeliveryRate())}
-          </div>
-        </div>
+        {renderNumeric(stats.subscriber_count || deliveryInfo.total)}
       </TableCell>
       <TableCell>
-        <div>
-          <div>{getOpenedCount()}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(getOpenRate())}
-          </div>
-        </div>
+        {renderPercent(stats.delivered_rate || deliveryInfo.delivery_rate)}
       </TableCell>
       <TableCell>
-        <div>
-          <div>{getClickedCount()}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(getClickRate())}
-          </div>
-        </div>
+        {renderPercent(stats.uniq_open_rate || deliveryInfo.unique_open_rate)}
       </TableCell>
       <TableCell>
-        <div>
-          <div>{getBouncedCount()}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(getBounceRate())}
-          </div>
-        </div>
+        {renderPercent(stats.click_rate || deliveryInfo.click_rate)}
       </TableCell>
       <TableCell>
-        <div>
-          <div>{getUnsubscribedCount()}</div>
-          <div className="text-xs text-muted-foreground">
-            {renderPercentage(getUnsubscribeRate())}
-          </div>
-        </div>
+        {renderNumeric(stats.bounce_count || (deliveryInfo.bounced && deliveryInfo.bounced.total))}
+      </TableCell>
+      <TableCell>
+        {renderNumeric(stats.unsubscribe_count || deliveryInfo.unsubscribed)}
       </TableCell>
       <TableCell className="text-right">
-        <Button
-          variant="ghost"
+        <Button 
+          variant="ghost" 
           size="icon"
           onClick={() => onViewCampaign(campaign.uid)}
+          title="Voir les détails"
         >
           <Eye className="h-4 w-4" />
         </Button>

@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { buildProxyUrl, ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
 
-// Helper function to check if API is accessible
+// Helper function to check if API is accessible with improved debugging
 export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> => {
   try {
     console.log(`Testing API accessibility for account: ${account.name}`);
@@ -42,7 +42,8 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "X-Acelle-Endpoint": apiEndpoint,
         "X-Auth-Method": "token",
-        "X-Debug-Level": "verbose"
+        "X-Debug-Level": "verbose",
+        "X-Wake-Request": "true"
       }
     });
 
@@ -70,7 +71,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
   }
 };
 
-// Helper function to fetch campaign details
+// Enhanced helper function to fetch campaign details with better error handling
 export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
     // Fix potential URL issues by ensuring there's no trailing slash
@@ -113,7 +114,9 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
         "Accept": "application/json",
         "Authorization": `Bearer ${accessToken}`,
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Debug-Level": "verbose"
+        "X-Debug-Level": "verbose",
+        "X-Acelle-Endpoint": apiEndpoint,
+        "X-Auth-Method": "token"
       }
     });
 
@@ -140,7 +143,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
   }
 };
 
-// Get campaigns for an account with pagination
+// Enhanced function to get campaigns with improved statistics extraction
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
     console.log(`Fetching campaigns for account ${account.name}, page ${page}, limit ${limit}`);
@@ -195,7 +198,9 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         "Accept": "application/json",
         "Authorization": `Bearer ${accessToken}`,
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Debug-Level": "verbose"
+        "X-Debug-Level": "verbose",
+        "X-Acelle-Endpoint": apiEndpoint,
+        "X-Auth-Method": "token"
       }
     });
     
@@ -225,42 +230,58 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     console.log(`Fetched ${campaigns.length} campaigns for account ${account.name}`);
     console.log("Sample campaign data:", campaigns.length > 0 ? campaigns[0] : "No campaigns");
     
-    // Process campaigns to ensure all required fields are present
+    // Process campaigns to ensure all required fields are present with improved parsing
     const processedCampaigns = campaigns.map((campaign: any) => {
+      // Safely extract number values with improved parsing
+      const safeParseInt = (value: any) => {
+        if (value === undefined || value === null) return 0;
+        const num = parseInt(value);
+        return isNaN(num) ? 0 : num;
+      };
+      
+      const safeParseFloat = (value: any) => {
+        if (value === undefined || value === null) return 0;
+        const num = parseFloat(value);
+        return isNaN(num) ? 0 : num;
+      };
+      
+      // Logging statistics for debugging
+      console.log(`Campaign ${campaign.name || 'Unknown'} statistics:`, campaign.statistics);
+      
       // Ensure delivery_info has all required fields
       const deliveryInfo = {
-        total: parseInt(campaign.statistics?.subscriber_count) || campaign.delivery_info?.total || 0,
-        delivery_rate: parseFloat(campaign.statistics?.delivered_rate) || campaign.delivery_info?.delivery_rate || 0,
-        unique_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || campaign.delivery_info?.unique_open_rate || 0,
-        click_rate: parseFloat(campaign.statistics?.click_rate) || campaign.delivery_info?.click_rate || 0,
-        bounce_rate: parseFloat(campaign.statistics?.bounce_rate) || campaign.delivery_info?.bounce_rate || 0,
-        unsubscribe_rate: parseFloat(campaign.statistics?.unsubscribe_rate) || campaign.delivery_info?.unsubscribe_rate || 0,
-        delivered: parseInt(campaign.statistics?.delivered_count) || campaign.delivery_info?.delivered || 0,
-        opened: parseInt(campaign.statistics?.open_count) || campaign.delivery_info?.opened || 0,
-        clicked: parseInt(campaign.statistics?.click_count) || campaign.delivery_info?.clicked || 0,
-        unsubscribed: parseInt(campaign.statistics?.unsubscribe_count) || campaign.delivery_info?.unsubscribed || 0,
-        complained: parseInt(campaign.statistics?.abuse_complaint_count) || campaign.delivery_info?.complained || 0,
+        total: safeParseInt(campaign.statistics?.subscriber_count) || safeParseInt(campaign.delivery_info?.total) || 0,
+        delivery_rate: safeParseFloat(campaign.statistics?.delivered_rate) || safeParseFloat(campaign.delivery_info?.delivery_rate) || 0,
+        unique_open_rate: safeParseFloat(campaign.statistics?.uniq_open_rate) || safeParseFloat(campaign.delivery_info?.unique_open_rate) || 0,
+        click_rate: safeParseFloat(campaign.statistics?.click_rate) || safeParseFloat(campaign.delivery_info?.click_rate) || 0,
+        bounce_rate: safeParseFloat(campaign.statistics?.bounce_rate) || safeParseFloat(campaign.delivery_info?.bounce_rate) || 0,
+        unsubscribe_rate: safeParseFloat(campaign.statistics?.unsubscribe_rate) || safeParseFloat(campaign.delivery_info?.unsubscribe_rate) || 0,
+        delivered: safeParseInt(campaign.statistics?.delivered_count) || safeParseInt(campaign.delivery_info?.delivered) || 0,
+        opened: safeParseInt(campaign.statistics?.open_count) || safeParseInt(campaign.delivery_info?.opened) || 0,
+        clicked: safeParseInt(campaign.statistics?.click_count) || safeParseInt(campaign.delivery_info?.clicked) || 0,
+        unsubscribed: safeParseInt(campaign.statistics?.unsubscribe_count) || safeParseInt(campaign.delivery_info?.unsubscribed) || 0,
+        complained: safeParseInt(campaign.statistics?.abuse_complaint_count) || safeParseInt(campaign.delivery_info?.complained) || 0,
         bounced: {
-          soft: parseInt(campaign.statistics?.soft_bounce_count) || campaign.delivery_info?.bounced?.soft || 0,
-          hard: parseInt(campaign.statistics?.hard_bounce_count) || campaign.delivery_info?.bounced?.hard || 0,
-          total: parseInt(campaign.statistics?.bounce_count) || campaign.delivery_info?.bounced?.total || 0
+          soft: safeParseInt(campaign.statistics?.soft_bounce_count) || safeParseInt(campaign.delivery_info?.bounced?.soft) || 0,
+          hard: safeParseInt(campaign.statistics?.hard_bounce_count) || safeParseInt(campaign.delivery_info?.bounced?.hard) || 0,
+          total: safeParseInt(campaign.statistics?.bounce_count) || safeParseInt(campaign.delivery_info?.bounced?.total) || 0
         }
       };
       
       // Convert any existing stats
       const statistics = {
-        subscriber_count: parseInt(campaign.statistics?.subscriber_count) || deliveryInfo.total || 0,
-        delivered_count: parseInt(campaign.statistics?.delivered_count) || deliveryInfo.delivered || 0,
-        delivered_rate: parseFloat(campaign.statistics?.delivered_rate) || deliveryInfo.delivery_rate || 0,
-        open_count: parseInt(campaign.statistics?.open_count) || deliveryInfo.opened || 0,
-        uniq_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || deliveryInfo.unique_open_rate || 0,
-        click_count: parseInt(campaign.statistics?.click_count) || deliveryInfo.clicked || 0,
-        click_rate: parseFloat(campaign.statistics?.click_rate) || deliveryInfo.click_rate || 0,
-        bounce_count: parseInt(campaign.statistics?.bounce_count) || deliveryInfo.bounced.total || 0,
-        soft_bounce_count: parseInt(campaign.statistics?.soft_bounce_count) || deliveryInfo.bounced.soft || 0,
-        hard_bounce_count: parseInt(campaign.statistics?.hard_bounce_count) || deliveryInfo.bounced.hard || 0,
-        unsubscribe_count: parseInt(campaign.statistics?.unsubscribe_count) || deliveryInfo.unsubscribed || 0,
-        abuse_complaint_count: parseInt(campaign.statistics?.abuse_complaint_count) || deliveryInfo.complained || 0
+        subscriber_count: safeParseInt(campaign.statistics?.subscriber_count) || deliveryInfo.total || 0,
+        delivered_count: safeParseInt(campaign.statistics?.delivered_count) || deliveryInfo.delivered || 0,
+        delivered_rate: safeParseFloat(campaign.statistics?.delivered_rate) || deliveryInfo.delivery_rate || 0,
+        open_count: safeParseInt(campaign.statistics?.open_count) || deliveryInfo.opened || 0,
+        uniq_open_rate: safeParseFloat(campaign.statistics?.uniq_open_rate) || deliveryInfo.unique_open_rate || 0,
+        click_count: safeParseInt(campaign.statistics?.click_count) || deliveryInfo.clicked || 0,
+        click_rate: safeParseFloat(campaign.statistics?.click_rate) || deliveryInfo.click_rate || 0,
+        bounce_count: safeParseInt(campaign.statistics?.bounce_count) || deliveryInfo.bounced.total || 0,
+        soft_bounce_count: safeParseInt(campaign.statistics?.soft_bounce_count) || deliveryInfo.bounced.soft || 0,
+        hard_bounce_count: safeParseInt(campaign.statistics?.hard_bounce_count) || deliveryInfo.bounced.hard || 0,
+        unsubscribe_count: safeParseInt(campaign.statistics?.unsubscribe_count) || deliveryInfo.unsubscribed || 0,
+        abuse_complaint_count: safeParseInt(campaign.statistics?.abuse_complaint_count) || deliveryInfo.complained || 0
       };
 
       return {

@@ -7,26 +7,36 @@ import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/
 export const ACELLE_PROXY_CONFIG = {
   // Always use the full URL to the Edge Function
   BASE_URL: "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy",
-  ACELLE_API_URL: "https://emailing.plateforme-solution.net/api/v1", // Fix: Use the correct base path without duplication
+  ACELLE_API_URL: "https://emailing.plateforme-solution.net/api/v1", // Use correct API path without duplication
   AUTH_METHOD: "token" // Use "token" for API token in URL (recommended by Acelle Mail documentation)
 };
 
-// Utility function to build properly encoded proxy URLs
+// Enhanced utility function to build properly encoded proxy URLs with better error handling
 export const buildProxyUrl = (endpoint: string, queryParams: Record<string, string> = {}): string => {
-  // Start with the base Acelle API URL
-  let targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${endpoint}`;
-  
-  // Add query params if any
-  if (Object.keys(queryParams).length > 0) {
-    const urlParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(queryParams)) {
-      urlParams.append(key, value);
+  try {
+    // Clean the endpoint to ensure we don't have leading or trailing slashes
+    const cleanEndpoint = endpoint.replace(/^\/+|\/+$/g, '');
+    
+    // Start with the base Acelle API URL
+    let targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${cleanEndpoint}`;
+    
+    // Add query params if any
+    if (Object.keys(queryParams).length > 0) {
+      const urlParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(queryParams)) {
+        if (value !== undefined && value !== null) {
+          urlParams.append(key, value);
+        }
+      }
+      targetUrl += `?${urlParams.toString()}`;
     }
-    targetUrl += `?${urlParams.toString()}`;
+    
+    // Return the full proxy URL with encoded target URL
+    return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
+  } catch (error) {
+    console.error("Error building proxy URL:", error);
+    throw new Error(`Failed to build proxy URL for endpoint ${endpoint}: ${error instanceof Error ? error.message : String(error)}`);
   }
-  
-  // Return the full proxy URL with encoded target URL
-  return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
 };
 
 // Export all functions under a single acelleService object
@@ -55,7 +65,6 @@ export const acelleService = {
 };
 
 // Also export individual functions for direct imports
-// Remove duplicate buildProxyUrl export to avoid conflict
 export {
   getAcelleAccounts,
   getAcelleAccountById,
@@ -67,5 +76,4 @@ export {
   getAcelleCampaigns,
   fetchCampaignDetails,
   updateLastSyncDate
-  // buildProxyUrl removed from here to avoid duplicate export
 };

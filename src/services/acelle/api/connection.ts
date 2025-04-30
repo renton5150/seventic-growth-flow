@@ -3,7 +3,7 @@ import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { ACELLE_PROXY_CONFIG, buildProxyUrl } from "@/services/acelle/acelle-service";
 import { supabase } from "@/integrations/supabase/client";
 
-// Test Acelle API connection
+// Enhanced test function for Acelle API connection with improved error handling
 export const testAcelleConnection = async (
   apiEndpoint: string, 
   apiToken: string, 
@@ -66,7 +66,8 @@ export const testAcelleConnection = async (
         headers: {
           "Authorization": `Bearer ${supabaseToken}`,
           "X-Acelle-Endpoint": cleanApiEndpoint,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "X-Wake-Request": "true"
         },
         cache: "no-store"
       });
@@ -102,6 +103,14 @@ export const testAcelleConnection = async (
     if (!response.ok) {
       console.error(`API Error: ${response.status} ${response.statusText}`);
       
+      // Log detailed response for debugging
+      try {
+        const errorText = await response.text();
+        console.error("API Error details:", errorText);
+      } catch (e) {
+        console.error("Could not read error response");
+      }
+      
       if (debug) {
         debugInfo.errorMessage = `API Error: ${response.status} ${response.statusText}`;
         return debugInfo;
@@ -110,6 +119,7 @@ export const testAcelleConnection = async (
     }
     
     const data = await response.json();
+    console.log("API test response:", data);
     const success = !!data.id;
     
     if (debug) {
