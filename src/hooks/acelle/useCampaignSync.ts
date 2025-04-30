@@ -31,7 +31,7 @@ export const useCampaignSync = () => {
         
         // Build properly encoded proxy URLs for all wake-up attempts
         const wakeupPromises = [
-          // Wake cors-proxy with a ping request
+          // Wake cors-proxy with a ping request to the correct API path
           fetch(`${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping`)}`, {
             method: 'GET',
             headers: {
@@ -70,8 +70,8 @@ export const useCampaignSync = () => {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Now check if the API is responsive with a ping through our proxy
-        const pingTargetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping?debug=true`;
-        const pingProxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(pingTargetUrl)}`;
+        // Use the buildProxyUrl utility for consistency
+        const pingProxyUrl = buildProxyUrl('ping', { debug: 'true' });
         
         console.log(`Checking API availability with ping through proxy: ${pingProxyUrl}`);
         
@@ -160,7 +160,7 @@ export const useCampaignSync = () => {
           errorMessage: pingError instanceof Error ? pingError.message : String(pingError),
           timestamp: new Date().toISOString(),
           request: {
-            url: `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping?debug=true`)}`,
+            url: buildProxyUrl('ping', { debug: 'true' }),
             headers: {
               'Authorization': `Bearer ${accessToken}`, 
               'Content-Type': 'application/json',

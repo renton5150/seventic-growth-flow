@@ -106,7 +106,8 @@ async function testEndpointAccess(url: string, options: { timeout?: number, head
     const response = await fetch(url, {
       method: 'GET',
       headers,
-      signal: controller.signal
+      signal: controller.signal,
+      redirect: 'follow' // Allow redirects to be followed automatically
     });
     
     clearTimeout(timeoutId);
@@ -117,6 +118,9 @@ async function testEndpointAccess(url: string, options: { timeout?: number, head
     response.headers.forEach((value, key) => {
       responseHeaders[key] = value;
     });
+    
+    // Log the final URL after redirects
+    debugLog(`Response URL after redirects: ${response.url}`, {}, LOG_LEVELS.DEBUG);
     
     // Attempt to read response text for diagnostics
     let responseText = '';
@@ -389,7 +393,7 @@ serve(async (req) => {
       }
       
       // Test API accessibility with extended debugging
-      const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/api/v1';
+      const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/public/api/v1'; // Updated to public/api/v1
       
       const accessTest = await testEndpointAccess(baseUrl, {
         timeout: 10000,
@@ -448,8 +452,10 @@ serve(async (req) => {
     // Make sure the endpoint doesn't end with a slash to properly join with the path
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
     
-    // Don't add api/v1 if it's already in the endpoint
-    const apiPath = cleanEndpoint.includes('/api/v1') ? '' : '/api/v1';
+    // Check if the endpoint already contains the public/api/v1 path
+    const apiPath = cleanEndpoint.includes('/public/api/v1') ? '' : 
+                    cleanEndpoint.includes('/api/v1') ? '/public' : '/public/api/v1';
+                    
     let acelleApiUrl;
     
     if (resourceId) {
@@ -496,10 +502,13 @@ serve(async (req) => {
         headers,
         body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : requestBodyText,
         signal: controller.signal,
-        redirect: 'manual' // Important: prevent automatic redirects
+        redirect: 'follow' // Important: allow redirects to be followed automatically
       });
 
       clearTimeout(timeoutId);
+
+      // Log the final URL after redirects
+      debugLog(`Response URL after redirects: ${response.url}`, {}, LOG_LEVELS.DEBUG);
 
       // Check for redirects which indicate auth failure
       if (response.status === 302) {

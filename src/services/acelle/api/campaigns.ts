@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +30,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
 
     // Following Acelle Mail API documentation - use the token in URL
     // Using our CORS proxy with proper URL encoding
-    const targetUrl = `${apiEndpoint}/me?api_token=${account.apiToken}`;
+    const targetUrl = `${apiEndpoint}/public/api/v1/me?api_token=${account.apiToken}`;
     const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
     
     console.log(`Checking API access with URL: ${proxyUrl}`);
@@ -103,8 +102,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
     }
     
     // Using CORS proxy with properly encoded URL
-    const targetUrl = `${apiEndpoint}/campaigns/${campaignUid}?api_token=${account.apiToken}`;
-    const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
+    const proxyUrl = buildProxyUrl(`campaigns/${campaignUid}`, { api_token: account.apiToken });
     
     console.log(`Fetching campaign details with URL: ${proxyUrl}`);
     
@@ -179,9 +177,14 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
-    // Using CORS proxy with properly encoded query parameters
-    const targetUrl = `${apiEndpoint}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`;
-    const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
+    // Using our buildProxyUrl utility function with campaign parameters
+    const proxyUrl = buildProxyUrl('campaigns', {
+      api_token: account.apiToken,
+      page: page.toString(),
+      per_page: limit.toString(),
+      include_stats: 'true',
+      cache_key: cacheKey
+    });
     
     console.log(`Fetching campaigns with URL: ${proxyUrl}`);
     

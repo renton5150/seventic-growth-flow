@@ -56,7 +56,7 @@ serve(async (req) => {
       method: req.method,
       headers: new Headers(req.headers),
       body: req.method !== 'GET' && req.method !== 'HEAD' ? await req.blob() : undefined,
-      redirect: 'follow'
+      redirect: 'follow' // Important: allow redirects to be followed automatically
     });
 
     // Nettoyer les en-têtes qui pourraient causer des problèmes
@@ -80,6 +80,8 @@ serve(async (req) => {
 
     // Log response details for debugging
     console.log(`Response status: ${response.status}`);
+    console.log(`Response URL: ${response.url}`); // Log the final URL after redirects
+    
     const responseHeadersDebug = {};
     response.headers.forEach((value, key) => {
       responseHeadersDebug[key] = value;
