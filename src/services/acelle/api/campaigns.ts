@@ -3,13 +3,7 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/ace
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
-
-// Fonction utilitaire pour construire l'URL du proxy
-const buildProxyUrl = (endpoint: string, queryParams: string = ""): string => {
-  const targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${endpoint}${queryParams ? "?" + queryParams : ""}`;
-  return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
-};
+import { ACELLE_PROXY_CONFIG, buildProxyUrl } from "@/services/acelle/acelle-service";
 
 // Helper function to check if API is accessible
 export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> => {
@@ -36,7 +30,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
     }
 
     // Following Acelle Mail API documentation - use the token in URL
-    // Using our CORS proxy
+    // Using our CORS proxy with proper URL encoding
     const targetUrl = `${apiEndpoint}/me?api_token=${account.apiToken}`;
     const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
     
@@ -47,7 +41,8 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
       headers: {
         "Accept": "application/json",
         "Authorization": `Bearer ${accessToken}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "X-Debug-Level": "verbose"
       }
     });
 
@@ -107,7 +102,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       return null;
     }
     
-    // Using our CORS proxy
+    // Using CORS proxy with properly encoded URL
     const targetUrl = `${apiEndpoint}/campaigns/${campaignUid}?api_token=${account.apiToken}`;
     const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
     
@@ -118,7 +113,8 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       headers: {
         "Accept": "application/json",
         "Authorization": `Bearer ${accessToken}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "X-Debug-Level": "verbose"
       }
     });
 
@@ -183,7 +179,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
-    // Using our CORS proxy
+    // Using CORS proxy with properly encoded query parameters
     const targetUrl = `${apiEndpoint}/campaigns?api_token=${account.apiToken}&page=${page}&per_page=${limit}&include_stats=true&cache_key=${cacheKey}`;
     const proxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
     
@@ -194,7 +190,8 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       headers: {
         "Accept": "application/json",
         "Authorization": `Bearer ${accessToken}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "X-Debug-Level": "verbose"
       }
     });
     

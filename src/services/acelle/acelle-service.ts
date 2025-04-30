@@ -3,11 +3,30 @@ import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAce
 import { testAcelleConnection } from './api/connection';
 import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/campaigns';
 
-// API proxy configuration
+// API proxy configuration with consistent URLs
 export const ACELLE_PROXY_CONFIG = {
+  // Always use the full URL to the Edge Function
   BASE_URL: "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy",
   ACELLE_API_URL: "https://emailing.plateforme-solution.net/api/v1",
   AUTH_METHOD: "token" // Use "token" for API token in URL (recommended by Acelle Mail documentation)
+};
+
+// Utility function to build properly encoded proxy URLs
+export const buildProxyUrl = (endpoint: string, queryParams: Record<string, string> = {}): string => {
+  // Start with the base Acelle API URL
+  let targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${endpoint}`;
+  
+  // Add query params if any
+  if (Object.keys(queryParams).length > 0) {
+    const urlParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(queryParams)) {
+      urlParams.append(key, value);
+    }
+    targetUrl += `?${urlParams.toString()}`;
+  }
+  
+  // Return the full proxy URL with encoded target URL
+  return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
 };
 
 // Export all functions under a single acelleService object
@@ -28,6 +47,9 @@ export const acelleService = {
   fetchCampaignDetails,
   updateLastSyncDate,
   
+  // Utilities
+  buildProxyUrl,
+  
   // Configuration
   config: ACELLE_PROXY_CONFIG
 };
@@ -43,5 +65,6 @@ export {
   checkApiAccess,
   getAcelleCampaigns,
   fetchCampaignDetails,
-  updateLastSyncDate
+  updateLastSyncDate,
+  buildProxyUrl
 };

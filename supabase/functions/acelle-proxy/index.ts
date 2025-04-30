@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-acelle-endpoint, x-debug-level, x-auth-method, x-api-key',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-acelle-endpoint, x-debug-level, x-auth-method, x-wake-request, x-api-key',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 heures de cache pour les préflights
 };
@@ -374,6 +374,19 @@ serve(async (req) => {
     // Special case for ping/health check
     if (req.url.includes('ping')) {
       debugLog("Received ping request - service is active", {}, LOG_LEVELS.INFO);
+      
+      // Check if it's a wake-up request
+      const wakeParam = url.searchParams.get('wake');
+      if (wakeParam === 'true') {
+        debugLog("Wake-up request received, service is active", {}, LOG_LEVELS.INFO);
+        return new Response(JSON.stringify({ 
+          status: 'active', 
+          message: 'Service is awake and ready',
+          timestamp: new Date().toISOString() 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       
       // Test API accessibility with extended debugging
       const baseUrl = url.searchParams.get('endpoint') || 'https://emailing.plateforme-solution.net/api/v1';

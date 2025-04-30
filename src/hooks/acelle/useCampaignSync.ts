@@ -3,16 +3,11 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
-import { ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
+import { ACELLE_PROXY_CONFIG, buildProxyUrl } from "@/services/acelle/acelle-service";
 
 export const useCampaignSync = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
-
-  // Fonction utilitaire pour construire l'URL du proxy
-  const buildProxyUrl = (targetUrl: string): string => {
-    return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
-  };
 
   const checkApiAvailability = useCallback(async () => {
     try {
@@ -31,12 +26,13 @@ export const useCampaignSync = () => {
       const startTime = Date.now();
       
       try {
-        // Proactive wake-up attempt for Edge Functions
-        console.log("Attempting preemptive wake of Edge Functions...");
+        // Proactive wake-up attempt for Edge Functions using the cors-proxy
+        console.log("Attempting preemptive wake of Edge Functions through cors-proxy...");
         
+        // Build properly encoded proxy URLs for all wake-up attempts
         const wakeupPromises = [
-          // Wake cors-proxy with a simple request
-          fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=https://emailing.plateforme-solution.net/api/v1/ping', {
+          // Wake cors-proxy with a ping request
+          fetch(`${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping`)}`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -44,27 +40,40 @@ export const useCampaignSync = () => {
               'X-Wake-Request': 'true'
             },
             signal: AbortSignal.timeout(8000)
-          }).catch(() => console.log("Wake-up cors-proxy completed")),
+          }).catch(err => {
+            console.log("Wake-up cors-proxy attempt completed", err ? `with error: ${err.message}` : "successfully");
+            return null;
+          }),
           
-          // Wake sync-email-campaigns with OPTIONS request
+          // Direct options request to sync-email-campaigns
           fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
             method: 'OPTIONS',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
-              'Cache-Control': 'no-store'
+              'Cache-Control': 'no-store',
+              'Origin': window.location.origin
             },
             signal: AbortSignal.timeout(8000)
-          }).catch(() => console.log("Wake-up options completed"))
+          }).catch(err => {
+            console.log("Wake-up options attempt completed", err ? `with error: ${err.message}` : "successfully");
+            return null;
+          })
         ];
         
-        await Promise.allSettled(wakeupPromises);
+        // Don't wait for all promises to complete - just fire them
+        Promise.allSettled(wakeupPromises).then(results => {
+          console.log("All wake-up attempts completed:", 
+            results.map((r, i) => `Attempt ${i}: ${r.status}`));
+        });
         
         // Wait a short time to allow services to wake up
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Now check if the API is responsive with a ping through our proxy
-        const pingTargetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/me?api_token=ping&debug=true`;
-        const pingProxyUrl = buildProxyUrl(pingTargetUrl);
+        const pingTargetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping?debug=true`;
+        const pingProxyUrl = `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(pingTargetUrl)}`;
+        
+        console.log(`Checking API availability with ping through proxy: ${pingProxyUrl}`);
         
         const pingResponse = await fetch(
           pingProxyUrl, 
@@ -151,7 +160,7 @@ export const useCampaignSync = () => {
           errorMessage: pingError instanceof Error ? pingError.message : String(pingError),
           timestamp: new Date().toISOString(),
           request: {
-            url: buildProxyUrl(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/me?api_token=ping&debug=true`),
+            url: `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping?debug=true`)}`,
             headers: {
               'Authorization': `Bearer ${accessToken}`, 
               'Content-Type': 'application/json',
@@ -236,7 +245,7 @@ export const useCampaignSync = () => {
       const timeoutId = setTimeout(() => controller.abort(), 35000);
       
       try {
-        // Proceed with actual sync with diagnostic data
+        // Proceed with actual sync with diagnostic data using direct function call
         const syncResponse = await fetch(
           'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', 
           {
@@ -245,7 +254,8 @@ export const useCampaignSync = () => {
               'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'X-Debug-Level': 'verbose'  // Request verbose logging
+              'X-Debug-Level': 'verbose',
+              'Origin': window.location.origin
             },
             body: JSON.stringify({
               forceSync: true,
@@ -411,24 +421,20 @@ export const useCampaignSync = () => {
       const startTime = Date.now();
 
       // Multiple wake-up attempts with different methods
+      // First use the CORS proxy to wake it up
       const wakeupEndpoints = [
-        // Wake acelle-proxy with me endpoint (first attempt)
+        // Wake cors-proxy with a direct call
         {
-          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/me',
-          params: 'api_token=ping&debug=true',
-          retries: 1
-        },
-        // Wake acelle-proxy with ping endpoint (second attempt)
-        {
-          url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
+          url: `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(`${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/ping`)}`,
           params: 'wake=true',
+          method: 'GET',
           retries: 1
         },
-        // Wake sync-email-campaigns with OPTIONS request (may wake function)
+        // Wake sync-email-campaigns with OPTIONS request
         {
           url: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns',
           method: 'OPTIONS',
-          retries: 2
+          retries: 1
         },
         // Make direct POST to sync-email-campaigns with minimal payload
         {
@@ -452,7 +458,8 @@ export const useCampaignSync = () => {
                 'Content-Type': 'application/json',
                 'X-Debug-Level': 'verbose',
                 'X-Wake-Request': 'true',
-                'Cache-Control': 'no-store'
+                'Cache-Control': 'no-store',
+                'Origin': window.location.origin
               },
               signal: AbortSignal.timeout(10000)
             };
@@ -462,14 +469,24 @@ export const useCampaignSync = () => {
               requestInit.body = JSON.stringify(endpoint.body);
             }
             
+            console.log(`Attempting to wake up: ${endpoint.url}`);
             const response = await fetch(
-              `${endpoint.url}${endpoint.params ? `?${endpoint.params}` : ''}`, 
+              endpoint.url, 
               requestInit
             );
             
             if (response.ok) {
               console.log(`Wake-up successful for ${endpoint.url}`);
+              // Try to read the response for logging
+              try {
+                const responseData = await response.text();
+                console.log(`Response from ${endpoint.url}:`, responseData.substring(0, 100));
+              } catch (e) {
+                console.log(`Could not read response from ${endpoint.url}`);
+              }
               return true;
+            } else {
+              console.log(`Wake-up attempt for ${endpoint.url} returned status: ${response.status}`);
             }
           } catch (error) {
             console.log(`Wake-up attempt ${i+1} for ${endpoint.url} failed:`, error);
