@@ -1,4 +1,3 @@
-
 import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount, updateLastSyncDate } from './api/accounts';
 import { testAcelleConnection } from './api/connection';
 import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/campaigns';

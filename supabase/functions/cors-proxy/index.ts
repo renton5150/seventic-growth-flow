@@ -51,6 +51,7 @@ serve(async (req) => {
     // Get Acelle endpoint from headers if provided
     const acelleEndpoint = req.headers.get("X-Acelle-Endpoint");
     const authMethod = req.headers.get("X-Auth-Method") || "token";
+    const wakeRequest = req.headers.get("X-Wake-Request");
     
     // Prepare headers for the target request, removing some of the original headers
     const headers: Record<string, string> = {
@@ -61,6 +62,7 @@ serve(async (req) => {
       // Preserve auth headers if present in the original request
       ...(acelleEndpoint ? { "x-acelle-endpoint": acelleEndpoint } : {}),
       ...(authMethod ? { "x-auth-method": authMethod } : {}),
+      ...(wakeRequest ? { "x-wake-request": wakeRequest } : {}),
     };
     
     // Handle various auth methods
@@ -137,24 +139,43 @@ serve(async (req) => {
       });
     }
     
+    // FIX: Don't try to read the response body multiple times
+    // Clone the response before reading it for different formats
+    const responseClone = response.clone();
+    
+    // First try to parse as JSON
+    let responseData;
+    let isJson = false;
+    
     try {
-      // Try to read as JSON and forward
-      const data = await response.json();
+      responseData = await response.json();
+      isJson = true;
       console.log("Réponse proxy envoyée:", response.status, "en " + duration + "ms");
       
-      return new Response(JSON.stringify(data), {
+      return new Response(JSON.stringify(responseData), {
         status: response.status,
         headers: responseHeaders
       });
-    } catch {
-      // If not JSON, forward as text
-      const text = await response.text();
-      console.log("Réponse proxy envoyée:", response.status, "en " + duration + "ms");
-      
-      return new Response(text, {
-        status: response.status,
-        headers: responseHeaders
-      });
+    } catch (jsonError) {
+      // If it's not JSON, read as text from the cloned response
+      try {
+        const textData = await responseClone.text();
+        console.log("Réponse proxy envoyée (texte):", response.status, "en " + duration + "ms");
+        
+        return new Response(textData, {
+          status: response.status,
+          headers: responseHeaders
+        });
+      } catch (textError) {
+        console.error("Erreur lors de la lecture de la réponse:", textError);
+        return new Response(JSON.stringify({ error: "Could not read response" }), {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders
+          }
+        });
+      }
     }
   } catch (error) {
     console.error("Erreur dans la fonction CORS proxy:", error);

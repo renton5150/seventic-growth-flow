@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -245,51 +244,25 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         return isNaN(num) ? 0 : num;
       };
       
-      // Logging statistics for debugging
-      console.log(`Campaign ${campaign.name || 'Unknown'} statistics:`, campaign.statistics);
+      // Make sure statistics is always an object
+      if (!campaign.statistics) {
+        campaign.statistics = {};
+      }
       
-      // Ensure delivery_info has all required fields
-      const deliveryInfo = {
-        total: safeParseInt(campaign.statistics?.subscriber_count) || safeParseInt(campaign.delivery_info?.total) || 0,
-        delivery_rate: safeParseFloat(campaign.statistics?.delivered_rate) || safeParseFloat(campaign.delivery_info?.delivery_rate) || 0,
-        unique_open_rate: safeParseFloat(campaign.statistics?.uniq_open_rate) || safeParseFloat(campaign.delivery_info?.unique_open_rate) || 0,
-        click_rate: safeParseFloat(campaign.statistics?.click_rate) || safeParseFloat(campaign.delivery_info?.click_rate) || 0,
-        bounce_rate: safeParseFloat(campaign.statistics?.bounce_rate) || safeParseFloat(campaign.delivery_info?.bounce_rate) || 0,
-        unsubscribe_rate: safeParseFloat(campaign.statistics?.unsubscribe_rate) || safeParseFloat(campaign.delivery_info?.unsubscribe_rate) || 0,
-        delivered: safeParseInt(campaign.statistics?.delivered_count) || safeParseInt(campaign.delivery_info?.delivered) || 0,
-        opened: safeParseInt(campaign.statistics?.open_count) || safeParseInt(campaign.delivery_info?.opened) || 0,
-        clicked: safeParseInt(campaign.statistics?.click_count) || safeParseInt(campaign.delivery_info?.clicked) || 0,
-        unsubscribed: safeParseInt(campaign.statistics?.unsubscribe_count) || safeParseInt(campaign.delivery_info?.unsubscribed) || 0,
-        complained: safeParseInt(campaign.statistics?.abuse_complaint_count) || safeParseInt(campaign.delivery_info?.complained) || 0,
-        bounced: {
-          soft: safeParseInt(campaign.statistics?.soft_bounce_count) || safeParseInt(campaign.delivery_info?.bounced?.soft) || 0,
-          hard: safeParseInt(campaign.statistics?.hard_bounce_count) || safeParseInt(campaign.delivery_info?.bounced?.hard) || 0,
-          total: safeParseInt(campaign.statistics?.bounce_count) || safeParseInt(campaign.delivery_info?.bounced?.total) || 0
-        }
-      };
+      // Make sure delivery_info is always an object with nested objects
+      if (!campaign.delivery_info) {
+        campaign.delivery_info = {};
+      }
       
-      // Convert any existing stats
-      const statistics = {
-        subscriber_count: safeParseInt(campaign.statistics?.subscriber_count) || deliveryInfo.total || 0,
-        delivered_count: safeParseInt(campaign.statistics?.delivered_count) || deliveryInfo.delivered || 0,
-        delivered_rate: safeParseFloat(campaign.statistics?.delivered_rate) || deliveryInfo.delivery_rate || 0,
-        open_count: safeParseInt(campaign.statistics?.open_count) || deliveryInfo.opened || 0,
-        uniq_open_rate: safeParseFloat(campaign.statistics?.uniq_open_rate) || deliveryInfo.unique_open_rate || 0,
-        click_count: safeParseInt(campaign.statistics?.click_count) || deliveryInfo.clicked || 0,
-        click_rate: safeParseFloat(campaign.statistics?.click_rate) || deliveryInfo.click_rate || 0,
-        bounce_count: safeParseInt(campaign.statistics?.bounce_count) || deliveryInfo.bounced.total || 0,
-        soft_bounce_count: safeParseInt(campaign.statistics?.soft_bounce_count) || deliveryInfo.bounced.soft || 0,
-        hard_bounce_count: safeParseInt(campaign.statistics?.hard_bounce_count) || deliveryInfo.bounced.hard || 0,
-        unsubscribe_count: safeParseInt(campaign.statistics?.unsubscribe_count) || deliveryInfo.unsubscribed || 0,
-        abuse_complaint_count: safeParseInt(campaign.statistics?.abuse_complaint_count) || deliveryInfo.complained || 0
-      };
+      if (!campaign.delivery_info.bounced) {
+        campaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
+      }
+      
+      // Log complete campaign object for debugging
+      console.log(`Campaign ${campaign.name || 'Unknown'} full data:`, campaign);
 
-      return {
-        ...campaign,
-        delivery_info: deliveryInfo,
-        statistics: statistics,
-        delivery_date: campaign.delivery_date || campaign.run_at || campaign.delivery_at
-      };
+      // Return the processed campaign with all necessary fields
+      return campaign;
     });
     
     // Update last sync date
@@ -301,4 +274,78 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
     return [];
   }
+};
+
+// Enhanced helper to safely get numeric values with multiple fallbacks
+const safeGetNumber = (paths: any[][], obj: any): number => {
+  for (const path of paths) {
+    try {
+      let value = obj;
+      for (const key of path) {
+        if (value === undefined || value === null || typeof value !== 'object') {
+          break;
+        }
+        value = value[key];
+      }
+      
+      if (value !== undefined && value !== null) {
+        const num = Number(value);
+        if (!isNaN(num)) return num;
+      }
+    } catch (e) {
+      // Continue to next path
+    }
+  }
+  return 0;
+};
+
+export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
+  let totalSent = 0;
+  let totalDelivered = 0;
+  let totalOpened = 0;
+  let totalClicked = 0;
+  let totalBounced = 0;
+  
+  campaigns.forEach(campaign => {
+    // Get total sent with fallbacks
+    totalSent += safeGetNumber([
+      ['delivery_info', 'total'], 
+      ['statistics', 'subscriber_count'],
+      ['meta', 'subscribers_count']
+    ], campaign);
+    
+    // Get delivered with fallbacks
+    totalDelivered += safeGetNumber([
+      ['delivery_info', 'delivered'], 
+      ['statistics', 'delivered_count']
+    ], campaign);
+    
+    // Get opened with fallbacks
+    totalOpened += safeGetNumber([
+      ['delivery_info', 'opened'], 
+      ['statistics', 'open_count']
+    ], campaign);
+    
+    // Get clicked with fallbacks
+    totalClicked += safeGetNumber([
+      ['delivery_info', 'clicked'], 
+      ['statistics', 'click_count']
+    ], campaign);
+    
+    // Get bounces with fallbacks
+    totalBounced += safeGetNumber([
+      ['delivery_info', 'bounced', 'total'], 
+      ['delivery_info', 'bounced', 'soft'],
+      ['delivery_info', 'bounced', 'hard'],
+      ['statistics', 'bounce_count']
+    ], campaign);
+  });
+  
+  return [
+    { name: "Envoyés", value: totalSent },
+    { name: "Livrés", value: totalDelivered },
+    { name: "Ouverts", value: totalOpened },
+    { name: "Cliqués", value: totalClicked },
+    { name: "Bounces", value: totalBounced }
+  ];
 };
