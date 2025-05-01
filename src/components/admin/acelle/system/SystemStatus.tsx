@@ -225,7 +225,7 @@ export const SystemStatus = () => {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           État du système
-          <Badge variant={authStatus ? "success" : "destructive"} className="ml-2">
+          <Badge variant={authStatus ? "default" : "destructive"} className="ml-2">
             {authStatus ? "Authentifié" : "Non authentifié"}
           </Badge>
         </CardTitle>
@@ -438,3 +438,4 @@ export const SystemStatus = () => {
     </Card>
   );
 };
+
