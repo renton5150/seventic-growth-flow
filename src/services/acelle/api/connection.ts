@@ -1,7 +1,6 @@
 
-import { AcelleConnectionDebug } from "@/types/acelle.types";
+import { AcelleConnectionDebug, AcelleAccount } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleAccount } from "@/types/acelle.types";
 
 // Configuration for the Acelle proxy
 const ACELLE_PROXY_CONFIG = {
@@ -70,8 +69,18 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       debug.success = true;
       debug.responseData = data;
       
-      // Store the debug info in Supabase
-      await storeConnectionDebug(account.id, debug);
+      // Store the debug info using a simplified approach
+      // We're not using a table that doesn't exist
+      try {
+        await supabase.from('acelle_accounts')
+          .update({ 
+            last_sync_date: new Date().toISOString(),
+            last_sync_error: null
+          })
+          .eq('id', account.id);
+      } catch (e) {
+        console.error('Failed to update connection status:', e);
+      }
       
       return debug;
     } 
@@ -85,8 +94,17 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       debug.errorMessage += ". Could not parse error response.";
     }
     
-    // Store the debug info in Supabase
-    await storeConnectionDebug(account.id, debug);
+    // Update account with error information
+    try {
+      await supabase.from('acelle_accounts')
+        .update({ 
+          last_sync_error: debug.errorMessage,
+          last_sync_date: new Date().toISOString()
+        })
+        .eq('id', account.id);
+    } catch (e) {
+      console.error('Failed to store connection debug info:', e);
+    }
     
     return debug;
   } catch (error) {
@@ -94,32 +112,18 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     debug.duration = duration;
     debug.errorMessage = error instanceof Error ? error.message : String(error);
     
-    // Store the debug info in Supabase
-    await storeConnectionDebug(account.id, debug);
+    // Update account with error information
+    try {
+      await supabase.from('acelle_accounts')
+        .update({ 
+          last_sync_error: debug.errorMessage,
+          last_sync_date: new Date().toISOString()
+        })
+        .eq('id', account.id);
+    } catch (e) {
+      console.error('Failed to store connection debug info:', e);
+    }
     
     return debug;
-  }
-};
-
-/**
- * Store connection debug information in Supabase
- */
-const storeConnectionDebug = async (accountId: string, debugInfo: AcelleConnectionDebug): Promise<void> => {
-  try {
-    await supabase
-      .from('acelle_connection_logs')
-      .insert({
-        account_id: accountId,
-        timestamp: debugInfo.timestamp,
-        success: debugInfo.success,
-        duration_ms: debugInfo.duration,
-        status_code: debugInfo.statusCode,
-        error_message: debugInfo.errorMessage,
-        request_url: debugInfo.request?.url,
-        request_method: debugInfo.request?.method,
-        response_data: debugInfo.responseData
-      });
-  } catch (error) {
-    console.error('Failed to store connection debug info:', error);
   }
 };

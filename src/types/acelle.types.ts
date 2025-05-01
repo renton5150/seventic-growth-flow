@@ -138,3 +138,17 @@ export interface CachedCampaign {
   subject: string;
   updated_at: string;
 }
+
+// Type pour la connexion logs
+export interface AcelleConnectionLog {
+  id: string;
+  account_id: string;
+  timestamp: string;
+  success: boolean;
+  duration_ms?: number;
+  status_code?: number;
+  error_message?: string;
+  request_url?: string;
+  request_method?: string;
+  response_data?: any;
+}

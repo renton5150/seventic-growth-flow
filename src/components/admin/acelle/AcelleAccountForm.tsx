@@ -48,7 +48,7 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
     staleTime: 60000,
   });
 
-  // Test API connection
+  // Test API connection - fixed to use only one argument
   const testConnection = async () => {
     const apiEndpoint = form.getValues("apiEndpoint");
     const apiToken = form.getValues("apiToken");
@@ -63,17 +63,21 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
     setConnectionDebugInfo(null);
 
     try {
-      const result = await testAcelleConnection(apiEndpoint, apiToken, true);
+      // Create a temporary account object for testing
+      const testAccount = {
+        id: "temp-id",
+        apiEndpoint,
+        apiToken,
+        name: "Test Connection",
+        status: "inactive",
+        created_at: new Date().toISOString()
+      };
       
-      if (typeof result === "boolean") {
-        setConnectionStatus(result);
-      } else {
-        setConnectionStatus(result.success);
-        setConnectionDebugInfo(result);
-      }
+      const result = await testAcelleConnection(testAccount);
+      setConnectionStatus(result.success);
+      setConnectionDebugInfo(result);
       
-      if ((typeof result === "boolean" && result) || 
-          (typeof result !== "boolean" && result.success)) {
+      if (result.success) {
         form.setValue("status", "active");
       } else {
         form.setValue("status", "error");

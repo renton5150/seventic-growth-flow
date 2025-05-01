@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
-import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
-import { useAuth } from "@/contexts/AuthContext";
 import { acelleService } from "@/services/acelle/acelle-service";
+import { useAuth } from "@/contexts/AuthContext";
 import { isSupabaseAuthenticated } from "@/services/missions-service/auth/supabaseAuth";
+import { AcelleAccount } from "@/types/acelle.types";
 
 export const SystemStatus = () => {
   const { isAdmin } = useAuth();
-  const { syncCampaignsCache, wakeUpEdgeFunctions, checkApiAvailability } = useCampaignSync();
   const [isTesting, setIsTesting] = useState(false);
   const [endpointStatus, setEndpointStatus] = useState<{[key: string]: boolean}>({});
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
@@ -20,6 +19,63 @@ export const SystemStatus = () => {
   const [authStatus, setAuthStatus] = useState<boolean | null>(null);
 
   if (!isAdmin) return null;
+
+  // Create a test account to use for API checks
+  const testAccount: AcelleAccount = {
+    id: "system-test",
+    apiEndpoint: "https://emailing.plateforme-solution.net",
+    apiToken: "test-token",
+    name: "System Test",
+    status: "active",
+    created_at: new Date().toISOString()
+  };
+
+  const wakeUpEdgeFunctions = async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        console.log("No auth session available for wake-up request");
+        return false;
+      }
+      
+      const wakeUpPromises = [
+        fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Cache-Control': 'no-store',
+            'X-Wake-Request': 'true'
+          }
+        }).catch(() => console.log("Wake-up attempt for cors-proxy completed"))
+      ];
+      
+      await Promise.all(wakeUpPromises);
+      return true;
+    } catch (e) {
+      console.error("Error waking up services:", e);
+      return false;
+    }
+  };
+
+  const checkApiAvailability = async () => {
+    try {
+      const connectionDebug = await acelleService.testAcelleConnection(testAccount);
+      setDebugInfo(connectionDebug);
+      return {
+        available: connectionDebug.success,
+        debugInfo: connectionDebug
+      };
+    } catch (e) {
+      console.error("API availability check failed:", e);
+      return {
+        available: false,
+        error: e instanceof Error ? e.message : "Unknown error",
+        debugInfo: null
+      };
+    }
+  };
 
   const runDiagnostics = async () => {
     setIsTesting(true);
@@ -225,3 +281,6 @@ export const SystemStatus = () => {
     </Card>
   );
 };
+
+// Add missing supabase import
+import { supabase } from "@/integrations/supabase/client";
