@@ -32,13 +32,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     return `${value}${suffix}`;
   };
 
-  // Helper function to render percentage values safely
-  const renderPercent = (value: number | undefined | null) => {
-    if (value === undefined || value === null) return "-";
-    // Format as percentage with 2 decimal places
-    return `${(value * 100).toFixed(2)}%`;
-  };
-
   // Get status and delivery info
   const status = campaign.status || "unknown";
   const statusDisplay = translateStatus(status);
@@ -49,33 +42,33 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   // Initialize statistics and delivery_info objects with default values to avoid TypeScript errors
   // Define these with explicit types that include all properties we'll access
   const stats = campaign.statistics || {
-    subscriber_count: undefined,
-    delivered_count: undefined,
-    delivered_rate: undefined,
-    open_count: undefined,
-    uniq_open_rate: undefined,
-    click_count: undefined,
-    click_rate: undefined,
-    bounce_count: undefined,
-    soft_bounce_count: undefined,
-    hard_bounce_count: undefined,
-    unsubscribe_count: undefined,
-    abuse_complaint_count: undefined
+    subscriber_count: 0,
+    delivered_count: 0,
+    delivered_rate: 0,
+    open_count: 0,
+    uniq_open_rate: 0,
+    click_count: 0,
+    click_rate: 0,
+    bounce_count: 0,
+    soft_bounce_count: 0,
+    hard_bounce_count: 0,
+    unsubscribe_count: 0,
+    abuse_complaint_count: 0
   };
 
   const deliveryInfo = campaign.delivery_info || {
-    total: undefined,
-    delivery_rate: undefined,
-    unique_open_rate: undefined,
-    click_rate: undefined,
-    bounce_rate: undefined,
-    unsubscribe_rate: undefined,
-    delivered: undefined,
-    opened: undefined,
-    clicked: undefined,
-    bounced: { soft: undefined, hard: undefined, total: undefined },
-    unsubscribed: undefined,
-    complained: undefined
+    total: 0,
+    delivery_rate: 0,
+    unique_open_rate: 0,
+    click_rate: 0,
+    bounce_rate: 0,
+    unsubscribe_rate: 0,
+    delivered: 0,
+    opened: 0,
+    clicked: 0,
+    bounced: { soft: 0, hard: 0, total: 0 },
+    unsubscribed: 0,
+    complained: 0
   };
 
   return (
@@ -96,16 +89,16 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         {renderNumeric(stats.subscriber_count || deliveryInfo.total)}
       </TableCell>
       <TableCell>
-        {renderPercent(stats.delivered_rate || deliveryInfo.delivery_rate)}
+        {renderPercentage(stats.delivered_rate || deliveryInfo.delivery_rate)}
       </TableCell>
       <TableCell>
-        {renderPercent(stats.uniq_open_rate || deliveryInfo.unique_open_rate)}
+        {renderPercentage(stats.uniq_open_rate || deliveryInfo.unique_open_rate)}
       </TableCell>
       <TableCell>
-        {renderPercent(stats.click_rate || deliveryInfo.click_rate)}
+        {renderPercentage(stats.click_rate || deliveryInfo.click_rate)}
       </TableCell>
       <TableCell>
-        {renderNumeric(stats.bounce_count || (deliveryInfo.bounced && deliveryInfo.bounced.total))}
+        {renderNumeric(stats.bounce_count || (deliveryInfo.bounced ? deliveryInfo.bounced.total : 0))}
       </TableCell>
       <TableCell>
         {renderNumeric(stats.unsubscribe_count || deliveryInfo.unsubscribed)}

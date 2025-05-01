@@ -59,11 +59,12 @@ serve(async (req) => {
       "Content-Type": req.headers.get("Content-Type") || "application/json",
       "User-Agent": "AcelleProxy/1.0",
       "Cache-Control": "no-cache, no-store, must-revalidate",
-      // Preserve special headers for Acelle API
-      ...(acelleEndpoint ? { "X-Acelle-Endpoint": acelleEndpoint } : {}),
-      ...(authMethod ? { "X-Auth-Method": authMethod } : {}),
-      ...(wakeRequest ? { "X-Wake-Request": wakeRequest } : {})
     };
+    
+    // Preserve special headers for Acelle API - case sensitivity matters
+    if (acelleEndpoint) headers["X-Acelle-Endpoint"] = acelleEndpoint;
+    if (authMethod) headers["X-Auth-Method"] = authMethod;
+    if (wakeRequest) headers["X-Wake-Request"] = wakeRequest;
     
     // Handle various auth methods
     if (authMethod === "header" && originalHeaders["x-api-key"]) {
@@ -139,8 +140,8 @@ serve(async (req) => {
       });
     }
     
-    // IMPORTANT: Correction of the "Body already consumed" error
-    // We need to clone the response before reading its body
+    // CRITICAL FIX: Handle the "Body already consumed" error
+    // We need to clone the response before trying to read its body
     const responseClone = response.clone();
     
     // First try to parse as JSON
