@@ -128,9 +128,10 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
         abuse_complaint_count: getNumberSafely(campaign, ['statistics', 'abuse_complaint_count'], deliveryInfo.complained)
       };
 
-      // Create final campaign object
+      // Create final campaign object - assure la compatibilité avec AcelleCampaign
       return {
-        uid: campaign.campaign_uid,
+        uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
+        campaign_uid: campaign.campaign_uid, // Conserver aussi campaign_uid pour compatibilité
         name: campaign.name || 'Sans nom',
         subject: campaign.subject || 'Sans sujet',
         status: campaign.status || 'unknown',
@@ -142,7 +143,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
         delivery_info: deliveryInfo,
         statistics: statistics,
         meta: {} // Use empty object as default
-      };
+      } as AcelleCampaign;
     });
   } catch (error) {
     console.error('Fatal error fetching campaigns from cache:', error);

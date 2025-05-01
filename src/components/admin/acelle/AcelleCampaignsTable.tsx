@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -9,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AcelleAccount } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
@@ -24,7 +25,7 @@ import {
 } from "./table/LoadingAndErrorStates";
 import AcelleCampaignDetails from "./AcelleCampaignDetails";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client"; // Importation de supabase
+import { supabase } from "@/integrations/supabase/client";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -63,7 +64,23 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           if (cachedCampaigns && cachedCampaigns.length > 0) {
             console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache for account ${account.name}`);
             toast.success("Données chargées depuis le cache", { id: "fetch-campaigns" });
-            return cachedCampaigns;
+            
+            // Convertir les données de cache en format AcelleCampaign
+            return cachedCampaigns.map(campaign => ({
+              uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
+              campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
+              name: campaign.name || "Sans nom",
+              subject: campaign.subject || "Sans sujet",
+              status: campaign.status || "unknown",
+              created_at: campaign.created_at,
+              updated_at: campaign.updated_at,
+              delivery_date: campaign.delivery_date,
+              run_at: campaign.run_at,
+              last_error: campaign.last_error,
+              delivery_info: campaign.delivery_info || {},
+              statistics: {},
+              meta: {}
+            })) as AcelleCampaign[];
           }
         } catch (cacheError) {
           console.error(`Error retrieving campaigns from cache:`, cacheError);

@@ -105,7 +105,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         }
       }
       
-      // 5. Essayer dans track
+      // 5. Vérifier éventuellement dans track et report si disponibles
       if (campaign.track && typeof campaign.track === 'object') {
         if (key in campaign.track && campaign.track[key] !== undefined) {
           const value = Number(campaign.track[key]);
@@ -113,7 +113,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         }
       }
       
-      // 6. Essayer dans report
       if (campaign.report && typeof campaign.report === 'object') {
         if (key in campaign.report && campaign.report[key] !== undefined) {
           const value = Number(campaign.report[key]);
@@ -181,7 +180,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
             if (!isNaN(value)) return value;
           }
           
-          // track
+          // track si disponible
           if (campaign.track && altKey in campaign.track) {
             const value = Number(campaign.track[altKey]);
             if (!isNaN(value)) return value;

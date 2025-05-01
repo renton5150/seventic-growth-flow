@@ -265,7 +265,23 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
           
         if (cachedCampaigns && cachedCampaigns.length > 0) {
           console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
-          return cachedCampaigns;
+          
+          // Convertir les données de cache en format AcelleCampaign
+          return cachedCampaigns.map(campaign => ({
+            uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
+            campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
+            name: campaign.name || "Sans nom",
+            subject: campaign.subject || "Sans sujet",
+            status: campaign.status || "unknown",
+            created_at: campaign.created_at,
+            updated_at: campaign.updated_at,
+            delivery_date: campaign.delivery_date,
+            run_at: campaign.run_at,
+            last_error: campaign.last_error,
+            delivery_info: campaign.delivery_info || {},
+            statistics: {},
+            meta: {}
+          })) as AcelleCampaign[];
         }
       } catch (cacheError) {
         console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
@@ -329,7 +345,23 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
             
           if (cachedCampaigns && cachedCampaigns.length > 0) {
             console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
-            return cachedCampaigns;
+            
+            // Convertir les données de cache en format AcelleCampaign
+            return cachedCampaigns.map(campaign => ({
+              uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
+              campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
+              name: campaign.name || "Sans nom",
+              subject: campaign.subject || "Sans sujet",
+              status: campaign.status || "unknown",
+              created_at: campaign.created_at,
+              updated_at: campaign.updated_at,
+              delivery_date: campaign.delivery_date,
+              run_at: campaign.run_at,
+              last_error: campaign.last_error,
+              delivery_info: campaign.delivery_info || {},
+              statistics: {},
+              meta: {}
+            })) as AcelleCampaign[];
           }
         } catch (cacheError) {
           console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
@@ -354,8 +386,11 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
             statistics: campaign.statistics || {},
             delivery_info: campaign.delivery_info || {
               bounced: { soft: 0, hard: 0, total: 0 }
-            }
-          };
+            },
+            // S'assurer que campaign_uid existe aussi comme uid si nécessaire
+            uid: campaign.uid || campaign.campaign_uid,
+            campaign_uid: campaign.campaign_uid || campaign.uid
+          } as AcelleCampaign;
         });
         
         // Mettre à jour la date de dernière synchronisation
@@ -397,7 +432,23 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
           
         if (cachedCampaigns && cachedCampaigns.length > 0) {
           console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
-          return cachedCampaigns;
+          
+          // Convertir les données de cache en format AcelleCampaign
+          return cachedCampaigns.map(campaign => ({
+            uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
+            campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
+            name: campaign.name || "Sans nom",
+            subject: campaign.subject || "Sans sujet",
+            status: campaign.status || "unknown",
+            created_at: campaign.created_at,
+            updated_at: campaign.updated_at,
+            delivery_date: campaign.delivery_date,
+            run_at: campaign.run_at,
+            last_error: campaign.last_error,
+            delivery_info: campaign.delivery_info || {},
+            statistics: {},
+            meta: {}
+          })) as AcelleCampaign[];
         }
       } catch (cacheError) {
         console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
@@ -478,14 +529,8 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
           }
         }
         
-        // 5. Essayer dans track
-        if (campaign.track && typeof campaign.track === 'object') {
-          if (key in campaign.track && campaign.track[key] !== undefined) {
-            const value = Number(campaign.track[key]);
-            if (!isNaN(value)) return value;
-          }
-        }
-        
+        // Suppression des vérifications track et report puisqu'on a mis à jour le type
+
         // Essayer les mappings alternatifs de clés
         const keyMappings: Record<string, string[]> = {
           'subscriber_count': ['total', 'recipient_count', 'subscribers_count', 'total_subscribers'],
