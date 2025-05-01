@@ -29,9 +29,9 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const campaignSubject = campaign?.subject || "Sans sujet";
   const campaignStatus = (campaign?.status || "unknown").toLowerCase();
   
-  // Date d'envoi avec fallback
-  const deliveryDate = campaign?.delivery_at || campaign?.run_at || 
-                       campaign?.meta?.delivery_at || campaign?.meta?.run_at || null;
+  // Date d'envoi avec fallback - Utiliser delivery_date au lieu de delivery_at
+  const deliveryDate = campaign?.delivery_date || campaign?.run_at || 
+                       campaign?.meta?.delivery_date || campaign?.meta?.run_at || null;
   
   /**
    * Formatage sécurisé des dates
