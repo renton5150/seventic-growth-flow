@@ -58,7 +58,7 @@ export const {
 } = campaignsModule;
 
 export const {
-  testAcelleConnection: testConnection
+  testAcelleConnection
 } = connectionModule;
 
 // Exporter aussi sous forme d'objet global
@@ -79,7 +79,7 @@ export const acelleService = {
   extractCampaignsFromCache,
   
   // Connexion
-  testConnection,
+  testAcelleConnection,
   
   // Utilitaire
   buildProxyUrl

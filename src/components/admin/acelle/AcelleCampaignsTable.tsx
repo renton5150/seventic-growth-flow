@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -10,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { acelleService, extractCampaignsFromCache } from "@/services/acelle/acelle-service";
+import { acelleService } from "@/services/acelle/acelle-service";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
