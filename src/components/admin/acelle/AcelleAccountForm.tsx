@@ -70,7 +70,10 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
         apiToken,
         name: "Test Connection",
         status: "inactive",
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        lastSyncDate: null,
+        lastSyncError: null,
+        cachePriority: 0
       };
       
       const result = await testAcelleConnection(testAccount);

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Check, X, AlertTriangle, RefreshCw, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,10 @@ export const SystemStatus = () => {
     apiToken: "test-token",
     name: "System Test",
     status: "active",
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    lastSyncDate: null,
+    lastSyncError: null,
+    cachePriority: 0
   };
 
   const wakeUpEdgeFunctions = async () => {
