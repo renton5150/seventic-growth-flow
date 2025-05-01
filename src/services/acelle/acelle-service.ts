@@ -3,74 +3,81 @@ import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAce
 import { testAcelleConnection } from './api/connection';
 import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/campaigns';
 
-// API proxy configuration with consistent URLs
+// Configuration API proxy améliorée avec URLs cohérentes
 export const ACELLE_PROXY_CONFIG = {
-  // Always use the full URL to the Edge Function
   BASE_URL: "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy",
-  ACELLE_API_URL: "https://emailing.plateforme-solution.net/api/v1", // Use correct API path without duplication
-  AUTH_METHOD: "token" // Use "token" for API token in URL (recommended by Acelle Mail documentation)
+  ACELLE_API_URL: "https://emailing.plateforme-solution.net/api/v1",
+  AUTH_METHOD: "token"
 };
 
-// Enhanced utility function to build properly encoded proxy URLs with better error handling
+/**
+ * Fonction utilitaire améliorée pour construire des URLs proxy correctement encodées
+ * avec une meilleure gestion des erreurs et contrôle de qualité
+ */
 export const buildProxyUrl = (endpoint: string, queryParams: Record<string, string> = {}): string => {
   try {
-    // Clean the endpoint to ensure we don't have leading or trailing slashes
+    // Nettoyer l'endpoint pour éviter les slashes en début/fin
     const cleanEndpoint = endpoint.replace(/^\/+|\/+$/g, '');
     
-    // Start with the base Acelle API URL
-    let targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${cleanEndpoint}`;
+    // Construire l'URL cible d'Acelle avec le bon format
+    const targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${cleanEndpoint}`;
     
-    // Add query params if any
-    if (Object.keys(queryParams).length > 0) {
-      const urlParams = new URLSearchParams();
-      for (const [key, value] of Object.entries(queryParams)) {
-        if (value !== undefined && value !== null) {
-          urlParams.append(key, value);
-        }
+    // Construire les paramètres d'URL
+    const urlSearchParams = new URLSearchParams();
+    
+    // Ajouter les paramètres fournis s'ils existent
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value !== undefined && value !== null) {
+        urlSearchParams.append(key, value);
       }
-      targetUrl += `?${urlParams.toString()}`;
     }
     
-    // Add timestamp param to avoid caching if not already present
-    if (!queryParams.t && !queryParams.timestamp && !queryParams.cache_key) {
-      const timestamp = Date.now();
-      targetUrl += targetUrl.includes('?') ? `&t=${timestamp}` : `?t=${timestamp}`;
+    // Ajouter un paramètre d'horodatage pour éviter le cache si non présent
+    if (!queryParams.t && !queryParams.timestamp && !queryParams.cache_bust) {
+      urlSearchParams.append('t', Date.now().toString());
     }
     
-    // Return the full proxy URL with correctly encoded target URL
-    return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
+    // Construire l'URL finale avec les paramètres
+    let finalTargetUrl = targetUrl;
+    const queryString = urlSearchParams.toString();
+    if (queryString) {
+      finalTargetUrl += `?${queryString}`;
+    }
+    
+    // Retourner l'URL proxy complète avec l'URL cible correctement encodée
+    return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(finalTargetUrl)}`;
   } catch (error) {
-    console.error("Error building proxy URL:", error);
-    throw new Error(`Failed to build proxy URL for endpoint ${endpoint}: ${error instanceof Error ? error.message : String(error)}`);
+    console.error("Erreur lors de la construction de l'URL proxy:", error);
+    throw new Error(`Échec de la construction de l'URL proxy pour l'endpoint ${endpoint}: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
-// Export all functions under a single acelleService object
+// Exporter tous les services sous un seul objet acelleService
 export const acelleService = {
-  // Account management
+  // Gestion des comptes
   getAcelleAccounts,
   getAcelleAccountById,
   createAcelleAccount,
   updateAcelleAccount,
   deleteAcelleAccount,
   
-  // Connection testing
+  // Test de connexion
   testAcelleConnection,
   checkApiAccess,
   
-  // Campaign operations
+  // Opérations sur les campagnes
   getAcelleCampaigns,
   fetchCampaignDetails,
   updateLastSyncDate,
   
-  // Utilities
+  // Utilitaires
   buildProxyUrl,
   
   // Configuration
   config: ACELLE_PROXY_CONFIG
 };
 
-// Also export individual functions for direct imports
+// Exporter aussi les fonctions individuelles pour les imports directs
 export {
   getAcelleAccounts,
   getAcelleAccountById,

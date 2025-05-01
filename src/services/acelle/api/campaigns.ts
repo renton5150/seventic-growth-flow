@@ -5,41 +5,43 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { buildProxyUrl, ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
 
-// Helper function to check if API is accessible with improved debugging
+/**
+ * Fonction améliorée pour vérifier l'accessibilité de l'API avec diagnostics complets
+ */
 export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> => {
   try {
-    console.log(`Testing API accessibility for account: ${account.name}`);
+    console.log(`Test d'accessibilité API pour le compte: ${account.name}`);
     
-    // Get the auth session for the current user
+    // Récupérer la session d'authentification
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData?.session?.access_token;
     
     if (!accessToken) {
-      console.error("No auth token available for API access check");
+      console.error("Pas de jeton d'accès disponible");
       return false;
     }
     
-    // Fix potential URL issues by ensuring there's no trailing slash
+    // Nettoyer l'URL de l'API
     const apiEndpoint = account.apiEndpoint?.endsWith('/') 
       ? account.apiEndpoint.slice(0, -1) 
       : account.apiEndpoint;
       
     if (!apiEndpoint) {
-      console.error(`Invalid API endpoint for account: ${account.name}`);
+      console.error(`Point d'accès API invalide pour le compte: ${account.name}`);
       return false;
     }
 
-    // Use the buildProxyUrl function to ensure proper URL construction
+    // Utiliser la fonction buildProxyUrl pour une construction d'URL cohérente
     const proxyUrl = buildProxyUrl('me', { 
       api_token: account.apiToken,
-      cache_bust: Date.now().toString() // Add cache busting parameter
+      cache_bust: Date.now().toString() // Paramètre anti-cache
     });
     
-    console.log(`Checking API access with URL: ${proxyUrl}`);
+    console.log(`Vérification d'accès API avec l'URL: ${proxyUrl}`);
     
-    // Use AbortController to set timeout
+    // Utiliser AbortController pour le timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes de timeout
     
     try {
       const response = await fetch(proxyUrl, {
@@ -59,77 +61,79 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        console.error(`API accessibility check failed: ${response.status}`);
+        console.error(`Vérification d'accès API échouée: ${response.status}`);
         
-        // Log detailed response for debugging
+        // Journal détaillé de la réponse pour débogage
         try {
           const errorText = await response.text();
-          console.error("API accessibility error details:", errorText);
+          console.error("Détails de l'erreur d'accès API:", errorText);
         } catch (e) {
-          console.error("Could not read error response");
+          console.error("Impossible de lire la réponse d'erreur");
         }
         
         return false;
       }
 
       const result = await response.json();
-      console.log("API accessibility check result:", result);
+      console.log("Résultat de la vérification d'accès API:", result);
       
       return result && (result.status === 'active' || !!result.id);
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error("Error checking API accessibility (fetch error):", error);
+      console.error("Erreur lors de la vérification d'accessibilité (erreur fetch):", error);
       return false;
     }
   } catch (error) {
-    console.error("Error checking API accessibility (general error):", error);
+    console.error("Erreur lors de la vérification d'accessibilité (erreur générale):", error);
     return false;
   }
 };
 
-// Enhanced helper function to fetch campaign details with better error handling
+/**
+ * Fonction améliorée pour récupérer les détails d'une campagne avec une meilleure gestion des erreurs
+ */
 export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
-    // Fix potential URL issues by ensuring there's no trailing slash
+    // Nettoyer l'URL de l'API
     const apiEndpoint = account.apiEndpoint?.endsWith('/') 
       ? account.apiEndpoint.slice(0, -1) 
       : account.apiEndpoint;
       
     if (!apiEndpoint || !account.apiToken) {
-      console.error(`Invalid API configuration for account: ${account.name}`);
+      console.error(`Configuration API invalide pour le compte: ${account.name}`);
       return null;
     }
     
-    // Get the auth session for the current user
+    // Récupérer la session d'authentification
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData?.session?.access_token;
     
     if (!accessToken) {
-      console.error("No auth token available for API request");
+      console.error("Pas de jeton d'authentification disponible pour la requête API");
       return null;
     }
     
-    console.log(`Fetching details for campaign ${campaignUid} from account ${account.name}`);
+    console.log(`Récupération des détails pour la campagne ${campaignUid} du compte ${account.name}`);
     
-    // First check API accessibility
+    // D'abord vérifier l'accessibilité de l'API
     const isApiAccessible = await checkApiAccess(account);
     if (!isApiAccessible) {
-      console.error("API is not accessible, cannot fetch campaign details");
+      console.error("API non accessible, impossible de récupérer les détails de la campagne");
       toast.error("L'API Acelle n'est pas accessible actuellement");
       return null;
     }
     
-    // Using CORS proxy with properly encoded URL and cache busting
+    // Utiliser le proxy CORS avec une URL correctement encodée et anti-cache
     const proxyUrl = buildProxyUrl(`campaigns/${campaignUid}`, { 
       api_token: account.apiToken,
-      cache_bust: Date.now().toString() // Add cache busting parameter
+      cache_bust: Date.now().toString() // Paramètre anti-cache
     });
     
-    console.log(`Fetching campaign details with URL: ${proxyUrl}`);
+    console.log(`Récupération des détails de campagne avec l'URL: ${proxyUrl}`);
     
-    // Use AbortController to set timeout
+    // Utiliser AbortController pour le timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 secondes de timeout
     
     try {
       const response = await fetch(proxyUrl, {
@@ -152,75 +156,77 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
         let errorText;
         try {
           const errorData = await response.json();
-          errorText = errorData.error || `Error ${response.status}`;
+          errorText = errorData.error || `Erreur ${response.status}`;
         } catch (e) {
           errorText = await response.text();
         }
-        console.error(`Failed to fetch details for campaign ${campaignUid}: ${response.status}`, errorText);
+        console.error(`Échec de récupération des détails pour la campagne ${campaignUid}: ${response.status}`, errorText);
         toast.error(`Erreur lors du chargement des détails: ${errorText}`);
         return null;
       }
 
       const campaignDetails = await response.json();
-      console.log(`Successfully fetched details for campaign ${campaignUid}`, campaignDetails);
+      console.log(`Détails récupérés avec succès pour la campagne ${campaignUid}`, campaignDetails);
       return campaignDetails;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === "AbortError") {
-        console.error(`Timeout fetching details for campaign ${campaignUid}`);
+        console.error(`Timeout lors de la récupération des détails pour la campagne ${campaignUid}`);
         toast.error("Délai d'attente dépassé lors du chargement des détails");
       } else {
-        console.error(`Error fetching details for campaign ${campaignUid}:`, error);
+        console.error(`Erreur lors de la récupération des détails pour la campagne ${campaignUid}:`, error);
         toast.error(`Erreur lors du chargement des détails: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
       }
       return null;
     }
   } catch (error) {
-    console.error(`Error fetching details for campaign ${campaignUid}:`, error);
+    console.error(`Erreur lors de la récupération des détails pour la campagne ${campaignUid}:`, error);
     toast.error(`Erreur lors du chargement des détails: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
     return null;
   }
 };
 
-// Enhanced function to get campaigns with improved statistics extraction
+/**
+ * Fonction améliorée pour récupérer les campagnes avec une extraction de statistiques optimisée
+ */
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
-    console.log(`Fetching campaigns for account ${account.name}, page ${page}, limit ${limit}`);
+    console.log(`Récupération des campagnes pour le compte ${account.name}, page ${page}, limite ${limit}`);
     
-    // Check if the API endpoint has the correct format
+    // Vérifier si le point d'accès API est au bon format
     if (!account.apiEndpoint || !account.apiToken) {
-      console.error(`Invalid API endpoint or token for account: ${account.name}`);
+      console.error(`Point d'accès API ou jeton invalide pour le compte: ${account.name}`);
       return [];
     }
 
-    // Fix potential URL issues by ensuring there's no trailing slash
+    // Nettoyer l'URL de l'API
     const apiEndpoint = account.apiEndpoint.endsWith('/') 
       ? account.apiEndpoint.slice(0, -1) 
       : account.apiEndpoint;
     
-    console.log(`Making request to endpoint: ${apiEndpoint}`);
+    console.log(`Requête vers le point d'accès: ${apiEndpoint}`);
     
-    // Get the auth session for the current user
+    // Récupérer la session d'authentification
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData?.session?.access_token;
     
     if (!accessToken) {
-      console.error("No auth token available for campaigns API request");
+      console.error("Pas de jeton d'authentification disponible pour les requêtes API de campagnes");
       return [];
     }
     
-    // First check API accessibility
+    // D'abord vérifier l'accessibilité de l'API
     const isApiAccessible = await checkApiAccess(account);
     if (!isApiAccessible) {
-      console.error("API is not accessible, cannot fetch campaigns");
+      console.error("API non accessible, impossible de récupérer les campagnes");
       toast.error("L'API Acelle n'est pas accessible actuellement");
       return [];
     }
     
-    // Use cache buster to prevent stale results
+    // Utiliser un anti-cache pour éviter les résultats périmés
     const cacheBuster = Date.now().toString();
     
-    // Using our buildProxyUrl utility function with campaign parameters
+    // Utiliser notre fonction utilitaire buildProxyUrl avec les paramètres de campagne
     const proxyUrl = buildProxyUrl('campaigns', {
       api_token: account.apiToken,
       page: page.toString(),
@@ -229,11 +235,11 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       cache_bust: cacheBuster
     });
     
-    console.log(`Fetching campaigns with URL: ${proxyUrl}`);
+    console.log(`Récupération des campagnes avec l'URL: ${proxyUrl}`);
     
-    // Use AbortController to set timeout
+    // Utiliser AbortController pour le timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 secondes de timeout
     
     try {
       const response = await fetch(proxyUrl, {
@@ -253,14 +259,14 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        console.error(`Failed to fetch campaigns: ${response.status}`);
+        console.error(`Échec de récupération des campagnes: ${response.status}`);
         
-        // Log detailed response for debugging
+        // Journal détaillé de la réponse pour débogage
         try {
           const errorText = await response.text();
-          console.error("Fetch campaigns error details:", errorText);
+          console.error("Détails de l'erreur de récupération des campagnes:", errorText);
         } catch (e) {
-          console.error("Could not read error response");
+          console.error("Impossible de lire la réponse d'erreur");
         }
         
         if (response.status === 401 || response.status === 403) {
@@ -275,12 +281,12 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       }
       
       const campaigns = await response.json();
-      console.log(`Fetched ${campaigns.length} campaigns for account ${account.name}`);
-      console.log("Sample campaign data:", campaigns.length > 0 ? campaigns[0] : "No campaigns");
+      console.log(`Récupéré ${campaigns.length} campagnes pour le compte ${account.name}`);
+      console.log("Exemple de données de campagne:", campaigns.length > 0 ? campaigns[0] : "Pas de campagnes");
       
-      // Process campaigns to ensure all required fields are present with improved parsing
+      // Traiter les campagnes pour s'assurer que tous les champs requis sont présents
       const processedCampaigns = campaigns.map((campaign: any) => {
-        // Initialize statistics and delivery_info with default values to avoid TypeScript errors
+        // Initialiser les statistiques et delivery_info avec des valeurs par défaut
         if (!campaign.statistics) {
           campaign.statistics = {};
         }
@@ -296,23 +302,23 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         return campaign;
       });
       
-      // Update last sync date
+      // Mettre à jour la date de dernière synchronisation
       updateLastSyncDate(account.id);
       
       return processedCampaigns;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === "AbortError") {
-        console.error(`Timeout fetching campaigns for account ${account.name}`);
+        console.error(`Timeout lors de la récupération des campagnes pour le compte ${account.name}`);
         toast.error("Délai d'attente dépassé lors de la récupération des campagnes");
       } else {
-        console.error(`Error fetching campaigns for account ${account.name}:`, error);
+        console.error(`Erreur lors de la récupération des campagnes pour le compte ${account.name}:`, error);
         toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
       }
       return [];
     }
   } catch (error) {
-    console.error(`Error fetching campaigns for account ${account.name}:`, error);
+    console.error(`Erreur lors de la récupération des campagnes pour le compte ${account.name}:`, error);
     toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
     return [];
   }

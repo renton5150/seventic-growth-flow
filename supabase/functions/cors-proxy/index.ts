@@ -1,22 +1,25 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Complete set of CORS headers to handle all request types
+// Configuration CORS complète pour tous les types de requêtes
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, content-type, x-acelle-endpoint, x-auth-method, x-api-key, x-debug-level, x-wake-request',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-endpoint, x-auth-method, x-api-key, x-debug-level, x-wake-request, cache-control',
   'Access-Control-Allow-Credentials': 'true',
-  'Access-Control-Max-Age': '86400', // 24 hours
-  'Access-Control-Expose-Headers': 'x-wake-request', // Important: expose custom headers
+  'Access-Control-Max-Age': '86400',  // 24 heures pour réduire les preflight
+  'Access-Control-Expose-Headers': 'x-wake-request, x-debug-level',  // Exposer les en-têtes personnalisés
 };
 
+/**
+ * Fonction principale de proxy CORS
+ */
 serve(async (req) => {
-  // Log the request details for debugging
-  console.log(`Requête proxy reçue: ${req.method} ${req.url}`);
+  console.log(`[CORS Proxy] Requête reçue: ${req.method} ${req.url}`);
   
-  // Handle CORS preflight requests
+  // Gérer les requêtes preflight OPTIONS avec une réponse immédiate
   if (req.method === "OPTIONS") {
+    console.log("[CORS Proxy] Traitement d'une requête OPTIONS (preflight)");
     return new Response(null, {
       status: 204,
       headers: corsHeaders
@@ -27,10 +30,13 @@ serve(async (req) => {
     const url = new URL(req.url);
     const targetUrl = url.searchParams.get("url");
     
-    // Validate the target URL parameter
+    // Validation de l'URL cible
     if (!targetUrl) {
-      console.error("URL parameter missing");
-      return new Response(JSON.stringify({ error: "Missing 'url' parameter" }), {
+      console.error("[CORS Proxy] Erreur: Paramètre 'url' manquant");
+      return new Response(JSON.stringify({ 
+        error: "Paramètre 'url' manquant", 
+        timestamp: new Date().toISOString() 
+      }), {
         status: 400,
         headers: {
           "Content-Type": "application/json",
@@ -39,93 +45,65 @@ serve(async (req) => {
       });
     }
     
-    console.log(`Proxying request to: ${targetUrl}`);
+    console.log(`[CORS Proxy] Redirection vers: ${targetUrl}`);
     
-    // Log original request details
-    console.log("Original request method:", req.method);
-    const originalHeaders: Record<string, string> = {};
-    req.headers.forEach((value, key) => {
-      originalHeaders[key] = value;
-      console.log(`Header: ${key}: ${value}`);
+    // Récupération des en-têtes requis de la requête originale
+    const headers = new Headers();
+    headers.set("Accept", req.headers.get("Accept") || "application/json");
+    headers.set("Content-Type", req.headers.get("Content-Type") || "application/json");
+    headers.set("User-Agent", "Seventic-Acelle-Proxy/2.0");
+    headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    
+    // Copie des en-têtes spécifiques à Acelle avec vérification de leur existence
+    ["Authorization", "x-acelle-endpoint", "x-auth-method", "x-api-key", 
+     "x-debug-level", "x-wake-request"].forEach(header => {
+      const value = req.headers.get(header);
+      if (value) headers.set(header, value);
     });
     
-    // Get Acelle endpoint from headers if provided
-    const acelleEndpoint = req.headers.get("X-Acelle-Endpoint");
-    const authMethod = req.headers.get("X-Auth-Method") || "token";
-    const wakeRequest = req.headers.get("X-Wake-Request");
-    const apiKey = req.headers.get("X-Api-Key");
-    const debugLevel = req.headers.get("X-Debug-Level");
-    
-    // Prepare headers for the target request
-    const headers: Record<string, string> = {
-      "Accept": req.headers.get("Accept") || "application/json",
-      "Content-Type": req.headers.get("Content-Type") || "application/json",
-      "User-Agent": "AcelleProxy/1.0",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-    };
-    
-    // Preserve special headers for Acelle API - case sensitivity matters
-    if (acelleEndpoint) headers["X-Acelle-Endpoint"] = acelleEndpoint;
-    if (authMethod) headers["X-Auth-Method"] = authMethod;
-    if (wakeRequest) headers["X-Wake-Request"] = wakeRequest;
-    if (apiKey) headers["X-API-Key"] = apiKey;
-    if (debugLevel) headers["X-Debug-Level"] = debugLevel;
-    
-    // Handle various auth methods
-    if (authMethod === "header" && originalHeaders["x-api-key"]) {
-      headers["X-API-Key"] = originalHeaders["x-api-key"];
-    }
-    
-    // Copy Authorization header if present
-    const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      headers["Authorization"] = authHeader;
-    }
-    
-    // Create request options
-    const requestOptions: RequestInit = {
+    // Options de la requête avec timeout
+    const requestOptions = {
       method: req.method,
       headers,
-      redirect: "follow" // Follow redirects automatically
+      signal: AbortSignal.timeout(30000)  // 30 secondes de timeout
     };
     
-    // Add body for POST/PUT requests
+    // Ajouter le corps pour les requêtes POST/PUT avec copie sécurisée
     if (["POST", "PUT"].includes(req.method)) {
       try {
-        const contentType = req.headers.get("Content-Type");
-        if (contentType?.includes("application/json")) {
-          const body = await req.json();
+        // Cloner la requête pour pouvoir la lire sans la consommer
+        const contentType = req.headers.get("Content-Type") || "";
+        
+        // Utiliser la méthode adaptée en fonction du Content-Type
+        if (contentType.includes("application/json")) {
+          const reqClone = req.clone();
+          const body = await reqClone.json();
           requestOptions.body = JSON.stringify(body);
         } else {
-          const body = await req.text();
+          const reqClone = req.clone();
+          const body = await reqClone.text();
           requestOptions.body = body;
         }
       } catch (error) {
-        console.error("Error reading request body:", error);
+        console.error("[CORS Proxy] Erreur lors de la lecture du corps de la requête:", error);
       }
     }
     
-    // Log outgoing request details
-    console.log("Transfert de la requête vers:", targetUrl);
-    console.log("Headers envoyés:", headers);
+    console.log("[CORS Proxy] En-têtes envoyés:", Object.fromEntries(headers.entries()));
     
-    // Make the actual request to the target URL with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
-    requestOptions.signal = controller.signal;
-    
+    // Effectuer la requête avec gestion des erreurs
     const startTime = Date.now();
-    let response: Response;
+    let response;
     
     try {
       response = await fetch(targetUrl, requestOptions);
     } catch (fetchError) {
-      clearTimeout(timeoutId);
-      console.error(`Fetch error: ${fetchError.message}`);
+      console.error(`[CORS Proxy] Erreur fetch:`, fetchError);
       
       return new Response(JSON.stringify({
-        error: fetchError.message,
-        timestamp: new Date().toISOString()
+        error: fetchError instanceof Error ? fetchError.message : "Erreur inconnue",
+        timestamp: new Date().toISOString(),
+        targetUrl
       }), {
         status: 502,
         headers: {
@@ -134,76 +112,53 @@ serve(async (req) => {
         }
       });
     }
-    clearTimeout(timeoutId);
     
     const duration = Date.now() - startTime;
+    console.log(`[CORS Proxy] Réponse reçue: ${response.status} en ${duration}ms`);
     
-    // Log response details
-    console.log("Response status:", response.status);
-    console.log("Response URL:", response.url);
-    
-    // Log response headers
-    const responseHeadersObj: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      responseHeadersObj[key] = value;
-    });
-    console.log("Response headers:", responseHeadersObj);
-    
-    // Prepare response headers with CORS
+    // Préparation des en-têtes de réponse avec CORS
     const responseHeaders = new Headers(corsHeaders);
     
-    // Copy some response headers from the target response
-    const headersToForward = [
-      "Content-Type", 
-      "Content-Disposition",
-      "Cache-Control",
-      "Etag"
-    ];
-    
-    headersToForward.forEach(header => {
+    // Copie des en-têtes importants de la réponse cible
+    ["Content-Type", "Content-Disposition", "Cache-Control", "ETag"].forEach(header => {
       const value = response.headers.get(header);
-      if (value) {
-        responseHeaders.set(header, value);
-      }
+      if (value) responseHeaders.set(header, value);
     });
     
-    // Special handling for specific status codes
+    // Traiter les réponses 204 No Content séparément
     if (response.status === 204) {
-      console.log("Réponse proxy envoyée: 204 en " + duration + "ms");
+      console.log("[CORS Proxy] Réponse 204 No Content");
       return new Response(null, {
         status: 204,
         headers: responseHeaders
       });
     }
     
-    // CRITICAL FIX: Always clone the response before attempting to read its body
+    // CRITIQUE: Cloner la réponse avant de tenter de lire son corps
     const responseToProcess = response.clone();
     
-    // First try to parse as JSON
     try {
-      // Use the cloned response for processing
+      // D'abord essayer de traiter comme JSON
       const responseData = await responseToProcess.json();
-      console.log("Réponse proxy envoyée:", response.status, "en " + duration + "ms");
+      console.log("[CORS Proxy] Réponse JSON traitée avec succès");
       
-      // Return a new response with the parsed JSON data
       return new Response(JSON.stringify(responseData), {
         status: response.status,
         headers: responseHeaders
       });
     } catch (jsonError) {
-      // If it's not JSON, try to read as text from the original response
+      // Si ce n'est pas du JSON, essayer comme texte
       try {
-        // Use the original response for text processing
         const textData = await response.text();
-        console.log("Réponse proxy envoyée (texte):", response.status, "en " + duration + "ms");
+        console.log("[CORS Proxy] Réponse texte traitée");
         
         return new Response(textData, {
           status: response.status,
           headers: responseHeaders
         });
       } catch (textError) {
-        console.error("Erreur lors de la lecture de la réponse:", textError);
-        return new Response(JSON.stringify({ error: "Could not read response" }), {
+        console.error("[CORS Proxy] Erreur lors de la lecture de la réponse:", textError);
+        return new Response(JSON.stringify({ error: "Impossible de lire la réponse" }), {
           status: 500,
           headers: {
             "Content-Type": "application/json",
@@ -213,10 +168,10 @@ serve(async (req) => {
       }
     }
   } catch (error) {
-    console.error("Erreur dans la fonction CORS proxy:", error);
+    console.error("[CORS Proxy] Erreur globale:", error);
     
     return new Response(JSON.stringify({
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.message : "Erreur inconnue",
       timestamp: new Date().toISOString()
     }), {
       status: 500,

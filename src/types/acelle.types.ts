@@ -10,13 +10,13 @@ export interface AcelleAccount {
   lastSyncError: string | null;
   cachePriority: number;
   
-  // Additional properties used in the codebase
+  // Propriétés additionnelles utilisées dans le code
   missionId?: string;
   missionName?: string;
   createdAt?: string;
   updatedAt?: string;
   apiKey?: string;
-  updated_at?: string; // Allow both naming conventions during transition
+  updated_at?: string;
 }
 
 export interface AcelleCampaign {
@@ -27,6 +27,9 @@ export interface AcelleCampaign {
   created_at: string;
   updated_at: string;
   delivery_date: string;
+  run_at: string;
+  last_error?: string;
+  
   delivery_info?: {
     total?: number;
     delivery_rate?: number;
@@ -45,6 +48,7 @@ export interface AcelleCampaign {
     unsubscribed?: number;
     complained?: number;
   };
+  
   statistics?: {
     subscriber_count?: number;
     delivered_count?: number;
@@ -59,9 +63,8 @@ export interface AcelleCampaign {
     unsubscribe_count?: number;
     abuse_complaint_count?: number;
   };
-  last_error?: string;
-  run_at: string;
-  meta?: Record<string, any>; // Add meta property with flexible object type
+  
+  meta?: Record<string, any>;
 }
 
 export interface AcelleCampaignDetail extends AcelleCampaign {

@@ -15,79 +15,104 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
-  // Helper function to safely format dates
+  // Garantir la présence d'un UID valide
+  const campaignUid = campaign?.uid || '';
+  
+  // Garantie de valeurs sûres pour les propriétés obligatoires
+  const campaignName = campaign?.name || "Sans nom";
+  const campaignSubject = campaign?.subject || "Sans sujet";
+  const campaignStatus = (campaign?.status || "unknown").toLowerCase();
+  const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
+  
+  // Helper function pour formater les dates en toute sécurité
   const formatDateSafely = (dateString: string | null | undefined) => {
     if (!dateString) return "Non programmé";
     try {
       return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: fr });
     } catch (error) {
-      console.error(`Invalid date: ${dateString}`, error);
+      console.error(`Date invalide: ${dateString}`, error);
       return "Date invalide";
     }
   };
 
-  // Get status and delivery info
-  const status = campaign.status || "unknown";
-  const statusDisplay = translateStatus(status);
-  
-  // Fix: Cast the variant to the correct type for Badge component
-  const variant = getStatusBadgeVariant(status) as "default" | "secondary" | "destructive" | "outline";
+  // Obtenir l'affichage et le style du statut
+  const statusDisplay = translateStatus(campaignStatus);
+  const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
-  // Helper function to safely render numeric values with fallbacks
-  const renderNumeric = (value: number | string | undefined | null, suffix = "") => {
-    if (value === undefined || value === null) return "-";
-    return `${value}${suffix}`;
-  };
-  
-  // Safely extract statistics values with fallbacks
-  const getStatValue = (path: string[], defaultValue: number = 0): number => {
+  // Fonction d'aide pour extraire des statistiques avec sécurité et valeurs par défaut
+  const getStatValue = (paths: string[][], defaultValue: number = 0): number => {
     try {
-      let obj: any = campaign;
-      for (const key of path) {
-        if (!obj || typeof obj !== 'object') return defaultValue;
-        obj = obj[key];
+      for (const path of paths) {
+        let obj: any = campaign;
+        let valid = true;
+        
+        for (const key of path) {
+          if (!obj || typeof obj !== 'object') {
+            valid = false;
+            break;
+          }
+          obj = obj[key];
+        }
+        
+        if (valid && typeof obj === 'number') {
+          return obj;
+        }
       }
-      return typeof obj === 'number' ? obj : defaultValue;
+      return defaultValue;
     } catch (e) {
+      console.warn(`Erreur lors de l'extraction de statistiques:`, e);
       return defaultValue;
     }
   };
 
-  // Get values with multiple fallbacks
-  const subscriberCount = getStatValue(['statistics', 'subscriber_count']) || 
-                         getStatValue(['delivery_info', 'total']) || 0;
-                         
-  const deliveryRate = getStatValue(['statistics', 'delivered_rate']) || 
-                      getStatValue(['delivery_info', 'delivery_rate']) || 0;
-                      
-  const openRate = getStatValue(['statistics', 'uniq_open_rate']) || 
-                  getStatValue(['delivery_info', 'unique_open_rate']) || 0;
-                  
-  const clickRate = getStatValue(['statistics', 'click_rate']) || 
-                   getStatValue(['delivery_info', 'click_rate']) || 0;
-                   
-  const bounceCount = getStatValue(['statistics', 'bounce_count']) || 
-                     getStatValue(['delivery_info', 'bounced', 'total']) || 0;
+  // Récupérer les données statistiques avec plusieurs chemins de repli
+  const subscriberCount = getStatValue(
+    [['statistics', 'subscriber_count'], ['delivery_info', 'total'], ['meta', 'subscribers_count']]
+  );
                      
-  const unsubscribeCount = getStatValue(['statistics', 'unsubscribe_count']) || 
-                          getStatValue(['delivery_info', 'unsubscribed']) || 0;
+  const deliveryRate = getStatValue(
+    [['statistics', 'delivered_rate'], ['delivery_info', 'delivery_rate']]
+  );
+                  
+  const openRate = getStatValue(
+    [['statistics', 'uniq_open_rate'], ['delivery_info', 'unique_open_rate']]
+  );
+                
+  const clickRate = getStatValue(
+    [['statistics', 'click_rate'], ['delivery_info', 'click_rate']]
+  );
+                 
+  const bounceCount = getStatValue(
+    [['statistics', 'bounce_count'], ['delivery_info', 'bounced', 'total']]
+  );
+                   
+  const unsubscribeCount = getStatValue(
+    [['statistics', 'unsubscribe_count'], ['delivery_info', 'unsubscribed']]
+  );
+
+  // Gestionnaire de clic sécurisé
+  const handleViewClick = () => {
+    if (campaignUid) {
+      onViewCampaign(campaignUid);
+    }
+  };
 
   return (
     <TableRow>
-      <TableCell className="font-medium truncate max-w-[200px]" title={campaign.name}>
-        {campaign.name || "Sans nom"}
+      <TableCell className="font-medium truncate max-w-[200px]" title={campaignName}>
+        {campaignName}
       </TableCell>
-      <TableCell className="truncate max-w-[200px]" title={campaign.subject}>
-        {campaign.subject || "Sans sujet"}
+      <TableCell className="truncate max-w-[200px]" title={campaignSubject}>
+        {campaignSubject}
       </TableCell>
       <TableCell>
         <Badge variant={variant}>{statusDisplay}</Badge>
       </TableCell>
       <TableCell>
-        {formatDateSafely(campaign.delivery_date)}
+        {formatDateSafely(deliveryDate)}
       </TableCell>
       <TableCell>
-        {renderNumeric(subscriberCount)}
+        {subscriberCount.toString()}
       </TableCell>
       <TableCell>
         {renderPercentage(deliveryRate)}
@@ -99,17 +124,18 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         {renderPercentage(clickRate)}
       </TableCell>
       <TableCell>
-        {renderNumeric(bounceCount)}
+        {bounceCount.toString()}
       </TableCell>
       <TableCell>
-        {renderNumeric(unsubscribeCount)}
+        {unsubscribeCount.toString()}
       </TableCell>
       <TableCell className="text-right">
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => onViewCampaign(campaign.uid)}
+          onClick={handleViewClick}
           title="Voir les détails"
+          disabled={!campaignUid}
         >
           <Eye className="h-4 w-4" />
         </Button>
