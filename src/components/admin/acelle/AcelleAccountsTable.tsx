@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -26,7 +27,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { getAcelleAccounts, deleteAcelleAccount, createAcelleAccount, updateAcelleAccount, getAcelleCampaigns } from "@/services/acelle/acelle-service";
+import { 
+  getAcelleAccounts, 
+  deleteAcelleAccount, 
+  createAcelleAccount, 
+  updateAcelleAccount, 
+  getAcelleCampaigns 
+} from "@/services/acelle/acelle-service";
 import { AcelleAccount } from "@/types/acelle.types";
 import AcelleAccountForm from "./AcelleAccountForm";
 import { toast } from "sonner";

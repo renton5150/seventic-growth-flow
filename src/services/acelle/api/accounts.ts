@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { toast } from "sonner";

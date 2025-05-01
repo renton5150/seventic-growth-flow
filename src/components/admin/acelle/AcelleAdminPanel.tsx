@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +20,7 @@ export default function AcelleAdminPanel() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   const { 
-    data: accounts = [], 
+    data: accounts = [] as AcelleAccount[], 
     isLoading, 
     isError, 
     refetch 
