@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,7 +90,6 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
 
 /**
  * Fonction améliorée pour récupérer les détails d'une campagne avec une meilleure gestion des erreurs
- * Utilisation de l'endpoint /track comme recommandé par la documentation Acelle Mail
  */
 export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
@@ -125,100 +123,85 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
     }
     
     // Utiliser le proxy CORS avec une URL correctement encodée et anti-cache
-    // 1. Première requête pour les détails de base
     const proxyUrl = buildProxyUrl(`campaigns/${campaignUid}`, { 
       api_token: account.apiToken,
       cache_bust: Date.now().toString() // Paramètre anti-cache
     });
     
-    // 2. Seconde requête utilisant l'endpoint /track pour les statistiques détaillées
-    const trackProxyUrl = buildProxyUrl(`campaigns/${campaignUid}/track`, { 
-      api_token: account.apiToken,
-      cache_bust: Date.now().toString() // Paramètre anti-cache
-    });
-    
     console.log(`Récupération des détails de campagne avec l'URL: ${proxyUrl}`);
-    console.log(`Récupération des statistiques avec l'URL: ${trackProxyUrl}`);
     
     // Utiliser AbortController pour le timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 secondes de timeout
     
     try {
-      // Effectuer les deux requêtes en parallèle pour optimiser les performances
-      const [detailsResponse, trackResponse] = await Promise.all([
-        fetch(proxyUrl, {
-          method: "GET",
-          headers: {
-            "Accept": "application/json",
-            "Authorization": `Bearer ${accessToken}`,
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "X-Debug-Level": "verbose",
-            "X-Acelle-Endpoint": apiEndpoint,
-            "X-Auth-Method": "token",
-            "X-Wake-Request": "true"
-          },
-          signal: controller.signal
-        }),
-        fetch(trackProxyUrl, {
-          method: "GET",
-          headers: {
-            "Accept": "application/json",
-            "Authorization": `Bearer ${accessToken}`,
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "X-Debug-Level": "verbose",
-            "X-Acelle-Endpoint": apiEndpoint,
-            "X-Auth-Method": "token",
-            "X-Wake-Request": "true"
-          },
-          signal: controller.signal
-        })
-      ]);
+      const response = await fetch(proxyUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "X-Debug-Level": "verbose",
+          "X-Acelle-Endpoint": apiEndpoint,
+          "X-Auth-Method": "token",
+          "X-Wake-Request": "true"
+        },
+        signal: controller.signal
+      });
       
       clearTimeout(timeoutId);
       
-      if (!detailsResponse.ok) {
+      if (!response.ok) {
         let errorText;
         try {
-          const errorData = await detailsResponse.json();
-          errorText = errorData.error || `Erreur ${detailsResponse.status}`;
+          const errorData = await response.json();
+          errorText = errorData.error || `Erreur ${response.status}`;
         } catch (e) {
-          errorText = await detailsResponse.text();
+          errorText = await response.text();
         }
-        console.error(`Échec de récupération des détails pour la campagne ${campaignUid}: ${detailsResponse.status}`, errorText);
+        console.error(`Échec de récupération des détails pour la campagne ${campaignUid}: ${response.status}`, errorText);
         toast.error(`Erreur lors du chargement des détails: ${errorText}`);
         return null;
       }
 
-      const campaignDetails = await detailsResponse.json();
+      const campaignDetails = await response.json();
       console.log(`Détails récupérés avec succès pour la campagne ${campaignUid}`, campaignDetails);
       
-      // Récupérer les données de tracking si disponibles
-      if (trackResponse.ok) {
+      // Vérifier si les statistiques sont manquantes et tenter de récupérer les statistiques de base
+      if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
         try {
-          const trackData = await trackResponse.json();
-          console.log(`Données de tracking récupérées avec succès pour la campagne ${campaignUid}`, trackData);
+          // Tenter d'utiliser un endpoint spécifique pour les statistiques
+          const statsProxyUrl = buildProxyUrl(`campaigns/${campaignUid}/overview`, {
+            api_token: account.apiToken,
+            cache_bust: Date.now().toString()
+          });
           
-          // Fusionner les données de tracking dans les détails de la campagne
-          campaignDetails.track = trackData;
+          console.log(`Récupération des statistiques complémentaires avec l'URL: ${statsProxyUrl}`);
           
-          // Si les statistiques sont absentes, les ajouter depuis les données de tracking
-          if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
-            campaignDetails.statistics = trackData;
+          const statsResponse = await fetch(statsProxyUrl, {
+            method: "GET",
+            headers: {
+              "Accept": "application/json",
+              "Authorization": `Bearer ${accessToken}`,
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              "X-Acelle-Endpoint": apiEndpoint,
+              "X-Auth-Method": "token"
+            }
+          });
+          
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            console.log(`Statistiques complémentaires récupérées:`, statsData);
+            
+            // Fusionner les données statistiques dans l'objet principal
+            campaignDetails.statistics = statsData;
           }
-          
-          // Si delivery_info est absent, l'ajouter depuis les données de tracking
-          if (!campaignDetails.delivery_info || Object.keys(campaignDetails.delivery_info).length === 0) {
-            campaignDetails.delivery_info = trackData;
-          }
-        } catch (e) {
-          console.error(`Erreur lors du traitement des données de tracking pour la campagne ${campaignUid}:`, e);
+        } catch (statsError) {
+          console.warn(`Erreur lors de la récupération des statistiques complémentaires:`, statsError);
         }
-      } else {
-        console.warn(`Impossible de récupérer les données de tracking pour la campagne ${campaignUid}: ${trackResponse.status}`);
       }
       
-      // S'assurer que les structures requises existent
+      // S'assurer que les structures requises existent pour éviter les erreurs JS
       if (!campaignDetails.statistics) {
         campaignDetails.statistics = {};
       }
@@ -229,6 +212,85 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       
       if (campaignDetails.delivery_info && !campaignDetails.delivery_info.bounced) {
         campaignDetails.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
+      }
+      
+      // Si la campagne a été envoyée, tenter de récupérer des données de performance 
+      // directement à partir de l'API pour les statistiques qui pourraient être manquantes
+      if (['sent', 'done'].includes(campaignDetails.status?.toLowerCase())) {
+        // Structure pour stocker les statistiques extraites
+        const extraStats = {
+          open_rate: null,
+          click_rate: null,
+          bounce_rate: null,
+          unsubscribe_rate: null
+        };
+        
+        try {
+          // Essayer d'autres endpoints qui pourraient fournir des statistiques
+          const perfEndpoints = [
+            `campaigns/${campaignUid}/performance`,
+            `campaigns/${campaignUid}/report`,
+            `campaigns/${campaignUid}/statistics`
+          ];
+          
+          for (const endpoint of perfEndpoints) {
+            try {
+              const perfUrl = buildProxyUrl(endpoint, { 
+                api_token: account.apiToken,
+                cache_bust: Date.now().toString()
+              });
+              
+              console.log(`Tentative de récupération de performances depuis: ${endpoint}`);
+              
+              const perfResponse = await fetch(perfUrl, {
+                method: "GET",
+                headers: {
+                  "Accept": "application/json",
+                  "Authorization": `Bearer ${accessToken}`,
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                  "X-Acelle-Endpoint": apiEndpoint,
+                  "X-Auth-Method": "token"
+                }
+              });
+              
+              if (perfResponse.ok) {
+                const perfData = await perfResponse.json();
+                console.log(`Données de performance depuis ${endpoint}:`, perfData);
+                
+                // Extraire les statistiques utiles si elles existent
+                if (perfData.open_rate) extraStats.open_rate = perfData.open_rate;
+                if (perfData.click_rate) extraStats.click_rate = perfData.click_rate;
+                if (perfData.bounce_rate) extraStats.bounce_rate = perfData.bounce_rate;
+                if (perfData.unsubscribe_rate) extraStats.unsubscribe_rate = perfData.unsubscribe_rate;
+                
+                // Fusionner avec les données existantes
+                campaignDetails.statistics = {
+                  ...campaignDetails.statistics,
+                  ...perfData
+                };
+              }
+            } catch (endpointError) {
+              console.warn(`Échec pour l'endpoint ${endpoint}:`, endpointError);
+            }
+          }
+          
+          // Mettre à jour les statistiques manquantes avec les données extraites
+          if (!campaignDetails.statistics.open_rate && extraStats.open_rate) {
+            campaignDetails.statistics.open_rate = extraStats.open_rate;
+          }
+          if (!campaignDetails.statistics.click_rate && extraStats.click_rate) {
+            campaignDetails.statistics.click_rate = extraStats.click_rate;
+          }
+          if (!campaignDetails.statistics.bounce_rate && extraStats.bounce_rate) {
+            campaignDetails.statistics.bounce_rate = extraStats.bounce_rate;
+          }
+          if (!campaignDetails.statistics.unsubscribe_rate && extraStats.unsubscribe_rate) {
+            campaignDetails.statistics.unsubscribe_rate = extraStats.unsubscribe_rate;
+          }
+          
+        } catch (perfError) {
+          console.warn(`Erreur lors de la récupération des performances:`, perfError);
+        }
       }
       
       return campaignDetails;
@@ -252,7 +314,6 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
 
 /**
  * Fonction améliorée pour récupérer les campagnes avec une extraction de statistiques optimisée
- * Utilisation de l'endpoint /track comme recommandé par la documentation Acelle Mail
  */
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
@@ -351,86 +412,25 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       try {
         const campaigns = await response.json();
         console.log(`Récupéré ${campaigns.length} campagnes pour le compte ${account.name}`);
-        console.log("Exemple de données de campagne:", campaigns.length > 0 ? JSON.stringify(campaigns[0]).substring(0, 500) + '...' : "Pas de campagnes");
         
-        // Préparer un tableau pour stocker les campagnes enrichies de statistiques
-        const enrichedCampaigns = [];
-        
-        // Traiter chaque campagne pour récupérer ses statistiques détaillées
-        for (const campaign of campaigns) {
-          // Préparer une version enrichie avec les champs minimums requis
+        // Traiter chaque campagne pour s'assurer qu'elle a toutes les propriétés nécessaires
+        const enrichedCampaigns = campaigns.map(campaign => {
+          // Créer une version enrichie avec les structures minimales requises
           const enrichedCampaign = {
             ...campaign,
+            // Garantir que les structures existent pour éviter les erreurs
+            meta: campaign.meta || {},
             statistics: campaign.statistics || {},
-            delivery_info: campaign.delivery_info || {},
-            meta: campaign.meta || {}
+            delivery_info: campaign.delivery_info || {}
           };
           
-          // Vérifier si delivery_info.bounced existe, sinon l'initialiser
+          // Initialiser les structures qui pourraient manquer
           if (!enrichedCampaign.delivery_info.bounced) {
             enrichedCampaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
           }
           
-          // Log détaillé pour analyser la structure des données
-          console.debug(`Traitement de la campagne ${campaign.name} (${campaign.uid}):`, 
-            JSON.stringify({
-              has_stats: !!campaign.statistics,
-              has_delivery: !!campaign.delivery_info,
-              status: campaign.status,
-              date: campaign.delivery_date || campaign.run_at
-            })
-          );
-          
-          // Pour les campagnes envoyées ou terminées, récupérer en plus les données de tracking
-          if (['sent', 'done'].includes(campaign.status?.toLowerCase())) {
-            try {
-              // Créer l'URL pour récupérer les données de tracking
-              const trackProxyUrl = buildProxyUrl(`campaigns/${campaign.uid}/track`, { 
-                api_token: account.apiToken,
-                cache_bust: Date.now().toString()
-              });
-              
-              console.log(`Récupération des statistiques de tracking pour la campagne ${campaign.uid}`);
-              
-              // Récupérer les données de tracking
-              const trackResponse = await fetch(trackProxyUrl, {
-                method: "GET",
-                headers: {
-                  "Accept": "application/json",
-                  "Authorization": `Bearer ${accessToken}`,
-                  "Cache-Control": "no-cache, no-store, must-revalidate",
-                  "X-Acelle-Endpoint": apiEndpoint,
-                  "X-Auth-Method": "token"
-                }
-              });
-              
-              if (trackResponse.ok) {
-                const trackData = await trackResponse.json();
-                console.log(`Données de tracking récupérées pour la campagne ${campaign.uid}:`, trackData);
-                
-                // Ajouter ces données de tracking à la campagne
-                enrichedCampaign.track = trackData;
-                
-                // Si les statistiques sont absentes, les ajouter depuis les données de tracking
-                if (!enrichedCampaign.statistics || Object.keys(enrichedCampaign.statistics).length === 0) {
-                  enrichedCampaign.statistics = trackData;
-                }
-                
-                // Si delivery_info est absent, l'ajouter depuis les données de tracking
-                if (!enrichedCampaign.delivery_info || Object.keys(enrichedCampaign.delivery_info).length === 0) {
-                  enrichedCampaign.delivery_info = trackData;
-                }
-              } else {
-                console.warn(`Impossible de récupérer les données de tracking pour la campagne ${campaign.uid}: ${trackResponse.status}`);
-              }
-            } catch (trackError) {
-              console.error(`Erreur lors de la récupération des données de tracking pour la campagne ${campaign.uid}:`, trackError);
-            }
-          }
-          
-          // Ajouter la campagne enrichie au tableau
-          enrichedCampaigns.push(enrichedCampaign);
-        }
+          return enrichedCampaign;
+        });
         
         // Mettre à jour la date de dernière synchronisation
         updateLastSyncDate(account.id);

@@ -15,8 +15,11 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
-  // Debug complet pour afficher la structure entière de la campagne
-  console.debug(`Campagne reçue (${campaign?.name}):`, JSON.stringify(campaign, null, 2));
+  // Debug léger pour éviter de surcharger la console
+  if (!campaign) {
+    console.error("Campagne non définie dans AcelleTableRow");
+    return null;
+  }
   
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || '';
@@ -26,35 +29,20 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const campaignSubject = campaign?.subject || "Sans sujet";
   const campaignStatus = (campaign?.status || "unknown").toLowerCase();
   
-  // Amélioration: priorité de récupération des dates avec logging détaillé
-  let deliveryDate = null;
-  if (campaign?.delivery_date) {
-    deliveryDate = campaign.delivery_date;
-    console.debug(`Date d'envoi depuis delivery_date: ${deliveryDate}`);
-  } else if (campaign?.run_at) {
-    deliveryDate = campaign.run_at;
-    console.debug(`Date d'envoi depuis run_at: ${deliveryDate}`);
-  } else if (campaign?.meta?.delivery_date) {
-    deliveryDate = campaign.meta.delivery_date;
-    console.debug(`Date d'envoi depuis meta.delivery_date: ${deliveryDate}`);
-  } else if (campaign?.meta?.run_at) {
-    deliveryDate = campaign.meta.run_at;
-    console.debug(`Date d'envoi depuis meta.run_at: ${deliveryDate}`);
-  }
+  // Date d'envoi avec fallback
+  const deliveryDate = campaign?.delivery_date || campaign?.run_at || 
+                       campaign?.meta?.delivery_date || campaign?.meta?.run_at || null;
   
-  // Fonction améliorée pour formater les dates avec vérification stricte
+  /**
+   * Formatage sécurisé des dates
+   */
   const formatDateSafely = (dateString: string | null | undefined) => {
     if (!dateString) return "Non programmé";
     try {
       const date = new Date(dateString);
-      // Vérification que la date est valide
-      if (isNaN(date.getTime())) {
-        console.warn(`Date invalide: ${dateString}`);
-        return "Date invalide";
-      }
+      if (isNaN(date.getTime())) return "Date invalide";
       return format(date, "dd/MM/yyyy HH:mm", { locale: fr });
-    } catch (error) {
-      console.error(`Erreur lors du formatage de la date: ${dateString}`, error);
+    } catch {
       return "Date invalide";
     }
   };
@@ -64,172 +52,144 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
   /**
-   * Fonction d'extraction de statistiques complètement revue avec exploration exhaustive et logging détaillé
-   * Cette fonction explore toutes les structures de données possibles pour trouver une valeur
+   * Fonction améliorée pour extraire en sécurité une valeur statistique
+   * Cette fonction explore plusieurs chemins possibles dans l'objet pour trouver la donnée
    */
-  const getStatValue = (pathOptions: (string | string[] | string[][])[], defaultValue: number = 0): number => {
+  const getStatValue = (paths: string[][] | string[] | string, defaultValue = 0): number => {
     try {
-      // Log de débogage détaillé pour suivre l'extraction
-      console.debug(`Recherche de statistique dans les chemins:`, pathOptions);
+      let pathsToTry: string[][] = [];
       
-      // Parcourir tous les chemins possibles
-      for (const pathOption of pathOptions) {
-        let paths: string[][] = [];
-        
-        // Convertir en tableau de chemins si c'est une chaîne simple
-        if (typeof pathOption === 'string') {
-          // Subdiviser le chemin en segments
-          paths = [pathOption.split('.')];
+      if (typeof paths === 'string') {
+        // Si c'est une chaîne simple, la transformer en tableau de chemins
+        pathsToTry = [[paths]];
+      } 
+      else if (Array.isArray(paths) && paths.length > 0) {
+        if (typeof paths[0] === 'string') {
+          // Si c'est un tableau de chaînes, le considérer comme un seul chemin
+          pathsToTry = [paths as string[]];
         } 
-        // Si c'est déjà un tableau de chaînes (un chemin), l'encapsuler
-        else if (Array.isArray(pathOption) && typeof pathOption[0] === 'string') {
-          // Conversion sécurisée pour éviter l'erreur TS2352
-          paths = [pathOption as string[]];
-        }
-        // Sinon, c'est déjà un tableau de chemins
-        else if (Array.isArray(pathOption)) {
-          paths = pathOption as string[][];
-        }
-        
-        // Essayer chaque chemin
-        for (const path of paths) {
-          try {
-            let value: any = campaign;
-            
-            // Suivre le chemin dans l'objet
-            for (const key of path) {
-              if (value === undefined || value === null) break;
-              value = value[key];
-            }
-            
-            // Si une valeur est trouvée, la convertir en nombre
-            if (value !== undefined && value !== null) {
-              const numValue = Number(value);
-              if (!isNaN(numValue)) {
-                console.debug(`Statistique trouvée via chemin [${path.join('.')}]: ${numValue}`);
-                return numValue;
-              }
-              console.debug(`Valeur non numérique trouvée via [${path.join('.')}]: ${value}`);
-            }
-          } catch (err) {
-            // Continuer avec le prochain chemin si celui-ci échoue
-            console.debug(`Échec d'accès via chemin [${path.join('.')}]: ${err}`);
-          }
+        else {
+          // Sinon c'est déjà un tableau de chemins
+          pathsToTry = paths as string[][];
         }
       }
       
-      console.debug(`Aucune statistique valide trouvée, retour de la valeur par défaut: ${defaultValue}`);
+      // Essayer chaque chemin possible jusqu'à trouver une valeur
+      for (const path of pathsToTry) {
+        let currentObj: any = campaign;
+        let found = true;
+        
+        for (const key of path) {
+          if (currentObj === undefined || currentObj === null) {
+            found = false;
+            break;
+          }
+          currentObj = currentObj[key];
+        }
+        
+        if (found && currentObj !== undefined && currentObj !== null) {
+          const numValue = Number(currentObj);
+          if (!isNaN(numValue)) return numValue;
+        }
+      }
+      
       return defaultValue;
-    } catch (e) {
-      console.warn(`Erreur lors de l'extraction de statistiques:`, e);
+    } catch (error) {
+      console.warn(`Erreur lors de l'extraction de statistiques:`, error);
       return defaultValue;
     }
   };
 
-  // Récupérer les données statistiques avec exploration exhaustive des structures possibles
-  // Structure entièrement revue pour couvrir toutes les possibilités de nommage des champs y compris les chemins dans meta et track
+  // Extraction des statistiques avec des chemins multiples pour chaque valeur
+  // Cela nous permet de trouver les données même si la structure change
   const subscriberCount = getStatValue([
     ['statistics', 'subscriber_count'], 
     ['delivery_info', 'total'], 
+    ['recipient_count'],
     ['meta', 'subscribers_count'],
     ['meta', 'total_subscribers'],
     ['meta', 'statistics', 'subscriber_count'],
     ['meta', 'delivery_info', 'total'],
-    ['recipient_count'],
-    'total',
     ['track', 'subscribers_count'],
     ['track', 'total'],
     ['data', 'subscribers_count'],
     ['data', 'total']
   ]);
-                     
+  
   const deliveryRate = getStatValue([
     ['statistics', 'delivered_rate'], 
     ['delivery_info', 'delivery_rate'],
+    ['delivered_rate'],
+    ['delivery_rate'],
     ['meta', 'delivered_rate'],
     ['meta', 'statistics', 'delivered_rate'],
     ['meta', 'delivery_info', 'delivery_rate'],
-    'delivery_rate',
-    'delivered_rate',
     ['track', 'delivery_rate'],
     ['track', 'delivered_rate'],
     ['data', 'delivery_rate'],
     ['data', 'delivered_rate']
   ]);
-                  
+  
   const openRate = getStatValue([
     ['statistics', 'uniq_open_rate'], 
     ['statistics', 'open_rate'], 
-    ['delivery_info', 'unique_open_rate'],
     ['delivery_info', 'open_rate'],
+    ['delivery_info', 'unique_open_rate'],
+    ['open_rate'],
+    ['unique_open_rate'],
+    ['uniq_open_rate'],
     ['meta', 'open_rate'],
     ['meta', 'unique_open_rate'],
     ['meta', 'statistics', 'open_rate'],
     ['meta', 'statistics', 'uniq_open_rate'],
     ['meta', 'delivery_info', 'open_rate'],
     ['meta', 'delivery_info', 'unique_open_rate'],
-    'open_rate',
-    'unique_open_rate',
-    'uniq_open_rate',
     ['track', 'open_rate'],
     ['track', 'unique_open_rate'],
     ['data', 'open_rate'],
     ['data', 'unique_open_rate']
   ]);
-                
+  
   const clickRate = getStatValue([
     ['statistics', 'click_rate'], 
     ['delivery_info', 'click_rate'],
+    ['click_rate'],
     ['meta', 'click_rate'],
     ['meta', 'statistics', 'click_rate'],
     ['meta', 'delivery_info', 'click_rate'],
-    'click_rate',
     ['track', 'click_rate'],
     ['data', 'click_rate']
   ]);
-                 
+  
   const bounceCount = getStatValue([
     ['statistics', 'bounce_count'], 
     ['delivery_info', 'bounced', 'total'],
+    ['bounce_count'],
+    ['bounced'],
     ['meta', 'bounce_count'],
     ['meta', 'statistics', 'bounce_count'],
     ['meta', 'delivery_info', 'bounced', 'total'],
-    ['bounce_count'],
-    'bounced',
-    'bounce_count',
     ['track', 'bounce_count'],
     ['track', 'bounced', 'total'],
     ['data', 'bounce_count'],
     ['data', 'bounced', 'total']
   ]);
-                   
+  
   const unsubscribeCount = getStatValue([
     ['statistics', 'unsubscribe_count'], 
     ['delivery_info', 'unsubscribed'],
+    ['unsubscribe_count'],
+    ['unsubscribed'],
+    ['unsubscribed_count'],
     ['meta', 'unsubscribe_count'],
     ['meta', 'statistics', 'unsubscribe_count'],
     ['meta', 'delivery_info', 'unsubscribed'],
-    ['unsubscribed_count'],
-    ['unsubscribe_count'],
-    'unsubscribed',
-    'unsubscribe_count',
     ['track', 'unsubscribe_count'],
     ['track', 'unsubscribed'],
     ['data', 'unsubscribe_count'],
     ['data', 'unsubscribed']
   ]);
 
-  // Log de débogage pour vérifier les valeurs extraites
-  console.debug(`Statistiques extraites pour la campagne ${campaignName}:`, {
-    subscriberCount,
-    deliveryRate,
-    openRate,
-    clickRate,
-    bounceCount,
-    unsubscribeCount
-  });
-
-  // Gestionnaire de clic sécurisé
   const handleViewClick = () => {
     if (campaignUid) {
       onViewCampaign(campaignUid);
