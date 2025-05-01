@@ -46,16 +46,25 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
   };
   
   try {
+    // Get authentication session first
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session?.access_token) {
+      debug.errorMessage = "No authentication session available";
+      return debug;
+    }
+
     // Build the API URL for testing
     const testUrl = buildProxyUrl('ping', { api_token: account.apiToken });
     debug.request!.url = testUrl;
     
-    // Send the request
+    // Send the request with proper authentication
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${sessionData.session.access_token}`,
+        'Cache-Control': 'no-store'
       }
     });
     
@@ -69,17 +78,18 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       debug.success = true;
       debug.responseData = data;
       
-      // Store the debug info using a simplified approach
-      // We're not using a table that doesn't exist
-      try {
-        await supabase.from('acelle_accounts')
-          .update({ 
-            last_sync_date: new Date().toISOString(),
-            last_sync_error: null
-          })
-          .eq('id', account.id);
-      } catch (e) {
-        console.error('Failed to update connection status:', e);
+      // Update account with success information
+      if (account.id !== 'system-test') {
+        try {
+          await supabase.from('acelle_accounts')
+            .update({ 
+              last_sync_date: new Date().toISOString(),
+              last_sync_error: null
+            })
+            .eq('id', account.id);
+        } catch (e) {
+          console.error('Failed to update connection status:', e);
+        }
       }
       
       return debug;
@@ -95,15 +105,17 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     }
     
     // Update account with error information
-    try {
-      await supabase.from('acelle_accounts')
-        .update({ 
-          last_sync_error: debug.errorMessage,
-          last_sync_date: new Date().toISOString()
-        })
-        .eq('id', account.id);
-    } catch (e) {
-      console.error('Failed to store connection debug info:', e);
+    if (account.id !== 'system-test') {
+      try {
+        await supabase.from('acelle_accounts')
+          .update({ 
+            last_sync_error: debug.errorMessage,
+            last_sync_date: new Date().toISOString()
+          })
+          .eq('id', account.id);
+      } catch (e) {
+        console.error('Failed to store connection debug info:', e);
+      }
     }
     
     return debug;
@@ -113,15 +125,17 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     debug.errorMessage = error instanceof Error ? error.message : String(error);
     
     // Update account with error information
-    try {
-      await supabase.from('acelle_accounts')
-        .update({ 
-          last_sync_error: debug.errorMessage,
-          last_sync_date: new Date().toISOString()
-        })
-        .eq('id', account.id);
-    } catch (e) {
-      console.error('Failed to store connection debug info:', e);
+    if (account.id !== 'system-test') {
+      try {
+        await supabase.from('acelle_accounts')
+          .update({ 
+            last_sync_error: debug.errorMessage,
+            last_sync_date: new Date().toISOString()
+          })
+          .eq('id', account.id);
+      } catch (e) {
+        console.error('Failed to store connection debug info:', e);
+      }
     }
     
     return debug;

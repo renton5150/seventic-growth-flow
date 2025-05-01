@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail, CachedCampaign } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -587,8 +588,6 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
             if (!isNaN(value)) return value;
           }
         }
-        
-        // Suppression des vérifications track et report puisqu'on a mis à jour le type
 
         // Essayer les mappings alternatifs de clés
         const keyMappings: Record<string, string[]> = {

@@ -6,7 +6,6 @@ import { updateLastSyncDate } from "@/services/acelle/api/accounts";
 import { testAcelleConnection } from "@/services/acelle/api/connection";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useApiConnection } from './useApiConnection';
 
 interface SyncResult {
   error?: string;
@@ -22,7 +21,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const { getDebugInfo } = useApiConnection(account);
+  const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
 
   // Enhanced sync function that returns status and properly caches campaigns
   const syncCampaignsCache = async (options: { quietMode?: boolean; forceSync?: boolean } = {}) => {
@@ -41,6 +40,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
       
       // Fetch a small number of campaigns first to check API access
       const connectionTest = await testAcelleConnection(account);
+      setDebugInfo(connectionTest);
       result.debugInfo = connectionTest;
       
       if (!connectionTest.success) {
@@ -152,6 +152,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
     syncError,
     lastSyncTime,
     syncCampaignsCache,
-    getDebugInfo
+    getDebugInfo: () => debugInfo,
+    debugInfo
   };
 };
