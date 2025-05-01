@@ -27,24 +27,41 @@ export interface AcelleCampaign {
   created_at: string;
   updated_at: string;
   delivery_date: string;
-  delivery_info: AcelleCampaignDeliveryInfo;
-  statistics: {
-    subscriber_count: number;
-    delivered_count: number;
-    delivered_rate: number;
-    open_count: number;
-    uniq_open_rate: number;
-    click_count: number;
-    click_rate: number;
-    bounce_count: number;
-    soft_bounce_count: number;
-    hard_bounce_count: number;
-    unsubscribe_count: number;
-    abuse_complaint_count: number;
+  delivery_info?: {
+    total?: number;
+    delivery_rate?: number;
+    unique_open_rate?: number;
+    click_rate?: number;
+    bounce_rate?: number;
+    unsubscribe_rate?: number;
+    delivered?: number;
+    opened?: number;
+    clicked?: number;
+    bounced?: {
+      soft?: number;
+      hard?: number;
+      total?: number;
+    };
+    unsubscribed?: number;
+    complained?: number;
   };
-  last_error: string;
+  statistics?: {
+    subscriber_count?: number;
+    delivered_count?: number;
+    delivered_rate?: number;
+    open_count?: number;
+    uniq_open_rate?: number;
+    click_count?: number;
+    click_rate?: number;
+    bounce_count?: number;
+    soft_bounce_count?: number;
+    hard_bounce_count?: number;
+    unsubscribe_count?: number;
+    abuse_complaint_count?: number;
+  };
+  last_error?: string;
   run_at: string;
-  meta: Record<string, any>; // Add meta property with flexible object type
+  meta?: Record<string, any>; // Add meta property with flexible object type
 }
 
 export interface AcelleCampaignDetail extends AcelleCampaign {

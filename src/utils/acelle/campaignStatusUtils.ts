@@ -67,6 +67,11 @@ export const getStatusBadgeVariant = (status: string): string => {
  */
 export const renderPercentage = (value: number | undefined | null): string => {
   if (value === undefined || value === null) return "-";
+  
+  // Ensure value is a number
+  value = Number(value);
+  if (isNaN(value)) return "-";
+  
   // If value is already in percentage format (0-100)
   if (value > 1) {
     return `${value.toFixed(2)}%`;

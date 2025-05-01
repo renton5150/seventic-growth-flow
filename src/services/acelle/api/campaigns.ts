@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,43 +30,59 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
     }
 
     // Use the buildProxyUrl function to ensure proper URL construction
-    const proxyUrl = buildProxyUrl('me', { api_token: account.apiToken });
+    const proxyUrl = buildProxyUrl('me', { 
+      api_token: account.apiToken,
+      cache_bust: Date.now().toString() // Add cache busting parameter
+    });
     
     console.log(`Checking API access with URL: ${proxyUrl}`);
     
-    const response = await fetch(proxyUrl, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${accessToken}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "X-Auth-Method": "token",
-        "X-Debug-Level": "verbose",
-        "X-Wake-Request": "true"
+    // Use AbortController to set timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+    
+    try {
+      const response = await fetch(proxyUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "X-Acelle-Endpoint": apiEndpoint,
+          "X-Auth-Method": "token",
+          "X-Debug-Level": "verbose",
+          "X-Wake-Request": "true"
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error(`API accessibility check failed: ${response.status}`);
+        
+        // Log detailed response for debugging
+        try {
+          const errorText = await response.text();
+          console.error("API accessibility error details:", errorText);
+        } catch (e) {
+          console.error("Could not read error response");
+        }
+        
+        return false;
       }
-    });
 
-    if (!response.ok) {
-      console.error(`API accessibility check failed: ${response.status}`);
+      const result = await response.json();
+      console.log("API accessibility check result:", result);
       
-      // Log detailed response for debugging
-      try {
-        const errorText = await response.text();
-        console.error("API accessibility error details:", errorText);
-      } catch (e) {
-        console.error("Could not read error response");
-      }
-      
+      return result && (result.status === 'active' || !!result.id);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("Error checking API accessibility (fetch error):", error);
       return false;
     }
-
-    const result = await response.json();
-    console.log("API accessibility check result:", result);
-    
-    return result && (result.status === 'active' || !!result.id);
   } catch (error) {
-    console.error("Error checking API accessibility:", error);
+    console.error("Error checking API accessibility (general error):", error);
     return false;
   }
 };
@@ -102,39 +119,62 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       return null;
     }
     
-    // Using CORS proxy with properly encoded URL
-    const proxyUrl = buildProxyUrl(`campaigns/${campaignUid}`, { api_token: account.apiToken });
+    // Using CORS proxy with properly encoded URL and cache busting
+    const proxyUrl = buildProxyUrl(`campaigns/${campaignUid}`, { 
+      api_token: account.apiToken,
+      cache_bust: Date.now().toString() // Add cache busting parameter
+    });
     
     console.log(`Fetching campaign details with URL: ${proxyUrl}`);
     
-    const response = await fetch(proxyUrl, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${accessToken}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Debug-Level": "verbose",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "X-Auth-Method": "token"
+    // Use AbortController to set timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
+    
+    try {
+      const response = await fetch(proxyUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "X-Debug-Level": "verbose",
+          "X-Acelle-Endpoint": apiEndpoint,
+          "X-Auth-Method": "token",
+          "X-Wake-Request": "true"
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        let errorText;
+        try {
+          const errorData = await response.json();
+          errorText = errorData.error || `Error ${response.status}`;
+        } catch (e) {
+          errorText = await response.text();
+        }
+        console.error(`Failed to fetch details for campaign ${campaignUid}: ${response.status}`, errorText);
+        toast.error(`Erreur lors du chargement des détails: ${errorText}`);
+        return null;
       }
-    });
 
-    if (!response.ok) {
-      let errorText;
-      try {
-        const errorData = await response.json();
-        errorText = errorData.error || `Error ${response.status}`;
-      } catch (e) {
-        errorText = await response.text();
+      const campaignDetails = await response.json();
+      console.log(`Successfully fetched details for campaign ${campaignUid}`, campaignDetails);
+      return campaignDetails;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === "AbortError") {
+        console.error(`Timeout fetching details for campaign ${campaignUid}`);
+        toast.error("Délai d'attente dépassé lors du chargement des détails");
+      } else {
+        console.error(`Error fetching details for campaign ${campaignUid}:`, error);
+        toast.error(`Erreur lors du chargement des détails: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
       }
-      console.error(`Failed to fetch details for campaign ${campaignUid}: ${response.status}`, errorText);
-      toast.error(`Erreur lors du chargement des détails: ${errorText}`);
       return null;
     }
-
-    const campaignDetails = await response.json();
-    console.log(`Successfully fetched details for campaign ${campaignUid}`, campaignDetails);
-    return campaignDetails;
   } catch (error) {
     console.error(`Error fetching details for campaign ${campaignUid}:`, error);
     toast.error(`Erreur lors du chargement des détails: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
@@ -146,9 +186,6 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
     console.log(`Fetching campaigns for account ${account.name}, page ${page}, limit ${limit}`);
-    
-    // Add cache-control header to prevent browser caching
-    const cacheKey = `${account.id}-${page}-${limit}-${Date.now()}`;
     
     // Check if the API endpoint has the correct format
     if (!account.apiEndpoint || !account.apiToken) {
@@ -180,95 +217,100 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
+    // Use cache buster to prevent stale results
+    const cacheBuster = Date.now().toString();
+    
     // Using our buildProxyUrl utility function with campaign parameters
     const proxyUrl = buildProxyUrl('campaigns', {
       api_token: account.apiToken,
       page: page.toString(),
       per_page: limit.toString(),
-      include_stats: 'true',
-      cache_key: cacheKey
+      include_stats: 'true', 
+      cache_bust: cacheBuster
     });
     
     console.log(`Fetching campaigns with URL: ${proxyUrl}`);
     
-    const response = await fetch(proxyUrl, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${accessToken}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "X-Debug-Level": "verbose",
-        "X-Acelle-Endpoint": apiEndpoint,
-        "X-Auth-Method": "token"
-      }
-    });
+    // Use AbortController to set timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
     
-    if (!response.ok) {
-      console.error(`Failed to fetch campaigns: ${response.status}`);
+    try {
+      const response = await fetch(proxyUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "X-Debug-Level": "verbose",
+          "X-Acelle-Endpoint": apiEndpoint,
+          "X-Auth-Method": "token",
+          "X-Wake-Request": "true"
+        },
+        signal: controller.signal
+      });
       
-      // Log detailed response for debugging
-      try {
-        const errorText = await response.text();
-        console.error("Fetch campaigns error details:", errorText);
-      } catch (e) {
-        console.error("Could not read error response");
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch campaigns: ${response.status}`);
+        
+        // Log detailed response for debugging
+        try {
+          const errorText = await response.text();
+          console.error("Fetch campaigns error details:", errorText);
+        } catch (e) {
+          console.error("Could not read error response");
+        }
+        
+        if (response.status === 401 || response.status === 403) {
+          toast.error("Erreur d'authentification avec l'API Acelle");
+        } else if (response.status === 500) {
+          toast.error("Erreur interne du serveur Acelle");
+        } else {
+          toast.error(`Erreur lors de la récupération des campagnes: ${response.status}`);
+        }
+        
+        return [];
       }
       
-      if (response.status === 401 || response.status === 403) {
-        toast.error("Erreur d'authentification avec l'API Acelle");
-      } else if (response.status === 500) {
-        toast.error("Erreur interne du serveur Acelle");
+      const campaigns = await response.json();
+      console.log(`Fetched ${campaigns.length} campaigns for account ${account.name}`);
+      console.log("Sample campaign data:", campaigns.length > 0 ? campaigns[0] : "No campaigns");
+      
+      // Process campaigns to ensure all required fields are present with improved parsing
+      const processedCampaigns = campaigns.map((campaign: any) => {
+        // Initialize statistics and delivery_info with default values to avoid TypeScript errors
+        if (!campaign.statistics) {
+          campaign.statistics = {};
+        }
+        
+        if (!campaign.delivery_info) {
+          campaign.delivery_info = {};
+        }
+        
+        if (!campaign.delivery_info.bounced) {
+          campaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
+        }
+
+        return campaign;
+      });
+      
+      // Update last sync date
+      updateLastSyncDate(account.id);
+      
+      return processedCampaigns;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === "AbortError") {
+        console.error(`Timeout fetching campaigns for account ${account.name}`);
+        toast.error("Délai d'attente dépassé lors de la récupération des campagnes");
       } else {
-        toast.error(`Erreur lors de la récupération des campagnes: ${response.status}`);
+        console.error(`Error fetching campaigns for account ${account.name}:`, error);
+        toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
       }
-      
       return [];
     }
-    
-    const campaigns = await response.json();
-    console.log(`Fetched ${campaigns.length} campaigns for account ${account.name}`);
-    console.log("Sample campaign data:", campaigns.length > 0 ? campaigns[0] : "No campaigns");
-    
-    // Process campaigns to ensure all required fields are present with improved parsing
-    const processedCampaigns = campaigns.map((campaign: any) => {
-      // Safely extract number values with improved parsing
-      const safeParseInt = (value: any) => {
-        if (value === undefined || value === null) return 0;
-        const num = parseInt(value);
-        return isNaN(num) ? 0 : num;
-      };
-      
-      const safeParseFloat = (value: any) => {
-        if (value === undefined || value === null) return 0;
-        const num = parseFloat(value);
-        return isNaN(num) ? 0 : num;
-      };
-      
-      // Make sure statistics is always an object
-      if (!campaign.statistics) {
-        campaign.statistics = {};
-      }
-      
-      // Make sure delivery_info is always an object with nested objects
-      if (!campaign.delivery_info) {
-        campaign.delivery_info = {};
-      }
-      
-      if (!campaign.delivery_info.bounced) {
-        campaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
-      }
-      
-      // Log complete campaign object for debugging
-      console.log(`Campaign ${campaign.name || 'Unknown'} full data:`, campaign);
-
-      // Return the processed campaign with all necessary fields
-      return campaign;
-    });
-    
-    // Update last sync date
-    updateLastSyncDate(account.id);
-    
-    return processedCampaigns;
   } catch (error) {
     console.error(`Error fetching campaigns for account ${account.name}:`, error);
     toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);

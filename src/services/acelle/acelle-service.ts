@@ -31,7 +31,13 @@ export const buildProxyUrl = (endpoint: string, queryParams: Record<string, stri
       targetUrl += `?${urlParams.toString()}`;
     }
     
-    // Return the full proxy URL with encoded target URL
+    // Add timestamp param to avoid caching if not already present
+    if (!queryParams.t && !queryParams.timestamp && !queryParams.cache_key) {
+      const timestamp = Date.now();
+      targetUrl += targetUrl.includes('?') ? `&t=${timestamp}` : `?t=${timestamp}`;
+    }
+    
+    // Return the full proxy URL with correctly encoded target URL
     return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(targetUrl)}`;
   } catch (error) {
     console.error("Error building proxy URL:", error);

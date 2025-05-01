@@ -8,6 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, content-type, x-acelle-endpoint, x-auth-method, x-api-key, x-debug-level, x-wake-request',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 hours
+  'Access-Control-Expose-Headers': 'x-wake-request', // Important: expose custom headers
 };
 
 serve(async (req) => {
@@ -45,15 +46,17 @@ serve(async (req) => {
     const originalHeaders: Record<string, string> = {};
     req.headers.forEach((value, key) => {
       originalHeaders[key] = value;
+      console.log(`Header: ${key}: ${value}`);
     });
-    console.log("Original request headers:", originalHeaders);
     
     // Get Acelle endpoint from headers if provided
     const acelleEndpoint = req.headers.get("X-Acelle-Endpoint");
     const authMethod = req.headers.get("X-Auth-Method") || "token";
     const wakeRequest = req.headers.get("X-Wake-Request");
+    const apiKey = req.headers.get("X-Api-Key");
+    const debugLevel = req.headers.get("X-Debug-Level");
     
-    // Prepare headers for the target request, removing some of the original headers
+    // Prepare headers for the target request
     const headers: Record<string, string> = {
       "Accept": req.headers.get("Accept") || "application/json",
       "Content-Type": req.headers.get("Content-Type") || "application/json",
@@ -65,10 +68,18 @@ serve(async (req) => {
     if (acelleEndpoint) headers["X-Acelle-Endpoint"] = acelleEndpoint;
     if (authMethod) headers["X-Auth-Method"] = authMethod;
     if (wakeRequest) headers["X-Wake-Request"] = wakeRequest;
+    if (apiKey) headers["X-API-Key"] = apiKey;
+    if (debugLevel) headers["X-Debug-Level"] = debugLevel;
     
     // Handle various auth methods
     if (authMethod === "header" && originalHeaders["x-api-key"]) {
       headers["X-API-Key"] = originalHeaders["x-api-key"];
+    }
+    
+    // Copy Authorization header if present
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      headers["Authorization"] = authHeader;
     }
     
     // Create request options
@@ -96,10 +107,35 @@ serve(async (req) => {
     
     // Log outgoing request details
     console.log("Transfert de la requête vers:", targetUrl);
+    console.log("Headers envoyés:", headers);
     
-    // Make the actual request to the target URL
+    // Make the actual request to the target URL with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+    requestOptions.signal = controller.signal;
+    
     const startTime = Date.now();
-    const response = await fetch(targetUrl, requestOptions);
+    let response: Response;
+    
+    try {
+      response = await fetch(targetUrl, requestOptions);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      console.error(`Fetch error: ${fetchError.message}`);
+      
+      return new Response(JSON.stringify({
+        error: fetchError.message,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 502,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders
+        }
+      });
+    }
+    clearTimeout(timeoutId);
+    
     const duration = Date.now() - startTime;
     
     // Log response details
@@ -140,23 +176,25 @@ serve(async (req) => {
       });
     }
     
-    // CRITICAL FIX: Handle the "Body already consumed" error
-    // We need to clone the response before trying to read its body
-    const responseClone = response.clone();
+    // CRITICAL FIX: Always clone the response before attempting to read its body
+    const responseToProcess = response.clone();
     
     // First try to parse as JSON
     try {
-      const responseData = await response.json();
+      // Use the cloned response for processing
+      const responseData = await responseToProcess.json();
       console.log("Réponse proxy envoyée:", response.status, "en " + duration + "ms");
       
+      // Return a new response with the parsed JSON data
       return new Response(JSON.stringify(responseData), {
         status: response.status,
         headers: responseHeaders
       });
     } catch (jsonError) {
-      // If it's not JSON, read as text from the cloned response
+      // If it's not JSON, try to read as text from the original response
       try {
-        const textData = await responseClone.text();
+        // Use the original response for text processing
+        const textData = await response.text();
         console.log("Réponse proxy envoyée (texte):", response.status, "en " + duration + "ms");
         
         return new Response(textData, {

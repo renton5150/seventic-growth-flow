@@ -26,12 +26,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     }
   };
 
-  // Helper function to render numeric values safely
-  const renderNumeric = (value: number | undefined | null, suffix = "") => {
-    if (value === undefined || value === null) return "-";
-    return `${value}${suffix}`;
-  };
-
   // Get status and delivery info
   const status = campaign.status || "unknown";
   const statusDisplay = translateStatus(status);
@@ -39,37 +33,44 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   // Fix: Cast the variant to the correct type for Badge component
   const variant = getStatusBadgeVariant(status) as "default" | "secondary" | "destructive" | "outline";
 
-  // Initialize statistics and delivery_info objects with default values to avoid TypeScript errors
-  // Define these with explicit types that include all properties we'll access
-  const stats = campaign.statistics || {
-    subscriber_count: 0,
-    delivered_count: 0,
-    delivered_rate: 0,
-    open_count: 0,
-    uniq_open_rate: 0,
-    click_count: 0,
-    click_rate: 0,
-    bounce_count: 0,
-    soft_bounce_count: 0,
-    hard_bounce_count: 0,
-    unsubscribe_count: 0,
-    abuse_complaint_count: 0
+  // Helper function to safely render numeric values with fallbacks
+  const renderNumeric = (value: number | string | undefined | null, suffix = "") => {
+    if (value === undefined || value === null) return "-";
+    return `${value}${suffix}`;
+  };
+  
+  // Safely extract statistics values with fallbacks
+  const getStatValue = (path: string[], defaultValue: number = 0): number => {
+    try {
+      let obj: any = campaign;
+      for (const key of path) {
+        if (!obj || typeof obj !== 'object') return defaultValue;
+        obj = obj[key];
+      }
+      return typeof obj === 'number' ? obj : defaultValue;
+    } catch (e) {
+      return defaultValue;
+    }
   };
 
-  const deliveryInfo = campaign.delivery_info || {
-    total: 0,
-    delivery_rate: 0,
-    unique_open_rate: 0,
-    click_rate: 0,
-    bounce_rate: 0,
-    unsubscribe_rate: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
-    bounced: { soft: 0, hard: 0, total: 0 },
-    unsubscribed: 0,
-    complained: 0
-  };
+  // Get values with multiple fallbacks
+  const subscriberCount = getStatValue(['statistics', 'subscriber_count']) || 
+                         getStatValue(['delivery_info', 'total']) || 0;
+                         
+  const deliveryRate = getStatValue(['statistics', 'delivered_rate']) || 
+                      getStatValue(['delivery_info', 'delivery_rate']) || 0;
+                      
+  const openRate = getStatValue(['statistics', 'uniq_open_rate']) || 
+                  getStatValue(['delivery_info', 'unique_open_rate']) || 0;
+                  
+  const clickRate = getStatValue(['statistics', 'click_rate']) || 
+                   getStatValue(['delivery_info', 'click_rate']) || 0;
+                   
+  const bounceCount = getStatValue(['statistics', 'bounce_count']) || 
+                     getStatValue(['delivery_info', 'bounced', 'total']) || 0;
+                     
+  const unsubscribeCount = getStatValue(['statistics', 'unsubscribe_count']) || 
+                          getStatValue(['delivery_info', 'unsubscribed']) || 0;
 
   return (
     <TableRow>
@@ -86,22 +87,22 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         {formatDateSafely(campaign.delivery_date)}
       </TableCell>
       <TableCell>
-        {renderNumeric(stats.subscriber_count || deliveryInfo.total)}
+        {renderNumeric(subscriberCount)}
       </TableCell>
       <TableCell>
-        {renderPercentage(stats.delivered_rate || deliveryInfo.delivery_rate)}
+        {renderPercentage(deliveryRate)}
       </TableCell>
       <TableCell>
-        {renderPercentage(stats.uniq_open_rate || deliveryInfo.unique_open_rate)}
+        {renderPercentage(openRate)}
       </TableCell>
       <TableCell>
-        {renderPercentage(stats.click_rate || deliveryInfo.click_rate)}
+        {renderPercentage(clickRate)}
       </TableCell>
       <TableCell>
-        {renderNumeric(stats.bounce_count || (deliveryInfo.bounced ? deliveryInfo.bounced.total : 0))}
+        {renderNumeric(bounceCount)}
       </TableCell>
       <TableCell>
-        {renderNumeric(stats.unsubscribe_count || deliveryInfo.unsubscribed)}
+        {renderNumeric(unsubscribeCount)}
       </TableCell>
       <TableCell className="text-right">
         <Button 
