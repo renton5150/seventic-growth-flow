@@ -5,7 +5,7 @@
  * Translates Acelle campaign statuses to French
  */
 export const translateStatus = (status: string): string => {
-  const cleanStatus = status.toLowerCase().trim();
+  const cleanStatus = status?.toLowerCase().trim() || 'unknown';
   
   switch (cleanStatus) {
     case 'new':
@@ -40,7 +40,7 @@ export const translateStatus = (status: string): string => {
  * Returns badge variant for campaign status
  */
 export const getStatusBadgeVariant = (status: string): string => {
-  const cleanStatus = status.toLowerCase().trim();
+  const cleanStatus = status?.toLowerCase().trim() || 'unknown';
   
   switch (cleanStatus) {
     case 'new':
@@ -68,25 +68,38 @@ export const getStatusBadgeVariant = (status: string): string => {
 };
 
 /**
- * Safely formats percentages for display
+ * Safely formats percentages for display with improved robustness
  */
 export const renderPercentage = (value: number | undefined | null): string => {
-  // Log pour le débogage
-  console.debug(`Formatage du pourcentage: ${value}`);
+  // Log détaillé pour le débogage
+  console.debug(`Formatage du pourcentage: type=${typeof value}, value=${value}`);
   
   if (value === undefined || value === null) return "-";
   
   // Ensure value is a number
-  value = Number(value);
-  if (isNaN(value)) return "-";
+  const numValue = Number(value);
+  if (isNaN(numValue)) {
+    console.warn(`Valeur de pourcentage non numérique: ${value}`);
+    return "-";
+  }
   
   try {
-    // If value is already in percentage format (0-100)
-    if (value > 1) {
-      return `${value.toFixed(2)}%`;
+    // If already 0 or negative, show as-is
+    if (numValue <= 0) return "0.00%";
+    
+    // If value is already in percentage format (>= 1)
+    if (numValue >= 1 && numValue <= 100) {
+      return `${numValue.toFixed(2)}%`;
     }
-    // If value is in decimal format (0-1)
-    return `${(value * 100).toFixed(2)}%`;
+    // If value is in decimal format (< 1)
+    else if (numValue < 1) {
+      return `${(numValue * 100).toFixed(2)}%`;
+    }
+    // If value is unexpectedly large, cap at 100%
+    else {
+      console.warn(`Valeur de pourcentage anormalement grande: ${numValue}`);
+      return "100.00%";
+    }
   } catch (error) {
     console.error(`Erreur lors du formatage du pourcentage: ${value}`, error);
     return "-";
