@@ -69,7 +69,7 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
         apiEndpoint,
         apiToken,
         name: "Test Connection",
-        status: "inactive",
+        status: "inactive" as "active" | "inactive" | "error", // Explicitly type as the required union type
         created_at: new Date().toISOString(),
         lastSyncDate: null,
         lastSyncError: null,
