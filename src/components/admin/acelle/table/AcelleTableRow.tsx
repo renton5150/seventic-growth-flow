@@ -30,8 +30,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const campaignStatus = (campaign?.status || "unknown").toLowerCase();
   
   // Date d'envoi avec fallback - Utiliser delivery_date au lieu de delivery_at
-  const deliveryDate = campaign?.delivery_date || campaign?.run_at || 
-                       campaign?.meta?.delivery_date || campaign?.meta?.run_at || null;
+  const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
   
   /**
    * Formatage sécurisé des dates
@@ -52,143 +51,158 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
   /**
-   * Fonction avancée pour extraire de manière sécurisée les statistiques 
-   * depuis différentes structures de données possibles
+   * Fonction optimisée pour extraire les statistiques de manière fiable
+   * en parcourant différentes structures possibles
    */
-  const getStatValue = (paths: string[][]): number => {
+  const getStatValue = (key: string): number => {
     try {
-      // Parcourir tous les chemins possibles pour trouver une valeur
-      for (const path of paths) {
-        let currentObj: any = campaign;
-        let found = true;
-        
-        // Naviguer à travers le chemin
-        for (const key of path) {
-          if (currentObj === undefined || currentObj === null) {
-            found = false;
-            break;
-          }
-          currentObj = currentObj[key];
-        }
-        
-        // Si on a trouvé une valeur non nulle
-        if (found && currentObj !== undefined && currentObj !== null) {
-          const numValue = Number(currentObj);
-          if (!isNaN(numValue)) {
-            console.log(`Valeur statistique trouvée via chemin [${path.join('.')}]:`, numValue);
-            return numValue;
-          }
+      // 1. Essayer d'abord dans statistics
+      if (campaign.statistics && typeof campaign.statistics === 'object') {
+        if (key in campaign.statistics && campaign.statistics[key] !== undefined) {
+          const value = Number(campaign.statistics[key]);
+          if (!isNaN(value)) return value;
         }
       }
       
-      // Aucune valeur trouvée
+      // 2. Essayer ensuite dans delivery_info
+      if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+        if (key in campaign.delivery_info && campaign.delivery_info[key] !== undefined) {
+          const value = Number(campaign.delivery_info[key]);
+          if (!isNaN(value)) return value;
+        }
+        
+        // Cas spécial pour bounced qui est un objet
+        if (key === 'bounce_count' && campaign.delivery_info.bounced) {
+          const value = Number(campaign.delivery_info.bounced.total);
+          if (!isNaN(value)) return value;
+        }
+      }
+      
+      // 3. Essayer dans la racine de campaign
+      if (key in campaign && campaign[key] !== undefined) {
+        const value = Number(campaign[key]);
+        if (!isNaN(value)) return value;
+      }
+      
+      // 4. Essayer dans meta
+      if (campaign.meta && typeof campaign.meta === 'object') {
+        // Directement dans meta
+        if (key in campaign.meta && campaign.meta[key] !== undefined) {
+          const value = Number(campaign.meta[key]);
+          if (!isNaN(value)) return value;
+        }
+        
+        // Dans meta.statistics
+        if (campaign.meta.statistics && key in campaign.meta.statistics) {
+          const value = Number(campaign.meta.statistics[key]);
+          if (!isNaN(value)) return value;
+        }
+        
+        // Dans meta.delivery_info
+        if (campaign.meta.delivery_info && key in campaign.meta.delivery_info) {
+          const value = Number(campaign.meta.delivery_info[key]);
+          if (!isNaN(value)) return value;
+        }
+      }
+      
+      // 5. Essayer dans track
+      if (campaign.track && typeof campaign.track === 'object') {
+        if (key in campaign.track && campaign.track[key] !== undefined) {
+          const value = Number(campaign.track[key]);
+          if (!isNaN(value)) return value;
+        }
+      }
+      
+      // 6. Essayer dans report
+      if (campaign.report && typeof campaign.report === 'object') {
+        if (key in campaign.report && campaign.report[key] !== undefined) {
+          const value = Number(campaign.report[key]);
+          if (!isNaN(value)) return value;
+        }
+      }
+      
+      // Essayer les mappings alternatifs de clés
+      const keyMappings: Record<string, string[]> = {
+        'subscriber_count': ['total', 'recipient_count', 'subscribers_count', 'total_subscribers'],
+        'delivered_count': ['delivered'],
+        'delivered_rate': ['delivery_rate'],
+        'uniq_open_rate': ['open_rate', 'unique_open_rate'],
+        'open_count': ['opened'],
+        'click_rate': ['click_percentage'],
+        'bounce_count': ['bounced.total', 'total_bounces'],
+        'unsubscribe_count': ['unsubscribed']
+      };
+      
+      if (key in keyMappings) {
+        for (const altKey of keyMappings[key]) {
+          // Gestion des clés imbriquées comme 'bounced.total'
+          if (altKey.includes('.')) {
+            const [parent, child] = altKey.split('.');
+            if (campaign.delivery_info && campaign.delivery_info[parent]) {
+              const value = Number(campaign.delivery_info[parent][child]);
+              if (!isNaN(value)) return value;
+            }
+            
+            if (campaign.statistics && campaign.statistics[parent]) {
+              const value = Number(campaign.statistics[parent][child]);
+              if (!isNaN(value)) return value;
+            }
+            
+            if (campaign.meta && campaign.meta.delivery_info && campaign.meta.delivery_info[parent]) {
+              const value = Number(campaign.meta.delivery_info[parent][child]);
+              if (!isNaN(value)) return value;
+            }
+            
+            continue;
+          }
+          
+          // Pour les clés simples, parcourir les objets
+          // statistics
+          if (campaign.statistics && altKey in campaign.statistics) {
+            const value = Number(campaign.statistics[altKey]);
+            if (!isNaN(value)) return value;
+          }
+          
+          // delivery_info
+          if (campaign.delivery_info && altKey in campaign.delivery_info) {
+            const value = Number(campaign.delivery_info[altKey]);
+            if (!isNaN(value)) return value;
+          }
+          
+          // racine
+          if (altKey in campaign) {
+            const value = Number(campaign[altKey]);
+            if (!isNaN(value)) return value;
+          }
+          
+          // meta
+          if (campaign.meta && altKey in campaign.meta) {
+            const value = Number(campaign.meta[altKey]);
+            if (!isNaN(value)) return value;
+          }
+          
+          // track
+          if (campaign.track && altKey in campaign.track) {
+            const value = Number(campaign.track[altKey]);
+            if (!isNaN(value)) return value;
+          }
+        }
+      }
+
       return 0;
     } catch (error) {
-      console.warn(`Erreur lors de l'extraction de statistiques:`, error);
+      console.warn(`Erreur lors de l'extraction de la statistique '${key}':`, error);
       return 0;
     }
   };
 
-  // Définition de tous les chemins possibles pour chaque statistique
-  // On utilise une approche exhaustive pour couvrir toutes les structures de données possibles
-  const subscriberPaths = [
-    ['statistics', 'subscriber_count'],
-    ['delivery_info', 'total'],
-    ['recipient_count'],
-    ['meta', 'subscribers_count'],
-    ['meta', 'total_subscribers'],
-    ['meta', 'statistics', 'subscriber_count'],
-    ['meta', 'delivery_info', 'total'],
-    ['track', 'subscribers_count'],
-    ['track', 'total'],
-    ['data', 'subscribers_count'],
-    ['data', 'total'],
-    ['subscribers_count'],
-    ['total_subscribers']
-  ];
-  
-  const deliveryRatePaths = [
-    ['statistics', 'delivered_rate'],
-    ['delivery_info', 'delivery_rate'],
-    ['delivered_rate'],
-    ['delivery_rate'],
-    ['meta', 'delivered_rate'],
-    ['meta', 'statistics', 'delivered_rate'],
-    ['meta', 'delivery_info', 'delivery_rate'],
-    ['track', 'delivery_rate'],
-    ['track', 'delivered_rate'],
-    ['data', 'delivery_rate'],
-    ['data', 'delivered_rate']
-  ];
-  
-  const openRatePaths = [
-    ['statistics', 'uniq_open_rate'],
-    ['statistics', 'open_rate'],
-    ['delivery_info', 'open_rate'],
-    ['delivery_info', 'unique_open_rate'],
-    ['open_rate'],
-    ['unique_open_rate'],
-    ['uniq_open_rate'],
-    ['meta', 'open_rate'],
-    ['meta', 'unique_open_rate'],
-    ['meta', 'statistics', 'open_rate'],
-    ['meta', 'statistics', 'uniq_open_rate'],
-    ['meta', 'delivery_info', 'open_rate'],
-    ['meta', 'delivery_info', 'unique_open_rate'],
-    ['track', 'open_rate'],
-    ['track', 'unique_open_rate'],
-    ['data', 'open_rate'],
-    ['data', 'unique_open_rate']
-  ];
-  
-  const clickRatePaths = [
-    ['statistics', 'click_rate'],
-    ['delivery_info', 'click_rate'],
-    ['click_rate'],
-    ['meta', 'click_rate'],
-    ['meta', 'statistics', 'click_rate'],
-    ['meta', 'delivery_info', 'click_rate'],
-    ['track', 'click_rate'],
-    ['data', 'click_rate']
-  ];
-  
-  const bouncePaths = [
-    ['statistics', 'bounce_count'],
-    ['delivery_info', 'bounced', 'total'],
-    ['bounce_count'],
-    ['bounced', 'total'],
-    ['bounced'],
-    ['meta', 'bounce_count'],
-    ['meta', 'statistics', 'bounce_count'],
-    ['meta', 'delivery_info', 'bounced', 'total'],
-    ['track', 'bounce_count'],
-    ['track', 'bounced', 'total'],
-    ['data', 'bounce_count'],
-    ['data', 'bounced', 'total']
-  ];
-  
-  const unsubscribePaths = [
-    ['statistics', 'unsubscribe_count'],
-    ['delivery_info', 'unsubscribed'],
-    ['unsubscribe_count'],
-    ['unsubscribed'],
-    ['unsubscribed_count'],
-    ['meta', 'unsubscribe_count'],
-    ['meta', 'statistics', 'unsubscribe_count'],
-    ['meta', 'delivery_info', 'unsubscribed'],
-    ['track', 'unsubscribe_count'],
-    ['track', 'unsubscribed'],
-    ['data', 'unsubscribe_count'],
-    ['data', 'unsubscribed']
-  ];
-
-  // Extraire les valeurs
-  const subscriberCount = getStatValue(subscriberPaths);
-  const deliveryRate = getStatValue(deliveryRatePaths);
-  const openRate = getStatValue(openRatePaths);
-  const clickRate = getStatValue(clickRatePaths);
-  const bounceCount = getStatValue(bouncePaths);
-  const unsubscribeCount = getStatValue(unsubscribePaths);
+  // Extraire les valeurs statistiques
+  const subscriberCount = getStatValue('subscriber_count');
+  const deliveryRate = getStatValue('delivered_rate');
+  const openRate = getStatValue('uniq_open_rate');
+  const clickRate = getStatValue('click_rate');
+  const bounceCount = getStatValue('bounce_count');
+  const unsubscribeCount = getStatValue('unsubscribe_count');
 
   const handleViewClick = () => {
     if (campaignUid) {

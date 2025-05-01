@@ -1,8 +1,9 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { buildProxyUrl, ACELLE_PROXY_CONFIG } from "@/services/acelle/acelle-service";
+import { buildProxyUrl } from "@/services/acelle/acelle-service";
 
 /**
  * Fonction améliorée pour vérifier l'accessibilité de l'API avec diagnostics complets
@@ -50,9 +51,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
           "Authorization": `Bearer ${accessToken}`,
           "Cache-Control": "no-cache, no-store, must-revalidate",
           "X-Acelle-Endpoint": apiEndpoint,
-          "X-Auth-Method": "token",
-          "X-Debug-Level": "verbose",
-          "X-Wake-Request": "true"
+          "X-Auth-Method": "token"
         },
         signal: controller.signal
       });
@@ -61,21 +60,10 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
       
       if (!response.ok) {
         console.error(`Vérification d'accès API échouée: ${response.status}`);
-        
-        // Journal détaillé de la réponse pour débogage
-        try {
-          const errorText = await response.text();
-          console.error("Détails de l'erreur d'accès API:", errorText);
-        } catch (e) {
-          console.error("Impossible de lire la réponse d'erreur");
-        }
-        
         return false;
       }
 
       const result = await response.json();
-      console.log("Résultat de la vérification d'accès API:", result);
-      
       return result && (result.status === 'active' || !!result.id);
     } catch (error) {
       clearTimeout(timeoutId);
@@ -141,10 +129,8 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
           "Accept": "application/json",
           "Authorization": `Bearer ${accessToken}`,
           "Cache-Control": "no-cache, no-store, must-revalidate",
-          "X-Debug-Level": "verbose",
           "X-Acelle-Endpoint": apiEndpoint,
-          "X-Auth-Method": "token",
-          "X-Wake-Request": "true"
+          "X-Auth-Method": "token"
         },
         signal: controller.signal
       });
@@ -167,48 +153,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       const campaignDetails = await response.json();
       console.log(`Détails récupérés avec succès pour la campagne ${campaignUid}`, campaignDetails);
       
-      // Essayer de récupérer des statistiques additionnelles via l'endpoint /track
-      try {
-        const trackUrl = buildProxyUrl(`campaigns/${campaignUid}/track`, {
-          api_token: account.apiToken,
-          cache_bust: Date.now().toString()
-        });
-        
-        console.log(`Récupération des statistiques de suivi via: ${trackUrl}`);
-        
-        const trackResponse = await fetch(trackUrl, {
-          method: "GET",
-          headers: {
-            "Accept": "application/json",
-            "Authorization": `Bearer ${accessToken}`,
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "X-Acelle-Endpoint": apiEndpoint,
-            "X-Auth-Method": "token"
-          }
-        });
-        
-        if (trackResponse.ok) {
-          const trackData = await trackResponse.json();
-          console.log(`Données de suivi récupérées:`, trackData);
-          
-          // Fusionner les données de suivi dans l'objet principal
-          campaignDetails.track = trackData;
-          
-          // S'il n'y a pas de statistiques mais qu'on a des données de suivi, les utiliser
-          if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
-            campaignDetails.statistics = {
-              ...trackData
-            };
-            console.log("Données de statistiques enrichies à partir de /track");
-          }
-        } else {
-          console.warn(`Échec de récupération des données de suivi: ${trackResponse.status}`);
-        }
-      } catch (trackError) {
-        console.warn(`Erreur lors de la récupération des données de suivi:`, trackError);
-      }
-      
-      // Vérifier si les statistiques sont manquantes et tenter de récupérer les statistiques de base
+      // Récupérer des statistiques additionnelles si nécessaire
       if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
         try {
           // Tenter d'utiliser un endpoint spécifique pour les statistiques
@@ -239,45 +184,6 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
           }
         } catch (statsError) {
           console.warn(`Erreur lors de la récupération des statistiques complémentaires:`, statsError);
-        }
-      }
-      
-      // Si la campagne est terminée, essayer de récupérer les données de performance depuis /report
-      if (['sent', 'done'].includes(campaignDetails.status?.toLowerCase())) {
-        try {
-          const reportUrl = buildProxyUrl(`campaigns/${campaignUid}/report`, {
-            api_token: account.apiToken,
-            cache_bust: Date.now().toString()
-          });
-          
-          console.log(`Récupération du rapport de la campagne via: ${reportUrl}`);
-          
-          const reportResponse = await fetch(reportUrl, {
-            method: "GET",
-            headers: {
-              "Accept": "application/json",
-              "Authorization": `Bearer ${accessToken}`,
-              "Cache-Control": "no-cache, no-store, must-revalidate",
-              "X-Acelle-Endpoint": apiEndpoint,
-              "X-Auth-Method": "token"
-            }
-          });
-          
-          if (reportResponse.ok) {
-            const reportData = await reportResponse.json();
-            console.log(`Rapport de campagne récupéré:`, reportData);
-            
-            // Fusionner le rapport dans l'objet principal
-            campaignDetails.report = reportData;
-            
-            // S'il n'y a toujours pas de statistiques, les extraire du rapport
-            if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
-              campaignDetails.statistics = reportData;
-              console.log("Données de statistiques enrichies à partir de /report");
-            }
-          }
-        } catch (reportError) {
-          console.warn(`Erreur lors de la récupération du rapport:`, reportError);
         }
       }
       
@@ -314,7 +220,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
 };
 
 /**
- * Fonction améliorée pour récupérer les campagnes avec une extraction de statistiques optimisée
+ * Fonction optimisée pour récupérer les campagnes sans échecs en cas d'API inaccessible
  */
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
@@ -347,6 +253,24 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     if (!isApiAccessible) {
       console.error("API non accessible, impossible de récupérer les campagnes");
       toast.error("L'API Acelle n'est pas accessible actuellement");
+      
+      // Essayer de récupérer des données du cache si disponible
+      try {
+        const { data: cachedCampaigns } = await supabase
+          .from('email_campaigns_cache')
+          .select('*')
+          .eq('account_id', account.id)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+          
+        if (cachedCampaigns && cachedCampaigns.length > 0) {
+          console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
+          return cachedCampaigns;
+        }
+      } catch (cacheError) {
+        console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
+      }
+      
       return [];
     }
     
@@ -375,10 +299,8 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
           "Accept": "application/json",
           "Authorization": `Bearer ${accessToken}`,
           "Cache-Control": "no-cache, no-store, must-revalidate",
-          "X-Debug-Level": "verbose",
           "X-Acelle-Endpoint": apiEndpoint,
-          "X-Auth-Method": "token",
-          "X-Wake-Request": "true"
+          "X-Auth-Method": "token"
         },
         signal: controller.signal
       });
@@ -388,20 +310,29 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       if (!response.ok) {
         console.error(`Échec de récupération des campagnes: ${response.status}`);
         
-        // Journal détaillé de la réponse pour débogage
-        try {
-          const errorText = await response.text();
-          console.error("Détails de l'erreur de récupération des campagnes:", errorText);
-        } catch (e) {
-          console.error("Impossible de lire la réponse d'erreur");
-        }
-        
         if (response.status === 401 || response.status === 403) {
           toast.error("Erreur d'authentification avec l'API Acelle");
         } else if (response.status === 500) {
           toast.error("Erreur interne du serveur Acelle");
         } else {
           toast.error(`Erreur lors de la récupération des campagnes: ${response.status}`);
+        }
+        
+        // Essayer de récupérer des données du cache si disponible
+        try {
+          const { data: cachedCampaigns } = await supabase
+            .from('email_campaigns_cache')
+            .select('*')
+            .eq('account_id', account.id)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+            
+          if (cachedCampaigns && cachedCampaigns.length > 0) {
+            console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
+            return cachedCampaigns;
+          }
+        } catch (cacheError) {
+          console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
         }
         
         return [];
@@ -414,77 +345,18 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         const campaigns = await response.json();
         console.log(`Récupéré ${campaigns.length} campagnes pour le compte ${account.name}`);
         
-        // Traitement des campagnes pour obtenir les statistiques détaillées
-        const enrichedCampaigns = [];
-        
-        // Pour chaque campagne, récupérer ses statistiques via l'endpoint /track
-        for (const campaign of campaigns) {
-          // Enrichir avec les structures nécessaires
-          const enrichedCampaign = {
+        // Préparation des campagnes enrichies
+        const enrichedCampaigns = campaigns.map(campaign => {
+          // Assurer la présence des structures de base
+          return {
             ...campaign,
             meta: campaign.meta || {},
             statistics: campaign.statistics || {},
-            delivery_info: campaign.delivery_info || {}
-          };
-          
-          // Initialiser les structures qui pourraient manquer
-          if (!enrichedCampaign.delivery_info.bounced) {
-            enrichedCampaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
-          }
-          
-          // Récupérer des statistiques additionnelles via l'endpoint /track si la campagne est envoyée ou terminée
-          if (['sent', 'done'].includes(campaign.status?.toLowerCase()) && campaign.uid) {
-            try {
-              const trackUrl = buildProxyUrl(`campaigns/${campaign.uid}/track`, {
-                api_token: account.apiToken,
-                cache_bust: Date.now().toString()
-              });
-              
-              console.log(`Récupération des statistiques de suivi pour ${campaign.name} via: ${trackUrl}`);
-              
-              const trackResponse = await fetch(trackUrl, {
-                method: "GET",
-                headers: {
-                  "Accept": "application/json",
-                  "Authorization": `Bearer ${accessToken}`,
-                  "Cache-Control": "no-cache, no-store, must-revalidate",
-                  "X-Acelle-Endpoint": apiEndpoint,
-                  "X-Auth-Method": "token"
-                }
-              });
-              
-              if (trackResponse.ok) {
-                const trackData = await trackResponse.json();
-                console.log(`Données de suivi pour ${campaign.name}:`, trackData);
-                
-                // Fusionner les données de suivi dans l'objet de campagne
-                enrichedCampaign.track = trackData;
-                
-                // Si les statistiques sont vides mais qu'on a des données de suivi, les utiliser
-                if (Object.keys(enrichedCampaign.statistics).length === 0) {
-                  enrichedCampaign.statistics = {
-                    ...trackData
-                  };
-                }
-                
-                // Fusionner les données de livraison si disponibles
-                if (trackData.delivery_info) {
-                  enrichedCampaign.delivery_info = {
-                    ...enrichedCampaign.delivery_info,
-                    ...trackData.delivery_info
-                  };
-                }
-              } else {
-                console.warn(`Échec de récupération des données de suivi pour ${campaign.name}: ${trackResponse.status}`);
-              }
-            } catch (trackError) {
-              console.warn(`Erreur lors de la récupération des données de suivi pour ${campaign.name}:`, trackError);
+            delivery_info: campaign.delivery_info || {
+              bounced: { soft: 0, hard: 0, total: 0 }
             }
-          }
-          
-          // Ajouter la campagne enrichie au tableau
-          enrichedCampaigns.push(enrichedCampaign);
-        }
+          };
+        });
         
         // Mettre à jour la date de dernière synchronisation
         updateLastSyncDate(account.id);
@@ -513,6 +385,24 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         console.error(`Erreur lors de la récupération des campagnes pour le compte ${account.name}:`, error);
         toast.error(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
       }
+      
+      // Essayer de récupérer des données du cache si disponible
+      try {
+        const { data: cachedCampaigns } = await supabase
+          .from('email_campaigns_cache')
+          .select('*')
+          .eq('account_id', account.id)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+          
+        if (cachedCampaigns && cachedCampaigns.length > 0) {
+          console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
+          return cachedCampaigns;
+        }
+      } catch (cacheError) {
+        console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
+      }
+      
       return [];
     }
   } catch (error) {
@@ -522,29 +412,9 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
   }
 };
 
-// Helper function amélioré pour récupérer des nombres avec plusieurs chemins de repli
-const safeGetNumber = (paths: any[][], obj: any): number => {
-  for (const path of paths) {
-    try {
-      let value = obj;
-      for (const key of path) {
-        if (value === undefined || value === null || typeof value !== 'object') {
-          break;
-        }
-        value = value[key];
-      }
-      
-      if (value !== undefined && value !== null) {
-        const num = Number(value);
-        if (!isNaN(num)) return num;
-      }
-    } catch (e) {
-      // Continue to next path
-    }
-  }
-  return 0;
-};
-
+/**
+ * Fonction pour calculer des statistiques globales à partir des campagnes
+ */
 export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalSent = 0;
   let totalDelivered = 0;
@@ -556,65 +426,124 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   console.log(`Calcul des statistiques pour ${campaigns.length} campagnes`);
   
   campaigns.forEach(campaign => {
-    // Log détaillé de la structure pour débogage
-    console.debug(`Structure de la campagne pour statistiques:`, {
-      name: campaign.name,
-      has_statistics: !!campaign.statistics,
-      has_delivery_info: !!campaign.delivery_info,
-      statistics_keys: campaign.statistics ? Object.keys(campaign.statistics) : [],
-      delivery_info_keys: campaign.delivery_info ? Object.keys(campaign.delivery_info) : []
-    });
+    // Fonction sécurisée pour extraire des valeurs
+    const getStatValue = (key: string): number => {
+      try {
+        // 1. Essayer d'abord dans statistics
+        if (campaign.statistics && typeof campaign.statistics === 'object') {
+          if (key in campaign.statistics && campaign.statistics[key] !== undefined) {
+            const value = Number(campaign.statistics[key]);
+            if (!isNaN(value)) return value;
+          }
+        }
+        
+        // 2. Essayer ensuite dans delivery_info
+        if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+          if (key in campaign.delivery_info && campaign.delivery_info[key] !== undefined) {
+            const value = Number(campaign.delivery_info[key]);
+            if (!isNaN(value)) return value;
+          }
+          
+          // Cas spécial pour bounced qui est un objet
+          if (key === 'bounce_count' && campaign.delivery_info.bounced) {
+            const value = Number(campaign.delivery_info.bounced.total);
+            if (!isNaN(value)) return value;
+          }
+        }
+        
+        // 3. Essayer dans la racine de campaign
+        if (key in campaign && campaign[key] !== undefined) {
+          const value = Number(campaign[key]);
+          if (!isNaN(value)) return value;
+        }
+        
+        // 4. Essayer dans meta
+        if (campaign.meta && typeof campaign.meta === 'object') {
+          // Directement dans meta
+          if (key in campaign.meta && campaign.meta[key] !== undefined) {
+            const value = Number(campaign.meta[key]);
+            if (!isNaN(value)) return value;
+          }
+          
+          // Dans meta.statistics
+          if (campaign.meta.statistics && key in campaign.meta.statistics) {
+            const value = Number(campaign.meta.statistics[key]);
+            if (!isNaN(value)) return value;
+          }
+          
+          // Dans meta.delivery_info
+          if (campaign.meta.delivery_info && key in campaign.meta.delivery_info) {
+            const value = Number(campaign.meta.delivery_info[key]);
+            if (!isNaN(value)) return value;
+          }
+        }
+        
+        // 5. Essayer dans track
+        if (campaign.track && typeof campaign.track === 'object') {
+          if (key in campaign.track && campaign.track[key] !== undefined) {
+            const value = Number(campaign.track[key]);
+            if (!isNaN(value)) return value;
+          }
+        }
+        
+        // Essayer les mappings alternatifs de clés
+        const keyMappings: Record<string, string[]> = {
+          'subscriber_count': ['total', 'recipient_count', 'subscribers_count', 'total_subscribers'],
+          'delivered_count': ['delivered'],
+          'open_count': ['opened'],
+          'bounce_count': ['bounced.total', 'total_bounces'],
+          'click_count': ['clicked']
+        };
+        
+        if (key in keyMappings) {
+          for (const altKey of keyMappings[key]) {
+            // Gestion des clés imbriquées comme 'bounced.total'
+            if (altKey.includes('.')) {
+              const [parent, child] = altKey.split('.');
+              if (campaign.delivery_info && campaign.delivery_info[parent]) {
+                const value = Number(campaign.delivery_info[parent][child]);
+                if (!isNaN(value)) return value;
+              }
+              continue;
+            }
+            
+            // Pour les clés simples
+            if (campaign.statistics && altKey in campaign.statistics) {
+              const value = Number(campaign.statistics[altKey]);
+              if (!isNaN(value)) return value;
+            }
+            
+            if (campaign.delivery_info && altKey in campaign.delivery_info) {
+              const value = Number(campaign.delivery_info[altKey]);
+              if (!isNaN(value)) return value;
+            }
+            
+            if (altKey in campaign) {
+              const value = Number(campaign[altKey]);
+              if (!isNaN(value)) return value;
+            }
+          }
+        }
+        
+        return 0;
+      } catch (error) {
+        console.warn(`Erreur lors de l'extraction de la statistique '${key}':`, error);
+        return 0;
+      }
+    };
     
-    // Get total sent with fallbacks
-    const sent = safeGetNumber([
-      ['delivery_info', 'total'], 
-      ['statistics', 'subscriber_count'],
-      ['meta', 'subscribers_count'],
-      ['recipient_count']
-    ], campaign);
+    // Extraire les valeurs statistiques
+    const sent = getStatValue('subscriber_count');
+    const delivered = getStatValue('delivered_count');
+    const opened = getStatValue('open_count');
+    const clicked = getStatValue('click_count');
+    const bounced = getStatValue('bounce_count');
+    
     totalSent += sent;
-    
-    // Get delivered with fallbacks
-    const delivered = safeGetNumber([
-      ['delivery_info', 'delivered'], 
-      ['statistics', 'delivered_count'],
-      ['delivered_count']
-    ], campaign);
     totalDelivered += delivered;
-    
-    // Get opened with fallbacks
-    const opened = safeGetNumber([
-      ['delivery_info', 'opened'], 
-      ['statistics', 'open_count'],
-      ['opened_count']
-    ], campaign);
     totalOpened += opened;
-    
-    // Get clicked with fallbacks
-    const clicked = safeGetNumber([
-      ['delivery_info', 'clicked'], 
-      ['statistics', 'click_count'],
-      ['clicked_count']
-    ], campaign);
     totalClicked += clicked;
-    
-    // Get bounces with fallbacks
-    const bounced = safeGetNumber([
-      ['delivery_info', 'bounced', 'total'], 
-      ['statistics', 'bounce_count'],
-      ['bounce_count']
-    ], campaign);
     totalBounced += bounced;
-    
-    // Log des valeurs extraites pour chaque campagne
-    console.debug(`Stats extraites pour campagne ${campaign.name}:`, {
-      sent, delivered, opened, clicked, bounced
-    });
-  });
-  
-  // Log des totaux finaux
-  console.log(`Statistiques calculées:`, {
-    totalSent, totalDelivered, totalOpened, totalClicked, totalBounced
   });
   
   return [

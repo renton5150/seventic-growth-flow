@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -24,6 +23,8 @@ import {
   InactiveAccountState
 } from "./table/LoadingAndErrorStates";
 import AcelleCampaignDetails from "./AcelleCampaignDetails";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client"; // Importation de supabase
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -34,26 +35,51 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [itemsPerPage] = useState(10);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0); // Pour forcer le rechargement
   
   const fetchCampaigns = React.useCallback(async () => {
     console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
     try {
       // Clear any previous connection errors
       setConnectionError(null);
+      toast.loading("Récupération des campagnes en cours...", { id: "fetch-campaigns" });
       
       // First check API accessibility
       const isAccessible = await acelleService.checkApiAccess(account);
       if (!isAccessible) {
         console.error(`API not accessible for account: ${account.name}`);
         setConnectionError(`L'API Acelle Mail n'est pas accessible pour le compte ${account.name}. Veuillez vérifier la configuration du compte.`);
+        toast.error("API Acelle Mail inaccessible", { id: "fetch-campaigns" });
+        
+        // Try to get campaigns from cache
+        try {
+          const { data: cachedCampaigns } = await supabase
+            .from('email_campaigns_cache')
+            .select('*')
+            .eq('account_id', account.id)
+            .order('created_at', { ascending: false })
+            .limit(itemsPerPage);
+            
+          if (cachedCampaigns && cachedCampaigns.length > 0) {
+            console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache for account ${account.name}`);
+            toast.success("Données chargées depuis le cache", { id: "fetch-campaigns" });
+            return cachedCampaigns;
+          }
+        } catch (cacheError) {
+          console.error(`Error retrieving campaigns from cache:`, cacheError);
+        }
+        
         return [];
       }
       
       // If accessible, fetch campaigns
-      return acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
+      const campaigns = await acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
+      toast.success("Campagnes récupérées avec succès", { id: "fetch-campaigns" });
+      return campaigns;
     } catch (error) {
       console.error(`Error fetching campaigns:`, error);
       setConnectionError(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      toast.error("Erreur lors de la récupération des campagnes", { id: "fetch-campaigns" });
       return [];
     }
   }, [account, currentPage, itemsPerPage]);
@@ -65,7 +91,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isFetching,
     refetch 
   } = useQuery({
-    queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage],
+    queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage, retryCount],
     queryFn: fetchCampaigns,
     enabled: account.status === "active",
     staleTime: 2 * 60 * 1000,
@@ -95,6 +121,12 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setCurrentPage(page);
     window.scrollTo(0, 0);
   };
+  
+  // Fonction pour forcer une nouvelle tentative
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    refetch();
+  };
 
   if (account.status === "inactive") {
     return <InactiveAccountState />;
@@ -107,7 +139,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   if (isError || connectionError) {
     return (
       <TableErrorState 
-        onRetry={() => refetch()} 
+        onRetry={handleRetry}
         errorMessage={connectionError || "Une erreur est survenue lors de la récupération des campagnes"}
       />
     );
@@ -117,7 +149,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     <div className="space-y-4">
       <CampaignsTableHeader 
         accountName={account.name}
-        onRefresh={() => refetch()}
+        onRefresh={handleRetry}
         isSyncing={isFetching}
       />
       
