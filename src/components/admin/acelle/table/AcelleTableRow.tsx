@@ -67,7 +67,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
    * Fonction d'extraction de statistiques complètement revue avec exploration exhaustive et logging détaillé
    * Cette fonction explore toutes les structures de données possibles pour trouver une valeur
    */
-  const getStatValue = (pathOptions: (string | string[])[], defaultValue: number = 0): number => {
+  const getStatValue = (pathOptions: (string | string[] | string[][])[], defaultValue: number = 0): number => {
     try {
       // Log de débogage détaillé pour suivre l'extraction
       console.debug(`Recherche de statistique dans les chemins:`, pathOptions);
@@ -83,10 +83,11 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         } 
         // Si c'est déjà un tableau de chaînes (un chemin), l'encapsuler
         else if (Array.isArray(pathOption) && typeof pathOption[0] === 'string') {
+          // Conversion sécurisée pour éviter l'erreur TS2352
           paths = [pathOption as string[]];
         }
         // Sinon, c'est déjà un tableau de chemins
-        else {
+        else if (Array.isArray(pathOption)) {
           paths = pathOption as string[][];
         }
         
