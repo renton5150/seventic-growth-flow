@@ -127,7 +127,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   };
 
   // Récupérer les données statistiques avec exploration exhaustive des structures possibles
-  // Structure entièrement revue pour couvrir toutes les possibilités de nommage des champs
+  // Structure entièrement revue pour couvrir toutes les possibilités de nommage des champs y compris les chemins dans meta et track
   const subscriberCount = getStatValue([
     ['statistics', 'subscriber_count'], 
     ['delivery_info', 'total'], 
@@ -136,7 +136,11 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['meta', 'statistics', 'subscriber_count'],
     ['meta', 'delivery_info', 'total'],
     ['recipient_count'],
-    'total'
+    'total',
+    ['track', 'subscribers_count'],
+    ['track', 'total'],
+    ['data', 'subscribers_count'],
+    ['data', 'total']
   ]);
                      
   const deliveryRate = getStatValue([
@@ -146,7 +150,11 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['meta', 'statistics', 'delivered_rate'],
     ['meta', 'delivery_info', 'delivery_rate'],
     'delivery_rate',
-    'delivered_rate'
+    'delivered_rate',
+    ['track', 'delivery_rate'],
+    ['track', 'delivered_rate'],
+    ['data', 'delivery_rate'],
+    ['data', 'delivered_rate']
   ]);
                   
   const openRate = getStatValue([
@@ -162,7 +170,11 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['meta', 'delivery_info', 'unique_open_rate'],
     'open_rate',
     'unique_open_rate',
-    'uniq_open_rate'
+    'uniq_open_rate',
+    ['track', 'open_rate'],
+    ['track', 'unique_open_rate'],
+    ['data', 'open_rate'],
+    ['data', 'unique_open_rate']
   ]);
                 
   const clickRate = getStatValue([
@@ -171,7 +183,9 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['meta', 'click_rate'],
     ['meta', 'statistics', 'click_rate'],
     ['meta', 'delivery_info', 'click_rate'],
-    'click_rate'
+    'click_rate',
+    ['track', 'click_rate'],
+    ['data', 'click_rate']
   ]);
                  
   const bounceCount = getStatValue([
@@ -182,7 +196,11 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['meta', 'delivery_info', 'bounced', 'total'],
     ['bounce_count'],
     'bounced',
-    'bounce_count'
+    'bounce_count',
+    ['track', 'bounce_count'],
+    ['track', 'bounced', 'total'],
+    ['data', 'bounce_count'],
+    ['data', 'bounced', 'total']
   ]);
                    
   const unsubscribeCount = getStatValue([
@@ -194,7 +212,11 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['unsubscribed_count'],
     ['unsubscribe_count'],
     'unsubscribed',
-    'unsubscribe_count'
+    'unsubscribe_count',
+    ['track', 'unsubscribe_count'],
+    ['track', 'unsubscribed'],
+    ['data', 'unsubscribe_count'],
+    ['data', 'unsubscribed']
   ]);
 
   // Log de débogage pour vérifier les valeurs extraites

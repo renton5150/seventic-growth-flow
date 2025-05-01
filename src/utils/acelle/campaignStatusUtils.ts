@@ -87,15 +87,20 @@ export const renderPercentage = (value: number | undefined | null): string => {
     // If already 0 or negative, show as-is
     if (numValue <= 0) return "0.00%";
     
-    // If value is already in percentage format (>= 1)
+    // Traitement de divers formats possibles
+    // Si déjà en pourcentage (>= 1 et <= 100)
     if (numValue >= 1 && numValue <= 100) {
       return `${numValue.toFixed(2)}%`;
     }
-    // If value is in decimal format (< 1)
+    // Si en format décimal (< 1)
     else if (numValue < 1) {
       return `${(numValue * 100).toFixed(2)}%`;
     }
-    // If value is unexpectedly large, cap at 100%
+    // Si vraiment grand, c'est probablement déjà multiplié par 100
+    else if (numValue > 100 && numValue < 10000) {
+      return `${(numValue / 100).toFixed(2)}%`;
+    }
+    // Si anormalement grand, plafonner à 100%
     else {
       console.warn(`Valeur de pourcentage anormalement grande: ${numValue}`);
       return "100.00%";

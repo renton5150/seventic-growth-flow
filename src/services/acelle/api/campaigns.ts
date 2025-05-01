@@ -91,6 +91,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
 
 /**
  * Fonction améliorée pour récupérer les détails d'une campagne avec une meilleure gestion des erreurs
+ * Utilisation de l'endpoint /track comme recommandé par la documentation Acelle Mail
  */
 export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
@@ -124,50 +125,98 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
     }
     
     // Utiliser le proxy CORS avec une URL correctement encodée et anti-cache
+    // 1. Première requête pour les détails de base
     const proxyUrl = buildProxyUrl(`campaigns/${campaignUid}`, { 
       api_token: account.apiToken,
-      include_stats: "true", // Important pour récupérer les statistiques
+      cache_bust: Date.now().toString() // Paramètre anti-cache
+    });
+    
+    // 2. Seconde requête utilisant l'endpoint /track pour les statistiques détaillées
+    const trackProxyUrl = buildProxyUrl(`campaigns/${campaignUid}/track`, { 
+      api_token: account.apiToken,
       cache_bust: Date.now().toString() // Paramètre anti-cache
     });
     
     console.log(`Récupération des détails de campagne avec l'URL: ${proxyUrl}`);
+    console.log(`Récupération des statistiques avec l'URL: ${trackProxyUrl}`);
     
     // Utiliser AbortController pour le timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 secondes de timeout
     
     try {
-      const response = await fetch(proxyUrl, {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "X-Debug-Level": "verbose",
-          "X-Acelle-Endpoint": apiEndpoint,
-          "X-Auth-Method": "token",
-          "X-Wake-Request": "true"
-        },
-        signal: controller.signal
-      });
+      // Effectuer les deux requêtes en parallèle pour optimiser les performances
+      const [detailsResponse, trackResponse] = await Promise.all([
+        fetch(proxyUrl, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-Debug-Level": "verbose",
+            "X-Acelle-Endpoint": apiEndpoint,
+            "X-Auth-Method": "token",
+            "X-Wake-Request": "true"
+          },
+          signal: controller.signal
+        }),
+        fetch(trackProxyUrl, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-Debug-Level": "verbose",
+            "X-Acelle-Endpoint": apiEndpoint,
+            "X-Auth-Method": "token",
+            "X-Wake-Request": "true"
+          },
+          signal: controller.signal
+        })
+      ]);
       
       clearTimeout(timeoutId);
       
-      if (!response.ok) {
+      if (!detailsResponse.ok) {
         let errorText;
         try {
-          const errorData = await response.json();
-          errorText = errorData.error || `Erreur ${response.status}`;
+          const errorData = await detailsResponse.json();
+          errorText = errorData.error || `Erreur ${detailsResponse.status}`;
         } catch (e) {
-          errorText = await response.text();
+          errorText = await detailsResponse.text();
         }
-        console.error(`Échec de récupération des détails pour la campagne ${campaignUid}: ${response.status}`, errorText);
+        console.error(`Échec de récupération des détails pour la campagne ${campaignUid}: ${detailsResponse.status}`, errorText);
         toast.error(`Erreur lors du chargement des détails: ${errorText}`);
         return null;
       }
 
-      const campaignDetails = await response.json();
+      const campaignDetails = await detailsResponse.json();
       console.log(`Détails récupérés avec succès pour la campagne ${campaignUid}`, campaignDetails);
+      
+      // Récupérer les données de tracking si disponibles
+      if (trackResponse.ok) {
+        try {
+          const trackData = await trackResponse.json();
+          console.log(`Données de tracking récupérées avec succès pour la campagne ${campaignUid}`, trackData);
+          
+          // Fusionner les données de tracking dans les détails de la campagne
+          campaignDetails.track = trackData;
+          
+          // Si les statistiques sont absentes, les ajouter depuis les données de tracking
+          if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
+            campaignDetails.statistics = trackData;
+          }
+          
+          // Si delivery_info est absent, l'ajouter depuis les données de tracking
+          if (!campaignDetails.delivery_info || Object.keys(campaignDetails.delivery_info).length === 0) {
+            campaignDetails.delivery_info = trackData;
+          }
+        } catch (e) {
+          console.error(`Erreur lors du traitement des données de tracking pour la campagne ${campaignUid}:`, e);
+        }
+      } else {
+        console.warn(`Impossible de récupérer les données de tracking pour la campagne ${campaignUid}: ${trackResponse.status}`);
+      }
       
       // S'assurer que les structures requises existent
       if (!campaignDetails.statistics) {
@@ -203,6 +252,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
 
 /**
  * Fonction améliorée pour récupérer les campagnes avec une extraction de statistiques optimisée
+ * Utilisation de l'endpoint /track comme recommandé par la documentation Acelle Mail
  */
 export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 1, limit: number = 10): Promise<AcelleCampaign[]> => {
   try {
@@ -303,8 +353,24 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         console.log(`Récupéré ${campaigns.length} campagnes pour le compte ${account.name}`);
         console.log("Exemple de données de campagne:", campaigns.length > 0 ? JSON.stringify(campaigns[0]).substring(0, 500) + '...' : "Pas de campagnes");
         
-        // Traiter les campagnes pour s'assurer que tous les champs requis sont présents
-        const processedCampaigns = campaigns.map((campaign: any) => {
+        // Préparer un tableau pour stocker les campagnes enrichies de statistiques
+        const enrichedCampaigns = [];
+        
+        // Traiter chaque campagne pour récupérer ses statistiques détaillées
+        for (const campaign of campaigns) {
+          // Préparer une version enrichie avec les champs minimums requis
+          const enrichedCampaign = {
+            ...campaign,
+            statistics: campaign.statistics || {},
+            delivery_info: campaign.delivery_info || {},
+            meta: campaign.meta || {}
+          };
+          
+          // Vérifier si delivery_info.bounced existe, sinon l'initialiser
+          if (!enrichedCampaign.delivery_info.bounced) {
+            enrichedCampaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
+          }
+          
           // Log détaillé pour analyser la structure des données
           console.debug(`Traitement de la campagne ${campaign.name} (${campaign.uid}):`, 
             JSON.stringify({
@@ -315,26 +381,61 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
             })
           );
           
-          // Initialiser les statistiques et delivery_info avec des valeurs par défaut
-          if (!campaign.statistics) {
-            campaign.statistics = {};
+          // Pour les campagnes envoyées ou terminées, récupérer en plus les données de tracking
+          if (['sent', 'done'].includes(campaign.status?.toLowerCase())) {
+            try {
+              // Créer l'URL pour récupérer les données de tracking
+              const trackProxyUrl = buildProxyUrl(`campaigns/${campaign.uid}/track`, { 
+                api_token: account.apiToken,
+                cache_bust: Date.now().toString()
+              });
+              
+              console.log(`Récupération des statistiques de tracking pour la campagne ${campaign.uid}`);
+              
+              // Récupérer les données de tracking
+              const trackResponse = await fetch(trackProxyUrl, {
+                method: "GET",
+                headers: {
+                  "Accept": "application/json",
+                  "Authorization": `Bearer ${accessToken}`,
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                  "X-Acelle-Endpoint": apiEndpoint,
+                  "X-Auth-Method": "token"
+                }
+              });
+              
+              if (trackResponse.ok) {
+                const trackData = await trackResponse.json();
+                console.log(`Données de tracking récupérées pour la campagne ${campaign.uid}:`, trackData);
+                
+                // Ajouter ces données de tracking à la campagne
+                enrichedCampaign.track = trackData;
+                
+                // Si les statistiques sont absentes, les ajouter depuis les données de tracking
+                if (!enrichedCampaign.statistics || Object.keys(enrichedCampaign.statistics).length === 0) {
+                  enrichedCampaign.statistics = trackData;
+                }
+                
+                // Si delivery_info est absent, l'ajouter depuis les données de tracking
+                if (!enrichedCampaign.delivery_info || Object.keys(enrichedCampaign.delivery_info).length === 0) {
+                  enrichedCampaign.delivery_info = trackData;
+                }
+              } else {
+                console.warn(`Impossible de récupérer les données de tracking pour la campagne ${campaign.uid}: ${trackResponse.status}`);
+              }
+            } catch (trackError) {
+              console.error(`Erreur lors de la récupération des données de tracking pour la campagne ${campaign.uid}:`, trackError);
+            }
           }
           
-          if (!campaign.delivery_info) {
-            campaign.delivery_info = {};
-          }
-          
-          if (!campaign.delivery_info.bounced) {
-            campaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
-          }
-
-          return campaign;
-        });
+          // Ajouter la campagne enrichie au tableau
+          enrichedCampaigns.push(enrichedCampaign);
+        }
         
         // Mettre à jour la date de dernière synchronisation
         updateLastSyncDate(account.id);
         
-        return processedCampaigns;
+        return enrichedCampaigns;
       } catch (parseError) {
         console.error("Erreur lors de l'analyse de la réponse JSON:", parseError);
         
