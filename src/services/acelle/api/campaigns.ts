@@ -167,6 +167,47 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       const campaignDetails = await response.json();
       console.log(`Détails récupérés avec succès pour la campagne ${campaignUid}`, campaignDetails);
       
+      // Essayer de récupérer des statistiques additionnelles via l'endpoint /track
+      try {
+        const trackUrl = buildProxyUrl(`campaigns/${campaignUid}/track`, {
+          api_token: account.apiToken,
+          cache_bust: Date.now().toString()
+        });
+        
+        console.log(`Récupération des statistiques de suivi via: ${trackUrl}`);
+        
+        const trackResponse = await fetch(trackUrl, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-Acelle-Endpoint": apiEndpoint,
+            "X-Auth-Method": "token"
+          }
+        });
+        
+        if (trackResponse.ok) {
+          const trackData = await trackResponse.json();
+          console.log(`Données de suivi récupérées:`, trackData);
+          
+          // Fusionner les données de suivi dans l'objet principal
+          campaignDetails.track = trackData;
+          
+          // S'il n'y a pas de statistiques mais qu'on a des données de suivi, les utiliser
+          if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
+            campaignDetails.statistics = {
+              ...trackData
+            };
+            console.log("Données de statistiques enrichies à partir de /track");
+          }
+        } else {
+          console.warn(`Échec de récupération des données de suivi: ${trackResponse.status}`);
+        }
+      } catch (trackError) {
+        console.warn(`Erreur lors de la récupération des données de suivi:`, trackError);
+      }
+      
       // Vérifier si les statistiques sont manquantes et tenter de récupérer les statistiques de base
       if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
         try {
@@ -201,6 +242,45 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
         }
       }
       
+      // Si la campagne est terminée, essayer de récupérer les données de performance depuis /report
+      if (['sent', 'done'].includes(campaignDetails.status?.toLowerCase())) {
+        try {
+          const reportUrl = buildProxyUrl(`campaigns/${campaignUid}/report`, {
+            api_token: account.apiToken,
+            cache_bust: Date.now().toString()
+          });
+          
+          console.log(`Récupération du rapport de la campagne via: ${reportUrl}`);
+          
+          const reportResponse = await fetch(reportUrl, {
+            method: "GET",
+            headers: {
+              "Accept": "application/json",
+              "Authorization": `Bearer ${accessToken}`,
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              "X-Acelle-Endpoint": apiEndpoint,
+              "X-Auth-Method": "token"
+            }
+          });
+          
+          if (reportResponse.ok) {
+            const reportData = await reportResponse.json();
+            console.log(`Rapport de campagne récupéré:`, reportData);
+            
+            // Fusionner le rapport dans l'objet principal
+            campaignDetails.report = reportData;
+            
+            // S'il n'y a toujours pas de statistiques, les extraire du rapport
+            if (!campaignDetails.statistics || Object.keys(campaignDetails.statistics).length === 0) {
+              campaignDetails.statistics = reportData;
+              console.log("Données de statistiques enrichies à partir de /report");
+            }
+          }
+        } catch (reportError) {
+          console.warn(`Erreur lors de la récupération du rapport:`, reportError);
+        }
+      }
+      
       // S'assurer que les structures requises existent pour éviter les erreurs JS
       if (!campaignDetails.statistics) {
         campaignDetails.statistics = {};
@@ -212,85 +292,6 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
       
       if (campaignDetails.delivery_info && !campaignDetails.delivery_info.bounced) {
         campaignDetails.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
-      }
-      
-      // Si la campagne a été envoyée, tenter de récupérer des données de performance 
-      // directement à partir de l'API pour les statistiques qui pourraient être manquantes
-      if (['sent', 'done'].includes(campaignDetails.status?.toLowerCase())) {
-        // Structure pour stocker les statistiques extraites
-        const extraStats = {
-          open_rate: null,
-          click_rate: null,
-          bounce_rate: null,
-          unsubscribe_rate: null
-        };
-        
-        try {
-          // Essayer d'autres endpoints qui pourraient fournir des statistiques
-          const perfEndpoints = [
-            `campaigns/${campaignUid}/performance`,
-            `campaigns/${campaignUid}/report`,
-            `campaigns/${campaignUid}/statistics`
-          ];
-          
-          for (const endpoint of perfEndpoints) {
-            try {
-              const perfUrl = buildProxyUrl(endpoint, { 
-                api_token: account.apiToken,
-                cache_bust: Date.now().toString()
-              });
-              
-              console.log(`Tentative de récupération de performances depuis: ${endpoint}`);
-              
-              const perfResponse = await fetch(perfUrl, {
-                method: "GET",
-                headers: {
-                  "Accept": "application/json",
-                  "Authorization": `Bearer ${accessToken}`,
-                  "Cache-Control": "no-cache, no-store, must-revalidate",
-                  "X-Acelle-Endpoint": apiEndpoint,
-                  "X-Auth-Method": "token"
-                }
-              });
-              
-              if (perfResponse.ok) {
-                const perfData = await perfResponse.json();
-                console.log(`Données de performance depuis ${endpoint}:`, perfData);
-                
-                // Extraire les statistiques utiles si elles existent
-                if (perfData.open_rate) extraStats.open_rate = perfData.open_rate;
-                if (perfData.click_rate) extraStats.click_rate = perfData.click_rate;
-                if (perfData.bounce_rate) extraStats.bounce_rate = perfData.bounce_rate;
-                if (perfData.unsubscribe_rate) extraStats.unsubscribe_rate = perfData.unsubscribe_rate;
-                
-                // Fusionner avec les données existantes
-                campaignDetails.statistics = {
-                  ...campaignDetails.statistics,
-                  ...perfData
-                };
-              }
-            } catch (endpointError) {
-              console.warn(`Échec pour l'endpoint ${endpoint}:`, endpointError);
-            }
-          }
-          
-          // Mettre à jour les statistiques manquantes avec les données extraites
-          if (!campaignDetails.statistics.open_rate && extraStats.open_rate) {
-            campaignDetails.statistics.open_rate = extraStats.open_rate;
-          }
-          if (!campaignDetails.statistics.click_rate && extraStats.click_rate) {
-            campaignDetails.statistics.click_rate = extraStats.click_rate;
-          }
-          if (!campaignDetails.statistics.bounce_rate && extraStats.bounce_rate) {
-            campaignDetails.statistics.bounce_rate = extraStats.bounce_rate;
-          }
-          if (!campaignDetails.statistics.unsubscribe_rate && extraStats.unsubscribe_rate) {
-            campaignDetails.statistics.unsubscribe_rate = extraStats.unsubscribe_rate;
-          }
-          
-        } catch (perfError) {
-          console.warn(`Erreur lors de la récupération des performances:`, perfError);
-        }
       }
       
       return campaignDetails;
@@ -413,12 +414,14 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         const campaigns = await response.json();
         console.log(`Récupéré ${campaigns.length} campagnes pour le compte ${account.name}`);
         
-        // Traiter chaque campagne pour s'assurer qu'elle a toutes les propriétés nécessaires
-        const enrichedCampaigns = campaigns.map(campaign => {
-          // Créer une version enrichie avec les structures minimales requises
+        // Traitement des campagnes pour obtenir les statistiques détaillées
+        const enrichedCampaigns = [];
+        
+        // Pour chaque campagne, récupérer ses statistiques via l'endpoint /track
+        for (const campaign of campaigns) {
+          // Enrichir avec les structures nécessaires
           const enrichedCampaign = {
             ...campaign,
-            // Garantir que les structures existent pour éviter les erreurs
             meta: campaign.meta || {},
             statistics: campaign.statistics || {},
             delivery_info: campaign.delivery_info || {}
@@ -429,8 +432,59 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
             enrichedCampaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
           }
           
-          return enrichedCampaign;
-        });
+          // Récupérer des statistiques additionnelles via l'endpoint /track si la campagne est envoyée ou terminée
+          if (['sent', 'done'].includes(campaign.status?.toLowerCase()) && campaign.uid) {
+            try {
+              const trackUrl = buildProxyUrl(`campaigns/${campaign.uid}/track`, {
+                api_token: account.apiToken,
+                cache_bust: Date.now().toString()
+              });
+              
+              console.log(`Récupération des statistiques de suivi pour ${campaign.name} via: ${trackUrl}`);
+              
+              const trackResponse = await fetch(trackUrl, {
+                method: "GET",
+                headers: {
+                  "Accept": "application/json",
+                  "Authorization": `Bearer ${accessToken}`,
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                  "X-Acelle-Endpoint": apiEndpoint,
+                  "X-Auth-Method": "token"
+                }
+              });
+              
+              if (trackResponse.ok) {
+                const trackData = await trackResponse.json();
+                console.log(`Données de suivi pour ${campaign.name}:`, trackData);
+                
+                // Fusionner les données de suivi dans l'objet de campagne
+                enrichedCampaign.track = trackData;
+                
+                // Si les statistiques sont vides mais qu'on a des données de suivi, les utiliser
+                if (Object.keys(enrichedCampaign.statistics).length === 0) {
+                  enrichedCampaign.statistics = {
+                    ...trackData
+                  };
+                }
+                
+                // Fusionner les données de livraison si disponibles
+                if (trackData.delivery_info) {
+                  enrichedCampaign.delivery_info = {
+                    ...enrichedCampaign.delivery_info,
+                    ...trackData.delivery_info
+                  };
+                }
+              } else {
+                console.warn(`Échec de récupération des données de suivi pour ${campaign.name}: ${trackResponse.status}`);
+              }
+            } catch (trackError) {
+              console.warn(`Erreur lors de la récupération des données de suivi pour ${campaign.name}:`, trackError);
+            }
+          }
+          
+          // Ajouter la campagne enrichie au tableau
+          enrichedCampaigns.push(enrichedCampaign);
+        }
         
         // Mettre à jour la date de dernière synchronisation
         updateLastSyncDate(account.id);

@@ -30,8 +30,8 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const campaignStatus = (campaign?.status || "unknown").toLowerCase();
   
   // Date d'envoi avec fallback
-  const deliveryDate = campaign?.delivery_date || campaign?.run_at || 
-                       campaign?.meta?.delivery_date || campaign?.meta?.run_at || null;
+  const deliveryDate = campaign?.delivery_at || campaign?.run_at || 
+                       campaign?.meta?.delivery_at || campaign?.meta?.run_at || null;
   
   /**
    * Formatage sécurisé des dates
@@ -52,33 +52,17 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
   /**
-   * Fonction améliorée pour extraire en sécurité une valeur statistique
-   * Cette fonction explore plusieurs chemins possibles dans l'objet pour trouver la donnée
+   * Fonction avancée pour extraire de manière sécurisée les statistiques 
+   * depuis différentes structures de données possibles
    */
-  const getStatValue = (paths: string[][] | string[] | string, defaultValue = 0): number => {
+  const getStatValue = (paths: string[][]): number => {
     try {
-      let pathsToTry: string[][] = [];
-      
-      if (typeof paths === 'string') {
-        // Si c'est une chaîne simple, la transformer en tableau de chemins
-        pathsToTry = [[paths]];
-      } 
-      else if (Array.isArray(paths) && paths.length > 0) {
-        if (typeof paths[0] === 'string') {
-          // Si c'est un tableau de chaînes, le considérer comme un seul chemin
-          pathsToTry = [paths as string[]];
-        } 
-        else {
-          // Sinon c'est déjà un tableau de chemins
-          pathsToTry = paths as string[][];
-        }
-      }
-      
-      // Essayer chaque chemin possible jusqu'à trouver une valeur
-      for (const path of pathsToTry) {
+      // Parcourir tous les chemins possibles pour trouver une valeur
+      for (const path of paths) {
         let currentObj: any = campaign;
         let found = true;
         
+        // Naviguer à travers le chemin
         for (const key of path) {
           if (currentObj === undefined || currentObj === null) {
             found = false;
@@ -87,24 +71,29 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
           currentObj = currentObj[key];
         }
         
+        // Si on a trouvé une valeur non nulle
         if (found && currentObj !== undefined && currentObj !== null) {
           const numValue = Number(currentObj);
-          if (!isNaN(numValue)) return numValue;
+          if (!isNaN(numValue)) {
+            console.log(`Valeur statistique trouvée via chemin [${path.join('.')}]:`, numValue);
+            return numValue;
+          }
         }
       }
       
-      return defaultValue;
+      // Aucune valeur trouvée
+      return 0;
     } catch (error) {
       console.warn(`Erreur lors de l'extraction de statistiques:`, error);
-      return defaultValue;
+      return 0;
     }
   };
 
-  // Extraction des statistiques avec des chemins multiples pour chaque valeur
-  // Cela nous permet de trouver les données même si la structure change
-  const subscriberCount = getStatValue([
-    ['statistics', 'subscriber_count'], 
-    ['delivery_info', 'total'], 
+  // Définition de tous les chemins possibles pour chaque statistique
+  // On utilise une approche exhaustive pour couvrir toutes les structures de données possibles
+  const subscriberPaths = [
+    ['statistics', 'subscriber_count'],
+    ['delivery_info', 'total'],
     ['recipient_count'],
     ['meta', 'subscribers_count'],
     ['meta', 'total_subscribers'],
@@ -113,11 +102,13 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['track', 'subscribers_count'],
     ['track', 'total'],
     ['data', 'subscribers_count'],
-    ['data', 'total']
-  ]);
+    ['data', 'total'],
+    ['subscribers_count'],
+    ['total_subscribers']
+  ];
   
-  const deliveryRate = getStatValue([
-    ['statistics', 'delivered_rate'], 
+  const deliveryRatePaths = [
+    ['statistics', 'delivered_rate'],
     ['delivery_info', 'delivery_rate'],
     ['delivered_rate'],
     ['delivery_rate'],
@@ -128,11 +119,11 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['track', 'delivered_rate'],
     ['data', 'delivery_rate'],
     ['data', 'delivered_rate']
-  ]);
+  ];
   
-  const openRate = getStatValue([
-    ['statistics', 'uniq_open_rate'], 
-    ['statistics', 'open_rate'], 
+  const openRatePaths = [
+    ['statistics', 'uniq_open_rate'],
+    ['statistics', 'open_rate'],
     ['delivery_info', 'open_rate'],
     ['delivery_info', 'unique_open_rate'],
     ['open_rate'],
@@ -148,10 +139,10 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['track', 'unique_open_rate'],
     ['data', 'open_rate'],
     ['data', 'unique_open_rate']
-  ]);
+  ];
   
-  const clickRate = getStatValue([
-    ['statistics', 'click_rate'], 
+  const clickRatePaths = [
+    ['statistics', 'click_rate'],
     ['delivery_info', 'click_rate'],
     ['click_rate'],
     ['meta', 'click_rate'],
@@ -159,12 +150,13 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['meta', 'delivery_info', 'click_rate'],
     ['track', 'click_rate'],
     ['data', 'click_rate']
-  ]);
+  ];
   
-  const bounceCount = getStatValue([
-    ['statistics', 'bounce_count'], 
+  const bouncePaths = [
+    ['statistics', 'bounce_count'],
     ['delivery_info', 'bounced', 'total'],
     ['bounce_count'],
+    ['bounced', 'total'],
     ['bounced'],
     ['meta', 'bounce_count'],
     ['meta', 'statistics', 'bounce_count'],
@@ -173,10 +165,10 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['track', 'bounced', 'total'],
     ['data', 'bounce_count'],
     ['data', 'bounced', 'total']
-  ]);
+  ];
   
-  const unsubscribeCount = getStatValue([
-    ['statistics', 'unsubscribe_count'], 
+  const unsubscribePaths = [
+    ['statistics', 'unsubscribe_count'],
     ['delivery_info', 'unsubscribed'],
     ['unsubscribe_count'],
     ['unsubscribed'],
@@ -188,7 +180,15 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     ['track', 'unsubscribed'],
     ['data', 'unsubscribe_count'],
     ['data', 'unsubscribed']
-  ]);
+  ];
+
+  // Extraire les valeurs
+  const subscriberCount = getStatValue(subscriberPaths);
+  const deliveryRate = getStatValue(deliveryRatePaths);
+  const openRate = getStatValue(openRatePaths);
+  const clickRate = getStatValue(clickRatePaths);
+  const bounceCount = getStatValue(bouncePaths);
+  const unsubscribeCount = getStatValue(unsubscribePaths);
 
   const handleViewClick = () => {
     if (campaignUid) {

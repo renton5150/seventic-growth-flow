@@ -68,41 +68,54 @@ export const getStatusBadgeVariant = (status: string): string => {
 };
 
 /**
- * Safely formats percentages for display with enhanced error handling
+ * Version améliorée pour le formatage des pourcentages avec une détection intelligente du format
  */
-export const renderPercentage = (value: number | undefined | null): string => {
-  // Ignorer les valeurs non définies
-  if (value === undefined || value === null) return "-";
+export const renderPercentage = (value: number | undefined | null | string): string => {
+  // Cas des valeurs non définies ou nulles
+  if (value === undefined || value === null) return "0%";
   
-  // S'assurer que value est un nombre
+  // Conversion en nombre si c'est une chaîne
   const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
   
-  // Vérifier si le nombre est valide
+  // Vérification si le nombre est valide
   if (isNaN(numValue)) {
     console.warn(`Valeur de pourcentage invalide: ${value}`);
     return "0%";
   }
   
   try {
-    // Si le nombre est déjà un pourcentage (entre 0 et 100)
+    // Détection intelligente du format
+    
+    // Si c'est déjà un pourcentage (entre 0 et 100)
     if (numValue >= 0 && numValue <= 100) {
+      // Si le nombre est très petit mais non-nul, on affiche au moins 0.01%
+      if (numValue > 0 && numValue < 0.01) {
+        return "0.01%";
+      }
       return `${numValue.toFixed(2)}%`;
     }
-    // Si le nombre est une fraction (entre 0 et 1)
+    // Si c'est une fraction (entre 0 et 1)
     else if (numValue > 0 && numValue < 1) {
-      return `${(numValue * 100).toFixed(2)}%`;
+      const percentage = numValue * 100;
+      // Si le pourcentage est très petit mais non-nul
+      if (percentage < 0.01 && percentage > 0) {
+        return "0.01%";
+      }
+      return `${percentage.toFixed(2)}%`;
     }
-    // Si le nombre est supérieur à 100 mais semble être une fraction multipliée par 10000
-    else if (numValue > 100 && numValue < 10000) {
-      // Nous essayons de détecter si c'est un pourcentage multiplié par 100
-      return `${(numValue / 100).toFixed(2)}%`;
+    // Si le nombre est supérieur à 100 mais pourrait être un multiplieur (10000 = 100%)
+    else if (numValue > 100 && numValue <= 10000) {
+      // On suppose que c'est un pourcentage multiplié par 100
+      const correctedValue = numValue / 100;
+      return `${correctedValue.toFixed(2)}%`;
     }
     // En cas de valeur trop grande, nous plafonnons à 100%
     else if (numValue > 10000) {
       console.warn(`Valeur anormalement élevée pour un pourcentage: ${numValue}, plafonnée à 100%`);
       return "100.00%";
-    } else {
-      // Pour tout autre cas, nous retournons la valeur formatée directement
+    } 
+    // Cas par défaut: on suppose que c'est déjà un pourcentage
+    else {
       return `${numValue.toFixed(2)}%`;
     }
   } catch (error) {
