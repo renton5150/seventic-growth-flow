@@ -13,11 +13,12 @@ import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
 import { getAcelleAccounts } from "@/services/acelle/acelle-service";
 import { AcelleAccount } from "@/types/acelle.types";
 import { SystemStatus } from "./system/SystemStatus";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AcelleAdminPanel() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [isButtonLoading, setIsButtonLoading] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const { isAdmin } = useAuth();
 
   const { 
     data: accounts = [] as AcelleAccount[], 
