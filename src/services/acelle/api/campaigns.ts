@@ -1,13 +1,13 @@
-import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail, CachedCampaign } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { buildProxyUrl } from "@/services/acelle/acelle-service";
 
 /**
- * Fonction pour extraire les campagnes depuis le cache avec compatibilité typée
+ * Fonction améliorée pour extraire les campagnes depuis le cache avec compatibilité typée
  */
-const extractCampaignsFromCache = (cachedCampaigns: any[]): AcelleCampaign[] => {
+const extractCampaignsFromCache = (cachedCampaigns: CachedCampaign[]): AcelleCampaign[] => {
   if (!cachedCampaigns || cachedCampaigns.length === 0) {
     return [];
   }
@@ -67,6 +67,22 @@ const extractCampaignsFromCache = (cachedCampaigns: any[]): AcelleCampaign[] => 
       }
     }
 
+    // Créer les statistiques à partir des données de delivery_info
+    const statistics = {
+      subscriber_count: deliveryInfo.total || 0,
+      delivered_count: deliveryInfo.delivered || 0,
+      delivered_rate: deliveryInfo.delivery_rate || 0,
+      open_count: deliveryInfo.opened || 0,
+      uniq_open_rate: deliveryInfo.unique_open_rate || 0,
+      click_count: deliveryInfo.clicked || 0,
+      click_rate: deliveryInfo.click_rate || 0,
+      bounce_count: deliveryInfo.bounced?.total || 0,
+      soft_bounce_count: deliveryInfo.bounced?.soft || 0,
+      hard_bounce_count: deliveryInfo.bounced?.hard || 0,
+      unsubscribe_count: deliveryInfo.unsubscribed || 0,
+      abuse_complaint_count: deliveryInfo.complained || 0
+    };
+
     // Créer un objet AcelleCampaign complet et correctement typé
     return {
       uid: campaign.campaign_uid,
@@ -80,20 +96,7 @@ const extractCampaignsFromCache = (cachedCampaigns: any[]): AcelleCampaign[] => 
       run_at: campaign.run_at || '',
       last_error: campaign.last_error || '',
       delivery_info: deliveryInfo,
-      statistics: {
-        subscriber_count: deliveryInfo.total || 0,
-        delivered_count: deliveryInfo.delivered || 0,
-        delivered_rate: deliveryInfo.delivery_rate || 0,
-        open_count: deliveryInfo.opened || 0,
-        uniq_open_rate: deliveryInfo.unique_open_rate || 0,
-        click_count: deliveryInfo.clicked || 0,
-        click_rate: deliveryInfo.click_rate || 0,
-        bounce_count: deliveryInfo.bounced?.total || 0,
-        soft_bounce_count: deliveryInfo.bounced?.soft || 0,
-        hard_bounce_count: deliveryInfo.bounced?.hard || 0,
-        unsubscribe_count: deliveryInfo.unsubscribed || 0,
-        abuse_complaint_count: deliveryInfo.complained || 0
-      },
+      statistics: statistics,
       meta: {},
       track: {},
       report: {}
@@ -362,7 +365,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         if (cachedCampaigns && cachedCampaigns.length > 0) {
           console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
           
-          // Utiliser notre nouvelle fonction de conversion
+          // Utiliser notre fonction de conversion
           return extractCampaignsFromCache(cachedCampaigns);
         }
       } catch (cacheError) {
@@ -428,7 +431,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
           if (cachedCampaigns && cachedCampaigns.length > 0) {
             console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
             
-            // Utiliser notre nouvelle fonction de conversion
+            // Utiliser notre fonction de conversion
             return extractCampaignsFromCache(cachedCampaigns);
           }
         } catch (cacheError) {
@@ -457,7 +460,9 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
             },
             // S'assurer que campaign_uid existe aussi comme uid si nécessaire
             uid: campaign.uid || campaign.campaign_uid,
-            campaign_uid: campaign.campaign_uid || campaign.uid
+            campaign_uid: campaign.campaign_uid || campaign.uid,
+            track: {}, // Initialiser track comme objet vide
+            report: {} // Initialiser report comme objet vide
           } as AcelleCampaign;
         });
         
@@ -501,7 +506,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         if (cachedCampaigns && cachedCampaigns.length > 0) {
           console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
           
-          // Utiliser notre nouvelle fonction de conversion
+          // Utiliser notre fonction de conversion
           return extractCampaignsFromCache(cachedCampaigns);
         }
       } catch (cacheError) {
@@ -653,3 +658,6 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     { name: "Bounces", value: totalBounced }
   ];
 };
+
+// Exporter la fonction pour qu'elle soit accessible depuis acelleService
+export { extractCampaignsFromCache };

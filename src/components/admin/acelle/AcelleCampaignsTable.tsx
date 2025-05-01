@@ -26,6 +26,7 @@ import {
 import AcelleCampaignDetails from "./AcelleCampaignDetails";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { extractCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -65,24 +66,8 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache for account ${account.name}`);
             toast.success("Données chargées depuis le cache", { id: "fetch-campaigns" });
             
-            // Convertir les données de cache en format AcelleCampaign avec tous les champs requis
-            return cachedCampaigns.map(campaign => ({
-              uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
-              campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
-              name: campaign.name || "Sans nom",
-              subject: campaign.subject || "Sans sujet",
-              status: campaign.status || "unknown",
-              created_at: campaign.created_at,
-              updated_at: campaign.updated_at,
-              delivery_date: campaign.delivery_date || '',
-              run_at: campaign.run_at || '',
-              last_error: campaign.last_error || '',
-              delivery_info: campaign.delivery_info || {},
-              statistics: {},
-              meta: {},
-              track: {},
-              report: {}
-            })) as AcelleCampaign[];
+            // Utiliser la fonction extractCampaignsFromCache pour convertir correctement
+            return acelleService.extractCampaignsFromCache(cachedCampaigns);
           }
         } catch (cacheError) {
           console.error(`Error retrieving campaigns from cache:`, cacheError);

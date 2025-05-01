@@ -29,11 +29,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
     }
 
     console.log(`Found ${cachedCampaigns.length} campaigns in cache`);
-    // Only log detailed sample data in development
-    if (process.env.NODE_ENV !== 'production' && cachedCampaigns.length > 0) {
-      console.log("Sample campaign data:", cachedCampaigns[0]);
-    }
-
+    
     // Assurer la conversion correcte des données de cache vers le format AcelleCampaign
     return cachedCampaigns.map((campaign: CachedCampaign) => {
       // Initialiser les structures de données requises

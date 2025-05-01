@@ -108,7 +108,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         }
       }
       
-      // 5. Vérifier dans track et report s'ils existent
+      // 5. Vérifier dans track (maintenant défini comme un objet vide par défaut)
       if (campaign.track && typeof campaign.track === 'object') {
         const trackValue = campaign.track[key];
         if (trackValue !== undefined) {
@@ -117,6 +117,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         }
       }
       
+      // 6. Vérifier dans report (maintenant défini comme un objet vide par défaut)
       if (campaign.report && typeof campaign.report === 'object') {
         const reportValue = campaign.report[key];
         if (reportValue !== undefined) {

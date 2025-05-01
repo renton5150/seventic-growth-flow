@@ -71,7 +71,7 @@ export interface AcelleCampaign {
   report?: Record<string, any>;
   
   // Pour la compatibilité avec la structure de la base de données
-  campaign_uid?: string; // Pour faire le mapping avec la structure du cache
+  campaign_uid?: string;
 }
 
 export interface AcelleCampaignDetail extends AcelleCampaign {
