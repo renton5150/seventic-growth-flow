@@ -4,15 +4,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // Configuration CORS complète pour tous les types de requêtes
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-endpoint, x-auth-method, x-api-key, x-debug-level, x-wake-request, cache-control',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400',  // 24 heures pour réduire les preflight
-  'Access-Control-Expose-Headers': 'x-wake-request, x-debug-level',  // Exposer les en-têtes personnalisés
+  'Access-Control-Expose-Headers': 'x-wake-request, x-debug-level, content-type, content-length',  // Exposer les en-têtes personnalisés
 };
 
 /**
- * Fonction principale de proxy CORS
+ * Fonction principale de proxy CORS optimisée
  */
 serve(async (req) => {
   console.log(`[CORS Proxy] Requête reçue: ${req.method} ${req.url}`);
@@ -49,38 +49,47 @@ serve(async (req) => {
     
     // Récupération des en-têtes requis de la requête originale
     const headers = new Headers();
+    
+    // En-têtes de base
     headers.set("Accept", req.headers.get("Accept") || "application/json");
     headers.set("Content-Type", req.headers.get("Content-Type") || "application/json");
-    headers.set("User-Agent", "Seventic-Acelle-Proxy/2.0");
-    headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    headers.set("User-Agent", "Seventic-Acelle-Proxy/2.1");
     
-    // Copie des en-têtes spécifiques à Acelle avec vérification de leur existence
-    ["Authorization", "x-acelle-endpoint", "x-auth-method", "x-api-key", 
-     "x-debug-level", "x-wake-request"].forEach(header => {
+    // En-tête cache-control critique
+    const cacheControl = req.headers.get("Cache-Control");
+    if (cacheControl) {
+      headers.set("Cache-Control", cacheControl);
+    } else {
+      headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+    
+    // Copie de tous les en-têtes spécifiques importants de la requête originale
+    [
+      "Authorization", "x-acelle-endpoint", "x-auth-method", 
+      "x-api-key", "x-debug-level", "x-wake-request"
+    ].forEach(header => {
       const value = req.headers.get(header);
       if (value) headers.set(header, value);
     });
     
     // Options de la requête avec timeout
-    const requestOptions = {
+    const requestOptions: RequestInit = {
       method: req.method,
       headers,
       signal: AbortSignal.timeout(30000)  // 30 secondes de timeout
     };
     
-    // Ajouter le corps pour les requêtes POST/PUT avec copie sécurisée
-    if (["POST", "PUT"].includes(req.method)) {
+    // Ajouter le corps pour les requêtes non-GET
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
       try {
-        // Cloner la requête pour pouvoir la lire sans la consommer
+        // Cloner la requête
+        const reqClone = req.clone();
         const contentType = req.headers.get("Content-Type") || "";
         
-        // Utiliser la méthode adaptée en fonction du Content-Type
         if (contentType.includes("application/json")) {
-          const reqClone = req.clone();
           const body = await reqClone.json();
           requestOptions.body = JSON.stringify(body);
         } else {
-          const reqClone = req.clone();
           const body = await reqClone.text();
           requestOptions.body = body;
         }
@@ -91,7 +100,7 @@ serve(async (req) => {
     
     console.log("[CORS Proxy] En-têtes envoyés:", Object.fromEntries(headers.entries()));
     
-    // Effectuer la requête avec gestion des erreurs
+    // Effectuer la requête vers la cible
     const startTime = Date.now();
     let response;
     
@@ -120,10 +129,20 @@ serve(async (req) => {
     const responseHeaders = new Headers(corsHeaders);
     
     // Copie des en-têtes importants de la réponse cible
-    ["Content-Type", "Content-Disposition", "Cache-Control", "ETag"].forEach(header => {
-      const value = response.headers.get(header);
-      if (value) responseHeaders.set(header, value);
+    response.headers.forEach((value, key) => {
+      // Ne pas écraser les en-têtes CORS
+      if (!key.toLowerCase().startsWith('access-control-')) {
+        responseHeaders.set(key, value);
+      }
     });
+
+    // Mettre le content-type si présent
+    const contentType = response.headers.get("Content-Type");
+    if (contentType) {
+      responseHeaders.set("Content-Type", contentType);
+    } else {
+      responseHeaders.set("Content-Type", "application/json");
+    }
     
     // Traiter les réponses 204 No Content séparément
     if (response.status === 204) {
@@ -135,30 +154,72 @@ serve(async (req) => {
     }
     
     // CRITIQUE: Cloner la réponse avant de tenter de lire son corps
-    const responseToProcess = response.clone();
+    const responseClone = response.clone();
     
-    try {
-      // D'abord essayer de traiter comme JSON
-      const responseData = await responseToProcess.json();
-      console.log("[CORS Proxy] Réponse JSON traitée avec succès");
-      
-      return new Response(JSON.stringify(responseData), {
-        status: response.status,
-        headers: responseHeaders
-      });
-    } catch (jsonError) {
-      // Si ce n'est pas du JSON, essayer comme texte
+    // Traiter la réponse selon son Content-Type
+    if (contentType && contentType.includes("application/json")) {
       try {
-        const textData = await response.text();
-        console.log("[CORS Proxy] Réponse texte traitée");
+        // Essayer d'analyser comme JSON
+        const responseData = await response.json();
+        console.log("[CORS Proxy] Réponse JSON traitée avec succès");
         
-        return new Response(textData, {
+        return new Response(JSON.stringify(responseData), {
           status: response.status,
           headers: responseHeaders
         });
-      } catch (textError) {
-        console.error("[CORS Proxy] Erreur lors de la lecture de la réponse:", textError);
-        return new Response(JSON.stringify({ error: "Impossible de lire la réponse" }), {
+      } catch (jsonError) {
+        console.error("[CORS Proxy] Erreur lors de l'analyse JSON:", jsonError);
+        
+        // Si l'analyse JSON échoue, essayer comme texte
+        try {
+          const textData = await responseClone.text();
+          console.log("[CORS Proxy] Réponse texte traitée: " + textData.substring(0, 100) + "...");
+          
+          // Si le texte semble être du JSON, essayer de le nettoyer
+          if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
+            try {
+              // Tenter de nettoyer et analyser le JSON
+              const cleanedJson = JSON.parse(textData);
+              return new Response(JSON.stringify(cleanedJson), {
+                status: response.status,
+                headers: responseHeaders
+              });
+            } catch (cleanError) {
+              // Si le nettoyage échoue, renvoyer le texte brut
+              return new Response(textData, {
+                status: response.status,
+                headers: responseHeaders
+              });
+            }
+          } else {
+            // Sinon renvoyer simplement comme texte
+            return new Response(textData, {
+              status: response.status,
+              headers: responseHeaders
+            });
+          }
+        } catch (textError) {
+          console.error("[CORS Proxy] Erreur lors de la lecture de la réponse:", textError);
+          return new Response(JSON.stringify({ error: "Impossible de lire la réponse" }), {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              ...corsHeaders
+            }
+          });
+        }
+      }
+    } else {
+      // Pour les autres types de contenu, transférer directement
+      try {
+        const bodyText = await response.text();
+        return new Response(bodyText, {
+          status: response.status,
+          headers: responseHeaders
+        });
+      } catch (error) {
+        console.error("[CORS Proxy] Erreur lors de la lecture du corps:", error);
+        return new Response(JSON.stringify({ error: "Erreur lors de la lecture du corps de la réponse" }), {
           status: 500,
           headers: {
             "Content-Type": "application/json",

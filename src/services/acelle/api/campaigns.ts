@@ -126,6 +126,7 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
     // Utiliser le proxy CORS avec une URL correctement encodée et anti-cache
     const proxyUrl = buildProxyUrl(`campaigns/${campaignUid}`, { 
       api_token: account.apiToken,
+      include_stats: "true", // Important pour récupérer les statistiques
       cache_bust: Date.now().toString() // Paramètre anti-cache
     });
     
@@ -167,6 +168,20 @@ export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: 
 
       const campaignDetails = await response.json();
       console.log(`Détails récupérés avec succès pour la campagne ${campaignUid}`, campaignDetails);
+      
+      // S'assurer que les structures requises existent
+      if (!campaignDetails.statistics) {
+        campaignDetails.statistics = {};
+      }
+      
+      if (!campaignDetails.delivery_info) {
+        campaignDetails.delivery_info = {};
+      }
+      
+      if (campaignDetails.delivery_info && !campaignDetails.delivery_info.bounced) {
+        campaignDetails.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
+      }
+      
       return campaignDetails;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -231,7 +246,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       api_token: account.apiToken,
       page: page.toString(),
       per_page: limit.toString(),
-      include_stats: 'true', 
+      include_stats: 'true', // Crucial pour obtenir les statistiques
       cache_bust: cacheBuster
     });
     
@@ -280,32 +295,60 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         return [];
       }
       
-      const campaigns = await response.json();
-      console.log(`Récupéré ${campaigns.length} campagnes pour le compte ${account.name}`);
-      console.log("Exemple de données de campagne:", campaigns.length > 0 ? campaigns[0] : "Pas de campagnes");
+      // Utiliser Response.clone() avant de consommer le corps
+      const responseClone = response.clone();
       
-      // Traiter les campagnes pour s'assurer que tous les champs requis sont présents
-      const processedCampaigns = campaigns.map((campaign: any) => {
-        // Initialiser les statistiques et delivery_info avec des valeurs par défaut
-        if (!campaign.statistics) {
-          campaign.statistics = {};
-        }
+      try {
+        const campaigns = await response.json();
+        console.log(`Récupéré ${campaigns.length} campagnes pour le compte ${account.name}`);
+        console.log("Exemple de données de campagne:", campaigns.length > 0 ? JSON.stringify(campaigns[0]).substring(0, 500) + '...' : "Pas de campagnes");
         
-        if (!campaign.delivery_info) {
-          campaign.delivery_info = {};
-        }
-        
-        if (!campaign.delivery_info.bounced) {
-          campaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
-        }
+        // Traiter les campagnes pour s'assurer que tous les champs requis sont présents
+        const processedCampaigns = campaigns.map((campaign: any) => {
+          // Log détaillé pour analyser la structure des données
+          console.debug(`Traitement de la campagne ${campaign.name} (${campaign.uid}):`, 
+            JSON.stringify({
+              has_stats: !!campaign.statistics,
+              has_delivery: !!campaign.delivery_info,
+              status: campaign.status,
+              date: campaign.delivery_date || campaign.run_at
+            })
+          );
+          
+          // Initialiser les statistiques et delivery_info avec des valeurs par défaut
+          if (!campaign.statistics) {
+            campaign.statistics = {};
+          }
+          
+          if (!campaign.delivery_info) {
+            campaign.delivery_info = {};
+          }
+          
+          if (!campaign.delivery_info.bounced) {
+            campaign.delivery_info.bounced = { soft: 0, hard: 0, total: 0 };
+          }
 
-        return campaign;
-      });
-      
-      // Mettre à jour la date de dernière synchronisation
-      updateLastSyncDate(account.id);
-      
-      return processedCampaigns;
+          return campaign;
+        });
+        
+        // Mettre à jour la date de dernière synchronisation
+        updateLastSyncDate(account.id);
+        
+        return processedCampaigns;
+      } catch (parseError) {
+        console.error("Erreur lors de l'analyse de la réponse JSON:", parseError);
+        
+        // Tenter de récupérer le texte brut de la réponse clonée
+        try {
+          const rawText = await responseClone.text();
+          console.error("Réponse brute:", rawText.substring(0, 1000));
+        } catch (textError) {
+          console.error("Impossible de lire le texte brut de la réponse:", textError);
+        }
+        
+        toast.error("Format de réponse invalide depuis l'API Acelle");
+        return [];
+      }
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === "AbortError") {
@@ -324,7 +367,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
   }
 };
 
-// Enhanced helper to safely get numeric values with multiple fallbacks
+// Helper function amélioré pour récupérer des nombres avec plusieurs chemins de repli
 const safeGetNumber = (paths: any[][], obj: any): number => {
   for (const path of paths) {
     try {
@@ -354,39 +397,69 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalClicked = 0;
   let totalBounced = 0;
   
+  // Log pour le débogage
+  console.log(`Calcul des statistiques pour ${campaigns.length} campagnes`);
+  
   campaigns.forEach(campaign => {
+    // Log détaillé de la structure pour débogage
+    console.debug(`Structure de la campagne pour statistiques:`, {
+      name: campaign.name,
+      has_statistics: !!campaign.statistics,
+      has_delivery_info: !!campaign.delivery_info,
+      statistics_keys: campaign.statistics ? Object.keys(campaign.statistics) : [],
+      delivery_info_keys: campaign.delivery_info ? Object.keys(campaign.delivery_info) : []
+    });
+    
     // Get total sent with fallbacks
-    totalSent += safeGetNumber([
+    const sent = safeGetNumber([
       ['delivery_info', 'total'], 
       ['statistics', 'subscriber_count'],
-      ['meta', 'subscribers_count']
+      ['meta', 'subscribers_count'],
+      ['recipient_count']
     ], campaign);
+    totalSent += sent;
     
     // Get delivered with fallbacks
-    totalDelivered += safeGetNumber([
+    const delivered = safeGetNumber([
       ['delivery_info', 'delivered'], 
-      ['statistics', 'delivered_count']
+      ['statistics', 'delivered_count'],
+      ['delivered_count']
     ], campaign);
+    totalDelivered += delivered;
     
     // Get opened with fallbacks
-    totalOpened += safeGetNumber([
+    const opened = safeGetNumber([
       ['delivery_info', 'opened'], 
-      ['statistics', 'open_count']
+      ['statistics', 'open_count'],
+      ['opened_count']
     ], campaign);
+    totalOpened += opened;
     
     // Get clicked with fallbacks
-    totalClicked += safeGetNumber([
+    const clicked = safeGetNumber([
       ['delivery_info', 'clicked'], 
-      ['statistics', 'click_count']
+      ['statistics', 'click_count'],
+      ['clicked_count']
     ], campaign);
+    totalClicked += clicked;
     
     // Get bounces with fallbacks
-    totalBounced += safeGetNumber([
+    const bounced = safeGetNumber([
       ['delivery_info', 'bounced', 'total'], 
-      ['delivery_info', 'bounced', 'soft'],
-      ['delivery_info', 'bounced', 'hard'],
-      ['statistics', 'bounce_count']
+      ['statistics', 'bounce_count'],
+      ['bounce_count']
     ], campaign);
+    totalBounced += bounced;
+    
+    // Log des valeurs extraites pour chaque campagne
+    console.debug(`Stats extraites pour campagne ${campaign.name}:`, {
+      sent, delivered, opened, clicked, bounced
+    });
+  });
+  
+  // Log des totaux finaux
+  console.log(`Statistiques calculées:`, {
+    totalSent, totalDelivered, totalOpened, totalClicked, totalBounced
   });
   
   return [

@@ -5,7 +5,9 @@
  * Translates Acelle campaign statuses to French
  */
 export const translateStatus = (status: string): string => {
-  switch (status.toLowerCase()) {
+  const cleanStatus = status.toLowerCase().trim();
+  
+  switch (cleanStatus) {
     case 'new':
     case 'draft':
       return 'Brouillon';
@@ -29,6 +31,7 @@ export const translateStatus = (status: string): string => {
     case 'pending':
       return 'En attente';
     default:
+      console.warn(`Status inconnu: ${status}`);
       return 'Inconnu';
   }
 };
@@ -37,7 +40,9 @@ export const translateStatus = (status: string): string => {
  * Returns badge variant for campaign status
  */
 export const getStatusBadgeVariant = (status: string): string => {
-  switch (status.toLowerCase()) {
+  const cleanStatus = status.toLowerCase().trim();
+  
+  switch (cleanStatus) {
     case 'new':
     case 'draft':
       return 'outline';
@@ -66,16 +71,24 @@ export const getStatusBadgeVariant = (status: string): string => {
  * Safely formats percentages for display
  */
 export const renderPercentage = (value: number | undefined | null): string => {
+  // Log pour le débogage
+  console.debug(`Formatage du pourcentage: ${value}`);
+  
   if (value === undefined || value === null) return "-";
   
   // Ensure value is a number
   value = Number(value);
   if (isNaN(value)) return "-";
   
-  // If value is already in percentage format (0-100)
-  if (value > 1) {
-    return `${value.toFixed(2)}%`;
+  try {
+    // If value is already in percentage format (0-100)
+    if (value > 1) {
+      return `${value.toFixed(2)}%`;
+    }
+    // If value is in decimal format (0-1)
+    return `${(value * 100).toFixed(2)}%`;
+  } catch (error) {
+    console.error(`Erreur lors du formatage du pourcentage: ${value}`, error);
+    return "-";
   }
-  // If value is in decimal format (0-1)
-  return `${(value * 100).toFixed(2)}%`;
 };

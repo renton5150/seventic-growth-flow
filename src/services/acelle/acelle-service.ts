@@ -1,7 +1,7 @@
 
 import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount, updateLastSyncDate } from './api/accounts';
 import { testAcelleConnection } from './api/connection';
-import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns } from './api/campaigns';
+import { checkApiAccess, fetchCampaignDetails, getAcelleCampaigns, calculateDeliveryStats } from './api/campaigns';
 
 // Configuration API proxy améliorée avec URLs cohérentes
 export const ACELLE_PROXY_CONFIG = {
@@ -11,7 +11,7 @@ export const ACELLE_PROXY_CONFIG = {
 };
 
 /**
- * Fonction utilitaire améliorée pour construire des URLs proxy correctement encodées
+ * Fonction utilitaire optimisée pour construire des URLs proxy correctement encodées
  * avec une meilleure gestion des erreurs et contrôle de qualité
  */
 export const buildProxyUrl = (endpoint: string, queryParams: Record<string, string> = {}): string => {
@@ -22,19 +22,19 @@ export const buildProxyUrl = (endpoint: string, queryParams: Record<string, stri
     // Construire l'URL cible d'Acelle avec le bon format
     const targetUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${cleanEndpoint}`;
     
-    // Construire les paramètres d'URL
+    // Construire les paramètres d'URL avec vérification stricte
     const urlSearchParams = new URLSearchParams();
     
     // Ajouter les paramètres fournis s'ils existent
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined && value !== null) {
-        urlSearchParams.append(key, value);
+        urlSearchParams.append(key, encodeURIComponent(value));
       }
     }
     
     // Ajouter un paramètre d'horodatage pour éviter le cache si non présent
     if (!queryParams.t && !queryParams.timestamp && !queryParams.cache_bust) {
-      urlSearchParams.append('t', Date.now().toString());
+      urlSearchParams.append('cache_bust', Date.now().toString());
     }
     
     // Construire l'URL finale avec les paramètres
@@ -43,6 +43,9 @@ export const buildProxyUrl = (endpoint: string, queryParams: Record<string, stri
     if (queryString) {
       finalTargetUrl += `?${queryString}`;
     }
+    
+    // Log pour débogage
+    console.log(`URL proxy construite: ${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(finalTargetUrl)}`);
     
     // Retourner l'URL proxy complète avec l'URL cible correctement encodée
     return `${ACELLE_PROXY_CONFIG.BASE_URL}?url=${encodeURIComponent(finalTargetUrl)}`;
@@ -69,6 +72,7 @@ export const acelleService = {
   getAcelleCampaigns,
   fetchCampaignDetails,
   updateLastSyncDate,
+  calculateDeliveryStats,
   
   // Utilitaires
   buildProxyUrl,

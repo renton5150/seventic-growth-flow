@@ -15,6 +15,9 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
+  // Debug pour afficher la structure complète de la campagne
+  console.debug(`Campagne reçue:`, campaign);
+  
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || '';
   
@@ -22,13 +25,18 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const campaignName = campaign?.name || "Sans nom";
   const campaignSubject = campaign?.subject || "Sans sujet";
   const campaignStatus = (campaign?.status || "unknown").toLowerCase();
+  
+  // Amélioration: priorité de récupération des dates
   const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
   
-  // Helper function pour formater les dates en toute sécurité
+  // Fonction améliorée pour formater les dates avec vérification stricte
   const formatDateSafely = (dateString: string | null | undefined) => {
     if (!dateString) return "Non programmé";
     try {
-      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: fr });
+      const date = new Date(dateString);
+      // Vérification que la date est valide
+      if (isNaN(date.getTime())) return "Date invalide";
+      return format(date, "dd/MM/yyyy HH:mm", { locale: fr });
     } catch (error) {
       console.error(`Date invalide: ${dateString}`, error);
       return "Date invalide";
@@ -39,7 +47,8 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const statusDisplay = translateStatus(campaignStatus);
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
-  // Fonction d'aide pour extraire des statistiques avec sécurité et valeurs par défaut
+  // Fonction d'aide améliorée pour extraire des statistiques avec sécurité et valeurs par défaut
+  // Accepte plusieurs chemins d'accès possibles pour une donnée et retourne la première valeur valide trouvée
   const getStatValue = (paths: string[][], defaultValue: number = 0): number => {
     try {
       for (const path of paths) {
@@ -54,8 +63,13 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
           obj = obj[key];
         }
         
-        if (valid && typeof obj === 'number') {
-          return obj;
+        if (valid && obj !== undefined && obj !== null) {
+          // Force conversion to number
+          const num = Number(obj);
+          if (!isNaN(num)) {
+            console.debug(`Stat found via path [${path.join('.')}]: ${num}`);
+            return num;
+          }
         }
       }
       return defaultValue;
@@ -66,29 +80,47 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   };
 
   // Récupérer les données statistiques avec plusieurs chemins de repli
-  const subscriberCount = getStatValue(
-    [['statistics', 'subscriber_count'], ['delivery_info', 'total'], ['meta', 'subscribers_count']]
-  );
+  // Amélioration: ajout de chemins supplémentaires et logging détaillé pour le débogage
+  const subscriberCount = getStatValue([
+    ['statistics', 'subscriber_count'], 
+    ['delivery_info', 'total'], 
+    ['meta', 'subscribers_count'],
+    ['recipient_count']
+  ]);
                      
-  const deliveryRate = getStatValue(
-    [['statistics', 'delivered_rate'], ['delivery_info', 'delivery_rate']]
-  );
+  const deliveryRate = getStatValue([
+    ['statistics', 'delivered_rate'], 
+    ['delivery_info', 'delivery_rate'],
+    ['meta', 'delivered_rate']
+  ]);
                   
-  const openRate = getStatValue(
-    [['statistics', 'uniq_open_rate'], ['delivery_info', 'unique_open_rate']]
-  );
+  const openRate = getStatValue([
+    ['statistics', 'uniq_open_rate'], 
+    ['statistics', 'open_rate'], 
+    ['delivery_info', 'unique_open_rate'],
+    ['delivery_info', 'open_rate'],
+    ['meta', 'open_rate']
+  ]);
                 
-  const clickRate = getStatValue(
-    [['statistics', 'click_rate'], ['delivery_info', 'click_rate']]
-  );
+  const clickRate = getStatValue([
+    ['statistics', 'click_rate'], 
+    ['delivery_info', 'click_rate'],
+    ['meta', 'click_rate']
+  ]);
                  
-  const bounceCount = getStatValue(
-    [['statistics', 'bounce_count'], ['delivery_info', 'bounced', 'total']]
-  );
+  const bounceCount = getStatValue([
+    ['statistics', 'bounce_count'], 
+    ['delivery_info', 'bounced', 'total'],
+    ['bounce_count'],
+    ['meta', 'bounce_count']
+  ]);
                    
-  const unsubscribeCount = getStatValue(
-    [['statistics', 'unsubscribe_count'], ['delivery_info', 'unsubscribed']]
-  );
+  const unsubscribeCount = getStatValue([
+    ['statistics', 'unsubscribe_count'], 
+    ['delivery_info', 'unsubscribed'],
+    ['unsubscribed_count'],
+    ['meta', 'unsubscribe_count']
+  ]);
 
   // Gestionnaire de clic sécurisé
   const handleViewClick = () => {
