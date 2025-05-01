@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, CachedCampaign } from "@/types/acelle.types";
 
 export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): Promise<AcelleCampaign[]> => {
   const accountIds = activeAccounts.map(acc => acc.id);
@@ -12,7 +12,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
   console.log(`Fetching campaigns for accounts: ${accountIds.join(', ')}`);
   
   try {
-    const { data: campaigns, error } = await supabase
+    const { data: cachedCampaigns, error } = await supabase
       .from('email_campaigns_cache')
       .select('*')
       .in('account_id', accountIds)
@@ -23,19 +23,20 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
       throw error;
     }
 
-    if (!campaigns || campaigns.length === 0) {
+    if (!cachedCampaigns || cachedCampaigns.length === 0) {
       console.log("No campaigns found in cache");
       return [];
     }
 
-    console.log(`Found ${campaigns.length} campaigns in cache`);
+    console.log(`Found ${cachedCampaigns.length} campaigns in cache`);
     // Only log detailed sample data in development
-    if (process.env.NODE_ENV !== 'production' && campaigns.length > 0) {
-      console.log("Sample campaign data:", campaigns[0]);
+    if (process.env.NODE_ENV !== 'production' && cachedCampaigns.length > 0) {
+      console.log("Sample campaign data:", cachedCampaigns[0]);
     }
 
-    return campaigns.map(campaign => {
-      // Initialize default values for missing stats
+    // Assurer la conversion correcte des données de cache vers le format AcelleCampaign
+    return cachedCampaigns.map((campaign: CachedCampaign) => {
+      // Initialiser les structures de données requises
       let deliveryInfo = {
         total: 0,
         delivery_rate: 0,
@@ -55,10 +56,10 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
         complained: 0
       };
 
-      // Try to safely extract delivery info
+      // Extraire avec précaution les données de delivery_info
       if (campaign.delivery_info) {
         try {
-          // Handle if delivery_info is a JSON string
+          // Traiter delivery_info s'il est fourni comme une chaîne JSON
           if (typeof campaign.delivery_info === 'string') {
             try {
               const parsedInfo = JSON.parse(campaign.delivery_info);
@@ -68,7 +69,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
                   ...parsedInfo,
                 };
                 
-                // Handle bounced data separately with type safety
+                // Traiter les données de rebond séparément
                 if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object' && !Array.isArray(parsedInfo.bounced)) {
                   deliveryInfo.bounced = {
                     ...deliveryInfo.bounced,
@@ -80,20 +81,19 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
               console.error(`Error parsing delivery_info JSON for campaign ${campaign.campaign_uid}:`, parseError);
             }
           } 
-          // Handle if delivery_info is already an object
+          // Traiter delivery_info s'il est déjà un objet
           else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-            // Ensure we're not working with an array
             if (!Array.isArray(campaign.delivery_info)) {
               const deliveryInfoObj = campaign.delivery_info as Record<string, any>;
               
-              // Copy all non-nested properties
+              // Copier les propriétés non-imbriquées
               Object.entries(deliveryInfoObj).forEach(([key, value]) => {
                 if (key !== 'bounced' && value !== null && value !== undefined) {
                   (deliveryInfo as any)[key] = value;
                 }
               });
               
-              // Handle the nested bounced property with proper type checking
+              // Traiter la propriété imbriquée 'bounced'
               if (deliveryInfoObj.bounced && 
                   typeof deliveryInfoObj.bounced === 'object' && 
                   !Array.isArray(deliveryInfoObj.bounced)) {
@@ -112,37 +112,39 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
         }
       }
 
-      // Try to extract statistics if available, falling back to delivery_info values
+      // Créer l'objet statistiques
       const statistics = {
-        subscriber_count: getNumberSafely(campaign, ['statistics', 'subscriber_count'], deliveryInfo.total),
-        delivered_count: getNumberSafely(campaign, ['statistics', 'delivered_count'], deliveryInfo.delivered),
-        delivered_rate: getNumberSafely(campaign, ['statistics', 'delivered_rate'], deliveryInfo.delivery_rate),
-        open_count: getNumberSafely(campaign, ['statistics', 'open_count'], deliveryInfo.opened),
-        uniq_open_rate: getNumberSafely(campaign, ['statistics', 'uniq_open_rate'], deliveryInfo.unique_open_rate),
-        click_count: getNumberSafely(campaign, ['statistics', 'click_count'], deliveryInfo.clicked),
-        click_rate: getNumberSafely(campaign, ['statistics', 'click_rate'], deliveryInfo.click_rate),
-        bounce_count: getNumberSafely(campaign, ['statistics', 'bounce_count'], deliveryInfo.bounced.total),
-        soft_bounce_count: getNumberSafely(campaign, ['statistics', 'soft_bounce_count'], deliveryInfo.bounced.soft),
-        hard_bounce_count: getNumberSafely(campaign, ['statistics', 'hard_bounce_count'], deliveryInfo.bounced.hard),
-        unsubscribe_count: getNumberSafely(campaign, ['statistics', 'unsubscribe_count'], deliveryInfo.unsubscribed),
-        abuse_complaint_count: getNumberSafely(campaign, ['statistics', 'abuse_complaint_count'], deliveryInfo.complained)
+        subscriber_count: getNumberSafely(campaign, ['delivery_info', 'total'], deliveryInfo.total),
+        delivered_count: getNumberSafely(campaign, ['delivery_info', 'delivered'], deliveryInfo.delivered),
+        delivered_rate: getNumberSafely(campaign, ['delivery_info', 'delivery_rate'], deliveryInfo.delivery_rate),
+        open_count: getNumberSafely(campaign, ['delivery_info', 'opened'], deliveryInfo.opened),
+        uniq_open_rate: getNumberSafely(campaign, ['delivery_info', 'unique_open_rate'], deliveryInfo.unique_open_rate),
+        click_count: getNumberSafely(campaign, ['delivery_info', 'clicked'], deliveryInfo.clicked),
+        click_rate: getNumberSafely(campaign, ['delivery_info', 'click_rate'], deliveryInfo.click_rate),
+        bounce_count: getNumberSafely(campaign, ['delivery_info', 'bounced', 'total'], deliveryInfo.bounced.total),
+        soft_bounce_count: getNumberSafely(campaign, ['delivery_info', 'bounced', 'soft'], deliveryInfo.bounced.soft),
+        hard_bounce_count: getNumberSafely(campaign, ['delivery_info', 'bounced', 'hard'], deliveryInfo.bounced.hard),
+        unsubscribe_count: getNumberSafely(campaign, ['delivery_info', 'unsubscribed'], deliveryInfo.unsubscribed),
+        abuse_complaint_count: getNumberSafely(campaign, ['delivery_info', 'complained'], deliveryInfo.complained)
       };
 
-      // Create final campaign object - assure la compatibilité avec AcelleCampaign
+      // Créer l'objet final de campagne avec une compatibilité totale
       return {
-        uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
-        campaign_uid: campaign.campaign_uid, // Conserver aussi campaign_uid pour compatibilité
+        uid: campaign.campaign_uid,                // Utiliser campaign_uid comme uid
+        campaign_uid: campaign.campaign_uid,       // Conserver aussi campaign_uid pour compatibilité
         name: campaign.name || 'Sans nom',
         subject: campaign.subject || 'Sans sujet',
         status: campaign.status || 'unknown',
         created_at: campaign.created_at,
         updated_at: campaign.updated_at,
-        last_error: campaign.last_error,
-        run_at: campaign.run_at,
-        delivery_date: campaign.delivery_date || campaign.run_at,
+        delivery_date: campaign.delivery_date || '',
+        run_at: campaign.run_at || '',
+        last_error: campaign.last_error || '',
         delivery_info: deliveryInfo,
         statistics: statistics,
-        meta: {} // Use empty object as default
+        meta: {},                              // Initialiser meta comme objet vide
+        track: {},                             // Initialiser track comme objet vide
+        report: {}                             // Initialiser report comme objet vide
       } as AcelleCampaign;
     });
   } catch (error) {
@@ -151,7 +153,7 @@ export const fetchCampaignsFromCache = async (activeAccounts: AcelleAccount[]): 
   }
 };
 
-// Helper function to safely extract nested values
+// Fonction utilitaire sécurisée pour extraire des valeurs numériques
 function getNumberSafely(obj: any, path: string[], defaultValue: number = 0): number {
   try {
     let current = obj;

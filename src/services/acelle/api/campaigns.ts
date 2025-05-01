@@ -1,9 +1,105 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { buildProxyUrl } from "@/services/acelle/acelle-service";
+
+/**
+ * Fonction pour extraire les campagnes depuis le cache avec compatibilité typée
+ */
+const extractCampaignsFromCache = (cachedCampaigns: any[]): AcelleCampaign[] => {
+  if (!cachedCampaigns || cachedCampaigns.length === 0) {
+    return [];
+  }
+  
+  console.log(`Converting ${cachedCampaigns.length} cached campaigns to AcelleCampaign format`);
+  
+  return cachedCampaigns.map(campaign => {
+    // Convertir intelligemment delivery_info
+    let deliveryInfo = {
+      total: 0,
+      delivery_rate: 0,
+      unique_open_rate: 0,
+      click_rate: 0,
+      bounce_rate: 0,
+      unsubscribe_rate: 0,
+      delivered: 0,
+      opened: 0,
+      clicked: 0,
+      bounced: {
+        soft: 0,
+        hard: 0,
+        total: 0
+      },
+      unsubscribed: 0,
+      complained: 0
+    };
+
+    if (campaign.delivery_info) {
+      // Traitement similaire à useCampaignFetch.ts
+      if (typeof campaign.delivery_info === 'string') {
+        try {
+          const parsedInfo = JSON.parse(campaign.delivery_info);
+          if (parsedInfo && typeof parsedInfo === 'object') {
+            deliveryInfo = { ...deliveryInfo, ...parsedInfo };
+            if (parsedInfo.bounced && typeof parsedInfo.bounced === 'object') {
+              deliveryInfo.bounced = {
+                ...deliveryInfo.bounced,
+                ...parsedInfo.bounced
+              };
+            }
+          }
+        } catch (e) {
+          console.warn("Error parsing delivery_info JSON:", e);
+        }
+      } else if (typeof campaign.delivery_info === 'object') {
+        deliveryInfo = {
+          ...deliveryInfo,
+          ...campaign.delivery_info
+        };
+        
+        if (campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object') {
+          deliveryInfo.bounced = {
+            ...deliveryInfo.bounced,
+            ...campaign.delivery_info.bounced
+          };
+        }
+      }
+    }
+
+    // Créer un objet AcelleCampaign complet et correctement typé
+    return {
+      uid: campaign.campaign_uid,
+      campaign_uid: campaign.campaign_uid,
+      name: campaign.name || 'Sans nom',
+      subject: campaign.subject || 'Sans sujet',
+      status: campaign.status || 'unknown',
+      created_at: campaign.created_at || new Date().toISOString(),
+      updated_at: campaign.updated_at || new Date().toISOString(),
+      delivery_date: campaign.delivery_date || '',
+      run_at: campaign.run_at || '',
+      last_error: campaign.last_error || '',
+      delivery_info: deliveryInfo,
+      statistics: {
+        subscriber_count: deliveryInfo.total || 0,
+        delivered_count: deliveryInfo.delivered || 0,
+        delivered_rate: deliveryInfo.delivery_rate || 0,
+        open_count: deliveryInfo.opened || 0,
+        uniq_open_rate: deliveryInfo.unique_open_rate || 0,
+        click_count: deliveryInfo.clicked || 0,
+        click_rate: deliveryInfo.click_rate || 0,
+        bounce_count: deliveryInfo.bounced?.total || 0,
+        soft_bounce_count: deliveryInfo.bounced?.soft || 0,
+        hard_bounce_count: deliveryInfo.bounced?.hard || 0,
+        unsubscribe_count: deliveryInfo.unsubscribed || 0,
+        abuse_complaint_count: deliveryInfo.complained || 0
+      },
+      meta: {},
+      track: {},
+      report: {}
+    } as AcelleCampaign;
+  });
+};
 
 /**
  * Fonction améliorée pour vérifier l'accessibilité de l'API avec diagnostics complets
@@ -266,22 +362,8 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         if (cachedCampaigns && cachedCampaigns.length > 0) {
           console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
           
-          // Convertir les données de cache en format AcelleCampaign
-          return cachedCampaigns.map(campaign => ({
-            uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
-            campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
-            name: campaign.name || "Sans nom",
-            subject: campaign.subject || "Sans sujet",
-            status: campaign.status || "unknown",
-            created_at: campaign.created_at,
-            updated_at: campaign.updated_at,
-            delivery_date: campaign.delivery_date,
-            run_at: campaign.run_at,
-            last_error: campaign.last_error,
-            delivery_info: campaign.delivery_info || {},
-            statistics: {},
-            meta: {}
-          })) as AcelleCampaign[];
+          // Utiliser notre nouvelle fonction de conversion
+          return extractCampaignsFromCache(cachedCampaigns);
         }
       } catch (cacheError) {
         console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
@@ -346,22 +428,8 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
           if (cachedCampaigns && cachedCampaigns.length > 0) {
             console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
             
-            // Convertir les données de cache en format AcelleCampaign
-            return cachedCampaigns.map(campaign => ({
-              uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
-              campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
-              name: campaign.name || "Sans nom",
-              subject: campaign.subject || "Sans sujet",
-              status: campaign.status || "unknown",
-              created_at: campaign.created_at,
-              updated_at: campaign.updated_at,
-              delivery_date: campaign.delivery_date,
-              run_at: campaign.run_at,
-              last_error: campaign.last_error,
-              delivery_info: campaign.delivery_info || {},
-              statistics: {},
-              meta: {}
-            })) as AcelleCampaign[];
+            // Utiliser notre nouvelle fonction de conversion
+            return extractCampaignsFromCache(cachedCampaigns);
           }
         } catch (cacheError) {
           console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);
@@ -433,22 +501,8 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         if (cachedCampaigns && cachedCampaigns.length > 0) {
           console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour le compte ${account.name}`);
           
-          // Convertir les données de cache en format AcelleCampaign
-          return cachedCampaigns.map(campaign => ({
-            uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
-            campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
-            name: campaign.name || "Sans nom",
-            subject: campaign.subject || "Sans sujet",
-            status: campaign.status || "unknown",
-            created_at: campaign.created_at,
-            updated_at: campaign.updated_at,
-            delivery_date: campaign.delivery_date,
-            run_at: campaign.run_at,
-            last_error: campaign.last_error,
-            delivery_info: campaign.delivery_info || {},
-            statistics: {},
-            meta: {}
-          })) as AcelleCampaign[];
+          // Utiliser notre nouvelle fonction de conversion
+          return extractCampaignsFromCache(cachedCampaigns);
         }
       } catch (cacheError) {
         console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, cacheError);

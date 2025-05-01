@@ -66,7 +66,7 @@ export interface AcelleCampaign {
   
   meta?: Record<string, any>;
   
-  // Ajout des propriétés manquantes qui causaient des erreurs
+  // Propriétés nécessaires pour la compatibilité avec le code existant
   track?: Record<string, any>;
   report?: Record<string, any>;
   
@@ -122,18 +122,18 @@ export interface AcelleConnectionDebug {
   };
 }
 
-// Ajout d'un type spécifique pour le cache des campagnes
+// Type spécifique pour le cache des campagnes
 export interface CachedCampaign {
   account_id: string;
   cache_updated_at: string;
   campaign_uid: string;
   created_at: string;
-  delivery_date: string;
+  delivery_date: string | null;
   delivery_info: any;
   id: string;
-  last_error: string;
+  last_error: string | null;
   name: string;
-  run_at: string;
+  run_at: string | null;
   status: string;
   subject: string;
   updated_at: string;

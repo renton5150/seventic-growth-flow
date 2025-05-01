@@ -65,7 +65,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache for account ${account.name}`);
             toast.success("Données chargées depuis le cache", { id: "fetch-campaigns" });
             
-            // Convertir les données de cache en format AcelleCampaign
+            // Convertir les données de cache en format AcelleCampaign avec tous les champs requis
             return cachedCampaigns.map(campaign => ({
               uid: campaign.campaign_uid, // Utiliser campaign_uid comme uid
               campaign_uid: campaign.campaign_uid, // Garder campaign_uid pour compatibilité
@@ -74,12 +74,14 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
               status: campaign.status || "unknown",
               created_at: campaign.created_at,
               updated_at: campaign.updated_at,
-              delivery_date: campaign.delivery_date,
-              run_at: campaign.run_at,
-              last_error: campaign.last_error,
+              delivery_date: campaign.delivery_date || '',
+              run_at: campaign.run_at || '',
+              last_error: campaign.last_error || '',
               delivery_info: campaign.delivery_info || {},
               statistics: {},
-              meta: {}
+              meta: {},
+              track: {},
+              report: {}
             })) as AcelleCampaign[];
           }
         } catch (cacheError) {
@@ -210,7 +212,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
               <TableBody>
                 {filteredCampaigns.map((campaign) => (
                   <AcelleTableRow
-                    key={campaign.uid}
+                    key={campaign.uid || campaign.campaign_uid}
                     campaign={campaign}
                     onViewCampaign={(uid) => setSelectedCampaign(uid)}
                   />

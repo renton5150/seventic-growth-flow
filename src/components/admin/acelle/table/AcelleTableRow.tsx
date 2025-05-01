@@ -22,14 +22,14 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   }
   
   // Garantir la présence d'un UID valide
-  const campaignUid = campaign?.uid || '';
+  const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
   
   // Garantie de valeurs sûres pour les propriétés obligatoires
   const campaignName = campaign?.name || "Sans nom";
   const campaignSubject = campaign?.subject || "Sans sujet";
   const campaignStatus = (campaign?.status || "unknown").toLowerCase();
   
-  // Date d'envoi avec fallback - Utiliser delivery_date au lieu de delivery_at
+  // Date d'envoi avec fallback
   const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
   
   /**
@@ -51,23 +51,24 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
   /**
-   * Fonction optimisée pour extraire les statistiques de manière fiable
-   * en parcourant différentes structures possibles
+   * Fonction améliorée pour extraire les statistiques de manière fiable
    */
   const getStatValue = (key: string): number => {
     try {
-      // 1. Essayer d'abord dans statistics
+      // 1. Essayer dans statistics
       if (campaign.statistics && typeof campaign.statistics === 'object') {
-        if (key in campaign.statistics && campaign.statistics[key] !== undefined) {
-          const value = Number(campaign.statistics[key]);
+        const directStat = campaign.statistics[key];
+        if (directStat !== undefined) {
+          const value = Number(directStat);
           if (!isNaN(value)) return value;
         }
       }
       
-      // 2. Essayer ensuite dans delivery_info
+      // 2. Essayer dans delivery_info
       if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-        if (key in campaign.delivery_info && campaign.delivery_info[key] !== undefined) {
-          const value = Number(campaign.delivery_info[key]);
+        const directDelivery = campaign.delivery_info[key];
+        if (directDelivery !== undefined) {
+          const value = Number(directDelivery);
           if (!isNaN(value)) return value;
         }
         
@@ -79,43 +80,47 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
       }
       
       // 3. Essayer dans la racine de campaign
-      if (key in campaign && campaign[key] !== undefined) {
-        const value = Number(campaign[key]);
+      const rootValue = campaign[key];
+      if (rootValue !== undefined) {
+        const value = Number(rootValue);
         if (!isNaN(value)) return value;
       }
       
       // 4. Essayer dans meta
       if (campaign.meta && typeof campaign.meta === 'object') {
         // Directement dans meta
-        if (key in campaign.meta && campaign.meta[key] !== undefined) {
-          const value = Number(campaign.meta[key]);
+        const metaValue = campaign.meta[key];
+        if (metaValue !== undefined) {
+          const value = Number(metaValue);
           if (!isNaN(value)) return value;
         }
         
         // Dans meta.statistics
-        if (campaign.meta.statistics && key in campaign.meta.statistics) {
+        if (campaign.meta.statistics && campaign.meta.statistics[key] !== undefined) {
           const value = Number(campaign.meta.statistics[key]);
           if (!isNaN(value)) return value;
         }
         
         // Dans meta.delivery_info
-        if (campaign.meta.delivery_info && key in campaign.meta.delivery_info) {
+        if (campaign.meta.delivery_info && campaign.meta.delivery_info[key] !== undefined) {
           const value = Number(campaign.meta.delivery_info[key]);
           if (!isNaN(value)) return value;
         }
       }
       
-      // 5. Vérifier éventuellement dans track et report si disponibles
+      // 5. Vérifier dans track et report s'ils existent
       if (campaign.track && typeof campaign.track === 'object') {
-        if (key in campaign.track && campaign.track[key] !== undefined) {
-          const value = Number(campaign.track[key]);
+        const trackValue = campaign.track[key];
+        if (trackValue !== undefined) {
+          const value = Number(trackValue);
           if (!isNaN(value)) return value;
         }
       }
       
       if (campaign.report && typeof campaign.report === 'object') {
-        if (key in campaign.report && campaign.report[key] !== undefined) {
-          const value = Number(campaign.report[key]);
+        const reportValue = campaign.report[key];
+        if (reportValue !== undefined) {
+          const value = Number(reportValue);
           if (!isNaN(value)) return value;
         }
       }
@@ -132,11 +137,12 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         'unsubscribe_count': ['unsubscribed']
       };
       
-      if (key in keyMappings) {
+      if (keyMappings[key]) {
         for (const altKey of keyMappings[key]) {
           // Gestion des clés imbriquées comme 'bounced.total'
           if (altKey.includes('.')) {
             const [parent, child] = altKey.split('.');
+            
             if (campaign.delivery_info && campaign.delivery_info[parent]) {
               const value = Number(campaign.delivery_info[parent][child]);
               if (!isNaN(value)) return value;
@@ -147,15 +153,10 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
               if (!isNaN(value)) return value;
             }
             
-            if (campaign.meta && campaign.meta.delivery_info && campaign.meta.delivery_info[parent]) {
-              const value = Number(campaign.meta.delivery_info[parent][child]);
-              if (!isNaN(value)) return value;
-            }
-            
             continue;
           }
           
-          // Pour les clés simples, parcourir les objets
+          // Pour les clés simples
           // statistics
           if (campaign.statistics && altKey in campaign.statistics) {
             const value = Number(campaign.statistics[altKey]);
@@ -173,29 +174,17 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
             const value = Number(campaign[altKey]);
             if (!isNaN(value)) return value;
           }
-          
-          // meta
-          if (campaign.meta && altKey in campaign.meta) {
-            const value = Number(campaign.meta[altKey]);
-            if (!isNaN(value)) return value;
-          }
-          
-          // track si disponible
-          if (campaign.track && altKey in campaign.track) {
-            const value = Number(campaign.track[altKey]);
-            if (!isNaN(value)) return value;
-          }
         }
       }
 
       return 0;
     } catch (error) {
-      console.warn(`Erreur lors de l'extraction de la statistique '${key}':`, error);
+      console.warn(`Erreur lors de l'extraction de la statistique '${key}' pour la campagne ${campaign?.name}:`, error);
       return 0;
     }
   };
 
-  // Extraire les valeurs statistiques
+  // Extraire les valeurs statistiques avec notre fonction améliorée
   const subscriberCount = getStatValue('subscriber_count');
   const deliveryRate = getStatValue('delivered_rate');
   const openRate = getStatValue('uniq_open_rate');
