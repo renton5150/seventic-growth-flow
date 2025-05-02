@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail, CachedCampaign } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -471,7 +470,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
               status: campaign.status || "unknown",
               created_at: campaign.created_at || new Date().toISOString(),
               updated_at: campaign.updated_at || new Date().toISOString(),
-              delivery_date: campaign.delivery_at || campaign.run_at || null,
+              delivery_date: campaign.delivery_date || campaign.run_at || null,
               run_at: campaign.run_at || null,
               last_error: campaign.last_error || null,
               delivery_info: deliveryInfo,
