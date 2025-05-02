@@ -107,16 +107,32 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         throw new Error("Authentification requise");
       }
       
-      // Skip API accessibility check for now and fetch campaigns directly
-      console.log("Fetching campaigns directly with auth token");
-      
       // Add the access token to the API call
-      const campaigns = await acelleService.getAcelleCampaigns(
-        account, 
-        currentPage, 
-        itemsPerPage, 
-        accessToken
-      );
+      let campaigns;
+      try {
+        campaigns = await acelleService.getAcelleCampaigns(
+          account, 
+          currentPage, 
+          itemsPerPage, 
+          accessToken
+        );
+        
+        console.log(`Successfully retrieved ${campaigns?.length || 0} campaigns from API`);
+      } catch (apiError) {
+        console.error("API request failed:", apiError);
+        
+        // Try to get from cache
+        console.log("Attempting to get campaigns from cache as fallback");
+        const cachedCampaigns = await fetchCampaignsFromCache([account]);
+        
+        if (cachedCampaigns && cachedCampaigns.length > 0) {
+          console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache`);
+          campaigns = cachedCampaigns;
+        } else {
+          console.log("No cached campaigns available, using mock data");
+          throw apiError;
+        }
+      }
       
       if (campaigns && campaigns.length > 0) {
         console.log(`Successfully retrieved ${campaigns.length} campaigns`);
@@ -129,7 +145,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         
         return campaigns;
       } else {
-        console.log("No campaigns returned from API, showing mock campaigns");
+        console.log("No campaigns returned, showing mock campaigns");
         toast.warning("Données temporaires affichées pour démonstration", { id: "fetch-campaigns" });
         
         // Notify parent that we're using demo data
@@ -137,7 +153,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           onDemoMode(true);
         }
         
-        return [];
+        return acelleService.generateMockCampaigns(8);
       }
     } catch (error) {
       console.error(`Error fetching campaigns:`, error);
@@ -149,7 +165,8 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         onDemoMode(true);
       }
       
-      return [];
+      // Return mock campaigns as fallback
+      return acelleService.generateMockCampaigns(8);
     } finally {
       setIsManuallyRefreshing(false);
     }
@@ -263,8 +280,9 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
                   <strong>Erreur:</strong> {error instanceof Error ? error.message : 'Erreur inconnue'}
                 </p>
               )}
+              <p><strong>Nombre de campagnes chargées:</strong> {campaigns.length}</p>
               <p className="text-sm text-gray-500 mt-2">
-                Note: Pour le moment, les données affichées sont des exemples pour simulation. La connexion à l'API réelle sera rétablie prochainement.
+                Note: En cas d'erreur de connexion, des données exemples sont affichées pour simulation.
               </p>
             </div>
           </CardContent>

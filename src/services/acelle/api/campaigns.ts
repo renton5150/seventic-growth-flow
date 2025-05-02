@@ -115,38 +115,99 @@ export async function getAcelleCampaigns(
         throw new Error(`API response error: ${response.status} - ${errorText}`);
       }
       
-      const data = await response.json();
-      console.log(`Successfully retrieved ${data.data?.length || 0} campaigns`);
+      // Récupérer le contenu de la réponse
+      const responseText = await response.text();
+      console.log("Raw API response:", responseText);
+      
+      // Essayer de parser la réponse JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log("Parsed response structure:", Object.keys(data));
+      } catch (parseError) {
+        console.error("Error parsing JSON response:", parseError);
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}...`);
+      }
+      
+      // Vérifier la structure de la réponse
+      if (!data) {
+        throw new Error("Empty response from API");
+      }
+      
+      // S'adapter aux différentes structures de réponse possibles
+      let campaignsData = [];
+      if (Array.isArray(data)) {
+        // Si la réponse est directement un tableau
+        campaignsData = data;
+        console.log(`Received array response with ${campaignsData.length} campaigns`);
+      } else if (data.data && Array.isArray(data.data)) {
+        // Si la réponse est un objet avec une propriété 'data' qui est un tableau
+        campaignsData = data.data;
+        console.log(`Received nested data response with ${campaignsData.length} campaigns`);
+      } else if (typeof data === 'object') {
+        // Si c'est un objet mais pas la structure attendue, essayer de l'extraire
+        const possibleArrays = Object.values(data).filter(value => Array.isArray(value));
+        if (possibleArrays.length > 0) {
+          // Prendre le premier tableau trouvé
+          campaignsData = possibleArrays[0] as any[];
+          console.log(`Extracted array from object with ${campaignsData.length} items`);
+        } else {
+          // Dernière tentative: si c'est un objet avec des campagnes numérotées
+          const extractedCampaigns = Object.entries(data)
+            .filter(([key, value]) => typeof value === 'object' && value !== null)
+            .map(([_, value]) => value);
+            
+          if (extractedCampaigns.length > 0) {
+            campaignsData = extractedCampaigns;
+            console.log(`Extracted ${campaignsData.length} campaigns from object properties`);
+          } else {
+            throw new Error("Could not find campaigns data in response");
+          }
+        }
+      }
+      
+      if (campaignsData.length === 0) {
+        console.log("No campaigns found in response");
+        return [];
+      }
+      
+      console.log(`Successfully processed ${campaignsData.length} campaigns`);
       
       // Transformer les données pour correspondre à notre format
-      return data.data.map((item: any) => ({
-        uid: item.uid,
-        campaign_uid: item.uid,
-        name: item.name,
-        subject: item.subject,
-        status: item.status,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        delivery_date: item.delivery_at || item.run_at,
-        run_at: item.run_at,
-        last_error: item.last_error,
-        statistics: item.statistics || {},
-        delivery_info: {
-          total: parseInt(item.statistics?.subscriber_count) || 0,
-          delivered: parseInt(item.statistics?.delivered_count) || 0,
-          delivery_rate: parseFloat(item.statistics?.delivered_rate) || 0,
-          opened: parseInt(item.statistics?.open_count) || 0,
-          unique_open_rate: parseFloat(item.statistics?.uniq_open_rate) || 0,
-          clicked: parseInt(item.statistics?.click_count) || 0,
-          click_rate: parseFloat(item.statistics?.click_rate) || 0,
-          bounced: {
-            soft: parseInt(item.statistics?.soft_bounce_count) || 0,
-            hard: parseInt(item.statistics?.hard_bounce_count) || 0,
-            total: parseInt(item.statistics?.bounce_count) || 0
-          },
-          unsubscribed: parseInt(item.statistics?.unsubscribe_count) || 0
-        }
-      }));
+      return campaignsData.map((item: any) => {
+        // Vérifier si les propriétés existent avant d'y accéder
+        const uid = item.uid || item.id || item.campaign_uid || '';
+        const statistics = item.statistics || {};
+        
+        return {
+          uid: uid,
+          campaign_uid: uid,
+          name: item.name || 'Sans nom',
+          subject: item.subject || 'Sans sujet',
+          status: item.status || 'unknown',
+          created_at: item.created_at || new Date().toISOString(),
+          updated_at: item.updated_at || new Date().toISOString(),
+          delivery_date: item.delivery_at || item.run_at || item.delivery_date || null,
+          run_at: item.run_at || null,
+          last_error: item.last_error || null,
+          statistics: statistics,
+          delivery_info: {
+            total: parseInt(statistics.subscriber_count) || 0,
+            delivered: parseInt(statistics.delivered_count) || 0,
+            delivery_rate: parseFloat(statistics.delivered_rate) || 0,
+            opened: parseInt(statistics.open_count) || 0,
+            unique_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
+            clicked: parseInt(statistics.click_count) || 0,
+            click_rate: parseFloat(statistics.click_rate) || 0,
+            bounced: {
+              soft: parseInt(statistics.soft_bounce_count) || 0,
+              hard: parseInt(statistics.hard_bounce_count) || 0,
+              total: parseInt(statistics.bounce_count) || 0
+            },
+            unsubscribed: parseInt(statistics.unsubscribe_count) || 0
+          }
+        };
+      });
     } catch (error) {
       console.error("Erreur lors de la requête API:", error);
       
