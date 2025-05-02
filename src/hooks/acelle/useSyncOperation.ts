@@ -154,16 +154,16 @@ export const useSyncOperation = (account: AcelleAccount) => {
         // Rafraîchir le token explicitement
         await supabase.auth.refreshSession();
         const { data: refreshedSession } = await supabase.auth.getSession();
-        const refreshedToken = refreshedSession?.session?.access_token;
+        const newToken = refreshedSession?.session?.access_token;
         
-        if (!refreshedToken) {
+        if (!newToken) {
           result.error = "Token invalide même après rafraîchissement";
           if (!quietMode) setSyncError(result.error);
           if (!quietMode) toast.error(result.error, { id: "sync-campaigns" });
           return result;
         }
         
-        setAuthToken(refreshedToken);
+        setAuthToken(newToken);
         
         // Réveiller les services à nouveau
         await wakeUpEdgeFunctions();
@@ -191,9 +191,6 @@ export const useSyncOperation = (account: AcelleAccount) => {
       let totalFetched = 0;
 
       if (!quietMode) toast.loading(`Synchronisation des campagnes en cours...`, { id: "sync-campaigns" });
-      
-      // Utiliser le token valide que nous avons obtenu
-      const currentToken = refreshedToken || token;
       
       while (hasMore) {
         try {
