@@ -33,12 +33,17 @@ serve(async (req) => {
   // Ajuster le niveau de log en fonction des paramètres de requête
   const currentLogLevel = determineLogLevel(url, req.headers);
   
-  // Log les informations d'autorisation pour débogage
+  // Support des différentes méthodes d'authentification
   const authHeader = req.headers.get('authorization');
+  const acelleToken = req.headers.get('x-acelle-token');
+  
+  // Log les informations d'autorisation pour débogage
   if (authHeader) {
     debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...", LOG_LEVELS.DEBUG, currentLogLevel);
+  } else if (acelleToken) {
+    debugLog("Acelle token provided:", acelleToken.substring(0, 15) + "...", LOG_LEVELS.DEBUG, currentLogLevel);
   } else {
-    debugLog("No authorization header provided", {}, LOG_LEVELS.WARN, currentLogLevel);
+    debugLog("No explicit authorization provided", {}, LOG_LEVELS.WARN, currentLogLevel);
   }
 
   try {
@@ -46,7 +51,7 @@ serve(async (req) => {
     const requestStartTime = Date.now();
     
     // Traitement spécial pour les requêtes ping/health check
-    if (handlePingRequest(req, url, currentLogLevel)) {
+    if (url.pathname.includes('ping')) {
       const pingResponse = await handlePingRequest(req, url, currentLogLevel);
       if (pingResponse) return pingResponse;
     }
@@ -75,7 +80,7 @@ serve(async (req) => {
     debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, {}, LOG_LEVELS.DEBUG, currentLogLevel);
 
     // Préparer les en-têtes pour la requête à l'API Acelle
-    const headers: HeadersInit = buildRequestHeaders(req);
+    const headers = buildRequestHeaders(req);
 
     // Transférer la requête à l'API Acelle avec un timeout
     try {
@@ -231,6 +236,17 @@ function buildRequestHeaders(req: Request): HeadersInit {
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'X-Auth-Method': authMethod
   };
+
+  // Support explicite du token Acelle
+  const acelleToken = req.headers.get('x-acelle-token');
+  if (acelleToken) {
+    headers['Authorization'] = `Bearer ${acelleToken}`;
+    debugLog("Using Acelle token for authentication", {}, LOG_LEVELS.DEBUG, 5);
+  }
+  // Fallback sur l'en-tête d'autorisation standard
+  else if (req.headers.get('authorization')) {
+    headers['Authorization'] = req.headers.get('authorization');
+  }
 
   // Only add Content-Type for requests with body
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {

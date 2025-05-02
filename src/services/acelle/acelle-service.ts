@@ -7,7 +7,8 @@ import { AcelleCampaign } from '@/types/acelle.types';
 // Définir la configuration du proxy Acelle
 export const ACELLE_PROXY_CONFIG = {
   BASE_URL: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy',
-  ACELLE_API_URL: 'https://emailing.plateforme-solution.net/api/v1'
+  ACELLE_API_URL: 'https://emailing.plateforme-solution.net/api/v1',
+  ACELLE_TOKEN: 'E7yCMWfRiDD1Gd4ycEAk4g0iQrCJFLgLIARgJ56KtBfKpXuQVkSep0OTacWB' // Token par défaut
 };
 
 // Construire l'URL du proxy avec les paramètres
@@ -16,29 +17,37 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
     // Déterminer l'URL de base du proxy
     const baseProxyUrl = ACELLE_PROXY_CONFIG.BASE_URL;
     
-    // Construire l'URL Acelle complète avec tous les paramètres
-    // Note: l'API Acelle finit généralement par /api/v1/
-    const apiPath = path.startsWith('/') ? path.substring(1) : path;
-    
-    // Créer l'URL de l'API avec les paramètres
-    let apiUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${apiPath}`;
-    
-    // Ajouter les paramètres à l'URL
-    if (Object.keys(params).length > 0) {
-      const searchParams = new URLSearchParams();
+    // Déterminer si nous utilisons le nouveau format de chemin direct
+    // ou l'ancien format avec paramètre url
+    if (path.startsWith('/')) {
+      // Nouveau format: /cors-proxy/campaigns/123/stats
+      const apiPath = path.substring(1); // Supprimer le premier slash
+      return `${baseProxyUrl}/${apiPath}`;
+    } else {
+      // Ancien format avec paramètre URL
+      // Construire l'URL Acelle complète avec tous les paramètres
+      const apiPath = path.startsWith('/') ? path.substring(1) : path;
       
-      for (const [key, value] of Object.entries(params)) {
-        searchParams.append(key, value);
+      // Créer l'URL de l'API avec les paramètres
+      let apiUrl = `${ACELLE_PROXY_CONFIG.ACELLE_API_URL}/${apiPath}`;
+      
+      // Ajouter les paramètres à l'URL
+      if (Object.keys(params).length > 0) {
+        const searchParams = new URLSearchParams();
+        
+        for (const [key, value] of Object.entries(params)) {
+          searchParams.append(key, value);
+        }
+        
+        apiUrl += '?' + searchParams.toString();
       }
       
-      apiUrl += '?' + searchParams.toString();
+      // Encoder l'URL pour le proxy
+      const encodedApiUrl = encodeURIComponent(apiUrl);
+      
+      // Retourner l'URL finalisée
+      return `${baseProxyUrl}?url=${encodedApiUrl}`;
     }
-    
-    // Encoder l'URL pour le proxy
-    const encodedApiUrl = encodeURIComponent(apiUrl);
-    
-    // Retourner l'URL finalisée
-    return `${baseProxyUrl}?url=${encodedApiUrl}`;
   } catch (error) {
     console.error("Error building proxy URL:", error);
     // Return a fallback URL that will show as invalid but won't crash
@@ -60,16 +69,11 @@ export async function callAcelleApi(
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Cache-Control': 'no-store, no-cache, must-revalidate'
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      // Utiliser le format d'en-tête standardisé pour Acelle
+      'X-Acelle-Token': accessToken || ACELLE_PROXY_CONFIG.ACELLE_TOKEN,
+      'X-Acelle-Endpoint': ACELLE_PROXY_CONFIG.ACELLE_API_URL
     };
-    
-    // Ajouter le token d'autorisation s'il est fourni
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-      console.log("Using authentication token for API call");
-    } else {
-      console.warn("No access token provided for API call");
-    }
     
     // Définir un timeout pour la requête
     const controller = new AbortController();

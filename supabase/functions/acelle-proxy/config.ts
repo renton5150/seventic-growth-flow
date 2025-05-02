@@ -10,11 +10,11 @@ export const CONFIG = {
   DEFAULT_TIMEOUT: 30000, // 30 secondes timeout par défaut
   
   // Version actuelle du proxy Acelle
-  VERSION: '1.5.0',
+  VERSION: '1.6.0',
   
   // Entêtes par défaut
   DEFAULT_HEADERS: {
-    'User-Agent': 'Seventic-Acelle-Proxy/1.5',
+    'User-Agent': 'Seventic-Acelle-Proxy/1.6',
     'Accept': 'application/json'
   }
 };
