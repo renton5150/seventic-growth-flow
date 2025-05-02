@@ -199,8 +199,8 @@ export const useSyncOperation = (account: AcelleAccount) => {
         try {
           console.log(`Récupération des campagnes page ${page} avec limite ${limit}`);
           
-          // Appel avec l'option include_stats=true via le token actuel
-          const campaigns = await getAcelleCampaigns(account, page, limit, currentToken);
+          // Fix: Remove the fifth argument that was causing the TypeScript error
+          const campaigns = await getAcelleCampaigns(account, page, limit, token);
           
           if (campaigns && campaigns.length > 0) {
             // Vérifier si les campagnes ont des statistiques
