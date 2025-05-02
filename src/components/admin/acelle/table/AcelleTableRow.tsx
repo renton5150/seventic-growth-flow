@@ -2,7 +2,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Eye } from "lucide-react";
+import { Eye, Mail, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -22,9 +22,9 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         hasStatistics: !!campaign.statistics,
         hasDeliveryInfo: !!campaign.delivery_info,
         subscriberCount: campaign.statistics?.subscriber_count || campaign.delivery_info?.total || 0,
-        deliveryRate: campaign.statistics?.delivered_rate || campaign.delivery_info?.delivery_rate || 0,
         openRate: campaign.statistics?.uniq_open_rate || campaign.delivery_info?.unique_open_rate || 0,
-        clickRate: campaign.statistics?.click_rate || campaign.delivery_info?.click_rate || 0
+        clickRate: campaign.statistics?.click_rate || campaign.delivery_info?.click_rate || 0,
+        bounceCount: campaign.statistics?.bounce_count || (campaign.delivery_info?.bounced?.total) || 0
       });
     }
   }, [campaign]);
@@ -66,7 +66,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
 
   /**
    * Fonction optimisée pour extraire les statistiques de manière plus directe et fiable
-   * Version améliorée qui simplifie la logique et se concentre sur les chemins les plus probables
    */
   const getStatValue = (key: string): number => {
     try {
@@ -82,20 +81,8 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
           case 'subscriber_count':
             if (typeof info.total === 'number') return info.total;
             break;
-          case 'delivered_count':
-            if (typeof info.delivered === 'number') return info.delivered;
-            break;
-          case 'delivered_rate':
-            if (typeof info.delivery_rate === 'number') return info.delivery_rate;
-            break;
-          case 'open_count':
-            if (typeof info.opened === 'number') return info.opened;
-            break;
           case 'uniq_open_rate':
             if (typeof info.unique_open_rate === 'number') return info.unique_open_rate;
-            break;
-          case 'click_count':
-            if (typeof info.clicked === 'number') return info.clicked;
             break;
           case 'click_rate':
             if (typeof info.click_rate === 'number') return info.click_rate;
@@ -111,9 +98,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
               return softBounce + hardBounce;
             }
             break;
-          case 'unsubscribe_count':
-            if (typeof info.unsubscribed === 'number') return info.unsubscribed;
-            break;
         }
       }
 
@@ -126,29 +110,14 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
           case 'subscriber_count':
             if (typeof stats.subscriber_count === 'number') return stats.subscriber_count;
             break;
-          case 'delivered_count':
-            if (typeof stats.delivered_count === 'number') return stats.delivered_count;
-            break;
-          case 'delivered_rate':
-            if (typeof stats.delivered_rate === 'number') return stats.delivered_rate;
-            break;
-          case 'open_count':
-            if (typeof stats.open_count === 'number') return stats.open_count;
-            break;
           case 'uniq_open_rate':
             if (typeof stats.uniq_open_rate === 'number') return stats.uniq_open_rate;
-            break;
-          case 'click_count':
-            if (typeof stats.click_count === 'number') return stats.click_count;
             break;
           case 'click_rate':
             if (typeof stats.click_rate === 'number') return stats.click_rate;
             break;
           case 'bounce_count':
             if (typeof stats.bounce_count === 'number') return stats.bounce_count;
-            break;
-          case 'unsubscribe_count':
-            if (typeof stats.unsubscribe_count === 'number') return stats.unsubscribe_count;
             break;
         }
       }
@@ -162,11 +131,9 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
 
   // Extraire les valeurs statistiques de manière sûre
   const subscriberCount = getStatValue('subscriber_count');
-  const deliveryRate = getStatValue('delivered_rate');
   const openRate = getStatValue('uniq_open_rate');
   const clickRate = getStatValue('click_rate');
   const bounceCount = getStatValue('bounce_count');
-  const unsubscribeCount = getStatValue('unsubscribe_count');
 
   const handleViewClick = () => {
     if (campaignUid) {
@@ -189,22 +156,28 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         {formatDateSafely(deliveryDate)}
       </TableCell>
       <TableCell>
-        {subscriberCount.toString()}
+        <div className="flex items-center">
+          <Mail className="h-4 w-4 mr-2 text-gray-500" />
+          {subscriberCount.toString()}
+        </div>
       </TableCell>
       <TableCell>
-        {renderPercentage(deliveryRate)}
+        <div className="flex items-center">
+          <ArrowUp className="h-4 w-4 mr-2 text-green-500" />
+          {renderPercentage(openRate)}
+        </div>
       </TableCell>
       <TableCell>
-        {renderPercentage(openRate)}
+        <div className="flex items-center">
+          <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
+          {renderPercentage(clickRate)}
+        </div>
       </TableCell>
       <TableCell>
-        {renderPercentage(clickRate)}
-      </TableCell>
-      <TableCell>
-        {bounceCount.toString()}
-      </TableCell>
-      <TableCell>
-        {unsubscribeCount.toString()}
+        <div className="flex items-center">
+          <ArrowDown className="h-4 w-4 mr-2 text-red-500" />
+          {bounceCount.toString()}
+        </div>
       </TableCell>
       <TableCell className="text-right">
         <Button 

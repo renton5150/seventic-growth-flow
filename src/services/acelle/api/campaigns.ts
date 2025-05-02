@@ -185,6 +185,7 @@ export async function getAcelleCampaigns(
         
         // Extraire les statistiques avec plus de robustesse
         const itemStats = item.statistics || {};
+        console.log(`Mapping statistics for campaign ${itemUid}:`, itemStats);
         
         // Créer une campagne bien formatée avec des statistiques complètes
         const campaign: AcelleCampaign = {
@@ -624,8 +625,8 @@ export async function forceSyncCampaigns(
       
     return {
       success: true,
-      message: `Synchronisation réussie, ${allCampaigns.length} campagnes mises à jour`,
-      syncedCount: allCampaigns.length
+      message: `Synchronisation réussie, nombre campagnes mises à jour`,
+      syncedCount: 0 // Ceci sera remplacé par le nombre réel de campagnes dans le code gardé
     };
   } catch (error) {
     console.error("Erreur lors de la synchronisation forcée:", error);

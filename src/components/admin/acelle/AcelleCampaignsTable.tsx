@@ -484,12 +484,10 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
                   <TableHead>Sujet</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Date d'envoi</TableHead>
-                  <TableHead>Envoyés</TableHead>
-                  <TableHead>Livraisons</TableHead>
-                  <TableHead>Taux d'ouv.</TableHead>
+                  <TableHead>Total envoyé</TableHead>
+                  <TableHead>Taux d'ouverture</TableHead>
                   <TableHead>Taux de clic</TableHead>
-                  <TableHead>Bounces</TableHead>
-                  <TableHead>Désabonnements</TableHead>
+                  <TableHead>Bounce</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
