@@ -56,8 +56,9 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     // Add anti-cache timestamp to avoid stale responses
     const cacheBuster = Date.now().toString();
     
-    // Build the API URL for testing with anti-cache parameter
-    const testUrl = buildProxyUrl('ping', { 
+    // Use a valid endpoint - 'me' or 'customers' is commonly available in Acelle API
+    // Instead of 'ping' which seems to not exist
+    const testUrl = buildProxyUrl('customers', { 
       api_token: account.apiToken,
       _t: cacheBuster // Add timestamp to prevent caching
     });

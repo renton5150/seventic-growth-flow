@@ -34,7 +34,7 @@ serve(async (req) => {
       status: "healthy", 
       message: "CORS Proxy is running", 
       timestamp: new Date().toISOString(),
-      version: "1.0.1" 
+      version: "1.0.2" 
     }), {
       headers: { 
         ...corsHeaders, 
@@ -46,6 +46,7 @@ serve(async (req) => {
   // Extract target URL from request
   const targetUrl = url.searchParams.get("url");
   console.log(`[CORS Proxy] Request received: ${req.method} ${req.url}`);
+  console.log(`[CORS Proxy] Target URL: ${targetUrl}`);
 
   if (!targetUrl) {
     console.error("[CORS Proxy] Error: Missing 'url' parameter");
@@ -77,7 +78,7 @@ serve(async (req) => {
     }
     
     console.log(`[CORS Proxy] Headers being forwarded:`, 
-      Object.fromEntries([...headers.entries()]).toString().substring(0, 500));
+      Object.fromEntries([...headers.entries()]));
 
     // Determine request body to forward
     let proxyBody = null;
@@ -124,10 +125,11 @@ serve(async (req) => {
       // Get response body
       const body = await response.arrayBuffer();
 
-      // Log for debugging
+      // Log response for debugging
       try {
         if (response.headers.get("content-type")?.includes("application/json")) {
-          console.log("[CORS Proxy] JSON response processed successfully");
+          const textData = new TextDecoder().decode(body);
+          console.log("[CORS Proxy] JSON response:", textData.substring(0, 200) + (textData.length > 200 ? "..." : ""));
         }
       } catch (e) {
         console.error("[CORS Proxy] Error processing response:", e);
@@ -155,7 +157,8 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({
       error: `Proxy error: ${errorMessage}`,
-      details: errorDetails
+      details: errorDetails,
+      targetUrl: targetUrl
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
