@@ -39,39 +39,45 @@ export const fetchCampaignsFromCache = async (accounts: AcelleAccount[]): Promis
     // Convert cache format to AcelleCampaign format
     return cachedCampaigns.map(campaign => {
       // Handle delivery_info parsing if needed
-      let deliveryInfo = campaign.delivery_info || {};
-      if (typeof deliveryInfo === 'string') {
-        try {
-          deliveryInfo = JSON.parse(deliveryInfo);
-        } catch (e) {
-          console.warn('Error parsing delivery_info JSON:', e);
-          deliveryInfo = {};
+      let deliveryInfo: Record<string, any> = {};
+      
+      if (campaign.delivery_info) {
+        // Convert string to object if needed
+        if (typeof campaign.delivery_info === 'string') {
+          try {
+            deliveryInfo = JSON.parse(campaign.delivery_info);
+          } catch (e) {
+            console.warn('Error parsing delivery_info JSON:', e);
+            deliveryInfo = {};
+          }
+        } else if (typeof campaign.delivery_info === 'object') {
+          // It's already an object
+          deliveryInfo = campaign.delivery_info as Record<string, any>;
         }
       }
       
-      // Ensure bounced object exists
-      if (!deliveryInfo.bounced) {
-        deliveryInfo.bounced = {
-          soft: 0,
-          hard: 0,
-          total: 0
-        };
-      }
+      // Ensure bounced object exists with proper type safety
+      const bouncedInfo = (
+        deliveryInfo && 
+        typeof deliveryInfo === 'object' && 
+        deliveryInfo.bounced && 
+        typeof deliveryInfo.bounced === 'object'
+      ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
       
-      // Create statistics from delivery_info
+      // Create statistics from delivery_info with safe type access
       const statistics = {
-        subscriber_count: deliveryInfo.total || 0,
-        delivered_count: deliveryInfo.delivered || 0,
-        delivered_rate: deliveryInfo.delivery_rate || 0,
-        open_count: deliveryInfo.opened || 0,
-        uniq_open_rate: deliveryInfo.unique_open_rate || 0,
-        click_count: deliveryInfo.clicked || 0,
-        click_rate: deliveryInfo.click_rate || 0,
-        bounce_count: deliveryInfo.bounced?.total || 0,
-        soft_bounce_count: deliveryInfo.bounced?.soft || 0,
-        hard_bounce_count: deliveryInfo.bounced?.hard || 0,
-        unsubscribe_count: deliveryInfo.unsubscribed || 0,
-        abuse_complaint_count: deliveryInfo.complained || 0
+        subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
+        delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
+        delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
+        open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+        uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
+        click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
+        click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
+        bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
+        soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
+        hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
+        unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
+        abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
       };
       
       // Return consistent AcelleCampaign format
