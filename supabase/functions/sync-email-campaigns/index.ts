@@ -3,11 +3,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Amélioré avec des entêtes CORS complets selon les recommandations
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': '*', // Pour le développement - en production, limitez aux domaines spécifiques
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key, accept, origin',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 heures de cache pour les préflights
+  'Vary': 'Origin' // Important pour les CDNs et caches intermédiaires
 };
 
 const supabaseUrl = 'https://dupguifqyjchlmzbadav.supabase.co';
@@ -649,10 +650,14 @@ async function updateAccountStatus(accountId: string, errorMessage?: string) {
   }
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Record activity and update heartbeat
   lastActivity = Date.now();
   await recordHeartbeat();
+  
+  // Capture l'origine pour le debug
+  const origin = req.headers.get('origin');
+  console.log(`Request from origin: ${origin || 'unknown'}`);
   
   // Ajuster le niveau de log en fonction des paramètres de requête
   if (req.method === 'POST') {
@@ -677,9 +682,18 @@ serve(async (req) => {
   // Enhanced CORS handling for preflight requests
   if (req.method === 'OPTIONS') {
     debugLog("Handling OPTIONS preflight request for sync-email-campaigns with complete CORS headers", {}, LOG_LEVELS.DEBUG);
+    
+    // Préparez les en-têtes CORS dynamiques
+    const responseHeaders = new Headers(corsHeaders);
+    
+    // Mirror the requesting origin if available
+    if (origin) {
+      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    }
+    
     return new Response(null, { 
       status: 204, // Standard status for successful OPTIONS requests
-      headers: corsHeaders 
+      headers: responseHeaders
     });
   }
 
@@ -785,25 +799,45 @@ serve(async (req) => {
       status: 'active'
     }, { onConflict: 'function_name' });
 
+    // Lors de la construction de la réponse finale, utiliser des en-têtes CORS dynamiques
+    const responseHeaders = new Headers(corsHeaders);
+    
+    // Mirror the requesting origin if available
+    if (origin) {
+      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    }
+    
+    responseHeaders.set('Content-Type', 'application/json');
+    
     return new Response(JSON.stringify({
       timestamp: new Date().toISOString(),
       results,
       diagnostics: requestOptions.debug ? diagnostics : undefined,
       nextScheduledSync: new Date(Date.now() + 30 * 60 * 1000).toISOString() // estimate next sync
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: responseHeaders
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     
     debugLog("Error in sync-email-campaigns:", errorMessage, LOG_LEVELS.ERROR);
     
+    // Préparez les en-têtes CORS dynamiques pour la réponse d'erreur
+    const responseHeaders = new Headers(corsHeaders);
+    
+    // Mirror the requesting origin if available
+    if (origin) {
+      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    }
+    
+    responseHeaders.set('Content-Type', 'application/json');
+    
     return new Response(JSON.stringify({
       error: errorMessage,
       timestamp: new Date().toISOString()
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: responseHeaders
     });
   }
 });

@@ -4,50 +4,72 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 // Enhanced CORS headers to support more browsers and preflight requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': '*', // Pour le développement - en production, spécifiez votre domaine
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key, x-wake-request, origin, accept',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 hours cache for preflight requests
+  'Vary': 'Origin' // Important pour les CDNs et caches intermédiaires
 };
 
 // Current version of the CORS proxy
-const CORS_PROXY_VERSION = "1.0.4";
+const CORS_PROXY_VERSION = "1.0.5";
 
 console.log("CORS Proxy starting up...");
 
 serve(async (req: Request) => {
   console.log("Listening on http://localhost:9999/");
   
+  // Always log origin for debugging CORS issues
+  const origin = req.headers.get('origin');
+  console.log(`Request from origin: ${origin || 'unknown'}`);
+  
   // Debug info to help identify URL being requested
   const url = new URL(req.url);
   const path = url.pathname;
   
-  // Handle OPTIONS preflight requests
+  // Handle OPTIONS preflight requests with improved CORS headers
   if (req.method === 'OPTIONS') {
     console.log("[CORS Proxy] Handling OPTIONS preflight request");
+    
+    // Create a dynamic response with correct headers
+    let responseHeaders = new Headers(corsHeaders);
+    
+    // Mirror the requested origin if available
+    if (origin) {
+      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    }
+    
     return new Response(null, {
       status: 204,
-      headers: corsHeaders
+      headers: responseHeaders
     });
   }
   
   // Special /ping endpoint for health checks and wakeup calls
   if (path.endsWith('/ping')) {
     console.log("[CORS Proxy] Ping request received to wake up Edge Function");
+    
+    // Create a response with proper CORS headers
+    let responseHeaders = new Headers(corsHeaders);
+    responseHeaders.set('Content-Type', 'application/json');
+    
+    // Mirror the requesting origin if available
+    if (origin) {
+      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    }
+    
     return new Response(
       JSON.stringify({
         status: "healthy",
         message: "CORS Proxy is running",
         timestamp: new Date().toISOString(),
-        version: CORS_PROXY_VERSION
+        version: CORS_PROXY_VERSION,
+        received_origin: origin || 'none'
       }),
       {
         status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
-        }
+        headers: responseHeaders
       }
     );
   }
@@ -59,6 +81,16 @@ serve(async (req: Request) => {
     
     if (!targetUrl) {
       console.error("[CORS Proxy] Missing URL parameter");
+      
+      // Prepare response headers with CORS
+      let responseHeaders = new Headers(corsHeaders);
+      responseHeaders.set('Content-Type', 'application/json');
+      
+      // Mirror the requesting origin if available
+      if (origin) {
+        responseHeaders.set('Access-Control-Allow-Origin', origin);
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: "Missing URL parameter", 
@@ -66,10 +98,7 @@ serve(async (req: Request) => {
         }),
         {
           status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
+          headers: responseHeaders
         }
       );
     }
@@ -107,8 +136,13 @@ serve(async (req: Request) => {
     const fetchResponse = await fetch(targetUrl, requestInit);
     clearTimeout(timeoutId);
     
-    // Prepare response headers
+    // Prepare response headers with CORS
     const responseHeaders = new Headers(corsHeaders);
+    
+    // Mirror the requesting origin if available
+    if (origin) {
+      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    }
     
     // Copy headers from the response
     for (const [key, value] of fetchResponse.headers.entries()) {
@@ -170,6 +204,15 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error(`[CORS Proxy] Error: ${error.message}`);
     
+    // Prepare error response with proper CORS headers
+    let responseHeaders = new Headers(corsHeaders);
+    responseHeaders.set('Content-Type', 'application/json');
+    
+    // Mirror the requesting origin if available
+    if (origin) {
+      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    }
+    
     return new Response(
       JSON.stringify({ 
         error: `Proxy error: ${error.message}`,
@@ -177,10 +220,7 @@ serve(async (req: Request) => {
       }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+        headers: responseHeaders
       }
     );
   }

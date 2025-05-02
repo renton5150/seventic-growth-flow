@@ -19,7 +19,7 @@ export const useEdgeFunctionWakeup = () => {
       
       setWakeupAttempts(prev => prev + 1);
       
-      // Réveiller le proxy CORS
+      // Réveiller le proxy CORS avec des en-têtes améliorés
       const wakeUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping';
       console.log(`Envoi de la requête de réveil à: ${wakeUrl}`);
       
@@ -29,8 +29,11 @@ export const useEdgeFunctionWakeup = () => {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Cache-Control': 'no-store',
-            'X-Wake-Request': 'true'
-          }
+            'X-Wake-Request': 'true',
+            'Accept': 'application/json',
+            'Origin': window.location.origin
+          },
+          credentials: 'same-origin'
         });
         
         if (response.ok) {
@@ -43,14 +46,17 @@ export const useEdgeFunctionWakeup = () => {
         console.warn("Erreur lors de la requête de réveil du proxy, mais ce n'est pas bloquant:", e);
       }
       
-      // Réveiller également la fonction de synchronisation
+      // Réveiller également la fonction de synchronisation avec des en-têtes améliorés
       try {
         const response = await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
           method: 'OPTIONS',
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'Cache-Control': 'no-store'
-          }
+            'Cache-Control': 'no-store',
+            'Accept': 'application/json',
+            'Origin': window.location.origin
+          },
+          credentials: 'same-origin'
         });
         
         console.log(`Réveil de sync-email-campaigns: ${response.status}`);
