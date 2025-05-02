@@ -1,82 +1,93 @@
 
-// This is a CORS Proxy edge function to safely handle third-party API requests
+/**
+ * CORS Proxy Edge Function
+ * 
+ * Cette fonction sert de proxy CORS pour les requêtes vers des API tierces, permettant
+ * de contourner les restrictions de Same-Origin Policy dans les navigateurs.
+ * 
+ * @version 1.2.0
+ * @author Seventic Team
+ */
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-// Enhanced CORS headers with broader support for browsers and preflight requests
+// Configuration améliorée des en-têtes CORS avec support explicite pour une variété d'en-têtes
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*', // En production, spécifiez votre domaine
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key, x-wake-request, origin, accept, pragma',
   'Access-Control-Allow-Credentials': 'true',
-  'Access-Control-Max-Age': '86400', // 24 hours cache for preflight requests
+  'Access-Control-Max-Age': '86400', // 24 heures de cache pour les requêtes preflight
   'Vary': 'Origin', // Important pour les CDNs et caches intermédiaires
   'Content-Type': 'application/json'
 };
 
-// Current version of the CORS proxy
-const CORS_PROXY_VERSION = "1.1.0";
+// Version actuelle du proxy CORS
+const CORS_PROXY_VERSION = "1.2.0";
+const DEFAULT_TIMEOUT = 30000; // 30 secondes de timeout par défaut
 
-console.log("CORS Proxy starting up...");
+console.log("CORS Proxy v" + CORS_PROXY_VERSION + " démarré");
 
+/**
+ * Fonction principale du serveur CORS proxy
+ */
 serve(async (req: Request) => {
-  console.log("CORS Proxy activated");
+  console.log("CORS Proxy activé");
   
-  // Always log origin for debugging CORS issues
+  // Capture des métriques de performance
+  const requestStartTime = Date.now();
+  
+  // Récupération et analyse de l'origine pour le débogage CORS
   const origin = req.headers.get('origin');
   const requestUrl = new URL(req.url);
-  console.log(`Request from origin: ${origin || 'unknown'} to path: ${requestUrl.pathname}`);
+  console.log(`Requête depuis ${origin || 'inconnue'} vers ${requestUrl.pathname}`);
   
-  // Set default headers for all responses with dynamic origin handling
-  let responseHeaders = new Headers(corsHeaders);
+  // Configuration des en-têtes pour toutes les réponses avec gestion dynamique de l'origine
+  const responseHeaders = new Headers(corsHeaders);
+  
+  // Si une origine spécifique est fournie, la refléter dans la réponse
   if (origin) {
-    // Reflect the requesting origin to support multiple origins
     responseHeaders.set('Access-Control-Allow-Origin', origin);
   }
   
-  // Handle OPTIONS preflight requests with improved CORS headers
-  if (req.method === 'OPTIONS') {
-    console.log("[CORS Proxy] Handling OPTIONS preflight request");
-    
-    // Return early with proper preflight response
-    return new Response(null, {
-      status: 204,
-      headers: responseHeaders
-    });
-  }
-  
-  // Special /ping endpoint for health checks and wakeup calls
-  if (requestUrl.pathname.endsWith('/ping')) {
-    console.log("[CORS Proxy] Ping request received to wake up Edge Function");
-    
-    responseHeaders.set('Content-Type', 'application/json');
-    
-    return new Response(
-      JSON.stringify({
-        status: "healthy",
-        message: "CORS Proxy is running",
-        timestamp: new Date().toISOString(),
-        version: CORS_PROXY_VERSION,
-        received_origin: origin || 'none'
-      }),
-      {
-        status: 200,
-        headers: responseHeaders
-      }
-    );
-  }
-  
   try {
-    // Get target URL from the query parameter
-    const params = requestUrl.searchParams;
-    const targetUrl = params.get('url');
+    // Gestion des requêtes OPTIONS preflight avec en-têtes CORS améliorés
+    if (req.method === 'OPTIONS') {
+      console.log("[CORS Proxy] Traitement de la requête preflight OPTIONS");
+      return new Response(null, {
+        status: 204,
+        headers: responseHeaders
+      });
+    }
+    
+    // Point de terminaison spécial /ping pour les vérifications de santé et les appels de réveil
+    if (requestUrl.pathname.endsWith('/ping')) {
+      console.log("[CORS Proxy] Requête ping reçue pour réveiller la fonction Edge");
+      
+      return new Response(
+        JSON.stringify({
+          status: "healthy",
+          message: "CORS Proxy est en cours d'exécution",
+          timestamp: new Date().toISOString(),
+          version: CORS_PROXY_VERSION,
+          received_origin: origin || 'aucune'
+        }),
+        {
+          status: 200,
+          headers: responseHeaders
+        }
+      );
+    }
+    
+    // Récupération de l'URL cible depuis les paramètres de requête
+    const targetUrl = requestUrl.searchParams.get('url');
     
     if (!targetUrl) {
-      console.error("[CORS Proxy] Missing URL parameter");
+      console.error("[CORS Proxy] Paramètre URL manquant");
       
       return new Response(
         JSON.stringify({ 
-          error: "Missing URL parameter", 
-          usage: "Add ?url=https://yourapi.com/endpoint as a query parameter"
+          error: "Paramètre URL manquant", 
+          usage: "Ajoutez ?url=https://votreapi.com/endpoint en tant que paramètre de requête"
         }),
         {
           status: 400,
@@ -85,83 +96,124 @@ serve(async (req: Request) => {
       );
     }
     
-    console.log(`[CORS Proxy] Forwarding request to: ${targetUrl}`);
+    console.log(`[CORS Proxy] Transmission de la requête vers: ${targetUrl}`);
     
-    // Create new request with the same method, headers, and body
+    // Création d'une nouvelle requête avec la même méthode, en-têtes et corps
     const requestInit: RequestInit = {
       method: req.method,
       headers: new Headers()
     };
     
-    // Copy headers from original request, except those related to CORS and connection
-    const headersToSkip = ['host', 'connection'];
+    // Liste des en-têtes à ignorer lors de la copie
+    const headersToSkip = new Set(['host', 'connection']);
+    
+    // Copie des en-têtes depuis la requête originale, en excluant ceux liés à CORS et à la connexion
     for (const [key, value] of req.headers.entries()) {
-      if (!headersToSkip.includes(key.toLowerCase())) {
+      if (!headersToSkip.has(key.toLowerCase())) {
         (requestInit.headers as Headers).set(key, value);
       }
     }
     
-    // Add user agent header to identify our proxy
-    (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.1');
+    // Ajout d'en-têtes d'identification pour notre proxy
+    (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.2');
     (requestInit.headers as Headers).set('Referer', 'https://emailing.plateforme-solution.net/');
     
-    // Copy body if present
-    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+    // Copie du corps s'il est présent et si la méthode HTTP l'autorise
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.body) {
       requestInit.body = req.body;
     }
     
-    // Add automatic timeout
+    // Utilisation d'AbortController pour implémenter un timeout sur la requête
+    const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.error(`[CORS Proxy] Request timeout after 30s: ${targetUrl}`);
-    }, 30000);
+      controller.abort();
+      console.error(`[CORS Proxy] Timeout de la requête après ${DEFAULT_TIMEOUT/1000}s: ${targetUrl}`);
+    }, DEFAULT_TIMEOUT);
     
-    // Make the request to the target URL
-    const fetchResponse = await fetch(targetUrl, requestInit);
-    clearTimeout(timeoutId);
+    // Ajout du signal à la configuration de la requête
+    requestInit.signal = controller.signal;
     
-    // Copy headers from the response, excluding CORS headers that we'll set ourselves
-    for (const [key, value] of fetchResponse.headers.entries()) {
-      if (!key.toLowerCase().startsWith('access-control-') && key.toLowerCase() !== 'content-length') {
-        responseHeaders.set(key, value);
+    try {
+      // Exécution de la requête vers l'URL cible
+      const fetchResponse = await fetch(targetUrl, requestInit);
+      clearTimeout(timeoutId);
+      
+      // Copie des en-têtes depuis la réponse, en excluant les en-têtes CORS que nous définirons nous-mêmes
+      for (const [key, value] of fetchResponse.headers.entries()) {
+        if (!key.toLowerCase().startsWith('access-control-') && key.toLowerCase() !== 'content-length') {
+          responseHeaders.set(key, value);
+        }
       }
-    }
-    
-    // Ensure content type is preserved
-    if (fetchResponse.headers.has('content-type')) {
-      responseHeaders.set('Content-Type', fetchResponse.headers.get('content-type')!);
-    }
-    
-    // Log response status
-    console.log(`[CORS Proxy] Target response status: ${fetchResponse.status} ${fetchResponse.statusText} for ${targetUrl}`);
-    
-    // Read response body
-    let responseBody = await fetchResponse.text();
-    
-    // Pour le débogage, ajoutons une trace des réponses 404 avec plus de détail
-    if (fetchResponse.status === 404) {
-      console.error(`[CORS Proxy] 404 Not Found: ${targetUrl}`);
-      console.error(`[CORS Proxy] Response headers:`, Object.fromEntries([...fetchResponse.headers]));
-      console.error(`[CORS Proxy] Response body (first 1000 chars): ${responseBody.substring(0, 1000)}`);
-    }
-    
-    // Return proxied response with CORS headers
-    return new Response(responseBody, {
-      status: fetchResponse.status,
-      headers: responseHeaders
-    });
-    
-  } catch (error) {
-    console.error(`[CORS Proxy] Error: ${error.message}`);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: `Proxy error: ${error.message}`,
+      
+      // Préservation du type de contenu
+      if (fetchResponse.headers.has('content-type')) {
+        responseHeaders.set('Content-Type', fetchResponse.headers.get('content-type')!);
+      }
+      
+      // Journalisation du statut de la réponse
+      console.log(`[CORS Proxy] Réponse cible: ${fetchResponse.status} ${fetchResponse.statusText} pour ${targetUrl}`);
+      
+      // Lecture du corps de la réponse
+      const responseBody = await fetchResponse.text();
+      
+      // Journalisation détaillée des réponses 404 pour le débogage
+      if (fetchResponse.status === 404) {
+        console.error(`[CORS Proxy] 404 Non trouvé: ${targetUrl}`);
+        console.error(`[CORS Proxy] En-têtes de réponse:`, Object.fromEntries([...fetchResponse.headers]));
+        console.error(`[CORS Proxy] Corps de la réponse (premiers 1000 caractères): ${responseBody.substring(0, 1000)}`);
+      }
+      
+      // Calcul et journalisation de la durée totale de la requête
+      const requestDuration = Date.now() - requestStartTime;
+      console.log(`[CORS Proxy] Requête complétée en ${requestDuration}ms pour ${targetUrl}`);
+      
+      // Retour de la réponse proxy avec les en-têtes CORS
+      return new Response(responseBody, {
+        status: fetchResponse.status,
+        headers: responseHeaders
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      // Gestion spécifique des erreurs d'abandon (timeout)
+      if (fetchError.name === 'AbortError') {
+        console.error(`[CORS Proxy] La requête vers ${targetUrl} a expiré`, { timeout: DEFAULT_TIMEOUT });
+        return new Response(JSON.stringify({ 
+          error: 'La requête a expiré', 
+          endpoint: targetUrl,
+          timeout: `${DEFAULT_TIMEOUT/1000} secondes`,
+          timestamp: new Date().toISOString()
+        }), { 
+          status: 504,
+          headers: responseHeaders
+        });
+      }
+      
+      // Gestion des autres erreurs de requête
+      console.error(`[CORS Proxy] Erreur lors de la requête vers ${targetUrl}:`, fetchError);
+      return new Response(JSON.stringify({ 
+        error: `Erreur lors de la requête: ${fetchError.message}`,
+        target: targetUrl,
         timestamp: new Date().toISOString()
-      }),
-      {
+      }), { 
         status: 500,
         headers: responseHeaders
-      }
-    );
+      });
+    }
+  } catch (error) {
+    // Gestion globale des erreurs
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('[CORS Proxy] Erreur dans le proxy CORS:', { errorMessage, errorStack });
+    
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      details: errorStack,
+      timestamp: new Date().toISOString()
+    }), { 
+      status: 500,
+      headers: responseHeaders
+    });
   }
 });
