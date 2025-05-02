@@ -5,7 +5,7 @@
  * Cette fonction sert de proxy CORS pour les requêtes vers des API tierces, permettant
  * de contourner les restrictions de Same-Origin Policy dans les navigateurs.
  * 
- * @version 1.3.0
+ * @version 1.3.1
  * @author Seventic Team
  */
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -14,7 +14,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*', // En production, spécifiez votre domaine
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key, x-wake-request, origin, accept, pragma, x-acelle-token, x-acelle-endpoint',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-wake-request, x-api-key, origin, accept, pragma, x-acelle-token, x-acelle-endpoint',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 heures de cache pour les requêtes preflight
   'Vary': 'Origin', // Important pour les CDNs et caches intermédiaires
@@ -22,7 +22,7 @@ const corsHeaders = {
 };
 
 // Version actuelle du proxy CORS
-const CORS_PROXY_VERSION = "1.3.0";
+const CORS_PROXY_VERSION = "1.3.1";
 const DEFAULT_TIMEOUT = 30000; // 30 secondes de timeout par défaut
 
 console.log("CORS Proxy v" + CORS_PROXY_VERSION + " démarré");
