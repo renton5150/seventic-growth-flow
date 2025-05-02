@@ -246,9 +246,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             <h4 className="font-bold mb-2">Informations de débogage</h4>
             <div className="space-y-1">
               <p><strong>Endpoint API:</strong> {account.apiEndpoint}</p>
-              <p><strong>Dernière synchronisation:</strong> {account.last_sync_date ? new Date(account.last_sync_date).toLocaleString() : 'Jamais'}</p>
-              {account.last_sync_error && (
-                <p className="text-red-600"><strong>Dernière erreur:</strong> {account.last_sync_error}</p>
+              <p><strong>Dernière synchronisation:</strong> {account.lastSyncDate ? new Date(account.lastSyncDate).toLocaleString() : 'Jamais'}</p>
+              {account.lastSyncError && (
+                <p className="text-red-600"><strong>Dernière erreur:</strong> {account.lastSyncError}</p>
               )}
               <p><strong>Status de la requête:</strong> {isLoading ? 'Chargement' : (isError ? 'Erreur' : 'Succès')}</p>
               {error && (

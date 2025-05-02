@@ -50,6 +50,12 @@ export function TableErrorState({ onRetry, errorMessage }: TableErrorStateProps)
               <li>Le serveur Acelle Mail est accessible</li>
               <li>Le compte a des permissions suffisantes sur Acelle Mail</li>
             </ul>
+            <p className="mt-2">Chemins d'API à essayer :</p>
+            <ul className="list-disc list-inside mt-2">
+              <li>/api/v1/campaigns</li>
+              <li>/api/v1/sending_campaigns</li>
+              <li>/api/v1/customers/campaigns</li>
+            </ul>
           </div>
         </CardContent>
         <CardFooter className="flex justify-center pb-6">

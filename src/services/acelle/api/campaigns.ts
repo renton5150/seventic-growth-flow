@@ -403,7 +403,8 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
             }
             // Otherwise, try to find any array property in the response
             else {
-              for (const key in campaignsData) {
+              const keys = Object.keys(campaignsData);
+              for (const key of keys) {
                 if (Array.isArray(campaignsData[key])) {
                   console.log(`Found potential campaigns array in .${key} property, length: ${campaignsData[key].length}`);
                   campaignsData = campaignsData[key];
