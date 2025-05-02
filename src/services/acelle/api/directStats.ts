@@ -1,6 +1,5 @@
 
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { fetchCampaignStats, processRawStats, generateSimulatedStats } from "@/utils/acelle/campaignStatusUtils";
 
 /**
  * Interface pour les options de récupération de statistiques
@@ -35,11 +34,11 @@ export async function getCampaignStatsDirectly(
   try {
     // Vérifier si le compte et la campagne sont valides
     const campaignId = campaign?.uid || campaign?.campaign_uid;
-    if (!campaignId || !account?.apiEndpoint || !account?.api_token || !account?.apiToken) {
+    if (!campaignId || !account?.apiEndpoint || !account?.apiToken) {
       console.warn("Informations de compte ou de campagne incomplètes", { 
         hasUid: !!campaignId, 
         hasEndpoint: !!account?.apiEndpoint,
-        hasApiKey: !!(account?.api_token || account?.apiToken)
+        hasApiKey: !!account?.apiToken
       });
       
       // Mode dégrédé: utiliser les stats existantes
@@ -49,7 +48,7 @@ export async function getCampaignStatsDirectly(
     if (useDirectApi) {
       // Appel direct à l'API Acelle
       console.log(`Récupération directe des stats pour la campagne ${campaignId}`);
-      const apiToken = account.api_token || account.apiToken;
+      const apiToken = account.apiToken;
       
       const rawStats = await fetchCampaignStats(
         campaignId,
@@ -143,3 +142,6 @@ export async function enrichCampaignsWithStats(
   
   return enrichedCampaigns;
 }
+
+// Réutiliser les fonctions existantes du module campaignStatusUtils pour la continuité
+import { fetchCampaignStats, processRawStats, generateSimulatedStats } from "@/utils/acelle/campaignStatusUtils";

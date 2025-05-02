@@ -140,6 +140,9 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       const status = statuses[Math.floor(Math.random() * statuses.length)];
       const subject = `${subjectPrefixes[Math.floor(Math.random() * subjectPrefixes.length)]} ${index + 1}`;
       
+      // Créer une campagne simulée avec statistiques
+      const simulatedStats = acelleService.generateMockCampaigns(1)[0];
+      
       return {
         uid: `demo-${index}`,
         campaign_uid: `demo-${index}`,
@@ -150,8 +153,8 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         updated_at: new Date().toISOString(),
         delivery_date: status === "new" ? null : new Date().toISOString(),
         run_at: null,
-        delivery_info: {},
-        statistics: {}
+        delivery_info: simulatedStats.delivery_info,
+        statistics: simulatedStats.statistics
       } as AcelleCampaign;
     });
   }, []);

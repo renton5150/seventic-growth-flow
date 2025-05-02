@@ -1,97 +1,97 @@
 
-import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import React from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { RefreshCw, AlertTriangle, PlusCircle } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-export function TableLoadingState() {
+export const TableLoadingState = () => {
   return (
-    <Card>
-      <CardContent className="p-10 flex flex-col items-center justify-center">
-        <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
-        <p className="text-center text-lg font-medium">Chargement des données...</p>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          Récupération des campagnes depuis Acelle Mail
-        </p>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-center p-8">
+      <div className="text-center">
+        <Spinner className="mx-auto h-8 w-8 mb-4" />
+        <p className="text-muted-foreground">Chargement des campagnes...</p>
+      </div>
+    </div>
   );
-}
+};
 
-interface TableErrorStateProps {
+export interface TableErrorStateProps {
   onRetry: () => void;
-  errorMessage?: string;
+  retryCount: number;
+  error: string;
 }
 
-export function TableErrorState({ onRetry, errorMessage }: TableErrorStateProps) {
+export const TableErrorState = ({ error, onRetry, retryCount }: TableErrorStateProps) => {
   return (
-    <>
-      <Alert variant="destructive" className="mb-4">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Erreur de connexion</AlertTitle>
-        <AlertDescription>
-          Une erreur est survenue lors de la communication avec l'API Acelle Mail.
-          Veuillez vérifier que l'API est accessible et que les identifiants sont corrects.
-        </AlertDescription>
-      </Alert>
-      
-      <Card>
-        <CardContent className="p-10 flex flex-col items-center justify-center">
-          <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-          <p className="text-center text-lg font-medium">Erreur de connexion</p>
-          <p className="text-center text-sm text-muted-foreground mt-2">
-            {errorMessage || "Une erreur est survenue lors de la récupération des données."}
-          </p>
-          <div className="text-center text-sm text-muted-foreground mt-4 max-w-md">
-            <p>Assurez-vous que :</p>
-            <ul className="list-disc list-inside mt-2">
-              <li>L'URL de l'API est correcte (généralement terminée par /api/v1)</li>
-              <li>Le token API est valide et actif</li>
-              <li>Le serveur Acelle Mail est accessible</li>
-              <li>Le compte a des permissions suffisantes sur Acelle Mail</li>
-            </ul>
-            <p className="mt-2">Chemins d'API à essayer :</p>
-            <ul className="list-disc list-inside mt-2">
-              <li>/api/v1/campaigns</li>
-              <li>/api/v1/sending_campaigns</li>
-              <li>/api/v1/customers/campaigns</li>
-            </ul>
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-center pb-6">
-          <Button onClick={onRetry}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Essayer à nouveau
+    <Card className="bg-red-50 border-red-200">
+      <CardContent className="pt-6 pb-4 text-center">
+        <AlertTriangle className="mx-auto h-10 w-10 text-red-500 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Erreur de chargement</h3>
+        <p className="text-muted-foreground mb-2">{error}</p>
+        <p className="text-sm text-muted-foreground">
+          {retryCount > 0 ? (
+            `${retryCount} tentative${retryCount > 1 ? "s" : ""} effectuée${
+              retryCount > 1 ? "s" : ""
+            }`
+          ) : (
+            "Une erreur est survenue lors du chargement des campagnes"
+          )}
+        </p>
+      </CardContent>
+      <CardFooter className="justify-center">
+        <Button
+          variant="outline"
+          onClick={onRetry}
+          className="flex items-center"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Réessayer
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+export interface EmptyStateProps {
+  onSync?: () => void;
+}
+
+export const EmptyState = ({ onSync }: EmptyStateProps) => {
+  return (
+    <Card className="bg-gray-50 border-gray-200">
+      <CardContent className="pt-6 pb-4 text-center">
+        <h3 className="text-lg font-semibold mb-2">Aucune campagne trouvée</h3>
+        <p className="text-muted-foreground mb-4">
+          Vous n'avez pas encore de campagnes ou elles n'ont pas pu être chargées.
+        </p>
+      </CardContent>
+      <CardFooter className="justify-center">
+        {onSync && (
+          <Button
+            variant="default"
+            onClick={onSync}
+            className="flex items-center"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Synchroniser les campagnes
           </Button>
-        </CardFooter>
-      </Card>
-    </>
+        )}
+      </CardFooter>
+    </Card>
   );
-}
+};
 
-export function EmptyState() {
+export const InactiveAccountState = () => {
   return (
-    <Card>
-      <CardContent className="p-10 flex flex-col items-center justify-center">
-        <p className="text-center text-lg font-medium">Aucune campagne</p>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          Aucune campagne n'a été trouvée pour ce compte.
+    <Card className="bg-amber-50 border-amber-200">
+      <CardContent className="pt-6 pb-4 text-center">
+        <AlertTriangle className="mx-auto h-10 w-10 text-amber-500 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Compte inactif</h3>
+        <p className="text-muted-foreground">
+          Ce compte n'est pas actif. Veuillez l'activer dans les paramètres pour voir les campagnes.
         </p>
       </CardContent>
     </Card>
   );
-}
-
-export function InactiveAccountState() {
-  return (
-    <Card>
-      <CardContent className="p-10 flex flex-col items-center justify-center">
-        <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
-        <p className="text-center text-lg font-medium">Compte inactif</p>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          Ce compte est actuellement marqué comme inactif. Veuillez l'activer dans les paramètres de compte pour afficher ses campagnes.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
+};
