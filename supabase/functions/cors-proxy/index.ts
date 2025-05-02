@@ -5,7 +5,7 @@
  * Cette fonction sert de proxy CORS pour les requêtes vers des API tierces, permettant
  * de contourner les restrictions de Same-Origin Policy dans les navigateurs.
  * 
- * @version 1.3.1
+ * @version 1.3.2
  * @author Seventic Team
  */
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -22,7 +22,7 @@ const corsHeaders = {
 };
 
 // Version actuelle du proxy CORS
-const CORS_PROXY_VERSION = "1.3.1";
+const CORS_PROXY_VERSION = "1.3.2";
 const DEFAULT_TIMEOUT = 30000; // 30 secondes de timeout par défaut
 
 console.log("CORS Proxy v" + CORS_PROXY_VERSION + " démarré");
@@ -184,13 +184,13 @@ serve(async (req: Request) => {
       console.log(`[CORS Proxy] Réponse cible: ${fetchResponse.status} ${fetchResponse.statusText} pour ${targetUrl}`);
       
       // Lecture du corps de la réponse
-      const responseBody = await fetchResponse.text();
+      const responseBodyText = await fetchResponse.text();
       
       // Journalisation détaillée des réponses 404 pour le débogage
       if (fetchResponse.status === 404) {
         console.error(`[CORS Proxy] 404 Non trouvé: ${targetUrl}`);
         console.error(`[CORS Proxy] En-têtes de réponse:`, Object.fromEntries([...fetchResponse.headers]));
-        console.error(`[CORS Proxy] Corps de la réponse (premiers 1000 caractères): ${responseBody.substring(0, 1000)}`);
+        console.error(`[CORS Proxy] Corps de la réponse (premiers 1000 caractères): ${responseBodyText.substring(0, 1000)}`);
       }
       
       // Calcul et journalisation de la durée totale de la requête
@@ -198,7 +198,7 @@ serve(async (req: Request) => {
       console.log(`[CORS Proxy] Requête complétée en ${requestDuration}ms pour ${targetUrl}`);
       
       // Retour de la réponse proxy avec les en-têtes CORS
-      return new Response(responseBody, {
+      return new Response(responseBodyText, {
         status: fetchResponse.status,
         headers: responseHeaders
       });

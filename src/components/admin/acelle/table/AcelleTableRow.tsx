@@ -2,12 +2,12 @@
 import React from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Eye, Mail, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
+import { translateStatus, getStatusBadgeVariant } from "@/utils/acelle/campaignStatusUtils";
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -15,29 +15,55 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
-  // Logging pour suivre les données reçues
-  React.useEffect(() => {
-    if (campaign) {
-      console.log(`Campaign data for ${campaign.name || 'unnamed'}:`, {
-        hasStats: !!campaign.statistics,
-        hasDeliveryInfo: !!campaign.delivery_info,
-        totalSent: campaign.statistics?.subscriber_count || campaign.delivery_info?.total || 0,
-        openRate: campaign.statistics?.uniq_open_rate || campaign.delivery_info?.unique_open_rate || 0,
-        clickRate: campaign.statistics?.click_rate || campaign.delivery_info?.click_rate || 0,
-        bounceCount: campaign.statistics?.bounce_count || (campaign.delivery_info?.bounced?.total) || 0
-      });
-    }
-  }, [campaign]);
+  // Fonction pour rendre un pourcentage de manière cohérente
+  const renderPercentage = (value: number | undefined): string => {
+    if (value === undefined || value === null) return "0%";
+    return `${value.toFixed(1)}%`;
+  };
 
-  if (!campaign) {
-    console.error("Campagne non définie dans AcelleTableRow");
-    return null;
-  }
-  
+  // Fonction pour extraire les données statistiques de manière sécurisée
+  const extractStat = (key: string): number => {
+    try {
+      // Essayer d'abord avec delivery_info
+      if (campaign.delivery_info) {
+        // Cas spéciaux pour les statistiques de bounce
+        if (key === 'bounce_count' && campaign.delivery_info.bounced) {
+          return typeof campaign.delivery_info.bounced.total === 'number' ? campaign.delivery_info.bounced.total : 0;
+        }
+        
+        // Mapping des clés pour delivery_info
+        const deliveryInfoMap: Record<string, string> = {
+          'subscriber_count': 'total',
+          'delivered_count': 'delivered',
+          'open_count': 'opened',
+          'click_count': 'clicked',
+          'uniq_open_rate': 'unique_open_rate',
+          'click_rate': 'click_rate'
+        };
+        
+        const mappedKey = deliveryInfoMap[key];
+        if (mappedKey && typeof campaign.delivery_info[mappedKey] === 'number') {
+          return campaign.delivery_info[mappedKey] as number;
+        }
+      }
+      
+      // Puis essayer avec statistics
+      if (campaign.statistics && typeof campaign.statistics[key as keyof typeof campaign.statistics] === 'number') {
+        return campaign.statistics[key as keyof typeof campaign.statistics] as number;
+      }
+      
+      // Fallback à 0 si rien n'est trouvé
+      return 0;
+    } catch (error) {
+      console.warn(`Erreur lors de l'extraction de ${key}:`, error);
+      return 0;
+    }
+  };
+
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
   
-  // Garantie de valeurs sûres pour les propriétés obligatoires
+  // Garantir des valeurs sûres pour les propriétés obligatoires
   const campaignName = campaign?.name || "Sans nom";
   const campaignSubject = campaign?.subject || "Sans sujet";
   const campaignStatus = (campaign?.status || "unknown").toLowerCase();
@@ -45,9 +71,17 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   // Date d'envoi avec fallback
   const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
   
-  /**
-   * Formatage sécurisé des dates
-   */
+  // Obtenir l'affichage et le style du statut
+  const statusDisplay = translateStatus(campaignStatus);
+  const variant = getStatusBadgeVariant(campaignStatus);
+
+  // Extraction des statistiques clés
+  const totalSent = extractStat('subscriber_count');
+  const openRate = extractStat('uniq_open_rate');
+  const clickRate = extractStat('click_rate');
+  const bounceCount = extractStat('bounce_count');
+
+  // Formatage sécurisé des dates
   const formatDateSafely = (dateString: string | null | undefined) => {
     if (!dateString) return "Non programmé";
     try {
@@ -58,76 +92,33 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
       return "Date invalide";
     }
   };
-
-  // Obtenir l'affichage et le style du statut
-  const statusDisplay = translateStatus(campaignStatus);
-  const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
-
-  // Récupération des statistiques comme dans l'approche "actions"
-  // Priorité aux données de statistics puis fallback sur delivery_info
-  const totalSent = campaign.statistics?.subscriber_count || 
-                   (campaign.delivery_info && typeof campaign.delivery_info.total === 'number' ? campaign.delivery_info.total : 0);
   
-  const openRate = campaign.statistics?.uniq_open_rate || 
-                  (campaign.delivery_info && typeof campaign.delivery_info.unique_open_rate === 'number' ? campaign.delivery_info.unique_open_rate : 0);
-  
-  const clickRate = campaign.statistics?.click_rate || 
-                   (campaign.delivery_info && typeof campaign.delivery_info.click_rate === 'number' ? campaign.delivery_info.click_rate : 0);
-  
-  const bounceCount = campaign.statistics?.bounce_count || 
-                     (campaign.delivery_info?.bounced && typeof campaign.delivery_info.bounced.total === 'number' ? campaign.delivery_info.bounced.total : 0);
-
-  const handleViewClick = () => {
-    if (campaignUid) {
-      onViewCampaign(campaignUid);
-    }
-  };
-
   return (
     <TableRow>
-      <TableCell className="font-medium truncate max-w-[200px]" title={campaignName}>
-        {campaignName}
-      </TableCell>
-      <TableCell className="truncate max-w-[200px]" title={campaignSubject}>
-        {campaignSubject}
-      </TableCell>
+      <TableCell className="font-medium">{campaignName}</TableCell>
+      <TableCell>{campaignSubject}</TableCell>
       <TableCell>
         <Badge variant={variant}>{statusDisplay}</Badge>
       </TableCell>
-      <TableCell>
-        {formatDateSafely(deliveryDate)}
+      <TableCell>{formatDateSafely(deliveryDate)}</TableCell>
+      <TableCell className="font-medium tabular-nums">
+        {totalSent.toLocaleString()}
       </TableCell>
-      <TableCell>
-        <div className="flex items-center">
-          <Mail className="h-4 w-4 mr-2 text-gray-500" />
-          {totalSent.toString()}
-        </div>
+      <TableCell className="tabular-nums">
+        {renderPercentage(openRate)}
       </TableCell>
-      <TableCell>
-        <div className="flex items-center">
-          <ArrowUp className="h-4 w-4 mr-2 text-green-500" />
-          {renderPercentage(openRate)}
-        </div>
+      <TableCell className="tabular-nums">
+        {renderPercentage(clickRate)}
       </TableCell>
-      <TableCell>
-        <div className="flex items-center">
-          <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
-          {renderPercentage(clickRate)}
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center">
-          <ArrowDown className="h-4 w-4 mr-2 text-red-500" />
-          {bounceCount.toString()}
-        </div>
+      <TableCell className="tabular-nums">
+        {bounceCount.toLocaleString()}
       </TableCell>
       <TableCell className="text-right">
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={handleViewClick}
+          onClick={() => onViewCampaign(campaignUid)}
           title="Voir les détails"
-          disabled={!campaignUid}
         >
           <Eye className="h-4 w-4" />
         </Button>
