@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle, Power, Server, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -17,9 +16,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
+  onDemoMode?: (isDemoMode: boolean) => void;
 }
 
-export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDashboardProps) {
+export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: AcelleCampaignsDashboardProps) {
   const { 
     activeAccounts, 
     campaignsData, 
@@ -73,8 +73,16 @@ export default function AcelleCampaignsDashboard({ accounts }: AcelleCampaignsDa
   useEffect(() => {
     if (campaignsData.length > 0 && !isLoading && !isError && !syncError) {
       setRecoveryAttempts(0);
+      
+      // Notify parent that we're using real data
+      if (onDemoMode) {
+        onDemoMode(false);
+      }
+    } else if ((isError || syncError) && onDemoMode) {
+      // Notify parent that we're in demo mode due to errors
+      onDemoMode(true);
     }
-  }, [campaignsData, isLoading, isError, syncError]);
+  }, [campaignsData, isLoading, isError, syncError, onDemoMode]);
 
   const handleRefresh = useCallback(() => {
     toast.info("Actualisation des données en cours...");

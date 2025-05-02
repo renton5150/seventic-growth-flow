@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -33,9 +32,10 @@ import { Card, CardContent } from "@/components/ui/card";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
+  onDemoMode?: (isDemoMode: boolean) => void;
 }
 
-export default function AcelleCampaignsTable({ account }: AcelleCampaignsTableProps) {
+export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCampaignsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
@@ -105,21 +105,39 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       if (campaigns && campaigns.length > 0) {
         console.log(`Successfully retrieved ${campaigns.length} campaigns`);
         toast.success(`${campaigns.length} campagnes récupérées avec succès`, { id: "fetch-campaigns" });
+        
+        // Notify parent that we're using real data
+        if (onDemoMode) {
+          onDemoMode(false);
+        }
+        
         return campaigns;
       } else {
         console.log("No campaigns returned from API, showing mock campaigns");
         toast.warning("Données temporaires affichées pour démonstration", { id: "fetch-campaigns" });
+        
+        // Notify parent that we're using demo data
+        if (onDemoMode) {
+          onDemoMode(true);
+        }
+        
         return [];
       }
     } catch (error) {
       console.error(`Error fetching campaigns:`, error);
       setConnectionError(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
       toast.error("Erreur lors de la récupération des campagnes", { id: "fetch-campaigns" });
+      
+      // Notify parent that we're using demo data due to error
+      if (onDemoMode) {
+        onDemoMode(true);
+      }
+      
       return [];
     } finally {
       setIsManuallyRefreshing(false);
     }
-  }, [account, currentPage, itemsPerPage]);
+  }, [account, currentPage, itemsPerPage, onDemoMode]);
   
   const { 
     data: campaigns = [], 
