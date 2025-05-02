@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Hook for managing authentication tokens with automatic refresh
+ * Hook pour gérer l'authentification et les tokens
+ * avec rafraîchissement automatique
  */
 export const useAuthToken = () => {
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -16,7 +17,12 @@ export const useAuthToken = () => {
       console.log("Obtention d'un token d'authentification valide");
       
       // Essayer d'abord de rafraîchir la session pour garantir un token à jour
-      await supabase.auth.refreshSession();
+      try {
+        await supabase.auth.refreshSession();
+        console.log("Session rafraîchie avec succès");
+      } catch (refreshError) {
+        console.warn("Erreur lors du rafraîchissement de la session:", refreshError);
+      }
       
       // Récupérer la session après le rafraîchissement
       const { data: sessionData, error } = await supabase.auth.getSession();
@@ -50,7 +56,7 @@ export const useAuthToken = () => {
     const refreshInterval = setInterval(() => {
       console.log("Rafraîchissement périodique du token d'authentification");
       getValidAuthToken();
-    }, 30 * 60 * 1000); // 30 minutes
+    }, 25 * 60 * 1000); // 25 minutes
     
     return () => clearInterval(refreshInterval);
   }, [getValidAuthToken]);

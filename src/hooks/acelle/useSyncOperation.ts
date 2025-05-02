@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { getAcelleCampaigns } from "@/services/acelle/api/campaigns";
 import { updateLastSyncDate } from "@/services/acelle/api/accounts";
@@ -98,6 +98,53 @@ export const useSyncOperation = (account: AcelleAccount) => {
         result.debugInfo = retryConnection;
       }
       
+      // Pour une synchronisation forcée, utilisez l'Edge Function directement
+      if (forceSync) {
+        try {
+          if (!quietMode) toast.loading("Synchronisation forcée via Edge Function...", { id: "sync-campaigns" });
+          
+          // Appeler l'edge function sync-email-campaigns
+          const { data, error } = await supabase.functions.invoke("sync-email-campaigns", {
+            method: "POST",
+            body: {
+              forceSync: true,
+              accounts: [account.id],
+              debug: true
+            },
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            }
+          });
+          
+          if (error) {
+            throw new Error(`Erreur lors de l'appel à l'Edge Function: ${error.message}`);
+          }
+          
+          console.log("Résultat de la synchro via Edge Function:", data);
+          
+          if (data?.success) {
+            setLastSyncTime(new Date());
+            result.success = true;
+            result.campaignsCount = data.count || 0;
+            
+            if (!quietMode) {
+              toast.success(`${data.count || 'Plusieurs'} campagnes synchronisées avec succès`, { id: "sync-campaigns" });
+            }
+            
+            return result;
+          } else {
+            throw new Error(data?.message || "Échec de la synchronisation");
+          }
+        } catch (edgeFunctionError) {
+          console.error("Erreur lors de la synchronisation via Edge Function:", edgeFunctionError);
+          result.error = `Erreur Edge Function: ${edgeFunctionError.message}`;
+          if (!quietMode) setSyncError(result.error);
+          if (!quietMode) toast.error(result.error, { id: "sync-campaigns" });
+          return result;
+        }
+      }
+      
       // Récupérer toutes les campagnes (avec pagination)
       let allCampaigns = [];
       let page = 1;
@@ -167,29 +214,22 @@ export const useSyncOperation = (account: AcelleAccount) => {
       result.success = true;
       result.campaignsCount = allCampaigns.length;
       return result;
-    } catch (error: any) {
+    } catch (error) {
       console.error(`Échec de la synchronisation pour le compte ${account.name}:`, error);
       result.error = error.message || 'Échec de la synchronisation';
-      
-      if (!quietMode) {
-        setSyncError(error.message || 'Échec de la synchronisation');
-        toast.error(`Échec de synchronisation: ${error.message || 'Erreur inconnue'}`, { id: "sync-campaigns" });
-      }
-      
+      if (!quietMode) setSyncError(result.error);
+      if (!quietMode) toast.error(`Erreur: ${result.error}`, { id: "sync-campaigns" });
       return result;
     } finally {
       if (!quietMode) setIsSyncing(false);
     }
-  }, [account, authToken, getValidAuthToken, setAuthToken, wakeUpEdgeFunctions]);
+  }, [account, authToken, getValidAuthToken, wakeUpEdgeFunctions, setAuthToken]);
 
   return {
     isSyncing,
     syncError,
     lastSyncTime,
     syncCampaignsCache,
-    getDebugInfo: () => debugInfo,
-    debugInfo,
-    authToken,
-    getValidAuthToken
+    debugInfo
   };
 };

@@ -2,44 +2,42 @@
 // This is a CORS Proxy edge function to safely handle third-party API requests
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-// Enhanced CORS headers to support more browsers and preflight requests
+// Enhanced CORS headers with broader support for browsers and preflight requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Pour le développement - en production, spécifiez votre domaine
+  'Access-Control-Allow-Origin': '*', // En production, spécifiez votre domaine
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key, x-wake-request, origin, accept',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-api-key, x-wake-request, origin, accept, pragma',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 hours cache for preflight requests
-  'Vary': 'Origin' // Important pour les CDNs et caches intermédiaires
+  'Vary': 'Origin', // Important pour les CDNs et caches intermédiaires
+  'Content-Type': 'application/json'
 };
 
 // Current version of the CORS proxy
-const CORS_PROXY_VERSION = "1.0.5";
+const CORS_PROXY_VERSION = "1.1.0";
 
 console.log("CORS Proxy starting up...");
 
 serve(async (req: Request) => {
-  console.log("Listening on http://localhost:9999/");
+  console.log("CORS Proxy activated");
   
   // Always log origin for debugging CORS issues
   const origin = req.headers.get('origin');
-  console.log(`Request from origin: ${origin || 'unknown'}`);
+  const requestUrl = new URL(req.url);
+  console.log(`Request from origin: ${origin || 'unknown'} to path: ${requestUrl.pathname}`);
   
-  // Debug info to help identify URL being requested
-  const url = new URL(req.url);
-  const path = url.pathname;
+  // Set default headers for all responses with dynamic origin handling
+  let responseHeaders = new Headers(corsHeaders);
+  if (origin) {
+    // Reflect the requesting origin to support multiple origins
+    responseHeaders.set('Access-Control-Allow-Origin', origin);
+  }
   
   // Handle OPTIONS preflight requests with improved CORS headers
   if (req.method === 'OPTIONS') {
     console.log("[CORS Proxy] Handling OPTIONS preflight request");
     
-    // Create a dynamic response with correct headers
-    let responseHeaders = new Headers(corsHeaders);
-    
-    // Mirror the requested origin if available
-    if (origin) {
-      responseHeaders.set('Access-Control-Allow-Origin', origin);
-    }
-    
+    // Return early with proper preflight response
     return new Response(null, {
       status: 204,
       headers: responseHeaders
@@ -47,17 +45,10 @@ serve(async (req: Request) => {
   }
   
   // Special /ping endpoint for health checks and wakeup calls
-  if (path.endsWith('/ping')) {
+  if (requestUrl.pathname.endsWith('/ping')) {
     console.log("[CORS Proxy] Ping request received to wake up Edge Function");
     
-    // Create a response with proper CORS headers
-    let responseHeaders = new Headers(corsHeaders);
     responseHeaders.set('Content-Type', 'application/json');
-    
-    // Mirror the requesting origin if available
-    if (origin) {
-      responseHeaders.set('Access-Control-Allow-Origin', origin);
-    }
     
     return new Response(
       JSON.stringify({
@@ -76,20 +67,11 @@ serve(async (req: Request) => {
   
   try {
     // Get target URL from the query parameter
-    const params = url.searchParams;
+    const params = requestUrl.searchParams;
     const targetUrl = params.get('url');
     
     if (!targetUrl) {
       console.error("[CORS Proxy] Missing URL parameter");
-      
-      // Prepare response headers with CORS
-      let responseHeaders = new Headers(corsHeaders);
-      responseHeaders.set('Content-Type', 'application/json');
-      
-      // Mirror the requesting origin if available
-      if (origin) {
-        responseHeaders.set('Access-Control-Allow-Origin', origin);
-      }
       
       return new Response(
         JSON.stringify({ 
@@ -112,7 +94,7 @@ serve(async (req: Request) => {
     };
     
     // Copy headers from original request, except those related to CORS and connection
-    const headersToSkip = ['host', 'connection', 'origin', 'referer'];
+    const headersToSkip = ['host', 'connection'];
     for (const [key, value] of req.headers.entries()) {
       if (!headersToSkip.includes(key.toLowerCase())) {
         (requestInit.headers as Headers).set(key, value);
@@ -120,7 +102,8 @@ serve(async (req: Request) => {
     }
     
     // Add user agent header to identify our proxy
-    (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.0');
+    (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.1');
+    (requestInit.headers as Headers).set('Referer', 'https://emailing.plateforme-solution.net/');
     
     // Copy body if present
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
@@ -136,17 +119,9 @@ serve(async (req: Request) => {
     const fetchResponse = await fetch(targetUrl, requestInit);
     clearTimeout(timeoutId);
     
-    // Prepare response headers with CORS
-    const responseHeaders = new Headers(corsHeaders);
-    
-    // Mirror the requesting origin if available
-    if (origin) {
-      responseHeaders.set('Access-Control-Allow-Origin', origin);
-    }
-    
-    // Copy headers from the response
+    // Copy headers from the response, excluding CORS headers that we'll set ourselves
     for (const [key, value] of fetchResponse.headers.entries()) {
-      if (key.toLowerCase() !== 'content-length') { // Skip content-length as it may change
+      if (!key.toLowerCase().startsWith('access-control-') && key.toLowerCase() !== 'content-length') {
         responseHeaders.set(key, value);
       }
     }
@@ -167,32 +142,6 @@ serve(async (req: Request) => {
       console.error(`[CORS Proxy] 404 Not Found: ${targetUrl}`);
       console.error(`[CORS Proxy] Response headers:`, Object.fromEntries([...fetchResponse.headers]));
       console.error(`[CORS Proxy] Response body (first 1000 chars): ${responseBody.substring(0, 1000)}`);
-      
-      // Si la réponse est JSON, essayez de l'analyser pour le débogage
-      try {
-        const jsonResponse = JSON.parse(responseBody);
-        console.error("[CORS Proxy] JSON response structure:", Object.keys(jsonResponse));
-      } catch (e) {
-        // Pas de JSON, ignorer
-      }
-    }
-    
-    // Debug for server errors
-    if (fetchResponse.status >= 500) {
-      console.error(`[CORS Proxy] Server error from target: ${responseBody.substring(0, 500)}...`);
-    }
-    
-    // Log API endpoints for campaigns specifically to debug issues
-    if (targetUrl.includes('/campaigns')) {
-      console.log(`[CORS Proxy] Campaign request made to: ${targetUrl}`);
-      if (fetchResponse.status === 200) {
-        try {
-          const jsonData = JSON.parse(responseBody);
-          console.log(`[CORS Proxy] Campaign data structure: ${typeof jsonData}, length: ${Array.isArray(jsonData) ? jsonData.length : 'not an array'}`);
-        } catch (e) {
-          console.error(`[CORS Proxy] Failed to parse campaign data: ${e.message}`);
-        }
-      }
     }
     
     // Return proxied response with CORS headers
@@ -203,15 +152,6 @@ serve(async (req: Request) => {
     
   } catch (error) {
     console.error(`[CORS Proxy] Error: ${error.message}`);
-    
-    // Prepare error response with proper CORS headers
-    let responseHeaders = new Headers(corsHeaders);
-    responseHeaders.set('Content-Type', 'application/json');
-    
-    // Mirror the requesting origin if available
-    if (origin) {
-      responseHeaders.set('Access-Control-Allow-Origin', origin);
-    }
     
     return new Response(
       JSON.stringify({ 

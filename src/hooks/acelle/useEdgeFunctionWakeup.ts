@@ -19,20 +19,25 @@ export const useEdgeFunctionWakeup = () => {
       
       setWakeupAttempts(prev => prev + 1);
       
-      // Réveiller le proxy CORS avec des en-têtes améliorés
-      const wakeUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping';
+      // Construire l'URL complète de l'edge function
+      const supabaseUrl = 'https://dupguifqyjchlmzbadav.supabase.co';
+      const wakeUrl = `${supabaseUrl}/functions/v1/cors-proxy/ping`;
+      
       console.log(`Envoi de la requête de réveil à: ${wakeUrl}`);
       
+      // Réveiller le proxy CORS avec des en-têtes améliorés
       try {
         const response = await fetch(wakeUrl, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'Cache-Control': 'no-store',
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
             'X-Wake-Request': 'true',
             'Accept': 'application/json',
+            'Content-Type': 'application/json',
             'Origin': window.location.origin
           },
+          mode: 'cors',
           credentials: 'same-origin'
         });
         
@@ -41,21 +46,27 @@ export const useEdgeFunctionWakeup = () => {
           console.log("Réveil du proxy CORS réussi:", data);
         } else {
           console.warn(`Le proxy CORS a répondu avec le code: ${response.status}`);
+          if (response.status === 0) {
+            console.warn("Réponse avec code 0 - probablement une erreur CORS ou réseau");
+          }
         }
       } catch (e) {
         console.warn("Erreur lors de la requête de réveil du proxy, mais ce n'est pas bloquant:", e);
       }
       
-      // Réveiller également la fonction de synchronisation avec des en-têtes améliorés
+      // Réveiller également la fonction de synchronisation
       try {
-        const response = await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
+        const syncUrl = `${supabaseUrl}/functions/v1/sync-email-campaigns`;
+        const response = await fetch(syncUrl, {
           method: 'OPTIONS',
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'Cache-Control': 'no-store',
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
             'Accept': 'application/json',
+            'Content-Type': 'application/json',
             'Origin': window.location.origin
           },
+          mode: 'cors',
           credentials: 'same-origin'
         });
         
@@ -65,7 +76,7 @@ export const useEdgeFunctionWakeup = () => {
       }
       
       // Un petit délai pour laisser le temps aux services de se réveiller complètement
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 800));
       return true;
     } catch (e) {
       console.error("Erreur lors du réveil des Edge Functions:", e);
