@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail, CachedCampaign } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -132,6 +133,8 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
 
     // Use buildProxyUrl for consistent URL construction
     const cacheBuster = Date.now().toString();
+    
+    // Essayer avec customers, qui est probablement un endpoint valide
     const proxyUrl = buildProxyUrl('customers', { 
       api_token: account.apiToken,
       _t: cacheBuster // Add timestamp to prevent caching
@@ -329,190 +332,95 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
-    // Using a direct approach to list campaigns with a simpler endpoint structure
-    // Acelle API typically has a '/campaigns' endpoint that returns all campaigns
-    const cacheBuster = Date.now().toString();
-    const proxyUrl = buildProxyUrl('campaigns', {
-      api_token: account.apiToken,
-      page: page.toString(),
-      per_page: limit.toString(),
-      _t: cacheBuster // Prevent caching
-    });
+    // Essayons différentes structures d'URL possibles pour l'API Acelle
+    // L'erreur 404 indique que le chemin n'est pas correct
+    // On va essayer 3 variantes possibles de l'endpoint campaigns
     
-    console.log(`Fetching campaigns with URL: ${proxyUrl}`);
+    const possibleEndpoints = [
+      'campaigns', 
+      'sending_servers/campaigns', 
+      'sending_campaigns'
+    ];
     
-    // Use AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
+    let campaigns = [];
+    let success = false;
     
-    try {
-      const response = await fetch(proxyUrl, {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0"
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      // Log full response for debugging
-      const responseText = await response.text();
-      console.log(`Raw API Response (first 500 chars): ${responseText.substring(0, 500)}...`);
-      
-      if (!response.ok) {
-        console.error(`Failed to fetch campaigns: ${response.status}`);
-        
-        // Try to parse error response
-        try {
-          const errorData = JSON.parse(responseText);
-          console.error("API error response:", errorData);
-        } catch (e) {
-          console.error("Could not parse error response as JSON");
-        }
-        
-        // Try to get data from cache
-        try {
-          const { data: cachedCampaigns } = await supabase
-            .from('email_campaigns_cache')
-            .select('*')
-            .eq('account_id', account.id)
-            .order('created_at', { ascending: false })
-            .range((page - 1) * limit, (page * limit) - 1);
-            
-          if (cachedCampaigns && cachedCampaigns.length > 0) {
-            console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache for account ${account.name}`);
-            return extractCampaignsFromCache(cachedCampaigns);
-          }
-        } catch (cacheError) {
-          console.error(`Error retrieving campaigns from cache:`, cacheError);
-        }
-        
-        return [];
-      }
-      
-      // Parse JSON from the text response
-      let campaigns;
+    // Essayer chaque point d'entrée jusqu'à ce qu'un fonctionne
+    for (const endpoint of possibleEndpoints) {
       try {
-        campaigns = JSON.parse(responseText);
-        
-        // Check if campaigns is an object with a data property (common API response pattern)
-        if (campaigns && typeof campaigns === 'object' && !Array.isArray(campaigns) && campaigns.data) {
-          campaigns = campaigns.data;
-        }
-        
-        // If still not an array, return empty array
-        if (!Array.isArray(campaigns)) {
-          console.error(`Expected array of campaigns, got:`, typeof campaigns);
-          return [];
-        }
-        
-        console.log(`Retrieved ${campaigns.length} campaigns for account ${account.name}`);
-        
-        // Enrich campaigns with required fields
-        const enrichedCampaigns = campaigns.map(campaign => {
-          // Make sure we have a campaign UID
-          const campaignUid = campaign.uid || campaign.id || campaign.campaign_uid;
-          
-          if (!campaignUid) {
-            console.warn('Campaign without UID:', campaign);
-          }
-          
-          return {
-            ...campaign,
-            meta: campaign.meta || {},
-            statistics: campaign.statistics || {},
-            delivery_info: campaign.delivery_info || {
-              bounced: { soft: 0, hard: 0, total: 0 }
-            },
-            uid: campaignUid,
-            campaign_uid: campaignUid,
-            track: {}, // Initialize as empty object
-            report: {} // Initialize as empty object
-          } as AcelleCampaign;
+        console.log(`Trying endpoint: ${endpoint}`);
+        const cacheBuster = Date.now().toString();
+        const proxyUrl = buildProxyUrl(endpoint, {
+          api_token: account.apiToken,
+          page: page.toString(),
+          per_page: limit.toString(),
+          _t: cacheBuster // Prevent caching
         });
         
-        // Update last sync date
-        updateLastSyncDate(account.id);
+        console.log(`Fetching campaigns with URL: ${proxyUrl}`);
         
-        // Update cache in background
+        // Use AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
+        
+        const response = await fetch(proxyUrl, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Log full response for debugging
+        const responseText = await response.text();
+        console.log(`Raw API Response for ${endpoint} (first 500 chars): ${responseText.substring(0, 500)}...`);
+        
+        if (!response.ok) {
+          console.error(`Failed to fetch campaigns from ${endpoint}: ${response.status}`);
+          continue; // Try next endpoint
+        }
+        
+        // Parse JSON from the text response
+        let campaignsData;
         try {
-          for (const campaign of enrichedCampaigns) {
-            if (!campaign.uid) continue;
-            
-            // Prepare delivery_info for cache
-            const deliveryInfo = {
-              total: parseInt(String(campaign.statistics?.subscriber_count)) || 0,
-              delivered: parseInt(String(campaign.statistics?.delivered_count)) || 0,
-              delivery_rate: parseFloat(String(campaign.statistics?.delivered_rate)) || 0,
-              opened: parseInt(String(campaign.statistics?.open_count)) || 0,
-              unique_open_rate: parseFloat(String(campaign.statistics?.uniq_open_rate)) || 0,
-              clicked: parseInt(String(campaign.statistics?.click_count)) || 0,
-              click_rate: parseFloat(String(campaign.statistics?.click_rate)) || 0,
-              bounced: {
-                soft: parseInt(String(campaign.statistics?.soft_bounce_count)) || 0,
-                hard: parseInt(String(campaign.statistics?.hard_bounce_count)) || 0,
-                total: parseInt(String(campaign.statistics?.bounce_count)) || 0
-              },
-              unsubscribed: parseInt(String(campaign.statistics?.unsubscribe_count)) || 0,
-              complained: parseInt(String(campaign.statistics?.abuse_complaint_count)) || 0
-            };
-            
-            await supabase.from('email_campaigns_cache').upsert({
-              campaign_uid: campaign.uid,
-              account_id: account.id,
-              name: campaign.name || "Sans nom",
-              subject: campaign.subject || "Sans sujet",
-              status: campaign.status || "unknown",
-              created_at: campaign.created_at || new Date().toISOString(),
-              updated_at: campaign.updated_at || new Date().toISOString(),
-              delivery_date: campaign.delivery_date || campaign.run_at || null,
-              run_at: campaign.run_at || null,
-              last_error: campaign.last_error || null,
-              delivery_info: deliveryInfo,
-              cache_updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'campaign_uid'
-            });
+          campaignsData = JSON.parse(responseText);
+          
+          // Check if campaigns is an object with a data property (common API response pattern)
+          if (campaignsData && typeof campaignsData === 'object' && !Array.isArray(campaignsData) && campaignsData.data) {
+            campaignsData = campaignsData.data;
           }
           
-          console.log(`Successfully cached ${enrichedCampaigns.length} campaigns for account ${account.name}`);
-        } catch (cacheError) {
-          console.error("Error updating cache:", cacheError);
-        }
-        
-        return enrichedCampaigns;
-      } catch (parseError) {
-        console.error("Error parsing JSON response:", parseError);
-        console.error("Raw text:", responseText.substring(0, 1000));
-        
-        // Try to get data from cache
-        try {
-          const { data: cachedCampaigns } = await supabase
-            .from('email_campaigns_cache')
-            .select('*')
-            .eq('account_id', account.id)
-            .order('created_at', { ascending: false })
-            .range((page - 1) * limit, (page * limit) - 1);
-            
-          if (cachedCampaigns && cachedCampaigns.length > 0) {
-            console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache for account ${account.name}`);
-            return extractCampaignsFromCache(cachedCampaigns);
+          // If still not an array, continue to next endpoint
+          if (!Array.isArray(campaignsData)) {
+            console.error(`Expected array of campaigns from ${endpoint}, got:`, typeof campaignsData);
+            continue;
           }
-        } catch (cacheError) {
-          console.error(`Error retrieving campaigns from cache:`, cacheError);
+          
+          console.log(`Retrieved ${campaignsData.length} campaigns for account ${account.name} from ${endpoint}`);
+          
+          campaigns = campaignsData;
+          success = true;
+          break; // We found a working endpoint!
+          
+        } catch (parseError) {
+          console.error(`Error parsing JSON response from ${endpoint}:`, parseError);
+          console.error("Raw text:", responseText.substring(0, 1000));
+          continue; // Try next endpoint
         }
-        
-        return [];
+      } catch (fetchError) {
+        console.error(`Error fetching campaigns from ${endpoint}:`, fetchError);
+        continue; // Try next endpoint
       }
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      console.error("Error fetching campaigns:", fetchError);
-      
+    }
+    
+    if (!success) {
+      console.error("All endpoints failed, trying to fetch from cache");
       // Try to get data from cache
       try {
         const { data: cachedCampaigns } = await supabase
@@ -529,9 +437,82 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       } catch (cacheError) {
         console.error(`Error retrieving campaigns from cache:`, cacheError);
       }
-      
       return [];
     }
+    
+    // Enrich campaigns with required fields
+    const enrichedCampaigns = campaigns.map(campaign => {
+      // Make sure we have a campaign UID
+      const campaignUid = campaign.uid || campaign.id || campaign.campaign_uid;
+      
+      if (!campaignUid) {
+        console.warn('Campaign without UID:', campaign);
+      }
+      
+      return {
+        ...campaign,
+        meta: campaign.meta || {},
+        statistics: campaign.statistics || {},
+        delivery_info: campaign.delivery_info || {
+          bounced: { soft: 0, hard: 0, total: 0 }
+        },
+        uid: campaignUid,
+        campaign_uid: campaignUid,
+        track: {}, // Initialize as empty object
+        report: {} // Initialize as empty object
+      } as AcelleCampaign;
+    });
+    
+    // Update last sync date
+    updateLastSyncDate(account.id);
+    
+    // Update cache in background
+    try {
+      for (const campaign of enrichedCampaigns) {
+        if (!campaign.uid) continue;
+        
+        // Prepare delivery_info for cache
+        const deliveryInfo = {
+          total: parseInt(String(campaign.statistics?.subscriber_count)) || 0,
+          delivered: parseInt(String(campaign.statistics?.delivered_count)) || 0,
+          delivery_rate: parseFloat(String(campaign.statistics?.delivered_rate)) || 0,
+          opened: parseInt(String(campaign.statistics?.open_count)) || 0,
+          unique_open_rate: parseFloat(String(campaign.statistics?.uniq_open_rate)) || 0,
+          clicked: parseInt(String(campaign.statistics?.click_count)) || 0,
+          click_rate: parseFloat(String(campaign.statistics?.click_rate)) || 0,
+          bounced: {
+            soft: parseInt(String(campaign.statistics?.soft_bounce_count)) || 0,
+            hard: parseInt(String(campaign.statistics?.hard_bounce_count)) || 0,
+            total: parseInt(String(campaign.statistics?.bounce_count)) || 0
+          },
+          unsubscribed: parseInt(String(campaign.statistics?.unsubscribe_count)) || 0,
+          complained: parseInt(String(campaign.statistics?.abuse_complaint_count)) || 0
+        };
+        
+        await supabase.from('email_campaigns_cache').upsert({
+          campaign_uid: campaign.uid,
+          account_id: account.id,
+          name: campaign.name || "Sans nom",
+          subject: campaign.subject || "Sans sujet",
+          status: campaign.status || "unknown",
+          created_at: campaign.created_at || new Date().toISOString(),
+          updated_at: campaign.updated_at || new Date().toISOString(),
+          delivery_date: campaign.delivery_date || campaign.run_at || null,
+          run_at: campaign.run_at || null,
+          last_error: campaign.last_error || null,
+          delivery_info: deliveryInfo,
+          cache_updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'campaign_uid'
+        });
+      }
+      
+      console.log(`Successfully cached ${enrichedCampaigns.length} campaigns for account ${account.name}`);
+    } catch (cacheError) {
+      console.error("Error updating cache:", cacheError);
+    }
+    
+    return enrichedCampaigns;
   } catch (error) {
     console.error(`Error fetching campaigns for account ${account.name}:`, error);
     return [];
