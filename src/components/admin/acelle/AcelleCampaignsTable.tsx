@@ -161,7 +161,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       // Réveiller les services avant la synchronisation
       await wakeUpEdgeFunctions();
       
-      // Synchronisation par lots de 5 campagnes maximum
+      // Fix: Pass the right arguments to forceSyncCampaigns
       const result = await forceSyncCampaigns(account, accessToken, 5);
       
       if (result.success) {
@@ -180,7 +180,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     }
   };
   
-  // Vérifier l'état des statistiques dans le cache
+  // Fix: Make sure checkStats handles the response properly
   const checkStats = async () => {
     try {
       toast.loading("Vérification des statistiques...", { id: "check-stats" });

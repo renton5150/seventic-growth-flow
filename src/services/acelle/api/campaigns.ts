@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
@@ -763,4 +764,41 @@ export async function fetchCampaignsFromCache(
   }
   
   try {
-    console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes
+    // Fix: Complete the template string with proper closing backtick
+    console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes`);
+    
+    // Extract account IDs for the query
+    const accountIds = accounts.map(a => a.id);
+    
+    // Calculate pagination ranges
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage - 1;
+    
+    // Query the cache for campaigns
+    const { data: cachedCampaigns, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .in('account_id', accountIds)
+      .order('created_at', { ascending: false })
+      .range(startIndex, endIndex);
+    
+    if (error) {
+      console.error("Erreur lors de la récupération des campagnes du cache:", error);
+      return [];
+    }
+    
+    if (!cachedCampaigns || cachedCampaigns.length === 0) {
+      console.log("Aucune campagne trouvée dans le cache");
+      return [];
+    }
+    
+    console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache`);
+    
+    // Convert cache data to AcelleCampaign format
+    return extractCampaignsFromCache(cachedCampaigns);
+    
+  } catch (error) {
+    console.error("Erreur lors de la récupération des campagnes du cache:", error);
+    return [];
+  }
+}
