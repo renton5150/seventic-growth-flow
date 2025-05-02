@@ -72,7 +72,28 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
       // Définir des valeurs par défaut pour éviter les erreurs
       let value = 0;
 
-      // Struct 1: delivery_info (prioritaire car plus structurée)
+      // Struct 1: statistics (prioritaire car plus structurée)
+      if (campaign.statistics && typeof campaign.statistics === 'object') {
+        const stats = campaign.statistics;
+        
+        // Vérifier les propriétés disponibles
+        switch(key) {
+          case 'subscriber_count':
+            if (typeof stats.subscriber_count === 'number') return stats.subscriber_count;
+            break;
+          case 'uniq_open_rate':
+            if (typeof stats.uniq_open_rate === 'number') return stats.uniq_open_rate;
+            break;
+          case 'click_rate':
+            if (typeof stats.click_rate === 'number') return stats.click_rate;
+            break;
+          case 'bounce_count':
+            if (typeof stats.bounce_count === 'number') return stats.bounce_count;
+            break;
+        }
+      }
+
+      // Struct 2: delivery_info (format alternatif)
       if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
         const info = campaign.delivery_info;
         
@@ -97,27 +118,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
               const hardBounce = typeof info.bounced.hard === 'number' ? info.bounced.hard : 0;
               return softBounce + hardBounce;
             }
-            break;
-        }
-      }
-
-      // Struct 2: statistics (format alternatif)
-      if (campaign.statistics && typeof campaign.statistics === 'object') {
-        const stats = campaign.statistics;
-        
-        // Vérifier les propriétés disponibles
-        switch(key) {
-          case 'subscriber_count':
-            if (typeof stats.subscriber_count === 'number') return stats.subscriber_count;
-            break;
-          case 'uniq_open_rate':
-            if (typeof stats.uniq_open_rate === 'number') return stats.uniq_open_rate;
-            break;
-          case 'click_rate':
-            if (typeof stats.click_rate === 'number') return stats.click_rate;
-            break;
-          case 'bounce_count':
-            if (typeof stats.bounce_count === 'number') return stats.bounce_count;
             break;
         }
       }
