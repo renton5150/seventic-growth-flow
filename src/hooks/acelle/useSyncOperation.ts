@@ -15,7 +15,7 @@ interface SyncResult {
 }
 
 /**
- * Hook for synchronization operations
+ * Hook pour les opérations de synchronisation
  */
 export const useSyncOperation = (account: AcelleAccount) => {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -23,20 +23,20 @@ export const useSyncOperation = (account: AcelleAccount) => {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
 
-  // Function to wake up Edge Functions
+  // Fonction pour réveiller les Edge Functions
   const wakeUpEdgeFunctions = async () => {
     try {
-      console.log("Attempting to wake up Edge Functions");
+      console.log("Tentative de réveil des Edge Functions");
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
       
       if (!accessToken) {
-        console.error("No auth session available for wake-up request");
+        console.error("Pas de session d'authentification disponible pour la requête de réveil");
         return false;
       }
       
       const wakeUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping';
-      console.log(`Sending wake-up request to: ${wakeUrl}`);
+      console.log(`Envoi de la requête de réveil à: ${wakeUrl}`);
       
       const response = await fetch(wakeUrl, {
         method: 'GET',
@@ -49,19 +49,19 @@ export const useSyncOperation = (account: AcelleAccount) => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log("Edge Function wake-up successful:", data);
+        console.log("Réveil des Edge Functions réussi:", data);
         return true;
       } else {
-        console.error(`Edge Function wake-up failed: ${response.status}`);
+        console.error(`Échec du réveil des Edge Functions: ${response.status}`);
         return false;
       }
     } catch (e) {
-      console.error("Error waking up Edge Functions:", e);
+      console.error("Erreur lors du réveil des Edge Functions:", e);
       return false;
     }
   };
 
-  // Enhanced sync function that returns status and properly caches campaigns
+  // Fonction de synchronisation améliorée qui gère mieux les statistiques
   const syncCampaignsCache = async (options: { quietMode?: boolean; forceSync?: boolean } = {}) => {
     const { quietMode = false, forceSync = false } = options;
     if (!quietMode) setIsSyncing(true);
@@ -76,16 +76,16 @@ export const useSyncOperation = (account: AcelleAccount) => {
         return result;
       }
       
-      // First wake up Edge Functions
+      // D'abord réveiller les Edge Functions
       await wakeUpEdgeFunctions();
       
-      // Test API connection
+      // Tester la connexion à l'API
       const connectionTest = await testAcelleConnection(account);
       setDebugInfo(connectionTest);
       result.debugInfo = connectionTest;
       
       if (!connectionTest.success) {
-        // If connection failed, try waking up Edge Functions and test again
+        // Si la connexion a échoué, essayer de réveiller les Edge Functions et tester à nouveau
         await wakeUpEdgeFunctions();
         const retryConnection = await testAcelleConnection(account);
         
@@ -96,26 +96,42 @@ export const useSyncOperation = (account: AcelleAccount) => {
           return result;
         }
         
-        // Update debug info with successful retry
+        // Mettre à jour les infos de débogage avec la nouvelle tentative réussie
         setDebugInfo(retryConnection);
         result.debugInfo = retryConnection;
       }
       
-      // Fetch all campaigns (with pagination)
+      // Récupérer toutes les campagnes (avec pagination)
       let allCampaigns = [];
       let page = 1;
-      const limit = 50; // Adjust the limit as needed
+      const limit = 50; // Ajuster la limite selon les besoins
       let hasMore = true;
       let totalFetched = 0;
 
       if (!quietMode) toast.loading(`Synchronisation des campagnes en cours...`, { id: "sync-campaigns" });
 
+      // Récupérer le jeton d'authentification
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        result.error = "Authentification requise";
+        if (!quietMode) setSyncError(result.error);
+        if (!quietMode) toast.error(`Erreur de synchronisation: Authentification requise`, { id: "sync-campaigns" });
+        return result;
+      }
+
       while (hasMore) {
         try {
-          console.log(`Fetching campaigns page ${page} with limit ${limit}`);
-          const campaigns = await getAcelleCampaigns(account, page, limit);
+          console.log(`Récupération des campagnes page ${page} avec limite ${limit}`);
+          // S'assurer que include_stats=true est bien transmis dans l'appel
+          const campaigns = await getAcelleCampaigns(account, page, limit, accessToken);
           
           if (campaigns && campaigns.length > 0) {
+            // Vérifier rapidement si les campagnes ont des statistiques
+            const statsCheck = campaigns.some(c => c.statistics && c.statistics.subscriber_count > 0);
+            console.log(`Page ${page}: ${campaigns.length} campagnes récupérées, avec stats: ${statsCheck}`);
+            
             allCampaigns = allCampaigns.concat(campaigns);
             totalFetched += campaigns.length;
             if (!quietMode && page > 1) {
@@ -127,71 +143,24 @@ export const useSyncOperation = (account: AcelleAccount) => {
             hasMore = false;
           }
         } catch (pageError) {
-          console.error(`Error fetching page ${page}:`, pageError);
+          console.error(`Erreur lors de la récupération de la page ${page}:`, pageError);
           if (page === 1) {
-            // If we fail on first page, consider it a failure
+            // Si nous échouons sur la première page, considérer cela comme un échec
             result.error = `Error fetching campaigns: ${pageError.message || "Unknown error"}`;
             if (!quietMode) setSyncError(result.error);
             if (!quietMode) toast.error(`Erreur de synchronisation: ${result.error}`, { id: "sync-campaigns" });
             return result;
           } else {
-            // If we've already fetched some pages, just stop pagination but continue with what we have
-            console.warn(`Stopping pagination after error on page ${page}, continuing with ${totalFetched} campaigns`);
+            // Si nous avons déjà récupéré des pages, arrêter la pagination mais continuer avec ce que nous avons
+            console.warn(`Arrêt de la pagination après erreur sur la page ${page}, continuation avec ${totalFetched} campagnes`);
             hasMore = false;
           }
         }
       }
       
-      console.log(`Fetched ${allCampaigns.length} campaigns for account ${account.name}`);
+      console.log(`${allCampaigns.length} campagnes récupérées pour le compte ${account.name}`);
       
-      // Now update the cache in Supabase
-      if (allCampaigns.length > 0) {
-        // Store campaigns in cache one by one to avoid size limitations
-        for (const campaign of allCampaigns) {
-          try {
-            // Prepare the delivery_info object properly
-            const deliveryInfo = {
-              total: parseInt(campaign.statistics?.subscriber_count) || 0,
-              delivered: parseInt(campaign.statistics?.delivered_count) || 0,
-              delivery_rate: parseFloat(campaign.statistics?.delivered_rate) || 0,
-              opened: parseInt(campaign.statistics?.open_count) || 0,
-              unique_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || 0,
-              clicked: parseInt(campaign.statistics?.click_count) || 0,
-              click_rate: parseFloat(campaign.statistics?.click_rate) || 0,
-              bounced: {
-                soft: parseInt(campaign.statistics?.soft_bounce_count) || 0,
-                hard: parseInt(campaign.statistics?.hard_bounce_count) || 0,
-                total: parseInt(campaign.statistics?.bounce_count) || 0
-              },
-              unsubscribed: parseInt(campaign.statistics?.unsubscribe_count) || 0,
-              complained: parseInt(campaign.statistics?.abuse_complaint_count) || 0
-            };
-            
-            await supabase.from('email_campaigns_cache').upsert({
-              campaign_uid: campaign.uid,
-              account_id: account.id,
-              name: campaign.name,
-              subject: campaign.subject,
-              status: campaign.status,
-              created_at: campaign.created_at,
-              updated_at: campaign.updated_at,
-              delivery_date: campaign.delivery_at || campaign.run_at,
-              run_at: campaign.run_at,
-              last_error: campaign.last_error,
-              delivery_info: deliveryInfo,
-              cache_updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'campaign_uid'
-            });
-          } catch (cacheError) {
-            console.error(`Error caching campaign ${campaign.uid}:`, cacheError);
-          }
-        }
-        
-        console.log(`Successfully cached ${allCampaigns.length} campaigns for account ${account.name}`);
-      }
-
-      // Update last sync date in the account record
+      // Mettre à jour la date de dernière synchronisation
       await updateLastSyncDate(account.id);
       
       if (!quietMode) {
@@ -203,10 +172,10 @@ export const useSyncOperation = (account: AcelleAccount) => {
       result.campaignsCount = allCampaigns.length;
       return result;
     } catch (error: any) {
-      console.error(`Campaign sync failed for account ${account.name}:`, error);
-      result.error = error.message || 'Sync failed';
+      console.error(`Échec de la synchronisation pour le compte ${account.name}:`, error);
+      result.error = error.message || 'Échec de la synchronisation';
       if (!quietMode) {
-        setSyncError(error.message || 'Sync failed');
+        setSyncError(error.message || 'Échec de la synchronisation');
         toast.error(`Échec de synchronisation: ${error.message || 'Erreur inconnue'}`, { id: "sync-campaigns" });
       }
       return result;

@@ -48,15 +48,18 @@ export async function getAcelleCampaigns(
       api_token: account.apiToken,
       page: page.toString(),
       per_page: perPage.toString(),
-      include_stats: 'true', // S'assurer que les statistiques sont incluses
+      include_stats: 'true', // Paramètre crucial pour inclure les statistiques
       _t: Date.now().toString() // Paramètre anti-cache
     };
     
     console.log(`Attempting to fetch campaigns with authentication token: ${accessToken ? 'provided' : 'missing'}`);
+    console.log(`Full API URL params: ${JSON.stringify(params)}`);
     
     try {
+      // Utilisez callAcelleApi pour faire l'appel à l'API
       const data = await callAcelleApi('campaigns', params, accessToken);
-      console.log("API response received, analyzing data structure");
+      console.log("API response received, analyzing data structure:", typeof data);
+      console.log("First level keys:", Object.keys(data));
       
       // S'adapter aux différentes structures de réponse possibles
       let campaignsData = [];
@@ -101,19 +104,27 @@ export async function getAcelleCampaigns(
       
       console.log(`Successfully processed ${campaignsData.length} campaigns`);
       
-      // Log a sample campaign for debugging
+      // Log sample campaign avec les statistiques pour le débogage
       if (campaignsData.length > 0) {
-        console.log("Sample campaign data:", JSON.stringify(campaignsData[0]).substring(0, 500));
+        console.log("Sample campaign data structure:", JSON.stringify(campaignsData[0]).substring(0, 200));
+        console.log("Sample campaign statistics:", campaignsData[0].statistics || "No statistics found");
       }
       
-      // Mise à jour du cache pour chaque campagne
+      // Mise à jour du cache pour chaque campagne avec plus de rigueur
       for (const campaignItem of campaignsData) {
         try {
           // Extraire les données de statistiques pour le cache
           const uid = campaignItem.uid || campaignItem.id || campaignItem.campaign_uid || '';
+          
+          // Log pour diagnostiquer les problèmes de statistiques
+          console.log(`Processing campaign ${uid} - Statistics available:`, 
+              campaignItem.statistics ? 'Yes' : 'No', 
+              campaignItem.statistics ? Object.keys(campaignItem.statistics) : 'N/A');
+          
+          // Extraire les statistiques de manière plus robuste
           const statistics = campaignItem.statistics || {};
           
-          // Créer une structure de données delivery_info cohérente
+          // Créer une structure de données delivery_info cohérente et très détaillée
           const deliveryInfo = {
             total: parseInt(statistics.subscriber_count) || 0,
             delivered: parseInt(statistics.delivered_count) || 0,
@@ -131,7 +142,10 @@ export async function getAcelleCampaigns(
             complained: parseInt(statistics.abuse_complaint_count) || 0
           };
           
-          // Mettre à jour le cache dans Supabase
+          // Log pour vérifier la conversion des statistiques
+          console.log(`Campaign ${uid} statistics converted:`, deliveryInfo);
+          
+          // Mettre à jour le cache dans Supabase avec les données transformées
           await supabase.from('email_campaigns_cache').upsert({
             campaign_uid: uid,
             account_id: account.id,
@@ -165,13 +179,16 @@ export async function getAcelleCampaigns(
         })
         .eq('id', account.id);
       
-      // Transformer les données pour correspondre à notre format
+      // Transformer les données pour correspondre à notre format, avec une attention particulière aux statistiques
       return campaignsData.map((item: any) => {
         // Vérifier si les propriétés existent avant d'y accéder
         const uid = item.uid || item.id || item.campaign_uid || '';
-        const statistics = item.statistics || {};
         
-        // Créer une campagne bien formatée
+        // Extraire les statistiques avec plus de robustesse
+        const statistics = item.statistics || {};
+        console.log(`Mapping statistics for campaign ${uid}:`, statistics);
+        
+        // Créer une campagne bien formatée avec des statistiques complètes
         const campaign: AcelleCampaign = {
           uid: uid,
           campaign_uid: uid,
@@ -183,22 +200,39 @@ export async function getAcelleCampaigns(
           delivery_date: item.delivery_at || item.run_at || item.delivery_date || null,
           run_at: item.run_at || null,
           last_error: item.last_error || null,
-          statistics: statistics,
+          
+          // Enregistrer les statistiques brutes pour plus de flexibilité
+          statistics: {
+            subscriber_count: parseFloat(statistics.subscriber_count) || 0,
+            delivered_count: parseFloat(statistics.delivered_count) || 0,
+            delivered_rate: parseFloat(statistics.delivered_rate) || 0,
+            open_count: parseFloat(statistics.open_count) || 0,
+            uniq_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
+            click_count: parseFloat(statistics.click_count) || 0,
+            click_rate: parseFloat(statistics.click_rate) || 0,
+            bounce_count: parseFloat(statistics.bounce_count) || 0,
+            soft_bounce_count: parseFloat(statistics.soft_bounce_count) || 0,
+            hard_bounce_count: parseFloat(statistics.hard_bounce_count) || 0,
+            unsubscribe_count: parseFloat(statistics.unsubscribe_count) || 0,
+            abuse_complaint_count: parseFloat(statistics.abuse_complaint_count) || 0
+          },
+          
+          // Structure delivery_info uniforme pour toutes les campagnes
           delivery_info: {
-            total: parseInt(statistics.subscriber_count) || 0,
-            delivered: parseInt(statistics.delivered_count) || 0,
+            total: parseFloat(statistics.subscriber_count) || 0,
+            delivered: parseFloat(statistics.delivered_count) || 0,
             delivery_rate: parseFloat(statistics.delivered_rate) || 0,
-            opened: parseInt(statistics.open_count) || 0,
+            opened: parseFloat(statistics.open_count) || 0,
             unique_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
-            clicked: parseInt(statistics.click_count) || 0,
+            clicked: parseFloat(statistics.click_count) || 0,
             click_rate: parseFloat(statistics.click_rate) || 0,
             bounced: {
-              soft: parseInt(statistics.soft_bounce_count) || 0,
-              hard: parseInt(statistics.hard_bounce_count) || 0,
-              total: parseInt(statistics.bounce_count) || 0
+              soft: parseFloat(statistics.soft_bounce_count) || 0,
+              hard: parseFloat(statistics.hard_bounce_count) || 0,
+              total: parseFloat(statistics.bounce_count) || 0
             },
-            unsubscribed: parseInt(statistics.unsubscribe_count) || 0,
-            complained: parseInt(statistics.abuse_complaint_count) || 0
+            unsubscribed: parseFloat(statistics.unsubscribe_count) || 0,
+            complained: parseFloat(statistics.abuse_complaint_count) || 0
           }
         };
         
@@ -413,7 +447,7 @@ export function calculateDeliveryStats(campaigns: AcelleCampaign[]) {
 }
 
 /**
- * Extrait les campagnes du cache
+ * Extrait les campagnes du cache avec une attention particulière aux statistiques
  */
 export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
   if (!Array.isArray(data)) {
@@ -421,7 +455,12 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
     return [];
   }
   
+  console.log(`Extracting ${data.length} campaigns from cache with statistics`);
+  
   return data.map(item => {
+    // Debug des valeurs statistiques dans le cache
+    console.log(`Cache item ${item.campaign_uid} - delivery_info:`, item.delivery_info);
+    
     // Convertir les dates en format de chaîne pour la cohérence
     const campaign: AcelleCampaign = {
       uid: item.campaign_uid,
@@ -437,23 +476,28 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
       delivery_info: item.delivery_info || {}
     };
     
-    // S'assurer que les statistiques sont disponibles
+    // S'assurer que les statistiques sont disponibles et correctement formatées
     if (item.delivery_info) {
+      // Convertir explicitement toutes les valeurs en nombres
       campaign.statistics = {
-        subscriber_count: item.delivery_info.total || 0,
-        delivered_count: item.delivery_info.delivered || 0,
-        delivered_rate: item.delivery_info.delivery_rate || 0,
-        open_count: item.delivery_info.opened || 0,
-        uniq_open_rate: item.delivery_info.unique_open_rate || 0,
-        click_count: item.delivery_info.clicked || 0,
-        click_rate: item.delivery_info.click_rate || 0,
-        bounce_count: item.delivery_info.bounced?.total || 0,
-        soft_bounce_count: item.delivery_info.bounced?.soft || 0,
-        hard_bounce_count: item.delivery_info.bounced?.hard || 0,
-        unsubscribe_count: item.delivery_info.unsubscribed || 0,
-        abuse_complaint_count: item.delivery_info.complained || 0
+        subscriber_count: parseFloat(item.delivery_info.total) || 0,
+        delivered_count: parseFloat(item.delivery_info.delivered) || 0,
+        delivered_rate: parseFloat(item.delivery_info.delivery_rate) || 0,
+        open_count: parseFloat(item.delivery_info.opened) || 0,
+        uniq_open_rate: parseFloat(item.delivery_info.unique_open_rate) || 0,
+        click_count: parseFloat(item.delivery_info.clicked) || 0,
+        click_rate: parseFloat(item.delivery_info.click_rate) || 0,
+        bounce_count: parseFloat(item.delivery_info.bounced?.total) || 0,
+        soft_bounce_count: parseFloat(item.delivery_info.bounced?.soft) || 0,
+        hard_bounce_count: parseFloat(item.delivery_info.bounced?.hard) || 0,
+        unsubscribe_count: parseFloat(item.delivery_info.unsubscribed) || 0,
+        abuse_complaint_count: parseFloat(item.delivery_info.complained) || 0
       };
+      
+      // Log des statistiques extraites pour débogage
+      console.log(`Campaign ${item.campaign_uid} statistics extracted from cache:`, campaign.statistics);
     } else {
+      console.warn(`No delivery_info found for campaign ${item.campaign_uid}, using zeros`);
       campaign.statistics = {
         subscriber_count: 0,
         delivered_count: 0,
@@ -475,7 +519,7 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
 }
 
 /**
- * Force la synchronisation des campagnes pour un compte donné
+ * Force la synchronisation des campagnes pour un compte donné avec une attention particulière aux statistiques
  */
 export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: string): Promise<{
   success: boolean;
@@ -491,8 +535,8 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
   }
   
   try {
-    // Approche directe: récupérer toutes les campagnes et les mettre en cache
-    console.log("Synchronisation directe: récupération de toutes les campagnes");
+    // Approche directe: récupérer toutes les campagnes avec leurs statistiques et les mettre en cache
+    console.log("Synchronisation directe: récupération de toutes les campagnes avec statistiques");
     
     let allCampaigns: AcelleCampaign[] = [];
     let page = 1;
@@ -500,12 +544,29 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
     let hasMore = true;
     
     while (hasMore) {
-      console.log(`Récupération des campagnes page ${page}, ${perPage} par page`);
+      console.log(`Récupération des campagnes page ${page}, ${perPage} par page avec statistiques`);
       try {
+        // S'assurer que include_stats=true est passé à getAcelleCampaigns
         const campaigns = await getAcelleCampaigns(account, page, perPage, accessToken);
         
         if (campaigns && campaigns.length > 0) {
           console.log(`Récupéré ${campaigns.length} campagnes pour la page ${page}`);
+          
+          // Vérifier que les statistiques sont présentes
+          const hasSomeStats = campaigns.some(c => 
+            c.statistics && (
+              c.statistics.subscriber_count > 0 || 
+              c.statistics.delivered_count > 0 ||
+              c.statistics.open_count > 0
+            )
+          );
+          
+          if (!hasSomeStats) {
+            console.warn("Aucune statistique trouvée dans les campagnes, vérifier l'API");
+          } else {
+            console.log("Statistiques trouvées pour certaines campagnes, synchronisation OK");
+          }
+          
           allCampaigns = [...allCampaigns, ...campaigns];
           page++;
           
@@ -535,7 +596,7 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
       })
       .eq('id', account.id);
       
-    console.log(`Synchronisation terminée avec ${allCampaigns.length} campagnes récupérées`);
+    console.log(`Synchronisation terminée avec ${allCampaigns.length} campagnes récupérées, dont ${allCampaigns.filter(c => c.statistics?.subscriber_count > 0).length} avec des statistiques`);
       
     return {
       success: true,

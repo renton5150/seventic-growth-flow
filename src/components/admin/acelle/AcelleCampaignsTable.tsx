@@ -28,8 +28,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Bug } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
+import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -45,43 +47,72 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Utiliser notre hook useCampaignCache pour les opérations de cache
+  const { 
+    campaignsCount, 
+    getCachedCampaignsCount, 
+    clearAccountCache,
+    checkCacheStatistics,
+    lastRefreshTimestamp
+  } = useCampaignCache(account);
 
   // Obtenir le token d'authentification dès le montage du composant
   useEffect(() => {
     const getAuthToken = async () => {
       try {
-        console.log("Fetching authentication token for API requests");
+        console.log("Récupération du token d'authentification pour les requêtes API");
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
         
         if (token) {
-          console.log("Authentication token retrieved successfully");
+          console.log("Token d'authentification récupéré avec succès");
           setAccessToken(token);
         } else {
-          console.error("No authentication token available in session");
+          console.error("Aucun token d'authentification disponible dans la session");
           toast.error("Erreur d'authentification: Impossible de récupérer le token d'authentification");
         }
       } catch (error) {
-        console.error("Error getting authentication token:", error);
+        console.error("Erreur lors de la récupération du token d'authentification:", error);
         toast.error("Erreur lors de la récupération du token d'authentification");
       }
     };
     
     getAuthToken();
+    
+    // Rafraîchir le token périodiquement (toutes les 15 minutes)
+    const refreshInterval = setInterval(async () => {
+      try {
+        console.log("Rafraîchissement périodique du token d'authentification");
+        await supabase.auth.refreshSession();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        
+        if (token) {
+          console.log("Token d'authentification rafraîchi avec succès");
+          setAccessToken(token);
+        }
+      } catch (e) {
+        console.error("Erreur lors du rafraîchissement périodique:", e);
+      }
+    }, 15 * 60 * 1000);
+    
+    return () => clearInterval(refreshInterval);
   }, []);
   
   // Function to wake up Edge Functions
   const wakeUpEdgeFunctions = async () => {
     try {
-      console.log("Attempting to wake up Edge Functions");
+      console.log("Tentative de réveil des Edge Functions");
       
       if (!accessToken) {
-        console.error("No auth session available for wake-up request");
+        console.error("Pas de session d'authentification disponible pour la requête de réveil");
         return false;
       }
       
       const wakeUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping';
-      console.log(`Sending wake-up request to: ${wakeUrl}`);
+      console.log(`Envoi de la requête de réveil à: ${wakeUrl}`);
       
       try {
         const response = await fetch(wakeUrl, {
@@ -95,41 +126,99 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         
         if (response.ok) {
           const data = await response.json();
-          console.log("Edge Function wake-up successful:", data);
+          console.log("Réveil des Edge Functions réussi:", data);
           return true;
         } else {
-          console.error(`Edge Function wake-up failed: ${response.status}`);
+          console.error(`Échec du réveil des Edge Functions: ${response.status}`);
         }
       } catch (e) {
-        console.warn("Wake-up request failed, this is expected in development environment:", e);
+        console.warn("La requête de réveil a échoué, ceci est attendu dans l'environnement de développement:", e);
       }
       
-      // Even if wake-up failed, return true to continue with the flow
+      // Même si le réveil a échoué, retourner true pour continuer avec le flux
       return true;
     } catch (e) {
-      console.error("Error in wakeUpEdgeFunctions:", e);
+      console.error("Erreur dans wakeUpEdgeFunctions:", e);
       return false;
     }
   };
   
-  const fetchCampaigns = React.useCallback(async () => {
-    console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
+  const handleForceSyncNow = async () => {
     try {
-      // Clear any previous connection errors
+      setIsSyncing(true);
+      toast.loading("Synchronisation forcée des campagnes...", { id: "force-sync" });
+      
+      // S'assurer d'avoir un token d'authentification valide
+      if (!accessToken) {
+        const { data } = await supabase.auth.getSession();
+        if (!data?.session?.access_token) {
+          toast.error("Authentification requise pour la synchronisation", { id: "force-sync" });
+          return;
+        }
+        setAccessToken(data.session.access_token);
+      }
+      
+      // Réveiller les services avant la synchronisation
+      await wakeUpEdgeFunctions();
+      
+      // Forcer la synchronisation des campagnes
+      const result = await forceSyncCampaigns(account, accessToken);
+      
+      if (result.success) {
+        toast.success(`${result.message} (${result.syncedCount || 0} campagnes)`, { id: "force-sync" });
+        // Actualiser le comptage et les données
+        await getCachedCampaignsCount();
+        setRetryCount(prev => prev + 1); // Force un rechargement des données
+      } else {
+        toast.error(`Échec de la synchronisation: ${result.message}`, { id: "force-sync" });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Erreur: ${errorMessage}`, { id: "force-sync" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+  
+  // Vérifier l'état des statistiques dans le cache
+  const checkStats = async () => {
+    try {
+      toast.loading("Vérification des statistiques...", { id: "check-stats" });
+      const stats = await checkCacheStatistics();
+      
+      if (stats.hasStats) {
+        toast.success(`Statistiques disponibles: ${stats.campaignsWithStats}/${stats.totalCampaigns} campagnes avec données`, { id: "check-stats" });
+      } else {
+        toast.warning(`Aucune statistique trouvée dans les ${stats.totalCampaigns} campagnes vérifiées`, { id: "check-stats" });
+      }
+      
+      // Afficher un exemple de statistiques si disponible
+      if (stats.sampleStats) {
+        console.log("Exemple de statistiques disponibles:", stats.sampleStats);
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la vérification des statistiques", { id: "check-stats" });
+    }
+  };
+  
+  const fetchCampaigns = React.useCallback(async () => {
+    console.log(`Récupération des campagnes pour le compte: ${account.name}, page: ${currentPage}, limite: ${itemsPerPage}`);
+    try {
+      // Effacer les erreurs de connexion précédentes
       setConnectionError(null);
       toast.loading("Récupération des campagnes en cours...", { id: "fetch-campaigns" });
       
-      // Try to wake up Edge Functions but don't block on it
+      // Essayer de réveiller les Edge Functions mais ne pas bloquer
       await wakeUpEdgeFunctions();
       
       if (!accessToken) {
-        console.error("No auth token available for API calls");
+        console.error("Aucun token d'authentification disponible pour les appels API");
         throw new Error("Authentification requise pour accéder à l'API");
       }
       
-      console.log(`Using access token for API calls: ${accessToken ? 'présent' : 'absent'}`);
+      console.log(`Utilisation du token d'accès pour les appels API: ${accessToken ? 'présent' : 'absent'}`);
       
-      // Add the access token to the API call
+      // Ajouter le token d'accès à l'appel API
       let campaigns;
       try {
         campaigns = await acelleService.getAcelleCampaigns(
@@ -139,38 +228,52 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           accessToken
         );
         
-        console.log(`Successfully retrieved ${campaigns?.length || 0} campaigns from API`);
-      } catch (apiError) {
-        console.error("API request failed:", apiError);
+        console.log(`Récupération réussie de ${campaigns?.length || 0} campagnes depuis l'API`);
         
-        // Try to get from cache
-        console.log("Attempting to get campaigns from cache as fallback");
+        // Vérifier si les campagnes ont des statistiques
+        const hasStats = campaigns.some(c => 
+          c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.delivered_count > 0)
+        );
+        
+        if (!hasStats) {
+          console.warn("Les campagnes récupérées n'ont pas de statistiques! Vérifier l'API");
+          
+          // Si pas de stats, forcer une synchronisation en arrière-plan
+          handleForceSyncNow();
+        } else {
+          console.log("Statistiques trouvées dans les campagnes récupérées");
+        }
+      } catch (apiError) {
+        console.error("Requête API échouée:", apiError);
+        
+        // Essayer de récupérer depuis le cache
+        console.log("Tentative de récupération des campagnes depuis le cache comme solution de repli");
         const cachedCampaigns = await fetchCampaignsFromCache([account]);
         
         if (cachedCampaigns && cachedCampaigns.length > 0) {
-          console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache`);
+          console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache`);
           campaigns = cachedCampaigns;
         } else {
-          console.log("No cached campaigns available, using mock data");
+          console.log("Aucune campagne disponible dans le cache, utilisation des données de démonstration");
           throw apiError;
         }
       }
       
       if (campaigns && campaigns.length > 0) {
-        console.log(`Successfully retrieved ${campaigns.length} campaigns`);
+        console.log(`Récupération réussie de ${campaigns.length} campagnes`);
         toast.success(`${campaigns.length} campagnes récupérées avec succès`, { id: "fetch-campaigns" });
         
-        // Notify parent that we're using real data
+        // Notifier le parent que nous utilisons des données réelles
         if (onDemoMode) {
           onDemoMode(false);
         }
         
         return campaigns;
       } else {
-        console.log("No campaigns returned, showing mock campaigns");
+        console.log("Aucune campagne retournée, affichage des campagnes de démonstration");
         toast.warning("Données temporaires affichées pour démonstration", { id: "fetch-campaigns" });
         
-        // Notify parent that we're using demo data
+        // Notifier le parent que nous utilisons des données de démonstration
         if (onDemoMode) {
           onDemoMode(true);
         }
@@ -178,16 +281,16 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         return acelleService.generateMockCampaigns(8);
       }
     } catch (error) {
-      console.error(`Error fetching campaigns:`, error);
+      console.error(`Erreur lors de la récupération des campagnes:`, error);
       setConnectionError(`Erreur lors de la récupération des campagnes: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
       toast.error("Erreur lors de la récupération des campagnes", { id: "fetch-campaigns" });
       
-      // Notify parent that we're using demo data due to error
+      // Notifier le parent que nous utilisons des données de démonstration en raison d'une erreur
       if (onDemoMode) {
         onDemoMode(true);
       }
       
-      // Return mock campaigns as fallback
+      // Retourner des campagnes de démonstration comme solution de repli
       return acelleService.generateMockCampaigns(8);
     } finally {
       setIsManuallyRefreshing(false);
@@ -221,7 +324,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     filteredCampaigns
   } = useAcelleCampaignsTable(campaigns);
 
-  // Reset to page 1 when filters change
+  // Réinitialiser à la page 1 lorsque les filtres changent
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
@@ -233,14 +336,14 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     window.scrollTo(0, 0);
   };
   
-  // Function to force a new attempt
+  // Fonction pour forcer une nouvelle tentative
   const handleRetry = () => {
     setIsManuallyRefreshing(true);
     setRetryCount(prev => prev + 1);
     refetch();
   };
   
-  // Toggle debug info
+  // Toggle des informations de débogage
   const toggleDebugInfo = () => {
     setShowDebugInfo(prev => !prev);
   };
@@ -280,9 +383,27 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           <Button 
             variant="outline" 
             size="sm" 
+            onClick={checkStats}
+            title="Vérifier les statistiques dans le cache"
+          >
+            <Bug className="h-4 w-4 mr-1" />
+            Vérifier les stats
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
             onClick={toggleDebugInfo}
           >
             {showDebugInfo ? "Masquer" : "Afficher"} les infos de débogage
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleForceSyncNow} 
+            disabled={isSyncing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
+            Synchroniser maintenant
           </Button>
           <Button 
             variant="outline" 
@@ -303,6 +424,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
             <div className="space-y-1">
               <p><strong>Endpoint API:</strong> {account.apiEndpoint}</p>
               <p><strong>Dernière synchronisation:</strong> {account.lastSyncDate ? new Date(account.lastSyncDate).toLocaleString() : 'Jamais'}</p>
+              <p><strong>Cache:</strong> {campaignsCount} campagnes, dernier rafraîchissement {lastRefreshTimestamp?.toLocaleString() || 'jamais'}</p>
               {account.lastSyncError && (
                 <p className="text-red-600"><strong>Dernière erreur:</strong> {account.lastSyncError}</p>
               )}
@@ -313,6 +435,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
                 </p>
               )}
               <p><strong>Nombre de campagnes chargées:</strong> {campaigns.length}</p>
+              <p><strong>Token d'authentification:</strong> {accessToken ? 'Présent' : 'Manquant'}</p>
               <p className="text-sm text-gray-500 mt-2">
                 Note: En cas d'erreur de connexion, des données exemples sont affichées pour simulation.
               </p>
@@ -337,7 +460,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       ) : (
         <>
           <div className="border rounded-md relative">
-            {isFetching && (
+            {(isFetching || isManuallyRefreshing) && (
               <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
                 <Spinner className="h-8 w-8 border-primary" />
               </div>

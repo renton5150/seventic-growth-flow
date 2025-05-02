@@ -15,6 +15,20 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
+  // Logging amélioré pour suivre les problèmes de données
+  React.useEffect(() => {
+    if (campaign) {
+      console.log(`Campaign render for ${campaign.name || 'unnamed'} (${campaign.uid || 'no-uid'}):`, {
+        hasStatistics: !!campaign.statistics,
+        hasDeliveryInfo: !!campaign.delivery_info,
+        subscriberCount: campaign.statistics?.subscriber_count || campaign.delivery_info?.total || 0,
+        deliveryRate: campaign.statistics?.delivered_rate || campaign.delivery_info?.delivery_rate || 0,
+        openRate: campaign.statistics?.uniq_open_rate || campaign.delivery_info?.unique_open_rate || 0,
+        clickRate: campaign.statistics?.click_rate || campaign.delivery_info?.click_rate || 0
+      });
+    }
+  }, [campaign]);
+
   // Debug léger pour éviter de surcharger la console
   if (!campaign) {
     console.error("Campagne non définie dans AcelleTableRow");
@@ -51,141 +65,95 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
   /**
-   * Fonction améliorée pour extraire les statistiques de manière fiable
+   * Fonction optimisée pour extraire les statistiques de manière plus directe et fiable
+   * Se concentre sur les chemins les plus probables où se trouvent les données
    */
   const getStatValue = (key: string): number => {
     try {
-      console.log(`Getting stat ${key} for campaign ${campaignUid}`);
+      // Log pour debugging, avec plus de détails sur les structures disponibles
+      console.log(`Getting stat ${key} for campaign ${campaignUid}`, {
+        hasStatistics: !!campaign.statistics,
+        hasDeliveryInfo: !!campaign.delivery_info,
+        statisticsKeys: campaign.statistics ? Object.keys(campaign.statistics) : 'none',
+        deliveryInfoKeys: campaign.delivery_info ? Object.keys(campaign.delivery_info) : 'none'
+      });
       
-      // 1. Essayer dans delivery_info qui est notre structure préférée
-      if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-        // Log pour debugging
-        console.log(`Campaign ${campaignUid} delivery_info:`, campaign.delivery_info);
-        
-        const directDelivery = campaign.delivery_info[key];
-        if (directDelivery !== undefined) {
-          const value = Number(directDelivery);
-          if (!isNaN(value)) return value;
+      // Approche directe: regarder d'abord dans statistics qui est notre structure standard
+      if (campaign.statistics && key in campaign.statistics) {
+        const value = parseFloat(campaign.statistics[key] as any);
+        if (!isNaN(value)) {
+          console.log(`Found value in statistics.${key}: ${value}`);
+          return value;
         }
-        
-        // Cas spécial pour bounced qui est un objet
+      }
+      
+      // Ensuite, chercher dans delivery_info qui est notre structure alternative
+      if (campaign.delivery_info) {
+        // Cas spécial pour bounce_count qui est dans un sous-objet dans delivery_info
         if (key === 'bounce_count' && campaign.delivery_info.bounced) {
-          const value = Number(campaign.delivery_info.bounced.total);
-          if (!isNaN(value)) return value;
-        }
-      }
-      
-      // 2. Essayer dans statistics qui est la structure native de l'API
-      if (campaign.statistics && typeof campaign.statistics === 'object') {
-        // Log pour debugging
-        console.log(`Campaign ${campaignUid} statistics:`, campaign.statistics);
-        
-        const directStat = campaign.statistics[key];
-        if (directStat !== undefined) {
-          const value = Number(directStat);
-          if (!isNaN(value)) return value;
-        }
-      }
-      
-      // 3. Essayer dans la racine de campaign
-      const rootValue = campaign[key];
-      if (rootValue !== undefined) {
-        const value = Number(rootValue);
-        if (!isNaN(value)) return value;
-      }
-      
-      // 4. Essayer dans meta
-      if (campaign.meta && typeof campaign.meta === 'object') {
-        // Directement dans meta
-        const metaValue = campaign.meta[key];
-        if (metaValue !== undefined) {
-          const value = Number(metaValue);
-          if (!isNaN(value)) return value;
+          const value = parseFloat(campaign.delivery_info.bounced.total as any);
+          if (!isNaN(value)) {
+            console.log(`Found bounce_count in delivery_info.bounced.total: ${value}`);
+            return value;
+          }
         }
         
-        // Dans meta.statistics
-        if (campaign.meta.statistics && campaign.meta.statistics[key] !== undefined) {
-          const value = Number(campaign.meta.statistics[key]);
-          if (!isNaN(value)) return value;
-        }
+        // Mappings directs entre les clés statistics et delivery_info
+        const deliveryInfoMappings: Record<string, string> = {
+          'subscriber_count': 'total',
+          'delivered_count': 'delivered',
+          'delivered_rate': 'delivery_rate',
+          'open_count': 'opened',
+          'uniq_open_rate': 'unique_open_rate',
+          'click_count': 'clicked',
+          'click_rate': 'click_rate',
+          'unsubscribe_count': 'unsubscribed'
+        };
         
-        // Dans meta.delivery_info
-        if (campaign.meta.delivery_info && campaign.meta.delivery_info[key] !== undefined) {
-          const value = Number(campaign.meta.delivery_info[key]);
-          if (!isNaN(value)) return value;
+        // Si la clé a un mapping dans delivery_info
+        if (deliveryInfoMappings[key] && deliveryInfoMappings[key] in campaign.delivery_info) {
+          const mappedKey = deliveryInfoMappings[key];
+          const value = parseFloat(campaign.delivery_info[mappedKey] as any);
+          if (!isNaN(value)) {
+            console.log(`Found value in delivery_info.${mappedKey}: ${value}`);
+            return value;
+          }
         }
       }
       
-      // 5. Vérifier dans track (maintenant défini comme un objet vide par défaut)
-      if (campaign.track && typeof campaign.track === 'object') {
-        const trackValue = campaign.track[key];
-        if (trackValue !== undefined) {
-          const value = Number(trackValue);
-          if (!isNaN(value)) return value;
-        }
-      }
-      
-      // 6. Vérifier dans report (maintenant défini comme un objet vide par défaut)
-      if (campaign.report && typeof campaign.report === 'object') {
-        const reportValue = campaign.report[key];
-        if (reportValue !== undefined) {
-          const value = Number(reportValue);
-          if (!isNaN(value)) return value;
-        }
-      }
-      
-      // Essayer les mappings alternatifs de clés
-      const keyMappings: Record<string, string[]> = {
-        'subscriber_count': ['total', 'recipient_count', 'subscribers_count', 'total_subscribers'],
-        'delivered_count': ['delivered'],
-        'delivered_rate': ['delivery_rate'],
-        'uniq_open_rate': ['open_rate', 'unique_open_rate'],
-        'open_count': ['opened'],
-        'click_rate': ['click_percentage'],
-        'bounce_count': ['bounced.total', 'total_bounces'],
-        'unsubscribe_count': ['unsubscribed']
-      };
-      
-      if (keyMappings[key]) {
-        for (const altKey of keyMappings[key]) {
-          // Gestion des clés imbriquées comme 'bounced.total'
-          if (altKey.includes('.')) {
-            const [parent, child] = altKey.split('.');
-            
-            if (campaign.delivery_info && campaign.delivery_info[parent]) {
-              const value = Number(campaign.delivery_info[parent][child]);
-              if (!isNaN(value)) return value;
-            }
-            
-            if (campaign.statistics && campaign.statistics[parent]) {
-              const value = Number(campaign.statistics[parent][child]);
-              if (!isNaN(value)) return value;
-            }
-            
-            continue;
-          }
-          
-          // Pour les clés simples
-          // delivery_info (prioritaire)
-          if (campaign.delivery_info && altKey in campaign.delivery_info) {
-            const value = Number(campaign.delivery_info[altKey]);
-            if (!isNaN(value)) return value;
-          }
-          
-          // statistics
-          if (campaign.statistics && altKey in campaign.statistics) {
-            const value = Number(campaign.statistics[altKey]);
-            if (!isNaN(value)) return value;
-          }
-          
-          // racine
-          if (altKey in campaign) {
-            const value = Number(campaign[altKey]);
-            if (!isNaN(value)) return value;
-          }
+      // Chercher directement dans la racine de campaign (peu probable mais possible)
+      if (key in campaign) {
+        const value = parseFloat(campaign[key] as any);
+        if (!isNaN(value)) {
+          console.log(`Found value in campaign.${key}: ${value}`);
+          return value;
         }
       }
 
+      // Dernier recours: recherche de fallbacks spécifiques
+      switch (key) {
+        case 'subscriber_count':
+          // Chercher la valeur total dans différents endroits
+          if (campaign.delivery_info?.total !== undefined) return parseFloat(campaign.delivery_info.total as any) || 0;
+          if (campaign.statistics?.recipient_count !== undefined) return parseFloat(campaign.statistics.recipient_count as any) || 0;
+          break;
+        case 'delivered_rate':
+          // Chercher le taux de livraison
+          if (campaign.delivery_info?.delivery_rate !== undefined) return parseFloat(campaign.delivery_info.delivery_rate as any) || 0;
+          break;
+        case 'uniq_open_rate':
+          // Chercher le taux d'ouverture unique
+          if (campaign.delivery_info?.unique_open_rate !== undefined) return parseFloat(campaign.delivery_info.unique_open_rate as any) || 0;
+          if (campaign.statistics?.open_rate !== undefined) return parseFloat(campaign.statistics.open_rate as any) || 0;
+          break;
+        case 'click_rate':
+          // Chercher le taux de clic
+          if (campaign.delivery_info?.click_rate !== undefined) return parseFloat(campaign.delivery_info.click_rate as any) || 0;
+          if (campaign.statistics?.click_percentage !== undefined) return parseFloat(campaign.statistics.click_percentage as any) || 0;
+          break;
+      }
+
+      // Si rien n'a été trouvé, logguer et retourner 0
       console.log(`No valid value found for stat ${key}, returning 0`);
       return 0;
     } catch (error) {
@@ -201,6 +169,16 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const clickRate = getStatValue('click_rate');
   const bounceCount = getStatValue('bounce_count');
   const unsubscribeCount = getStatValue('unsubscribe_count');
+  
+  // Log final des valeurs extraites pour vérifier
+  console.log(`Final stats for campaign ${campaignName}:`, {
+    subscriberCount,
+    deliveryRate,
+    openRate,
+    clickRate,
+    bounceCount,
+    unsubscribeCount
+  });
 
   const handleViewClick = () => {
     if (campaignUid) {

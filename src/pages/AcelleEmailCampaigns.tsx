@@ -16,8 +16,9 @@ const AcelleEmailCampaigns = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   
-  // Vérifier l'état d'authentification au chargement
+  // Vérifier l'état d'authentification au chargement et configurer le rafraîchissement automatique
   useEffect(() => {
+    // Fonction pour vérifier l'état d'authentification
     const checkAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -36,7 +37,28 @@ const AcelleEmailCampaigns = () => {
       }
     };
     
+    // Vérifier immédiatement
     checkAuth();
+    
+    // Rafraîchir automatiquement la session toutes les 10 minutes pour éviter l'expiration
+    const sessionRefreshInterval = setInterval(async () => {
+      try {
+        console.log("Rafraîchissement automatique de la session...");
+        const { data, error } = await supabase.auth.refreshSession();
+        
+        if (error) {
+          console.error("Erreur lors du rafraîchissement automatique:", error);
+          setAuthError("Erreur lors du rafraîchissement automatique de la session.");
+        } else if (data && data.session) {
+          console.log("Session rafraîchie automatiquement avec succès");
+          setAuthError(null);
+        }
+      } catch (e) {
+        console.error("Exception lors du rafraîchissement automatique:", e);
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    return () => clearInterval(sessionRefreshInterval);
   }, [user]);
   
   // Force une reconnexion à Supabase
