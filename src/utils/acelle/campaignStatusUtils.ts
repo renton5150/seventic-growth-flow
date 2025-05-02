@@ -118,6 +118,15 @@ export const extractCampaignStat = (campaign: any, key: string): number => {
     }
     
     if (campaign.delivery_info) {
+      const deliveryInfoMap: Record<string, string> = {
+        'subscriber_count': 'total',
+        'delivered_count': 'delivered',
+        'open_count': 'opened',
+        'click_count': 'clicked',
+        'uniq_open_rate': 'unique_open_rate',
+        'click_rate': 'click_rate'
+      };
+      
       const mappedKey = deliveryInfoMap[key];
       if (mappedKey && typeof campaign.delivery_info[mappedKey] === 'string' && 
           !isNaN(parseFloat(campaign.delivery_info[mappedKey]))) {
