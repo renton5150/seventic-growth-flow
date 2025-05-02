@@ -125,7 +125,8 @@ export const useSyncOperation = (account: AcelleAccount) => {
         try {
           console.log(`Récupération des campagnes page ${page} avec limite ${limit}`);
           // S'assurer que include_stats=true est bien transmis dans l'appel
-          const campaigns = await getAcelleCampaigns(account, page, limit, accessToken, true);
+          // Fixed here: Removed the fifth argument that was causing the error
+          const campaigns = await getAcelleCampaigns(account, page, limit, accessToken);
           
           if (campaigns && campaigns.length > 0) {
             // Vérifier si les campagnes ont des statistiques
