@@ -148,6 +148,9 @@ export async function getAcelleCampaigns(
           }, {
             onConflict: 'campaign_uid'
           });
+          
+          // Log successful cache update
+          console.log(`Successfully cached campaign ${uid} with statistics`);
         } catch (cacheError) {
           console.error(`Erreur lors de la mise à jour du cache pour la campagne ${campaignItem.uid || 'inconnue'}:`, cacheError);
         }
@@ -481,27 +484,47 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
 }> {
   console.log(`Forçage de la synchronisation des campagnes pour le compte ${account.name}`);
   
+  if (!accessToken) {
+    const { data } = await supabase.auth.getSession();
+    accessToken = data?.session?.access_token;
+    console.log(`Token d'authentification ${accessToken ? 'récupéré' : 'non disponible'}`);
+  }
+  
   try {
-    // Appeler l'edge function de synchronisation directement
-    const response = await supabase.functions.invoke("sync-email-campaigns", {
-      method: 'POST',
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      body: {
-        forceSync: true,
-        accounts: [account.id],
-        debug: true
+    // Approche directe: récupérer toutes les campagnes et les mettre en cache
+    console.log("Synchronisation directe: récupération de toutes les campagnes");
+    
+    let allCampaigns: AcelleCampaign[] = [];
+    let page = 1;
+    const perPage = 50; // Récupérer plus de campagnes par page
+    let hasMore = true;
+    
+    while (hasMore) {
+      console.log(`Récupération des campagnes page ${page}, ${perPage} par page`);
+      try {
+        const campaigns = await getAcelleCampaigns(account, page, perPage, accessToken);
+        
+        if (campaigns && campaigns.length > 0) {
+          console.log(`Récupéré ${campaigns.length} campagnes pour la page ${page}`);
+          allCampaigns = [...allCampaigns, ...campaigns];
+          page++;
+          
+          // Si nous récupérons moins que le nombre demandé, c'est qu'il n'y a plus de pages
+          hasMore = campaigns.length === perPage;
+        } else {
+          console.log("Plus de campagnes à récupérer");
+          hasMore = false;
+        }
+      } catch (error) {
+        console.error(`Erreur lors de la récupération de la page ${page}:`, error);
+        // Si première page, échec total; sinon, continuer avec ce qu'on a
+        if (page === 1) {
+          throw error;
+        } else {
+          hasMore = false;
+        }
       }
-    });
-    
-    if (response.error) {
-      console.error("Erreur lors de la synchronisation forcée:", response.error);
-      return {
-        success: false,
-        message: `Erreur de synchronisation: ${response.error.message || 'Erreur inconnue'}`
-      };
     }
-    
-    console.log("Réponse de la synchronisation forcée:", response.data);
     
     // Mise à jour du timestamp de dernière synchronisation dans la base
     await supabase
@@ -512,32 +535,13 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
       })
       .eq('id', account.id);
       
-    const syncResults = response.data?.results || [];
-    const accountResult = syncResults.find((r: any) => r.accountId === account.id);
-    
-    if (accountResult?.success) {
-      return {
-        success: true,
-        message: `Synchronisation réussie, ${accountResult.count || 'plusieurs'} campagnes mises à jour`,
-        syncedCount: accountResult.count
-      };
-    } else {
-      const errorMessage = accountResult?.error || 'Erreur non spécifiée';
+    console.log(`Synchronisation terminée avec ${allCampaigns.length} campagnes récupérées`);
       
-      // Enregistrer l'erreur dans la base de données
-      await supabase
-        .from('acelle_accounts')
-        .update({ 
-          last_sync_error: errorMessage,
-          last_sync_date: new Date().toISOString()
-        })
-        .eq('id', account.id);
-        
-      return {
-        success: false,
-        message: `Échec de la synchronisation: ${errorMessage}`
-      };
-    }
+    return {
+      success: true,
+      message: `Synchronisation réussie, ${allCampaigns.length} campagnes mises à jour`,
+      syncedCount: allCampaigns.length
+    };
   } catch (error) {
     console.error("Erreur lors de la synchronisation forcée:", error);
     
@@ -552,10 +556,51 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
       })
       .eq('id', account.id);
       
-    return {
-      success: false,
-      message: `Exception lors de la synchronisation: ${errorMessage}`
-    };
+    // Essayer d'appeler la fonction edge comme fallback
+    try {
+      console.log("Tentative de synchronisation via l'edge function");
+      const response = await supabase.functions.invoke("sync-email-campaigns", {
+        method: 'POST',
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        body: {
+          forceSync: true,
+          accounts: [account.id],
+          debug: true
+        }
+      });
+      
+      if (response.error) {
+        console.error("Erreur lors de la synchronisation via l'edge function:", response.error);
+        return {
+          success: false,
+          message: `Échec de la synchronisation: ${errorMessage}. Tentative via edge function également échouée.`
+        };
+      }
+      
+      console.log("Réponse de l'edge function:", response.data);
+      
+      const syncResults = response.data?.results || [];
+      const accountResult = syncResults.find((r: any) => r.accountId === account.id);
+      
+      if (accountResult?.success) {
+        return {
+          success: true,
+          message: `Synchronisation réussie via edge function, ${accountResult.count || 'plusieurs'} campagnes mises à jour`,
+          syncedCount: accountResult.count
+        };
+      } else {
+        return {
+          success: false,
+          message: `Échec de la synchronisation: ${accountResult?.error || errorMessage}`
+        };
+      }
+    } catch (edgeFunctionError) {
+      console.error("Erreur lors de l'appel à l'edge function:", edgeFunctionError);
+      return {
+        success: false,
+        message: `Échec de la synchronisation: ${errorMessage}. Edge function inaccessible.`
+      };
+    }
   }
 }
 

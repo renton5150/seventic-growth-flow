@@ -36,6 +36,15 @@ export const useSystemStatus = () => {
     cachePriority: 0
   };
 
+  // Run authentication check on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuthenticated = await isSupabaseAuthenticated();
+      setAuthStatus(isAuthenticated);
+    };
+    checkAuth();
+  }, []);
+
   // Fetch cache information for diagnostic purposes
   const fetchCacheInfo = async () => {
     try {
@@ -71,7 +80,7 @@ export const useSystemStatus = () => {
 
   // Load cache info when component mounts and when tab changes
   useEffect(() => {
-    if (activeTab === "cache") {
+    if (activeTab === "cache" || activeTab === "status") {
       fetchCacheInfo();
     }
   }, [activeTab]);
@@ -83,6 +92,7 @@ export const useSystemStatus = () => {
       
       if (!accessToken) {
         console.log("No auth session available for wake-up request");
+        toast.error("Impossible de réveiller les services: authentification requise");
         return false;
       }
       
@@ -96,12 +106,44 @@ export const useSystemStatus = () => {
             'Cache-Control': 'no-store',
             'X-Wake-Request': 'true'
           }
-        }).catch(() => console.log("Wake-up attempt for cors-proxy completed"))
+        }).then(response => {
+          if (response.ok) {
+            console.log("cors-proxy service awakened successfully");
+            return true;
+          } else {
+            console.log(`cors-proxy wake-up failed with status ${response.status}`);
+            return false;
+          }
+        }).catch(() => {
+          console.log("Wake-up attempt for cors-proxy completed with error");
+          return false;
+        }),
+        
+        fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
+          method: 'OPTIONS',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Cache-Control': 'no-store'
+          }
+        }).then(response => {
+          console.log("sync-email-campaigns service ping response:", response.status);
+          return true;
+        }).catch(() => {
+          console.log("Wake-up attempt for sync-email-campaigns completed with error");
+          return false;
+        })
       ];
       
-      await Promise.all(wakeUpPromises);
-      toast.success("Services réveillés avec succès", { id: "wake-services" });
-      return true;
+      const results = await Promise.all(wakeUpPromises);
+      const success = results.some(r => r === true);
+      
+      if (success) {
+        toast.success("Services réveillés avec succès", { id: "wake-services" });
+      } else {
+        toast.error("Problème lors du réveil des services", { id: "wake-services" });
+      }
+      
+      return success;
     } catch (e) {
       console.error("Error waking up services:", e);
       toast.error(`Erreur lors du réveil des services: ${e instanceof Error ? e.message : 'Erreur inconnue'}`, { id: "wake-services" });
@@ -111,6 +153,19 @@ export const useSystemStatus = () => {
 
   const checkApiAvailability = async () => {
     try {
+      // First, verify authentication status
+      const isAuthenticated = await isSupabaseAuthenticated();
+      setAuthStatus(isAuthenticated);
+      
+      if (!isAuthenticated) {
+        console.log("User not authenticated, skipping API check");
+        return {
+          available: false,
+          debugInfo: null,
+          error: "Authentication required"
+        };
+      }
+      
       const connectionDebug = await acelleService.testAcelleConnection(testAccount);
       setDebugInfo(connectionDebug);
       return {

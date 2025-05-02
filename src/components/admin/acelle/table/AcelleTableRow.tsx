@@ -55,17 +55,13 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
    */
   const getStatValue = (key: string): number => {
     try {
-      // 1. Essayer dans statistics
-      if (campaign.statistics && typeof campaign.statistics === 'object') {
-        const directStat = campaign.statistics[key];
-        if (directStat !== undefined) {
-          const value = Number(directStat);
-          if (!isNaN(value)) return value;
-        }
-      }
+      console.log(`Getting stat ${key} for campaign ${campaignUid}`);
       
-      // 2. Essayer dans delivery_info
+      // 1. Essayer dans delivery_info qui est notre structure préférée
       if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+        // Log pour debugging
+        console.log(`Campaign ${campaignUid} delivery_info:`, campaign.delivery_info);
+        
         const directDelivery = campaign.delivery_info[key];
         if (directDelivery !== undefined) {
           const value = Number(directDelivery);
@@ -75,6 +71,18 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         // Cas spécial pour bounced qui est un objet
         if (key === 'bounce_count' && campaign.delivery_info.bounced) {
           const value = Number(campaign.delivery_info.bounced.total);
+          if (!isNaN(value)) return value;
+        }
+      }
+      
+      // 2. Essayer dans statistics qui est la structure native de l'API
+      if (campaign.statistics && typeof campaign.statistics === 'object') {
+        // Log pour debugging
+        console.log(`Campaign ${campaignUid} statistics:`, campaign.statistics);
+        
+        const directStat = campaign.statistics[key];
+        if (directStat !== undefined) {
+          const value = Number(directStat);
           if (!isNaN(value)) return value;
         }
       }
@@ -158,15 +166,15 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
           }
           
           // Pour les clés simples
-          // statistics
-          if (campaign.statistics && altKey in campaign.statistics) {
-            const value = Number(campaign.statistics[altKey]);
+          // delivery_info (prioritaire)
+          if (campaign.delivery_info && altKey in campaign.delivery_info) {
+            const value = Number(campaign.delivery_info[altKey]);
             if (!isNaN(value)) return value;
           }
           
-          // delivery_info
-          if (campaign.delivery_info && altKey in campaign.delivery_info) {
-            const value = Number(campaign.delivery_info[altKey]);
+          // statistics
+          if (campaign.statistics && altKey in campaign.statistics) {
+            const value = Number(campaign.statistics[altKey]);
             if (!isNaN(value)) return value;
           }
           
@@ -178,6 +186,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         }
       }
 
+      console.log(`No valid value found for stat ${key}, returning 0`);
       return 0;
     } catch (error) {
       console.warn(`Erreur lors de l'extraction de la statistique '${key}' pour la campagne ${campaign?.name}:`, error);
