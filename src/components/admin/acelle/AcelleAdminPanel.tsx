@@ -15,9 +15,14 @@ import { AcelleAccount } from "@/types/acelle.types";
 import { SystemStatus } from "./system/SystemStatus";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function AcelleAdminPanel() {
+interface AcelleAdminPanelProps {
+  onDemoModeChange?: (isDemoMode: boolean) => void;
+}
+
+export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelProps) {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [isButtonLoading, setIsButtonLoading] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const { isAdmin } = useAuth();
 
   const { 
@@ -36,6 +41,13 @@ export default function AcelleAdminPanel() {
     }
   }, [accounts, selectedAccountId]);
 
+  // Add this useEffect to notify parent component about demo mode changes
+  useEffect(() => {
+    if (onDemoModeChange) {
+      onDemoModeChange(isDemoMode);
+    }
+  }, [isDemoMode, onDemoModeChange]);
+
   const selectedAccount = accounts.find(acc => acc.id === selectedAccountId) || accounts[0];
 
   const handleAccountSelect = (accountId: string) => {
@@ -47,6 +59,11 @@ export default function AcelleAdminPanel() {
       setIsButtonLoading(null);
       toast.success(`Compte ${accounts.find(acc => acc.id === accountId)?.name} sélectionné`);
     }, 300);
+  };
+
+  // Handle demo mode function for when API requests fail
+  const handleDemoMode = (isDemo: boolean) => {
+    setIsDemoMode(isDemo);
   };
 
   if (isLoading) {
@@ -134,7 +151,10 @@ export default function AcelleAdminPanel() {
               </Card>
 
               {selectedAccount && (
-                <AcelleCampaignsTable account={selectedAccount} />
+                <AcelleCampaignsTable 
+                  account={selectedAccount} 
+                  onDemoMode={handleDemoMode} 
+                />
               )}
             </>
           )}
@@ -150,7 +170,10 @@ export default function AcelleAdminPanel() {
               </CardContent>
             </Card>
           ) : (
-            <AcelleCampaignsDashboard accounts={accounts} />
+            <AcelleCampaignsDashboard 
+              accounts={accounts} 
+              onDemoMode={handleDemoMode} 
+            />
           )}
         </TabsContent>
       </Tabs>
