@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 // Current version of the CORS proxy
-const CORS_PROXY_VERSION = "1.0.3";
+const CORS_PROXY_VERSION = "1.0.4";
 
 console.log("CORS Proxy starting up...");
 
@@ -128,9 +128,37 @@ serve(async (req: Request) => {
     // Read response body
     let responseBody = await fetchResponse.text();
     
+    // Pour le débogage, ajoutons une trace des réponses 404 avec plus de détail
+    if (fetchResponse.status === 404) {
+      console.error(`[CORS Proxy] 404 Not Found: ${targetUrl}`);
+      console.error(`[CORS Proxy] Response headers:`, Object.fromEntries([...fetchResponse.headers]));
+      console.error(`[CORS Proxy] Response body (first 1000 chars): ${responseBody.substring(0, 1000)}`);
+      
+      // Si la réponse est JSON, essayez de l'analyser pour le débogage
+      try {
+        const jsonResponse = JSON.parse(responseBody);
+        console.error("[CORS Proxy] JSON response structure:", Object.keys(jsonResponse));
+      } catch (e) {
+        // Pas de JSON, ignorer
+      }
+    }
+    
     // Debug for server errors
     if (fetchResponse.status >= 500) {
       console.error(`[CORS Proxy] Server error from target: ${responseBody.substring(0, 500)}...`);
+    }
+    
+    // Log API endpoints for campaigns specifically to debug issues
+    if (targetUrl.includes('/campaigns')) {
+      console.log(`[CORS Proxy] Campaign request made to: ${targetUrl}`);
+      if (fetchResponse.status === 200) {
+        try {
+          const jsonData = JSON.parse(responseBody);
+          console.log(`[CORS Proxy] Campaign data structure: ${typeof jsonData}, length: ${Array.isArray(jsonData) ? jsonData.length : 'not an array'}`);
+        } catch (e) {
+          console.error(`[CORS Proxy] Failed to parse campaign data: ${e.message}`);
+        }
+      }
     }
     
     // Return proxied response with CORS headers

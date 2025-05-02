@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail, CachedCampaign } from "@/types/acelle.types";
 import { updateLastSyncDate } from "./accounts";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,62 +133,59 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
     // Use buildProxyUrl for consistent URL construction
     const cacheBuster = Date.now().toString();
     
-    // Essayer avec customers, qui est probablement un endpoint valide
-    const proxyUrl = buildProxyUrl('customers', { 
-      api_token: account.apiToken,
-      _t: cacheBuster // Add timestamp to prevent caching
-    });
+    // Test with different endpoints that are likely to be valid in Acelle
+    const testEndpoints = ['customers', 'sending_servers', 'subscribers'];
     
-    console.log(`Checking API access with URL: ${proxyUrl}`);
-    
-    // Use AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
-    
-    try {
-      const response = await fetch(proxyUrl, {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0"
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        console.error(`API access check failed: ${response.status}`);
-        try {
-          const errorData = await response.json();
-          console.error("API error response:", errorData);
-        } catch (e) {
-          // Try to get text if JSON fails
+    for (const endpoint of testEndpoints) {
+      try {
+        const proxyUrl = buildProxyUrl(endpoint, { 
+          api_token: account.apiToken,
+          _t: cacheBuster // Add timestamp to prevent caching
+        });
+        
+        console.log(`Checking API access with endpoint ${endpoint}: ${proxyUrl}`);
+        
+        // Use AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+        
+        const response = await fetch(proxyUrl, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          console.log(`API endpoint ${endpoint} accessible for ${account.name}`);
+          
+          // Try to parse the response as JSON
           try {
-            const errorText = await response.text();
-            console.error(`API error text: ${errorText}`);
-          } catch (textError) {
-            console.error("Could not read error response");
+            const result = await response.json();
+            if (Array.isArray(result) || (result && typeof result === 'object')) {
+              return true;
+            }
+          } catch (parseError) {
+            console.warn(`Could not parse response from ${endpoint} as JSON:`, parseError);
+            // Continue to try other endpoints even if parsing fails
           }
+        } else {
+          console.warn(`API endpoint ${endpoint} not accessible: ${response.status}`);
         }
-        return false;
+      } catch (endpointError) {
+        console.warn(`Error testing endpoint ${endpoint}:`, endpointError);
       }
-
-      const result = await response.json();
-      console.log("API access check successful:", result);
-      return Array.isArray(result) || (result && (result.status === 'active' || !!result.id));
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        console.error("API access check timed out");
-      } else {
-        console.error("API access check fetch error:", fetchError);
-      }
-      return false;
     }
+    
+    console.error(`No accessible endpoints found for account: ${account.name}`);
+    return false;
   } catch (error) {
     console.error("API access check error:", error);
     return false;
@@ -201,7 +197,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
  */
 export const fetchCampaignDetails = async (account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail | null> => {
   try {
-    // Check API access first
+    // Check API accessibility first
     const isApiAccessible = await checkApiAccess(account);
     if (!isApiAccessible) {
       console.error("API not accessible, cannot fetch campaign details");
@@ -334,12 +330,13 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
     
     // Essayons différentes structures d'URL possibles pour l'API Acelle
     // L'erreur 404 indique que le chemin n'est pas correct
-    // On va essayer 3 variantes possibles de l'endpoint campaigns
+    // On va essayer les variantes possibles de l'endpoint campaigns
     
     const possibleEndpoints = [
       'campaigns', 
-      'sending_servers/campaigns', 
-      'sending_campaigns'
+      'sending_campaigns',
+      'sending_servers/campaigns',
+      'customers/campaigns'
     ];
     
     let campaigns = [];
@@ -386,14 +383,34 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
           continue; // Try next endpoint
         }
         
-        // Parse JSON from the text response
-        let campaignsData;
+        // Try to parse as JSON first
+        let campaignsData = [];
+        
         try {
           campaignsData = JSON.parse(responseText);
           
           // Check if campaigns is an object with a data property (common API response pattern)
-          if (campaignsData && typeof campaignsData === 'object' && !Array.isArray(campaignsData) && campaignsData.data) {
-            campaignsData = campaignsData.data;
+          if (campaignsData && typeof campaignsData === 'object' && !Array.isArray(campaignsData)) {
+            // If it has a data property, use that
+            if (campaignsData.data && Array.isArray(campaignsData.data)) {
+              campaignsData = campaignsData.data;
+              console.log(`Found campaigns data in .data property, length: ${campaignsData.length}`);
+            }
+            // If it has an items property, use that (another common pattern)
+            else if (campaignsData.items && Array.isArray(campaignsData.items)) {
+              campaignsData = campaignsData.items;
+              console.log(`Found campaigns data in .items property, length: ${campaignsData.length}`);
+            }
+            // Otherwise, try to find any array property in the response
+            else {
+              for (const key in campaignsData) {
+                if (Array.isArray(campaignsData[key])) {
+                  console.log(`Found potential campaigns array in .${key} property, length: ${campaignsData[key].length}`);
+                  campaignsData = campaignsData[key];
+                  break;
+                }
+              }
+            }
           }
           
           // If still not an array, continue to next endpoint

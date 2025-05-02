@@ -2,6 +2,7 @@
 import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 export function TableLoadingState() {
   return (
@@ -24,21 +25,41 @@ interface TableErrorStateProps {
 
 export function TableErrorState({ onRetry, errorMessage }: TableErrorStateProps) {
   return (
-    <Card>
-      <CardContent className="p-10 flex flex-col items-center justify-center">
-        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-        <p className="text-center text-lg font-medium">Erreur de connexion</p>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          {errorMessage || "Une erreur est survenue lors de la récupération des données."}
-        </p>
-      </CardContent>
-      <CardFooter className="flex justify-center pb-6">
-        <Button onClick={onRetry}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Essayer à nouveau
-        </Button>
-      </CardFooter>
-    </Card>
+    <>
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Erreur de connexion</AlertTitle>
+        <AlertDescription>
+          Une erreur est survenue lors de la communication avec l'API Acelle Mail.
+          Veuillez vérifier que l'API est accessible et que les identifiants sont corrects.
+        </AlertDescription>
+      </Alert>
+      
+      <Card>
+        <CardContent className="p-10 flex flex-col items-center justify-center">
+          <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+          <p className="text-center text-lg font-medium">Erreur de connexion</p>
+          <p className="text-center text-sm text-muted-foreground mt-2">
+            {errorMessage || "Une erreur est survenue lors de la récupération des données."}
+          </p>
+          <div className="text-center text-sm text-muted-foreground mt-4 max-w-md">
+            <p>Assurez-vous que :</p>
+            <ul className="list-disc list-inside mt-2">
+              <li>L'URL de l'API est correcte (généralement terminée par /api/v1)</li>
+              <li>Le token API est valide et actif</li>
+              <li>Le serveur Acelle Mail est accessible</li>
+              <li>Le compte a des permissions suffisantes sur Acelle Mail</li>
+            </ul>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-center pb-6">
+          <Button onClick={onRetry}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Essayer à nouveau
+          </Button>
+        </CardFooter>
+      </Card>
+    </>
   );
 }
 

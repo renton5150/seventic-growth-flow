@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -41,6 +42,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0); // Pour forcer le rechargement
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
 
   // Function to wake up Edge Functions
   const wakeUpEdgeFunctions = async () => {
@@ -96,7 +98,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       
       if (!isAccessible) {
         console.error(`API not accessible for account: ${account.name}`);
-        setConnectionError(`L'API Acelle Mail n'est pas accessible pour le compte ${account.name}. Vérifiant le cache...`);
+        setConnectionError(`L'API Acelle Mail n'est pas accessible pour le compte ${account.name}. Vérification du cache...`);
         
         // Try to get campaigns from cache
         try {
@@ -151,6 +153,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isLoading, 
     isError,
     isFetching,
+    error,
     refetch 
   } = useQuery({
     queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage, retryCount],
@@ -190,6 +193,11 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setRetryCount(prev => prev + 1);
     refetch();
   };
+  
+  // Toggle debug info
+  const toggleDebugInfo = () => {
+    setShowDebugInfo(prev => !prev);
+  };
 
   if (account.status === "inactive") {
     return <InactiveAccountState />;
@@ -212,16 +220,50 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Campagnes pour {account.name}</h3>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRetry} 
-          disabled={isFetching || isManuallyRefreshing}
-        >
-          <RefreshCw className={`h-4 w-4 mr-1 ${isFetching || isManuallyRefreshing ? 'animate-spin' : ''}`} />
-          Actualiser
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={toggleDebugInfo}
+          >
+            {showDebugInfo ? "Masquer" : "Afficher"} les infos de débogage
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRetry} 
+            disabled={isFetching || isManuallyRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${isFetching || isManuallyRefreshing ? 'animate-spin' : ''}`} />
+            Actualiser
+          </Button>
+        </div>
       </div>
+      
+      {showDebugInfo && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950">
+          <CardContent className="p-4 text-sm">
+            <h4 className="font-bold mb-2">Informations de débogage</h4>
+            <div className="space-y-1">
+              <p><strong>Endpoint API:</strong> {account.apiEndpoint}</p>
+              <p><strong>Dernière synchronisation:</strong> {account.last_sync_date ? new Date(account.last_sync_date).toLocaleString() : 'Jamais'}</p>
+              {account.last_sync_error && (
+                <p className="text-red-600"><strong>Dernière erreur:</strong> {account.last_sync_error}</p>
+              )}
+              <p><strong>Status de la requête:</strong> {isLoading ? 'Chargement' : (isError ? 'Erreur' : 'Succès')}</p>
+              {error && (
+                <p className="text-red-600">
+                  <strong>Erreur:</strong> {error instanceof Error ? error.message : 'Erreur inconnue'}
+                </p>
+              )}
+              <p className="text-sm text-gray-500 mt-2">
+                Note: Si les campagnes ne s'affichent pas, essayez de vérifier le point d'accès à l'API Acelle Mail. 
+                Les points d'accès valides sont généralement: /api/v1/campaigns, /api/v1/sending_campaigns, ou /api/v1/customers/campaigns
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <AcelleTableFilters
         searchTerm={searchTerm}
