@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Configuration for the Acelle proxy
 const ACELLE_PROXY_CONFIG = {
+  // Use the full URL for the CORS proxy
   BASE_URL: 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy',
   ACELLE_API_URL: 'https://emailing.plateforme-solution.net/api/v1'
 };
@@ -47,33 +48,38 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
   
   try {
     // Get authentication session first
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session?.access_token) {
-      debug.errorMessage = "No authentication session available";
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !sessionData?.session?.access_token) {
+      debug.errorMessage = sessionError?.message || "No authentication session available";
+      debug.statusCode = 401;
       return debug;
     }
-
+    
+    const accessToken = sessionData.session.access_token;
+    
     // Add anti-cache timestamp to avoid stale responses
     const cacheBuster = Date.now().toString();
     
-    // Use a valid endpoint - 'me' or 'customers' is commonly available in Acelle API
-    // Instead of 'ping' which seems to not exist
+    // Use the customers endpoint which should be available in all Acelle instances
     const testUrl = buildProxyUrl('customers', { 
       api_token: account.apiToken,
       _t: cacheBuster // Add timestamp to prevent caching
     });
+    
     debug.request!.url = testUrl;
     
     console.log(`Testing connection to Acelle API: ${testUrl}`);
     
-    // Send the request with proper authentication
+    // Send the request with proper authentication headers
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': `Bearer ${sessionData.session.access_token}`,
-        'Cache-Control': 'no-store, no-cache, must-revalidate'
+        'Authorization': `Bearer ${accessToken}`,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'X-Requested-With': 'XMLHttpRequest'
       }
     });
     
@@ -108,10 +114,17 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     
     // Handle error response
     debug.errorMessage = `API returned status ${response.status}`;
+    
+    // Try to get detailed error info for better diagnostics
     try {
       const errorData = await response.json();
       debug.responseData = errorData;
       console.error(`API error: Status ${response.status}`, errorData);
+      
+      // Add helpful error details for authentication errors
+      if (response.status === 401) {
+        debug.errorMessage = "Authentication failed. Please check your API token.";
+      }
     } catch (e) {
       debug.errorMessage += ". Could not parse error response.";
       try {

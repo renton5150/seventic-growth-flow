@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { AcelleConnectionDebug, AcelleAccount } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle/acelle-service";
+import { testAcelleConnection } from "@/services/acelle/api/connection";
 import { isSupabaseAuthenticated } from "@/services/missions-service/auth/supabaseAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ export const useSystemStatus = () => {
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
   const [authStatus, setAuthStatus] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<string>("status");
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [cacheInfo, setCacheInfo] = useState<{
     count: number;
     lastUpdate: string | null;
@@ -36,18 +37,42 @@ export const useSystemStatus = () => {
     cachePriority: 0
   };
 
-  // Run authentication check on component mount
+  // Run authentication check and get token on component mount
   useEffect(() => {
     const checkAuth = async () => {
-      const isAuthenticated = await isSupabaseAuthenticated();
-      setAuthStatus(isAuthenticated);
+      try {
+        // Check if user is authenticated
+        const isAuthenticated = await isSupabaseAuthenticated();
+        setAuthStatus(isAuthenticated);
+        
+        if (isAuthenticated) {
+          // Try to refresh the session to ensure we have a valid token
+          await supabase.auth.refreshSession();
+          
+          // Get the refreshed token
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token;
+          
+          if (token) {
+            console.log("Auth token obtained for system status");
+            setAuthToken(token);
+          } else {
+            console.error("No auth token available despite being authenticated");
+          }
+        }
+      } catch (error) {
+        console.error("Error during authentication check:", error);
+        setAuthStatus(false);
+      }
     };
+    
     checkAuth();
   }, []);
 
   // Fetch cache information for diagnostic purposes
   const fetchCacheInfo = async () => {
     try {
+      // Get total count of cached campaigns
       const { data, error, count } = await supabase
         .from('email_campaigns_cache')
         .select('*', { count: 'exact' })
@@ -59,7 +84,7 @@ export const useSystemStatus = () => {
         return;
       }
       
-      // Get the most recent cache update
+      // Get the most recent cache update time
       const { data: latestData } = await supabase
         .from('email_campaigns_cache')
         .select('cache_updated_at')
@@ -85,24 +110,58 @@ export const useSystemStatus = () => {
     }
   }, [activeTab]);
 
+  // Function to refresh the authentication token
+  const refreshAuthToken = async (): Promise<string | null> => {
+    try {
+      toast.loading("Rafraîchissement du token...", { id: "refresh-token" });
+      
+      // Explicitly refresh the session
+      const { data: refreshResult, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error("Failed to refresh session:", refreshError);
+        toast.error(`Échec du rafraîchissement: ${refreshError.message}`, { id: "refresh-token" });
+        return null;
+      }
+      
+      if (refreshResult.session) {
+        const token = refreshResult.session.access_token;
+        console.log("Successfully refreshed authentication token");
+        setAuthToken(token);
+        setAuthStatus(true);
+        toast.success("Token rafraîchi avec succès", { id: "refresh-token" });
+        return token;
+      } else {
+        toast.error("Pas de session après rafraîchissement", { id: "refresh-token" });
+        return null;
+      }
+    } catch (e) {
+      console.error("Exception during auth refresh:", e);
+      toast.error(`Erreur: ${e instanceof Error ? e.message : "Erreur inconnue"}`, { id: "refresh-token" });
+      return null;
+    }
+  };
+
+  // Wake up Edge Functions with improved authentication handling
   const wakeUpEdgeFunctions = async () => {
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      // Make sure we have a valid token first
+      const token = authToken || await refreshAuthToken();
       
-      if (!accessToken) {
+      if (!token) {
         console.log("No auth session available for wake-up request");
-        toast.error("Impossible de réveiller les services: authentification requise");
+        toast.error("Impossible de réveiller les services: authentification requise", { id: "wake-services" });
         return false;
       }
       
       toast.loading("Réveil des services en cours...", { id: "wake-services" });
       
       const wakeUpPromises = [
+        // Wake up the CORS proxy first
         fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping', {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${token}`,
             'Cache-Control': 'no-store',
             'X-Wake-Request': 'true'
           }
@@ -111,25 +170,26 @@ export const useSystemStatus = () => {
             console.log("cors-proxy service awakened successfully");
             return true;
           } else {
-            console.log(`cors-proxy wake-up failed with status ${response.status}`);
+            console.log(`cors-proxy wake-up responded with status ${response.status}`);
             return false;
           }
         }).catch(() => {
-          console.log("Wake-up attempt for cors-proxy completed with error");
+          console.log("Wake-up attempt for cors-proxy completed with error (expected in dev)");
           return false;
         }),
         
+        // Also wake up the sync-email-campaigns function
         fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
           method: 'OPTIONS',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${token}`,
             'Cache-Control': 'no-store'
           }
         }).then(response => {
           console.log("sync-email-campaigns service ping response:", response.status);
           return true;
         }).catch(() => {
-          console.log("Wake-up attempt for sync-email-campaigns completed with error");
+          console.log("Wake-up attempt for sync-email-campaigns completed with error (expected in dev)");
           return false;
         })
       ];
@@ -137,10 +197,13 @@ export const useSystemStatus = () => {
       const results = await Promise.all(wakeUpPromises);
       const success = results.some(r => r === true);
       
+      // Add a small delay to allow services to fully initialize
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       if (success) {
         toast.success("Services réveillés avec succès", { id: "wake-services" });
       } else {
-        toast.error("Problème lors du réveil des services", { id: "wake-services" });
+        toast.warning("Services réveillés avec des avertissements", { id: "wake-services" });
       }
       
       return success;
@@ -151,6 +214,7 @@ export const useSystemStatus = () => {
     }
   };
 
+  // Check API availability with enhanced error handling
   const checkApiAvailability = async () => {
     try {
       // First, verify authentication status
@@ -166,8 +230,21 @@ export const useSystemStatus = () => {
         };
       }
       
-      const connectionDebug = await acelleService.testAcelleConnection(testAccount);
+      // Make sure we have a valid token
+      const token = authToken || await refreshAuthToken();
+      
+      if (!token) {
+        return {
+          available: false,
+          error: "No valid authentication token available",
+          debugInfo: null
+        };
+      }
+      
+      // Test the connection
+      const connectionDebug = await testAcelleConnection(testAccount);
       setDebugInfo(connectionDebug);
+      
       return {
         available: connectionDebug.success,
         debugInfo: connectionDebug
@@ -182,18 +259,31 @@ export const useSystemStatus = () => {
     }
   };
 
+  // Refresh cache info with updated token
   const refreshCacheInfo = async () => {
-    toast.loading("Actualisation des informations du cache...", { id: "refresh-cache" });
-    await fetchCacheInfo();
-    toast.success("Informations du cache actualisées", { id: "refresh-cache" });
+    try {
+      toast.loading("Actualisation des informations du cache...", { id: "refresh-cache" });
+      
+      // Make sure we have a valid authentication token
+      if (!authToken) {
+        await refreshAuthToken();
+      }
+      
+      await fetchCacheInfo();
+      toast.success("Informations du cache actualisées", { id: "refresh-cache" });
+    } catch (e) {
+      console.error("Error refreshing cache info:", e);
+      toast.error("Erreur lors de l'actualisation du cache", { id: "refresh-cache" });
+    }
   };
 
+  // Run full system diagnostics
   const runDiagnostics = async () => {
     setIsTesting(true);
     try {
       toast.loading("Test des services en cours...", { id: "api-test" });
       
-      // Vérifier d'abord l'état de l'authentification Supabase
+      // Verify authentication status first
       const isAuthenticated = await isSupabaseAuthenticated();
       setAuthStatus(isAuthenticated);
       
@@ -203,10 +293,19 @@ export const useSystemStatus = () => {
         return;
       }
       
-      // Tenter de réveiller les fonctions Edge avant le test principal
+      // Refresh the token to ensure it's valid
+      const token = await refreshAuthToken();
+      
+      if (!token) {
+        toast.error("Impossible d'obtenir un token valide", { id: "api-test" });
+        setIsTesting(false);
+        return;
+      }
+      
+      // Wake up Edge Functions with the fresh token
       await wakeUpEdgeFunctions();
       
-      // First check API accessibility
+      // Check API accessibility
       const apiStatus = await checkApiAvailability();
       
       if (apiStatus.debugInfo) {
@@ -226,11 +325,22 @@ export const useSystemStatus = () => {
       if (apiStatus.available) {
         toast.success("Tous les services sont opérationnels", { id: "api-test" });
       } else {
-        // If API is not available, try to wake up services
+        // If API is not available on first attempt, try another token refresh and wake-up
         toast.warning("Services indisponibles, tentative de réveil...", { id: "api-test" });
+        
+        // Force token refresh
+        const freshToken = await refreshAuthToken();
+        
+        if (!freshToken) {
+          toast.error("Impossible d'obtenir un token valide", { id: "api-test" });
+          setIsTesting(false);
+          return;
+        }
+        
+        // Wake up services again with fresh token
         await wakeUpEdgeFunctions();
         
-        // Check again after wake up attempt
+        // Retry API check with fresh token
         const retryStatus = await checkApiAvailability();
         
         if (retryStatus.debugInfo) {
@@ -277,6 +387,8 @@ export const useSystemStatus = () => {
     wakeUpEdgeFunctions,
     checkApiAvailability,
     refreshCacheInfo,
-    runDiagnostics
+    runDiagnostics,
+    refreshAuthToken,
+    authToken
   };
 };
