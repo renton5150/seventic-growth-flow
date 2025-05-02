@@ -1,353 +1,354 @@
 
 import React, { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { AcelleAccount, AcelleCampaignDetail } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle/acelle-service";
-import { DataUnavailableAlert } from "./errors/DataUnavailableAlert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import { generateMockCampaigns } from "@/services/acelle/api/mockData";
-import { supabase } from "@/integrations/supabase/client";
+import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { Badge } from "@/components/ui/badge";
+import { translateStatus, getStatusBadgeVariant, generateSimulatedStats } from "@/utils/acelle/campaignStatusUtils";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { getCampaignStatsDirectly } from "@/services/acelle/api/directStats";
+import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 
-// Définition des couleurs pour les graphiques
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a163f7'];
-
-// Define the interface for component props
 interface AcelleCampaignDetailsProps {
+  campaignId: string;
   account: AcelleAccount;
-  campaignUid: string;
+  onClose: () => void;
+  demoMode?: boolean;
 }
 
-// Update function to accept props
-const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, campaignUid }) => {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
+const AcelleCampaignDetails = ({ 
+  campaignId, 
+  account, 
+  onClose,
+  demoMode = false
+}: AcelleCampaignDetailsProps) => {
+  const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>(null);
 
-  // Get access token on mount
+  // Chargement des détails de la campagne
   useEffect(() => {
-    const getAccessToken = async () => {
+    const loadCampaignDetails = async () => {
+      setIsLoading(true);
+      setError(null);
+      
       try {
-        console.log("Fetching auth token for campaign details");
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.access_token) {
-          console.log("Auth token obtained successfully");
-          setAccessToken(sessionData.session.access_token);
+        if (demoMode) {
+          // En mode démo, créer une campagne factice
+          const demoCampaign = createDemoCampaign(campaignId);
+          setCampaign(demoCampaign);
+          setStats(generateSimulatedStats());
         } else {
-          console.error("No access token found in session");
+          // Charger depuis le cache
+          const campaigns = await fetchCampaignsFromCache([account]);
+          const foundCampaign = campaigns.find(
+            c => c.uid === campaignId || c.campaign_uid === campaignId
+          );
+          
+          if (foundCampaign) {
+            setCampaign(foundCampaign);
+            
+            // Récupérer les statistiques à jour
+            const freshStats = await getCampaignStatsDirectly(foundCampaign, account);
+            setStats(freshStats);
+          } else {
+            setError("Campagne non trouvée");
+          }
         }
-      } catch (error) {
-        console.error("Error getting access token:", error);
+      } catch (err) {
+        console.error("Erreur lors du chargement des détails de la campagne:", err);
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
+      } finally {
+        setIsLoading(false);
       }
     };
     
-    getAccessToken();
-  }, []);
+    loadCampaignDetails();
+  }, [campaignId, account, demoMode]);
 
-  const { data: campaignDetails, isLoading, isError } = useQuery({
-    queryKey: ["campaignDetails", account?.id, campaignUid, accessToken],
-    queryFn: async () => {
-      try {
-        console.log(`Fetching details for campaign ${campaignUid} with token: ${accessToken ? 'present' : 'absent'}`);
-        return await acelleService.fetchCampaignDetails(account, campaignUid, accessToken);
-      } catch (error) {
-        console.error(`Error fetching campaign details: ${error}`);
-        toast.error(`Erreur lors du chargement des détails de la campagne: ${error}`);
-        throw error;
-      }
-    },
-    enabled: !!account && !!campaignUid && !!accessToken,
-    staleTime: 60 * 1000, // 1 minute
-    retry: 1
-  });
+  // Créer une campagne fictive pour le mode démo
+  const createDemoCampaign = (id: string): AcelleCampaign => {
+    const now = new Date();
+    return {
+      uid: id,
+      campaign_uid: id,
+      name: "Campagne démo détaillée",
+      subject: "Sujet de la campagne démo détaillée",
+      status: "sent",
+      created_at: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: now.toISOString(),
+      delivery_date: now.toISOString(),
+      run_at: null,
+      last_error: null,
+      delivery_info: {}
+    };
+  };
 
-  if (!accessToken) {
-    return (
-      <div className="py-8 text-center">
-        <Spinner className="h-8 w-8 mx-auto mb-4" />
-        <p>Authentification en cours...</p>
-      </div>
-    );
-  }
+  // Formatage des nombres
+  const formatNumber = (value?: number): string => {
+    if (value === undefined || value === null) return "0";
+    return value.toLocaleString();
+  };
+
+  // Formatage des pourcentages
+  const formatPercentage = (value?: number): string => {
+    if (value === undefined || value === null) return "0%";
+    return `${value.toFixed(1)}%`;
+  };
+
+  // Formatage des dates
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return "Non définie";
+    
+    try {
+      const date = new Date(dateString);
+      return format(date, "dd MMMM yyyy à HH:mm", { locale: fr });
+    } catch {
+      return "Date invalide";
+    }
+  };
 
   if (isLoading) {
     return (
-      <div className="py-8 text-center">
-        <Spinner className="h-8 w-8 mx-auto mb-4" />
-        <p>Chargement des détails de la campagne...</p>
+      <div className="flex items-center justify-center p-8">
+        <Spinner className="h-8 w-8" />
       </div>
     );
   }
 
-  if (isError && !campaignDetails) {
-    return <DataUnavailableAlert message="Impossible de charger les détails de cette campagne" />;
+  if (error || !campaign) {
+    return (
+      <div className="text-center p-8 text-red-500">
+        <p>Erreur: {error || "Campagne non trouvée"}</p>
+      </div>
+    );
   }
 
-  const campaignDetail = campaignDetails as AcelleCampaignDetail;
+  // Extraction des statistiques
+  const statsData = stats || campaign.delivery_info || campaign.statistics || {};
+  const { 
+    total = 0,
+    delivered = 0, 
+    opened = 0, 
+    clicked = 0, 
+    bounced = { total: 0 },
+    unsubscribed = 0,
+    complained = 0,
+    delivery_rate = 0,
+    open_rate = 0,
+    click_rate = 0
+  } = statsData;
 
-  // Données pour le graphique circulaire des statuts d'envoi
-  const deliveryData = [
-    { name: 'Envoyés', value: campaignDetail?.delivery_info?.delivered || campaignDetail?.statistics?.delivered_count || 0 },
-    { name: 'Non livrés', value: (campaignDetail?.delivery_info?.bounced?.total || campaignDetail?.statistics?.bounce_count || 0) },
-  ];
-
-  // Données pour le graphique d'engagement
-  const engagementData = [
-    { name: 'Livrés', value: campaignDetail?.delivery_info?.delivered || campaignDetail?.statistics?.delivered_count || 0 },
-    { name: 'Ouverts', value: campaignDetail?.delivery_info?.opened || campaignDetail?.statistics?.open_count || 0 },
-    { name: 'Cliqués', value: campaignDetail?.delivery_info?.clicked || campaignDetail?.statistics?.click_count || 0 }
-  ];
-
-  const isDemoMode = campaignUid.startsWith('mock-');
+  const totalBounces = typeof bounced === 'object' ? bounced.total : bounced;
+  const softBounces = typeof bounced === 'object' ? bounced.soft : 0;
+  const hardBounces = typeof bounced === 'object' ? bounced.hard : 0;
 
   return (
     <div className="space-y-6">
-      {/* Campaign header */}
-      <div>
-        <h2 className="text-xl font-semibold">{campaignDetail?.name}</h2>
-        <p className="text-muted-foreground">{campaignDetail?.subject}</p>
-        {isDemoMode && (
-          <div className="mt-1 text-xs text-amber-500">Mode démonstration activé : les données sont simulées</div>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h3 className="font-medium mb-2">Informations générales</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Nom:</span>
+              <span className="font-medium">{campaign.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Sujet:</span>
+              <span>{campaign.subject}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Statut:</span>
+              <Badge variant={getStatusBadgeVariant(campaign.status)}>
+                {translateStatus(campaign.status)}
+              </Badge>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Créée le:</span>
+              <span>{formatDate(campaign.created_at)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Envoyée le:</span>
+              <span>{formatDate(campaign.delivery_date)}</span>
+            </div>
+            {campaign.last_error && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Erreur:</span>
+                <span className="text-red-500">{campaign.last_error}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div>
+          <h3 className="font-medium mb-2">Statistiques globales</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Destinataires:</span>
+              <span className="font-medium">{formatNumber(total)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Délivrés:</span>
+              <span>{formatNumber(delivered)} ({formatPercentage(delivery_rate)})</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Ouvertures:</span>
+              <span>{formatNumber(opened)} ({formatPercentage(open_rate)})</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Clics:</span>
+              <span>{formatNumber(clicked)} ({formatPercentage(click_rate)})</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Bounces:</span>
+              <span>{formatNumber(totalBounces)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Désabonnements:</span>
+              <span>{formatNumber(unsubscribed)}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      {/* Campaign details tabs */}
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="overview">Aperçu</TabsTrigger>
-          <TabsTrigger value="statistics">Statistiques</TabsTrigger>
-          <TabsTrigger value="content">Contenu</TabsTrigger>
+
+      <Tabs defaultValue="stats" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="stats">Statistiques détaillées</TabsTrigger>
+          <TabsTrigger value="links">Liens et clics</TabsTrigger>
+          <TabsTrigger value="technical">Informations techniques</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="overview" className="space-y-4">
-          {/* Display campaign overview */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h3 className="font-medium mb-1">Status</h3>
-              <p>{campaignDetail?.status === 'sent' ? 'Envoyé' : 
-                  campaignDetail?.status === 'sending' ? 'En cours d\'envoi' : 
-                  campaignDetail?.status === 'queued' ? 'En attente' : 
-                  campaignDetail?.status === 'new' ? 'Nouveau' :
-                  campaignDetail?.status === 'paused' ? 'En pause' : 
-                  campaignDetail?.status}</p>
-            </div>
-            <div>
-              <h3 className="font-medium mb-1">Date d'envoi</h3>
-              <p>{campaignDetail?.run_at ? new Date(campaignDetail.run_at).toLocaleDateString('fr-FR') : 'Non programmé'}</p>
-            </div>
-            <div>
-              <h3 className="font-medium mb-1">Date de création</h3>
-              <p>{campaignDetail?.created_at ? new Date(campaignDetail.created_at).toLocaleDateString('fr-FR') : '-'}</p>
-            </div>
-            <div>
-              <h3 className="font-medium mb-1">Dernière mise à jour</h3>
-              <p>{campaignDetail?.updated_at ? new Date(campaignDetail.updated_at).toLocaleDateString('fr-FR') : '-'}</p>
-            </div>
+
+        <TabsContent value="stats" className="space-y-4 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Délivrabilité</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatPercentage(delivery_rate)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatNumber(delivered)} sur {formatNumber(total)} emails délivrés
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Taux d'ouverture</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatPercentage(open_rate)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatNumber(opened)} emails ouverts
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Taux de clic</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatPercentage(click_rate)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatNumber(clicked)} clics enregistrés
+                </p>
+              </CardContent>
+            </Card>
           </div>
-          
-          <div className="mt-6">
-            <h3 className="font-medium mb-2">Résumé des statistiques</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Total envoyé</div>
-                  <div className="text-2xl font-bold">
-                    {campaignDetail?.statistics?.subscriber_count || 
-                     campaignDetail?.delivery_info?.total || 0}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Taux d'ouverture</div>
-                  <div className="text-2xl font-bold">
-                    {campaignDetail?.statistics?.uniq_open_rate?.toFixed(1) || 
-                     campaignDetail?.delivery_info?.unique_open_rate?.toFixed(1) || 0}%
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Taux de clic</div>
-                  <div className="text-2xl font-bold">
-                    {campaignDetail?.statistics?.click_rate?.toFixed(1) || 
-                     campaignDetail?.delivery_info?.click_rate?.toFixed(1) || 0}%
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Bounces</div>
-                  <div className="text-2xl font-bold">
-                    {campaignDetail?.statistics?.bounce_count || 
-                     campaignDetail?.delivery_info?.bounced?.total || 0}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="statistics" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Distribution d'envoi</CardTitle>
+                <CardTitle className="text-base">Détail des bounces</CardTitle>
               </CardHeader>
-              <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={deliveryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-                    >
-                      {deliveryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [`${value} emails`, ""]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Bounces totaux:</span>
+                    <span className="font-medium">{formatNumber(totalBounces)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Soft bounces:</span>
+                    <span>{formatNumber(softBounces)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Hard bounces:</span>
+                    <span>{formatNumber(hardBounces)}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Engagement</CardTitle>
+                <CardTitle className="text-base">Autres métriques</CardTitle>
               </CardHeader>
-              <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={engagementData}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [`${value} emails`, ""]} />
-                    <Legend />
-                    <Bar dataKey="value" fill="#82ca9d" name="Nombre" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Désabonnements:</span>
+                    <span className="font-medium">{formatNumber(unsubscribed)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Plaintes:</span>
+                    <span>{formatNumber(complained)}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
-          
+        </TabsContent>
+
+        <TabsContent value="links" className="py-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Détails des statistiques</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Envoyés</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.subscriber_count || 
-                     campaignDetail?.delivery_info?.total || 0}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Livrés</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.delivered_count || 
-                     campaignDetail?.delivery_info?.delivered || 0}
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({campaignDetail?.statistics?.delivered_rate?.toFixed(1) || 
-                       campaignDetail?.delivery_info?.delivery_rate?.toFixed(1) || 0}%)
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Ouverts (unique)</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.open_count || 
-                     campaignDetail?.delivery_info?.opened || 0}
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({campaignDetail?.statistics?.uniq_open_rate?.toFixed(1) || 
-                       campaignDetail?.delivery_info?.unique_open_rate?.toFixed(1) || 0}%)
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Clics</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.click_count || 
-                     campaignDetail?.delivery_info?.clicked || 0}
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({campaignDetail?.statistics?.click_rate?.toFixed(1) || 
-                       campaignDetail?.delivery_info?.click_rate?.toFixed(1) || 0}%)
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Bounces</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.bounce_count || 
-                     campaignDetail?.delivery_info?.bounced?.total || 0}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Soft Bounces</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.soft_bounce_count || 
-                     campaignDetail?.delivery_info?.bounced?.soft || 0}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Hard Bounces</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.hard_bounce_count || 
-                     campaignDetail?.delivery_info?.bounced?.hard || 0}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">Désabonnements</div>
-                  <div className="text-lg">
-                    {campaignDetail?.statistics?.unsubscribe_count || 
-                     campaignDetail?.delivery_info?.unsubscribed || 0}
-                  </div>
-                </div>
-              </div>
+            <CardContent className="p-4">
+              <p className="text-muted-foreground">
+                Les données détaillées sur les clics ne sont pas disponibles pour le moment.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
-        
-        <TabsContent value="content" className="space-y-4">
+
+        <TabsContent value="technical" className="py-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Contenu HTML</CardTitle>
+              <CardTitle>Données techniques</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-md p-4 bg-white">
-                <div className="prose max-w-full"
-                  dangerouslySetInnerHTML={{ __html: campaignDetail?.html || '<p>Contenu HTML non disponible</p>' }}
-                />
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">ID:</span>
+                  <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                    {campaign.uid || campaign.campaign_uid}
+                  </code>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Dernière mise à jour:</span>
+                  <span>{formatDate(campaign.updated_at)}</span>
+                </div>
+                {campaign.run_at && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Date planifiée:</span>
+                    <span>{formatDate(campaign.run_at)}</span>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Version Texte</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-md p-4 bg-slate-50 whitespace-pre-line font-mono text-sm">
-                {campaignDetail?.plain || 'Contenu texte non disponible'}
-              </div>
+              
+              {demoMode && (
+                <div className="mt-4 p-2 bg-yellow-50 text-yellow-800 text-sm rounded-md">
+                  Mode démonstration activé : les données affichées sont simulées.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
