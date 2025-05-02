@@ -40,14 +40,15 @@ interface AcelleCampaignsTableProps {
 
 export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCampaignsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(5); // Réduit à 5 campagnes par page au lieu de 10
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0); // Pour forcer le rechargement
+  const [retryCount, setRetryCount] = useState(0); 
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [hasNextPage, setHasNextPage] = useState(false);
   
   // Utiliser notre hook useCampaignCache pour les opérations de cache
   const { 
@@ -161,8 +162,8 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       // Réveiller les services avant la synchronisation
       await wakeUpEdgeFunctions();
       
-      // Forcer la synchronisation des campagnes
-      const result = await forceSyncCampaigns(account, accessToken);
+      // Synchronisation par lots de 5 campagnes maximum
+      const result = await forceSyncCampaigns(account, accessToken, 5); // Ajout du paramètre pour limiter à 5
       
       if (result.success) {
         toast.success(`${result.message} (${result.syncedCount || 0} campagnes)`, { id: "force-sync" });
@@ -230,6 +231,9 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         
         console.log(`Récupération réussie de ${campaigns?.length || 0} campagnes depuis l'API`);
         
+        // Déterminer s'il y a une page suivante
+        setHasNextPage(campaigns.length === itemsPerPage);
+        
         // Vérifier si les campagnes ont des statistiques
         const hasStats = campaigns.some(c => 
           c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.delivered_count > 0)
@@ -238,8 +242,13 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         if (!hasStats) {
           console.warn("Les campagnes récupérées n'ont pas de statistiques! Vérifier l'API");
           
-          // Si pas de stats, forcer une synchronisation en arrière-plan
-          handleForceSyncNow();
+          // Si pas de stats, synchroniser uniquement cette page de campagnes
+          if (!isSyncing) {
+            const synchroResult = await forceSyncCampaigns(account, accessToken, itemsPerPage, currentPage);
+            if (synchroResult.success) {
+              console.log("Synchronisation automatique de la page réussie");
+            }
+          }
         } else {
           console.log("Statistiques trouvées dans les campagnes récupérées");
         }
@@ -248,11 +257,12 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         
         // Essayer de récupérer depuis le cache
         console.log("Tentative de récupération des campagnes depuis le cache comme solution de repli");
-        const cachedCampaigns = await fetchCampaignsFromCache([account]);
+        const cachedCampaigns = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
         
         if (cachedCampaigns && cachedCampaigns.length > 0) {
           console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache`);
           campaigns = cachedCampaigns;
+          setHasNextPage(cachedCampaigns.length === itemsPerPage);
         } else {
           console.log("Aucune campagne disponible dans le cache, utilisation des données de démonstration");
           throw apiError;
@@ -278,7 +288,8 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           onDemoMode(true);
         }
         
-        return acelleService.generateMockCampaigns(8);
+        // Générer moins de campagnes de démonstration (5 au lieu de 8)
+        return acelleService.generateMockCampaigns(5);
       }
     } catch (error) {
       console.error(`Erreur lors de la récupération des campagnes:`, error);
@@ -290,12 +301,12 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         onDemoMode(true);
       }
       
-      // Retourner des campagnes de démonstration comme solution de repli
-      return acelleService.generateMockCampaigns(8);
+      // Retourner des campagnes de démonstration comme solution de repli (5 au lieu de 8)
+      return acelleService.generateMockCampaigns(5);
     } finally {
       setIsManuallyRefreshing(false);
     }
-  }, [account, currentPage, itemsPerPage, onDemoMode, accessToken]);
+  }, [account, currentPage, itemsPerPage, onDemoMode, accessToken, isSyncing]);
   
   const { 
     data: campaigns = [], 
@@ -428,6 +439,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
               {account.lastSyncError && (
                 <p className="text-red-600"><strong>Dernière erreur:</strong> {account.lastSyncError}</p>
               )}
+              <p><strong>Page courante:</strong> {currentPage}, <strong>Campagnes par page:</strong> {itemsPerPage}</p>
               <p><strong>Status de la requête:</strong> {isLoading ? 'Chargement' : (isError ? 'Erreur' : 'Succès')}</p>
               {error && (
                 <p className="text-red-600">
@@ -495,7 +507,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           
           <CampaignsTablePagination
             currentPage={currentPage}
-            hasNextPage={campaigns.length === itemsPerPage}
+            hasNextPage={hasNextPage}
             onPageChange={handlePageChange}
           />
         </>

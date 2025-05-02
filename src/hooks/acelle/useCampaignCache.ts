@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const useCampaignCache = (account: AcelleAccount) => {
   const [campaignsCount, setCampaignsCount] = useState<number>(0);
   const [lastRefreshTimestamp, setLastRefreshTimestamp] = useState<Date | null>(null);
+  const [isCacheBusy, setIsCacheBusy] = useState<boolean>(false);
 
   // Rafraîchir automatiquement le compte des campagnes en cache
   useEffect(() => {
@@ -57,32 +58,48 @@ export const useCampaignCache = (account: AcelleAccount) => {
 
   // Vérifier si les statistiques sont disponibles dans le cache
   const checkCacheStatistics = async () => {
+    setIsCacheBusy(true);
     try {
       if (!account?.id) {
+        setIsCacheBusy(false);
         return { hasStats: false, totalCampaigns: 0, campaignsWithStats: 0 };
       }
       
       // Récupérer un échantillon de campagnes pour vérifier les statistiques
+      // Utiliser une limite plus grande pour une meilleure vérification
       const { data, error } = await supabase
         .from('email_campaigns_cache')
         .select('*')
         .eq('account_id', account.id)
-        .limit(10);
+        .limit(20);
       
       if (error || !data) {
         console.error("Erreur lors de la vérification des statistiques en cache:", error);
+        setIsCacheBusy(false);
         return { hasStats: false, totalCampaigns: 0, campaignsWithStats: 0 };
       }
       
-      // Vérifier quelles campagnes ont des statistiques
+      // Vérifier quelles campagnes ont des statistiques en vérifiant delivery_info
       const campaignsWithStats = data.filter(campaign => {
         // Vérifier que delivery_info est un objet avant d'accéder à ses propriétés
         const deliveryInfo = campaign.delivery_info as Record<string, any> | null;
-        return deliveryInfo && (
+        
+        if (!deliveryInfo || typeof deliveryInfo !== 'object') {
+          return false;
+        }
+        
+        // Vérifier plusieurs propriétés pour s'assurer qu'il y a des données
+        const hasBasicStats = 
           (typeof deliveryInfo.total === 'number' && deliveryInfo.total > 0) ||
-          (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) ||
-          (typeof deliveryInfo.unique_open_rate === 'number' && deliveryInfo.unique_open_rate > 0)
-        );
+          (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0);
+          
+        // Vérifier les taux pour plus de précision  
+        const hasRates =
+          (typeof deliveryInfo.delivery_rate === 'number' && deliveryInfo.delivery_rate > 0) ||
+          (typeof deliveryInfo.unique_open_rate === 'number' && deliveryInfo.unique_open_rate > 0) ||
+          (typeof deliveryInfo.click_rate === 'number' && deliveryInfo.click_rate > 0);
+          
+        return hasBasicStats || hasRates;
       });
       
       console.log(`Vérification du cache: ${campaignsWithStats.length}/${data.length} campagnes ont des statistiques`);
@@ -97,14 +114,28 @@ export const useCampaignCache = (account: AcelleAccount) => {
         }
       }
       
-      return {
+      // Vérifier si les données sont plus récentes que 30 minutes
+      const hasRecentData = data.some(campaign => {
+        const cacheUpdatedAt = new Date(campaign.cache_updated_at);
+        const thirtyMinutesAgo = new Date();
+        thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
+        
+        return cacheUpdatedAt > thirtyMinutesAgo;
+      });
+      
+      const result = {
         hasStats: campaignsWithStats.length > 0,
         totalCampaigns: data.length,
         campaignsWithStats: campaignsWithStats.length,
+        hasRecentData,
         sampleStats
       };
+      
+      setIsCacheBusy(false);
+      return result;
     } catch (error) {
       console.error("Erreur lors de la vérification des statistiques en cache:", error);
+      setIsCacheBusy(false);
       return { hasStats: false, totalCampaigns: 0, campaignsWithStats: 0 };
     }
   };
@@ -116,19 +147,23 @@ export const useCampaignCache = (account: AcelleAccount) => {
         return { success: false, error: "ID de compte invalide" };
       }
       
+      setIsCacheBusy(true);
       const { error } = await supabase
         .from('email_campaigns_cache')
         .delete()
         .eq('account_id', account.id);
       
       if (error) {
+        setIsCacheBusy(false);
         return { success: false, error: error.message };
       }
       
       setCampaignsCount(0);
+      setIsCacheBusy(false);
       return { success: true };
     } catch (error) {
       console.error("Erreur lors de la suppression du cache du compte:", error);
+      setIsCacheBusy(false);
       return { success: false, error: String(error) };
     }
   };
@@ -138,6 +173,7 @@ export const useCampaignCache = (account: AcelleAccount) => {
     getCachedCampaignsCount,
     clearAccountCache,
     checkCacheStatistics,
-    lastRefreshTimestamp
+    lastRefreshTimestamp,
+    isCacheBusy
   };
 };

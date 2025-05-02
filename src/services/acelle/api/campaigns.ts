@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
@@ -37,7 +38,7 @@ export async function checkApiAccess(account: AcelleAccount, accessToken?: strin
 export async function getAcelleCampaigns(
   account: AcelleAccount,
   page: number = 1,
-  perPage: number = 25,
+  perPage: number = 5,  // Par défaut 5 campagnes à la fois
   accessToken?: string
 ): Promise<AcelleCampaign[]> {
   console.log(`Fetching campaigns for account ${account.name}, page ${page}, limit ${perPage}`);
@@ -59,7 +60,6 @@ export async function getAcelleCampaigns(
       // Utilisez callAcelleApi pour faire l'appel à l'API
       const data = await callAcelleApi('campaigns', params, accessToken);
       console.log("API response received, analyzing data structure:", typeof data);
-      console.log("First level keys:", Object.keys(data));
       
       // S'adapter aux différentes structures de réponse possibles
       let campaignsData = [];
@@ -243,13 +243,16 @@ export async function getAcelleCampaigns(
       
       // Essayer de récupérer depuis le cache en cas d'échec de l'API
       console.log(`Tentative de récupération des campagnes depuis le cache pour le compte ${account.id}`);
+      
+      const startIndex = (page - 1) * perPage;
+      const endIndex = startIndex + perPage - 1;
+      
       const { data: cachedCampaigns, error: cacheError } = await supabase
         .from('email_campaigns_cache')
         .select('*')
         .eq('account_id', account.id)
         .order('created_at', { ascending: false })
-        .limit(perPage)
-        .range((page - 1) * perPage, page * perPage - 1);
+        .range(startIndex, endIndex);
       
       if (cacheError) {
         console.error("Erreur lors de la récupération des campagnes du cache:", cacheError);
@@ -520,8 +523,17 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
 
 /**
  * Force la synchronisation des campagnes pour un compte donné avec une attention particulière aux statistiques
+ * @param account Compte Acelle à synchroniser
+ * @param accessToken Token d'accès à l'API
+ * @param batchSize Nombre de campagnes à synchroniser par lot (défaut: toutes)
+ * @param pageToSync Page spécifique à synchroniser (optionnel)
  */
-export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: string): Promise<{
+export async function forceSyncCampaigns(
+  account: AcelleAccount, 
+  accessToken?: string,
+  batchSize: number = 0,
+  pageToSync?: number
+): Promise<{
   success: boolean;
   message: string;
   syncedCount?: number;
@@ -535,15 +547,19 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
   }
   
   try {
-    // Approche directe: récupérer toutes les campagnes avec leurs statistiques et les mettre en cache
-    console.log("Synchronisation directe: récupération de toutes les campagnes avec statistiques");
+    // Approche directe: récupérer les campagnes par lots avec leurs statistiques
+    console.log(`Synchronisation par lots de ${batchSize || 'toutes les'} campagnes`);
     
     let allCampaigns: AcelleCampaign[] = [];
-    let page = 1;
-    const perPage = 50; // Récupérer plus de campagnes par page
+    let page = pageToSync || 1;
+    const perPage = batchSize || 50; // Taille du lot par défaut si non spécifié
     let hasMore = true;
     
-    while (hasMore) {
+    // Si on synchronise une page spécifique, limiter à cette page
+    const maxPages = pageToSync ? 1 : 10; // Limiter à 10 pages max pour éviter une boucle infinie
+    let pagesProcessed = 0;
+    
+    while (hasMore && pagesProcessed < maxPages) {
       console.log(`Récupération des campagnes page ${page}, ${perPage} par page avec statistiques`);
       try {
         // S'assurer que include_stats=true est passé à getAcelleCampaigns
@@ -569,9 +585,16 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
           
           allCampaigns = [...allCampaigns, ...campaigns];
           page++;
+          pagesProcessed++;
           
           // Si nous récupérons moins que le nombre demandé, c'est qu'il n'y a plus de pages
-          hasMore = campaigns.length === perPage;
+          hasMore = campaigns.length === perPage && !pageToSync;
+          
+          // Si on synchronise par lots, ajouter un délai pour éviter de surcharger l'API
+          if (batchSize > 0 && hasMore) {
+            console.log("Attente avant de continuer la synchronisation...");
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 seconde d'attente
+          }
         } else {
           console.log("Plus de campagnes à récupérer");
           hasMore = false;
@@ -626,7 +649,9 @@ export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: s
         body: {
           forceSync: true,
           accounts: [account.id],
-          debug: true
+          debug: true,
+          batchSize: batchSize || undefined, // Transmettre la taille du lot
+          pageToSync: pageToSync || undefined // Transmettre la page à synchroniser
         }
       });
       
@@ -717,5 +742,46 @@ export async function getCacheStatus(accountId: string): Promise<{
       lastSyncDate: null,
       lastSyncError: "Exception lors de la récupération de l'état du cache"
     };
+  }
+}
+
+/**
+ * Récupère les campagnes en cache pour une liste de comptes et une page spécifique
+ */
+export async function fetchCampaignsFromCache(
+  accounts: AcelleAccount[],
+  page: number = 1,
+  perPage: number = 5
+): Promise<AcelleCampaign[]> {
+  if (!accounts || accounts.length === 0) {
+    console.log("Aucun compte fourni pour récupérer les campagnes du cache");
+    return [];
+  }
+  
+  try {
+    console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes, page ${page}, limite ${perPage}`);
+    
+    const accountIds = accounts.map(account => account.id);
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage - 1;
+    
+    const { data, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .in('account_id', accountIds)
+      .order('created_at', { ascending: false })
+      .range(startIndex, endIndex);
+    
+    if (error) {
+      console.error("Erreur lors de la récupération des campagnes du cache:", error);
+      return [];
+    }
+    
+    console.log(`${data.length} campagnes récupérées depuis le cache`);
+    
+    return extractCampaignsFromCache(data);
+  } catch (error) {
+    console.error("Exception lors de la récupération des campagnes du cache:", error);
+    return [];
   }
 }
