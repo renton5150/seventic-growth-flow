@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
@@ -180,6 +179,57 @@ export async function getAcelleCampaigns(
         .eq('id', account.id);
       
       // Transformer les données pour correspondre à notre format, avec une attention particulière aux statistiques
+      
+
+      // Fix: Make sure statistics object has all required properties
+      // Constructor for the statistics object with all required properties of AcelleCampaignStatistics
+      const campaign: AcelleCampaign = {
+        uid: uid,
+        campaign_uid: uid,
+        name: item.name || 'Sans nom',
+        subject: item.subject || 'Sans sujet',
+        status: item.status || 'unknown',
+        created_at: item.created_at || new Date().toISOString(),
+        updated_at: item.updated_at || new Date().toISOString(),
+        delivery_date: item.delivery_at || item.run_at || item.delivery_date || null,
+        run_at: item.run_at || null,
+        last_error: item.last_error || null,
+        
+        // Enregistrer les statistiques brutes pour plus de flexibilité
+        statistics: {
+          subscriber_count: parseFloat(statistics.subscriber_count) || 0,
+          delivered_count: parseFloat(statistics.delivered_count) || 0,
+          delivered_rate: parseFloat(statistics.delivered_rate) || 0,
+          open_count: parseFloat(statistics.open_count) || 0,
+          uniq_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
+          click_count: parseFloat(statistics.click_count) || 0,
+          click_rate: parseFloat(statistics.click_rate) || 0,
+          bounce_count: parseFloat(statistics.bounce_count) || 0,
+          soft_bounce_count: parseFloat(statistics.soft_bounce_count) || 0,
+          hard_bounce_count: parseFloat(statistics.hard_bounce_count) || 0,
+          unsubscribe_count: parseFloat(statistics.unsubscribe_count) || 0,
+          abuse_complaint_count: parseFloat(statistics.abuse_complaint_count) || 0
+        },
+        
+        // Structure delivery_info uniforme pour toutes les campagnes
+        delivery_info: {
+          total: parseFloat(statistics.subscriber_count) || 0,
+          delivered: parseFloat(statistics.delivered_count) || 0,
+          delivery_rate: parseFloat(statistics.delivered_rate) || 0,
+          opened: parseFloat(statistics.open_count) || 0,
+          unique_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
+          clicked: parseFloat(statistics.click_count) || 0,
+          click_rate: parseFloat(statistics.click_rate) || 0,
+          bounced: {
+            soft: parseFloat(statistics.soft_bounce_count) || 0,
+            hard: parseFloat(statistics.hard_bounce_count) || 0,
+            total: parseFloat(statistics.bounce_count) || 0
+          },
+          unsubscribed: parseFloat(statistics.unsubscribe_count) || 0,
+          complained: parseFloat(statistics.abuse_complaint_count) || 0
+        }
+      };
+      
       return campaignsData.map((item: any) => {
         // Vérifier si les propriétés existent avant d'y accéder
         const uid = item.uid || item.id || item.campaign_uid || '';
@@ -189,52 +239,6 @@ export async function getAcelleCampaigns(
         console.log(`Mapping statistics for campaign ${uid}:`, statistics);
         
         // Créer une campagne bien formatée avec des statistiques complètes
-        const campaign: AcelleCampaign = {
-          uid: uid,
-          campaign_uid: uid,
-          name: item.name || 'Sans nom',
-          subject: item.subject || 'Sans sujet',
-          status: item.status || 'unknown',
-          created_at: item.created_at || new Date().toISOString(),
-          updated_at: item.updated_at || new Date().toISOString(),
-          delivery_date: item.delivery_at || item.run_at || item.delivery_date || null,
-          run_at: item.run_at || null,
-          last_error: item.last_error || null,
-          
-          // Enregistrer les statistiques brutes pour plus de flexibilité
-          statistics: {
-            subscriber_count: parseFloat(statistics.subscriber_count) || 0,
-            delivered_count: parseFloat(statistics.delivered_count) || 0,
-            delivered_rate: parseFloat(statistics.delivered_rate) || 0,
-            open_count: parseFloat(statistics.open_count) || 0,
-            uniq_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
-            click_count: parseFloat(statistics.click_count) || 0,
-            click_rate: parseFloat(statistics.click_rate) || 0,
-            bounce_count: parseFloat(statistics.bounce_count) || 0,
-            soft_bounce_count: parseFloat(statistics.soft_bounce_count) || 0,
-            hard_bounce_count: parseFloat(statistics.hard_bounce_count) || 0,
-            unsubscribe_count: parseFloat(statistics.unsubscribe_count) || 0,
-            abuse_complaint_count: parseFloat(statistics.abuse_complaint_count) || 0
-          },
-          
-          // Structure delivery_info uniforme pour toutes les campagnes
-          delivery_info: {
-            total: parseFloat(statistics.subscriber_count) || 0,
-            delivered: parseFloat(statistics.delivered_count) || 0,
-            delivery_rate: parseFloat(statistics.delivered_rate) || 0,
-            opened: parseFloat(statistics.open_count) || 0,
-            unique_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
-            clicked: parseFloat(statistics.click_count) || 0,
-            click_rate: parseFloat(statistics.click_rate) || 0,
-            bounced: {
-              soft: parseFloat(statistics.soft_bounce_count) || 0,
-              hard: parseFloat(statistics.hard_bounce_count) || 0,
-              total: parseFloat(statistics.bounce_count) || 0
-            },
-            unsubscribed: parseFloat(statistics.unsubscribe_count) || 0,
-            complained: parseFloat(statistics.abuse_complaint_count) || 0
-          }
-        };
         
         return campaign;
       });
@@ -759,29 +763,4 @@ export async function fetchCampaignsFromCache(
   }
   
   try {
-    console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes, page ${page}, limite ${perPage}`);
-    
-    const accountIds = accounts.map(account => account.id);
-    const startIndex = (page - 1) * perPage;
-    const endIndex = startIndex + perPage - 1;
-    
-    const { data, error } = await supabase
-      .from('email_campaigns_cache')
-      .select('*')
-      .in('account_id', accountIds)
-      .order('created_at', { ascending: false })
-      .range(startIndex, endIndex);
-    
-    if (error) {
-      console.error("Erreur lors de la récupération des campagnes du cache:", error);
-      return [];
-    }
-    
-    console.log(`${data.length} campagnes récupérées depuis le cache`);
-    
-    return extractCampaignsFromCache(data);
-  } catch (error) {
-    console.error("Exception lors de la récupération des campagnes du cache:", error);
-    return [];
-  }
-}
+    console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes

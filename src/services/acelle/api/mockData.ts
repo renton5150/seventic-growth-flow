@@ -50,6 +50,7 @@ export function generateMockCampaigns(count: number = 5): AcelleCampaign[] {
     const bounceCount = subscriberCount - deliveredCount;
     const softBounceCount = Math.floor(bounceCount * 0.7);
     const hardBounceCount = Math.floor(bounceCount * 0.3);
+    const abuseComplaintCount = Math.floor(unsubscribeCount * 0.1); // 10% des désabonnés se plaignent
     
     const campaign: AcelleCampaign = {
       uid: `mock-${i + 1}`,
@@ -73,7 +74,7 @@ export function generateMockCampaigns(count: number = 5): AcelleCampaign[] {
         soft_bounce_count: softBounceCount,
         hard_bounce_count: hardBounceCount,
         unsubscribe_count: unsubscribeCount,
-        abuse_complaint_count: Math.floor(unsubscribeCount * 0.1) // 10% des désabonnés se plaignent
+        abuse_complaint_count: abuseComplaintCount
       },
       delivery_info: {
         total: subscriberCount,
@@ -89,7 +90,7 @@ export function generateMockCampaigns(count: number = 5): AcelleCampaign[] {
           total: bounceCount
         },
         unsubscribed: unsubscribeCount,
-        complained: Math.floor(unsubscribeCount * 0.1)
+        complained: abuseComplaintCount
       }
     };
     
