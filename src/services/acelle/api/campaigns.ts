@@ -384,7 +384,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         }
         
         // Try to parse as JSON first
-        let campaignsData = [];
+        let campaignsData: any = [];
         
         try {
           campaignsData = JSON.parse(responseText);
@@ -393,13 +393,13 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
           if (campaignsData && typeof campaignsData === 'object' && !Array.isArray(campaignsData)) {
             // If it has a data property, use that
             if (campaignsData.data && Array.isArray(campaignsData.data)) {
+              console.log(`Found campaigns data in .data property, length: ${campaignsData.data.length}`);
               campaignsData = campaignsData.data;
-              console.log(`Found campaigns data in .data property, length: ${campaignsData.length}`);
             }
             // If it has an items property, use that (another common pattern)
             else if (campaignsData.items && Array.isArray(campaignsData.items)) {
+              console.log(`Found campaigns data in .items property, length: ${campaignsData.items.length}`);
               campaignsData = campaignsData.items;
-              console.log(`Found campaigns data in .items property, length: ${campaignsData.length}`);
             }
             // Otherwise, try to find any array property in the response
             else {
