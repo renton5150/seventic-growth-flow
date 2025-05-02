@@ -230,6 +230,15 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         
         console.log(`Récupération réussie de ${campaigns?.length || 0} campagnes depuis l'API`);
         
+        // Log détaillé du premier élément pour débogage
+        if (campaigns && campaigns.length > 0) {
+          console.log("Exemple de campagne récupérée:", {
+            name: campaigns[0].name,
+            stats: campaigns[0].statistics,
+            delivery_info: campaigns[0].delivery_info
+          });
+        }
+        
         // Déterminer s'il y a une page suivante
         setHasNextPage(campaigns.length === itemsPerPage);
         

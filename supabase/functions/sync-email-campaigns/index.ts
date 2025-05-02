@@ -430,6 +430,7 @@ async function fetchCampaignsForAccount(account: any, options: {
     
     // Use token auth as recommended by Acelle Mail API
     // https://api.acellemail.com/ recommends adding api_token as parameter
+    // Make sure to include include_stats=true to get full statistics
     const url = `${apiEndpoint}${apiPath}/campaigns?api_token=${apiToken}&include_stats=true`;
     
     let headers: Record<string, string> = {
@@ -513,9 +514,10 @@ async function fetchCampaignsForAccount(account: any, options: {
         debugLog(`Sample campaign data for ${accountName}:`, campaignsData[0], LOG_LEVELS.DEBUG);
       }
       
-      // Update cache for each campaign
+      // Update cache for each campaign with improved statistics handling
       for (const campaign of campaignsData) {
         // Ensure the delivery_info is properly structured as a JSON object
+        // with all required fields for client-side display
         const deliveryInfo = {
           total: parseInt(campaign.statistics?.subscriber_count) || 0,
           delivered: parseInt(campaign.statistics?.delivered_count) || 0,
@@ -534,6 +536,9 @@ async function fetchCampaignsForAccount(account: any, options: {
           unsubscribe_rate: parseFloat(campaign.statistics?.unsubscribe_rate) || 0,
           bounce_rate: parseFloat(campaign.statistics?.bounce_rate) || 0
         };
+        
+        // Log the delivery_info for debugging
+        debugLog(`Storing delivery info for campaign ${campaign.name}:`, deliveryInfo, LOG_LEVELS.DEBUG);
 
         await supabase.from('email_campaigns_cache').upsert({
           campaign_uid: campaign.uid,

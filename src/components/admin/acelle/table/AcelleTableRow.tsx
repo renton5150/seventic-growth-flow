@@ -15,13 +15,13 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
-  // Logging amélioré pour suivre les problèmes de données
+  // Logging pour suivre les données reçues
   React.useEffect(() => {
     if (campaign) {
-      console.log(`Campaign render for ${campaign.name || 'unnamed'} (${campaign.uid || 'no-uid'}):`, {
-        hasStatistics: !!campaign.statistics,
+      console.log(`Campaign data for ${campaign.name || 'unnamed'}:`, {
+        hasStats: !!campaign.statistics,
         hasDeliveryInfo: !!campaign.delivery_info,
-        subscriberCount: campaign.statistics?.subscriber_count || campaign.delivery_info?.total || 0,
+        totalSent: campaign.statistics?.subscriber_count || campaign.delivery_info?.total || 0,
         openRate: campaign.statistics?.uniq_open_rate || campaign.delivery_info?.unique_open_rate || 0,
         clickRate: campaign.statistics?.click_rate || campaign.delivery_info?.click_rate || 0,
         bounceCount: campaign.statistics?.bounce_count || (campaign.delivery_info?.bounced?.total) || 0
@@ -29,7 +29,6 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
     }
   }, [campaign]);
 
-  // Debug léger pour éviter de surcharger la console
   if (!campaign) {
     console.error("Campagne non définie dans AcelleTableRow");
     return null;
@@ -64,73 +63,19 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const statusDisplay = translateStatus(campaignStatus);
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
-  /**
-   * Fonction optimisée et corrigée pour extraire les statistiques de manière plus directe et fiable
-   */
-  const getStatValue = (key: string): number => {
-    try {
-      // Struct 1: statistics (prioritaire car plus structurée)
-      if (campaign.statistics && typeof campaign.statistics === 'object') {
-        const stats = campaign.statistics;
-        
-        // Vérifier les propriétés disponibles
-        switch(key) {
-          case 'subscriber_count':
-            if (typeof stats.subscriber_count === 'number') return stats.subscriber_count;
-            break;
-          case 'uniq_open_rate':
-            if (typeof stats.uniq_open_rate === 'number') return stats.uniq_open_rate;
-            break;
-          case 'click_rate':
-            if (typeof stats.click_rate === 'number') return stats.click_rate;
-            break;
-          case 'bounce_count':
-            if (typeof stats.bounce_count === 'number') return stats.bounce_count;
-            break;
-        }
-      }
-
-      // Struct 2: delivery_info (format alternatif)
-      if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-        const info = campaign.delivery_info;
-        
-        // Vérifier les propriétés les plus communes
-        switch(key) {
-          case 'subscriber_count':
-            if (typeof info.total === 'number') return info.total;
-            break;
-          case 'uniq_open_rate':
-            if (typeof info.unique_open_rate === 'number') return info.unique_open_rate;
-            break;
-          case 'click_rate':
-            if (typeof info.click_rate === 'number') return info.click_rate;
-            break;
-          case 'bounce_count':
-            // Cas spécial pour les bounces qui sont dans un sous-objet
-            if (info.bounced && typeof info.bounced === 'object') {
-              if (typeof info.bounced.total === 'number') return info.bounced.total;
-              
-              // Si pas de "total" mais "soft" et "hard" disponibles
-              const softBounce = typeof info.bounced.soft === 'number' ? info.bounced.soft : 0;
-              const hardBounce = typeof info.bounced.hard === 'number' ? info.bounced.hard : 0;
-              return softBounce + hardBounce;
-            }
-            break;
-        }
-      }
-
-      return 0;
-    } catch (error) {
-      console.warn(`Erreur lors de l'extraction de la statistique '${key}'`, error);
-      return 0;
-    }
-  };
-
-  // Extraire les valeurs statistiques de manière sûre
-  const subscriberCount = getStatValue('subscriber_count');
-  const openRate = getStatValue('uniq_open_rate');
-  const clickRate = getStatValue('click_rate');
-  const bounceCount = getStatValue('bounce_count');
+  // Récupération des statistiques comme dans l'approche "actions"
+  // Priorité aux données de statistics puis fallback sur delivery_info
+  const totalSent = campaign.statistics?.subscriber_count || 
+                   (campaign.delivery_info && typeof campaign.delivery_info.total === 'number' ? campaign.delivery_info.total : 0);
+  
+  const openRate = campaign.statistics?.uniq_open_rate || 
+                  (campaign.delivery_info && typeof campaign.delivery_info.unique_open_rate === 'number' ? campaign.delivery_info.unique_open_rate : 0);
+  
+  const clickRate = campaign.statistics?.click_rate || 
+                   (campaign.delivery_info && typeof campaign.delivery_info.click_rate === 'number' ? campaign.delivery_info.click_rate : 0);
+  
+  const bounceCount = campaign.statistics?.bounce_count || 
+                     (campaign.delivery_info?.bounced && typeof campaign.delivery_info.bounced.total === 'number' ? campaign.delivery_info.bounced.total : 0);
 
   const handleViewClick = () => {
     if (campaignUid) {
@@ -155,7 +100,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
       <TableCell>
         <div className="flex items-center">
           <Mail className="h-4 w-4 mr-2 text-gray-500" />
-          {subscriberCount.toString()}
+          {totalSent.toString()}
         </div>
       </TableCell>
       <TableCell>

@@ -61,7 +61,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
     }
   };
 
-  // Fonction de synchronisation améliorée qui gère mieux les statistiques
+  // Fonction de synchronisation améliorée qui s'assure que les statistiques sont bien récupérées
   const syncCampaignsCache = async (options: { quietMode?: boolean; forceSync?: boolean } = {}) => {
     const { quietMode = false, forceSync = false } = options;
     if (!quietMode) setIsSyncing(true);
@@ -125,12 +125,21 @@ export const useSyncOperation = (account: AcelleAccount) => {
         try {
           console.log(`Récupération des campagnes page ${page} avec limite ${limit}`);
           // S'assurer que include_stats=true est bien transmis dans l'appel
-          const campaigns = await getAcelleCampaigns(account, page, limit, accessToken);
+          const campaigns = await getAcelleCampaigns(account, page, limit, accessToken, true);
           
           if (campaigns && campaigns.length > 0) {
-            // Vérifier rapidement si les campagnes ont des statistiques
+            // Vérifier si les campagnes ont des statistiques
             const statsCheck = campaigns.some(c => c.statistics && c.statistics.subscriber_count > 0);
             console.log(`Page ${page}: ${campaigns.length} campagnes récupérées, avec stats: ${statsCheck}`);
+            
+            // Si la première page est récupérée, vérifier et logger les données pour débogage
+            if (page === 1 && campaigns.length > 0) {
+              console.log("Exemple de campagne récupérée lors de la synchronisation:", {
+                name: campaigns[0].name,
+                stats: campaigns[0].statistics,
+                delivery_info: campaigns[0].delivery_info
+              });
+            }
             
             allCampaigns = allCampaigns.concat(campaigns);
             totalFetched += campaigns.length;

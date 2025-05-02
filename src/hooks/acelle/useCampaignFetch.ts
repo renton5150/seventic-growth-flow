@@ -44,10 +44,11 @@ export const fetchCampaignsFromCache = async (
     }
     
     console.log(`Found ${cachedCampaigns.length} cached campaigns`);
+    console.log('Sample cached campaign data:', cachedCampaigns[0]);
     
     // Convert cache format to AcelleCampaign format
     return cachedCampaigns.map(campaign => {
-      // Handle delivery_info parsing if needed
+      // Handle delivery_info parsing with improved error handling
       let deliveryInfo: Record<string, any> = {};
       
       if (campaign.delivery_info) {
@@ -64,6 +65,9 @@ export const fetchCampaignsFromCache = async (
           deliveryInfo = campaign.delivery_info as Record<string, any>;
         }
       }
+      
+      // Log the extracted delivery info for debugging
+      console.log(`Delivery info extracted for ${campaign.name}:`, deliveryInfo);
       
       // Ensure bounced object exists with proper type safety
       const bouncedInfo = (
