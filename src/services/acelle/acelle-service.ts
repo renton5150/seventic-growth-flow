@@ -72,7 +72,9 @@ export async function callAcelleApi(
       'Cache-Control': 'no-store, no-cache, must-revalidate',
       // Utiliser le format d'en-tête standardisé pour Acelle
       'X-Acelle-Token': accessToken || ACELLE_PROXY_CONFIG.ACELLE_TOKEN,
-      'X-Acelle-Endpoint': ACELLE_PROXY_CONFIG.ACELLE_API_URL
+      'X-Acelle-Endpoint': ACELLE_PROXY_CONFIG.ACELLE_API_URL,
+      // Ajouter l'en-tête d'autorisation pour s'assurer qu'il est transmis
+      'Authorization': `Bearer ${accessToken || ACELLE_PROXY_CONFIG.ACELLE_TOKEN}`
     };
     
     // Définir un timeout pour la requête
