@@ -135,7 +135,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         case 'subscriber_count':
           // Chercher la valeur total dans différents endroits
           if (campaign.delivery_info?.total !== undefined) return parseFloat(campaign.delivery_info.total as any) || 0;
-          if (campaign.statistics?.recipient_count !== undefined) return parseFloat(campaign.statistics.recipient_count as any) || 0;
+          if (campaign.statistics?.subscriber_count !== undefined) return parseFloat(campaign.statistics.subscriber_count as any) || 0;
           break;
         case 'delivered_rate':
           // Chercher le taux de livraison
@@ -144,12 +144,12 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         case 'uniq_open_rate':
           // Chercher le taux d'ouverture unique
           if (campaign.delivery_info?.unique_open_rate !== undefined) return parseFloat(campaign.delivery_info.unique_open_rate as any) || 0;
-          if (campaign.statistics?.open_rate !== undefined) return parseFloat(campaign.statistics.open_rate as any) || 0;
+          if (campaign.statistics?.uniq_open_rate !== undefined) return parseFloat(campaign.statistics.uniq_open_rate as any) || 0;
           break;
         case 'click_rate':
           // Chercher le taux de clic
           if (campaign.delivery_info?.click_rate !== undefined) return parseFloat(campaign.delivery_info.click_rate as any) || 0;
-          if (campaign.statistics?.click_percentage !== undefined) return parseFloat(campaign.statistics.click_percentage as any) || 0;
+          if (campaign.statistics?.click_rate !== undefined) return parseFloat(campaign.statistics.click_rate as any) || 0;
           break;
       }
 

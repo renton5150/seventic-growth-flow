@@ -34,30 +34,32 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalBounced = 0;
   
   campaigns.forEach(campaign => {
+    // Amélioration: vérifier les types avant d'accéder aux propriétés
     // Log pour voir chaque campagne
     console.log(`Processing campaign: ${campaign.name}, status: ${campaign.status}`);
-    console.log(`Campaign statistics:`, campaign.statistics);
-    console.log(`Campaign delivery_info:`, campaign.delivery_info);
     
     // Prioritize delivery_info as it's our primary structure
-    if (campaign.delivery_info) {
-      totalSent += campaign.delivery_info.total || 0;
-      totalDelivered += campaign.delivery_info.delivered || 0;
-      totalOpened += campaign.delivery_info.opened || 0;
-      totalClicked += campaign.delivery_info.clicked || 0;
+    if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+      const info = campaign.delivery_info;
+      totalSent += typeof info.total === 'number' ? info.total : 0;
+      totalDelivered += typeof info.delivered === 'number' ? info.delivered : 0;
+      totalOpened += typeof info.opened === 'number' ? info.opened : 0;
+      totalClicked += typeof info.clicked === 'number' ? info.clicked : 0;
       
       // Handle bounces from the bounced subobject
-      const softBounce = campaign.delivery_info.bounced?.soft || 0;
-      const hardBounce = campaign.delivery_info.bounced?.hard || 0;
+      const bouncedInfo = info.bounced && typeof info.bounced === 'object' ? info.bounced : null;
+      const softBounce = bouncedInfo && typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0;
+      const hardBounce = bouncedInfo && typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0;
       totalBounced += softBounce + hardBounce;
     } 
     // Fall back to statistics if available
-    else if (campaign.statistics) {
-      totalSent += campaign.statistics.subscriber_count || 0;
-      totalDelivered += campaign.statistics.delivered_count || 0;
-      totalOpened += campaign.statistics.open_count || 0;
-      totalClicked += campaign.statistics.click_count || 0;
-      totalBounced += campaign.statistics.bounce_count || 0;
+    else if (campaign.statistics && typeof campaign.statistics === 'object') {
+      const stats = campaign.statistics;
+      totalSent += typeof stats.subscriber_count === 'number' ? stats.subscriber_count : 0;
+      totalDelivered += typeof stats.delivered_count === 'number' ? stats.delivered_count : 0;
+      totalOpened += typeof stats.open_count === 'number' ? stats.open_count : 0;
+      totalClicked += typeof stats.click_count === 'number' ? stats.click_count : 0;
+      totalBounced += typeof stats.bounce_count === 'number' ? stats.bounce_count : 0;
     }
   });
   

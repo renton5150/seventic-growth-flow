@@ -76,20 +76,32 @@ export const useCampaignCache = (account: AcelleAccount) => {
       
       // Vérifier quelles campagnes ont des statistiques
       const campaignsWithStats = data.filter(campaign => {
-        return campaign.delivery_info && (
-          campaign.delivery_info.total > 0 ||
-          campaign.delivery_info.delivered > 0 ||
-          campaign.delivery_info.unique_open_rate > 0
+        // Vérifier que delivery_info est un objet avant d'accéder à ses propriétés
+        const deliveryInfo = campaign.delivery_info as Record<string, any> | null;
+        return deliveryInfo && (
+          (typeof deliveryInfo.total === 'number' && deliveryInfo.total > 0) ||
+          (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) ||
+          (typeof deliveryInfo.unique_open_rate === 'number' && deliveryInfo.unique_open_rate > 0)
         );
       });
       
       console.log(`Vérification du cache: ${campaignsWithStats.length}/${data.length} campagnes ont des statistiques`);
       
+      // Extraire de manière sécurisée les statistiques d'exemple
+      let sampleStats = null;
+      if (campaignsWithStats.length > 0) {
+        const sampleCampaign = campaignsWithStats[0];
+        // S'assurer que delivery_info est un objet avant de le retourner
+        if (sampleCampaign.delivery_info && typeof sampleCampaign.delivery_info === 'object') {
+          sampleStats = sampleCampaign.delivery_info;
+        }
+      }
+      
       return {
         hasStats: campaignsWithStats.length > 0,
         totalCampaigns: data.length,
         campaignsWithStats: campaignsWithStats.length,
-        sampleStats: campaignsWithStats.length > 0 ? campaignsWithStats[0].delivery_info : null
+        sampleStats
       };
     } catch (error) {
       console.error("Erreur lors de la vérification des statistiques en cache:", error);

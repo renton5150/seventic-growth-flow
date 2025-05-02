@@ -19,6 +19,21 @@ export interface AcelleAccount {
   updated_at?: string;
 }
 
+interface AcelleCampaignStatistics {
+  subscriber_count?: number;
+  delivered_count?: number;
+  delivered_rate?: number;
+  open_count?: number;
+  uniq_open_rate?: number;
+  click_count?: number;
+  click_rate?: number;
+  bounce_count?: number;
+  soft_bounce_count?: number;
+  hard_bounce_count?: number;
+  unsubscribe_count?: number;
+  abuse_complaint_count?: number;
+}
+
 export interface AcelleCampaign {
   uid: string;
   name: string;
@@ -49,20 +64,7 @@ export interface AcelleCampaign {
     complained?: number;
   };
   
-  statistics?: {
-    subscriber_count?: number;
-    delivered_count?: number;
-    delivered_rate?: number;
-    open_count?: number;
-    uniq_open_rate?: number;
-    click_count?: number;
-    click_rate?: number;
-    bounce_count?: number;
-    soft_bounce_count?: number;
-    hard_bounce_count?: number;
-    unsubscribe_count?: number;
-    abuse_complaint_count?: number;
-  };
+  statistics?: AcelleCampaignStatistics;
   
   meta?: Record<string, any>;
   
