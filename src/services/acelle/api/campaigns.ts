@@ -133,7 +133,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
 
     // Use buildProxyUrl for consistent URL construction
     const cacheBuster = Date.now().toString();
-    const proxyUrl = buildProxyUrl('ping', { 
+    const proxyUrl = buildProxyUrl('customers', { 
       api_token: account.apiToken,
       _t: cacheBuster // Add timestamp to prevent caching
     });
@@ -178,7 +178,7 @@ export const checkApiAccess = async (account: AcelleAccount): Promise<boolean> =
 
       const result = await response.json();
       console.log("API access check successful:", result);
-      return result && (result.status === 'active' || !!result.id);
+      return Array.isArray(result) || (result && (result.status === 'active' || !!result.id));
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
@@ -330,13 +330,13 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       return [];
     }
     
-    // Use buildProxyUrl with cache buster
+    // Using a direct approach to list campaigns with a simpler endpoint structure
+    // Acelle API typically has a '/campaigns' endpoint that returns all campaigns
     const cacheBuster = Date.now().toString();
     const proxyUrl = buildProxyUrl('campaigns', {
       api_token: account.apiToken,
       page: page.toString(),
       per_page: limit.toString(),
-      include_stats: 'true', // Get statistics
       _t: cacheBuster // Prevent caching
     });
     
@@ -361,8 +361,20 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
       
       clearTimeout(timeoutId);
       
+      // Log full response for debugging
+      const responseText = await response.text();
+      console.log(`Raw API Response (first 500 chars): ${responseText.substring(0, 500)}...`);
+      
       if (!response.ok) {
         console.error(`Failed to fetch campaigns: ${response.status}`);
+        
+        // Try to parse error response
+        try {
+          const errorData = JSON.parse(responseText);
+          console.error("API error response:", errorData);
+        } catch (e) {
+          console.error("Could not parse error response as JSON");
+        }
         
         // Try to get data from cache
         try {
@@ -384,15 +396,33 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         return [];
       }
       
-      // Clone response for potential error handling
-      const responseClone = response.clone();
-      
+      // Parse JSON from the text response
+      let campaigns;
       try {
-        const campaigns = await response.json();
+        campaigns = JSON.parse(responseText);
+        
+        // Check if campaigns is an object with a data property (common API response pattern)
+        if (campaigns && typeof campaigns === 'object' && !Array.isArray(campaigns) && campaigns.data) {
+          campaigns = campaigns.data;
+        }
+        
+        // If still not an array, return empty array
+        if (!Array.isArray(campaigns)) {
+          console.error(`Expected array of campaigns, got:`, typeof campaigns);
+          return [];
+        }
+        
         console.log(`Retrieved ${campaigns.length} campaigns for account ${account.name}`);
         
         // Enrich campaigns with required fields
         const enrichedCampaigns = campaigns.map(campaign => {
+          // Make sure we have a campaign UID
+          const campaignUid = campaign.uid || campaign.id || campaign.campaign_uid;
+          
+          if (!campaignUid) {
+            console.warn('Campaign without UID:', campaign);
+          }
+          
           return {
             ...campaign,
             meta: campaign.meta || {},
@@ -400,8 +430,8 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
             delivery_info: campaign.delivery_info || {
               bounced: { soft: 0, hard: 0, total: 0 }
             },
-            uid: campaign.uid || campaign.campaign_uid,
-            campaign_uid: campaign.campaign_uid || campaign.uid,
+            uid: campaignUid,
+            campaign_uid: campaignUid,
             track: {}, // Initialize as empty object
             report: {} // Initialize as empty object
           } as AcelleCampaign;
@@ -413,41 +443,45 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         // Update cache in background
         try {
           for (const campaign of enrichedCampaigns) {
+            if (!campaign.uid) continue;
+            
             // Prepare delivery_info for cache
             const deliveryInfo = {
-              total: parseInt(campaign.statistics?.subscriber_count) || 0,
-              delivered: parseInt(campaign.statistics?.delivered_count) || 0,
-              delivery_rate: parseFloat(campaign.statistics?.delivered_rate) || 0,
-              opened: parseInt(campaign.statistics?.open_count) || 0,
-              unique_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || 0,
-              clicked: parseInt(campaign.statistics?.click_count) || 0,
-              click_rate: parseFloat(campaign.statistics?.click_rate) || 0,
+              total: parseInt(String(campaign.statistics?.subscriber_count)) || 0,
+              delivered: parseInt(String(campaign.statistics?.delivered_count)) || 0,
+              delivery_rate: parseFloat(String(campaign.statistics?.delivered_rate)) || 0,
+              opened: parseInt(String(campaign.statistics?.open_count)) || 0,
+              unique_open_rate: parseFloat(String(campaign.statistics?.uniq_open_rate)) || 0,
+              clicked: parseInt(String(campaign.statistics?.click_count)) || 0,
+              click_rate: parseFloat(String(campaign.statistics?.click_rate)) || 0,
               bounced: {
-                soft: parseInt(campaign.statistics?.soft_bounce_count) || 0,
-                hard: parseInt(campaign.statistics?.hard_bounce_count) || 0,
-                total: parseInt(campaign.statistics?.bounce_count) || 0
+                soft: parseInt(String(campaign.statistics?.soft_bounce_count)) || 0,
+                hard: parseInt(String(campaign.statistics?.hard_bounce_count)) || 0,
+                total: parseInt(String(campaign.statistics?.bounce_count)) || 0
               },
-              unsubscribed: parseInt(campaign.statistics?.unsubscribe_count) || 0,
-              complained: parseInt(campaign.statistics?.abuse_complaint_count) || 0
+              unsubscribed: parseInt(String(campaign.statistics?.unsubscribe_count)) || 0,
+              complained: parseInt(String(campaign.statistics?.abuse_complaint_count)) || 0
             };
             
             await supabase.from('email_campaigns_cache').upsert({
               campaign_uid: campaign.uid,
               account_id: account.id,
-              name: campaign.name,
-              subject: campaign.subject,
-              status: campaign.status,
-              created_at: campaign.created_at,
-              updated_at: campaign.updated_at,
-              delivery_date: campaign.delivery_at || campaign.run_at,
-              run_at: campaign.run_at,
-              last_error: campaign.last_error,
+              name: campaign.name || "Sans nom",
+              subject: campaign.subject || "Sans sujet",
+              status: campaign.status || "unknown",
+              created_at: campaign.created_at || new Date().toISOString(),
+              updated_at: campaign.updated_at || new Date().toISOString(),
+              delivery_date: campaign.delivery_at || campaign.run_at || null,
+              run_at: campaign.run_at || null,
+              last_error: campaign.last_error || null,
               delivery_info: deliveryInfo,
               cache_updated_at: new Date().toISOString()
             }, {
               onConflict: 'campaign_uid'
             });
           }
+          
+          console.log(`Successfully cached ${enrichedCampaigns.length} campaigns for account ${account.name}`);
         } catch (cacheError) {
           console.error("Error updating cache:", cacheError);
         }
@@ -455,14 +489,7 @@ export const getAcelleCampaigns = async (account: AcelleAccount, page: number = 
         return enrichedCampaigns;
       } catch (parseError) {
         console.error("Error parsing JSON response:", parseError);
-        
-        // Try to get raw text from cloned response
-        try {
-          const rawText = await responseClone.text();
-          console.error("Raw response:", rawText.substring(0, 1000));
-        } catch (textError) {
-          console.error("Could not read raw response text:", textError);
-        }
+        console.error("Raw text:", responseText.substring(0, 1000));
         
         // Try to get data from cache
         try {

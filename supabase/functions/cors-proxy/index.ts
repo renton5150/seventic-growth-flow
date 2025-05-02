@@ -34,7 +34,7 @@ serve(async (req) => {
       status: "healthy", 
       message: "CORS Proxy is running", 
       timestamp: new Date().toISOString(),
-      version: "1.0.2" 
+      version: "1.0.3" 
     }), {
       headers: { 
         ...corsHeaders, 
@@ -76,6 +76,11 @@ serve(async (req) => {
         headers.set(key, value);
       }
     }
+    
+    // Add additional headers to help with caching issues
+    headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    headers.set("Pragma", "no-cache");
+    headers.set("Expires", "0");
     
     console.log(`[CORS Proxy] Headers being forwarded:`, 
       Object.fromEntries([...headers.entries()]));
@@ -129,7 +134,23 @@ serve(async (req) => {
       try {
         if (response.headers.get("content-type")?.includes("application/json")) {
           const textData = new TextDecoder().decode(body);
-          console.log("[CORS Proxy] JSON response:", textData.substring(0, 200) + (textData.length > 200 ? "..." : ""));
+          console.log("[CORS Proxy] JSON response (first 500 chars):", 
+            textData.substring(0, 500) + (textData.length > 500 ? "..." : ""));
+          
+          // Try to parse JSON to see if there's an error structure
+          try {
+            const jsonData = JSON.parse(textData);
+            if (jsonData.error || jsonData.exception || jsonData.message) {
+              console.log("[CORS Proxy] API error details:", 
+                JSON.stringify({ error: jsonData.error, exception: jsonData.exception, message: jsonData.message }));
+            }
+          } catch (e) {
+            // Not JSON or parsing error, ignore
+          }
+        } else {
+          console.log("[CORS Proxy] Non-JSON response received");
+          const textPreview = new TextDecoder().decode(body.slice(0, 200));
+          console.log("[CORS Proxy] Response preview:", textPreview + (body.byteLength > 200 ? "..." : ""));
         }
       } catch (e) {
         console.error("[CORS Proxy] Error processing response:", e);
