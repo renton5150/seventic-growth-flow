@@ -4,6 +4,17 @@ import { AcelleAccount } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
+ * Type pour le résultat de la vérification de cache
+ */
+interface CacheStatisticsResult {
+  hasStats: boolean;
+  totalCampaigns: number;
+  campaignsWithStats: number;
+  hasRecentData?: boolean;
+  sampleStats?: any;
+}
+
+/**
  * Hook pour gérer les opérations de cache des campagnes
  */
 export const useCampaignCache = (account: AcelleAccount) => {
@@ -57,7 +68,7 @@ export const useCampaignCache = (account: AcelleAccount) => {
   };
 
   // Vérifier si les statistiques sont disponibles dans le cache
-  const checkCacheStatistics = async () => {
+  const checkCacheStatistics = async (): Promise<CacheStatisticsResult> => {
     setIsCacheBusy(true);
     try {
       if (!account?.id) {
@@ -123,7 +134,7 @@ export const useCampaignCache = (account: AcelleAccount) => {
         return cacheUpdatedAt > thirtyMinutesAgo;
       });
       
-      const result = {
+      const result: CacheStatisticsResult = {
         hasStats: campaignsWithStats.length > 0,
         totalCampaigns: data.length,
         campaignsWithStats: campaignsWithStats.length,

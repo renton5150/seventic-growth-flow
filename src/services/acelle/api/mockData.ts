@@ -3,8 +3,9 @@ import { AcelleCampaign } from '@/types/acelle.types';
 
 /**
  * Génère des campagnes mock pour les démos et les tests
+ * Limité à 5 campagnes par défaut pour cohérence
  */
-export function generateMockCampaigns(count: number = 10): AcelleCampaign[] {
+export function generateMockCampaigns(count: number = 5): AcelleCampaign[] {
   const campaigns: AcelleCampaign[] = [];
   const statuses = ['queued', 'sending', 'sent', 'new', 'paused'];
   const subjects = [
@@ -12,10 +13,7 @@ export function generateMockCampaigns(count: number = 10): AcelleCampaign[] {
     'Invitation à notre événement annuel',
     'Offre spéciale pour nos clients',
     'Newsletter mensuelle',
-    'Webinaire sur les tendances du marché',
-    'Mise à jour importante de notre politique',
-    'Dernières actualités du secteur',
-    'Joyeuses fêtes de fin d\'année'
+    'Webinaire sur les tendances du marché'
   ];
   
   const names = [
@@ -23,13 +21,13 @@ export function generateMockCampaigns(count: number = 10): AcelleCampaign[] {
     'Campagne de fidélisation',
     'Newsletter Mensuelle',
     'Promotion d\'été',
-    'Campagne de fin d\'année',
-    'Annonce de produit',
-    'Rappel d\'événement',
-    'Suivi client'
+    'Campagne de fin d\'année'
   ];
   
-  for (let i = 0; i < count; i++) {
+  // Limiter à 5 campagnes par défaut même si on demande plus
+  const actualCount = Math.min(count, 5);
+  
+  for (let i = 0; i < actualCount; i++) {
     // Date d'envoi aléatoire dans les 30 derniers jours
     const runAt = new Date();
     runAt.setDate(runAt.getDate() - Math.floor(Math.random() * 30));
@@ -50,6 +48,8 @@ export function generateMockCampaigns(count: number = 10): AcelleCampaign[] {
     const clickCount = Math.floor(deliveredCount * clickRate);
     const unsubscribeCount = Math.floor(deliveredCount * Math.random() * 0.02); // 0-2% de désabonnements
     const bounceCount = subscriberCount - deliveredCount;
+    const softBounceCount = Math.floor(bounceCount * 0.7);
+    const hardBounceCount = Math.floor(bounceCount * 0.3);
     
     const campaign: AcelleCampaign = {
       uid: `mock-${i + 1}`,
@@ -70,7 +70,10 @@ export function generateMockCampaigns(count: number = 10): AcelleCampaign[] {
         click_count: clickCount,
         click_rate: clickRate * 100,
         bounce_count: bounceCount,
-        unsubscribe_count: unsubscribeCount
+        soft_bounce_count: softBounceCount,
+        hard_bounce_count: hardBounceCount,
+        unsubscribe_count: unsubscribeCount,
+        abuse_complaint_count: Math.floor(unsubscribeCount * 0.1) // 10% des désabonnés se plaignent
       },
       delivery_info: {
         total: subscriberCount,
@@ -81,11 +84,12 @@ export function generateMockCampaigns(count: number = 10): AcelleCampaign[] {
         clicked: clickCount,
         click_rate: clickRate * 100,
         bounced: {
-          soft: Math.floor(bounceCount * 0.7),
-          hard: Math.floor(bounceCount * 0.3),
+          soft: softBounceCount,
+          hard: hardBounceCount,
           total: bounceCount
         },
-        unsubscribed: unsubscribeCount
+        unsubscribed: unsubscribeCount,
+        complained: Math.floor(unsubscribeCount * 0.1)
       }
     };
     

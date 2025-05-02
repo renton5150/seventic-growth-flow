@@ -9,7 +9,7 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
 
-  // Utiliser useMemo pour éviter de recalculer le filtrage à chaque rendu
+  // Limiter à 5 campagnes par page après filtrage et tri
   const filteredCampaigns = useMemo(() => {
     return campaigns
       .filter(campaign => 
@@ -42,7 +42,9 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
         }
 
         return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
-      });
+      })
+      // Limiter à 5 résultats par page dans le hook
+      .slice(0, 5);
   }, [campaigns, searchTerm, statusFilter, sortBy, sortOrder]);
 
   return {

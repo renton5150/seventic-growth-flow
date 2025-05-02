@@ -40,7 +40,7 @@ interface AcelleCampaignsTableProps {
 
 export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCampaignsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5); // Réduit à 5 campagnes par page au lieu de 10
+  const [itemsPerPage] = useState(5); // Limité à 5 campagnes par page
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0); 
@@ -163,7 +163,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       await wakeUpEdgeFunctions();
       
       // Synchronisation par lots de 5 campagnes maximum
-      const result = await forceSyncCampaigns(account, accessToken, 5); // Ajout du paramètre pour limiter à 5
+      const result = await forceSyncCampaigns(account, accessToken, 5);
       
       if (result.success) {
         toast.success(`${result.message} (${result.syncedCount || 0} campagnes)`, { id: "force-sync" });
@@ -244,7 +244,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           
           // Si pas de stats, synchroniser uniquement cette page de campagnes
           if (!isSyncing) {
-            const synchroResult = await forceSyncCampaigns(account, accessToken, itemsPerPage, currentPage);
+            const synchroResult = await forceSyncCampaigns(account, accessToken, itemsPerPage);
             if (synchroResult.success) {
               console.log("Synchronisation automatique de la page réussie");
             }
@@ -288,7 +288,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           onDemoMode(true);
         }
         
-        // Générer moins de campagnes de démonstration (5 au lieu de 8)
+        // Générer 5 campagnes de démonstration
         return acelleService.generateMockCampaigns(5);
       }
     } catch (error) {
@@ -301,7 +301,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         onDemoMode(true);
       }
       
-      // Retourner des campagnes de démonstration comme solution de repli (5 au lieu de 8)
+      // Retourner des campagnes de démonstration comme solution de repli
       return acelleService.generateMockCampaigns(5);
     } finally {
       setIsManuallyRefreshing(false);
@@ -447,6 +447,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
                 </p>
               )}
               <p><strong>Nombre de campagnes chargées:</strong> {campaigns.length}</p>
+              <p><strong>Nombre de campagnes filtrées affichées:</strong> {filteredCampaigns.length}</p>
               <p><strong>Token d'authentification:</strong> {accessToken ? 'Présent' : 'Manquant'}</p>
               <p className="text-sm text-gray-500 mt-2">
                 Note: En cas d'erreur de connexion, des données exemples sont affichées pour simulation.
@@ -467,7 +468,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         onSortOrderChange={setSortOrder}
       />
       
-      {campaigns.length === 0 ? (
+      {filteredCampaigns.length === 0 ? (
         <EmptyState />
       ) : (
         <>
