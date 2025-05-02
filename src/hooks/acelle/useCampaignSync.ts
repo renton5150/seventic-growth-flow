@@ -1,12 +1,12 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { useApiConnection } from './useApiConnection';
 import { useCampaignCache } from './useCampaignCache';
 import { useSyncOperation } from './useSyncOperation';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { forceSyncCampaigns } from '@/services/acelle/api/campaigns';
+import { useAuthToken } from './useAuthToken';
 
 interface UseCampaignSyncProps {
   account: AcelleAccount;
@@ -17,6 +17,8 @@ interface UseCampaignSyncProps {
  * Main hook for campaign synchronization that composes specialized hooks
  */
 export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps) => {
+  const { authToken, isRefreshing: isRefreshingToken, getValidAuthToken } = useAuthToken();
+  
   const { 
     wakeUpEdgeFunctions, 
     checkApiAvailability, 
@@ -37,48 +39,11 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
     syncCampaignsCache 
   } = useSyncOperation(account);
 
-  const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
   const [lastManuallySyncedAt, setLastManuallySyncedAt] = useState<Date | null>(null);
   const [syncResult, setSyncResult] = useState<{success: boolean, message: string} | null>(null);
-  const [isRefreshingToken, setIsRefreshingToken] = useState(false);
-
-  // Récupérer et rafraîchir le token d'authentification dès le montage du composant
-  useEffect(() => {
-    const getAuthToken = async () => {
-      try {
-        setIsRefreshingToken(true);
-        console.log("Rafraîchissement du token d'authentification");
-        
-        // Essayer de rafraîchir la session pour garantir un token valide
-        await supabase.auth.refreshSession();
-        
-        // Récupérer la session après le rafraîchissement
-        const { data: sessionData, error } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        
-        if (token) {
-          console.log("Token d'authentification récupéré avec succès");
-          setAccessToken(token);
-        } else {
-          console.error("Aucun token d'authentification disponible dans la session:", error);
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération du token d'authentification:", error);
-      } finally {
-        setIsRefreshingToken(false);
-      }
-    };
-    
-    getAuthToken();
-    
-    // Rafraîchir le token périodiquement (toutes les 45 minutes)
-    const refreshInterval = setInterval(getAuthToken, 45 * 60 * 1000);
-    
-    return () => clearInterval(refreshInterval);
-  }, []);
 
   // Force manual synchronization
-  const forceSyncNow = async () => {
+  const forceSyncNow = useCallback(async () => {
     if (!account?.id) return;
     
     try {
@@ -90,23 +55,17 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
       }
       
       // Vérifier d'abord si le token est disponible, sinon le rafraîchir
-      if (!accessToken) {
-        setIsRefreshingToken(true);
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        setAccessToken(token);
-        setIsRefreshingToken(false);
-        
-        if (!token) {
-          toast.error("Authentification requise pour la synchronisation", { id: "force-sync" });
-          return;
-        }
+      const token = authToken || await getValidAuthToken();
+      
+      if (!token) {
+        toast.error("Authentification requise pour la synchronisation", { id: "force-sync" });
+        return;
       }
       
       // Réveiller les services avant la synchronisation
-      await wakeUpEdgeFunctions();
+      await wakeUpEdgeFunctions(token);
       
-      const result = await forceSyncCampaigns(account, accessToken);
+      const result = await forceSyncCampaigns(account, token);
       setLastManuallySyncedAt(new Date());
       setSyncResult(result);
       
@@ -125,11 +84,11 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
         message: `Erreur: ${errorMessage}`
       });
     }
-  };
+  }, [account, authToken, getValidAuthToken, wakeUpEdgeFunctions, isSyncing, getCachedCampaignsCount]);
 
   // Set up automatic synchronization
   useEffect(() => {
-    if (account?.id && account?.status === 'active' && accessToken) {
+    if (account?.id && account?.status === 'active' && authToken) {
       console.log(`Configuring automatic sync for account ${account.name} with interval ${syncInterval}ms`);
       
       // First check cached campaigns count
@@ -150,13 +109,13 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
       // Clean up the interval when the component unmounts or the account changes
       return () => clearInterval(intervalId);
     }
-  }, [account, syncInterval, accessToken]);
+  }, [account, syncInterval, authToken, getCachedCampaignsCount, syncCampaignsCache]);
 
   return { 
     isSyncing, 
     syncError, 
     syncCampaignsCache, 
-    wakeUpEdgeFunctions, 
+    wakeUpEdgeFunctions: (token: string | null) => wakeUpEdgeFunctions(token), 
     checkApiAvailability, 
     getDebugInfo,
     lastSyncTime,
@@ -166,7 +125,7 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
     forceSyncNow,
     lastManuallySyncedAt,
     syncResult,
-    accessToken,
+    accessToken: authToken,
     isRefreshingToken
   };
 };

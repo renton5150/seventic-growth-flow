@@ -1,11 +1,13 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { getAcelleCampaigns } from "@/services/acelle/api/campaigns";
 import { updateLastSyncDate } from "@/services/acelle/api/accounts";
 import { testAcelleConnection } from "@/services/acelle/api/connection";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuthToken } from "./useAuthToken";
+import { useEdgeFunctionWakeup } from "./useEdgeFunctionWakeup";
 
 interface SyncResult {
   error?: string;
@@ -22,100 +24,13 @@ export const useSyncOperation = (account: AcelleAccount) => {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
-
-  // Fonction pour obtenir un token d'authentification valide
-  const getValidAuthToken = async (): Promise<string | null> => {
-    try {
-      console.log("Obtention d'un token d'authentification valide");
-      
-      // Essayer d'abord de rafraîchir la session pour garantir un token à jour
-      await supabase.auth.refreshSession();
-      
-      // Récupérer la session après le rafraîchissement
-      const { data: sessionData, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error("Erreur d'authentification Supabase:", error.message);
-        return null;
-      }
-      
-      const token = sessionData?.session?.access_token;
-      if (!token) {
-        console.error("Aucun token d'accès disponible dans la session");
-        return null;
-      }
-      
-      console.log("Token d'authentification récupéré avec succès");
-      setAuthToken(token);
-      return token;
-    } catch (e) {
-      console.error("Exception lors de l'obtention du token d'authentification:", e);
-      return null;
-    }
-  };
-
-  // Fonction pour réveiller les Edge Functions
-  const wakeUpEdgeFunctions = async () => {
-    try {
-      console.log("Tentative de réveil des Edge Functions");
-      
-      // S'assurer d'avoir un token valide
-      const token = authToken || await getValidAuthToken();
-      if (!token) {
-        console.error("Pas de session d'authentification disponible pour la requête de réveil");
-        return false;
-      }
-      
-      // Réveiller le proxy CORS
-      const wakeUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping';
-      console.log(`Envoi de la requête de réveil à: ${wakeUrl}`);
-      
-      try {
-        const response = await fetch(wakeUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-store',
-            'X-Wake-Request': 'true'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Réveil du proxy CORS réussi:", data);
-        } else {
-          console.warn(`Le proxy CORS a répondu avec le code: ${response.status}`);
-        }
-      } catch (e) {
-        console.warn("Erreur lors de la requête de réveil du proxy, mais ce n'est pas bloquant:", e);
-      }
-      
-      // Réveiller également la fonction de synchronisation
-      try {
-        const response = await fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
-          method: 'OPTIONS',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-store'
-          }
-        });
-        
-        console.log(`Réveil de sync-email-campaigns: ${response.status}`);
-      } catch (e) {
-        console.warn("Erreur lors du réveil de sync-email-campaigns, mais ce n'est pas bloquant:", e);
-      }
-      
-      // Un petit délai pour laisser le temps aux services de se réveiller complètement
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return true;
-    } catch (e) {
-      console.error("Erreur lors du réveil des Edge Functions:", e);
-      return false;
-    }
-  };
+  
+  // Utiliser les hooks extraits
+  const { authToken, getValidAuthToken, setAuthToken } = useAuthToken();
+  const { wakeUpEdgeFunctions } = useEdgeFunctionWakeup();
 
   // Fonction de synchronisation améliorée avec gestion robuste des erreurs
-  const syncCampaignsCache = async (options: { quietMode?: boolean; forceSync?: boolean } = {}) => {
+  const syncCampaignsCache = useCallback(async (options: { quietMode?: boolean; forceSync?: boolean } = {}) => {
     const { quietMode = false, forceSync = false } = options;
     if (!quietMode) setIsSyncing(true);
     if (!quietMode) setSyncError(null);
@@ -130,7 +45,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
       }
       
       // Obtenir un token valide avant de commencer
-      const token = await getValidAuthToken();
+      const token = authToken || await getValidAuthToken();
       if (!token) {
         result.error = "Impossible d'obtenir un token d'authentification valide";
         if (!quietMode) setSyncError(result.error);
@@ -139,7 +54,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
       }
       
       // Réveiller les Edge Functions avant tout
-      await wakeUpEdgeFunctions();
+      await wakeUpEdgeFunctions(token);
       
       // Tester la connexion à l'API
       if (!quietMode) toast.loading("Test de connexion à l'API Acelle...", { id: "sync-campaigns" });
@@ -166,7 +81,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
         setAuthToken(newToken);
         
         // Réveiller les services à nouveau
-        await wakeUpEdgeFunctions();
+        await wakeUpEdgeFunctions(newToken);
         
         // Réessayer la connexion
         const retryConnection = await testAcelleConnection(account);
@@ -196,7 +111,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
         try {
           console.log(`Récupération des campagnes page ${page} avec limite ${limit}`);
           
-          // Fix: Remove the fifth argument that was causing the TypeScript error
+          // Utiliser le token actuel pour l'appel à l'API
           const campaigns = await getAcelleCampaigns(account, page, limit, token);
           
           if (campaigns && campaigns.length > 0) {
@@ -265,14 +180,13 @@ export const useSyncOperation = (account: AcelleAccount) => {
     } finally {
       if (!quietMode) setIsSyncing(false);
     }
-  };
+  }, [account, authToken, getValidAuthToken, setAuthToken, wakeUpEdgeFunctions]);
 
   return {
     isSyncing,
     syncError,
     lastSyncTime,
     syncCampaignsCache,
-    wakeUpEdgeFunctions,
     getDebugInfo: () => debugInfo,
     debugInfo,
     authToken,
