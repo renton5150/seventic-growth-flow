@@ -8,7 +8,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { AcelleAccount } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaignDetail } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle/acelle-service";
 import { DataUnavailableAlert } from "./errors/DataUnavailableAlert";
 import { Spinner } from "@/components/ui/spinner";
@@ -45,28 +45,32 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
           const mockCampaign = mockCampaigns[mockNumber - 1] || mockCampaigns[0];
           
           if (mockCampaign) {
-            mockCampaign.html = `<h1>Contenu de démonstration</h1>
+            // Attention: assurons-nous de traiter mockCampaign comme AcelleCampaignDetail
+            const detailCampaign = mockCampaign as unknown as AcelleCampaignDetail;
+            detailCampaign.html = `<h1>Contenu de démonstration</h1>
               <p>Ceci est un exemple de contenu HTML pour une campagne email.</p>
               <p>Les détails réels ne sont pas disponibles actuellement.</p>`;
             
-            mockCampaign.plain = `Contenu de démonstration
+            detailCampaign.plain = `Contenu de démonstration
               Les détails réels ne sont pas disponibles actuellement.`;
               
-            return mockCampaign;
+            return detailCampaign;
           }
         }
         
         // Générer une campagne demo
         const mockCampaign = generateMockCampaigns(1)[0];
-        mockCampaign.uid = campaignUid;
-        mockCampaign.campaign_uid = campaignUid;
-        mockCampaign.name = "Campagne démo (donnée non disponible)";
-        mockCampaign.subject = "Données de démonstration";
-        mockCampaign.html = `<h1>Données de démonstration</h1>
+        // Assurer que nous traitons mockCampaign comme un AcelleCampaignDetail
+        const detailCampaign = mockCampaign as unknown as AcelleCampaignDetail;
+        detailCampaign.uid = campaignUid;
+        detailCampaign.campaign_uid = campaignUid;
+        detailCampaign.name = "Campagne démo (donnée non disponible)";
+        detailCampaign.subject = "Données de démonstration";
+        detailCampaign.html = `<h1>Données de démonstration</h1>
           <p>Les détails réels ne sont pas disponibles actuellement.</p>`;
-        mockCampaign.plain = "Données de démonstration\nLes détails réels ne sont pas disponibles actuellement.";
+        detailCampaign.plain = "Données de démonstration\nLes détails réels ne sont pas disponibles actuellement.";
         
-        return mockCampaign;
+        return detailCampaign;
       }
     },
     enabled: !!account && !!campaignUid,
@@ -330,7 +334,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
             <CardContent>
               <div className="border rounded-md p-4 bg-white">
                 <div className="prose max-w-full"
-                  dangerouslySetInnerHTML={{ __html: campaignDetails?.html || '<p>Contenu HTML non disponible</p>' }}
+                  dangerouslySetInnerHTML={{ __html: (campaignDetails as AcelleCampaignDetail)?.html || '<p>Contenu HTML non disponible</p>' }}
                 />
               </div>
             </CardContent>
@@ -342,7 +346,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
             </CardHeader>
             <CardContent>
               <div className="border rounded-md p-4 bg-slate-50 whitespace-pre-line font-mono text-sm">
-                {campaignDetails?.plain || 'Contenu texte non disponible'}
+                {(campaignDetails as AcelleCampaignDetail)?.plain || 'Contenu texte non disponible'}
               </div>
             </CardContent>
           </Card>

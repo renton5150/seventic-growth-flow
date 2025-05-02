@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl } from '../acelle-service';
 import { toast } from 'sonner';
@@ -168,14 +167,19 @@ export async function fetchCampaignDetails(account: AcelleAccount, campaignUid: 
       // Essayer d'abord un appel API direct
       console.log(`Attempting direct API call to: ${decodeURIComponent(apiUrl.split('url=')[1])}`);
       
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 5000); // 5 secondes timeout
+      
       const directResponse = await fetch(decodeURIComponent(apiUrl.split('url=')[1]), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-store'
         },
-        timeout: 5000 // Timeout court pour l'appel direct
+        signal: abortController.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (directResponse.ok) {
         const data = await directResponse.json();
