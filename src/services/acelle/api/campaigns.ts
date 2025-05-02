@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
@@ -179,67 +178,61 @@ export async function getAcelleCampaigns(
         })
         .eq('id', account.id);
       
-      // Transformer les données pour correspondre à notre format, avec une attention particulière aux statistiques
-      
-
-      // Fix: Make sure statistics object has all required properties
-      // Constructor for the statistics object with all required properties of AcelleCampaignStatistics
-      const campaign: AcelleCampaign = {
-        uid: uid,
-        campaign_uid: uid,
-        name: item.name || 'Sans nom',
-        subject: item.subject || 'Sans sujet',
-        status: item.status || 'unknown',
-        created_at: item.created_at || new Date().toISOString(),
-        updated_at: item.updated_at || new Date().toISOString(),
-        delivery_date: item.delivery_at || item.run_at || item.delivery_date || null,
-        run_at: item.run_at || null,
-        last_error: item.last_error || null,
-        
-        // Enregistrer les statistiques brutes pour plus de flexibilité
-        statistics: {
-          subscriber_count: parseFloat(statistics.subscriber_count) || 0,
-          delivered_count: parseFloat(statistics.delivered_count) || 0,
-          delivered_rate: parseFloat(statistics.delivered_rate) || 0,
-          open_count: parseFloat(statistics.open_count) || 0,
-          uniq_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
-          click_count: parseFloat(statistics.click_count) || 0,
-          click_rate: parseFloat(statistics.click_rate) || 0,
-          bounce_count: parseFloat(statistics.bounce_count) || 0,
-          soft_bounce_count: parseFloat(statistics.soft_bounce_count) || 0,
-          hard_bounce_count: parseFloat(statistics.hard_bounce_count) || 0,
-          unsubscribe_count: parseFloat(statistics.unsubscribe_count) || 0,
-          abuse_complaint_count: parseFloat(statistics.abuse_complaint_count) || 0
-        },
-        
-        // Structure delivery_info uniforme pour toutes les campagnes
-        delivery_info: {
-          total: parseFloat(statistics.subscriber_count) || 0,
-          delivered: parseFloat(statistics.delivered_count) || 0,
-          delivery_rate: parseFloat(statistics.delivered_rate) || 0,
-          opened: parseFloat(statistics.open_count) || 0,
-          unique_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
-          clicked: parseFloat(statistics.click_count) || 0,
-          click_rate: parseFloat(statistics.click_rate) || 0,
-          bounced: {
-            soft: parseFloat(statistics.soft_bounce_count) || 0,
-            hard: parseFloat(statistics.hard_bounce_count) || 0,
-            total: parseFloat(statistics.bounce_count) || 0
-          },
-          unsubscribed: parseFloat(statistics.unsubscribe_count) || 0,
-          complained: parseFloat(statistics.abuse_complaint_count) || 0
-        }
-      };
-      
+      // Transformer les données pour correspondre à notre format
       return campaignsData.map((item: any) => {
         // Vérifier si les propriétés existent avant d'y accéder
-        const uid = item.uid || item.id || item.campaign_uid || '';
+        const itemUid = item.uid || item.id || item.campaign_uid || '';
         
         // Extraire les statistiques avec plus de robustesse
-        const statistics = item.statistics || {};
-        console.log(`Mapping statistics for campaign ${uid}:`, statistics);
+        const itemStats = item.statistics || {};
         
         // Créer une campagne bien formatée avec des statistiques complètes
+        const campaign: AcelleCampaign = {
+          uid: itemUid,
+          campaign_uid: itemUid,
+          name: item.name || 'Sans nom',
+          subject: item.subject || 'Sans sujet',
+          status: item.status || 'unknown',
+          created_at: item.created_at || new Date().toISOString(),
+          updated_at: item.updated_at || new Date().toISOString(),
+          delivery_date: item.delivery_at || item.run_at || item.delivery_date || null,
+          run_at: item.run_at || null,
+          last_error: item.last_error || null,
+          
+          // Enregistrer les statistiques brutes pour plus de flexibilité
+          statistics: {
+            subscriber_count: parseFloat(itemStats.subscriber_count) || 0,
+            delivered_count: parseFloat(itemStats.delivered_count) || 0,
+            delivered_rate: parseFloat(itemStats.delivered_rate) || 0,
+            open_count: parseFloat(itemStats.open_count) || 0,
+            uniq_open_rate: parseFloat(itemStats.uniq_open_rate) || 0,
+            click_count: parseFloat(itemStats.click_count) || 0,
+            click_rate: parseFloat(itemStats.click_rate) || 0,
+            bounce_count: parseFloat(itemStats.bounce_count) || 0,
+            soft_bounce_count: parseFloat(itemStats.soft_bounce_count) || 0,
+            hard_bounce_count: parseFloat(itemStats.hard_bounce_count) || 0,
+            unsubscribe_count: parseFloat(itemStats.unsubscribe_count) || 0,
+            abuse_complaint_count: parseFloat(itemStats.abuse_complaint_count) || 0
+          },
+          
+          // Structure delivery_info uniforme pour toutes les campagnes
+          delivery_info: {
+            total: parseFloat(itemStats.subscriber_count) || 0,
+            delivered: parseFloat(itemStats.delivered_count) || 0,
+            delivery_rate: parseFloat(itemStats.delivered_rate) || 0,
+            opened: parseFloat(itemStats.open_count) || 0,
+            unique_open_rate: parseFloat(itemStats.uniq_open_rate) || 0,
+            clicked: parseFloat(itemStats.click_count) || 0,
+            click_rate: parseFloat(itemStats.click_rate) || 0,
+            bounced: {
+              soft: parseFloat(itemStats.soft_bounce_count) || 0,
+              hard: parseFloat(itemStats.hard_bounce_count) || 0,
+              total: parseFloat(itemStats.bounce_count) || 0
+            },
+            unsubscribed: parseFloat(itemStats.unsubscribe_count) || 0,
+            complained: parseFloat(itemStats.abuse_complaint_count) || 0
+          }
+        };
         
         return campaign;
       });
@@ -316,7 +309,7 @@ export async function fetchCampaignDetails(
   } catch (error) {
     console.error(`Error fetching details for campaign ${campaignUid}:`, error);
     
-    // Générer une campagne de démonstration comme fallback en cas d'erreur
+    // Fix the mock campaignDetail to include all required statistics properties
     const mockNumber = parseInt(campaignUid.replace('mock-', ''), 10) || 1;
       
     // Créer une date d'envoi il y a x jours selon le numéro mock
@@ -368,7 +361,10 @@ export async function fetchCampaignDetails(
         click_count: clickCount,
         click_rate: clickRate * 100,
         bounce_count: bounceCount,
-        unsubscribe_count: unsubscribeCount
+        unsubscribe_count: unsubscribeCount,
+        soft_bounce_count: Math.floor(bounceCount * 0.7),
+        hard_bounce_count: Math.floor(bounceCount * 0.3),
+        abuse_complaint_count: Math.floor(unsubscribeCount * 0.1)
       },
       delivery_info: {
         total: totalSubscribers,
@@ -764,7 +760,6 @@ export async function fetchCampaignsFromCache(
   }
   
   try {
-    // Fix: Complete the template string with proper closing backtick
     console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes`);
     
     // Extract account IDs for the query

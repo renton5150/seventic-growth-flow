@@ -5,7 +5,11 @@ import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 /**
  * Fetch campaigns from cache for given accounts
  */
-export const fetchCampaignsFromCache = async (accounts: AcelleAccount[]): Promise<AcelleCampaign[]> => {
+export const fetchCampaignsFromCache = async (
+  accounts: AcelleAccount[],
+  page: number = 1,
+  perPage: number = 5
+): Promise<AcelleCampaign[]> => {
   try {
     if (!accounts || accounts.length === 0) {
       console.log('No accounts provided to fetch campaigns from cache');
@@ -17,12 +21,17 @@ export const fetchCampaignsFromCache = async (accounts: AcelleAccount[]): Promis
     // Get account IDs
     const accountIds = accounts.map(account => account.id);
     
-    // Fetch campaigns from cache
+    // Calculate pagination
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage - 1;
+    
+    // Fetch campaigns from cache with pagination
     const { data: cachedCampaigns, error } = await supabase
       .from('email_campaigns_cache')
       .select('*')
       .in('account_id', accountIds)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(startIndex, endIndex);
       
     if (error) {
       console.error('Error fetching campaigns from cache:', error);
@@ -64,7 +73,7 @@ export const fetchCampaignsFromCache = async (accounts: AcelleAccount[]): Promis
         typeof deliveryInfo.bounced === 'object'
       ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
       
-      // Create statistics from delivery_info with safe type access
+      // Create statistics from delivery_info with safe type access and ensure all required properties exist
       const statistics = {
         subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
         delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,

@@ -161,8 +161,8 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       // Réveiller les services avant la synchronisation
       await wakeUpEdgeFunctions();
       
-      // Fix: Pass the right arguments to forceSyncCampaigns
-      const result = await forceSyncCampaigns(account, accessToken, 5);
+      // Fix: Pass only the required arguments to forceSyncCampaigns
+      const result = await forceSyncCampaigns(account, accessToken);
       
       if (result.success) {
         toast.success(`${result.message} (${result.syncedCount || 0} campagnes)`, { id: "force-sync" });
