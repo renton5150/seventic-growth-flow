@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -15,6 +14,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { generateMockCampaigns } from "@/services/acelle/api/mockData";
+import { supabase } from "@/integrations/supabase/client";
 
 // Définition des couleurs pour les graphiques
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a163f7'];
@@ -28,19 +28,36 @@ interface AcelleCampaignDetailsProps {
 // Update function to accept props
 const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, campaignUid }) => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
+
+  // Get access token on mount
+  useEffect(() => {
+    const getAccessToken = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.access_token) {
+          setAccessToken(sessionData.session.access_token);
+        }
+      } catch (error) {
+        console.error("Error getting access token:", error);
+      }
+    };
+    
+    getAccessToken();
+  }, []);
 
   const { data: campaignDetails, isLoading, isError } = useQuery({
-    queryKey: ["campaignDetails", account?.id, campaignUid],
+    queryKey: ["campaignDetails", account?.id, campaignUid, accessToken],
     queryFn: async () => {
       try {
-        return await acelleService.fetchCampaignDetails(account, campaignUid);
+        return await acelleService.fetchCampaignDetails(account, campaignUid, accessToken);
       } catch (error) {
         console.error(`Error fetching campaign details: ${error}`);
         toast.error(`Erreur lors du chargement des détails de la campagne: ${error}`);
         throw error;
       }
     },
-    enabled: !!account && !!campaignUid,
+    enabled: !!account && !!campaignUid && !!accessToken,
     staleTime: 60 * 1000, // 1 minute
     retry: 1
   });

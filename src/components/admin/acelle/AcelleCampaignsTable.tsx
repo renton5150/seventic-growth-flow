@@ -98,9 +98,25 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       // Try to wake up Edge Functions but don't block on it
       wakeUpEdgeFunctions().catch(console.error);
       
+      // Get auth session for API calls
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        console.error("No auth session available for API calls");
+        throw new Error("Authentification requise");
+      }
+      
       // Skip API accessibility check for now and fetch campaigns directly
-      console.log("Fetching campaigns directly");
-      const campaigns = await acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
+      console.log("Fetching campaigns directly with auth token");
+      
+      // Add the access token to the API call
+      const campaigns = await acelleService.getAcelleCampaigns(
+        account, 
+        currentPage, 
+        itemsPerPage, 
+        accessToken
+      );
       
       if (campaigns && campaigns.length > 0) {
         console.log(`Successfully retrieved ${campaigns.length} campaigns`);

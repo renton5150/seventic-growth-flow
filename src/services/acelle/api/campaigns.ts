@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl } from '../acelle-service';
 import { toast } from 'sonner';
@@ -7,7 +8,7 @@ import { generateMockCampaigns } from './mockData';
 /**
  * Vérifie si l'API est accessible pour un compte spécifique
  */
-export async function checkApiAccess(account: AcelleAccount): Promise<boolean> {
+export async function checkApiAccess(account: AcelleAccount, accessToken?: string): Promise<boolean> {
   try {
     console.log(`Vérification de l'accès à l'API pour le compte ${account.name}`);
     
@@ -19,6 +20,17 @@ export async function checkApiAccess(account: AcelleAccount): Promise<boolean> {
     
     const apiUrl = buildProxyUrl('customers', params);
     
+    // Préparer les en-têtes avec l'authentification
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store'
+    };
+    
+    // Ajouter le token d'autorisation si disponible
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
     // Appel à l'API Acelle avec timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes timeout
@@ -26,10 +38,7 @@ export async function checkApiAccess(account: AcelleAccount): Promise<boolean> {
     try {
       const response = await fetch(apiUrl, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        },
+        headers,
         signal: controller.signal
       });
       
@@ -53,7 +62,8 @@ export async function checkApiAccess(account: AcelleAccount): Promise<boolean> {
 export async function getAcelleCampaigns(
   account: AcelleAccount,
   page: number = 1,
-  perPage: number = 25
+  perPage: number = 25,
+  accessToken?: string
 ): Promise<AcelleCampaign[]> {
   console.log(`Fetching campaigns for account ${account.name}, page ${page}, limit ${perPage}`);
   
@@ -69,24 +79,40 @@ export async function getAcelleCampaigns(
     const apiUrl = buildProxyUrl('campaigns', params);
     console.log(`Attempting to fetch campaigns from: ${apiUrl}`);
     
+    // Préparer les en-têtes avec l'authentification
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate'
+    };
+    
+    // Ajouter le token d'autorisation si disponible
+    if (accessToken) {
+      console.log("Adding authorization header to request");
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    } else {
+      console.warn("No access token provided for API call");
+    }
+    
     // Tentative d'appel API avec timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes timeout
     
     try {
+      console.log("Making API request with headers:", JSON.stringify(headers));
       const response = await fetch(apiUrl, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        },
+        headers,
         signal: controller.signal
       });
       
       clearTimeout(timeoutId);
       
+      console.log(`API response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
-        throw new Error(`API response error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`API response error: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
@@ -139,7 +165,11 @@ export async function getAcelleCampaigns(
 /**
  * Récupère les détails d'une campagne spécifique
  */
-export async function fetchCampaignDetails(account: AcelleAccount, campaignUid: string): Promise<AcelleCampaignDetail> {
+export async function fetchCampaignDetails(
+  account: AcelleAccount, 
+  campaignUid: string,
+  accessToken?: string
+): Promise<AcelleCampaignDetail> {
   console.log(`Fetching details for campaign ${campaignUid} from account ${account.name}`);
   
   try {
@@ -159,6 +189,18 @@ export async function fetchCampaignDetails(account: AcelleAccount, campaignUid: 
     const apiUrl = buildProxyUrl(`campaigns/${campaignUid}`, params);
     console.log(`Fetching campaign details with URL: ${apiUrl}`);
     
+    // Préparer les en-têtes avec l'authentification
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Cache-Control': 'no-store'
+    };
+    
+    // Ajouter le token d'autorisation si disponible
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
     try {
       // Essayer d'abord un appel API direct
       console.log(`Attempting direct API call to: ${decodeURIComponent(apiUrl.split('url=')[1])}`);
@@ -168,17 +210,15 @@ export async function fetchCampaignDetails(account: AcelleAccount, campaignUid: 
       
       const response = await fetch(apiUrl, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        },
+        headers,
         signal: controller.signal
       });
       
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`API response error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`API response error: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
