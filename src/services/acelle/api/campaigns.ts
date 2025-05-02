@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
