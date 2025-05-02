@@ -65,13 +65,10 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const variant = getStatusBadgeVariant(campaignStatus) as "default" | "secondary" | "destructive" | "outline";
 
   /**
-   * Fonction optimisée pour extraire les statistiques de manière plus directe et fiable
+   * Fonction optimisée et corrigée pour extraire les statistiques de manière plus directe et fiable
    */
   const getStatValue = (key: string): number => {
     try {
-      // Définir des valeurs par défaut pour éviter les erreurs
-      let value = 0;
-
       // Struct 1: statistics (prioritaire car plus structurée)
       if (campaign.statistics && typeof campaign.statistics === 'object') {
         const stats = campaign.statistics;
@@ -122,7 +119,7 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
         }
       }
 
-      return value;
+      return 0;
     } catch (error) {
       console.warn(`Erreur lors de l'extraction de la statistique '${key}'`, error);
       return 0;

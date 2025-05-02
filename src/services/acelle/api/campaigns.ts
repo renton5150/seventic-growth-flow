@@ -483,20 +483,23 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
     
     // S'assurer que les statistiques sont disponibles et correctement formatées
     if (item.delivery_info) {
+      const deliveryInfo = item.delivery_info;
+      const bounced = deliveryInfo.bounced || { soft: 0, hard: 0, total: 0 };
+      
       // Convertir explicitement toutes les valeurs en nombres
       campaign.statistics = {
-        subscriber_count: parseFloat(item.delivery_info.total) || 0,
-        delivered_count: parseFloat(item.delivery_info.delivered) || 0,
-        delivered_rate: parseFloat(item.delivery_info.delivery_rate) || 0,
-        open_count: parseFloat(item.delivery_info.opened) || 0,
-        uniq_open_rate: parseFloat(item.delivery_info.unique_open_rate) || 0,
-        click_count: parseFloat(item.delivery_info.clicked) || 0,
-        click_rate: parseFloat(item.delivery_info.click_rate) || 0,
-        bounce_count: parseFloat(item.delivery_info.bounced?.total) || 0,
-        soft_bounce_count: parseFloat(item.delivery_info.bounced?.soft) || 0,
-        hard_bounce_count: parseFloat(item.delivery_info.bounced?.hard) || 0,
-        unsubscribe_count: parseFloat(item.delivery_info.unsubscribed) || 0,
-        abuse_complaint_count: parseFloat(item.delivery_info.complained) || 0
+        subscriber_count: parseFloat(deliveryInfo.total) || 0,
+        delivered_count: parseFloat(deliveryInfo.delivered) || 0,
+        delivered_rate: parseFloat(deliveryInfo.delivery_rate) || 0,
+        open_count: parseFloat(deliveryInfo.opened) || 0,
+        uniq_open_rate: parseFloat(deliveryInfo.unique_open_rate) || 0,
+        click_count: parseFloat(deliveryInfo.clicked) || 0,
+        click_rate: parseFloat(deliveryInfo.click_rate) || 0,
+        bounce_count: parseFloat(bounced.total) || 0,
+        soft_bounce_count: parseFloat(bounced.soft) || 0,
+        hard_bounce_count: parseFloat(bounced.hard) || 0,
+        unsubscribe_count: parseFloat(deliveryInfo.unsubscribed) || 0,
+        abuse_complaint_count: parseFloat(deliveryInfo.complained) || 0
       };
       
       // Log des statistiques extraites pour débogage

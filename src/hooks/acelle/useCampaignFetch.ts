@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 
 /**
  * Fetch campaigns from cache for given accounts
@@ -74,7 +74,7 @@ export const fetchCampaignsFromCache = async (
       ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
       
       // Create statistics from delivery_info with safe type access and ensure all required properties exist
-      const statistics = {
+      const statistics: AcelleCampaignStatistics = {
         subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
         delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
         delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
