@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle, Power, Server, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -31,7 +32,9 @@ export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: Acell
     handleRetry,
     forceSyncNow,
     diagnosticInfo,
-    resetCache
+    resetCache,
+    lastManualSync,
+    syncStatus
   } = useAcelleCampaigns(accounts);
   
   const [isWakingUpServices, setIsWakingUpServices] = useState(false);
@@ -151,6 +154,23 @@ export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: Acell
       toast.error("Erreur pendant le nettoyage du cache");
     }
   }, [resetCache]);
+  
+  // Formater la date de dernière synchronisation
+  const formatSyncDate = (date: Date | null | string) => {
+    if (!date) return "Jamais";
+    try {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      return d.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return "Date invalide";
+    }
+  };
 
   if (activeAccounts.length === 0) {
     return (
@@ -218,6 +238,57 @@ export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: Acell
           </Button>
         </div>
       </div>
+
+      {/* Nouvelle section: Informations de synchronisation */}
+      <Card className="bg-slate-50">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex justify-between items-center">
+            <span>État du cache et synchronisation</span>
+            <Button
+              onClick={forceSyncNow}
+              disabled={isLoading || isWakingUpServices}
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />} 
+              Forcer la synchronisation
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground mb-1">Dernière synchronisation automatique:</p>
+              <p className="font-medium">{formatSyncDate(syncStatus?.lastAutoSyncTime)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Dernière synchronisation manuelle:</p>
+              <p className="font-medium">{formatSyncDate(lastManualSync)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Campagnes en cache:</p>
+              <p className="font-medium">{syncStatus?.cachedCampaignsCount || 0}</p>
+            </div>
+            
+            {syncStatus?.lastSyncError && (
+              <div className="col-span-full">
+                <p className="text-red-600 mb-1">Dernière erreur de synchronisation:</p>
+                <p className="font-medium text-red-600">{syncStatus.lastSyncError}</p>
+              </div>
+            )}
+            
+            {syncStatus?.lastSyncResult && (
+              <div className="col-span-full">
+                <p className={`${syncStatus.lastSyncResult.success ? 'text-green-600' : 'text-amber-600'} mb-1`}>
+                  Résultat de la dernière synchronisation:
+                </p>
+                <p className="font-medium">{syncStatus.lastSyncResult.message}</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {syncError && (
         <Alert variant="destructive" className="bg-red-50 border-red-200">

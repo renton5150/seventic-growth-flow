@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
@@ -48,6 +49,7 @@ export async function getAcelleCampaigns(
       api_token: account.apiToken,
       page: page.toString(),
       per_page: perPage.toString(),
+      include_stats: 'true', // S'assurer que les statistiques sont incluses
       _t: Date.now().toString() // Paramètre anti-cache
     };
     
@@ -105,6 +107,62 @@ export async function getAcelleCampaigns(
         console.log("Sample campaign data:", JSON.stringify(campaignsData[0]).substring(0, 500));
       }
       
+      // Mise à jour du cache pour chaque campagne
+      for (const campaignItem of campaignsData) {
+        try {
+          // Extraire les données de statistiques pour le cache
+          const uid = campaignItem.uid || campaignItem.id || campaignItem.campaign_uid || '';
+          const statistics = campaignItem.statistics || {};
+          
+          // Créer une structure de données delivery_info cohérente
+          const deliveryInfo = {
+            total: parseInt(statistics.subscriber_count) || 0,
+            delivered: parseInt(statistics.delivered_count) || 0,
+            delivery_rate: parseFloat(statistics.delivered_rate) || 0,
+            opened: parseInt(statistics.open_count) || 0,
+            unique_open_rate: parseFloat(statistics.uniq_open_rate) || 0,
+            clicked: parseInt(statistics.click_count) || 0,
+            click_rate: parseFloat(statistics.click_rate) || 0,
+            bounced: {
+              soft: parseInt(statistics.soft_bounce_count) || 0,
+              hard: parseInt(statistics.hard_bounce_count) || 0,
+              total: parseInt(statistics.bounce_count) || 0
+            },
+            unsubscribed: parseInt(statistics.unsubscribe_count) || 0,
+            complained: parseInt(statistics.abuse_complaint_count) || 0
+          };
+          
+          // Mettre à jour le cache dans Supabase
+          await supabase.from('email_campaigns_cache').upsert({
+            campaign_uid: uid,
+            account_id: account.id,
+            name: campaignItem.name || 'Sans nom',
+            subject: campaignItem.subject || 'Sans sujet',
+            status: campaignItem.status || 'unknown',
+            created_at: campaignItem.created_at || new Date().toISOString(),
+            updated_at: campaignItem.updated_at || new Date().toISOString(),
+            delivery_date: campaignItem.delivery_at || campaignItem.run_at || campaignItem.delivery_date || null,
+            run_at: campaignItem.run_at || null,
+            last_error: campaignItem.last_error || null,
+            delivery_info: deliveryInfo,
+            cache_updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'campaign_uid'
+          });
+        } catch (cacheError) {
+          console.error(`Erreur lors de la mise à jour du cache pour la campagne ${campaignItem.uid || 'inconnue'}:`, cacheError);
+        }
+      }
+
+      // Mettre à jour la date de dernière synchronisation pour le compte
+      await supabase
+        .from('acelle_accounts')
+        .update({ 
+          last_sync_date: new Date().toISOString(),
+          last_sync_error: null
+        })
+        .eq('id', account.id);
+      
       // Transformer les données pour correspondre à notre format
       return campaignsData.map((item: any) => {
         // Vérifier si les propriétés existent avant d'y accéder
@@ -137,7 +195,8 @@ export async function getAcelleCampaigns(
               hard: parseInt(statistics.hard_bounce_count) || 0,
               total: parseInt(statistics.bounce_count) || 0
             },
-            unsubscribed: parseInt(statistics.unsubscribe_count) || 0
+            unsubscribed: parseInt(statistics.unsubscribe_count) || 0,
+            complained: parseInt(statistics.abuse_complaint_count) || 0
           }
         };
         
@@ -145,6 +204,31 @@ export async function getAcelleCampaigns(
       });
     } catch (error) {
       console.error("Erreur lors de la requête API:", error);
+      
+      // Essayer de récupérer depuis le cache en cas d'échec de l'API
+      console.log(`Tentative de récupération des campagnes depuis le cache pour le compte ${account.id}`);
+      const { data: cachedCampaigns, error: cacheError } = await supabase
+        .from('email_campaigns_cache')
+        .select('*')
+        .eq('account_id', account.id)
+        .order('created_at', { ascending: false })
+        .limit(perPage)
+        .range((page - 1) * perPage, page * perPage - 1);
+      
+      if (cacheError) {
+        console.error("Erreur lors de la récupération des campagnes du cache:", cacheError);
+        throw error; // Relancer l'erreur originale si le cache échoue aussi
+      }
+      
+      if (cachedCampaigns && cachedCampaigns.length > 0) {
+        console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache`);
+        toast.info("Affichage des données en cache - la synchronisation a échoué", { duration: 5000 });
+        
+        // Utiliser la fonction extractCampaignsFromCache pour convertir en format AcelleCampaign
+        return extractCampaignsFromCache(cachedCampaigns);
+      }
+      
+      // Si aucune donnée dans le cache, relancer l'erreur
       throw error;
     }
   } catch (error) {
@@ -351,6 +435,182 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
       delivery_info: item.delivery_info || {}
     };
     
+    // S'assurer que les statistiques sont disponibles
+    if (item.delivery_info) {
+      campaign.statistics = {
+        subscriber_count: item.delivery_info.total || 0,
+        delivered_count: item.delivery_info.delivered || 0,
+        delivered_rate: item.delivery_info.delivery_rate || 0,
+        open_count: item.delivery_info.opened || 0,
+        uniq_open_rate: item.delivery_info.unique_open_rate || 0,
+        click_count: item.delivery_info.clicked || 0,
+        click_rate: item.delivery_info.click_rate || 0,
+        bounce_count: item.delivery_info.bounced?.total || 0,
+        soft_bounce_count: item.delivery_info.bounced?.soft || 0,
+        hard_bounce_count: item.delivery_info.bounced?.hard || 0,
+        unsubscribe_count: item.delivery_info.unsubscribed || 0,
+        abuse_complaint_count: item.delivery_info.complained || 0
+      };
+    } else {
+      campaign.statistics = {
+        subscriber_count: 0,
+        delivered_count: 0,
+        delivered_rate: 0,
+        open_count: 0,
+        uniq_open_rate: 0,
+        click_count: 0,
+        click_rate: 0,
+        bounce_count: 0,
+        soft_bounce_count: 0,
+        hard_bounce_count: 0,
+        unsubscribe_count: 0,
+        abuse_complaint_count: 0
+      };
+    }
+    
     return campaign;
   });
+}
+
+/**
+ * Force la synchronisation des campagnes pour un compte donné
+ */
+export async function forceSyncCampaigns(account: AcelleAccount, accessToken?: string): Promise<{
+  success: boolean;
+  message: string;
+  syncedCount?: number;
+}> {
+  console.log(`Forçage de la synchronisation des campagnes pour le compte ${account.name}`);
+  
+  try {
+    // Appeler l'edge function de synchronisation directement
+    const response = await supabase.functions.invoke("sync-email-campaigns", {
+      method: 'POST',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      body: {
+        forceSync: true,
+        accounts: [account.id],
+        debug: true
+      }
+    });
+    
+    if (response.error) {
+      console.error("Erreur lors de la synchronisation forcée:", response.error);
+      return {
+        success: false,
+        message: `Erreur de synchronisation: ${response.error.message || 'Erreur inconnue'}`
+      };
+    }
+    
+    console.log("Réponse de la synchronisation forcée:", response.data);
+    
+    // Mise à jour du timestamp de dernière synchronisation dans la base
+    await supabase
+      .from('acelle_accounts')
+      .update({ 
+        last_sync_date: new Date().toISOString(),
+        last_sync_error: null
+      })
+      .eq('id', account.id);
+      
+    const syncResults = response.data?.results || [];
+    const accountResult = syncResults.find((r: any) => r.accountId === account.id);
+    
+    if (accountResult?.success) {
+      return {
+        success: true,
+        message: `Synchronisation réussie, ${accountResult.count || 'plusieurs'} campagnes mises à jour`,
+        syncedCount: accountResult.count
+      };
+    } else {
+      const errorMessage = accountResult?.error || 'Erreur non spécifiée';
+      
+      // Enregistrer l'erreur dans la base de données
+      await supabase
+        .from('acelle_accounts')
+        .update({ 
+          last_sync_error: errorMessage,
+          last_sync_date: new Date().toISOString()
+        })
+        .eq('id', account.id);
+        
+      return {
+        success: false,
+        message: `Échec de la synchronisation: ${errorMessage}`
+      };
+    }
+  } catch (error) {
+    console.error("Erreur lors de la synchronisation forcée:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+    
+    // Enregistrer l'erreur dans la base de données
+    await supabase
+      .from('acelle_accounts')
+      .update({ 
+        last_sync_error: errorMessage,
+        last_sync_date: new Date().toISOString()
+      })
+      .eq('id', account.id);
+      
+    return {
+      success: false,
+      message: `Exception lors de la synchronisation: ${errorMessage}`
+    };
+  }
+}
+
+/**
+ * Récupère l'état du cache pour un compte
+ */
+export async function getCacheStatus(accountId: string): Promise<{
+  campaignsCount: number;
+  lastSyncDate: string | null;
+  lastSyncError: string | null;
+}> {
+  try {
+    // Récupérer les informations de compte
+    const { data: account, error: accountError } = await supabase
+      .from('acelle_accounts')
+      .select('last_sync_date, last_sync_error')
+      .eq('id', accountId)
+      .single();
+      
+    if (accountError) {
+      console.error("Erreur lors de la récupération des informations du compte:", accountError);
+      return {
+        campaignsCount: 0,
+        lastSyncDate: null,
+        lastSyncError: "Erreur lors de la récupération des informations du compte"
+      };
+    }
+    
+    // Compter les campagnes en cache
+    const { count, error: countError } = await supabase
+      .from('email_campaigns_cache')
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', accountId);
+      
+    if (countError) {
+      console.error("Erreur lors du comptage des campagnes en cache:", countError);
+      return {
+        campaignsCount: 0,
+        lastSyncDate: account.last_sync_date,
+        lastSyncError: account.last_sync_error || "Erreur lors du comptage des campagnes en cache"
+      };
+    }
+    
+    return {
+      campaignsCount: count || 0,
+      lastSyncDate: account.last_sync_date,
+      lastSyncError: account.last_sync_error
+    };
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'état du cache:", error);
+    return {
+      campaignsCount: 0,
+      lastSyncDate: null,
+      lastSyncError: "Exception lors de la récupération de l'état du cache"
+    };
+  }
 }
