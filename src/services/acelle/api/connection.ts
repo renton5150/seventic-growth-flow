@@ -53,9 +53,17 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       return debug;
     }
 
-    // Build the API URL for testing
-    const testUrl = buildProxyUrl('ping', { api_token: account.apiToken });
+    // Add anti-cache timestamp to avoid stale responses
+    const cacheBuster = Date.now().toString();
+    
+    // Build the API URL for testing with anti-cache parameter
+    const testUrl = buildProxyUrl('ping', { 
+      api_token: account.apiToken,
+      _t: cacheBuster // Add timestamp to prevent caching
+    });
     debug.request!.url = testUrl;
+    
+    console.log(`Testing connection to Acelle API: ${testUrl}`);
     
     // Send the request with proper authentication
     const response = await fetch(testUrl, {
@@ -64,7 +72,7 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'Authorization': `Bearer ${sessionData.session.access_token}`,
-        'Cache-Control': 'no-store'
+        'Cache-Control': 'no-store, no-cache, must-revalidate'
       }
     });
     
@@ -77,6 +85,8 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       const data = await response.json();
       debug.success = true;
       debug.responseData = data;
+      
+      console.log(`Connection successful! Response:`, data);
       
       // Update account with success information
       if (account.id !== 'system-test') {
@@ -100,8 +110,17 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     try {
       const errorData = await response.json();
       debug.responseData = errorData;
+      console.error(`API error: Status ${response.status}`, errorData);
     } catch (e) {
       debug.errorMessage += ". Could not parse error response.";
+      try {
+        // Try to get text response if JSON parsing fails
+        const errorText = await response.text();
+        console.error(`API error text: ${errorText}`);
+        debug.errorMessage += ` Response: ${errorText.substring(0, 500)}`;
+      } catch (textError) {
+        console.error('Could not read response as text either', textError);
+      }
     }
     
     // Update account with error information
@@ -123,6 +142,7 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     const duration = Date.now() - start;
     debug.duration = duration;
     debug.errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Connection test error:', debug.errorMessage);
     
     // Update account with error information
     if (account.id !== 'system-test') {

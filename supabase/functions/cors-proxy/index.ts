@@ -5,7 +5,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-// Configuration du CORS
+// CORS configuration
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-acelle-endpoint, x-auth-method, cache-control, x-wake-request",
@@ -15,23 +15,26 @@ const corsHeaders = {
   "Expires": "0"
 };
 
-console.log("Listening on http://localhost:9999/");
+console.log("CORS Proxy starting up...");
 
 serve(async (req) => {
-  // Traiter les requêtes OPTIONS (CORS preflight)
+  // Handle OPTIONS requests (CORS preflight)
   if (req.method === "OPTIONS") {
-    console.log("[CORS Proxy] Traitement d'une requête OPTIONS (preflight)");
+    console.log("[CORS Proxy] Handling OPTIONS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Pour les requêtes ping spéciales pour réveiller l'Edge Function
+  // For special wake-up ping requests
   const url = new URL(req.url);
-  if (url.pathname.endsWith('/ping')) {
-    console.log("[CORS Proxy] Requête ping reçue pour réveiller l'Edge Function");
+  
+  // Handle both /ping and ping endpoint formats
+  if (url.pathname.includes('ping')) {
+    console.log("[CORS Proxy] Ping request received to wake up Edge Function");
     return new Response(JSON.stringify({ 
       status: "healthy", 
       message: "CORS Proxy is running", 
-      timestamp: new Date().toISOString() 
+      timestamp: new Date().toISOString(),
+      version: "1.0.1" 
     }), {
       headers: { 
         ...corsHeaders, 
@@ -40,12 +43,12 @@ serve(async (req) => {
     });
   }
 
-  // Extraire l'URL cible de la requête
+  // Extract target URL from request
   const targetUrl = url.searchParams.get("url");
-  console.log(`[CORS Proxy] Requête reçue: ${req.method} ${req.url}`);
+  console.log(`[CORS Proxy] Request received: ${req.method} ${req.url}`);
 
   if (!targetUrl) {
-    console.error("[CORS Proxy] Erreur: Paramètre 'url' manquant");
+    console.error("[CORS Proxy] Error: Missing 'url' parameter");
     return new Response(JSON.stringify({
       error: "Missing required 'url' parameter"
     }), {
@@ -55,14 +58,14 @@ serve(async (req) => {
   }
 
   try {
-    console.log(`[CORS Proxy] Redirection vers: ${targetUrl}`);
+    console.log(`[CORS Proxy] Forwarding to: ${targetUrl}`);
     
-    // Préparer les en-têtes de la requête à transmettre
+    // Prepare headers to forward
     const headers = new Headers();
     
-    // Copier les en-têtes pertinents de la requête d'origine
+    // Copy relevant headers from original request
     for (const [key, value] of req.headers.entries()) {
-      // Ne pas transmettre certains en-têtes spécifiques à Supabase ou au proxy
+      // Skip some headers that should not be forwarded
       if (
         !key.toLowerCase().startsWith("cf-") &&
         !key.toLowerCase().startsWith("x-forwarded") &&
@@ -73,62 +76,86 @@ serve(async (req) => {
       }
     }
     
-    console.log(`[CORS Proxy] En-têtes envoyés: ${JSON.stringify(Object.fromEntries([...req.headers.entries()]), null, 2)}`);
+    console.log(`[CORS Proxy] Headers being forwarded:`, 
+      Object.fromEntries([...headers.entries()]).toString().substring(0, 500));
 
-    // Déterminer le corps de la requête à transmettre
+    // Determine request body to forward
     let proxyBody = null;
     if (["POST", "PUT", "PATCH"].includes(req.method)) {
       proxyBody = await req.arrayBuffer();
     }
 
-    // Mesurer le temps de réponse
+    // Measure response time
     const startTime = Date.now();
     
-    // Effectuer la requête vers l'URL cible
-    const response = await fetch(targetUrl, {
-      method: req.method,
-      headers: headers,
-      body: proxyBody,
-      redirect: "follow",
-    });
-
-    const responseTime = Date.now() - startTime;
-    console.log(`[CORS Proxy] Réponse reçue: ${response.status} en ${responseTime}ms`);
-
-    // Préparer les en-têtes de la réponse
-    const responseHeaders = new Headers(corsHeaders);
+    // Set up timeout for the request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.log("[CORS Proxy] Request timed out after 30 seconds");
+    }, 30000);
     
-    // Copier les en-têtes de la réponse originale
-    for (const [key, value] of response.headers.entries()) {
-      if (key.toLowerCase() !== "content-encoding" && !key.toLowerCase().startsWith("access-control")) {
-        responseHeaders.set(key, value);
-      }
-    }
-
-    // Obtenir le corps de la réponse
-    const body = await response.arrayBuffer();
-
-    // Log pour debugging
     try {
-      if (response.headers.get("content-type")?.includes("application/json")) {
-        console.log("[CORS Proxy] Réponse JSON traitée avec succès");
-        // Ne pas logger le contenu de la réponse JSON pour éviter de surcharger les logs
-      }
-    } catch (e) {
-      console.error("Error processing response:", e);
-    }
+      // Forward request to target URL
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers: headers,
+        body: proxyBody,
+        redirect: "follow",
+        signal: controller.signal
+      });
 
-    // Retourner la réponse
-    return new Response(body, {
-      status: response.status,
-      headers: responseHeaders,
-    });
+      clearTimeout(timeoutId);
+      
+      const responseTime = Date.now() - startTime;
+      console.log(`[CORS Proxy] Response received: ${response.status} in ${responseTime}ms`);
+
+      // Prepare response headers
+      const responseHeaders = new Headers(corsHeaders);
+      
+      // Copy relevant headers from target response
+      for (const [key, value] of response.headers.entries()) {
+        if (key.toLowerCase() !== "content-encoding" && 
+            !key.toLowerCase().startsWith("access-control")) {
+          responseHeaders.set(key, value);
+        }
+      }
+
+      // Get response body
+      const body = await response.arrayBuffer();
+
+      // Log for debugging
+      try {
+        if (response.headers.get("content-type")?.includes("application/json")) {
+          console.log("[CORS Proxy] JSON response processed successfully");
+        }
+      } catch (e) {
+        console.error("[CORS Proxy] Error processing response:", e);
+      }
+
+      // Return response
+      return new Response(body, {
+        status: response.status,
+        headers: responseHeaders,
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
+    }
   } catch (error) {
-    console.error(`[CORS Proxy] Erreur: ${error.message}`);
+    console.error(`[CORS Proxy] Error: ${error.message || error}`);
+    
+    let errorMessage = error.message || "Unknown error";
+    let errorDetails = error.stack || "No stack trace available";
+    
+    if (error.name === "AbortError") {
+      errorMessage = "Request timed out after 30 seconds";
+      errorDetails = "The request to the target server took too long to complete";
+    }
     
     return new Response(JSON.stringify({
-      error: `Proxy error: ${error.message}`,
-      details: error.stack || "No stack trace available"
+      error: `Proxy error: ${errorMessage}`,
+      details: errorDetails
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }

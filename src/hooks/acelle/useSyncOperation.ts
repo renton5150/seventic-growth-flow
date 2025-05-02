@@ -23,6 +23,44 @@ export const useSyncOperation = (account: AcelleAccount) => {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
 
+  // Function to wake up Edge Functions
+  const wakeUpEdgeFunctions = async () => {
+    try {
+      console.log("Attempting to wake up Edge Functions");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        console.error("No auth session available for wake-up request");
+        return false;
+      }
+      
+      const wakeUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping';
+      console.log(`Sending wake-up request to: ${wakeUrl}`);
+      
+      const response = await fetch(wakeUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Cache-Control': 'no-store',
+          'X-Wake-Request': 'true'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Edge Function wake-up successful:", data);
+        return true;
+      } else {
+        console.error(`Edge Function wake-up failed: ${response.status}`);
+        return false;
+      }
+    } catch (e) {
+      console.error("Error waking up Edge Functions:", e);
+      return false;
+    }
+  };
+
   // Enhanced sync function that returns status and properly caches campaigns
   const syncCampaignsCache = async (options: { quietMode?: boolean; forceSync?: boolean } = {}) => {
     const { quietMode = false, forceSync = false } = options;
@@ -38,19 +76,32 @@ export const useSyncOperation = (account: AcelleAccount) => {
         return result;
       }
       
-      // Fetch a small number of campaigns first to check API access
+      // First wake up Edge Functions
+      await wakeUpEdgeFunctions();
+      
+      // Test API connection
       const connectionTest = await testAcelleConnection(account);
       setDebugInfo(connectionTest);
       result.debugInfo = connectionTest;
       
       if (!connectionTest.success) {
-        result.error = connectionTest.errorMessage || "API inaccessible";
-        result.debugInfo = connectionTest;
-        if (!quietMode) setSyncError(result.error);
-        return result;
+        // If connection failed, try waking up Edge Functions and test again
+        await wakeUpEdgeFunctions();
+        const retryConnection = await testAcelleConnection(account);
+        
+        if (!retryConnection.success) {
+          result.error = retryConnection.errorMessage || "API inaccessible";
+          result.debugInfo = retryConnection;
+          if (!quietMode) setSyncError(result.error);
+          return result;
+        }
+        
+        // Update debug info with successful retry
+        setDebugInfo(retryConnection);
+        result.debugInfo = retryConnection;
       }
       
-      // Fetch all campaigns (without pagination)
+      // Fetch all campaigns (with pagination)
       let allCampaigns = [];
       let page = 1;
       const limit = 50; // Adjust the limit as needed
@@ -60,17 +111,34 @@ export const useSyncOperation = (account: AcelleAccount) => {
       if (!quietMode) toast.loading(`Synchronisation des campagnes en cours...`, { id: "sync-campaigns" });
 
       while (hasMore) {
-        const campaigns = await getAcelleCampaigns(account, page, limit);
-        if (campaigns && campaigns.length > 0) {
-          allCampaigns = allCampaigns.concat(campaigns);
-          totalFetched += campaigns.length;
-          if (!quietMode && page > 1) {
-            toast.loading(`Synchronisation: ${totalFetched} campagnes récupérées...`, { id: "sync-campaigns" });
+        try {
+          console.log(`Fetching campaigns page ${page} with limit ${limit}`);
+          const campaigns = await getAcelleCampaigns(account, page, limit);
+          
+          if (campaigns && campaigns.length > 0) {
+            allCampaigns = allCampaigns.concat(campaigns);
+            totalFetched += campaigns.length;
+            if (!quietMode && page > 1) {
+              toast.loading(`Synchronisation: ${totalFetched} campagnes récupérées...`, { id: "sync-campaigns" });
+            }
+            page++;
+            hasMore = campaigns.length === limit;
+          } else {
+            hasMore = false;
           }
-          page++;
-          hasMore = campaigns.length === limit;
-        } else {
-          hasMore = false;
+        } catch (pageError) {
+          console.error(`Error fetching page ${page}:`, pageError);
+          if (page === 1) {
+            // If we fail on first page, consider it a failure
+            result.error = `Error fetching campaigns: ${pageError.message || "Unknown error"}`;
+            if (!quietMode) setSyncError(result.error);
+            if (!quietMode) toast.error(`Erreur de synchronisation: ${result.error}`, { id: "sync-campaigns" });
+            return result;
+          } else {
+            // If we've already fetched some pages, just stop pagination but continue with what we have
+            console.warn(`Stopping pagination after error on page ${page}, continuing with ${totalFetched} campaigns`);
+            hasMore = false;
+          }
         }
       }
       
@@ -152,6 +220,7 @@ export const useSyncOperation = (account: AcelleAccount) => {
     syncError,
     lastSyncTime,
     syncCampaignsCache,
+    wakeUpEdgeFunctions,
     getDebugInfo: () => debugInfo,
     debugInfo
   };

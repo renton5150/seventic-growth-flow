@@ -38,6 +38,44 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0); // Pour forcer le rechargement
+
+  // Function to wake up Edge Functions
+  const wakeUpEdgeFunctions = async () => {
+    try {
+      console.log("Attempting to wake up Edge Functions");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        console.error("No auth session available for wake-up request");
+        return false;
+      }
+      
+      const wakeUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy/ping';
+      console.log(`Sending wake-up request to: ${wakeUrl}`);
+      
+      const response = await fetch(wakeUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Cache-Control': 'no-store',
+          'X-Wake-Request': 'true'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Edge Function wake-up successful:", data);
+        return true;
+      } else {
+        console.error(`Edge Function wake-up failed: ${response.status}`);
+        return false;
+      }
+    } catch (e) {
+      console.error("Error waking up Edge Functions:", e);
+      return false;
+    }
+  };
   
   const fetchCampaigns = React.useCallback(async () => {
     console.log(`Fetching campaigns for account: ${account.name}, page: ${currentPage}, limit: ${itemsPerPage}`);
@@ -46,37 +84,42 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       setConnectionError(null);
       toast.loading("Récupération des campagnes en cours...", { id: "fetch-campaigns" });
       
-      // First check API accessibility
+      // First try to wake up Edge Functions
+      await wakeUpEdgeFunctions();
+      
+      // Check API accessibility
       const isAccessible = await acelleService.checkApiAccess(account);
       if (!isAccessible) {
         console.error(`API not accessible for account: ${account.name}`);
-        setConnectionError(`L'API Acelle Mail n'est pas accessible pour le compte ${account.name}. Veuillez vérifier la configuration du compte.`);
-        toast.error("API Acelle Mail inaccessible", { id: "fetch-campaigns" });
+        setConnectionError(`L'API Acelle Mail n'est pas accessible pour le compte ${account.name}. Vérifiant le cache...`);
         
         // Try to get campaigns from cache
         try {
-          const { data: cachedCampaigns } = await supabase
-            .from('email_campaigns_cache')
-            .select('*')
-            .eq('account_id', account.id)
-            .order('created_at', { ascending: false })
-            .limit(itemsPerPage);
+          console.log("Fetching campaigns from cache...");
+          const cachedCampaigns = await fetchCampaignsFromCache([account]);
             
           if (cachedCampaigns && cachedCampaigns.length > 0) {
             console.log(`Retrieved ${cachedCampaigns.length} campaigns from cache for account ${account.name}`);
             toast.success("Données chargées depuis le cache", { id: "fetch-campaigns" });
             
-            // Utiliser la fonction extractCampaignsFromCache pour convertir correctement
-            return acelleService.extractCampaignsFromCache(cachedCampaigns);
+            // Apply pagination to the cached campaigns
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            return cachedCampaigns.slice(startIndex, endIndex);
+          } else {
+            console.log("No cached campaigns found");
+            toast.error("Aucune campagne dans le cache", { id: "fetch-campaigns" });
           }
         } catch (cacheError) {
           console.error(`Error retrieving campaigns from cache:`, cacheError);
+          toast.error("Erreur lors de la récupération du cache", { id: "fetch-campaigns" });
         }
         
         return [];
       }
       
       // If accessible, fetch campaigns
+      console.log("API accessible, fetching live campaigns");
       const campaigns = await acelleService.getAcelleCampaigns(account, currentPage, itemsPerPage);
       toast.success("Campagnes récupérées avec succès", { id: "fetch-campaigns" });
       return campaigns;
@@ -126,7 +169,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     window.scrollTo(0, 0);
   };
   
-  // Fonction pour forcer une nouvelle tentative
+  // Function to force a new attempt
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
     refetch();
