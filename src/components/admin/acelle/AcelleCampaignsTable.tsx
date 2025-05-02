@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -43,13 +44,36 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   const [retryCount, setRetryCount] = useState(0); // Pour forcer le rechargement
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
 
+  // Obtenir le token d'authentification dès le montage du composant
+  useEffect(() => {
+    const getAuthToken = async () => {
+      try {
+        console.log("Fetching authentication token for API requests");
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        
+        if (token) {
+          console.log("Authentication token retrieved successfully");
+          setAccessToken(token);
+        } else {
+          console.error("No authentication token available in session");
+          toast.error("Erreur d'authentification: Impossible de récupérer le token d'authentification");
+        }
+      } catch (error) {
+        console.error("Error getting authentication token:", error);
+        toast.error("Erreur lors de la récupération du token d'authentification");
+      }
+    };
+    
+    getAuthToken();
+  }, []);
+  
   // Function to wake up Edge Functions
   const wakeUpEdgeFunctions = async () => {
     try {
       console.log("Attempting to wake up Edge Functions");
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
       
       if (!accessToken) {
         console.error("No auth session available for wake-up request");
@@ -96,16 +120,14 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       toast.loading("Récupération des campagnes en cours...", { id: "fetch-campaigns" });
       
       // Try to wake up Edge Functions but don't block on it
-      wakeUpEdgeFunctions().catch(console.error);
-      
-      // Get auth session for API calls
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      await wakeUpEdgeFunctions();
       
       if (!accessToken) {
-        console.error("No auth session available for API calls");
-        throw new Error("Authentification requise");
+        console.error("No auth token available for API calls");
+        throw new Error("Authentification requise pour accéder à l'API");
       }
+      
+      console.log(`Using access token for API calls: ${accessToken ? 'présent' : 'absent'}`);
       
       // Add the access token to the API call
       let campaigns;
@@ -170,7 +192,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     } finally {
       setIsManuallyRefreshing(false);
     }
-  }, [account, currentPage, itemsPerPage, onDemoMode]);
+  }, [account, currentPage, itemsPerPage, onDemoMode, accessToken]);
   
   const { 
     data: campaigns = [], 
@@ -180,9 +202,9 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     error,
     refetch 
   } = useQuery({
-    queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage, retryCount],
+    queryKey: ["acelleCampaigns", account.id, currentPage, itemsPerPage, retryCount, accessToken],
     queryFn: fetchCampaigns,
-    enabled: account.status === "active",
+    enabled: account.status === "active" && !!accessToken,
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -225,6 +247,16 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
 
   if (account.status === "inactive") {
     return <InactiveAccountState />;
+  }
+
+  if (!accessToken) {
+    return (
+      <div className="p-8 text-center">
+        <Spinner className="h-8 w-8 mx-auto mb-4" />
+        <p>Authentification en cours...</p>
+        <p className="text-sm text-gray-500 mt-4">Si cette page persiste, essayez de vous reconnecter.</p>
+      </div>
+    );
   }
 
   if (isLoading) {

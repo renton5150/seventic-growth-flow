@@ -46,6 +46,74 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
   }
 };
 
+// Fonction pour appeler l'API Acelle avec authentification
+export async function callAcelleApi(
+  path: string, 
+  params: Record<string, string> = {}, 
+  accessToken?: string
+): Promise<any> {
+  try {
+    const proxyUrl = buildProxyUrl(path, params);
+    console.log(`Making authenticated API call to: ${proxyUrl}`);
+    
+    // Préparer les en-têtes avec l'authentification
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate'
+    };
+    
+    // Ajouter le token d'autorisation s'il est fourni
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+      console.log("Using authentication token for API call");
+    } else {
+      console.warn("No access token provided for API call");
+    }
+    
+    // Définir un timeout pour la requête
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    try {
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error(`API error ${response.status}:`, responseText);
+        throw new Error(`API request failed with status ${response.status}: ${responseText.substring(0, 100)}`);
+      }
+      
+      // Essayer d'analyser la réponse comme JSON
+      const responseText = await response.text();
+      console.log(`API response received (${responseText.length} chars)`);
+      
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse API response as JSON:", parseError);
+        console.log("Response excerpt:", responseText.substring(0, 200));
+        throw new Error("Invalid JSON response from API");
+      }
+    } catch (fetchError) {
+      if (fetchError.name === 'AbortError') {
+        console.error("API request timed out");
+        throw new Error("API request timed out after 30 seconds");
+      }
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error("Error calling Acelle API:", error);
+    throw error;
+  }
+}
+
 // Fonction pour générer des campagnes fictives pour la démonstration
 export function generateMockCampaigns(count: number = 5): AcelleCampaign[] {
   const statuses = ['new', 'queued', 'sending', 'sent', 'paused', 'failed'];
@@ -162,5 +230,6 @@ export const acelleService = {
   
   // Utilitaire
   buildProxyUrl,
-  generateMockCampaigns
+  generateMockCampaigns,
+  callAcelleApi
 };

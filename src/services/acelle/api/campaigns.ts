@@ -1,6 +1,5 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
-import { buildProxyUrl } from '../acelle-service';
+import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { generateMockCampaigns } from './mockData';
@@ -18,34 +17,10 @@ export async function checkApiAccess(account: AcelleAccount, accessToken?: strin
       _t: Date.now().toString() // Paramètre anti-cache
     };
     
-    const apiUrl = buildProxyUrl('customers', params);
-    
-    // Préparer les en-têtes avec l'authentification
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store'
-    };
-    
-    // Ajouter le token d'autorisation si disponible
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    
-    // Appel à l'API Acelle avec timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes timeout
-    
     try {
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      // Si on obtient un code 200, l'API est accessible
-      return response.status === 200;
+      // Utiliser la nouvelle fonction callAcelleApi
+      await callAcelleApi('customers', params, accessToken);
+      return true;
     } catch (error) {
       console.error("Erreur lors de la vérification de l'accès à l'API:", error);
       return false;
@@ -68,7 +43,7 @@ export async function getAcelleCampaigns(
   console.log(`Fetching campaigns for account ${account.name}, page ${page}, limit ${perPage}`);
   
   try {
-    // Construire l'URL pour la requête API
+    // Construire les paramètres pour la requête API
     const params = {
       api_token: account.apiToken,
       page: page.toString(),
@@ -76,66 +51,15 @@ export async function getAcelleCampaigns(
       _t: Date.now().toString() // Paramètre anti-cache
     };
     
-    const apiUrl = buildProxyUrl('campaigns', params);
-    console.log(`Attempting to fetch campaigns from: ${apiUrl}`);
-    
-    // Préparer les en-têtes avec l'authentification
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Cache-Control': 'no-store, no-cache, must-revalidate'
-    };
-    
-    // Ajouter le token d'autorisation si disponible
-    if (accessToken) {
-      console.log("Adding authorization header to request");
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    } else {
-      console.warn("No access token provided for API call");
-    }
-    
-    // Tentative d'appel API avec timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes timeout
+    console.log(`Attempting to fetch campaigns with authentication token: ${accessToken ? 'provided' : 'missing'}`);
     
     try {
-      console.log("Making API request with headers:", JSON.stringify(headers));
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      console.log(`API response status: ${response.status} ${response.statusText}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API response error: ${response.status} - ${errorText}`);
-      }
-      
-      // Récupérer le contenu de la réponse
-      const responseText = await response.text();
-      console.log("Raw API response:", responseText);
-      
-      // Essayer de parser la réponse JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-        console.log("Parsed response structure:", Object.keys(data));
-      } catch (parseError) {
-        console.error("Error parsing JSON response:", parseError);
-        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}...`);
-      }
-      
-      // Vérifier la structure de la réponse
-      if (!data) {
-        throw new Error("Empty response from API");
-      }
+      const data = await callAcelleApi('campaigns', params, accessToken);
+      console.log("API response received, analyzing data structure");
       
       // S'adapter aux différentes structures de réponse possibles
       let campaignsData = [];
+      
       if (Array.isArray(data)) {
         // Si la réponse est directement un tableau
         campaignsData = data;
@@ -146,6 +70,8 @@ export async function getAcelleCampaigns(
         console.log(`Received nested data response with ${campaignsData.length} campaigns`);
       } else if (typeof data === 'object') {
         // Si c'est un objet mais pas la structure attendue, essayer de l'extraire
+        console.log("Received object response, looking for array data");
+        
         const possibleArrays = Object.values(data).filter(value => Array.isArray(value));
         if (possibleArrays.length > 0) {
           // Prendre le premier tableau trouvé
@@ -161,6 +87,7 @@ export async function getAcelleCampaigns(
             campaignsData = extractedCampaigns;
             console.log(`Extracted ${campaignsData.length} campaigns from object properties`);
           } else {
+            console.error("Could not find campaigns data in response:", data);
             throw new Error("Could not find campaigns data in response");
           }
         }
@@ -173,13 +100,19 @@ export async function getAcelleCampaigns(
       
       console.log(`Successfully processed ${campaignsData.length} campaigns`);
       
+      // Log a sample campaign for debugging
+      if (campaignsData.length > 0) {
+        console.log("Sample campaign data:", JSON.stringify(campaignsData[0]).substring(0, 500));
+      }
+      
       // Transformer les données pour correspondre à notre format
       return campaignsData.map((item: any) => {
         // Vérifier si les propriétés existent avant d'y accéder
         const uid = item.uid || item.id || item.campaign_uid || '';
         const statistics = item.statistics || {};
         
-        return {
+        // Créer une campagne bien formatée
+        const campaign: AcelleCampaign = {
           uid: uid,
           campaign_uid: uid,
           name: item.name || 'Sans nom',
@@ -207,15 +140,12 @@ export async function getAcelleCampaigns(
             unsubscribed: parseInt(statistics.unsubscribe_count) || 0
           }
         };
+        
+        return campaign;
       });
     } catch (error) {
       console.error("Erreur lors de la requête API:", error);
-      
-      // En mode démo, générer des campagnes fictives
-      console.log("Falling back to mock campaigns due to API error");
-      const mockCampaigns = generateMockCampaigns(8);
-      console.log(`Generated ${mockCampaigns.length} mock campaigns for testing`);
-      return mockCampaigns;
+      throw error;
     }
   } catch (error) {
     console.error("Erreur lors de la récupération des campagnes:", error);
@@ -236,60 +166,23 @@ export async function fetchCampaignDetails(
   try {
     // Si l'UID commence par "mock-", c'est une campagne de démonstration
     if (campaignUid.startsWith('mock-')) {
-      // Générer un détail de campagne fictif correspondant à l'UID
+      console.log("Mock campaign detected, returning demo data");
       throw new Error("Demo campaign - using mock data");
     }
     
     // Tenter de récupérer depuis l'API réelle
-    // Construire l'URL pour la requête
     const params = {
       api_token: account.apiToken,
       _t: Date.now().toString() // Paramètre anti-cache
     };
     
-    const apiUrl = buildProxyUrl(`campaigns/${campaignUid}`, params);
-    console.log(`Fetching campaign details with URL: ${apiUrl}`);
-    
-    // Préparer les en-têtes avec l'authentification
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Cache-Control': 'no-store'
-    };
-    
-    // Ajouter le token d'autorisation si disponible
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    
     try {
-      // Essayer d'abord un appel API direct
-      console.log(`Attempting direct API call to: ${decodeURIComponent(apiUrl.split('url=')[1])}`);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes timeout
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API response error: ${response.status} - ${errorText}`);
-      }
-      
-      const data = await response.json();
+      console.log(`Fetching campaign details for ${campaignUid} with authentication token: ${accessToken ? 'provided' : 'missing'}`);
+      const data = await callAcelleApi(`campaigns/${campaignUid}`, params, accessToken);
       console.log(`Campaign details retrieved successfully:`, data);
       return data as AcelleCampaignDetail;
-      
     } catch (error) {
       console.error(`Error fetching details for campaign ${campaignUid}:`, error);
-      
-      // Générer une campagne de démonstration comme fallback en cas d'erreur
       throw error;
     }
   } catch (error) {

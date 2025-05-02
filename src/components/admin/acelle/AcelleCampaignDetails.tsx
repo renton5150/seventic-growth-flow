@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -34,9 +35,13 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
   useEffect(() => {
     const getAccessToken = async () => {
       try {
+        console.log("Fetching auth token for campaign details");
         const { data: sessionData } = await supabase.auth.getSession();
         if (sessionData?.session?.access_token) {
+          console.log("Auth token obtained successfully");
           setAccessToken(sessionData.session.access_token);
+        } else {
+          console.error("No access token found in session");
         }
       } catch (error) {
         console.error("Error getting access token:", error);
@@ -50,6 +55,7 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
     queryKey: ["campaignDetails", account?.id, campaignUid, accessToken],
     queryFn: async () => {
       try {
+        console.log(`Fetching details for campaign ${campaignUid} with token: ${accessToken ? 'present' : 'absent'}`);
         return await acelleService.fetchCampaignDetails(account, campaignUid, accessToken);
       } catch (error) {
         console.error(`Error fetching campaign details: ${error}`);
@@ -61,6 +67,15 @@ const AcelleCampaignDetails: React.FC<AcelleCampaignDetailsProps> = ({ account, 
     staleTime: 60 * 1000, // 1 minute
     retry: 1
   });
+
+  if (!accessToken) {
+    return (
+      <div className="py-8 text-center">
+        <Spinner className="h-8 w-8 mx-auto mb-4" />
+        <p>Authentification en cours...</p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
