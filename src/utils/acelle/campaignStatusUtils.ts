@@ -43,17 +43,32 @@ export const renderPercentage = (value: number | undefined): string => {
   return `${value.toFixed(1)}%`;
 };
 
-// Fonction utilitaire pour extraire les statistiques de manière sécurisée
+/**
+ * Extrait une statistique de campagne avec gestion avancée des structures de données
+ * 
+ * Recherche la statistique dans plusieurs emplacements possibles:
+ * 1. Dans delivery_info avec mappage de nom spécifique
+ * 2. Dans statistics si disponible
+ * 3. Directement dans l'objet campaign
+ * 
+ * @param campaign Objet campagne Acelle
+ * @param key Clé de la statistique à extraire
+ * @returns Valeur numérique de la statistique ou 0 si non trouvée
+ */
 export const extractCampaignStat = (campaign: any, key: string): number => {
+  if (!campaign) return 0;
+  
   try {
-    // Essayer d'abord avec delivery_info
-    if (campaign?.delivery_info) {
+    // Vérifier dans delivery_info (structure standard de l'API Acelle)
+    if (campaign.delivery_info) {
       // Cas spéciaux pour les statistiques de bounce
       if (key === 'bounce_count' && campaign.delivery_info.bounced) {
-        return typeof campaign.delivery_info.bounced.total === 'number' ? campaign.delivery_info.bounced.total : 0;
+        return typeof campaign.delivery_info.bounced.total === 'number' 
+          ? campaign.delivery_info.bounced.total 
+          : (typeof campaign.delivery_info.bounced === 'number' ? campaign.delivery_info.bounced : 0);
       }
       
-      // Mapping des clés pour delivery_info
+      // Mappage des clés pour delivery_info (format API vers format interne)
       const deliveryInfoMap: Record<string, string> = {
         'subscriber_count': 'total',
         'delivered_count': 'delivered',
@@ -65,16 +80,60 @@ export const extractCampaignStat = (campaign: any, key: string): number => {
       
       const mappedKey = deliveryInfoMap[key];
       if (mappedKey && typeof campaign.delivery_info[mappedKey] === 'number') {
+        console.log(`Stat trouvée dans delivery_info[${mappedKey}]:`, campaign.delivery_info[mappedKey]);
         return campaign.delivery_info[mappedKey] as number;
+      }
+      
+      // Essayer également la clé directe si le mappage échoue
+      if (typeof campaign.delivery_info[key] === 'number') {
+        console.log(`Stat trouvée directement dans delivery_info[${key}]:`, campaign.delivery_info[key]);
+        return campaign.delivery_info[key] as number;
       }
     }
     
-    // Puis essayer avec statistics
-    if (campaign?.statistics && typeof campaign.statistics[key] === 'number') {
-      return campaign.statistics[key] as number;
+    // Vérifier dans statistics (structure alternative)
+    if (campaign.statistics) {
+      if (typeof campaign.statistics[key] === 'number') {
+        console.log(`Stat trouvée dans statistics[${key}]:`, campaign.statistics[key]);
+        return campaign.statistics[key] as number;
+      }
     }
     
-    // Fallback à 0 si rien n'est trouvé
+    // Vérifier directement dans la campagne
+    if (typeof campaign[key] === 'number') {
+      console.log(`Stat trouvée directement dans campaign[${key}]:`, campaign[key]);
+      return campaign[key] as number;
+    }
+    
+    // Convertir "stringified numbers" en nombres si présents
+    if (typeof campaign[key] === 'string' && !isNaN(parseFloat(campaign[key]))) {
+      console.log(`Stat trouvée comme string dans campaign[${key}]:`, parseFloat(campaign[key]));
+      return parseFloat(campaign[key]);
+    }
+    
+    if (campaign.statistics && typeof campaign.statistics[key] === 'string' && 
+        !isNaN(parseFloat(campaign.statistics[key]))) {
+      console.log(`Stat trouvée comme string dans statistics[${key}]:`, parseFloat(campaign.statistics[key]));
+      return parseFloat(campaign.statistics[key]);
+    }
+    
+    if (campaign.delivery_info) {
+      const mappedKey = deliveryInfoMap[key];
+      if (mappedKey && typeof campaign.delivery_info[mappedKey] === 'string' && 
+          !isNaN(parseFloat(campaign.delivery_info[mappedKey]))) {
+        console.log(`Stat trouvée comme string dans delivery_info[${mappedKey}]:`, 
+          parseFloat(campaign.delivery_info[mappedKey]));
+        return parseFloat(campaign.delivery_info[mappedKey]);
+      }
+    }
+    
+    // Si rien n'est trouvé après toutes les tentatives
+    console.warn(`Aucune statistique trouvée pour ${key} dans:`, {
+      campaign_name: campaign.name,
+      has_delivery_info: !!campaign.delivery_info,
+      has_statistics: !!campaign.statistics
+    });
+    
     return 0;
   } catch (error) {
     console.warn(`Erreur lors de l'extraction de ${key}:`, error);

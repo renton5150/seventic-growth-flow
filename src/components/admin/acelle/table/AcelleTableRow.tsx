@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { translateStatus, getStatusBadgeVariant } from "@/utils/acelle/campaignStatusUtils";
+import { 
+  translateStatus, 
+  getStatusBadgeVariant, 
+  renderPercentage, 
+  extractCampaignStat 
+} from "@/utils/acelle/campaignStatusUtils";
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -15,51 +20,6 @@ interface AcelleTableRowProps {
 }
 
 export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps) => {
-  // Fonction pour rendre un pourcentage de manière cohérente
-  const renderPercentage = (value: number | undefined): string => {
-    if (value === undefined || value === null) return "0%";
-    return `${value.toFixed(1)}%`;
-  };
-
-  // Fonction pour extraire les données statistiques de manière sécurisée
-  const extractStat = (key: string): number => {
-    try {
-      // Essayer d'abord avec delivery_info
-      if (campaign.delivery_info) {
-        // Cas spéciaux pour les statistiques de bounce
-        if (key === 'bounce_count' && campaign.delivery_info.bounced) {
-          return typeof campaign.delivery_info.bounced.total === 'number' ? campaign.delivery_info.bounced.total : 0;
-        }
-        
-        // Mapping des clés pour delivery_info
-        const deliveryInfoMap: Record<string, string> = {
-          'subscriber_count': 'total',
-          'delivered_count': 'delivered',
-          'open_count': 'opened',
-          'click_count': 'clicked',
-          'uniq_open_rate': 'unique_open_rate',
-          'click_rate': 'click_rate'
-        };
-        
-        const mappedKey = deliveryInfoMap[key];
-        if (mappedKey && typeof campaign.delivery_info[mappedKey] === 'number') {
-          return campaign.delivery_info[mappedKey] as number;
-        }
-      }
-      
-      // Puis essayer avec statistics
-      if (campaign.statistics && typeof campaign.statistics[key as keyof typeof campaign.statistics] === 'number') {
-        return campaign.statistics[key as keyof typeof campaign.statistics] as number;
-      }
-      
-      // Fallback à 0 si rien n'est trouvé
-      return 0;
-    } catch (error) {
-      console.warn(`Erreur lors de l'extraction de ${key}:`, error);
-      return 0;
-    }
-  };
-
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
   
@@ -75,11 +35,30 @@ export const AcelleTableRow = ({ campaign, onViewCampaign }: AcelleTableRowProps
   const statusDisplay = translateStatus(campaignStatus);
   const variant = getStatusBadgeVariant(campaignStatus);
 
-  // Extraction des statistiques clés
-  const totalSent = extractStat('subscriber_count');
-  const openRate = extractStat('uniq_open_rate');
-  const clickRate = extractStat('click_rate');
-  const bounceCount = extractStat('bounce_count');
+  // Extraction des statistiques clés en utilisant notre utilitaire amélioré
+  const totalSent = extractCampaignStat(campaign, 'subscriber_count');
+  const openRate = extractCampaignStat(campaign, 'uniq_open_rate');
+  const clickRate = extractCampaignStat(campaign, 'click_rate');
+  const bounceCount = extractCampaignStat(campaign, 'bounce_count');
+
+  // Journaliser les données de la campagne pour le débogage (version détaillée)
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug(`Données pour campagne ${campaignName}:`, {
+        id: campaignUid,
+        stats: {
+          totalSent,
+          openRate,
+          clickRate,
+          bounceCount
+        },
+        rawData: {
+          delivery_info: campaign.delivery_info,
+          statistics: campaign.statistics
+        }
+      });
+    }
+  }, [campaign, campaignName, campaignUid, totalSent, openRate, clickRate, bounceCount]);
 
   // Formatage sécurisé des dates
   const formatDateSafely = (dateString: string | null | undefined) => {
