@@ -25,6 +25,7 @@ export interface AcelleCampaignStatistics {
   delivered_count: number;
   delivered_rate: number;
   open_count: number;
+  uniq_open_count?: number;
   uniq_open_rate: number;
   click_count: number;
   click_rate: number;
@@ -38,7 +39,7 @@ export interface AcelleCampaignStatistics {
   unique_open_count?: number;
   open_rate?: number;
   complaint_count?: number;
-  uniq_open_count?: number;
+  unique_open_rate?: number;  // Ajouté pour corriger l'erreur
   last_open?: string;
   last_click?: string;
   abuse_feedback_count?: number;
@@ -48,6 +49,27 @@ export interface AcelleCampaignStatistics {
   delivered?: number;
   opened?: number;
   clicked?: number;
+}
+
+// Interface pour la structure delivery_info
+export interface DeliveryInfo {
+  total?: number;
+  delivery_rate?: number;
+  unique_open_rate?: number;
+  click_rate?: number;
+  bounce_rate?: number;
+  unsubscribe_rate?: number;
+  delivered?: number;
+  opened?: number;
+  clicked?: number;
+  bounced?: {
+    soft?: number;
+    hard?: number;
+    total?: number;
+  } | number;
+  unsubscribed?: number;
+  complained?: number;
+  bounce_count?: number; // Ajouté pour corriger l'erreur
 }
 
 export interface AcelleCampaign {
@@ -61,24 +83,7 @@ export interface AcelleCampaign {
   run_at: string | null;
   last_error?: string;
   
-  delivery_info?: {
-    total?: number;
-    delivery_rate?: number;
-    unique_open_rate?: number;
-    click_rate?: number;
-    bounce_rate?: number;
-    unsubscribe_rate?: number;
-    delivered?: number;
-    opened?: number;
-    clicked?: number;
-    bounced?: {
-      soft?: number;
-      hard?: number;
-      total?: number;
-    } | number;
-    unsubscribed?: number;
-    complained?: number;
-  };
+  delivery_info?: DeliveryInfo;
   
   statistics?: AcelleCampaignStatistics;
   
