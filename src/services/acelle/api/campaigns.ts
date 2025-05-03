@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
@@ -414,10 +415,18 @@ export function calculateDeliveryStats(campaigns: AcelleCampaign[]) {
       totalOpened += campaign.delivery_info.opened || 0;
       totalClicked += campaign.delivery_info.clicked || 0;
       
-      // Handle bounces from the bounced subobject
-      const softBounce = campaign.delivery_info.bounced?.soft || 0;
-      const hardBounce = campaign.delivery_info.bounced?.hard || 0;
-      totalBounced += softBounce + hardBounce;
+      // Handle bounces from the bounced subobject - FIX THE ERROR HERE
+      if (campaign.delivery_info.bounced) {
+        // Vérifier si bounced est un objet ou un nombre
+        if (typeof campaign.delivery_info.bounced === 'object') {
+          const softBounce = campaign.delivery_info.bounced.soft || 0;
+          const hardBounce = campaign.delivery_info.bounced.hard || 0;
+          totalBounced += softBounce + hardBounce;
+        } else {
+          // Si c'est un nombre, l'utiliser directement
+          totalBounced += campaign.delivery_info.bounced;
+        }
+      }
     } 
     // Fall back to statistics if available
     else if (campaign.statistics) {
@@ -484,7 +493,22 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
     // S'assurer que les statistiques sont disponibles et correctement formatées
     if (item.delivery_info) {
       const deliveryInfo = item.delivery_info;
-      const bounced = deliveryInfo.bounced || { soft: 0, hard: 0, total: 0 };
+      
+      // Gérer les rebonds (bounced) avec une vérification de type appropriée
+      let bouncedSoft = 0;
+      let bouncedHard = 0;
+      let bouncedTotal = 0;
+      
+      if (deliveryInfo.bounced) {
+        if (typeof deliveryInfo.bounced === 'object') {
+          bouncedSoft = parseFloat(deliveryInfo.bounced.soft) || 0;
+          bouncedHard = parseFloat(deliveryInfo.bounced.hard) || 0;
+          bouncedTotal = parseFloat(deliveryInfo.bounced.total) || 0;
+        } else {
+          // Si c'est un nombre, l'utiliser comme total
+          bouncedTotal = parseFloat(deliveryInfo.bounced) || 0;
+        }
+      }
       
       // Convertir explicitement toutes les valeurs en nombres
       campaign.statistics = {
@@ -495,9 +519,9 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
         uniq_open_rate: parseFloat(deliveryInfo.unique_open_rate) || 0,
         click_count: parseFloat(deliveryInfo.clicked) || 0,
         click_rate: parseFloat(deliveryInfo.click_rate) || 0,
-        bounce_count: parseFloat(bounced.total) || 0,
-        soft_bounce_count: parseFloat(bounced.soft) || 0,
-        hard_bounce_count: parseFloat(bounced.hard) || 0,
+        bounce_count: bouncedTotal,
+        soft_bounce_count: bouncedSoft,
+        hard_bounce_count: bouncedHard,
         unsubscribe_count: parseFloat(deliveryInfo.unsubscribed) || 0,
         abuse_complaint_count: parseFloat(deliveryInfo.complained) || 0
       };
@@ -528,10 +552,6 @@ export function extractCampaignsFromCache(data: any[]): AcelleCampaign[] {
 
 /**
  * Force la synchronisation des campagnes pour un compte donné avec une attention particulière aux statistiques
- * @param account Compte Acelle à synchroniser
- * @param accessToken Token d'accès à l'API
- * @param batchSize Nombre de campagnes à synchroniser par lot (défaut: toutes)
- * @param pageToSync Page spécifique à synchroniser (optionnel)
  */
 export async function forceSyncCampaigns(
   account: AcelleAccount, 
