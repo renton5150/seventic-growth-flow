@@ -3,8 +3,7 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo }
 
 /**
  * Enrichit un lot de campagnes avec leurs statistiques
- * Cette version améliorée vérifie si les campagnes ont déjà des statistiques valides
- * avant de générer des statistiques simulées
+ * Version refactorisée pour n'utiliser QUE des statistiques réelles et jamais de statistiques simulées
  */
 export async function enrichCampaignsWithStats(
   campaigns: AcelleCampaign[],
@@ -30,84 +29,41 @@ export async function enrichCampaignsWithStats(
     const hasValidStats = isValidStatistics(campaign.statistics);
     const hasValidDeliveryInfo = isValidDeliveryInfo(campaign.delivery_info);
     
-    // Ne pas réutiliser des statistiques qui sont déjà marquées comme simulées
+    // Vérifier si les statistiques sont marquées comme simulées
     const hasSimulatedStats = campaign.statistics?.is_simulated === true;
     const hasSimulatedDeliveryInfo = campaign.delivery_info?.is_simulated === true;
     
-    // Seulement conserver les statistiques si elles sont valides ET non simulées
-    if (hasValidStats && !hasSimulatedStats && hasValidDeliveryInfo && !hasSimulatedDeliveryInfo) {
-      console.log(`La campagne ${campaign.name} a déjà des statistiques réelles valides, conservation des données existantes`);
+    // Conserver uniquement les statistiques si elles sont valides ET non simulées
+    if (hasValidStats && !hasSimulatedStats) {
+      console.log(`La campagne ${campaign.name} a des statistiques réelles valides, conservation des données existantes`);
       
-      // S'assurer que les statistiques sont marquées comme réelles
+      // Marquer explicitement comme données réelles
       campaign.statistics = {
         ...campaign.statistics,
-        is_simulated: false // Marquer comme données réelles
+        is_simulated: false
       };
+    } else {
+      console.log(`La campagne ${campaign.name} n'a pas de statistiques réelles valides`);
+      // Ne pas générer de statistiques simulées - laisser les statistiques vides ou nulles
+      campaign.statistics = undefined;
+    }
+    
+    // Même logique pour delivery_info
+    if (hasValidDeliveryInfo && !hasSimulatedDeliveryInfo) {
+      console.log(`La campagne ${campaign.name} a des informations de livraison réelles valides, conservation des données existantes`);
       
-      // S'assurer que delivery_info a aussi le marqueur
+      // Marquer explicitement comme données réelles
       if (campaign.delivery_info) {
         campaign.delivery_info = {
           ...campaign.delivery_info,
           is_simulated: false
         };
       }
-      continue;
+    } else {
+      console.log(`La campagne ${campaign.name} n'a pas d'informations de livraison réelles valides`);
+      // Ne pas générer d'informations de livraison simulées - laisser vide ou null
+      campaign.delivery_info = undefined;
     }
-    
-    // Si la campagne n'a pas de statistiques valides, en générer des simulées
-    console.log(`Génération de statistiques simulées pour la campagne ${campaign.name} (${campaignUid})`);
-    
-    // Générer des statistiques aléatoires réalistes
-    const subscribers = Math.floor(Math.random() * 1000) + 50;
-    const delivered = Math.floor(subscribers * (Math.random() * 0.1 + 0.9)); // 90-100% délivrés
-    const deliveryRate = (delivered / subscribers) * 100;
-    
-    const opened = Math.floor(delivered * (Math.random() * 0.4 + 0.2)); // 20-60% ouverts
-    const uniqueOpenRate = (opened / delivered) * 100;
-    
-    const clicked = Math.floor(opened * (Math.random() * 0.3 + 0.05)); // 5-35% cliqués parmi ouverts
-    const clickRate = (clicked / delivered) * 100;
-    
-    const bounced = Math.floor(subscribers * (Math.random() * 0.05)); // 0-5% bounces
-    const hardBounces = Math.floor(bounced * 0.6);
-    const softBounces = bounced - hardBounces;
-    
-    const unsubscribed = Math.floor(delivered * (Math.random() * 0.02)); // 0-2% désabonnements
-    
-    // Créer l'objet statistics avec marqueur de simulation
-    campaign.statistics = {
-      subscriber_count: subscribers,
-      delivered_count: delivered,
-      delivered_rate: deliveryRate,
-      open_count: opened,
-      uniq_open_count: opened,
-      uniq_open_rate: uniqueOpenRate,
-      click_count: clicked,
-      click_rate: clickRate,
-      bounce_count: bounced,
-      soft_bounce_count: softBounces,
-      hard_bounce_count: hardBounces,
-      unsubscribe_count: unsubscribed,
-      abuse_complaint_count: Math.floor(unsubscribed * 0.1), // 10% des désabonnés se plaignent
-      is_simulated: true // Marquer comme données simulées
-    };
-    
-    // Créer l'objet delivery_info
-    campaign.delivery_info = {
-      total: subscribers,
-      delivery_rate: deliveryRate,
-      unique_open_rate: uniqueOpenRate,
-      click_rate: clickRate,
-      bounce_rate: (bounced / subscribers) * 100,
-      unsubscribe_rate: (unsubscribed / delivered) * 100,
-      delivered: delivered,
-      opened: opened,
-      clicked: clicked,
-      bounced: { total: bounced, soft: softBounces, hard: hardBounces },
-      unsubscribed: unsubscribed,
-      complained: Math.floor(unsubscribed * 0.1),
-      is_simulated: true // Marquer comme données simulées
-    };
   }
   
   console.log(`${enrichedCampaigns.length} campagnes traitées, enrichissement terminé`);
@@ -119,6 +75,9 @@ export async function enrichCampaignsWithStats(
  */
 function isValidStatistics(stats: AcelleCampaignStatistics | undefined): boolean {
   if (!stats) return false;
+  
+  // Ignorer explicitement les statistiques marquées comme simulées
+  if (stats.is_simulated === true) return false;
   
   // Vérifier que les propriétés essentielles sont présentes et non nulles
   const requiredProps = ['subscriber_count', 'delivered_count', 'open_count'];
@@ -142,6 +101,9 @@ function isValidStatistics(stats: AcelleCampaignStatistics | undefined): boolean
  */
 function isValidDeliveryInfo(info: DeliveryInfo | undefined): boolean {
   if (!info) return false;
+  
+  // Ignorer explicitement les infos marquées comme simulées
+  if (info.is_simulated === true) return false;
   
   // Vérifier que les propriétés essentielles sont présentes et non nulles
   const requiredProps = ['total', 'delivered', 'opened'];

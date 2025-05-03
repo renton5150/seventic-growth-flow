@@ -5,18 +5,20 @@ import { AcelleCampaign } from "@/types/acelle.types";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle, AlertTriangle, Info } from "lucide-react";
 
 interface CampaignTechnicalInfoProps {
   campaign: AcelleCampaign;
   demoMode?: boolean;
   hasSimulatedStats?: boolean;
+  noStatsAvailable?: boolean;
 }
 
 export const CampaignTechnicalInfo = ({ 
   campaign, 
   demoMode = false,
-  hasSimulatedStats = false
+  hasSimulatedStats = false,
+  noStatsAvailable = false
 }: CampaignTechnicalInfoProps) => {
   if (!campaign) return null;
 
@@ -64,9 +66,6 @@ export const CampaignTechnicalInfo = ({
                 <Badge variant={campaign.status === "sent" ? "success" : "secondary"}>
                   {translateStatus(campaign.status)}
                 </Badge>
-                {demoMode && (
-                  <span className="text-xs text-muted-foreground">(Mode démo)</span>
-                )}
               </div>
             </div>
             <div className="flex flex-col">
@@ -95,46 +94,48 @@ export const CampaignTechnicalInfo = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Statistiques
-            {hasSimulatedStats && (
-              <span className="text-sm font-normal text-amber-600 flex items-center">
+            {noStatsAvailable && (
+              <span className="text-sm font-normal text-red-600 flex items-center">
                 <AlertTriangle className="h-4 w-4 mr-1" />
-                Simulées
+                Non disponibles
               </span>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className={`h-5 w-5 ${hasSimulatedStats ? "text-amber-500" : "text-blue-500"}`} />
-              <p className="text-sm">
-                {hasSimulatedStats ? (
-                  <>
-                    <strong>Les statistiques affichées sont simulées.</strong> 
-                    <span className="block mt-1">
-                      Les statistiques réelles ne sont pas disponibles pour cette campagne, donc des estimations simulées sont affichées à la place.
-                      {!demoMode && " Pour obtenir des statistiques réelles, essayez de synchroniser les données depuis l'API Acelle."}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <strong>Les statistiques affichées sont réelles.</strong> 
-                    <span className="block mt-1">
-                      Ces données ont été récupérées depuis l'API Acelle ou le cache de la base de données.
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
+            {noStatsAvailable ? (
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+                <p className="text-sm">
+                  <strong>Aucune statistique n'est disponible pour cette campagne.</strong>
+                  <span className="block mt-1">
+                    Pour obtenir des statistiques réelles, essayez de synchroniser les données depuis l'API Acelle.
+                    Si après synchronisation les statistiques restent indisponibles, il est possible que les données n'aient 
+                    pas encore été enregistrées par le serveur d'emailing.
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <Info className="h-5 w-5 text-blue-500" />
+                <p className="text-sm">
+                  <strong>Les statistiques affichées sont réelles.</strong>
+                  <span className="block mt-1">
+                    Ces données ont été récupérées depuis l'API Acelle ou le cache de la base de données.
+                  </span>
+                </p>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
               <div className="flex flex-col">
                 <span className="text-sm text-muted-foreground">Source des données</span>
-                <span>{hasSimulatedStats ? "Statistiques générées localement" : "API Acelle ou cache de la base de données"}</span>
+                <span>{noStatsAvailable ? "Aucune donnée disponible" : "API Acelle ou cache de la base de données"}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-sm text-muted-foreground">Type de données</span>
-                <span>{hasSimulatedStats ? "Estimation simulée" : "Données réelles"}</span>
+                <span>{noStatsAvailable ? "Aucune donnée disponible" : "Données réelles"}</span>
               </div>
             </div>
           </div>

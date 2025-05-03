@@ -4,7 +4,7 @@ import { AcelleCampaignStatistics } from "@/types/acelle.types";
 import { AlertTriangle } from "lucide-react";
 
 interface CampaignGlobalStatsProps {
-  statistics: AcelleCampaignStatistics;
+  statistics?: AcelleCampaignStatistics;
   isSimulated?: boolean;
 }
 
@@ -12,6 +12,18 @@ export const CampaignGlobalStats = ({
   statistics,
   isSimulated = false
 }: CampaignGlobalStatsProps) => {
+  // Si aucune statistique n'est fournie
+  if (!statistics) {
+    return (
+      <div className="relative">
+        <h3 className="font-medium mb-2">Statistiques globales</h3>
+        <div className="text-center py-4 text-gray-500">
+          Aucune statistique disponible
+        </div>
+      </div>
+    );
+  }
+
   // Formatage des nombres
   const formatNumber = (value?: number): string => {
     if (value === undefined || value === null) return "0";
@@ -41,12 +53,6 @@ export const CampaignGlobalStats = ({
     <div className="relative">
       <h3 className="font-medium mb-2 flex items-center">
         Statistiques globales
-        {isSimulated && (
-          <span className="ml-2 inline-flex items-center text-xs text-amber-600 rounded-full">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Simulées
-          </span>
-        )}
       </h3>
       <div className="space-y-2">
         <div className="flex justify-between">

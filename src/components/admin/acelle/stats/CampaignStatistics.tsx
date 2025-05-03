@@ -5,7 +5,7 @@ import { AcelleCampaignStatistics } from "@/types/acelle.types";
 import { AlertTriangle } from "lucide-react";
 
 interface CampaignStatisticsProps {
-  statistics: AcelleCampaignStatistics;
+  statistics?: AcelleCampaignStatistics;
   loading?: boolean;
   isSimulated?: boolean;
 }
@@ -15,6 +15,15 @@ export const CampaignStatistics = ({
   loading = false,
   isSimulated = false 
 }: CampaignStatisticsProps) => {
+  // Si aucune statistique n'est disponible
+  if (!statistics) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-gray-500">Les statistiques détaillées ne sont pas disponibles pour cette campagne.</p>
+      </Card>
+    );
+  }
+
   // Formatage des nombres
   const formatNumber = (value?: number): string => {
     if (loading) return "...";
@@ -48,14 +57,6 @@ export const CampaignStatistics = ({
 
   return (
     <div className="space-y-6">
-      {/* Indicateur de données simulées */}
-      {isSimulated && (
-        <div className="flex items-center text-sm text-amber-600 mb-2">
-          <AlertTriangle className="h-4 w-4 mr-2" />
-          Les statistiques affichées sont des estimations simulées et ne représentent pas des données réelles.
-        </div>
-      )}
-      
       {/* Cartes des métriques principales */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

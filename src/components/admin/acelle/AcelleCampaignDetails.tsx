@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
@@ -32,20 +32,21 @@ const AcelleCampaignDetails = ({
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasSimulatedStats, setHasSimulatedStats] = useState(false);
+  const [noStatsAvailable, setNoStatsAvailable] = useState(false);
 
   // Chargement des détails de la campagne
   useEffect(() => {
     const loadCampaignDetails = async () => {
       setIsLoading(true);
       setError(null);
+      setNoStatsAvailable(false);
       
       try {
         if (demoMode) {
-          // Mode démo: créer une campagne factice avec des statistiques
-          await loadDemoCampaign(campaignId);
+          // Mode démo est désactivé pour empêcher l'utilisation de données simulées
+          setError("Mode démo désactivé - seules des données réelles sont autorisées");
         } else {
-          // Mode normal: charger depuis le cache et enrichir avec les statistiques
+          // Mode normal: charger depuis le cache et n'utiliser que des statistiques réelles
           await loadRealCampaign(campaignId, account);
         }
       } catch (err) {
@@ -83,59 +84,62 @@ const AcelleCampaignDetails = ({
       }
       
       if (foundCampaign) {
-        // Vérifier explicitement si la campagne a des statistiques non simulées
-        const hasRealStats = 
+        // Vérifier si la campagne a des statistiques réelles
+        const hasValidStats = 
           foundCampaign.statistics && 
-          foundCampaign.statistics.subscriber_count > 0 && 
-          foundCampaign.statistics.is_simulated === false;
-          
-        const hasRealDeliveryInfo =
-          foundCampaign.delivery_info &&
-          foundCampaign.delivery_info.is_simulated === false;
+          foundCampaign.statistics.subscriber_count > 0;
         
+        const hasValidDeliveryInfo =
+          foundCampaign.delivery_info &&
+          (typeof foundCampaign.delivery_info.total === 'number' && foundCampaign.delivery_info.total > 0);
+          
         console.log(`Vérification des statistiques pour ${foundCampaign.name}:`, {
-          hasRealStats,
-          hasRealDeliveryInfo,
+          hasValidStats,
+          hasValidDeliveryInfo,
           stats: foundCampaign.statistics,
           deliveryInfo: foundCampaign.delivery_info
         });
           
-        if (hasRealStats || hasRealDeliveryInfo) {
-          console.log(`La campagne ${foundCampaign.name} a des statistiques RÉELLES, utilisation des données existantes`);
+        if (hasValidStats || hasValidDeliveryInfo) {
+          console.log(`La campagne ${foundCampaign.name} a des statistiques réelles, utilisation des données existantes`);
           setCampaign(foundCampaign);
-          setHasSimulatedStats(false);
         } else {
+          console.log(`La campagne ${foundCampaign.name} n'a pas de statistiques valides`);
+          
           try {
             // Obtenir un token valide pour l'authentification
             const { data: sessionData } = await supabase.auth.getSession();
             const token = sessionData?.session?.access_token || "";
             
-            // Enrichir la campagne avec des statistiques intelligentes (préservation ou génération)
-            console.log("Enrichissement de la campagne avec des statistiques");
+            // Essayer d'enrichir la campagne avec des statistiques réelles uniquement
+            console.log("Tentative d'enrichissement de la campagne avec des statistiques réelles...");
             const enrichedCampaigns = await enrichCampaignsWithStats([foundCampaign], acct, token);
             
             if (enrichedCampaigns && enrichedCampaigns.length > 0) {
               const enrichedCampaign = enrichedCampaigns[0];
-              console.log("Campagne enrichie avec succès:", enrichedCampaign);
+              console.log("Campagne enrichie:", enrichedCampaign);
               
-              // Vérifier à nouveau si les statistiques sont simulées après enrichissement
-              const nowSimulated = 
-                enrichedCampaign.statistics?.is_simulated === true || 
-                enrichedCampaign.delivery_info?.is_simulated === true;
-              
-              console.log(`État de simulation après enrichissement: ${nowSimulated ? "SIMULÉ" : "RÉEL"}`);
-              setHasSimulatedStats(nowSimulated);
-              
-              setCampaign(enrichedCampaign);
+              // Vérifier à nouveau si des statistiques réelles sont disponibles après enrichissement
+              if (enrichedCampaign.statistics || 
+                  (enrichedCampaign.delivery_info && 
+                   typeof enrichedCampaign.delivery_info.total === 'number' && 
+                   enrichedCampaign.delivery_info.total > 0)) {
+                console.log("Statistiques réelles trouvées après enrichissement");
+                setCampaign(enrichedCampaign);
+              } else {
+                console.log("Aucune statistique réelle trouvée, même après enrichissement");
+                setCampaign(foundCampaign); // Utiliser la campagne sans statistiques
+                setNoStatsAvailable(true);
+              }
             } else {
-              console.log("Aucune campagne enrichie retournée, utilisation de la campagne d'origine");
-              setCampaign(foundCampaign);
-              setHasSimulatedStats(true); // Par défaut, supposer que les statistiques sont simulées
+              console.log("Aucune campagne enrichie retournée");
+              setCampaign(foundCampaign); // Utiliser la campagne sans statistiques
+              setNoStatsAvailable(true);
             }
           } catch (enrichError) {
             console.error("Erreur lors de l'enrichissement de la campagne:", enrichError);
-            setCampaign(foundCampaign);
-            setHasSimulatedStats(true);
+            setCampaign(foundCampaign); // Utiliser la campagne sans statistiques
+            setNoStatsAvailable(true);
           }
         }
       } else {
@@ -144,39 +148,6 @@ const AcelleCampaignDetails = ({
     } catch (err) {
       console.error("Erreur lors du chargement de la campagne:", err);
       setError(err instanceof Error ? err.message : "Erreur lors du chargement de la campagne");
-    }
-  };
-
-  // Fonction pour générer une campagne de démonstration
-  const loadDemoCampaign = async (id: string) => {
-    const now = new Date();
-    
-    // Créer la campagne
-    const campaignData: AcelleCampaign = {
-      uid: id,
-      campaign_uid: id,
-      name: "Campagne démo détaillée",
-      subject: "Sujet de la campagne démo détaillée",
-      status: "sent",
-      created_at: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: now.toISOString(),
-      delivery_date: now.toISOString(),
-      run_at: null,
-      last_error: null
-    };
-    
-    // Obtenir un token vide (pas nécessaire en mode démo)
-    const token = "";
-    
-    // Enrichir la campagne avec des statistiques simulées
-    const enrichedCampaigns = await enrichCampaignsWithStats([campaignData], {} as AcelleAccount, token);
-    
-    if (enrichedCampaigns && enrichedCampaigns.length > 0) {
-      setCampaign(enrichedCampaigns[0]);
-      setHasSimulatedStats(true); // Les statistiques de démo sont toujours simulées
-    } else {
-      setCampaign(campaignData);
-      setHasSimulatedStats(true);
     }
   };
 
@@ -198,42 +169,41 @@ const AcelleCampaignDetails = ({
     );
   }
 
-  // Utiliser les statistiques de la campagne ou créer un objet vide
-  const campaignStats = campaign.statistics || {
-    subscriber_count: 0,
-    delivered_count: 0,
-    delivered_rate: 0,
-    open_count: 0,
-    uniq_open_rate: 0,
-    click_count: 0,
-    click_rate: 0,
-    bounce_count: 0,
-    soft_bounce_count: 0,
-    hard_bounce_count: 0,
-    unsubscribe_count: 0,
-    abuse_complaint_count: 0
-  };
-
   return (
     <div className="space-y-6">
-      {/* Alerte pour les statistiques simulées */}
-      {(hasSimulatedStats || demoMode) && (
-        <Alert variant="default" className="bg-amber-50 border-amber-200">
-          <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
-          <AlertDescription className="text-amber-800">
-            {demoMode 
-              ? "Mode démo actif : les statistiques affichées sont simulées et ne correspondent pas à des données réelles." 
-              : "Les statistiques affichées sont simulées car les données réelles ne sont pas disponibles."}
+      {/* Alerte si aucune statistique réelle n'est disponible */}
+      {noStatsAvailable && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+          <AlertDescription className="text-red-800">
+            Aucune statistique réelle n'est disponible pour cette campagne. Veuillez synchroniser les données pour obtenir des statistiques réelles.
           </AlertDescription>
         </Alert>
       )}
       
+      {/* Information sur les données */}
+      {!noStatsAvailable && (
+        <Alert variant="default" className="bg-green-50 border-green-200">
+          <Info className="h-4 w-4 text-green-500 mr-2" />
+          <AlertDescription className="text-green-800">
+            Affichage des données réelles de la campagne.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Informations générales et statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <CampaignGeneralInfo campaign={campaign} />
-        <CampaignGlobalStats 
-          statistics={campaignStats} 
-          isSimulated={hasSimulatedStats || demoMode}
-        />
+        {!noStatsAvailable ? (
+          <CampaignGlobalStats 
+            statistics={campaign.statistics} 
+            isSimulated={false}
+          />
+        ) : (
+          <Card className="p-4 flex items-center justify-center h-full">
+            <p className="text-gray-500">Aucune statistique disponible</p>
+          </Card>
+        )}
       </div>
 
       <Tabs defaultValue="stats" className="w-full">
@@ -244,10 +214,16 @@ const AcelleCampaignDetails = ({
         </TabsList>
 
         <TabsContent value="stats" className="space-y-4 py-4">
-          <CampaignStatistics 
-            statistics={campaignStats}
-            isSimulated={hasSimulatedStats || demoMode} 
-          />
+          {!noStatsAvailable ? (
+            <CampaignStatistics 
+              statistics={campaign.statistics}
+              isSimulated={false}
+            />
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-gray-500">Les statistiques détaillées ne sont pas disponibles pour cette campagne.</p>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="links" className="py-4">
@@ -264,7 +240,8 @@ const AcelleCampaignDetails = ({
           <CampaignTechnicalInfo 
             campaign={campaign} 
             demoMode={demoMode}
-            hasSimulatedStats={hasSimulatedStats} 
+            hasSimulatedStats={false}
+            noStatsAvailable={noStatsAvailable}
           />
         </TabsContent>
       </Tabs>
