@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -139,7 +140,6 @@ export const AcelleTableRow = ({
     // Vérifier aussi dans les propriétés de la campagne
     if (campaign.statistics) {
       if (typeof campaign.statistics.uniq_open_rate === 'number') return campaign.statistics.uniq_open_rate;
-      if (typeof campaign.statistics.unique_open_rate === 'number') return campaign.statistics.unique_open_rate;
       if (typeof campaign.statistics.open_rate === 'number') return campaign.statistics.open_rate;
     }
     
@@ -186,6 +186,10 @@ export const AcelleTableRow = ({
         return campaign.delivery_info.bounced.total;
       if (typeof campaign.delivery_info.bounced === 'number')
         return campaign.delivery_info.bounced;
+    }
+    
+    if (campaign.delivery_info && typeof campaign.delivery_info.bounce_count === 'number') {
+      return campaign.delivery_info.bounce_count;
     }
     
     return extractCampaignStat(campaign, 'bounce_count');

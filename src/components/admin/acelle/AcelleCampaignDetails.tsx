@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -372,7 +373,7 @@ const AcelleCampaignDetails = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Délivrabilité</CardHeader>
+                <CardTitle className="text-sm font-medium">Délivrabilité</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -386,7 +387,7 @@ const AcelleCampaignDetails = ({
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Taux d'ouverture</CardHeader>
+                <CardTitle className="text-sm font-medium">Taux d'ouverture</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
