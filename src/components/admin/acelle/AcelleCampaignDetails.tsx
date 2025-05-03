@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+import { useCampaignStatsCache } from "@/hooks/acelle/useCampaignStatsCache";
 import { supabase } from "@/integrations/supabase/client";
 import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
 import { toast } from "sonner";
@@ -34,6 +35,9 @@ const AcelleCampaignDetails = ({
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Utiliser notre hook de cache pour les statistiques
+  const { getStatsFromCache, cacheStats } = useCampaignStatsCache();
   
   // Utiliser notre hook de synchronisation
   const { 
@@ -72,18 +76,22 @@ const AcelleCampaignDetails = ({
     };
     
     loadCampaignDetails();
-  }, [campaignId, account, demoMode]);
+  }, [campaignId, account, demoMode, getStatsFromCache, cacheStats]);
 
   // Fonction pour charger une campagne réelle depuis le cache ou directement depuis la base de données
   const loadRealCampaign = async (id: string, acct: AcelleAccount) => {
     console.log(`Récupération des statistiques pour la campagne ${id}`);
     
     try {
-      // 1. Essayer de trouver la campagne dans le cache en mémoire
-      const campaigns = await fetchCampaignsFromCache([acct]);
-      let foundCampaign = campaigns.find(c => c.uid === id || c.campaign_uid === id);
+      // 1. Vérifier d'abord dans le cache client si nous avons déjà les statistiques
+      const cachedStats = getStatsFromCache(id);
+      let foundCampaign = null;
       
-      // 2. Si non trouvée, chercher directement dans la base de données
+      // 2. Essayer de trouver la campagne dans le cache en mémoire
+      const campaigns = await fetchCampaignsFromCache([acct]);
+      foundCampaign = campaigns.find(c => c.uid === id || c.campaign_uid === id);
+      
+      // 3. Si non trouvée, chercher directement dans la base de données
       if (!foundCampaign) {
         console.log(`Campagne ${id} non trouvée en cache, recherche dans la base de données`);
         
@@ -101,12 +109,26 @@ const AcelleCampaignDetails = ({
         console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
         setCampaign(foundCampaign);
         
-        // Récupérer les statistiques complètes
+        // Si nous avons déjà les statistiques en cache, les utiliser
+        if (cachedStats) {
+          console.log(`Utilisation des statistiques en cache pour ${id}`);
+          setStats(cachedStats);
+          foundCampaign.statistics = cachedStats;
+          return;
+        }
+        
+        // Sinon, récupérer les statistiques complètes
+        console.log(`Récupération des statistiques pour ${id} depuis l'API`);
         const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct);
         
         // Mettre à jour l'état et la campagne avec les statistiques
         setStats(statsResult.statistics);
         foundCampaign.statistics = statsResult.statistics;
+        
+        // Mettre les statistiques en cache pour une utilisation future
+        if (statsResult.statistics) {
+          cacheStats(id, statsResult.statistics);
+        }
         
         // Assurez-vous que delivery_info est du bon type
         if (statsResult.delivery_info) {

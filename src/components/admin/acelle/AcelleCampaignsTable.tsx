@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -9,7 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
@@ -17,6 +16,7 @@ import { AcelleTableRow } from "./table/AcelleTableRow";
 import { CampaignsTableHeader } from "./table/TableHeader";
 import { CampaignsTablePagination } from "./table/TablePagination";
 import { AcelleTableSyncHeader } from "./table/AcelleTableSyncHeader";
+import { AcelleTableBatchLoader } from "./table/AcelleTableBatchLoader";
 import {
   TableLoadingState,
   TableErrorState,
@@ -32,7 +32,7 @@ import { RefreshCw, Bug, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
+import { useCampaignStatsCache } from "@/hooks/acelle/useCampaignStatsCache";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -40,6 +40,7 @@ interface AcelleCampaignsTableProps {
 }
 
 export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCampaignsTableProps) {
+  // État local pour la pagination, la sélection et les erreurs
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5); // Limité à 5 campagnes par page
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
@@ -54,6 +55,15 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
+  const [loadingStats, setLoadingStats] = useState<boolean>(false);
+  const [statsLoadedCount, setStatsLoadedCount] = useState(0);
+  
+  // Utiliser notre hook de cache de statistiques
+  const { 
+    cacheStats, 
+    getStatsFromCache,
+    cacheInfo 
+  } = useCampaignStatsCache();
   
   // Utiliser notre hook de synchronisation avec une période de 5 minutes
   const { 
@@ -86,7 +96,23 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           currentPage, 
           itemsPerPage
         );
-        setCampaigns(fetchedCampaigns);
+        
+        // Enrichir les campagnes avec les statistiques en cache si disponibles
+        const enrichedCampaigns = fetchedCampaigns.map(campaign => {
+          const campaignUid = campaign.uid || campaign.campaign_uid;
+          if (!campaignUid) return campaign;
+          
+          const cachedStats = getStatsFromCache(campaignUid);
+          if (cachedStats) {
+            console.log(`[Table] Statistiques trouvées en cache pour ${campaign.name}`);
+            campaign.statistics = cachedStats;
+          }
+          
+          return campaign;
+        });
+        
+        setCampaigns(enrichedCampaigns);
+        setStatsLoadedCount(enrichedCampaigns.filter(c => c.statistics).length);
       }
     } catch (err) {
       console.error("Error fetching campaigns:", err);
@@ -95,7 +121,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     } finally {
       setIsLoading(false);
     }
-  }, [account, currentPage, demoMode, itemsPerPage]);
+  }, [account, currentPage, demoMode, itemsPerPage, getStatsFromCache]);
   
   // Fetch campaigns when page changes or account changes
   useEffect(() => {
@@ -239,6 +265,36 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     filteredCampaigns
   } = useAcelleCampaignsTable(campaigns || []);
 
+  // Gérer le chargement par lots complété
+  const handleBatchLoadComplete = useCallback((statsMap: Map<string, AcelleCampaignStatistics>) => {
+    console.log(`[Table] Chargement par lots terminé: ${statsMap.size} statistiques chargées`);
+    setStatsLoadedCount(prev => prev + statsMap.size);
+    setLoadingStats(false);
+    
+    // Mettre à jour les campagnes avec les nouvelles statistiques
+    setCampaigns(prevCampaigns => {
+      return prevCampaigns.map(campaign => {
+        const uid = campaign.uid || campaign.campaign_uid;
+        if (!uid) return campaign;
+        
+        const stats = statsMap.get(uid);
+        if (stats) {
+          return {
+            ...campaign,
+            statistics: stats
+          };
+        }
+        
+        return campaign;
+      });
+    });
+  }, []);
+
+  // Gérer le chargement d'une statistique individuelle
+  const handleStatLoaded = useCallback((campaignUid: string, stats: AcelleCampaignStatistics) => {
+    setStatsLoadedCount(prev => prev + 1);
+  }, []);
+
   // Afficher la campagne sélectionnée
   const handleViewCampaign = (uid: string) => {
     console.log(`Affichage des détails pour la campagne ${uid}`);
@@ -255,8 +311,18 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     if (page < 1 || (totalPages > 0 && page > totalPages)) return;
     
     setCurrentPage(page);
+    // Réinitialiser le compteur de statistiques chargées
+    setStatsLoadedCount(0);
     console.log(`Changement de page: ${page}`);
   };
+
+  // Initialiser le chargement des statistiques
+  useEffect(() => {
+    if (campaigns.length > 0 && !demoMode) {
+      setLoadingStats(true);
+      console.log(`[Table] Initialisation du chargement des statistiques pour ${campaigns.length} campagnes`);
+    }
+  }, [campaigns, demoMode]);
 
   // Si le compte est inactif
   if (account?.status !== 'active' && !demoMode) {
@@ -335,6 +401,16 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           isSyncing={isSyncing}
           onSyncClick={handleSync}
           className="mb-4"
+          cacheInfo={cacheInfo}
+        />
+      )}
+      
+      {/* Chargeur par lots (invisible) pour optimiser le chargement des statistiques */}
+      {!demoMode && loadingStats && (
+        <AcelleTableBatchLoader 
+          campaigns={filteredCampaigns} 
+          account={account}
+          onBatchLoadComplete={handleBatchLoadComplete}
         />
       )}
       
@@ -393,11 +469,19 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
                 account={account}
                 onViewCampaign={handleViewCampaign}
                 demoMode={demoMode}
+                onStatsLoaded={handleStatLoaded}
               />
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {loadingStats && statsLoadedCount < filteredCampaigns.length && (
+        <div className="flex items-center justify-center py-2 text-sm text-muted-foreground">
+          <Spinner className="h-4 w-4 mr-2" />
+          Chargement des statistiques ({statsLoadedCount}/{filteredCampaigns.length})...
+        </div>
+      )}
 
       <div className="flex justify-end mt-4">
         <CampaignsTablePagination 
