@@ -204,7 +204,7 @@ const AcelleCampaignDetails = ({
     <div className="space-y-6">
       {/* Alerte pour les statistiques simulées */}
       {(hasSimulatedStats || demoMode) && (
-        <Alert variant="warning" className="bg-amber-50 border-amber-200">
+        <Alert variant="default" className="bg-amber-50 border-amber-200">
           <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
           <AlertDescription className="text-amber-800">
             {demoMode 

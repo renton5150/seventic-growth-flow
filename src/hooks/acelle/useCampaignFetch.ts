@@ -58,12 +58,18 @@ export const fetchCampaignsFromCache = async (
     const campaigns = cachedCampaigns.map(campaign => {
       // Handle delivery_info parsing with improved error handling
       let deliveryInfo: Record<string, any> = {};
+      let isSimulated = true; // Par défaut, supposer que les données sont simulées
       
       if (campaign.delivery_info) {
         // Convert string to object if needed
         if (typeof campaign.delivery_info === 'string') {
           try {
             deliveryInfo = JSON.parse(campaign.delivery_info);
+            
+            // Vérifier si les données sont marquées comme simulées
+            if (deliveryInfo.is_simulated === false) {
+              isSimulated = false;
+            }
           } catch (e) {
             console.warn('Error parsing delivery_info JSON:', e);
             deliveryInfo = {};
@@ -71,6 +77,11 @@ export const fetchCampaignsFromCache = async (
         } else if (typeof campaign.delivery_info === 'object') {
           // It's already an object
           deliveryInfo = campaign.delivery_info as Record<string, any>;
+          
+          // Vérifier si les données sont marquées comme simulées
+          if (deliveryInfo.is_simulated === false) {
+            isSimulated = false;
+          }
         }
       }
       
@@ -83,6 +94,17 @@ export const fetchCampaignsFromCache = async (
         deliveryInfo.bounced && 
         typeof deliveryInfo.bounced === 'object'
       ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+      
+      // Vérifier si les valeurs ne sont pas toutes à zéro
+      const hasNonZeroValues = 
+        (typeof deliveryInfo.total === 'number' && deliveryInfo.total > 0) || 
+        (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) || 
+        (typeof deliveryInfo.opened === 'number' && deliveryInfo.opened > 0);
+      
+      // Si les données semblent réelles (non nulles et non simulées), mettre à jour le statut
+      if (hasNonZeroValues && !deliveryInfo.is_simulated) {
+        isSimulated = false;
+      }
       
       // Create statistics from delivery_info with safe type access and ensure all required properties exist
       const statistics: AcelleCampaignStatistics = {
@@ -97,7 +119,8 @@ export const fetchCampaignsFromCache = async (
         soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
         hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
         unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
-        abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+        abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0,
+        is_simulated: isSimulated // Ajouter le statut de simulation
       };
       
       // Return consistent AcelleCampaign format
@@ -112,7 +135,10 @@ export const fetchCampaignsFromCache = async (
         delivery_date: campaign.delivery_date || '',
         run_at: campaign.run_at || '',
         last_error: campaign.last_error || '',
-        delivery_info: deliveryInfo,
+        delivery_info: {
+          ...deliveryInfo,
+          is_simulated: isSimulated // Ajouter le statut de simulation
+        },
         statistics
       } as AcelleCampaign;
     });
@@ -157,18 +183,40 @@ export const fetchCampaignById = async (
     
     // Convert database record to AcelleCampaign format (same logic as in fetchCampaignsFromCache)
     let deliveryInfo: Record<string, any> = {};
+    let isSimulated = true; // Par défaut, supposer que les données sont simulées
     
     if (data.delivery_info) {
       if (typeof data.delivery_info === 'string') {
         try {
           deliveryInfo = JSON.parse(data.delivery_info);
+          
+          // Vérifier si les données sont marquées comme simulées
+          if (deliveryInfo.is_simulated === false) {
+            isSimulated = false;
+          }
         } catch (e) {
           console.warn('Error parsing delivery_info JSON:', e);
           deliveryInfo = {};
         }
       } else if (typeof data.delivery_info === 'object') {
         deliveryInfo = data.delivery_info as Record<string, any>;
+        
+        // Vérifier si les données sont marquées comme simulées
+        if (deliveryInfo.is_simulated === false) {
+          isSimulated = false;
+        }
       }
+    }
+    
+    // Vérifier si les valeurs ne sont pas toutes à zéro
+    const hasNonZeroValues = 
+      (typeof deliveryInfo.total === 'number' && deliveryInfo.total > 0) || 
+      (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) || 
+      (typeof deliveryInfo.opened === 'number' && deliveryInfo.opened > 0);
+    
+    // Si les données semblent réelles (non nulles et non simulées), mettre à jour le statut
+    if (hasNonZeroValues && !deliveryInfo.is_simulated) {
+      isSimulated = false;
     }
     
     const bouncedInfo = (
@@ -190,7 +238,8 @@ export const fetchCampaignById = async (
       soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
       hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
       unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
-      abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+      abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0,
+      is_simulated: isSimulated // Ajouter le statut de simulation
     };
     
     return {
@@ -204,7 +253,10 @@ export const fetchCampaignById = async (
       delivery_date: data.delivery_date || '',
       run_at: data.run_at || '',
       last_error: data.last_error || '',
-      delivery_info: deliveryInfo,
+      delivery_info: {
+        ...deliveryInfo,
+        is_simulated: isSimulated // Ajouter le statut de simulation
+      },
       statistics
     } as AcelleCampaign;
   } catch (error) {

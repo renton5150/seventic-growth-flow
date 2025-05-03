@@ -37,6 +37,14 @@ export async function enrichCampaignsWithStats(
         ...campaign.statistics,
         is_simulated: false // Marquer comme données réelles
       };
+      
+      // S'assurer que delivery_info a aussi le marqueur
+      if (campaign.delivery_info) {
+        campaign.delivery_info = {
+          ...campaign.delivery_info,
+          is_simulated: false
+        };
+      }
       continue;
     }
     

@@ -132,7 +132,7 @@ export async function refreshAllCampaignStats(
     // Convertir les données en objets AcelleCampaign tout en préservant les statistiques existantes
     const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
       // Convertir les delivery_info de JSON à objet si nécessaire
-      let deliveryInfo = c.delivery_info;
+      let deliveryInfo: any = c.delivery_info;
       
       if (typeof deliveryInfo === 'string') {
         try {
@@ -154,8 +154,8 @@ export async function refreshAllCampaignStats(
         delivery_date: c.delivery_date,
         run_at: c.run_at,
         last_error: c.last_error,
-        delivery_info: deliveryInfo // Préserver les infos de livraison existantes
-      };
+        delivery_info: deliveryInfo as DeliveryInfo // Cast pour assurer la compatibilité des types
+      } as AcelleCampaign;
     });
 
     console.log(`${campaigns.length} campagnes préparées pour synchronisation`);
