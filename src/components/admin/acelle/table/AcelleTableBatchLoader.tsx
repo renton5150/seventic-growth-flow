@@ -59,8 +59,7 @@ export const AcelleTableBatchLoader = ({
               // Essayer de récupérer et traiter les statistiques
               const result = await fetchAndProcessCampaignStats(campaign, account!, {
                 demoMode,
-                useCache: true,
-                skipProcessing: false
+                useCache: true
               });
               
               // Mettre à jour la campagne avec les statistiques récupérées

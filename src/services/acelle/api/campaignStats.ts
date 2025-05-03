@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { getCampaignStatsDirectly } from "./directStats";
 
@@ -8,7 +7,7 @@ import { getCampaignStatsDirectly } from "./directStats";
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign,
   account: AcelleAccount,
-  options: { demoMode?: boolean } = {}
+  options: { demoMode?: boolean, useCache?: boolean, skipProcessing?: boolean } = {}
 ): Promise<{
   statistics: AcelleCampaignStatistics;
   delivery_info: DeliveryInfo;

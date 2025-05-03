@@ -170,21 +170,22 @@ export async function refreshStatsCacheForCampaigns(
     for (const campaign of data) {
       if (campaign.campaign_uid && campaign.delivery_info) {
         const uid = campaign.campaign_uid;
+        const deliveryInfo = campaign.delivery_info as Record<string, any>;
         
         // Construire les statistiques à partir de delivery_info
         const stats: AcelleCampaignStatistics = {
-          subscriber_count: Number(campaign.delivery_info.total) || 0,
-          delivered_count: Number(campaign.delivery_info.delivered) || 0,
-          delivered_rate: Number(campaign.delivery_info.delivery_rate) || 0,
-          open_count: Number(campaign.delivery_info.opened) || 0,
-          uniq_open_rate: Number(campaign.delivery_info.unique_open_rate) || 0,
-          click_count: Number(campaign.delivery_info.clicked) || 0,
-          click_rate: Number(campaign.delivery_info.click_rate) || 0,
-          bounce_count: getBounceCount(campaign.delivery_info),
-          soft_bounce_count: getSoftBounceCount(campaign.delivery_info),
-          hard_bounce_count: getHardBounceCount(campaign.delivery_info),
-          unsubscribe_count: Number(campaign.delivery_info.unsubscribed) || 0,
-          abuse_complaint_count: Number(campaign.delivery_info.complained) || 0
+          subscriber_count: Number(deliveryInfo.total) || 0,
+          delivered_count: Number(deliveryInfo.delivered) || 0,
+          delivered_rate: Number(deliveryInfo.delivery_rate) || 0,
+          open_count: Number(deliveryInfo.opened) || 0,
+          uniq_open_rate: Number(deliveryInfo.unique_open_rate) || 0,
+          click_count: Number(deliveryInfo.clicked) || 0,
+          click_rate: Number(deliveryInfo.click_rate) || 0,
+          bounce_count: getBounceCount(deliveryInfo),
+          soft_bounce_count: getSoftBounceCount(deliveryInfo),
+          hard_bounce_count: getHardBounceCount(deliveryInfo),
+          unsubscribe_count: Number(deliveryInfo.unsubscribed) || 0,
+          abuse_complaint_count: Number(deliveryInfo.complained) || 0
         };
         
         // Mettre en cache
