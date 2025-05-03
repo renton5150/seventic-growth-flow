@@ -70,6 +70,11 @@ export const useCampaignStatsCache = (options: UseCampaignStatsCacheOptions = {}
       return null;
     }
     
+    // CORRECTION: Vérifier que les stats ont au moins quelques propriétés essentielles
+    if (!('subscriber_count' in statistics) && !('delivered_count' in statistics)) {
+      console.warn("[StatsCache] Statistiques incomplètes", statistics);
+    }
+    
     // Ajouter ou mettre à jour l'entrée dans le cache
     cache.set(campaignUid, {
       campaignUid,
@@ -104,7 +109,7 @@ export const useCampaignStatsCache = (options: UseCampaignStatsCacheOptions = {}
       
       // Vérifier si les données ne sont pas expirées
       if (cachedData.expiresAt > now) {
-        console.log(`[StatsCache] Cache hit pour ${campaignUid}`);
+        console.log(`[StatsCache] Cache hit pour ${campaignUid}`, cachedData.statistics);
         return cachedData.statistics;
       } else {
         // Supprimer les données expirées
@@ -176,6 +181,7 @@ export const useCampaignStatsCache = (options: UseCampaignStatsCacheOptions = {}
     
     // Si les stats sont en cache, les ajouter à la campagne
     if (cachedStats) {
+      console.log(`[StatsCache] Enrichissement de la campagne ${campaignUid} avec des stats en cache`);
       return {
         ...campaign,
         statistics: cachedStats,
@@ -185,12 +191,25 @@ export const useCampaignStatsCache = (options: UseCampaignStatsCacheOptions = {}
     return campaign;
   }, [getStatsFromCache]);
   
+  // Récupérer toutes les entrées du cache
+  const getAllCachedStats = useCallback(() => {
+    const cache = cacheRef.current;
+    const result = new Map<string, AcelleCampaignStatistics>();
+    
+    cache.forEach((value, key) => {
+      result.set(key, value.statistics);
+    });
+    
+    return result;
+  }, []);
+  
   return {
     cacheStats,
     getStatsFromCache,
     invalidateCacheEntry,
     cleanupCache,
     enrichCampaignWithCachedStats,
+    getAllCachedStats,
     cacheInfo: cacheState,
   };
 };

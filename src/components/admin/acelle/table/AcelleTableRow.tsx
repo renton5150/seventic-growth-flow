@@ -36,7 +36,7 @@ export const AcelleTableRow = ({
       ? campaign.statistics 
       : null
   );
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(!stats && !demoMode);
   
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
@@ -51,64 +51,71 @@ export const AcelleTableRow = ({
 
   // Récupérer les statistiques de la campagne avec le cache
   useEffect(() => {
+    if (!campaignUid || demoMode) return;
+    
     const loadCampaignStats = async () => {
-      if (!campaignUid) return;
-      
-      // Vérifier si nous avons déjà les statistiques chargées dans l'état local
-      if (stats) {
-        // Notifier le parent que les statistiques sont chargées
-        if (onStatsLoaded) {
-          onStatsLoaded(campaignUid, stats);
-        }
-        return;
-      }
-      
-      // D'abord vérifier si les statistiques sont déjà présentes dans la campagne
-      if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
-        console.log(`[TableRow] Utilisation des statistiques existantes pour ${campaignName}`);
-        setStats(campaign.statistics);
-        // Mettre à jour le cache avec ces statistiques
-        cacheStats(campaignUid, campaign.statistics);
-        
-        // Notifier le parent que les statistiques sont chargées
-        if (onStatsLoaded) {
-          onStatsLoaded(campaignUid, campaign.statistics);
-        }
-        
-        return;
-      }
-      
-      // Vérifier ensuite dans le cache client
-      const cachedStats = getStatsFromCache(campaignUid);
-      if (cachedStats) {
-        console.log(`[TableRow] Utilisation des statistiques en cache pour ${campaignName}`);
-        setStats(cachedStats);
-        
-        // Mettre également à jour la campagne pour faciliter l'accès ultérieur
-        campaign.statistics = cachedStats;
-        
-        // Notifier le parent que les statistiques sont chargées
-        if (onStatsLoaded) {
-          onStatsLoaded(campaignUid, cachedStats);
-        }
-        
-        return;
-      }
-      
-      // Si les statistiques ne sont pas en cache, les récupérer
-      if (!account && !demoMode) {
-        console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
-        return;
-      }
-      
       try {
+        console.log(`[TableRow] Chargement des stats pour ${campaignName} (${campaignUid})`);
+        
+        // Vérifier si nous avons déjà les statistiques chargées dans l'état local
+        if (stats) {
+          console.log(`[TableRow] Stats déjà en état local pour ${campaignName}`);
+          // Notifier le parent que les statistiques sont chargées
+          if (onStatsLoaded) {
+            onStatsLoaded(campaignUid, stats);
+          }
+          return;
+        }
+        
+        // D'abord vérifier si les statistiques sont déjà présentes dans la campagne
+        if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
+          console.log(`[TableRow] Utilisation des statistiques existantes pour ${campaignName}`);
+          setStats(campaign.statistics);
+          // Mettre à jour le cache avec ces statistiques
+          cacheStats(campaignUid, campaign.statistics);
+          
+          // Notifier le parent que les statistiques sont chargées
+          if (onStatsLoaded) {
+            onStatsLoaded(campaignUid, campaign.statistics);
+          }
+          
+          setIsLoading(false);
+          return;
+        }
+        
+        // Vérifier ensuite dans le cache client
+        const cachedStats = getStatsFromCache(campaignUid);
+        if (cachedStats) {
+          console.log(`[TableRow] Utilisation des statistiques en cache pour ${campaignName}`);
+          setStats(cachedStats);
+          
+          // Mettre également à jour la campagne pour faciliter l'accès ultérieur
+          campaign.statistics = cachedStats;
+          
+          // Notifier le parent que les statistiques sont chargées
+          if (onStatsLoaded) {
+            onStatsLoaded(campaignUid, cachedStats);
+          }
+          
+          setIsLoading(false);
+          return;
+        }
+        
+        // Si les statistiques ne sont pas en cache, les récupérer
+        if (!account) {
+          console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
+          setIsLoading(false);
+          return;
+        }
+        
         setIsLoading(true);
         
         // Récupérer et traiter les statistiques
-        const result = await fetchAndProcessCampaignStats(campaign, account!, { demoMode });
+        const result = await fetchAndProcessCampaignStats(campaign, account, { demoMode });
         
-        // Mettre à jour l'état et le cache avec les statistiques
-        if (result.statistics) {
+        // CORRECTION: Vérifier explicitement que les statistiques ne sont pas nulles
+        if (result && result.statistics && Object.keys(result.statistics).length > 0) {
+          console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, result.statistics);
           setStats(result.statistics);
           cacheStats(campaignUid, result.statistics);
           
@@ -120,6 +127,8 @@ export const AcelleTableRow = ({
           if (onStatsLoaded) {
             onStatsLoaded(campaignUid, result.statistics);
           }
+        } else {
+          console.error(`Statistiques invalides reçues pour ${campaignName}`);
         }
       } catch (error) {
         console.error(`Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
@@ -143,16 +152,26 @@ export const AcelleTableRow = ({
     }
   };
 
-  // Utiliser les statistiques de l'état local ou celles de la campagne
-  const currentStats = stats || campaign.statistics;
+  // CORRECTION: Utiliser les statistiques de l'état local ou celles directement de la campagne
+  const extractStats = () => {
+    // Si nous avons des stats locales, les utiliser
+    if (stats) {
+      return extractQuickStats({ ...campaign, statistics: stats });
+    }
+    
+    // Sinon, utiliser directement les stats de la campagne
+    if (campaign.statistics) {
+      return extractQuickStats(campaign);
+    }
+    
+    // Si nous n'avons pas encore de stats
+    return { totalSent: 0, openRate: 0, clickRate: 0, bounceCount: 0 };
+  };
   
   // Extraire les statistiques importantes
-  const { totalSent, openRate, clickRate, bounceCount } = currentStats 
-    ? extractQuickStats({ ...campaign, statistics: currentStats })
-    : { totalSent: 0, openRate: 0, clickRate: 0, bounceCount: 0 };
+  const { totalSent, openRate, clickRate, bounceCount } = extractStats();
 
   const handleViewCampaign = () => {
-    console.log(`Affichage des détails pour la campagne ${campaignUid}`, { campaign });
     onViewCampaign(campaignUid);
   };
 

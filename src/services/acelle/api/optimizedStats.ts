@@ -29,23 +29,40 @@ export async function batchFetchCampaignStats(
       try {
         const campaignUid = campaign.uid || campaign.campaign_uid || '';
         
+        if (!campaignUid) {
+          console.warn("[BatchFetch] Campagne sans UID valide", campaign);
+          return;
+        }
+        
         // Si la campagne a déjà des statistiques complètes et qu'on ne force pas la mise à jour
         if (!force && campaign.statistics && Object.keys(campaign.statistics).length > 0) {
+          console.log(`[BatchFetch] Utilisation des stats existantes pour ${campaignUid}`, campaign.statistics);
           statsMap.set(campaignUid, campaign.statistics);
           return;
         }
 
+        // CORRECTION: Vérifier que le compte est défini avant d'appeler l'API
+        if (!account && !demoMode) {
+          console.warn(`[BatchFetch] Compte non défini pour ${campaignUid}, impossible de récupérer les stats`);
+          return;
+        }
+
+        console.log(`[BatchFetch] Récupération des stats pour ${campaignUid}`);
         const result = await fetchAndProcessCampaignStats(campaign, account!, { demoMode });
         
-        if (result.statistics) {
+        if (result && result.statistics) {
           statsMap.set(campaignUid, result.statistics);
           
           // Mettre à jour directement la campagne pour une utilisation ultérieure
           campaign.statistics = result.statistics;
           campaign.delivery_info = result.delivery_info;
+          
+          console.log(`[BatchFetch] Stats récupérées pour ${campaignUid}:`, result.statistics);
+        } else {
+          console.warn(`[BatchFetch] Pas de statistiques valides pour ${campaignUid}`);
         }
       } catch (error) {
-        console.error(`Erreur lors de la récupération des statistiques pour la campagne ${campaign.name}:`, error);
+        console.error(`Erreur lors de la récupération des statistiques pour la campagne:`, error);
       }
     });
 
@@ -69,7 +86,14 @@ export function extractQuickStats(campaign: AcelleCampaign): {
   clickRate: number;
   bounceCount: number;
 } {
-  // Récupérer les statistiques formattées en privilégiant les sources les plus fiables
+  console.log(`[ExtractQuickStats] Extraction pour campagne ${campaign.uid || campaign.campaign_uid}`, {
+    hasStats: !!campaign.statistics,
+    hasDeliveryInfo: !!campaign.delivery_info,
+    stats: campaign.statistics,
+    delivery_info: campaign.delivery_info
+  });
+
+  // CORRECTION: Récupérer les statistiques formattées en privilégiant les sources les plus fiables
   const getTotalSent = (): number => {
     if (campaign.statistics?.subscriber_count) return campaign.statistics.subscriber_count;
     if (campaign.delivery_info?.total) return campaign.delivery_info.total;
@@ -80,12 +104,24 @@ export function extractQuickStats(campaign: AcelleCampaign): {
     if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
     if (campaign.statistics?.open_rate) return campaign.statistics.open_rate;
     if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
+    
+    // Calculer le taux si nous avons les valeurs absolues
+    const delivered = campaign.statistics?.delivered_count || campaign.delivery_info?.delivered || 0;
+    const opened = campaign.statistics?.open_count || campaign.delivery_info?.opened || 0;
+    if (delivered > 0) return (opened / delivered) * 100;
+    
     return 0;
   };
 
   const getClickRate = (): number => {
     if (campaign.statistics?.click_rate) return campaign.statistics.click_rate;
     if (campaign.delivery_info?.click_rate) return campaign.delivery_info.click_rate;
+    
+    // Calculer le taux si nous avons les valeurs absolues
+    const delivered = campaign.statistics?.delivered_count || campaign.delivery_info?.delivered || 0;
+    const clicked = campaign.statistics?.click_count || campaign.delivery_info?.clicked || 0;
+    if (delivered > 0) return (clicked / delivered) * 100;
+    
     return 0;
   };
 
@@ -104,10 +140,13 @@ export function extractQuickStats(campaign: AcelleCampaign): {
     return 0;
   };
 
-  return {
+  const result = {
     totalSent: getTotalSent(),
     openRate: getOpenRate(),
     clickRate: getClickRate(),
     bounceCount: getBounceCount()
   };
+  
+  console.log(`[ExtractQuickStats] Résultat:`, result);
+  return result;
 }

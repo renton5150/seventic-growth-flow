@@ -40,6 +40,10 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
     // Si aucune campagne ne nécessite de statistiques, ne rien faire
     if (campaignsNeedingStats.length === 0) {
       console.log('[BatchLoader] Toutes les campagnes ont déjà des statistiques. Aucun chargement nécessaire.');
+      if (onBatchLoadComplete) {
+        // CORRECTION: Même s'il n'y a rien à charger, notifier le parent pour mettre à jour l'UI
+        onBatchLoadComplete(new Map());
+      }
       return;
     }
     
@@ -59,7 +63,16 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
         
         // Mettre les statistiques en cache
         statsMap.forEach((stats, uid) => {
-          cacheStats(uid, stats);
+          if (stats) {
+            console.log(`[BatchLoader] Mise en cache des stats pour ${uid}`, stats);
+            cacheStats(uid, stats);
+            
+            // CORRECTION: Mettre à jour les statistiques directement sur l'objet campagne
+            const campaign = campaigns.find(c => c.uid === uid || c.campaign_uid === uid);
+            if (campaign) {
+              campaign.statistics = stats;
+            }
+          }
         });
         
         // Notifier le parent que le chargement par lots est terminé
@@ -70,6 +83,11 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
         console.log(`[BatchLoader] Chargement par lots terminé pour ${statsMap.size} campagnes`);
       } catch (error) {
         console.error('[BatchLoader] Erreur lors du chargement par lots:', error);
+        
+        // CORRECTION: Même en cas d'erreur, notifier le parent pour mettre à jour l'UI
+        if (onBatchLoadComplete && mounted) {
+          onBatchLoadComplete(new Map());
+        }
       }
     };
     
