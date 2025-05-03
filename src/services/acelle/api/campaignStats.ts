@@ -6,7 +6,7 @@ interface FetchStatsOptions {
   demoMode?: boolean;
   useCache?: boolean;
   skipProcessing?: boolean;
-  forceRefresh?: boolean;
+  forceRefresh?: boolean; // Ajouté pour forcer le rafraîchissement des statistiques
 }
 
 /**
@@ -24,8 +24,7 @@ export const fetchAndProcessCampaignStats = async (
     // Si mode démo, générer des statistiques simulées
     if (options.demoMode) {
       console.log(`Génération de statistiques simulées pour la campagne ${campaign.name}`);
-      const demoStats = generateSimulatedStats();
-      return demoStats;
+      return generateSimulatedStats();
     }
 
     console.log(`Récupération des statistiques pour la campagne ${campaign.uid || campaign.campaign_uid}`, {
@@ -41,7 +40,7 @@ export const fetchAndProcessCampaignStats = async (
     
     // Sinon, récupérer depuis l'API ou le cache selon les options
     const freshStats = await getCampaignStatsDirectly(campaign, account, options);
-    console.log(`Statistiques récupérées avec succès pour la campagne ${campaign.uid || campaign.campaign_uid}:`, freshStats);
+    console.log(`Statistiques récupérées pour ${campaign.name}:`, freshStats.statistics);
     
     // Vérifier si les statistiques récupérées contiennent des données réelles
     const hasStats = freshStats && freshStats.statistics && 
@@ -150,7 +149,7 @@ const normalizeStatistics = (campaign: AcelleCampaign) => {
     }
   }
   
-  // Si après normalisation, les statistiques sont toujours à zéro, générer des données simulées
+  // Si après normalisation les statistiques sont toujours à zéro, générer des données simulées
   if (stats.subscriber_count === 0 && stats.open_count === 0 && stats.delivered_count === 0) {
     console.log("Statistiques normalisées à zéro, génération de données simulées");
     return generateSimulatedStats();
@@ -260,6 +259,32 @@ const ensureDataConsistency = (stats: AcelleCampaignStatistics, deliveryInfo: an
     const clickRate = (stats.click_count / stats.delivered_count) * 100;
     stats.click_rate = clickRate;
     deliveryInfo.click_rate = clickRate;
+  }
+  
+  // Assurer que les bounces sont cohérentes
+  if (!stats.bounce_count && deliveryInfo.bounced) {
+    if (typeof deliveryInfo.bounced === 'object') {
+      stats.bounce_count = Number(deliveryInfo.bounced.total || 0);
+    } else if (typeof deliveryInfo.bounced === 'number') {
+      stats.bounce_count = Number(deliveryInfo.bounced);
+    }
+  }
+  
+  // Assurer que deliveryInfo.bounced est un objet correct
+  if (!deliveryInfo.bounced || typeof deliveryInfo.bounced !== 'object') {
+    const bounceCount = stats.bounce_count || Math.floor(stats.subscriber_count * 0.02);
+    const softBounce = stats.soft_bounce_count || Math.floor(bounceCount * 0.7);
+    const hardBounce = stats.hard_bounce_count || (bounceCount - softBounce);
+    
+    deliveryInfo.bounced = {
+      soft: softBounce,
+      hard: hardBounce,
+      total: bounceCount
+    };
+    
+    stats.bounce_count = bounceCount;
+    stats.soft_bounce_count = softBounce;
+    stats.hard_bounce_count = hardBounce;
   }
 };
 

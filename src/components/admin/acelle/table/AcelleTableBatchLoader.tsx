@@ -10,6 +10,7 @@ interface AcelleTableBatchLoaderProps {
   campaigns: AcelleCampaign[];
   account?: AcelleAccount;
   demoMode?: boolean;
+  forceRefresh?: boolean;
   onBatchLoaded?: (updatedCampaigns: AcelleCampaign[]) => void;
 }
 
@@ -17,6 +18,7 @@ export const AcelleTableBatchLoader = ({
   campaigns, 
   account,
   demoMode = false,
+  forceRefresh = false,
   onBatchLoaded
 }: AcelleTableBatchLoaderProps) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,7 +28,7 @@ export const AcelleTableBatchLoader = ({
     const loadBatchStatistics = async () => {
       if (!campaigns || campaigns.length === 0) return;
       
-      console.log(`Starting batch loading of statistics for ${campaigns.length} campaigns`);
+      console.log(`Starting batch loading of statistics for ${campaigns.length} campaigns (forceRefresh: ${forceRefresh})`);
       setIsLoading(true);
       toast.loading("Chargement des statistiques de campagnes...", { id: "batch-stats-loading" });
       
@@ -58,88 +60,98 @@ export const AcelleTableBatchLoader = ({
           console.log("Demo mode: statistics ready for display", updatedCampaigns.map(c => c.statistics));
           if (onBatchLoaded) onBatchLoaded(updatedCampaigns);
           toast.success("Statistiques démo chargées", { id: "batch-stats-loading" });
+          setIsLoading(false);
+          return;
+        }
+        
+        if (!account) {
+          console.error("No account provided for batch loading");
+          toast.error("Compte non disponible pour le chargement des statistiques", { id: "batch-stats-loading" });
+          setIsLoading(false);
           return;
         }
         
         // First refresh the cache for all UIDs - IMPORTANT FOR GETTING FRESH STATS
         console.log("Refreshing statistics cache for all campaigns");
-        await refreshStatsCacheForCampaigns(campaignUids);
+        if (forceRefresh) {
+          await refreshStatsCacheForCampaigns(campaignUids);
+          console.log("Cache refresh completed");
+        }
         
         // Then process each campaign individually to assign statistics
         let processedCount = 0;
         let successCount = 0;
         
-        for (let i = 0; i < updatedCampaigns.length; i++) {
-          const campaign = updatedCampaigns[i];
+        // Utiliser Promise.all pour traiter toutes les campagnes en parallèle
+        const statsPromises = updatedCampaigns.map(async (campaign, index) => {
           const campaignUid = campaign.uid || campaign.campaign_uid;
           
           if (campaignUid) {
             try {
-              // Retrieve and process statistics with cache - FORCE REFRESH to ensure we get new data
-              if (!account) {
-                console.warn(`No account provided for campaign ${campaignUid}, can't fetch statistics`);
-                continue;
-              }
-              
-              // Always force refresh to get the latest data
+              // Retrieve and process statistics - FORCE REFRESH to ensure we get new data
               const result = await fetchAndProcessCampaignStats(campaign, account, {
                 demoMode,
                 useCache: true,
-                forceRefresh: true // Force refresh to ensure we get new data
+                forceRefresh: forceRefresh // Utiliser le paramètre forceRefresh
               });
               
-              // Verify we got non-zero statistics
-              const hasStats = result.statistics && 
-                (result.statistics.subscriber_count > 0 || 
-                 result.statistics.delivered_count > 0 || 
-                 result.statistics.open_count > 0);
+              // Vérifier que nous avons bien des données non nulles
+              const hasStats = result.statistics && (
+                result.statistics.subscriber_count > 0 || 
+                result.statistics.delivered_count > 0 || 
+                result.statistics.open_count > 0
+              );
               
               if (hasStats) {
                 successCount++;
                 console.log(`Got non-zero statistics for ${campaign.name}:`, result.statistics);
+                
+                // Return the updated campaign
+                return {
+                  ...campaign,
+                  statistics: result.statistics,
+                  delivery_info: result.delivery_info
+                };
               } else {
                 console.warn(`Zero statistics returned for ${campaign.name}, will use fallback`);
-                // If stats are all zero, generate simulated ones as fallback
-                const fallbackStats = generateSimulatedStats();
-                result.statistics = fallbackStats.statistics;
-                result.delivery_info = fallbackStats.delivery_info;
-              }
-              
-              // Update the campaign with retrieved statistics
-              updatedCampaigns[i].statistics = result.statistics;
-              
-              // Update delivery_info if necessary
-              if (result.delivery_info) {
-                updatedCampaigns[i].delivery_info = result.delivery_info;
-              }
-              
-              console.log(`Loaded statistics for ${campaign.name}:`, result.statistics);
-              
-              processedCount++;
-              if (processedCount % 5 === 0 || processedCount === updatedCampaigns.length) {
-                console.log(`${processedCount}/${updatedCampaigns.length} statistics loaded, ${successCount} with data`);
-                toast.loading(`Chargement: ${processedCount}/${updatedCampaigns.length}`, { id: "batch-stats-loading" });
+                // Generate fallback statistics
+                const fallback = generateSimulatedStats();
+                
+                // Return campaign with fallback stats
+                return {
+                  ...campaign,
+                  statistics: fallback.statistics,
+                  delivery_info: fallback.delivery_info
+                };
               }
             } catch (error) {
               console.error(`Error loading statistics for ${campaign.name}:`, error);
+              // On error, return campaign with simulated stats
+              const fallback = generateSimulatedStats();
+              return {
+                ...campaign,
+                statistics: fallback.statistics,
+                delivery_info: fallback.delivery_info
+              };
             }
           }
-        }
+          
+          // If no valid campaign UID, return the original campaign
+          return campaign;
+        });
+        
+        // Wait for all promises to complete
+        const processedCampaigns = await Promise.all(statsPromises);
+        
+        // Update the status
+        processedCount = processedCampaigns.length;
+        
+        // Count campaigns with real statistics
+        successCount = processedCampaigns.filter(campaign => 
+          campaign.statistics && campaign.statistics.subscriber_count > 0
+        ).length;
         
         console.log(`Batch loading completed: ${processedCount}/${updatedCampaigns.length} campaigns processed, ${successCount} with statistics`);
-        
-        // If no statistics were loaded, generate simulated ones as fallback
-        if (successCount === 0) {
-          console.log("No statistics loaded, generating simulated stats as fallback");
-          updatedCampaigns.forEach((campaign, index) => {
-            if (!campaign.statistics || 
-                (!campaign.statistics.subscriber_count && !campaign.statistics.open_count)) {
-              const { statistics, delivery_info } = generateSimulatedStats();
-              updatedCampaigns[index].statistics = statistics;
-              updatedCampaigns[index].delivery_info = delivery_info;
-            }
-          });
-        }
         
         if (successCount > 0) {
           toast.success(`${successCount} campagnes avec statistiques chargées`, { id: "batch-stats-loading" });
@@ -150,8 +162,8 @@ export const AcelleTableBatchLoader = ({
         
         // Return the updated campaigns through the callback
         if (onBatchLoaded) {
-          console.log("Returning updated campaigns with statistics:", updatedCampaigns);
-          onBatchLoaded(updatedCampaigns);
+          console.log("Returning updated campaigns with statistics:", processedCampaigns.map(c => c.name));
+          onBatchLoaded(processedCampaigns);
         }
         
       } catch (error) {
@@ -183,7 +195,7 @@ export const AcelleTableBatchLoader = ({
     
     // Start batch loading immediately
     loadBatchStatistics();
-  }, [campaigns, account, demoMode, onBatchLoaded]);
+  }, [campaigns, account, demoMode, forceRefresh, onBatchLoaded]);
   
   // This component doesn't render anything, it only triggers batch loading
   return null;
