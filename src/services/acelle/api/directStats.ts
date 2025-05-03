@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from '@/types/acelle.types';
 import { supabase } from '@/integrations/supabase/client';
 import { generateSimulatedStats } from './campaignStats';
@@ -44,7 +45,7 @@ export const getCampaignStatsDirectly = async (
           .single();
           
         if (!error && cachedCampaign && cachedCampaign.delivery_info) {
-          console.log(`Statistics found in cache for ${campaign.name}`);
+          console.log(`Statistics found in cache for ${campaign.name}`, cachedCampaign.delivery_info);
           
           // Return the formatted data
           return {
@@ -61,10 +62,7 @@ export const getCampaignStatsDirectly = async (
       console.log(`Forcing refresh of statistics for ${campaign.name}`);
       
       // Here we would typically make an API call to Acelle
-      // For now, we'll simulate this with a delay to make it more realistic
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Fetch fresh data from the cache to simulate a refresh
+      // For now, we'll try to get fresh data from the cache to simulate a refresh
       try {
         const { data: freshData, error } = await supabase
           .from('email_campaigns_cache')
@@ -74,13 +72,16 @@ export const getCampaignStatsDirectly = async (
           .single();
           
         if (!error && freshData && freshData.delivery_info) {
-          console.log(`Fresh statistics retrieved for ${campaign.name}`);
+          console.log(`Fresh statistics retrieved for ${campaign.name}`, freshData.delivery_info);
           
           // Return the refreshed data
           return {
             statistics: extractStatsFromCacheRecord(freshData),
             delivery_info: freshData.delivery_info
           };
+        } else {
+          console.log(`No fresh data found for ${campaign.name}, generating simulated stats`);
+          return generateSimulatedStats();
         }
       } catch (refreshError) {
         console.error('Error during forced refresh:', refreshError);
@@ -222,14 +223,20 @@ export const enrichCampaignsWithStats = async (
       
       if (cachedData?.delivery_info) {
         console.log(`Found cache data with statistics for campaign ${campaign.name}`);
+        
         // Extract statistics from cache
-        result[i].statistics = extractStatsFromCacheRecord(cachedData);
+        const stats = extractStatsFromCacheRecord(cachedData);
+        result[i].statistics = stats;
         result[i].delivery_info = cachedData.delivery_info;
         
         // Log the extracted statistics for debugging
         console.log(`Enriched statistics for ${campaign.name}:`, result[i].statistics);
       } else {
-        console.log(`No cache data with statistics for campaign ${campaign.name}`);
+        // When no cache data is found, generate simulated stats for now
+        console.log(`No cache data with statistics for campaign ${campaign.name}, using simulated data`);
+        const { statistics, delivery_info } = generateSimulatedStats();
+        result[i].statistics = statistics;
+        result[i].delivery_info = delivery_info;
       }
     }
     

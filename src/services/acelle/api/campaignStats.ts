@@ -28,11 +28,14 @@ export const fetchAndProcessCampaignStats = async (
       return demoStats;
     }
 
-    console.log(`Récupération des statistiques pour la campagne ${campaign.uid || campaign.campaign_uid}`);
+    console.log(`Récupération des statistiques pour la campagne ${campaign.uid || campaign.campaign_uid}`, {
+      forceRefresh: options.forceRefresh,
+      useCache: options.useCache
+    });
     
     // Vérifier si la campagne a déjà des statistiques valides
-    if (hasValidStatistics(campaign)) {
-      console.log(`Utilisation des statistiques existantes pour ${campaign.name}`);
+    if (hasValidStatistics(campaign) && !options.forceRefresh) {
+      console.log(`Utilisation des statistiques existantes pour ${campaign.name}`, campaign.statistics);
       return normalizeStatistics(campaign);
     }
     
@@ -42,7 +45,7 @@ export const fetchAndProcessCampaignStats = async (
     
     // Traitement des données retournées
     const processedStats = processApiStats(freshStats, campaign);
-    console.log("Statistiques traitées:", processedStats.statistics);
+    console.log(`Statistiques traitées pour ${campaign.name}:`, processedStats.statistics);
     
     return processedStats;
   } catch (error) {
