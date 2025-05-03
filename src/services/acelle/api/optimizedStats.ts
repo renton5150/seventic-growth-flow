@@ -57,7 +57,9 @@ export async function batchFetchCampaignStats(
               ? campaign.delivery_info.bounced 
               : (campaign.delivery_info.bounced?.total || 0),
             soft_bounce_count: typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced?.soft || 0 : 0,
-            hard_bounce_count: typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced?.hard || 0 : 0
+            hard_bounce_count: typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced?.hard || 0 : 0,
+            unsubscribe_count: Number(campaign.delivery_info.unsubscribed) || 0,
+            abuse_complaint_count: Number(campaign.delivery_info.complained) || 0
           };
           
           campaign.statistics = stats;
