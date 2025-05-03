@@ -1,5 +1,5 @@
 
-import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { toast } from "sonner";
 import { fetchDirectCampaignStats } from "./directCampaignFetch";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,20 +88,28 @@ export async function refreshAllCampaignStats(
     // Convertir les données en objets AcelleCampaign
     const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
       // Convertir explicitement le delivery_info en type DeliveryInfo 
-      const deliveryInfo = c.delivery_info ? {
-        total: c.delivery_info.total || 0,
-        delivery_rate: c.delivery_info.delivery_rate || 0,
-        unique_open_rate: c.delivery_info.unique_open_rate || 0,
-        click_rate: c.delivery_info.click_rate || 0,
-        bounce_rate: c.delivery_info.bounce_rate || 0,
-        unsubscribe_rate: c.delivery_info.unsubscribe_rate || 0,
-        delivered: c.delivery_info.delivered || 0,
-        opened: c.delivery_info.opened || 0,
-        clicked: c.delivery_info.clicked || 0,
-        bounced: c.delivery_info.bounced || 0,
-        unsubscribed: c.delivery_info.unsubscribed || 0,
-        complained: c.delivery_info.complained || 0
-      } : undefined;
+      // en utilisant une vérification de type et des valeurs par défaut sécurisées
+      let deliveryInfo: DeliveryInfo | undefined = undefined;
+      
+      if (c.delivery_info) {
+        // Traiter l'objet delivery_info comme un Record<string, any> pour l'extraction des données
+        const deliveryData = c.delivery_info as Record<string, any>;
+        
+        deliveryInfo = {
+          total: typeof deliveryData.total === 'number' ? deliveryData.total : 0,
+          delivery_rate: typeof deliveryData.delivery_rate === 'number' ? deliveryData.delivery_rate : 0,
+          unique_open_rate: typeof deliveryData.unique_open_rate === 'number' ? deliveryData.unique_open_rate : 0,
+          click_rate: typeof deliveryData.click_rate === 'number' ? deliveryData.click_rate : 0,
+          bounce_rate: typeof deliveryData.bounce_rate === 'number' ? deliveryData.bounce_rate : 0,
+          unsubscribe_rate: typeof deliveryData.unsubscribe_rate === 'number' ? deliveryData.unsubscribe_rate : 0,
+          delivered: typeof deliveryData.delivered === 'number' ? deliveryData.delivered : 0,
+          opened: typeof deliveryData.opened === 'number' ? deliveryData.opened : 0,
+          clicked: typeof deliveryData.clicked === 'number' ? deliveryData.clicked : 0,
+          bounced: typeof deliveryData.bounced === 'number' ? deliveryData.bounced : 0,
+          unsubscribed: typeof deliveryData.unsubscribed === 'number' ? deliveryData.unsubscribed : 0,
+          complained: typeof deliveryData.complained === 'number' ? deliveryData.complained : 0
+        };
+      }
 
       return {
         uid: c.campaign_uid,
