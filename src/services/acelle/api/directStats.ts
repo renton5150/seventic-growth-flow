@@ -3,6 +3,8 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo }
 
 /**
  * Enrichit un lot de campagnes avec leurs statistiques
+ * Cette version améliorée vérifie si les campagnes ont déjà des statistiques valides
+ * avant de générer des statistiques simulées
  */
 export async function enrichCampaignsWithStats(
   campaigns: AcelleCampaign[],
@@ -14,14 +16,32 @@ export async function enrichCampaignsWithStats(
     return [];
   }
   
-  console.log(`Enrichissement de ${campaigns.length} campagnes avec leurs statistiques`);
+  console.log(`Traitement de ${campaigns.length} campagnes pour enrichissement de statistiques`);
   
   // Copier les campagnes pour ne pas modifier les originales
   const enrichedCampaigns = [...campaigns];
   
-  // Créer des statistiques pour TOUTES les campagnes, même celles qui ont déjà des stats
+  // Parcourir toutes les campagnes pour vérifier et enrichir les statistiques
   for (const campaign of enrichedCampaigns) {
-    console.log(`Génération de statistiques pour la campagne ${campaign.name} (${campaign.uid || campaign.campaign_uid})`);
+    const campaignUid = campaign.uid || campaign.campaign_uid;
+    console.log(`Vérification des statistiques pour la campagne ${campaign.name} (${campaignUid})`);
+    
+    // Vérifier si la campagne a déjà des statistiques valides
+    const hasValidStats = isValidStatistics(campaign.statistics);
+    const hasValidDeliveryInfo = isValidDeliveryInfo(campaign.delivery_info);
+    
+    if (hasValidStats && hasValidDeliveryInfo) {
+      console.log(`La campagne ${campaign.name} a déjà des statistiques valides, conservation des données existantes`);
+      // Conserver les statistiques existantes, aucun changement nécessaire
+      campaign.statistics = {
+        ...campaign.statistics,
+        is_simulated: false // Marquer comme données réelles
+      };
+      continue;
+    }
+    
+    // Si la campagne n'a pas de statistiques valides, en générer des simulées
+    console.log(`Génération de statistiques simulées pour la campagne ${campaign.name} (${campaignUid})`);
     
     // Générer des statistiques aléatoires réalistes
     const subscribers = Math.floor(Math.random() * 1000) + 50;
@@ -40,7 +60,7 @@ export async function enrichCampaignsWithStats(
     
     const unsubscribed = Math.floor(delivered * (Math.random() * 0.02)); // 0-2% désabonnements
     
-    // Créer l'objet statistics
+    // Créer l'objet statistics avec marqueur de simulation
     campaign.statistics = {
       subscriber_count: subscribers,
       delivered_count: delivered,
@@ -54,7 +74,8 @@ export async function enrichCampaignsWithStats(
       soft_bounce_count: softBounces,
       hard_bounce_count: hardBounces,
       unsubscribe_count: unsubscribed,
-      abuse_complaint_count: Math.floor(unsubscribed * 0.1) // 10% des désabonnés se plaignent
+      abuse_complaint_count: Math.floor(unsubscribed * 0.1), // 10% des désabonnés se plaignent
+      is_simulated: true // Marquer comme données simulées
     };
     
     // Créer l'objet delivery_info
@@ -70,10 +91,57 @@ export async function enrichCampaignsWithStats(
       clicked: clicked,
       bounced: { total: bounced, soft: softBounces, hard: hardBounces },
       unsubscribed: unsubscribed,
-      complained: Math.floor(unsubscribed * 0.1)
+      complained: Math.floor(unsubscribed * 0.1),
+      is_simulated: true // Marquer comme données simulées
     };
   }
   
-  console.log(`${enrichedCampaigns.length} campagnes enrichies avec leurs statistiques`);
+  console.log(`${enrichedCampaigns.length} campagnes traitées, enrichissement terminé`);
   return enrichedCampaigns;
+}
+
+/**
+ * Vérifie si un objet statistics semble valide (non vide et contenant les propriétés essentielles)
+ */
+function isValidStatistics(stats: AcelleCampaignStatistics | undefined): boolean {
+  if (!stats) return false;
+  
+  // Vérifier que les propriétés essentielles sont présentes et non nulles
+  const requiredProps = ['subscriber_count', 'delivered_count', 'open_count'];
+  for (const prop of requiredProps) {
+    if (stats[prop] === undefined || stats[prop] === null) {
+      return false;
+    }
+  }
+  
+  // Vérifier que les valeurs ne sont pas toutes à zéro (ce qui pourrait indiquer des données vides)
+  const hasNonZeroValues = 
+    stats.subscriber_count > 0 || 
+    stats.delivered_count > 0 || 
+    stats.open_count > 0;
+  
+  return hasNonZeroValues;
+}
+
+/**
+ * Vérifie si un objet delivery_info semble valide
+ */
+function isValidDeliveryInfo(info: DeliveryInfo | undefined): boolean {
+  if (!info) return false;
+  
+  // Vérifier que les propriétés essentielles sont présentes et non nulles
+  const requiredProps = ['total', 'delivered', 'opened'];
+  for (const prop of requiredProps) {
+    if (info[prop] === undefined || info[prop] === null) {
+      return false;
+    }
+  }
+  
+  // Vérifier que les valeurs ne sont pas toutes à zéro
+  const hasNonZeroValues = 
+    info.total > 0 || 
+    info.delivered > 0 || 
+    info.opened > 0;
+  
+  return hasNonZeroValues;
 }

@@ -6,7 +6,7 @@ import { enrichCampaignsWithStats } from "./directStats";
 
 /**
  * Rafraîchit les statistiques d'un lot de campagnes
- * Version simplifiée qui génère des statistiques pour les campagnes
+ * Version améliorée qui préserve les statistiques existantes
  */
 export async function refreshCampaignStatsBatch(
   campaigns: AcelleCampaign[],
@@ -16,6 +16,7 @@ export async function refreshCampaignStatsBatch(
   const statsMap = new Map<string, AcelleCampaignStatistics>();
   let successCount = 0;
   let errorCount = 0;
+  let preservedCount = 0;
 
   // Vérifier les paramètres
   if (!campaigns || campaigns.length === 0) {
@@ -31,7 +32,19 @@ export async function refreshCampaignStatsBatch(
   console.log(`Rafraîchissement des statistiques pour ${campaigns.length} campagnes...`);
 
   try {
-    // Appliquer l'enrichissement à toutes les campagnes
+    // Créer une copie de sauvegarde des campagnes originales et de leurs statistiques
+    const originalStats = new Map<string, AcelleCampaignStatistics | undefined>();
+    
+    campaigns.forEach(campaign => {
+      const campaignUid = campaign.uid || campaign.campaign_uid;
+      if (!campaignUid) return;
+      
+      if (campaign.statistics && !campaign.statistics.is_simulated) {
+        originalStats.set(campaignUid, { ...campaign.statistics });
+      }
+    });
+    
+    // Appliquer l'enrichissement intelligent qui préserve les statistiques valides
     const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, token);
     
     // Extraire les statistiques dans la map
@@ -40,16 +53,29 @@ export async function refreshCampaignStatsBatch(
       if (!campaignUid) return;
       
       if (campaign.statistics) {
-        console.log(`Statistiques générées pour ${campaign.name} (${campaignUid}):`, campaign.statistics);
+        // Vérifier si les statistiques ont été préservées ou générées
+        const isSimulated = campaign.statistics.is_simulated === true;
+        
+        if (isSimulated) {
+          console.log(`Statistiques simulées générées pour ${campaign.name} (${campaignUid})`);
+        } else {
+          preservedCount++;
+          console.log(`Statistiques réelles préservées pour ${campaign.name} (${campaignUid})`);
+        }
+        
         statsMap.set(campaignUid, campaign.statistics);
         successCount++;
       }
     });
     
-    console.log(`Statistiques générées pour ${successCount} campagnes`);
+    console.log(`Statistiques traitées: ${successCount} campagnes (${preservedCount} avec données réelles, ${successCount - preservedCount} avec données simulées)`);
     
     if (successCount > 0) {
-      toast.success(`Statistiques rafraîchies pour ${successCount} campagne(s)`);
+      if (preservedCount > 0) {
+        toast.success(`Statistiques traitées pour ${successCount} campagnes (${preservedCount} avec données réelles)`);
+      } else {
+        toast.success(`Statistiques générées pour ${successCount} campagne(s)`);
+      }
     }
     
     return statsMap;
@@ -62,6 +88,7 @@ export async function refreshCampaignStatsBatch(
 
 /**
  * Rafraîchit toutes les statistiques pour toutes les campagnes d'un compte
+ * Version améliorée qui préserve les statistiques existantes
  */
 export async function refreshAllCampaignStats(
   account: AcelleAccount,
@@ -102,25 +129,44 @@ export async function refreshAllCampaignStats(
       return false;
     }
     
-    // Convertir les données en objets AcelleCampaign
-    const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => ({
-      uid: c.campaign_uid,
-      campaign_uid: c.campaign_uid,
-      name: c.name,
-      subject: c.subject,
-      status: c.status,
-      created_at: c.created_at,
-      updated_at: c.updated_at,
-      delivery_date: c.delivery_date,
-      run_at: c.run_at,
-      last_error: c.last_error
-    }));
+    // Convertir les données en objets AcelleCampaign tout en préservant les statistiques existantes
+    const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
+      // Convertir les delivery_info de JSON à objet si nécessaire
+      let deliveryInfo = c.delivery_info;
+      
+      if (typeof deliveryInfo === 'string') {
+        try {
+          deliveryInfo = JSON.parse(deliveryInfo);
+        } catch (e) {
+          console.warn(`Erreur de parsing JSON pour ${c.name}:`, e);
+          deliveryInfo = null;
+        }
+      }
+      
+      return {
+        uid: c.campaign_uid,
+        campaign_uid: c.campaign_uid,
+        name: c.name,
+        subject: c.subject,
+        status: c.status,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        delivery_date: c.delivery_date,
+        run_at: c.run_at,
+        last_error: c.last_error,
+        delivery_info: deliveryInfo // Préserver les infos de livraison existantes
+      };
+    });
 
     console.log(`${campaigns.length} campagnes préparées pour synchronisation`);
 
-    // Enrichir toutes les campagnes avec des statistiques générées
+    // Enrichir les campagnes en préservant les statistiques existantes
     const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, token);
     console.log(`Campagnes enrichies: ${enrichedCampaigns.length}`);
+
+    // Compter les statistiques réelles et simulées
+    let realStatsCount = 0;
+    let simulatedStatsCount = 0;
 
     // Mettre à jour le cache pour toutes les campagnes enrichies
     let updatedCount = 0;
@@ -129,8 +175,16 @@ export async function refreshAllCampaignStats(
       if (!campaignUid) continue;
 
       try {
+        // Vérifier si les statistiques sont réelles ou simulées
+        const isSimulated = campaign.statistics?.is_simulated === true;
+        
+        if (isSimulated) {
+          simulatedStatsCount++;
+        } else {
+          realStatsCount++;
+        }
+        
         // Convertir delivery_info en objet JSON pour éviter l'erreur TypeScript
-        // En convertissant explicitement en objet, on s'assure que Supabase peut traiter les données
         const deliveryInfo = campaign.delivery_info ? { ...campaign.delivery_info } : null;
         console.log(`Mise à jour des statistiques dans la base de données pour ${campaign.name} (${campaignUid})`);
         
@@ -153,10 +207,17 @@ export async function refreshAllCampaignStats(
       }
     }
 
-    console.log(`${updatedCount} campagnes mises à jour dans la base de données`);
-    toast.success(`Synchronisation des statistiques terminée (${updatedCount} campagnes mises à jour)`, {
-      id: "stats-sync"
-    });
+    console.log(`${updatedCount} campagnes mises à jour dans la base de données (${realStatsCount} avec données réelles, ${simulatedStatsCount} avec données simulées)`);
+    
+    if (realStatsCount > 0) {
+      toast.success(`Synchronisation terminée : ${updatedCount} campagnes mises à jour (${realStatsCount} avec données réelles)`, {
+        id: "stats-sync"
+      });
+    } else {
+      toast.success(`Synchronisation terminée : ${updatedCount} campagnes mises à jour (toutes avec données simulées)`, {
+        id: "stats-sync"
+      });
+    }
     
     return true;
   } catch (error) {

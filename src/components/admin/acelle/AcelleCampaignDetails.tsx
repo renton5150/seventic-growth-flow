@@ -1,7 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
@@ -29,6 +32,7 @@ const AcelleCampaignDetails = ({
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasSimulatedStats, setHasSimulatedStats] = useState(false);
 
   // Chargement des détails de la campagne
   useEffect(() => {
@@ -79,25 +83,46 @@ const AcelleCampaignDetails = ({
       }
       
       if (foundCampaign) {
-        try {
-          // Obtenir un token valide pour l'authentification
-          const { data: sessionData } = await supabase.auth.getSession();
-          const token = sessionData?.session?.access_token || "";
+        // Vérifier si la campagne a des statistiques valides
+        const hasValidStats = foundCampaign.statistics && 
+          foundCampaign.statistics.subscriber_count > 0 && 
+          !foundCampaign.statistics.is_simulated;
           
-          // Toujours enrichir la campagne avec des statistiques, même si elle en a déjà
-          console.log("Enrichissement de la campagne avec des statistiques générées");
-          const enrichedCampaigns = await enrichCampaignsWithStats([foundCampaign], acct, token);
-          
-          if (enrichedCampaigns && enrichedCampaigns.length > 0) {
-            console.log("Campagne enrichie avec succès:", enrichedCampaigns[0]);
-            setCampaign(enrichedCampaigns[0]);
-          } else {
-            console.log("Aucune campagne enrichie retournée, utilisation de la campagne d'origine");
-            setCampaign(foundCampaign);
-          }
-        } catch (enrichError) {
-          console.error("Erreur lors de l'enrichissement de la campagne:", enrichError);
+        if (hasValidStats) {
+          console.log(`La campagne ${foundCampaign.name} a déjà des statistiques valides, utilisation des données existantes`);
           setCampaign(foundCampaign);
+          setHasSimulatedStats(false);
+        } else {
+          try {
+            // Obtenir un token valide pour l'authentification
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token || "";
+            
+            // Enrichir la campagne avec des statistiques intelligentes (préservation ou génération)
+            console.log("Enrichissement de la campagne avec des statistiques");
+            const enrichedCampaigns = await enrichCampaignsWithStats([foundCampaign], acct, token);
+            
+            if (enrichedCampaigns && enrichedCampaigns.length > 0) {
+              const enrichedCampaign = enrichedCampaigns[0];
+              console.log("Campagne enrichie avec succès:", enrichedCampaign);
+              
+              // Vérifier si les statistiques sont simulées
+              setHasSimulatedStats(
+                enrichedCampaign.statistics?.is_simulated === true || 
+                enrichedCampaign.delivery_info?.is_simulated === true
+              );
+              
+              setCampaign(enrichedCampaign);
+            } else {
+              console.log("Aucune campagne enrichie retournée, utilisation de la campagne d'origine");
+              setCampaign(foundCampaign);
+              setHasSimulatedStats(true); // Par défaut, supposer que les statistiques sont simulées
+            }
+          } catch (enrichError) {
+            console.error("Erreur lors de l'enrichissement de la campagne:", enrichError);
+            setCampaign(foundCampaign);
+            setHasSimulatedStats(true);
+          }
         }
       } else {
         setError("Campagne non trouvée");
@@ -129,13 +154,15 @@ const AcelleCampaignDetails = ({
     // Obtenir un token vide (pas nécessaire en mode démo)
     const token = "";
     
-    // Enrichir la campagne avec des statistiques
+    // Enrichir la campagne avec des statistiques simulées
     const enrichedCampaigns = await enrichCampaignsWithStats([campaignData], {} as AcelleAccount, token);
     
     if (enrichedCampaigns && enrichedCampaigns.length > 0) {
       setCampaign(enrichedCampaigns[0]);
+      setHasSimulatedStats(true); // Les statistiques de démo sont toujours simulées
     } else {
       setCampaign(campaignData);
+      setHasSimulatedStats(true);
     }
   };
 
@@ -175,9 +202,24 @@ const AcelleCampaignDetails = ({
 
   return (
     <div className="space-y-6">
+      {/* Alerte pour les statistiques simulées */}
+      {(hasSimulatedStats || demoMode) && (
+        <Alert variant="warning" className="bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+          <AlertDescription className="text-amber-800">
+            {demoMode 
+              ? "Mode démo actif : les statistiques affichées sont simulées et ne correspondent pas à des données réelles." 
+              : "Les statistiques affichées sont simulées car les données réelles ne sont pas disponibles."}
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <CampaignGeneralInfo campaign={campaign} />
-        <CampaignGlobalStats statistics={campaignStats} />
+        <CampaignGlobalStats 
+          statistics={campaignStats} 
+          isSimulated={hasSimulatedStats || demoMode}
+        />
       </div>
 
       <Tabs defaultValue="stats" className="w-full">
@@ -188,7 +230,10 @@ const AcelleCampaignDetails = ({
         </TabsList>
 
         <TabsContent value="stats" className="space-y-4 py-4">
-          <CampaignStatistics statistics={campaignStats} />
+          <CampaignStatistics 
+            statistics={campaignStats}
+            isSimulated={hasSimulatedStats || demoMode} 
+          />
         </TabsContent>
 
         <TabsContent value="links" className="py-4">
@@ -202,7 +247,11 @@ const AcelleCampaignDetails = ({
         </TabsContent>
 
         <TabsContent value="technical" className="py-4">
-          <CampaignTechnicalInfo campaign={campaign} demoMode={demoMode} />
+          <CampaignTechnicalInfo 
+            campaign={campaign} 
+            demoMode={demoMode}
+            hasSimulatedStats={hasSimulatedStats} 
+          />
         </TabsContent>
       </Tabs>
     </div>
