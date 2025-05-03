@@ -10,12 +10,11 @@ import {
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { AcelleTableRow } from "../table/AcelleTableRow";
 import { CampaignsTableHeader } from "../table/TableHeader";
-import { AcelleTableBatchLoader } from "../table/AcelleTableBatchLoader";
-import { toast } from "sonner";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
-import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button"; 
-import { RefreshCw } from "lucide-react"; 
+import { RefreshCw, AlertTriangle } from "lucide-react"; 
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
+import { fetchStatsBatch, refreshAllCampaignStats } from "@/services/acelle/api/directFetch";
 
 interface TableContentProps {
   campaigns: AcelleCampaign[];
@@ -36,139 +35,115 @@ export const TableContent = ({
   onViewCampaign,
   demoMode = false
 }: TableContentProps) => {
-  const [isStatsLoaded, setIsStatsLoaded] = useState(false);
-  const [isInitiallyLoading, setIsInitiallyLoading] = useState(true);
-  const [loadAttempts, setLoadAttempts] = useState(0);
-  const [enrichedCampaigns, setEnrichedCampaigns] = useState<AcelleCampaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [enrichedCampaigns, setEnrichedCampaigns] = useState<AcelleCampaign[]>([]);
+  const [loadingMessage, setLoadingMessage] = useState("Chargement des statistiques...");
 
-  // Reset stats loading state when campaigns change
+  // Effet pour charger les statistiques
   useEffect(() => {
-    setIsStatsLoaded(false);
-    setIsInitiallyLoading(true);
+    if (!campaigns.length) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+    setLoadingMessage("Chargement des statistiques...");
     
-    // Always try to enrich campaigns with statistics when campaigns change
     const loadStats = async () => {
-      console.log(`Trying to enrich ${campaigns.length} campaigns with statistics from cache`);
-      if (campaigns.length > 0 && account) {
-        try {
-          toast.loading("Initialisation des statistiques...", {
-            id: "loading-stats",
-            duration: 3000
-          });
-          
-          // Use the enrichCampaignsWithStats function to load statistics from cache
-          const result = await enrichCampaignsWithStats(campaigns, account);
-          setEnrichedCampaigns(result);
-          
-          // Check if we have actual stats
-          const hasStats = result.some(c => 
-            c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
-          );
-          
-          if (hasStats) {
-            console.log("Successfully loaded campaign statistics from cache");
-            setIsStatsLoaded(true);
-            toast.success("Statistiques initiales chargées", {
-              id: "loading-stats",
-              duration: 2000
-            });
-          } else {
-            console.log("No statistics found in cache, will try batch loading");
-            toast.info("Chargement complet des statistiques...", {
-              id: "loading-stats",
-              duration: 3000
-            });
-          }
-        } catch (err) {
-          console.error("Error enriching campaigns with statistics:", err);
-          toast.error("Erreur lors du chargement des statistiques", {
-            id: "loading-stats",
-          });
-        } finally {
-          setIsInitiallyLoading(false);
-        }
-      } else {
-        // If in demo mode, just set the campaigns directly
+      try {
+        // Si en mode démo, utiliser directement les campagnes
         if (demoMode) {
           setEnrichedCampaigns(campaigns);
-          setIsInitiallyLoading(false);
+          setIsLoading(false);
+          return;
         }
+        
+        // Si pas de compte actif, ne rien charger
+        if (!account) {
+          setErrorMessage("Aucun compte Acelle actif");
+          setIsLoading(false);
+          return;
+        }
+        
+        toast.loading("Chargement des statistiques...", { id: "load-stats" });
+        
+        // Utiliser la nouvelle fonction directe pour récupérer les statistiques
+        const enrichedData = await fetchStatsBatch(campaigns, account);
+        setEnrichedCampaigns(enrichedData);
+        
+        // Vérifier si nous avons des données non-nulles
+        const hasValidStats = enrichedData.some(campaign => 
+          campaign.statistics && (
+            campaign.statistics.subscriber_count > 0 || 
+            campaign.statistics.open_count > 0
+          )
+        );
+        
+        if (hasValidStats) {
+          toast.success("Statistiques chargées avec succès", { id: "load-stats" });
+        } else {
+          toast.info("Statistiques chargées (certaines données peuvent être estimées)", { id: "load-stats" });
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des statistiques:", error);
+        setErrorMessage("Erreur lors du chargement des statistiques");
+        toast.error("Erreur lors du chargement des statistiques", { id: "load-stats" });
+        
+        // En cas d'erreur, utiliser les campagnes brutes
+        setEnrichedCampaigns(campaigns);
+      } finally {
+        setIsLoading(false);
       }
     };
     
     loadStats();
-    
   }, [campaigns, account, demoMode]);
-  
-  // Callback function when batch loading is complete
-  const handleBatchLoaded = (updatedCampaigns: AcelleCampaign[]) => {
-    console.log("Batch loading completed, updating campaigns with statistics", updatedCampaigns);
-    setEnrichedCampaigns(updatedCampaigns);
-    setIsStatsLoaded(true);
-    setLoadAttempts(prev => prev + 1);
-    
-    // Check if campaigns now have statistics
-    const hasStats = updatedCampaigns.some(c => 
-      c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
-    );
-    
-    if (hasStats) {
-      console.log("Statistics loaded successfully");
-      toast.success("Statistiques complètes chargées", {
-        id: "loading-stats",
-        duration: 2000
-      });
-    } else if (loadAttempts > 0) {
-      console.warn("Failed to load statistics after attempt");
-      toast.error("Certaines statistiques n'ont pas pu être chargées", {
-        id: "loading-stats",
-        duration: 3000
-      });
-    }
-  };
 
-  // Manual refresh function for statistics
+  // Fonction pour rafraîchir manuellement les statistiques
   const handleRefreshStats = async () => {
-    if (!account || demoMode) return;
+    if (!account || demoMode || isRefreshing) return;
     
     setIsRefreshing(true);
-    toast.loading("Rafraîchissement des statistiques...", { id: "refresh-stats" });
+    setErrorMessage(null);
     
     try {
-      // Force a batch reload with refreshed data
-      setLoadAttempts(prev => prev + 1);
+      // Appel à la nouvelle fonction de rafraîchissement direct
+      const success = await refreshAllCampaignStats(account);
       
-      // After a short delay, update the status to avoid UI jumping
-      setTimeout(() => {
-        setIsRefreshing(false);
-        toast.success("Demande de rafraîchissement envoyée", { id: "refresh-stats" });
-      }, 1000);
+      if (success) {
+        // Recharger les statistiques
+        const refreshedData = await fetchStatsBatch(campaigns, account);
+        setEnrichedCampaigns(refreshedData);
+      }
     } catch (error) {
-      console.error("Error refreshing statistics:", error);
-      toast.error("Erreur lors du rafraîchissement", { id: "refresh-stats" });
+      console.error("Erreur lors du rafraîchissement des statistiques:", error);
+      setErrorMessage("Erreur lors du rafraîchissement des statistiques");
+    } finally {
       setIsRefreshing(false);
     }
   };
 
-  // Display a loading state if initially loading
-  if (isInitiallyLoading && !demoMode && campaigns.length > 0) {
+  // Afficher un état de chargement
+  if (isLoading && !demoMode) {
     return (
       <div className="rounded-md border p-8 flex flex-col items-center justify-center">
         <Spinner className="w-8 h-8 mb-4" />
         <p className="text-center text-gray-500">
-          Chargement des statistiques initiales...
+          {loadingMessage}
         </p>
       </div>
     );
   }
 
-  // Use the campaigns with statistics for display
+  // Utiliser les campagnes enrichies si disponibles, sinon les campagnes brutes
   const campaignsToDisplay = enrichedCampaigns.length > 0 ? enrichedCampaigns : campaigns;
 
   return (
     <div className="space-y-4">
-      {/* Statistics refresh button */}
+      {/* Bouton de rafraîchissement des statistiques */}
       <div className="flex justify-end">
         <Button
           variant="outline"
@@ -178,20 +153,19 @@ export const TableContent = ({
           className="mb-2"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-          Rafraîchir les statistiques
+          {isRefreshing ? "Rafraîchissement..." : "Rafraîchir les statistiques"}
         </Button>
       </div>
+
+      {/* Message d'erreur */}
+      {errorMessage && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-center mb-4">
+          <AlertTriangle className="h-5 w-5 mr-2 text-red-500" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
       
       <div className="rounded-md border">
-        {/* Batch statistics loader (invisible) */}
-        <AcelleTableBatchLoader 
-          campaigns={campaigns} 
-          account={account}
-          demoMode={demoMode}
-          onBatchLoaded={handleBatchLoaded}
-          forceRefresh={loadAttempts > 0}
-        />
-        
         <Table>
           <TableHeader>
             <TableRow>
@@ -221,7 +195,6 @@ export const TableContent = ({
                 account={account}
                 onViewCampaign={onViewCampaign}
                 demoMode={demoMode}
-                forceReload={loadAttempts > 0}
               />
             ))}
           </TableBody>
