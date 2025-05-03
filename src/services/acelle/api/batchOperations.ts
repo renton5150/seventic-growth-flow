@@ -131,10 +131,14 @@ export async function refreshAllCampaignStats(
       if (!campaignUid) continue;
 
       try {
+        // Convertir delivery_info en objet JSON pour éviter l'erreur TypeScript
+        // En convertissant explicitement en objet, on s'assure que Supabase peut traiter les données
+        const deliveryInfo = campaign.delivery_info ? { ...campaign.delivery_info } : null;
+        
         await supabase
           .from('email_campaigns_cache')
           .update({
-            delivery_info: campaign.delivery_info,
+            delivery_info: deliveryInfo,
             cache_updated_at: new Date().toISOString()
           })
           .eq('campaign_uid', campaignUid)
