@@ -67,7 +67,7 @@ export const AcelleTableRow = ({
     if (campaign.statistics && 
         typeof campaign.statistics === 'object' && 
         Object.keys(campaign.statistics).length > 0) {
-      console.log(`Utilisation des statistiques existantes dans campaign.statistics pour ${campaignName}`);
+      console.log(`Utilisation des statistiques existantes dans campaign.statistics pour ${campaignName}`, campaign.statistics);
       setStats(campaign.statistics);
       return;
     }
@@ -75,7 +75,7 @@ export const AcelleTableRow = ({
     if (campaign.delivery_info && 
         typeof campaign.delivery_info === 'object' &&
         (campaign.delivery_info.total > 0 || campaign.delivery_info.delivered > 0)) {
-      console.log(`Utilisation des statistiques existantes dans campaign.delivery_info pour ${campaignName}`);
+      console.log(`Utilisation des statistiques existantes dans campaign.delivery_info pour ${campaignName}`, campaign.delivery_info);
       setStats(campaign.delivery_info);
       return;
     }
@@ -117,6 +117,16 @@ export const AcelleTableRow = ({
       if (typeof stats.total === 'number') return stats.total;
       if (typeof stats.subscriber_count === 'number') return stats.subscriber_count;
     }
+    
+    // Vérifier aussi dans les propriétés de la campagne
+    if (campaign.statistics && typeof campaign.statistics.subscriber_count === 'number') {
+      return campaign.statistics.subscriber_count;
+    }
+    
+    if (campaign.delivery_info && typeof campaign.delivery_info.total === 'number') {
+      return campaign.delivery_info.total;
+    }
+    
     return extractCampaignStat(campaign, 'subscriber_count');
   };
   
@@ -126,11 +136,33 @@ export const AcelleTableRow = ({
       if (typeof stats.uniq_open_rate === 'number') return stats.uniq_open_rate;
       if (typeof stats.open_rate === 'number') return stats.open_rate;
     }
+    
+    // Vérifier aussi dans les propriétés de la campagne
+    if (campaign.statistics) {
+      if (typeof campaign.statistics.uniq_open_rate === 'number') return campaign.statistics.uniq_open_rate;
+      if (typeof campaign.statistics.unique_open_rate === 'number') return campaign.statistics.unique_open_rate;
+      if (typeof campaign.statistics.open_rate === 'number') return campaign.statistics.open_rate;
+    }
+    
+    if (campaign.delivery_info) {
+      if (typeof campaign.delivery_info.unique_open_rate === 'number') return campaign.delivery_info.unique_open_rate;
+    }
+    
     return extractCampaignStat(campaign, 'uniq_open_rate');
   };
   
   const getClickRate = () => {
     if (stats && typeof stats.click_rate === 'number') return stats.click_rate;
+    
+    // Vérifier aussi dans les propriétés de la campagne
+    if (campaign.statistics && typeof campaign.statistics.click_rate === 'number') {
+      return campaign.statistics.click_rate;
+    }
+    
+    if (campaign.delivery_info && typeof campaign.delivery_info.click_rate === 'number') {
+      return campaign.delivery_info.click_rate;
+    }
+    
     return extractCampaignStat(campaign, 'click_rate');
   };
   
@@ -144,6 +176,19 @@ export const AcelleTableRow = ({
       }
       if (typeof stats.bounce_count === 'number') return stats.bounce_count;
     }
+    
+    // Vérifier aussi dans les propriétés de la campagne
+    if (campaign.statistics && typeof campaign.statistics.bounce_count === 'number') {
+      return campaign.statistics.bounce_count;
+    }
+    
+    if (campaign.delivery_info && campaign.delivery_info.bounced) {
+      if (typeof campaign.delivery_info.bounced === 'object' && typeof campaign.delivery_info.bounced.total === 'number')
+        return campaign.delivery_info.bounced.total;
+      if (typeof campaign.delivery_info.bounced === 'number')
+        return campaign.delivery_info.bounced;
+    }
+    
     return extractCampaignStat(campaign, 'bounce_count');
   };
 
@@ -175,9 +220,12 @@ export const AcelleTableRow = ({
         openRate,
         clickRate,
         bounceCount
-      }
+      },
+      rawStats: stats,
+      campaignStatistics: campaign.statistics,
+      deliveryInfo: campaign.delivery_info
     });
-  }, [campaignName, campaignUid, totalSent, openRate, clickRate, bounceCount, stats]);
+  }, [campaignName, campaignUid, totalSent, openRate, clickRate, bounceCount, stats, campaign.statistics, campaign.delivery_info]);
   
   return (
     <TableRow>

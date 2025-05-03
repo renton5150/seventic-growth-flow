@@ -67,7 +67,7 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
       .slice(0, 5);
   }, [campaigns, searchTerm, statusFilter, sortBy, sortOrder]);
   
-  // Fonction helper pour récupérer des statistiques d'une campagne
+  // Fonction helper pour récupérer des statistiques d'une campagne avec debug amélioré
   const getStatValue = (campaign: AcelleCampaign, ...keys: string[]): number => {
     if (!campaign) return 0;
     
@@ -75,8 +75,21 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
     if (campaign.delivery_info) {
       for (const key of keys) {
         if (typeof campaign.delivery_info[key] === 'number') {
+          console.log(`Stat trouvée dans delivery_info[${key}]:`, campaign.delivery_info[key]);
           return campaign.delivery_info[key];
         }
+      }
+      
+      // Spécifique à unique_open_rate qui peut être dans delivery_info
+      if (keys.includes('uniq_open_rate') && typeof campaign.delivery_info.unique_open_rate === 'number') {
+        console.log(`Stat trouvée dans delivery_info[unique_open_rate]:`, campaign.delivery_info.unique_open_rate);
+        return campaign.delivery_info.unique_open_rate;
+      }
+      
+      // Chercher total pour subscriber_count
+      if (keys.includes('subscriber_count') && typeof campaign.delivery_info.total === 'number') {
+        console.log(`Stat trouvée dans delivery_info[total]:`, campaign.delivery_info.total);
+        return campaign.delivery_info.total;
       }
     }
     
@@ -84,14 +97,26 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
     if (campaign.statistics) {
       for (const key of keys) {
         if (typeof campaign.statistics[key] === 'number') {
+          console.log(`Stat trouvée dans statistics[${key}]:`, campaign.statistics[key]);
           return campaign.statistics[key];
         }
+      }
+      
+      // Chercher dans les mappages alternatifs pour statistics
+      if (keys.includes('subscriber_count') && typeof campaign.statistics.subscriber_count === 'number') {
+        return campaign.statistics.subscriber_count;
+      }
+      
+      if ((keys.includes('uniq_open_rate') || keys.includes('open_rate')) && 
+          typeof campaign.statistics.uniq_open_rate === 'number') {
+        return campaign.statistics.uniq_open_rate;
       }
     }
     
     // Chercher directement dans la campagne
     for (const key of keys) {
       if (typeof campaign[key] === 'number') {
+        console.log(`Stat trouvée directement dans campaign[${key}]:`, campaign[key]);
         return campaign[key];
       }
     }

@@ -42,6 +42,12 @@ export interface AcelleCampaignStatistics {
   last_open?: string;
   last_click?: string;
   abuse_feedback_count?: number;
+  
+  // Propriétés formatées pour l'affichage
+  total?: number;
+  delivered?: number;
+  opened?: number;
+  clicked?: number;
 }
 
 export interface AcelleCampaign {

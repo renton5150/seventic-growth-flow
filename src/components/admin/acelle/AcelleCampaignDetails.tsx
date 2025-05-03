@@ -53,33 +53,32 @@ const AcelleCampaignDetails = ({
             setCampaign(foundCampaign);
             console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
             
-            // Récupérer les statistiques à jour
-            try {
-              console.log(`Récupération des statistiques pour la campagne ${campaignId}`);
-              const freshStats = await getCampaignStatsDirectly(foundCampaign, account);
-              console.log("Statistiques récupérées:", freshStats);
-              
-              // Utiliser les nouvelles statistiques ou celles déjà présentes
-              if (freshStats && Object.keys(freshStats).length > 0) {
-                if (freshStats.delivery_info) {
-                  setStats(freshStats.delivery_info);
-                } else if (freshStats.statistics) {
-                  setStats(freshStats.statistics);
-                } else {
-                  setStats(freshStats);
+            // Extraire d'abord les statistiques existantes dans l'objet de la campagne
+            if (foundCampaign.statistics && Object.keys(foundCampaign.statistics).length > 0) {
+              console.log("Utilisation des statistiques existantes dans campaign.statistics:", foundCampaign.statistics);
+              setStats(foundCampaign.statistics);
+            } else if (foundCampaign.delivery_info && Object.keys(foundCampaign.delivery_info).length > 0) {
+              console.log("Utilisation des statistiques existantes dans campaign.delivery_info:", foundCampaign.delivery_info);
+              setStats(foundCampaign.delivery_info);
+            } else {
+              // Récupérer les statistiques à jour si nécessaire
+              try {
+                console.log(`Récupération des statistiques pour la campagne ${campaignId}`);
+                const freshStats = await getCampaignStatsDirectly(foundCampaign, account);
+                console.log("Statistiques récupérées:", freshStats);
+                
+                // Utiliser les nouvelles statistiques
+                if (freshStats && Object.keys(freshStats).length > 0) {
+                  if (freshStats.delivery_info) {
+                    setStats(freshStats.delivery_info);
+                  } else if (freshStats.statistics) {
+                    setStats(freshStats.statistics);
+                  } else {
+                    setStats(freshStats);
+                  }
                 }
-              } else if (foundCampaign.delivery_info && Object.keys(foundCampaign.delivery_info).length > 0) {
-                setStats(foundCampaign.delivery_info);
-              } else if (foundCampaign.statistics && Object.keys(foundCampaign.statistics).length > 0) {
-                setStats(foundCampaign.statistics);
-              }
-            } catch (err) {
-              console.error("Erreur lors de la récupération des statistiques:", err);
-              // En cas d'erreur, utiliser les stats existantes
-              if (foundCampaign.delivery_info) {
-                setStats(foundCampaign.delivery_info);
-              } else if (foundCampaign.statistics) {
-                setStats(foundCampaign.statistics);
+              } catch (err) {
+                console.error("Erreur lors de la récupération des statistiques:", err);
               }
             }
           } else {
@@ -161,43 +160,95 @@ const AcelleCampaignDetails = ({
     );
   }
 
-  // Extraction des statistiques
+  // Extraction des statistiques depuis toutes les sources possibles
   const getStatValue = (key: string, defaultValue: number = 0): number => {
-    if (!stats) return defaultValue;
-    
-    if (typeof stats[key] === 'number') {
-      return stats[key];
+    // 1. Vérifier d'abord dans l'état stats local
+    if (stats) {
+      if (typeof stats[key] === 'number') {
+        return stats[key];
+      }
     }
     
-    // Recherche de mappages alternatifs
-    const mappings: Record<string, string[]> = {
-      'total': ['subscriber_count', 'recipients_count'],
-      'delivered': ['delivered_count'],
-      'opened': ['open_count'],
-      'clicked': ['click_count'],
-      'delivery_rate': ['delivered_rate'],
-      'unique_open_rate': ['open_rate', 'uniq_open_rate'],
-      'click_rate': ['click_rate']
-    };
+    // 2. Vérifier dans campaign.statistics
+    if (campaign.statistics) {
+      if (typeof campaign.statistics[key] === 'number') {
+        return campaign.statistics[key];
+      }
+    }
     
-    if (mappings[key]) {
-      for (const altKey of mappings[key]) {
-        if (typeof stats[altKey] === 'number') {
-          return stats[altKey];
+    // 3. Vérifier dans campaign.delivery_info avec mappage de noms
+    if (campaign.delivery_info) {
+      // Mappages alternatifs
+      const mappings: Record<string, string[]> = {
+        'total': ['subscriber_count', 'recipients_count'],
+        'delivered': ['delivered_count'],
+        'opened': ['open_count'],
+        'clicked': ['click_count'],
+        'delivery_rate': ['delivered_rate'],
+        'unique_open_rate': ['open_rate', 'uniq_open_rate'],
+        'click_rate': ['click_rate']
+      };
+      
+      // Vérifier la clé directe d'abord
+      if (typeof campaign.delivery_info[key] === 'number') {
+        return campaign.delivery_info[key];
+      }
+      
+      // Ensuite vérifier les mappages alternatifs
+      if (mappings[key]) {
+        for (const altKey of mappings[key]) {
+          if (typeof campaign.delivery_info[altKey] === 'number') {
+            return campaign.delivery_info[altKey];
+          }
+        }
+      }
+      
+      // Gestion spéciale pour bounced
+      if (key === 'bounced' || key === 'total_bounces') {
+        if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced) {
+          return campaign.delivery_info.bounced.total || defaultValue;
+        }
+        if (typeof campaign.delivery_info.bounced === 'number') {
+          return campaign.delivery_info.bounced;
+        }
+        if (typeof campaign.delivery_info.bounce_count === 'number') {
+          return campaign.delivery_info.bounce_count;
         }
       }
     }
     
-    // Gestion spéciale pour bounced
-    if (key === 'bounced' || key === 'total_bounces') {
-      if (typeof stats.bounced === 'object' && stats.bounced) {
-        return stats.bounced.total || defaultValue;
+    // 4. Vérifier dans stats avec mappage
+    if (stats) {
+      // Mappages alternatifs pour les statistiques
+      const mappings: Record<string, string[]> = {
+        'total': ['subscriber_count', 'recipients_count'],
+        'delivered': ['delivered_count'],
+        'opened': ['open_count'],
+        'clicked': ['click_count'],
+        'bounced': ['bounce_count'],
+        'unsubscribed': ['unsubscribe_count'],
+        'complained': ['complaint_count', 'abuse_complaint_count']
+      };
+      
+      if (mappings[key]) {
+        for (const altKey of mappings[key]) {
+          if (typeof stats[altKey] === 'number') {
+            return stats[altKey];
+          }
+        }
       }
-      if (typeof stats.bounced === 'number') {
-        return stats.bounced;
-      }
-      if (typeof stats.bounce_count === 'number') {
-        return stats.bounce_count;
+      
+      // Gestion spéciale pour bounced
+      if (key === 'bounced' || key === 'total_bounces') {
+        if (typeof stats.bounced === 'object' && stats.bounced) {
+          return stats.bounced.total || defaultValue;
+        }
+        if (typeof stats.bounced === 'number') {
+          return stats.bounced;
+        }
+        if (typeof stats.bounce_count === 'number') {
+          return stats.bounce_count;
+        }
       }
     }
     
@@ -205,20 +256,43 @@ const AcelleCampaignDetails = ({
   };
 
   // Valeurs statistiques avec extraction fiable
-  const total = getStatValue('total');
-  const delivered = getStatValue('delivered');
-  const opened = getStatValue('opened');
-  const clicked = getStatValue('clicked');
-  const totalBounces = getStatValue('bounced');
-  const softBounces = stats && stats.bounced && typeof stats.bounced === 'object' ? 
-    (stats.bounced.soft || 0) : 0;
-  const hardBounces = stats && stats.bounced && typeof stats.bounced === 'object' ? 
-    (stats.bounced.hard || 0) : 0;
-  const unsubscribed = getStatValue('unsubscribed');
-  const complained = getStatValue('complained');
-  const delivery_rate = getStatValue('delivery_rate');
-  const open_rate = getStatValue('unique_open_rate');
-  const click_rate = getStatValue('click_rate');
+  const total = getStatValue('total', 0);
+  const delivered = getStatValue('delivered', 0);
+  const opened = getStatValue('opened', 0);
+  const clicked = getStatValue('clicked', 0);
+  const totalBounces = getStatValue('bounced', 0);
+  
+  // Pour les soft/hard bounces, on a besoin d'un traitement spécial
+  let softBounces = 0;
+  let hardBounces = 0;
+  
+  // Essayer d'abord dans stats
+  if (stats && stats.bounced && typeof stats.bounced === 'object') {
+    softBounces = stats.bounced.soft || 0;
+    hardBounces = stats.bounced.hard || 0;
+  } else if (campaign.delivery_info && campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object') {
+    softBounces = campaign.delivery_info.bounced.soft || 0;
+    hardBounces = campaign.delivery_info.bounced.hard || 0;
+  }
+  
+  const unsubscribed = getStatValue('unsubscribed', 0);
+  const complained = getStatValue('complained', 0);
+  
+  // Calcul des taux si nécessaire
+  let delivery_rate = getStatValue('delivery_rate');
+  if (delivery_rate === 0 && total > 0 && delivered > 0) {
+    delivery_rate = (delivered / total) * 100;
+  }
+  
+  let open_rate = getStatValue('unique_open_rate');
+  if (open_rate === 0 && delivered > 0 && opened > 0) {
+    open_rate = (opened / delivered) * 100;
+  }
+  
+  let click_rate = getStatValue('click_rate');
+  if (click_rate === 0 && delivered > 0 && clicked > 0) {
+    click_rate = (clicked / delivered) * 100;
+  }
 
   return (
     <div className="space-y-6">

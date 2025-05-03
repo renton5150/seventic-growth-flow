@@ -41,15 +41,15 @@ export async function getCampaignStatsDirectly(
         hasApiKey: !!account?.apiToken
       });
       
-      // Mode dégrédé: utiliser les stats existantes
+      // Mode dégradé: utiliser les stats existantes
       if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
         console.log("Utilisation des statistiques existantes dans campaign.statistics");
-        return campaign.statistics;
+        return { statistics: campaign.statistics };
       }
       
       if (campaign.delivery_info && Object.keys(campaign.delivery_info).length > 0) {
         console.log("Utilisation des statistiques existantes dans campaign.delivery_info");
-        return campaign.delivery_info;
+        return { delivery_info: campaign.delivery_info };
       }
       
       return {};
@@ -67,30 +67,28 @@ export async function getCampaignStatsDirectly(
       );
       
       if (rawStats) {
-        // Traiter les statistiques brutes
-        const processedStats = processRawStats(rawStats);
-        console.log("Statistiques traitées:", processedStats);
+        console.log(`Statistiques récupérées avec succès pour la campagne ${campaignId}:`, rawStats);
         
-        // Mettre à jour le format pour qu'il soit compatible avec le format d'affichage
-        return {
-          statistics: processedStats,
-          delivery_info: {
-            total: processedStats.subscriber_count || 0,
-            delivered: processedStats.delivered_count || 0,
-            delivery_rate: processedStats.delivered_rate || 0,
-            opened: processedStats.open_count || 0,
-            unique_open_rate: processedStats.uniq_open_rate || processedStats.open_rate || 0,
-            clicked: processedStats.click_count || 0,
-            click_rate: processedStats.click_rate || 0,
-            bounced: {
-              total: processedStats.bounce_count || 0,
-              soft: processedStats.soft_bounce_count || 0,
-              hard: processedStats.hard_bounce_count || 0
-            },
-            unsubscribed: processedStats.unsubscribe_count || 0,
-            complained: processedStats.complaint_count || processedStats.abuse_complaint_count || 0
-          }
+        // Extraire et traiter les statistiques directement depuis la réponse API
+        let statisticsData = {};
+        
+        if (rawStats.statistics) {
+          // Si l'API renvoie déjà un objet statistics formaté
+          statisticsData = rawStats.statistics;
+        } else {
+          // Sinon, traiter les données brutes
+          statisticsData = processRawStats(rawStats);
+        }
+        
+        console.log("Statistiques traitées:", statisticsData);
+        
+        // Créer un résultat correctement structuré
+        const result = {
+          statistics: statisticsData,
+          delivery_info: formatToDeliveryInfo(statisticsData)
         };
+        
+        return result;
       }
     }
     
@@ -100,11 +98,11 @@ export async function getCampaignStatsDirectly(
       
       // Vérifier d'abord statistics puis delivery_info
       if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
-        return { statistics: campaign.statistics };
+        return { statistics: campaign.statistics, delivery_info: formatToDeliveryInfo(campaign.statistics) };
       }
       
       if (campaign.delivery_info && Object.keys(campaign.delivery_info).length > 0) {
-        return { delivery_info: campaign.delivery_info };
+        return { delivery_info: campaign.delivery_info, statistics: formatToStatistics(campaign.delivery_info) };
       }
     }
     
@@ -115,16 +113,82 @@ export async function getCampaignStatsDirectly(
     // En cas d'erreur et si le mode de repli est activé
     if (useFallback) {
       if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
-        return { statistics: campaign.statistics };
+        return { statistics: campaign.statistics, delivery_info: formatToDeliveryInfo(campaign.statistics) };
       }
       
       if (campaign.delivery_info && Object.keys(campaign.delivery_info).length > 0) {
-        return { delivery_info: campaign.delivery_info };
+        return { delivery_info: campaign.delivery_info, statistics: formatToStatistics(campaign.delivery_info) };
       }
     }
     
     return {};
   }
+}
+
+/**
+ * Convertit l'objet statistics au format delivery_info
+ */
+function formatToDeliveryInfo(stats: any): Record<string, any> {
+  if (!stats) return {};
+  
+  // Mappages entre les noms de propriétés
+  const bounced = typeof stats.bounce_count === 'number' 
+    ? {
+        total: stats.bounce_count || 0,
+        soft: stats.soft_bounce_count || 0,
+        hard: stats.hard_bounce_count || 0
+      }
+    : stats.bounce_count || 0;
+    
+  return {
+    total: stats.subscriber_count || stats.total || 0,
+    delivered: stats.delivered_count || stats.delivered || 0,
+    delivery_rate: stats.delivered_rate || 0,
+    opened: stats.open_count || stats.opened || 0,
+    unique_open_rate: stats.uniq_open_rate || stats.open_rate || stats.unique_open_rate || 0,
+    clicked: stats.click_count || stats.clicked || 0,
+    click_rate: stats.click_rate || 0,
+    bounced: bounced,
+    unsubscribed: stats.unsubscribe_count || stats.unsubscribed || 0,
+    complained: stats.abuse_complaint_count || stats.complaint_count || stats.complained || 0
+  };
+}
+
+/**
+ * Convertit l'objet delivery_info au format statistics
+ */
+function formatToStatistics(info: any): Record<string, any> {
+  if (!info) return {};
+  
+  // Extraire les valeurs de bounces, qu'elles soient un objet ou un nombre
+  let bounce_count = 0;
+  let soft_bounce_count = 0;
+  let hard_bounce_count = 0;
+  
+  if (info.bounced) {
+    if (typeof info.bounced === 'object') {
+      bounce_count = info.bounced.total || 0;
+      soft_bounce_count = info.bounced.soft || 0;
+      hard_bounce_count = info.bounced.hard || 0;
+    } else if (typeof info.bounced === 'number') {
+      bounce_count = info.bounced;
+    }
+  }
+  
+  return {
+    subscriber_count: info.total || 0,
+    delivered_count: info.delivered || 0,
+    delivered_rate: info.delivery_rate || 0,
+    open_count: info.opened || 0,
+    uniq_open_rate: info.unique_open_rate || 0,
+    click_count: info.clicked || 0,
+    click_rate: info.click_rate || 0,
+    bounce_count: bounce_count,
+    soft_bounce_count: soft_bounce_count,
+    hard_bounce_count: hard_bounce_count,
+    unsubscribe_count: info.unsubscribed || 0,
+    abuse_complaint_count: info.complained || 0
+  };
 }
 
 /**
