@@ -13,7 +13,6 @@ export async function refreshCampaignStatsBatch(
   token: string
 ): Promise<Map<string, AcelleCampaignStatistics>> {
   const statsMap = new Map<string, AcelleCampaignStatistics>();
-  const promises: Promise<void>[] = [];
   let successCount = 0;
   let errorCount = 0;
 
@@ -35,7 +34,7 @@ export async function refreshCampaignStatsBatch(
   
   console.log(`Rafraîchissement des statistiques pour ${campaigns.length} campagnes...`);
 
-  // Création d'une promesse pour chaque campagne
+  // Traiter les campagnes de manière séquentielle pour éviter les problèmes de rate limit
   for (const campaign of campaigns) {
     const campaignUid = campaign.uid || campaign.campaign_uid;
     if (!campaignUid) {
@@ -43,27 +42,24 @@ export async function refreshCampaignStatsBatch(
       continue;
     }
 
-    const promise = fetchDirectCampaignStats(campaignUid, account, token)
-      .then(result => {
-        // Stocker les statistiques dans la map
-        statsMap.set(campaignUid, result.statistics);
-        
-        // Mettre à jour la campagne avec les nouvelles statistiques
-        campaign.statistics = result.statistics;
-        campaign.delivery_info = result.delivery_info;
-        
-        successCount++;
-      })
-      .catch(error => {
-        console.error(`Erreur pour la campagne ${campaignUid}:`, error);
-        errorCount++;
-      });
-
-    promises.push(promise);
+    try {
+      console.log(`Récupération des statistiques pour la campagne ${campaignUid}`);
+      const result = await fetchDirectCampaignStats(campaignUid, account, token);
+      
+      // Stocker les statistiques dans la map
+      statsMap.set(campaignUid, result.statistics);
+      
+      // Mettre à jour la campagne avec les nouvelles statistiques
+      campaign.statistics = result.statistics;
+      campaign.delivery_info = result.delivery_info;
+      
+      successCount++;
+      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`);
+    } catch (error) {
+      console.error(`Erreur pour la campagne ${campaignUid}:`, error);
+      errorCount++;
+    }
   }
-
-  // Attendre que toutes les promesses soient résolues
-  await Promise.all(promises);
 
   // Afficher un toast avec le résumé
   if (successCount > 0) {
@@ -135,12 +131,15 @@ export async function refreshAllCampaignStats(
 
     console.log(`${campaigns.length} campagnes préparées pour synchronisation`);
 
-    // Rafraîchir les statistiques par lots
-    const batchSize = 5; // Limiter le nombre de requêtes parallèles
+    // Rafraîchir les statistiques par lots plus petits et séquentiellement
+    const batchSize = 3; // Limiter davantage le nombre de requêtes parallèles
+    let processedCount = 0;
+    
     for (let i = 0; i < campaigns.length; i += batchSize) {
       const batch = campaigns.slice(i, i + batchSize);
       await refreshCampaignStatsBatch(batch, account, token);
-      console.log(`Lot ${Math.floor(i/batchSize) + 1} traité: ${batch.length} campagnes`);
+      processedCount += batch.length;
+      console.log(`Lot ${Math.floor(i/batchSize) + 1} traité: ${batch.length} campagnes (${processedCount}/${campaigns.length})`);
     }
 
     toast.success("Synchronisation des statistiques terminée", {

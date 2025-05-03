@@ -41,6 +41,12 @@ export const AcelleTableRow = ({
   // Récupérer les statistiques de la campagne
   useEffect(() => {
     const loadCampaignStats = async () => {
+      if (campaign.statistics || campaign.delivery_info) {
+        console.log(`Statistiques déjà disponibles pour la campagne ${campaignName}`);
+        if (campaign.statistics) setStats(campaign.statistics);
+        return;
+      }
+      
       console.log(`Initialisation des statistiques pour la campagne ${campaignName}`, {
         hasDeliveryInfo: !!campaign.delivery_info,
         hasStatistics: !!campaign.statistics,
@@ -60,6 +66,7 @@ export const AcelleTableRow = ({
         
         // Mettre à jour l'état local avec les statistiques récupérées
         setStats(result.statistics);
+        console.log(`Statistiques récupérées pour ${campaignName}:`, result.statistics);
         
         // Enrichir également la campagne avec les statistiques pour qu'elles soient disponibles dans le détail
         campaign.statistics = result.statistics;
@@ -89,33 +96,33 @@ export const AcelleTableRow = ({
 
   // Récupérer les statistiques formattées
   const getTotalSent = (): number => {
-    if (stats?.subscriber_count) return stats.subscriber_count;
-    if (campaign.statistics?.subscriber_count) return campaign.statistics.subscriber_count;
-    if (campaign.delivery_info?.total) return campaign.delivery_info.total;
+    if (stats?.subscriber_count !== undefined) return stats.subscriber_count;
+    if (campaign.statistics?.subscriber_count !== undefined) return campaign.statistics.subscriber_count;
+    if (campaign.delivery_info?.total !== undefined) return campaign.delivery_info.total;
     return 0;
   };
 
   const getOpenRate = (): number => {
-    if (stats?.uniq_open_rate) return stats.uniq_open_rate;
-    if (stats?.open_rate) return stats.open_rate;
-    if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
-    if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
+    if (stats?.uniq_open_rate !== undefined) return stats.uniq_open_rate;
+    if (stats?.open_rate !== undefined) return stats.open_rate;
+    if (campaign.statistics?.uniq_open_rate !== undefined) return campaign.statistics.uniq_open_rate;
+    if (campaign.delivery_info?.unique_open_rate !== undefined) return campaign.delivery_info.unique_open_rate;
     return 0;
   };
 
   const getClickRate = (): number => {
-    if (stats?.click_rate) return stats.click_rate;
-    if (campaign.statistics?.click_rate) return campaign.statistics.click_rate;
-    if (campaign.delivery_info?.click_rate) return campaign.delivery_info.click_rate;
+    if (stats?.click_rate !== undefined) return stats.click_rate;
+    if (campaign.statistics?.click_rate !== undefined) return campaign.statistics.click_rate;
+    if (campaign.delivery_info?.click_rate !== undefined) return campaign.delivery_info.click_rate;
     return 0;
   };
 
   const getBounceCount = (): number => {
-    if (stats?.bounce_count) return stats.bounce_count;
-    if (campaign.statistics?.bounce_count) return campaign.statistics.bounce_count;
+    if (stats?.bounce_count !== undefined) return stats.bounce_count;
+    if (campaign.statistics?.bounce_count !== undefined) return campaign.statistics.bounce_count;
     
     if (campaign.delivery_info?.bounced) {
-      if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total) {
+      if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total !== undefined) {
         return campaign.delivery_info.bounced.total;
       }
       if (typeof campaign.delivery_info.bounced === 'number') {
@@ -134,7 +141,7 @@ export const AcelleTableRow = ({
 
   // Journaliser les données de la campagne pour le débogage
   useEffect(() => {
-    console.debug(`Données finales pour campagne ${campaignName}:`, {
+    console.log(`Données finales pour campagne ${campaignName}:`, {
       id: campaignUid,
       hasStats: !!stats,
       statsValues: {

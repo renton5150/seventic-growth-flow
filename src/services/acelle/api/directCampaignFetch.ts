@@ -60,24 +60,26 @@ export async function fetchDirectCampaignStats(
       throw new Error(`Erreur API: ${proxyResponse.message || 'Erreur inconnue'}`);
     }
     
-    // Créer des statistiques standardisées avec des valeurs par défaut sûres
+    console.log("Réponse brute de l'API:", proxyResponse.data);
+    
+    // Extraire les statistiques avec des valeurs par défaut sûres
     const rawStats = proxyResponse.data.statistics || {};
     
-    // Créer un objet statistiques standard avec des valeurs par défaut
+    // SOLUTION RADICALE: Assurer la conversion en nombre pour toutes les valeurs
     const statistics: AcelleCampaignStatistics = {
-      subscriber_count: Number(rawStats.subscriber_count) || 0,
-      delivered_count: Number(rawStats.delivered_count) || 0,
-      delivered_rate: Number(rawStats.delivered_rate) || 0,
-      open_count: Number(rawStats.open_count) || 0,
-      uniq_open_count: Number(rawStats.uniq_open_count || rawStats.unique_opens) || 0,
-      uniq_open_rate: Number(rawStats.uniq_open_rate || rawStats.unique_open_rate) || 0,
-      click_count: Number(rawStats.click_count) || 0,
-      click_rate: Number(rawStats.click_rate) || 0,
-      bounce_count: Number(rawStats.bounce_count) || 0,
-      soft_bounce_count: Number(rawStats.soft_bounce_count) || 0,
-      hard_bounce_count: Number(rawStats.hard_bounce_count) || 0,
-      unsubscribe_count: Number(rawStats.unsubscribe_count) || 0,
-      abuse_complaint_count: Number(rawStats.abuse_complaint_count || rawStats.complaint_count) || 0
+      subscriber_count: Number(rawStats.subscriber_count || 0),
+      delivered_count: Number(rawStats.delivered_count || 0),
+      delivered_rate: Number(rawStats.delivered_rate || 0),
+      open_count: Number(rawStats.open_count || 0),
+      uniq_open_count: Number(rawStats.uniq_open_count || rawStats.unique_opens || 0),
+      uniq_open_rate: Number(rawStats.uniq_open_rate || rawStats.unique_open_rate || 0),
+      click_count: Number(rawStats.click_count || 0),
+      click_rate: Number(rawStats.click_rate || 0),
+      bounce_count: Number(rawStats.bounce_count || 0),
+      soft_bounce_count: Number(rawStats.soft_bounce_count || 0),
+      hard_bounce_count: Number(rawStats.hard_bounce_count || 0),
+      unsubscribe_count: Number(rawStats.unsubscribe_count || 0),
+      abuse_complaint_count: Number(rawStats.abuse_complaint_count || rawStats.complaint_count || 0)
     };
     
     // Création d'un objet delivery_info standardisé à partir des statistiques
@@ -104,7 +106,13 @@ export async function fetchDirectCampaignStats(
     console.log(`Infos de livraison pour ${campaignUid}:`, delivery_info);
     
     // Mise à jour du cache pour cette campagne
-    await updateCampaignStatsCache(campaignUid, account.id, statistics, delivery_info);
+    try {
+      await updateCampaignStatsCache(campaignUid, account.id, statistics, delivery_info);
+      console.log(`Cache mis à jour pour la campagne ${campaignUid}`);
+    } catch (cacheError) {
+      console.error(`Erreur lors de la mise à jour du cache pour ${campaignUid}:`, cacheError);
+      // Continuer malgré l'erreur de cache
+    }
     
     return { statistics, delivery_info };
   } catch (error) {
@@ -142,6 +150,6 @@ export async function fetchDirectCampaignStats(
       complained: 0
     };
     
-    throw error;
+    return { statistics: emptyStats, delivery_info: emptyDelivery };
   }
 }
