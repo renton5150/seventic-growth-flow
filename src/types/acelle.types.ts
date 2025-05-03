@@ -69,6 +69,14 @@ export interface DeliveryInfo {
   unsubscribed?: number;
   complained?: number;
   bounce_count?: number; // Ajouté pour la compatibilité avec certaines API
+  
+  // Ajout de propriétés supplémentaires pour une compatibilité maximale
+  subscriber_count?: number;
+  delivered_count?: number;
+  delivered_rate?: number;
+  open_count?: number;
+  open_rate?: number;
+  uniq_open_rate?: number;
 }
 
 export interface AcelleCampaign {

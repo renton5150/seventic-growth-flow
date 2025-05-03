@@ -37,11 +37,16 @@ const AcelleCampaignDetails = ({
       
       try {
         if (demoMode) {
-          // En mode démo, créer une campagne factice
+          // En mode démo, créer une campagne factice avec des statistiques
           const demoCampaign = createDemoCampaign(campaignId);
           setCampaign(demoCampaign);
           const demoStats = generateSimulatedStats();
-          setStats(demoStats.delivery_info);
+          
+          // S'assurer que les données démo sont complètes
+          demoCampaign.delivery_info = demoStats.delivery_info;
+          demoCampaign.statistics = demoStats.statistics;
+          
+          setStats(demoStats.statistics || demoStats.delivery_info);
         } else {
           // Charger depuis le cache
           const campaigns = await fetchCampaignsFromCache([account]);
@@ -53,32 +58,115 @@ const AcelleCampaignDetails = ({
             setCampaign(foundCampaign);
             console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
             
-            // Extraire d'abord les statistiques existantes dans l'objet de la campagne
-            if (foundCampaign.statistics && Object.keys(foundCampaign.statistics).length > 0) {
-              console.log("Utilisation des statistiques existantes dans campaign.statistics:", foundCampaign.statistics);
-              setStats(foundCampaign.statistics);
-            } else if (foundCampaign.delivery_info && Object.keys(foundCampaign.delivery_info).length > 0) {
-              console.log("Utilisation des statistiques existantes dans campaign.delivery_info:", foundCampaign.delivery_info);
-              setStats(foundCampaign.delivery_info);
-            } else {
-              // Récupérer les statistiques à jour si nécessaire
+            // Créer une copie pour éviter les mutations accidentelles
+            const campaignCopy = { ...foundCampaign };
+            
+            // Vérifier si nous avons des statistiques et les extraire
+            let hasValidStats = false;
+            
+            // Essayez d'abord d'utiliser les statistiques de campaign.statistics
+            if (campaignCopy.statistics && Object.keys(campaignCopy.statistics).length > 0) {
+              // Vérifier si au moins une valeur est non nulle
+              const hasNonZeroValue = Object.values(campaignCopy.statistics).some(
+                val => typeof val === 'number' && val > 0
+              );
+              
+              if (hasNonZeroValue) {
+                console.log("Utilisation des statistiques existantes dans campaign.statistics:", campaignCopy.statistics);
+                setStats(campaignCopy.statistics);
+                hasValidStats = true;
+              }
+            }
+            
+            // Ensuite, essayer delivery_info si statistics n'avait pas de données valides
+            if (!hasValidStats && campaignCopy.delivery_info && Object.keys(campaignCopy.delivery_info).length > 0) {
+              // Vérifier si au moins une valeur est non nulle
+              const hasNonZeroValue = Object.values(campaignCopy.delivery_info).some(
+                val => {
+                  if (typeof val === 'number') return val > 0;
+                  if (typeof val === 'object' && val) {
+                    return Object.values(val).some(v => typeof v === 'number' && v > 0);
+                  }
+                  return false;
+                }
+              );
+              
+              if (hasNonZeroValue) {
+                console.log("Utilisation des statistiques existantes dans campaign.delivery_info:", campaignCopy.delivery_info);
+                setStats(campaignCopy.delivery_info);
+                hasValidStats = true;
+              }
+            }
+            
+            // Si nous n'avons pas encore de statistiques valides, essayer de les récupérer directement
+            if (!hasValidStats) {
               try {
                 console.log(`Récupération des statistiques pour la campagne ${campaignId}`);
-                const freshStats = await getCampaignStatsDirectly(foundCampaign, account);
+                const freshStats = await getCampaignStatsDirectly(campaignCopy, account);
                 console.log("Statistiques récupérées:", freshStats);
                 
-                // Utiliser les nouvelles statistiques
+                // Mettre à jour les données de campaign avec les nouvelles statistiques
                 if (freshStats && Object.keys(freshStats).length > 0) {
-                  if (freshStats.delivery_info) {
-                    setStats(freshStats.delivery_info);
-                  } else if (freshStats.statistics) {
+                  if (freshStats.statistics) {
+                    campaignCopy.statistics = freshStats.statistics;
                     setStats(freshStats.statistics);
-                  } else {
+                    hasValidStats = true;
+                  } 
+                  else if (freshStats.delivery_info) {
+                    campaignCopy.delivery_info = freshStats.delivery_info;
+                    setStats(freshStats.delivery_info);
+                    hasValidStats = true;
+                  } 
+                  else {
+                    // Utilisez directement les données retournées
                     setStats(freshStats);
+                    
+                    // Construire un objet statistics à partir de ces données
+                    const constructedStats = {
+                      subscriber_count: freshStats.total || 0,
+                      delivered_count: freshStats.delivered || 0,
+                      delivered_rate: freshStats.delivery_rate || 0,
+                      open_count: freshStats.opened || 0,
+                      uniq_open_rate: freshStats.unique_open_rate || 0,
+                      unique_open_rate: freshStats.unique_open_rate || 0,
+                      click_count: freshStats.clicked || 0,
+                      click_rate: freshStats.click_rate || 0,
+                      bounce_count: typeof freshStats.bounced === 'object' ? freshStats.bounced.total : freshStats.bounced || 0,
+                      soft_bounce_count: typeof freshStats.bounced === 'object' ? freshStats.bounced.soft : 0,
+                      hard_bounce_count: typeof freshStats.bounced === 'object' ? freshStats.bounced.hard : 0,
+                      unsubscribe_count: freshStats.unsubscribed || 0,
+                      abuse_complaint_count: freshStats.complained || 0
+                    };
+                    
+                    campaignCopy.statistics = constructedStats;
+                    hasValidStats = true;
                   }
+                  
+                  // Mettre à jour la campagne avec les nouvelles statistiques
+                  setCampaign(campaignCopy);
                 }
               } catch (err) {
                 console.error("Erreur lors de la récupération des statistiques:", err);
+                
+                // Si toutes les tentatives échouent, créer des statistiques avec des zéros
+                const emptyStats = {
+                  subscriber_count: 0,
+                  delivered_count: 0,
+                  delivered_rate: 0,
+                  open_count: 0,
+                  uniq_open_rate: 0,
+                  click_count: 0,
+                  click_rate: 0,
+                  bounce_count: 0,
+                  soft_bounce_count: 0,
+                  hard_bounce_count: 0,
+                  unsubscribe_count: 0,
+                  abuse_complaint_count: 0
+                };
+                
+                setStats(emptyStats);
+                campaignCopy.statistics = emptyStats;
+                setCampaign(campaignCopy);
               }
             }
           } else {
@@ -99,6 +187,15 @@ const AcelleCampaignDetails = ({
   // Créer une campagne fictive pour le mode démo
   const createDemoCampaign = (id: string): AcelleCampaign => {
     const now = new Date();
+    
+    // Générer des statistiques de démonstration réalistes
+    const totalSent = 1000 + Math.floor(Math.random() * 1000);
+    const delivered = totalSent - Math.floor(Math.random() * 100);
+    const opened = Math.floor(delivered * (0.2 + Math.random() * 0.4)); // entre 20% et 60%
+    const clicked = Math.floor(opened * (0.1 + Math.random() * 0.3)); // entre 10% et 40% des ouvertures
+    const bounced = totalSent - delivered;
+    const unsubscribed = Math.floor(delivered * 0.01); // environ 1%
+    
     return {
       uid: id,
       campaign_uid: id,
@@ -110,7 +207,36 @@ const AcelleCampaignDetails = ({
       delivery_date: now.toISOString(),
       run_at: null,
       last_error: null,
-      delivery_info: {}
+      delivery_info: {
+        total: totalSent,
+        delivered,
+        delivery_rate: (delivered / totalSent) * 100,
+        opened,
+        unique_open_rate: (opened / delivered) * 100,
+        clicked,
+        click_rate: (clicked / delivered) * 100,
+        bounced: {
+          soft: Math.floor(bounced * 0.7),
+          hard: Math.floor(bounced * 0.3),
+          total: bounced
+        },
+        unsubscribed
+      },
+      statistics: {
+        subscriber_count: totalSent,
+        delivered_count: delivered,
+        delivered_rate: (delivered / totalSent) * 100,
+        open_count: opened,
+        uniq_open_rate: (opened / delivered) * 100,
+        unique_open_rate: (opened / delivered) * 100,
+        click_count: clicked,
+        click_rate: (clicked / delivered) * 100,
+        bounce_count: bounced,
+        soft_bounce_count: Math.floor(bounced * 0.7),
+        hard_bounce_count: Math.floor(bounced * 0.3),
+        unsubscribe_count: unsubscribed,
+        abuse_complaint_count: Math.floor(unsubscribed * 0.1)
+      }
     };
   };
 
