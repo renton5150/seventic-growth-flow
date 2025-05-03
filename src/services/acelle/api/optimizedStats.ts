@@ -35,9 +35,33 @@ export async function batchFetchCampaignStats(
         }
         
         // Si la campagne a déjà des statistiques complètes et qu'on ne force pas la mise à jour
-        if (!force && campaign.statistics && Object.keys(campaign.statistics).length > 0) {
-          console.log(`[BatchFetch] Utilisation des stats existantes pour ${campaignUid}`, campaign.statistics);
+        if (!force && campaign.statistics && campaign.statistics.subscriber_count !== undefined) {
+          console.log(`[BatchFetch] Utilisation des stats existantes pour ${campaignUid}`);
           statsMap.set(campaignUid, campaign.statistics);
+          return;
+        }
+
+        // Si la campagne a des delivery_info mais pas de statistiques complètes, les convertir
+        if (!force && !campaign.statistics && campaign.delivery_info) {
+          console.log(`[BatchFetch] Conversion des delivery_info en statistics pour ${campaignUid}`);
+          // Créer des statistiques à partir des delivery_info
+          const stats: AcelleCampaignStatistics = {
+            subscriber_count: Number(campaign.delivery_info.total) || 0,
+            delivered_count: Number(campaign.delivery_info.delivered) || 0,
+            delivered_rate: Number(campaign.delivery_info.delivery_rate) || 0,
+            open_count: Number(campaign.delivery_info.opened) || 0,
+            uniq_open_rate: Number(campaign.delivery_info.unique_open_rate) || 0,
+            click_count: Number(campaign.delivery_info.clicked) || 0,
+            click_rate: Number(campaign.delivery_info.click_rate) || 0,
+            bounce_count: typeof campaign.delivery_info.bounced === 'number' 
+              ? campaign.delivery_info.bounced 
+              : (campaign.delivery_info.bounced?.total || 0),
+            soft_bounce_count: typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced?.soft || 0 : 0,
+            hard_bounce_count: typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced?.hard || 0 : 0
+          };
+          
+          campaign.statistics = stats;
+          statsMap.set(campaignUid, stats);
           return;
         }
 
@@ -96,49 +120,30 @@ export function extractQuickStats(campaign: AcelleCampaign): {
     return isNaN(num) ? 0 : num;
   };
 
-  // Récupérer le nombre total d'envois
+  // Récupérer les valeurs, priorité aux statistiques puis fallback sur delivery_info
   let totalSent = 0;
-  if (campaign.statistics && campaign.statistics.subscriber_count !== undefined) {
-    totalSent = safeNumber(campaign.statistics.subscriber_count);
-  } else if (campaign.delivery_info && campaign.delivery_info.total !== undefined) {
-    totalSent = safeNumber(campaign.delivery_info.total);
-  }
-
-  // Récupérer le taux d'ouverture
   let openRate = 0;
-  if (campaign.statistics) {
-    if (campaign.statistics.uniq_open_rate !== undefined) {
-      openRate = safeNumber(campaign.statistics.uniq_open_rate);
-    } else if (campaign.statistics.open_rate !== undefined) {
-      openRate = safeNumber(campaign.statistics.open_rate);
-    } else if (campaign.statistics.open_count !== undefined && campaign.statistics.delivered_count && campaign.statistics.delivered_count > 0) {
-      openRate = (safeNumber(campaign.statistics.open_count) / safeNumber(campaign.statistics.delivered_count)) * 100;
-    }
-  } else if (campaign.delivery_info) {
-    if (campaign.delivery_info.unique_open_rate !== undefined) {
-      openRate = safeNumber(campaign.delivery_info.unique_open_rate);
-    } else if (campaign.delivery_info.opened !== undefined && campaign.delivery_info.delivered && campaign.delivery_info.delivered > 0) {
-      openRate = (safeNumber(campaign.delivery_info.opened) / safeNumber(campaign.delivery_info.delivered)) * 100;
-    }
-  }
-
-  // Récupérer le taux de clic
   let clickRate = 0;
-  if (campaign.statistics && campaign.statistics.click_rate !== undefined) {
-    clickRate = safeNumber(campaign.statistics.click_rate);
-  } else if (campaign.delivery_info && campaign.delivery_info.click_rate !== undefined) {
-    clickRate = safeNumber(campaign.delivery_info.click_rate);
-  }
-
-  // Récupérer le nombre de bounces
   let bounceCount = 0;
-  if (campaign.statistics && campaign.statistics.bounce_count !== undefined) {
+  
+  // Priorité aux statistiques complètes
+  if (campaign.statistics) {
+    totalSent = safeNumber(campaign.statistics.subscriber_count);
+    openRate = safeNumber(campaign.statistics.uniq_open_rate);
+    clickRate = safeNumber(campaign.statistics.click_rate);
     bounceCount = safeNumber(campaign.statistics.bounce_count);
-  } else if (campaign.delivery_info && campaign.delivery_info.bounced !== undefined) {
-    if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced && campaign.delivery_info.bounced.total !== undefined) {
+  } 
+  // Fallback sur delivery_info
+  else if (campaign.delivery_info) {
+    totalSent = safeNumber(campaign.delivery_info.total);
+    openRate = safeNumber(campaign.delivery_info.unique_open_rate);
+    clickRate = safeNumber(campaign.delivery_info.click_rate);
+    
+    // Traiter les différents cas pour bounced
+    if (typeof campaign.delivery_info.bounced === 'number') {
+      bounceCount = campaign.delivery_info.bounced;
+    } else if (campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object') {
       bounceCount = safeNumber(campaign.delivery_info.bounced.total);
-    } else if (typeof campaign.delivery_info.bounced === 'number') {
-      bounceCount = safeNumber(campaign.delivery_info.bounced);
     }
   }
 

@@ -89,7 +89,7 @@ export function TableContent({
   return (
     <>
       {/* Chargeur par lots (invisible) pour optimiser le chargement des statistiques */}
-      {!demoMode && isLoading && (
+      {!demoMode && (
         <AcelleTableBatchLoader 
           campaigns={filteredCampaigns} 
           account={account}

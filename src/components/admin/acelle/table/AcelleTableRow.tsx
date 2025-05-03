@@ -39,11 +39,6 @@ const renderPercentage = (value: number) => {
 
 // Fonction pour extraire rapidement les statistiques essentielles
 const extractQuickStats = (campaign: AcelleCampaign) => {
-  console.log(`[extractQuickStats] Extraction pour campagne ${campaign.uid || campaign.campaign_uid || 'unknown'}`, {
-    hasStats: !!campaign.statistics,
-    hasDeliveryInfo: !!campaign.delivery_info
-  });
-  
   let totalSent = 0;
   let openRate = 0;
   let clickRate = 0;
@@ -51,30 +46,25 @@ const extractQuickStats = (campaign: AcelleCampaign) => {
   
   // Priorité 1: Utiliser statistics s'ils existent
   if (campaign.statistics) {
-    console.log(`[extractQuickStats] Utilisation de subscriber_count: ${campaign.statistics.subscriber_count}`);
-    totalSent = typeof campaign.statistics.subscriber_count === 'number' ? campaign.statistics.subscriber_count : 0;
-    openRate = typeof campaign.statistics.uniq_open_rate === 'number' ? campaign.statistics.uniq_open_rate : 0;
-    clickRate = typeof campaign.statistics.click_rate === 'number' ? campaign.statistics.click_rate : 0;
-    bounceCount = typeof campaign.statistics.bounce_count === 'number' ? campaign.statistics.bounce_count : 0;
+    totalSent = Number(campaign.statistics.subscriber_count) || 0;
+    openRate = Number(campaign.statistics.uniq_open_rate) || 0;
+    clickRate = Number(campaign.statistics.click_rate) || 0;
+    bounceCount = Number(campaign.statistics.bounce_count) || 0;
   } 
   // Priorité 2: Utiliser delivery_info
   else if (campaign.delivery_info) {
-    totalSent = typeof campaign.delivery_info.total === 'number' ? campaign.delivery_info.total : 0;
-    openRate = typeof campaign.delivery_info.unique_open_rate === 'number' ? campaign.delivery_info.unique_open_rate : 0;
-    clickRate = typeof campaign.delivery_info.click_rate === 'number' ? campaign.delivery_info.click_rate : 0;
+    totalSent = Number(campaign.delivery_info.total) || 0;
+    openRate = Number(campaign.delivery_info.unique_open_rate) || 0;
+    clickRate = Number(campaign.delivery_info.click_rate) || 0;
     
     if (campaign.delivery_info.bounced) {
       if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total) {
-        bounceCount = campaign.delivery_info.bounced.total;
+        bounceCount = Number(campaign.delivery_info.bounced.total) || 0;
       } else if (typeof campaign.delivery_info.bounced === 'number') {
         bounceCount = campaign.delivery_info.bounced;
       }
     }
   }
-  
-  console.log(`[extractQuickStats] Résultat pour ${campaign.uid || campaign.campaign_uid || 'unknown'}:`, {
-    totalSent, openRate, clickRate, bounceCount
-  });
   
   return { totalSent, openRate, clickRate, bounceCount };
 };
@@ -107,13 +97,6 @@ export const AcelleTableRow = ({
   
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
-  
-  // Log pour le débogage 
-  console.log(`[TableRow] Rendu pour campagne ${campaignUid}:`, {
-    name: campaign?.name,
-    hasStats: !!campaign.statistics,
-    statsType: campaign.statistics ? typeof campaign.statistics : 'none'
-  });
   
   // Garantir des valeurs sûres pour les propriétés obligatoires
   const campaignName = campaign?.name || "Sans nom";
@@ -225,11 +208,11 @@ export const AcelleTableRow = ({
     }
   };
 
-  // Extraire les statistiques importantes
-  const quickStats = extractQuickStats(campaign);
+  // Extraire les statistiques importantes - fallback avec extraction directe si nécessaire
+  let quickStats = { totalSent: 0, openRate: 0, clickRate: 0, bounceCount: 0 };
   
-  // Log des statistiques extraites
-  console.log(`[TableRow] Statistiques extraites pour ${campaignName}:`, quickStats);
+  // Utiliser directement les données de la campagne dans tous les cas pour être sûr d'avoir des valeurs
+  quickStats = extractQuickStats(campaign);
 
   return (
     <TableRow>

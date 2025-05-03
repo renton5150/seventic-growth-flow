@@ -44,7 +44,7 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalBounced = 0;
   
   campaigns.forEach(campaign => {
-    // Vérifier si les statistiques ou delivery_info sont présents
+    // Vérifier si les statistiques existent
     if (campaign.statistics) {
       totalSent += Number(campaign.statistics.subscriber_count) || 0;
       totalDelivered += Number(campaign.statistics.delivered_count) || 0;

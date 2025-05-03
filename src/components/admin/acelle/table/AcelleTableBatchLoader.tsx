@@ -75,7 +75,7 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
         const statsMap = await batchFetchCampaignStats(
           campaignsNeedingStats,
           account,
-          { demoMode }
+          { demoMode, force: false }
         );
         
         // Ne pas continuer si le composant a été démonté
@@ -87,13 +87,13 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
           
           statsMap.forEach((stats, uid) => {
             if (stats) {
-              console.log(`[BatchLoader] Mise en cache des stats pour ${uid}`, stats);
+              console.log(`[BatchLoader] Mise en cache des stats pour ${uid}`);
               cacheStats(uid, stats);
               
               // Mettre à jour les statistiques directement sur l'objet campagne
               const campaign = campaigns.find(c => c.uid === uid || c.campaign_uid === uid);
               if (campaign) {
-                console.log(`[BatchLoader] Mise à jour directe de la campagne ${uid} avec stats`, stats);
+                console.log(`[BatchLoader] Mise à jour directe de la campagne ${uid} avec stats`);
                 campaign.statistics = stats;
               }
             }
@@ -120,7 +120,7 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
     };
     
     // Utiliser un léger délai pour ne pas bloquer le rendu initial
-    const timeoutId = setTimeout(loadStatsBatch, 300);
+    const timeoutId = setTimeout(loadStatsBatch, 100);
     
     return () => {
       mounted = false;

@@ -20,17 +20,19 @@ export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) =
     let clickedEmails = 0;
     
     campaigns.forEach(campaign => {
-      // Utiliser soit statistics, soit delivery_info selon ce qui est disponible
-      if (campaign.statistics) {
+      // Vérifier si les statistics existent et ont des valeurs utilisables
+      if (campaign.statistics && typeof campaign.statistics.subscriber_count === 'number') {
         totalEmails += campaign.statistics.subscriber_count || 0;
         deliveredEmails += campaign.statistics.delivered_count || 0;
         openedEmails += campaign.statistics.open_count || 0;
         clickedEmails += campaign.statistics.click_count || 0;
-      } else if (campaign.delivery_info) {
-        totalEmails += campaign.delivery_info.total || 0;
-        deliveredEmails += campaign.delivery_info.delivered || 0;
-        openedEmails += campaign.delivery_info.opened || 0;
-        clickedEmails += campaign.delivery_info.clicked || 0;
+      } 
+      // Utiliser delivery_info comme fallback
+      else if (campaign.delivery_info) {
+        totalEmails += Number(campaign.delivery_info.total) || 0;
+        deliveredEmails += Number(campaign.delivery_info.delivered) || 0;
+        openedEmails += Number(campaign.delivery_info.opened) || 0;
+        clickedEmails += Number(campaign.delivery_info.clicked) || 0;
       }
     });
     
