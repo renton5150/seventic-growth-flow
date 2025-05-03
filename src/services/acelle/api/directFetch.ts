@@ -110,10 +110,26 @@ async function updateCampaignStatsCache(
     }
     
     // Mise à jour des statistiques de la campagne dans le cache
+    // Conversion de delivery_info en objet simple pour éviter les erreurs de typage JSON
+    const deliveryInfoJson = {
+      total: delivery_info.total || 0,
+      delivery_rate: delivery_info.delivery_rate || 0,
+      unique_open_rate: delivery_info.unique_open_rate || 0,
+      click_rate: delivery_info.click_rate || 0,
+      bounce_rate: delivery_info.bounce_rate || 0,
+      unsubscribe_rate: delivery_info.unsubscribe_rate || 0,
+      delivered: delivery_info.delivered || 0,
+      opened: delivery_info.opened || 0,
+      clicked: delivery_info.clicked || 0,
+      bounced: delivery_info.bounced || 0,
+      unsubscribed: delivery_info.unsubscribed || 0,
+      complained: delivery_info.complained || 0
+    };
+    
     const { error } = await supabase
       .from('email_campaigns_cache')
       .update({
-        delivery_info: delivery_info,
+        delivery_info: deliveryInfoJson,
         cache_updated_at: new Date().toISOString()
       })
       .eq('campaign_uid', campaignUid)
@@ -230,19 +246,37 @@ export async function refreshAllCampaignStats(
     }
 
     // Convertir les données en objets AcelleCampaign
-    const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => ({
-      uid: c.campaign_uid,
-      campaign_uid: c.campaign_uid,
-      name: c.name,
-      subject: c.subject,
-      status: c.status,
-      created_at: c.created_at,
-      updated_at: c.updated_at,
-      delivery_date: c.delivery_date,
-      run_at: c.run_at,
-      last_error: c.last_error,
-      delivery_info: c.delivery_info
-    }));
+    const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
+      // Convertir explicitement le delivery_info en type DeliveryInfo 
+      const deliveryInfo: DeliveryInfo = c.delivery_info ? {
+        total: c.delivery_info.total || 0,
+        delivery_rate: c.delivery_info.delivery_rate || 0,
+        unique_open_rate: c.delivery_info.unique_open_rate || 0,
+        click_rate: c.delivery_info.click_rate || 0,
+        bounce_rate: c.delivery_info.bounce_rate || 0,
+        unsubscribe_rate: c.delivery_info.unsubscribe_rate || 0,
+        delivered: c.delivery_info.delivered || 0,
+        opened: c.delivery_info.opened || 0,
+        clicked: c.delivery_info.clicked || 0,
+        bounced: c.delivery_info.bounced || 0,
+        unsubscribed: c.delivery_info.unsubscribed || 0,
+        complained: c.delivery_info.complained || 0
+      } : undefined;
+
+      return {
+        uid: c.campaign_uid,
+        campaign_uid: c.campaign_uid,
+        name: c.name,
+        subject: c.subject,
+        status: c.status,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        delivery_date: c.delivery_date,
+        run_at: c.run_at,
+        last_error: c.last_error,
+        delivery_info: deliveryInfo
+      };
+    });
 
     // Rafraîchir les statistiques par lots
     const batchSize = 5; // Limiter le nombre de requêtes parallèles
