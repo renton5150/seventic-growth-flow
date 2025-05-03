@@ -12,6 +12,8 @@ export async function fetchDirectCampaignStats(
   token: string
 ): Promise<{statistics: AcelleCampaignStatistics, delivery_info: DeliveryInfo}> {
   try {
+    console.log(`Récupération des statistiques pour la campagne ${campaignUid}...`);
+    
     // Construction de l'URL pour le proxy CORS de Supabase
     const proxyEndpoint = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
     
@@ -21,6 +23,8 @@ export async function fetchDirectCampaignStats(
       : account.apiEndpoint;
     
     const targetUrl = `${apiEndpoint}/api/v1/campaigns/${campaignUid}/statistics`;
+    
+    console.log(`URL de l'API cible: ${targetUrl}`);
     
     // Appel au proxy CORS avec authentification
     const response = await fetch(proxyEndpoint, {
@@ -56,6 +60,8 @@ export async function fetchDirectCampaignStats(
       throw new Error(`Erreur API: ${proxyResponse.message || 'Erreur inconnue'}`);
     }
     
+    console.log(`Données reçues pour la campagne ${campaignUid}:`, proxyResponse.data);
+    
     // Extraction et formatage des statistiques de campagne
     const statistics = formatCampaignStatistics(proxyResponse.data.statistics);
     
@@ -70,10 +76,17 @@ export async function fetchDirectCampaignStats(
       delivered: statistics.delivered_count || 0,
       opened: statistics.open_count || 0,
       clicked: statistics.click_count || 0,
-      bounced: statistics.bounce_count || 0,
+      bounced: {
+        total: statistics.bounce_count || 0,
+        soft: statistics.soft_bounce_count || 0,
+        hard: statistics.hard_bounce_count || 0
+      },
       unsubscribed: statistics.unsubscribe_count || 0,
       complained: statistics.abuse_complaint_count || 0
     };
+    
+    console.log(`Statistiques formatées pour ${campaignUid}:`, statistics);
+    console.log(`Infos de livraison pour ${campaignUid}:`, delivery_info);
     
     // Mise à jour du cache pour cette campagne
     await updateCampaignStatsCache(campaignUid, account.id, statistics, delivery_info);
@@ -82,23 +95,5 @@ export async function fetchDirectCampaignStats(
   } catch (error) {
     console.error(`Erreur lors de la récupération des statistiques pour la campagne ${campaignUid}:`, error);
     throw error;
-  }
-}
-
-/**
- * Fonction utilitaire pour récupérer les statistiques d'une campagne individuelle
- */
-export async function fetchCampaignStats(
-  campaignUid: string,
-  apiEndpoint: string,
-  apiToken: string
-): Promise<any> {
-  try {
-    // Implémentation directe si nécessaire
-    // Cette fonction est un espace réservé pour une implémentation future
-    return null;
-  } catch (error) {
-    console.error("Erreur lors de la récupération des statistiques:", error);
-    return null;
   }
 }

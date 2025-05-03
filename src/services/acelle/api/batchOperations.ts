@@ -85,86 +85,18 @@ export async function refreshAllCampaignStats(
       return false;
     }
 
-    console.log("Campagnes récupérées:", cachedCampaigns?.length);
+    console.log(`Récupération de ${cachedCampaigns?.length || 0} campagnes pour synchronisation`);
+    
+    if (!cachedCampaigns || cachedCampaigns.length === 0) {
+      toast.error("Aucune campagne trouvée dans le cache", {
+        id: "stats-sync"
+      });
+      return false;
+    }
     
     // Convertir les données en objets AcelleCampaign
     const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
-      // Log pour débugger la structure de l'objet delivery_info
-      console.log(`Traitement de la campagne ${c.campaign_uid}, delivery_info:`, c.delivery_info);
-      
-      // Créer un objet DeliveryInfo en gérant les différents formats possibles
-      let deliveryInfo: DeliveryInfo | null = null;
-      
-      if (c.delivery_info) {
-        try {
-          // Normaliser l'objet delivery_info (peut être une chaîne JSON ou un objet)
-          const rawInfo = typeof c.delivery_info === 'string' 
-            ? JSON.parse(c.delivery_info) 
-            : c.delivery_info;
-          
-          console.log("rawInfo après normalisation:", rawInfo);
-          
-          // Traiter le champ 'bounced' qui peut avoir différentes structures
-          let bounced: any = rawInfo.bounced;
-          let bouncedTotal = 0;
-          let bouncedSoft = 0;
-          let bouncedHard = 0;
-          
-          if (bounced !== undefined && bounced !== null) {
-            if (typeof bounced === 'object') {
-              // Si c'est un objet avec des propriétés total/soft/hard
-              bouncedTotal = Number(bounced.total) || 0;
-              bouncedSoft = Number(bounced.soft) || 0;
-              bouncedHard = Number(bounced.hard) || 0;
-            } else {
-              // Si c'est directement un nombre
-              bouncedTotal = Number(bounced) || 0;
-            }
-          }
-          
-          // Construire l'objet deliveryInfo avec conversion explicite de chaque valeur
-          deliveryInfo = {
-            total: Number(rawInfo.total) || 0,
-            delivery_rate: Number(rawInfo.delivery_rate) || 0,
-            unique_open_rate: Number(rawInfo.unique_open_rate) || 0,
-            click_rate: Number(rawInfo.click_rate) || 0,
-            bounce_rate: Number(rawInfo.bounce_rate) || 0,
-            unsubscribe_rate: Number(rawInfo.unsubscribe_rate) || 0,
-            delivered: Number(rawInfo.delivered) || 0,
-            opened: Number(rawInfo.opened) || 0,
-            clicked: Number(rawInfo.clicked) || 0,
-            bounced: typeof bounced === 'object' 
-              ? {
-                  total: bouncedTotal,
-                  soft: bouncedSoft,
-                  hard: bouncedHard
-                } 
-              : bouncedTotal,
-            unsubscribed: Number(rawInfo.unsubscribed) || 0,
-            complained: Number(rawInfo.complained) || 0
-          };
-          
-          console.log("DeliveryInfo formatté:", deliveryInfo);
-        } catch (error) {
-          console.error("Erreur lors du traitement de delivery_info:", error);
-          // En cas d'erreur, créer un objet DeliveryInfo vide
-          deliveryInfo = {
-            total: 0,
-            delivery_rate: 0,
-            unique_open_rate: 0,
-            click_rate: 0,
-            bounce_rate: 0,
-            unsubscribe_rate: 0,
-            delivered: 0,
-            opened: 0,
-            clicked: 0,
-            bounced: 0,
-            unsubscribed: 0,
-            complained: 0
-          };
-        }
-      }
-
+      // Créer un simple objet de campagne avec les données nécessaires
       return {
         uid: c.campaign_uid,
         campaign_uid: c.campaign_uid,
@@ -175,16 +107,18 @@ export async function refreshAllCampaignStats(
         updated_at: c.updated_at,
         delivery_date: c.delivery_date,
         run_at: c.run_at,
-        last_error: c.last_error,
-        delivery_info: deliveryInfo as DeliveryInfo
+        last_error: c.last_error
       };
     });
+
+    console.log(`${campaigns.length} campagnes préparées pour synchronisation`);
 
     // Rafraîchir les statistiques par lots
     const batchSize = 5; // Limiter le nombre de requêtes parallèles
     for (let i = 0; i < campaigns.length; i += batchSize) {
       const batch = campaigns.slice(i, i + batchSize);
       await refreshCampaignStatsBatch(batch, account, token);
+      console.log(`Lot ${Math.floor(i/batchSize) + 1} traité: ${batch.length} campagnes`);
     }
 
     toast.success("Synchronisation des statistiques terminée", {
