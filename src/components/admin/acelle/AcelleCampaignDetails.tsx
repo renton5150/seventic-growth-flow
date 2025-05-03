@@ -3,16 +3,16 @@ import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
-import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
+import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+import { supabase } from "@/integrations/supabase/client";
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
 import { CampaignGeneralInfo } from "./detail/CampaignGeneralInfo";
 import { CampaignGlobalStats } from "./detail/CampaignGlobalStats";
 import { CampaignTechnicalInfo } from "./detail/CampaignTechnicalInfo";
-import { supabase } from "@/integrations/supabase/client";
 
 interface AcelleCampaignDetailsProps {
   campaignId: string;
@@ -72,37 +72,14 @@ const AcelleCampaignDetails = ({
       if (!foundCampaign) {
         console.log(`Campagne ${id} non trouvée en cache, recherche dans la base de données`);
         
-        const { data, error } = await supabase
-          .from('email_campaigns_cache')
-          .select('*')
-          .eq('campaign_uid', id)
-          .eq('account_id', acct.id)
-          .single();
+        // Utiliser la fonction fetchCampaignById pour récupérer les données
+        foundCampaign = await fetchCampaignById(id, acct.id);
         
-        if (error) {
-          console.error("Erreur lors de la récupération de la campagne depuis la base de données:", error);
+        if (!foundCampaign) {
           throw new Error("Impossible de récupérer les détails de la campagne");
         }
         
-        if (data) {
-          // Convertir les données de la base de données en format AcelleCampaign
-          foundCampaign = {
-            uid: data.campaign_uid,
-            campaign_uid: data.campaign_uid,
-            name: data.name || '',
-            subject: data.subject || '',
-            status: data.status || '',
-            created_at: data.created_at || '',
-            updated_at: data.updated_at || '',
-            delivery_date: data.delivery_date || '',
-            run_at: data.run_at || '',
-            last_error: data.last_error || '',
-            delivery_info: typeof data.delivery_info === 'object' ? data.delivery_info : {},
-            statistics: {} // Sera rempli plus tard
-          };
-          
-          console.log(`Campagne ${data.name} trouvée dans la base de données`, foundCampaign);
-        }
+        console.log(`Campagne ${foundCampaign.name} trouvée dans la base de données`, foundCampaign);
       }
       
       if (foundCampaign) {
@@ -115,8 +92,11 @@ const AcelleCampaignDetails = ({
         // Mettre à jour l'état et la campagne avec les statistiques
         setStats(statsResult.statistics);
         foundCampaign.statistics = statsResult.statistics;
-        foundCampaign.delivery_info = statsResult.delivery_info;
         
+        // Assurez-vous que delivery_info est du bon type
+        if (statsResult.delivery_info) {
+          foundCampaign.delivery_info = statsResult.delivery_info as DeliveryInfo;
+        }
       } else {
         setError("Campagne non trouvée");
       }
