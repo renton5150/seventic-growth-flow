@@ -17,9 +17,10 @@ export function extractQuickStats(campaign: AcelleCampaign): AcelleCampaignStati
   }
   
   // Si la statistique est déjà en cache, l'utiliser
-  if (campaign.uid && statsCache.has(campaign.uid)) {
+  const campaignUid = campaign.uid || campaign.campaign_uid;
+  if (campaignUid && statsCache.has(campaignUid)) {
     console.log(`Utilisation des statistiques en cache pour ${campaign.name}`);
-    return statsCache.get(campaign.uid)!;
+    return statsCache.get(campaignUid)!;
   }
   
   // Sinon, extraire les statistiques depuis delivery_info
@@ -43,25 +44,28 @@ export function extractQuickStats(campaign: AcelleCampaign): AcelleCampaignStati
     };
   }
   
+  // Cast delivery_info à un type sûr pour l'extraction
+  const deliveryInfo = campaign.delivery_info as Record<string, any>;
+  
   // Extraire les données de delivery_info avec une gestion complète des cas
   const stats: AcelleCampaignStatistics = {
-    subscriber_count: Number(campaign.delivery_info.total) || 0,
-    delivered_count: Number(campaign.delivery_info.delivered) || 0,
-    delivered_rate: Number(campaign.delivery_info.delivery_rate) || 0,
-    open_count: Number(campaign.delivery_info.opened) || 0,
-    uniq_open_rate: Number(campaign.delivery_info.unique_open_rate) || 0,
-    click_count: Number(campaign.delivery_info.clicked) || 0,
-    click_rate: Number(campaign.delivery_info.click_rate) || 0,
-    bounce_count: getBounceCount(campaign.delivery_info),
-    soft_bounce_count: getSoftBounceCount(campaign.delivery_info),
-    hard_bounce_count: getHardBounceCount(campaign.delivery_info),
-    unsubscribe_count: Number(campaign.delivery_info.unsubscribed) || 0,
-    abuse_complaint_count: Number(campaign.delivery_info.complained) || 0
+    subscriber_count: Number(deliveryInfo.total) || 0,
+    delivered_count: Number(deliveryInfo.delivered) || 0,
+    delivered_rate: Number(deliveryInfo.delivery_rate) || 0,
+    open_count: Number(deliveryInfo.opened) || 0,
+    uniq_open_rate: Number(deliveryInfo.unique_open_rate) || 0,
+    click_count: Number(deliveryInfo.clicked) || 0,
+    click_rate: Number(deliveryInfo.click_rate) || 0,
+    bounce_count: getBounceCount(deliveryInfo),
+    soft_bounce_count: getSoftBounceCount(deliveryInfo),
+    hard_bounce_count: getHardBounceCount(deliveryInfo),
+    unsubscribe_count: Number(deliveryInfo.unsubscribed) || 0,
+    abuse_complaint_count: Number(deliveryInfo.complained) || 0
   };
   
   // Ajouter au cache
-  if (campaign.uid) {
-    statsCache.set(campaign.uid, stats);
+  if (campaignUid) {
+    statsCache.set(campaignUid, stats);
   }
   
   return stats;
@@ -70,7 +74,7 @@ export function extractQuickStats(campaign: AcelleCampaign): AcelleCampaignStati
 /**
  * Extrait le nombre total de rebonds
  */
-function getBounceCount(deliveryInfo: any): number {
+function getBounceCount(deliveryInfo: Record<string, any>): number {
   if (!deliveryInfo) return 0;
   
   // Si bounced est un objet avec une propriété total
@@ -94,7 +98,7 @@ function getBounceCount(deliveryInfo: any): number {
 /**
  * Extrait le nombre de soft bounces
  */
-function getSoftBounceCount(deliveryInfo: any): number {
+function getSoftBounceCount(deliveryInfo: Record<string, any>): number {
   if (!deliveryInfo) return 0;
   
   // Si bounced est un objet avec une propriété soft
@@ -113,7 +117,7 @@ function getSoftBounceCount(deliveryInfo: any): number {
 /**
  * Extrait le nombre de hard bounces
  */
-function getHardBounceCount(deliveryInfo: any): number {
+function getHardBounceCount(deliveryInfo: Record<string, any>): number {
   if (!deliveryInfo) return 0;
   
   // Si bounced est un objet avec une propriété hard
@@ -133,6 +137,8 @@ function getHardBounceCount(deliveryInfo: any): number {
  * Mettre à jour le cache des statistiques pour une campagne
  */
 export function cacheStats(campaignUid: string, stats: AcelleCampaignStatistics): void {
+  if (!campaignUid) return;
+  
   statsCache.set(campaignUid, stats);
   console.log(`Statistiques mises en cache pour la campagne ${campaignUid}`);
 }
@@ -141,6 +147,7 @@ export function cacheStats(campaignUid: string, stats: AcelleCampaignStatistics)
  * Récupérer les statistiques en cache pour une campagne
  */
 export function getCachedStats(campaignUid: string): AcelleCampaignStatistics | undefined {
+  if (!campaignUid) return undefined;
   return statsCache.get(campaignUid);
 }
 
@@ -167,7 +174,7 @@ export async function refreshStatsCacheForCampaigns(
     }
     
     // Mettre à jour le cache avec les nouvelles données
-    for (const campaign of data) {
+    for (const campaign of data || []) {
       if (campaign.campaign_uid && campaign.delivery_info) {
         const uid = campaign.campaign_uid;
         const deliveryInfo = campaign.delivery_info as Record<string, any>;

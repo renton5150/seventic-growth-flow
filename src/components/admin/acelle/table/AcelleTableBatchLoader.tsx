@@ -33,30 +33,36 @@ export const AcelleTableBatchLoader = ({
           .filter(c => c.uid || c.campaign_uid)
           .map(c => c.uid || c.campaign_uid || '');
         
-        if (campaignUids.length === 0) return;
+        if (campaignUids.length === 0) {
+          console.log("Aucun UID de campagne valide trouvé");
+          return;
+        }
         
-        // Pour le mode démo, simplement utiliser les statistiques existantes
+        // Pour le mode démo, simplement utiliser les statistiques existantes ou en créer
         if (demoMode) {
-          // Assurer que chaque campagne a des statistiques
+          // S'assurer que chaque campagne a des statistiques
           campaigns.forEach(campaign => {
             if (!campaign.statistics) {
               campaign.statistics = extractQuickStats(campaign);
             }
           });
           
-          console.log("Mode démo: statistiques chargées depuis les données existantes");
+          console.log("Mode démo: statistiques prêtes pour l'affichage");
           if (onBatchLoaded) onBatchLoaded();
           return;
         }
         
-        // Sinon, rafraîchir le cache pour les campagnes
+        // Rafraîchir d'abord le cache pour tous les UIDs
         await refreshStatsCacheForCampaigns(campaignUids);
         
-        // Mise à jour des campagnes avec les statistiques du cache
+        // Traiter ensuite chaque campagne individuellement pour assigner les statistiques
+        let processedCount = 0;
         for (const campaign of campaigns) {
-          if (!campaign.statistics && (campaign.uid || campaign.campaign_uid)) {
+          const campaignUid = campaign.uid || campaign.campaign_uid;
+          
+          if (!campaign.statistics && campaignUid) {
             try {
-              // Essayer de récupérer et traiter les statistiques
+              // Récupérer et traiter les statistiques avec cache
               const result = await fetchAndProcessCampaignStats(campaign, account!, {
                 demoMode,
                 useCache: true
@@ -65,19 +71,24 @@ export const AcelleTableBatchLoader = ({
               // Mettre à jour la campagne avec les statistiques récupérées
               campaign.statistics = result.statistics;
               
-              // Si delivery_info n'existe pas, l'ajouter
+              // Mettre à jour delivery_info si nécessaire
               if (!campaign.delivery_info && result.delivery_info) {
                 campaign.delivery_info = result.delivery_info;
               }
               
-              console.log(`Statistiques chargées pour ${campaign.name}`);
+              processedCount++;
+              if (processedCount % 5 === 0 || processedCount === campaigns.length) {
+                console.log(`${processedCount}/${campaigns.length} statistiques chargées`);
+              }
             } catch (error) {
               console.error(`Erreur lors du chargement des statistiques pour ${campaign.name}:`, error);
             }
+          } else if (campaign.statistics) {
+            processedCount++;
           }
         }
         
-        console.log(`Chargement par lot terminé pour ${campaigns.length} campagnes`);
+        console.log(`Chargement par lot terminé: ${processedCount}/${campaigns.length} campagnes traitées`);
         if (onBatchLoaded) onBatchLoaded();
         
       } catch (error) {

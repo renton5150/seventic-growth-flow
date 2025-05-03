@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { getCampaignStatsDirectly } from "./directStats";
 
@@ -20,7 +21,7 @@ export const fetchAndProcessCampaignStats = async (
       return demoStats;
     }
 
-    console.log(`Récupération des statistiques pour la campagne ${campaign.uid}`);
+    console.log(`Récupération des statistiques pour la campagne ${campaign.uid || campaign.campaign_uid}`);
     
     // Vérifier si la campagne a déjà des statistiques valides
     if (hasValidStatistics(campaign)) {
@@ -30,7 +31,7 @@ export const fetchAndProcessCampaignStats = async (
     
     // Sinon, récupérer depuis l'API
     const freshStats = await getCampaignStatsDirectly(campaign, account, options);
-    console.log(`Statistiques récupérées avec succès pour la campagne ${campaign.uid}:`, freshStats);
+    console.log(`Statistiques récupérées avec succès pour la campagne ${campaign.uid || campaign.campaign_uid}:`, freshStats);
     
     // Traitement des données retournées
     const processedStats = processApiStats(freshStats, campaign);
@@ -40,9 +41,15 @@ export const fetchAndProcessCampaignStats = async (
   } catch (error) {
     console.error(`Erreur lors de la récupération des statistiques pour ${campaign.name}:`, error);
     
-    // En cas d'erreur, retourner des statistiques par défaut
+    // En cas d'erreur, essayer d'utiliser les données existantes si disponibles
+    if (campaign.statistics || campaign.delivery_info) {
+      console.log(`Utilisation des données existantes comme fallback pour ${campaign.name}`);
+      return normalizeStatistics(campaign);
+    }
+    
+    // En dernier recours, retourner des statistiques par défaut
     return {
-      statistics: createEmptyStatistics(campaign),
+      statistics: createEmptyStatistics(),
       delivery_info: createEmptyDeliveryInfo()
     };
   }
@@ -54,23 +61,22 @@ export const fetchAndProcessCampaignStats = async (
 const hasValidStatistics = (campaign: AcelleCampaign): boolean => {
   // Vérifier si les statistiques existent et ont au moins une valeur non nulle
   if (campaign.statistics && typeof campaign.statistics === 'object') {
-    const hasNonZeroValue = Object.entries(campaign.statistics).some(([key, value]) => {
-      return typeof value === 'number' && value > 0 && 
-        ['subscriber_count', 'delivered_count', 'open_count'].includes(key);
-    });
-    
-    if (hasNonZeroValue) return true;
+    const stats = campaign.statistics;
+    if (stats.subscriber_count > 0 || stats.delivered_count > 0 || stats.open_count > 0) {
+      return true;
+    }
   }
   
   // Vérifier si delivery_info existe et a au moins une valeur non nulle
   if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-    const hasNonZeroValue = Object.entries(campaign.delivery_info).some(([key, value]) => {
-      return (typeof value === 'number' && value > 0 && 
-        ['total', 'delivered', 'opened'].includes(key)) || 
-        (key === 'bounced' && value && typeof value === 'object' && value.total > 0);
-    });
-    
-    if (hasNonZeroValue) return true;
+    const info = campaign.delivery_info as any;
+    if (
+      (info.total && info.total > 0) || 
+      (info.delivered && info.delivered > 0) || 
+      (info.opened && info.opened > 0)
+    ) {
+      return true;
+    }
   }
   
   return false;
@@ -80,7 +86,7 @@ const hasValidStatistics = (campaign: AcelleCampaign): boolean => {
  * Normalise les statistiques depuis une campagne existante
  */
 const normalizeStatistics = (campaign: AcelleCampaign) => {
-  const stats = { ...createEmptyStatistics(campaign) };
+  const stats = { ...createEmptyStatistics() };
   const deliveryInfo = { ...createEmptyDeliveryInfo() };
   
   // Fusionner les statistiques existantes
@@ -90,142 +96,85 @@ const normalizeStatistics = (campaign: AcelleCampaign) => {
   
   // Fusionner les delivery_info existantes
   if (campaign.delivery_info) {
-    Object.assign(deliveryInfo, campaign.delivery_info);
+    const info = campaign.delivery_info as any;
+    Object.assign(deliveryInfo, info);
+    
+    // Synchroniser les valeurs entre delivery_info et statistics
+    if (!stats.subscriber_count && info.total) {
+      stats.subscriber_count = Number(info.total);
+    }
+    if (!stats.delivered_count && info.delivered) {
+      stats.delivered_count = Number(info.delivered);
+    }
+    if (!stats.open_count && info.opened) {
+      stats.open_count = Number(info.opened);
+    }
+    if (!stats.uniq_open_rate && info.unique_open_rate) {
+      stats.uniq_open_rate = Number(info.unique_open_rate);
+    }
+    if (!stats.click_count && info.clicked) {
+      stats.click_count = Number(info.clicked);
+    }
+    if (!stats.click_rate && info.click_rate) {
+      stats.click_rate = Number(info.click_rate);
+    }
+    
+    // Gérer les bounces
+    if (info.bounced) {
+      if (typeof info.bounced === 'object' && info.bounced !== null) {
+        stats.bounce_count = Number(info.bounced.total || 0);
+        stats.soft_bounce_count = Number(info.bounced.soft || 0);
+        stats.hard_bounce_count = Number(info.bounced.hard || 0);
+      } else if (typeof info.bounced === 'number') {
+        stats.bounce_count = info.bounced;
+      }
+    }
   }
-  
-  // S'assurer que toutes les propriétés essentielles sont présentes
-  ensureStatisticsConsistency(stats, deliveryInfo);
   
   return {
     statistics: stats,
     delivery_info: deliveryInfo
   };
-};
-
-/**
- * S'assure que les statistiques et delivery_info sont cohérentes
- */
-const ensureStatisticsConsistency = (
-  stats: AcelleCampaignStatistics,
-  deliveryInfo: DeliveryInfo
-) => {
-  // Synchroniser les valeurs entre les deux objets
-  if (!stats.subscriber_count && deliveryInfo.total) {
-    stats.subscriber_count = deliveryInfo.total;
-  } else if (!deliveryInfo.total && stats.subscriber_count) {
-    deliveryInfo.total = stats.subscriber_count;
-  }
-  
-  if (!stats.delivered_count && deliveryInfo.delivered) {
-    stats.delivered_count = deliveryInfo.delivered;
-  } else if (!deliveryInfo.delivered && stats.delivered_count) {
-    deliveryInfo.delivered = stats.delivered_count;
-  }
-  
-  if (!stats.open_count && deliveryInfo.opened) {
-    stats.open_count = deliveryInfo.opened;
-  } else if (!deliveryInfo.opened && stats.open_count) {
-    deliveryInfo.opened = stats.open_count;
-  }
-  
-  // S'assurer que les taux sont cohérents
-  if (!stats.delivered_rate && stats.delivered_count && stats.subscriber_count) {
-    stats.delivered_rate = (stats.delivered_count / stats.subscriber_count) * 100;
-  }
-  if (!deliveryInfo.delivery_rate && deliveryInfo.delivered && deliveryInfo.total) {
-    deliveryInfo.delivery_rate = (deliveryInfo.delivered / deliveryInfo.total) * 100;
-  }
-  
-  if (!stats.uniq_open_rate && stats.open_count && stats.delivered_count) {
-    stats.uniq_open_rate = (stats.open_count / stats.delivered_count) * 100;
-  }
-  if (!deliveryInfo.unique_open_rate && deliveryInfo.opened && deliveryInfo.delivered) {
-    deliveryInfo.unique_open_rate = (deliveryInfo.opened / deliveryInfo.delivered) * 100;
-  }
-  
-  if (!stats.click_rate && stats.click_count && stats.delivered_count) {
-    stats.click_rate = (stats.click_count / stats.delivered_count) * 100;
-  }
-  if (!deliveryInfo.click_rate && deliveryInfo.clicked && deliveryInfo.delivered) {
-    deliveryInfo.click_rate = (deliveryInfo.clicked / deliveryInfo.delivered) * 100;
-  }
 };
 
 /**
  * Traite les statistiques retournées par l'API
  */
 const processApiStats = (apiResponse: any, originalCampaign: AcelleCampaign) => {
-  const stats = { ...createEmptyStatistics(originalCampaign) };
+  const stats = { ...createEmptyStatistics() };
   const deliveryInfo = { ...createEmptyDeliveryInfo() };
   
-  // Si la réponse contient des statistiques, les extraire
-  if (apiResponse.statistics) {
-    Object.assign(stats, apiResponse.statistics);
-    
-    // Construire aussi delivery_info
-    deliveryInfo.total = stats.subscriber_count;
-    deliveryInfo.delivered = stats.delivered_count;
-    deliveryInfo.delivery_rate = stats.delivered_rate;
-    deliveryInfo.opened = stats.open_count;
-    deliveryInfo.unique_open_rate = stats.uniq_open_rate || stats.open_rate;
-    deliveryInfo.clicked = stats.click_count;
-    deliveryInfo.click_rate = stats.click_rate;
-    deliveryInfo.bounced = {
-      soft: stats.soft_bounce_count,
-      hard: stats.hard_bounce_count,
-      total: stats.bounce_count
-    };
-    deliveryInfo.unsubscribed = stats.unsubscribe_count;
-    deliveryInfo.complained = stats.abuse_complaint_count;
-  }
-  
-  // Si la réponse contient delivery_info, les extraire
-  if (apiResponse.delivery_info) {
-    Object.assign(deliveryInfo, apiResponse.delivery_info);
-    
-    // Compléter aussi les statistiques
-    stats.subscriber_count = deliveryInfo.total || stats.subscriber_count;
-    stats.delivered_count = deliveryInfo.delivered || stats.delivered_count;
-    stats.delivered_rate = deliveryInfo.delivery_rate || stats.delivered_rate;
-    stats.open_count = deliveryInfo.opened || stats.open_count;
-    stats.uniq_open_rate = deliveryInfo.unique_open_rate || stats.uniq_open_rate;
-    stats.click_count = deliveryInfo.clicked || stats.click_count;
-    stats.click_rate = deliveryInfo.click_rate || stats.click_rate;
-    
-    if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced) {
-      stats.bounce_count = deliveryInfo.bounced.total || stats.bounce_count;
-      stats.soft_bounce_count = deliveryInfo.bounced.soft || stats.soft_bounce_count;
-      stats.hard_bounce_count = deliveryInfo.bounced.hard || stats.hard_bounce_count;
-    } else if (typeof deliveryInfo.bounced === 'number') {
-      stats.bounce_count = deliveryInfo.bounced;
+  // Traiter directement l'API response si c'est un objet
+  if (apiResponse && typeof apiResponse === 'object') {
+    // Si la réponse contient des statistiques, les extraire
+    if (apiResponse.statistics) {
+      Object.assign(stats, apiResponse.statistics);
     }
     
-    stats.unsubscribe_count = deliveryInfo.unsubscribed || stats.unsubscribe_count;
-    stats.abuse_complaint_count = deliveryInfo.complained || stats.abuse_complaint_count;
-  }
-  
-  // Traiter directement les propriétés de premier niveau
-  if (!apiResponse.statistics && !apiResponse.delivery_info) {
+    // Si la réponse contient delivery_info, les extraire
+    if (apiResponse.delivery_info) {
+      Object.assign(deliveryInfo, apiResponse.delivery_info);
+    }
+    
+    // Traiter les propriétés de premier niveau
     if (typeof apiResponse.subscriber_count === 'number' || typeof apiResponse.total === 'number') {
       stats.subscriber_count = apiResponse.subscriber_count || apiResponse.total || 0;
       deliveryInfo.total = apiResponse.total || apiResponse.subscriber_count || 0;
     }
     
-    if (typeof apiResponse.uniq_open_rate === 'number' || typeof apiResponse.open_rate === 'number') {
-      stats.uniq_open_rate = apiResponse.uniq_open_rate || apiResponse.open_rate || 0;
-      deliveryInfo.unique_open_rate = apiResponse.unique_open_rate || apiResponse.uniq_open_rate || apiResponse.open_rate || 0;
+    if (typeof apiResponse.open_count === 'number' || typeof apiResponse.opened === 'number') {
+      stats.open_count = apiResponse.open_count || apiResponse.opened || 0;
+      deliveryInfo.opened = apiResponse.opened || apiResponse.open_count || 0;
     }
     
-    if (typeof apiResponse.delivered_rate === 'number') {
-      stats.delivered_rate = apiResponse.delivered_rate;
-      deliveryInfo.delivery_rate = apiResponse.delivered_rate;
+    if (typeof apiResponse.click_count === 'number' || typeof apiResponse.clicked === 'number') {
+      stats.click_count = apiResponse.click_count || apiResponse.clicked || 0;
+      deliveryInfo.clicked = apiResponse.clicked || apiResponse.click_count || 0;
     }
   }
   
-  // S'assurer que les statistiques sont cohérentes
-  ensureStatisticsConsistency(stats, deliveryInfo);
-  
-  console.log("Statistiques récupérées:", { statistics: stats, delivery_info: deliveryInfo });
+  // Assurer la cohérence des données
+  ensureDataConsistency(stats, deliveryInfo);
   
   return {
     statistics: stats,
@@ -234,9 +183,40 @@ const processApiStats = (apiResponse: any, originalCampaign: AcelleCampaign) => 
 };
 
 /**
- * Crée des statistiques vides pour une campagne
+ * Assure la cohérence entre statistics et delivery_info
  */
-const createEmptyStatistics = (campaign: AcelleCampaign): AcelleCampaignStatistics => {
+const ensureDataConsistency = (stats: AcelleCampaignStatistics, deliveryInfo: any) => {
+  // Synchroniser les valeurs principales
+  if (stats.subscriber_count > 0 && !deliveryInfo.total) {
+    deliveryInfo.total = stats.subscriber_count;
+  } else if (deliveryInfo.total > 0 && !stats.subscriber_count) {
+    stats.subscriber_count = Number(deliveryInfo.total);
+  }
+  
+  // Calculer les taux si nécessaire
+  if (stats.subscriber_count > 0 && stats.delivered_count > 0) {
+    const deliveryRate = (stats.delivered_count / stats.subscriber_count) * 100;
+    stats.delivered_rate = deliveryRate;
+    deliveryInfo.delivery_rate = deliveryRate;
+  }
+  
+  if (stats.delivered_count > 0 && stats.open_count > 0) {
+    const openRate = (stats.open_count / stats.delivered_count) * 100;
+    stats.uniq_open_rate = openRate;
+    deliveryInfo.unique_open_rate = openRate;
+  }
+  
+  if (stats.delivered_count > 0 && stats.click_count > 0) {
+    const clickRate = (stats.click_count / stats.delivered_count) * 100;
+    stats.click_rate = clickRate;
+    deliveryInfo.click_rate = clickRate;
+  }
+};
+
+/**
+ * Crée des statistiques vides
+ */
+const createEmptyStatistics = (): AcelleCampaignStatistics => {
   return {
     subscriber_count: 0,
     delivered_count: 0,
@@ -297,7 +277,6 @@ export const generateSimulatedStats = () => {
     delivered_rate: (delivered / totalSent) * 100,
     open_count: opened,
     uniq_open_rate: (opened / delivered) * 100,
-    unique_open_rate: (opened / delivered) * 100,
     click_count: clicked,
     click_rate: (clicked / delivered) * 100,
     bounce_count: bounced,
