@@ -58,7 +58,6 @@ export const fetchCampaignsFromCache = async (
     const campaigns = cachedCampaigns.map(campaign => {
       // Handle delivery_info parsing with improved error handling
       let deliveryInfo: Record<string, any> = {};
-      let isSimulated = false; // Default: assume data is real, not simulated
       
       if (campaign.delivery_info) {
         // Convert string to object if needed
@@ -80,28 +79,29 @@ export const fetchCampaignsFromCache = async (
           (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) || 
           (typeof deliveryInfo.opened === 'number' && deliveryInfo.opened > 0);
         
-        // Les données sont considérées comme réelles si elles ont des valeurs non nulles
-        if (hasNonZeroValues) {
-          console.log(`Campagne ${campaign.name}: statistiques détectées comme RÉELLES (valeurs non nulles)`);
-          isSimulated = false;
+        // Si aucune donnée réelle n'est détectée, ne pas utiliser ces statistiques
+        if (!hasNonZeroValues) {
+          console.log(`Campagne ${campaign.name}: pas de statistiques réelles détectées (valeurs toutes à zéro)`);
+          deliveryInfo = null;
+        } else {
+          console.log(`Campagne ${campaign.name}: statistiques réelles détectées (valeurs non nulles)`);
         }
       } else {
-        // Si pas de delivery_info, ne pas utiliser de données simulées
         deliveryInfo = null;
       }
-      
-      // Ensure bounced object exists with proper type safety
-      const bouncedInfo = (
-        deliveryInfo && 
-        typeof deliveryInfo === 'object' && 
-        deliveryInfo.bounced && 
-        typeof deliveryInfo.bounced === 'object'
-      ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
       
       // Create statistics from delivery_info only if we have valid data
       let statistics: AcelleCampaignStatistics | undefined = undefined;
       
       if (deliveryInfo && Object.keys(deliveryInfo).length > 0) {
+        // Ensure bounced object exists with proper type safety
+        const bouncedInfo = (
+          deliveryInfo && 
+          typeof deliveryInfo === 'object' && 
+          deliveryInfo.bounced && 
+          typeof deliveryInfo.bounced === 'object'
+        ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+        
         statistics = {
           subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
           delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
@@ -115,7 +115,7 @@ export const fetchCampaignsFromCache = async (
           hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
           unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
           abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0,
-          is_simulated: isSimulated
+          is_simulated: false
         };
         
         // Si les valeurs essentielles sont toutes à zéro, ne pas utiliser ces statistiques
@@ -125,7 +125,10 @@ export const fetchCampaignsFromCache = async (
           statistics.open_count > 0;
           
         if (!hasNonZeroStats) {
+          console.log(`Campagne ${campaign.name}: pas de statistiques réelles (valeurs toutes à zéro)`);
           statistics = undefined;
+        } else {
+          console.log(`Campagne ${campaign.name}: statistiques réelles confirmées`);
         }
       }
       
@@ -141,10 +144,7 @@ export const fetchCampaignsFromCache = async (
         delivery_date: campaign.delivery_date || '',
         run_at: campaign.run_at || '',
         last_error: campaign.last_error || '',
-        delivery_info: deliveryInfo ? {
-          ...deliveryInfo,
-          is_simulated: isSimulated
-        } : undefined,
+        delivery_info: deliveryInfo,
         statistics
       } as AcelleCampaign;
     });
@@ -189,7 +189,6 @@ export const fetchCampaignById = async (
     
     // Convert database record to AcelleCampaign format with the same logic as above
     let deliveryInfo: Record<string, any> = {};
-    let isSimulated = false; // Default: assume data is real
     
     if (data.delivery_info) {
       if (typeof data.delivery_info === 'string') {
@@ -209,27 +208,28 @@ export const fetchCampaignById = async (
         (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) || 
         (typeof deliveryInfo.opened === 'number' && deliveryInfo.opened > 0);
       
-      // Les données sont considérées comme réelles si elles ont des valeurs non nulles
-      if (hasNonZeroValues) {
-        console.log(`Campagne ${data.name}: statistiques détectées comme RÉELLES (valeurs non nulles)`);
-        isSimulated = false;
+      // Si aucune donnée réelle n'est détectée, ne pas utiliser ces statistiques
+      if (!hasNonZeroValues) {
+        console.log(`Campagne ${data.name}: pas de statistiques réelles détectées (valeurs toutes à zéro)`);
+        deliveryInfo = null;
+      } else {
+        console.log(`Campagne ${data.name}: statistiques réelles détectées (valeurs non nulles)`);
       }
     } else {
-      // Si pas de delivery_info, ne pas créer de données simulées
       deliveryInfo = null;
     }
-    
-    const bouncedInfo = (
-      deliveryInfo && 
-      typeof deliveryInfo === 'object' && 
-      deliveryInfo.bounced && 
-      typeof deliveryInfo.bounced === 'object'
-    ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
     
     // Create statistics only if we have valid delivery info
     let statistics: AcelleCampaignStatistics | undefined = undefined;
     
     if (deliveryInfo && Object.keys(deliveryInfo).length > 0) {
+      const bouncedInfo = (
+        deliveryInfo && 
+        typeof deliveryInfo === 'object' && 
+        deliveryInfo.bounced && 
+        typeof deliveryInfo.bounced === 'object'
+      ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+      
       statistics = {
         subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
         delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
@@ -243,7 +243,7 @@ export const fetchCampaignById = async (
         hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
         unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
         abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0,
-        is_simulated: isSimulated
+        is_simulated: false
       };
       
       // Si les valeurs essentielles sont toutes à zéro, ne pas utiliser ces statistiques
@@ -253,7 +253,10 @@ export const fetchCampaignById = async (
         statistics.open_count > 0;
         
       if (!hasNonZeroStats) {
+        console.log(`Campagne ${data.name}: pas de statistiques réelles (valeurs toutes à zéro)`);
         statistics = undefined;
+      } else {
+        console.log(`Campagne ${data.name}: statistiques réelles confirmées`);
       }
     }
     
@@ -268,10 +271,7 @@ export const fetchCampaignById = async (
       delivery_date: data.delivery_date || '',
       run_at: data.run_at || '',
       last_error: data.last_error || '',
-      delivery_info: deliveryInfo ? {
-        ...deliveryInfo,
-        is_simulated: isSimulated
-      } : undefined,
+      delivery_info: deliveryInfo,
       statistics
     } as AcelleCampaign;
   } catch (error) {

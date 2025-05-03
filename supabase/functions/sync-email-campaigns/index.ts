@@ -517,6 +517,12 @@ async function fetchCampaignsForAccount(account: any, options: {
       
       // Update cache for each campaign with improved statistics handling
       for (const campaign of campaignsData) {
+        // Log les statistiques brutes pour débogage
+        console.log(`Statistiques brutes pour la campagne ${campaign.name}:`, {
+          campaignId: campaign.uid,
+          statistics: campaign.statistics
+        });
+        
         // Ensure the delivery_info is properly structured as a JSON object
         // with all required fields for client-side display
         const deliveryInfo = {
@@ -538,6 +544,18 @@ async function fetchCampaignsForAccount(account: any, options: {
           bounce_rate: parseFloat(campaign.statistics?.bounce_rate) || 0
         };
         
+        // Vérifier si les statistiques contiennent des données non-nulles
+        const hasRealStats = 
+          (campaign.statistics && 
+           parseInt(campaign.statistics.subscriber_count) > 0) || 
+          (deliveryInfo.total > 0);
+        
+        if (hasRealStats) {
+          console.log(`Statistiques réelles détectées pour la campagne ${campaign.name}, enregistrement dans la base de données`);
+        } else {
+          console.log(`Pas de statistiques réelles pour la campagne ${campaign.name}, les champs resteront vides`);
+        }
+        
         // Log the delivery_info for debugging
         debugLog(`Storing delivery info for campaign ${campaign.name}:`, deliveryInfo, LOG_LEVELS.DEBUG);
 
@@ -552,7 +570,7 @@ async function fetchCampaignsForAccount(account: any, options: {
           delivery_date: campaign.delivery_at || campaign.run_at,
           run_at: campaign.run_at,
           last_error: campaign.last_error,
-          delivery_info: deliveryInfo,
+          delivery_info: hasRealStats ? deliveryInfo : null,
           cache_updated_at: new Date().toISOString()
         }, {
           onConflict: 'campaign_uid'

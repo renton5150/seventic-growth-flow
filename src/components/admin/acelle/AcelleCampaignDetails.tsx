@@ -195,10 +195,7 @@ const AcelleCampaignDetails = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <CampaignGeneralInfo campaign={campaign} />
         {!noStatsAvailable ? (
-          <CampaignGlobalStats 
-            statistics={campaign.statistics} 
-            isSimulated={false}
-          />
+          <CampaignGlobalStats statistics={campaign.statistics} />
         ) : (
           <Card className="p-4 flex items-center justify-center h-full">
             <p className="text-gray-500">Aucune statistique disponible</p>
@@ -215,10 +212,7 @@ const AcelleCampaignDetails = ({
 
         <TabsContent value="stats" className="space-y-4 py-4">
           {!noStatsAvailable ? (
-            <CampaignStatistics 
-              statistics={campaign.statistics}
-              isSimulated={false}
-            />
+            <CampaignStatistics statistics={campaign.statistics} />
           ) : (
             <Card className="p-8 text-center">
               <p className="text-gray-500">Les statistiques détaillées ne sont pas disponibles pour cette campagne.</p>
