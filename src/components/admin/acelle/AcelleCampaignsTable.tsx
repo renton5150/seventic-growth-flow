@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -51,6 +51,10 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   const [demoMode, setDemoMode] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
   
   // Utiliser notre hook useCampaignCache pour les opérations de cache
   const { 
@@ -61,6 +65,35 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     lastRefreshTimestamp,
     isCacheBusy
   } = useCampaignCache(account);
+  
+  // Create a refetch function to reload the campaigns
+  const refetch = useCallback(async () => {
+    setIsLoading(true);
+    setIsError(false);
+    setError(null);
+    
+    try {
+      if (demoMode) {
+        // Generate demo campaigns
+        const demoCampaigns = generateDemoCampaigns(currentPage, itemsPerPage);
+        setCampaigns(demoCampaigns);
+      } else if (account?.id) {
+        // Fetch campaigns from cache
+        const fetchedCampaigns = await fetchCampaignsFromCache(
+          [account], 
+          currentPage, 
+          itemsPerPage
+        );
+        setCampaigns(fetchedCampaigns);
+      }
+    } catch (err) {
+      console.error("Error fetching campaigns:", err);
+      setIsError(true);
+      setError(err instanceof Error ? err : new Error("Failed to fetch campaigns"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [account, currentPage, demoMode, itemsPerPage]);
 
   // Obtenir le token d'authentification dès le montage du composant
   useEffect(() => {
@@ -82,7 +115,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         }
       } catch (error) {
         console.error("Erreur lors de la récupération du token d'authentification:", error);
-        toast.error("Erreur lors de la récup��ration du token d'authentification");
+        toast.error("Erreur lors de la récupération du token d'authentification");
         
         // Activer le mode démo automatiquement en cas d'erreur d'authentification
         enableDemoMode(true);
@@ -91,6 +124,11 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     
     getAuthToken();
   }, []);
+  
+  // Fetch campaigns when page changes or account changes
+  useEffect(() => {
+    refetch();
+  }, [refetch, currentPage, account]);
 
   // Calcul du nombre total de pages en fonction du nombre total de campagnes
   useEffect(() => {
