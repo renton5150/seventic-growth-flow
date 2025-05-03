@@ -27,7 +27,7 @@ export interface AcelleCampaignStatistics {
   open_count: number;
   uniq_open_count?: number;
   uniq_open_rate: number;
-  unique_open_rate?: number;  // Ajouté pour compatibilité avec certaines réponses API
+  unique_open_rate?: number;  // Pour compatibilité avec certaines réponses API
   click_count: number;
   click_rate: number;
   bounce_count: number;
@@ -42,6 +42,11 @@ export interface AcelleCampaignStatistics {
   last_open?: string;
   last_click?: string;
   abuse_feedback_count?: number;
+  
+  // Propriétés pour les listes d'éléments
+  top_locations?: string[];
+  top_open_subscribers?: Array<{uid: string | null, email: string}>;
+  links?: any[];
   
   // Propriétés formatées pour l'affichage
   total?: number;
