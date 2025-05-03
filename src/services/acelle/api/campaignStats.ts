@@ -6,6 +6,7 @@ interface FetchStatsOptions {
   demoMode?: boolean;
   useCache?: boolean;
   skipProcessing?: boolean;
+  forceRefresh?: boolean;
 }
 
 /**

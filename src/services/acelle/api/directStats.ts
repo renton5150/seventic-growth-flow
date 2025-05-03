@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from '@/types/acelle.types';
 import { supabase } from '@/integrations/supabase/client';
 import { generateSimulatedStats } from './campaignStats';
