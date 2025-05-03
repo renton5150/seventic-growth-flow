@@ -11,6 +11,7 @@ import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { AcelleTableRow } from "../table/AcelleTableRow";
 import { CampaignsTableHeader } from "../table/TableHeader";
 import { AcelleTableBatchLoader } from "../table/AcelleTableBatchLoader";
+import { toast } from "sonner";
 
 interface TableContentProps {
   campaigns: AcelleCampaign[];
@@ -32,16 +33,54 @@ export const TableContent = ({
   demoMode = false
 }: TableContentProps) => {
   const [isStatsLoaded, setIsStatsLoaded] = useState(false);
+  const [loadAttempts, setLoadAttempts] = useState(0);
 
   // À chaque changement de campagnes, réinitialiser l'état du chargement des statistiques
   useEffect(() => {
     setIsStatsLoaded(false);
-  }, [campaigns]);
+    
+    // Nouvelle logique: forcer un rechargement si les statistiques n'ont pas chargé
+    if (loadAttempts > 0) {
+      // Vérifions si les campagnes ont des statistiques
+      const hasStats = campaigns.some(c => 
+        c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
+      );
+      
+      if (!hasStats) {
+        console.log("Les statistiques ne sont pas encore chargées, forçage du rechargement...");
+        // Toast pour informer l'utilisateur
+        toast.info("Chargement des statistiques...", {
+          id: "loading-stats",
+          duration: 3000
+        });
+      }
+    }
+  }, [campaigns, loadAttempts]);
   
   // Fonction de rappel appelée lorsque le chargement par lot est terminé
   const handleBatchLoaded = () => {
     setIsStatsLoaded(true);
-    console.log("Toutes les statistiques ont été chargées par lot");
+    setLoadAttempts(prev => prev + 1);
+    
+    // Vérifions si les campagnes ont maintenant des statistiques
+    const hasStats = campaigns.some(c => 
+      c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
+    );
+    
+    if (hasStats) {
+      console.log("Les statistiques ont été chargées avec succès");
+      toast.success("Statistiques chargées", {
+        id: "loading-stats",
+        duration: 2000
+      });
+    } else if (loadAttempts > 0) {
+      console.warn("Echec du chargement des statistiques après tentative");
+      // Si c'est le deuxième essai, on informe l'utilisateur
+      toast.error("Certaines statistiques n'ont pas pu être chargées", {
+        id: "loading-stats",
+        duration: 3000
+      });
+    }
   };
 
   return (

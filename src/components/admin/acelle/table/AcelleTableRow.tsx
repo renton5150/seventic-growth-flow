@@ -110,6 +110,8 @@ export const AcelleTableRow = ({
         useCache: true
       });
       
+      console.log(`Statistiques récupérées pour ${campaignName}:`, result.statistics);
+      
       // Mettre à jour l'état local avec les statistiques récupérées
       setStats(result.statistics);
       
@@ -148,66 +150,104 @@ export const AcelleTableRow = ({
 
   // Méthodes pour récupérer les statistiques avec priorité et fallback
   const getTotalSent = (): number => {
-    // 1. Utiliser les statistiques locales si disponibles
-    if (stats?.subscriber_count !== undefined) return stats.subscriber_count;
+    // Si les statistiques ont été chargées dans l'état local
+    if (stats?.subscriber_count !== undefined) {
+      return stats.subscriber_count;
+    }
     
-    // 2. Utiliser les statistiques de la campagne si disponibles
-    if (campaign.statistics?.subscriber_count !== undefined) 
+    // Utiliser les stats de la campagne si disponibles
+    if (campaign.statistics?.subscriber_count !== undefined) {
       return campaign.statistics.subscriber_count;
+    }
     
-    // 3. Utiliser delivery_info comme fallback
+    // Utiliser delivery_info comme fallback
     if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
       const info = campaign.delivery_info as any;
-      if (info.total !== undefined) return Number(info.total);
+      if (info.total !== undefined) {
+        return Number(info.total);
+      }
+    }
+    
+    // Si on est en mode démo, générer une valeur aléatoire
+    if (demoMode) {
+      return 1000 + Math.floor(Math.random() * 2000);
     }
     
     return 0;
   };
 
   const getOpenRate = (): number => {
-    // 1. Utiliser les statistiques locales
-    if (stats?.uniq_open_rate !== undefined) return stats.uniq_open_rate;
-    if (stats?.open_rate !== undefined) return stats.open_rate;
+    // Si les statistiques ont été chargées dans l'état local
+    if (stats?.uniq_open_rate !== undefined) {
+      return stats.uniq_open_rate;
+    } else if (stats?.open_rate !== undefined) {
+      return stats.open_rate;
+    }
     
-    // 2. Utiliser les statistiques de la campagne
-    if (campaign.statistics?.uniq_open_rate !== undefined) 
+    // Utiliser les stats de la campagne si disponibles
+    if (campaign.statistics?.uniq_open_rate !== undefined) {
       return campaign.statistics.uniq_open_rate;
+    } else if (campaign.statistics?.open_rate !== undefined) {
+      return campaign.statistics.open_rate;
+    }
     
-    // 3. Utiliser delivery_info comme fallback
+    // Utiliser delivery_info comme fallback
     if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
       const info = campaign.delivery_info as any;
-      if (info.unique_open_rate !== undefined) return Number(info.unique_open_rate);
+      if (info.unique_open_rate !== undefined) {
+        return Number(info.unique_open_rate);
+      } else if (info.open_rate !== undefined) {
+        return Number(info.open_rate);
+      }
+    }
+    
+    // Si on est en mode démo, générer une valeur aléatoire
+    if (demoMode) {
+      return Math.floor(Math.random() * 60);  // 0-60%
     }
     
     return 0;
   };
 
   const getClickRate = (): number => {
-    // 1. Utiliser les statistiques locales
-    if (stats?.click_rate !== undefined) return stats.click_rate;
+    // Si les statistiques ont été chargées dans l'état local
+    if (stats?.click_rate !== undefined) {
+      return stats.click_rate;
+    }
     
-    // 2. Utiliser les statistiques de la campagne
-    if (campaign.statistics?.click_rate !== undefined) 
+    // Utiliser les stats de la campagne si disponibles
+    if (campaign.statistics?.click_rate !== undefined) {
       return campaign.statistics.click_rate;
+    }
     
-    // 3. Utiliser delivery_info comme fallback
+    // Utiliser delivery_info comme fallback
     if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
       const info = campaign.delivery_info as any;
-      if (info.click_rate !== undefined) return Number(info.click_rate);
+      if (info.click_rate !== undefined) {
+        return Number(info.click_rate);
+      }
+    }
+    
+    // Si on est en mode démo, générer une valeur aléatoire
+    if (demoMode) {
+      return Math.floor(Math.random() * 30);  // 0-30%
     }
     
     return 0;
   };
 
   const getBounceCount = (): number => {
-    // 1. Utiliser les statistiques locales
-    if (stats?.bounce_count !== undefined) return stats.bounce_count;
+    // Si les statistiques ont été chargées dans l'état local
+    if (stats?.bounce_count !== undefined) {
+      return stats.bounce_count;
+    }
     
-    // 2. Utiliser les statistiques de la campagne
-    if (campaign.statistics?.bounce_count !== undefined) 
+    // Utiliser les stats de la campagne si disponibles
+    if (campaign.statistics?.bounce_count !== undefined) {
       return campaign.statistics.bounce_count;
+    }
     
-    // 3. Utiliser delivery_info comme fallback
+    // Utiliser delivery_info comme fallback
     if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
       const info = campaign.delivery_info as any;
       
@@ -221,10 +261,15 @@ export const AcelleTableRow = ({
       }
     }
     
+    // Si on est en mode démo, générer une valeur aléatoire
+    if (demoMode) {
+      return Math.floor(Math.random() * 50);  // 0-50 bounces
+    }
+    
     return 0;
   };
 
-  // Valeurs à afficher
+  // Valeurs à afficher avec génération de valeurs aléatoires en mode démo
   const totalSent = getTotalSent();
   const openRate = getOpenRate();
   const clickRate = getClickRate();

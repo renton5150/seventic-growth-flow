@@ -2,13 +2,19 @@
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { getCampaignStatsDirectly } from "./directStats";
 
+interface FetchStatsOptions {
+  demoMode?: boolean;
+  useCache?: boolean;
+  skipProcessing?: boolean;
+}
+
 /**
  * Service dédié à la récupération et au traitement des statistiques de campagne
  */
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign,
   account: AcelleAccount,
-  options: { demoMode?: boolean, useCache?: boolean, skipProcessing?: boolean } = {}
+  options: FetchStatsOptions = {}
 ): Promise<{
   statistics: AcelleCampaignStatistics;
   delivery_info: DeliveryInfo;

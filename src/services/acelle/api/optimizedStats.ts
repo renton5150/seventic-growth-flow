@@ -177,7 +177,10 @@ export async function refreshStatsCacheForCampaigns(
     for (const campaign of data || []) {
       if (campaign.campaign_uid && campaign.delivery_info) {
         const uid = campaign.campaign_uid;
-        const deliveryInfo = campaign.delivery_info as Record<string, any>;
+        // Traiter explicitement delivery_info comme un objet
+        const deliveryInfo = typeof campaign.delivery_info === 'string' 
+          ? JSON.parse(campaign.delivery_info) 
+          : campaign.delivery_info as Record<string, any>;
         
         // Construire les statistiques à partir de delivery_info
         const stats: AcelleCampaignStatistics = {
@@ -195,9 +198,11 @@ export async function refreshStatsCacheForCampaigns(
           abuse_complaint_count: Number(deliveryInfo.complained) || 0
         };
         
-        // Mettre en cache
-        statsCache.set(uid, stats);
-        console.log(`Statistiques mises en cache pour ${uid}`);
+        // Mettre en cache avec des vérifications pour éviter des valeurs nulles
+        if (stats.subscriber_count > 0 || stats.delivered_count > 0 || stats.open_count > 0) {
+          statsCache.set(uid, stats);
+          console.log(`Statistiques mises en cache pour ${uid}`);
+        }
       }
     }
     
