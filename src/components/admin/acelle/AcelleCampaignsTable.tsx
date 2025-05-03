@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -44,13 +43,14 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   const [itemsPerPage] = useState(5); // Limité à 5 campagnes par page
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0); 
+  const [retryCount, setRetryCount] = useState(0);
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [hasNextPage, setHasNextPage] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
   
   // Utiliser notre hook useCampaignCache pour les opérations de cache
   const { 
@@ -82,7 +82,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         }
       } catch (error) {
         console.error("Erreur lors de la récupération du token d'authentification:", error);
-        toast.error("Erreur lors de la récupération du token d'authentification");
+        toast.error("Erreur lors de la récup��ration du token d'authentification");
         
         // Activer le mode démo automatiquement en cas d'erreur d'authentification
         enableDemoMode(true);
@@ -92,61 +92,70 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     getAuthToken();
   }, []);
 
-  // Récupérer les campagnes du cache avec la query key incluse
-  const { data: campaigns, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['campaigns', account?.id, currentPage, demoMode],
-    queryFn: async () => {
-      if (demoMode) {
-        // En mode démo, générer des campagnes factices
-        return generateDemoCampaigns();
-      }
-      
-      if (!account?.id || account?.status !== 'active') {
-        return [];
-      }
-      
+  // Calcul du nombre total de pages en fonction du nombre total de campagnes
+  useEffect(() => {
+    const calculateTotalPages = async () => {
       try {
-        const cachedCampaigns = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
-        console.log(`${cachedCampaigns.length} campagnes récupérées du cache`);
-        
-        // Enrichir les campagnes avec les statistiques à jour
-        if (cachedCampaigns.length > 0) {
-          const enrichedCampaigns = await enrichCampaignsWithStats(cachedCampaigns, account);
-          return enrichedCampaigns;
+        if (demoMode) {
+          // En mode démo, on suppose qu'il y a 20 campagnes (4 pages)
+          setTotalPages(4);
+          return;
+        }
+
+        if (!account?.id) {
+          setTotalPages(0);
+          return;
+        }
+
+        // Obtenir le nombre total de campagnes en cache pour ce compte
+        const { data, error } = await supabase
+          .from('email_campaigns_cache')
+          .select('*', { count: 'exact', head: true })
+          .eq('account_id', account.id);
+          
+        if (error) {
+          console.error("Erreur lors du comptage des campagnes:", error);
+          return;
         }
         
-        return cachedCampaigns;
+        const count = data?.length || campaignsCount || 0;
+        const pages = Math.ceil(count / itemsPerPage);
+        setTotalPages(pages);
+        setHasNextPage(currentPage < pages);
+        
+        console.log(`Pagination: ${count} campagnes trouvées, ${pages} pages disponibles`);
       } catch (err) {
-        console.error("Erreur lors de la récupération des campagnes:", err);
-        setConnectionError(err instanceof Error ? err.message : "Erreur inconnue");
-        return [];
+        console.error("Erreur lors du calcul du nombre de pages:", err);
       }
-    },
-    enabled: !!account?.id || demoMode,
-    retry: 1,
-    staleTime: 30000 // 30 secondes
-  });
+    };
+    
+    calculateTotalPages();
+  }, [account?.id, campaignsCount, currentPage, demoMode, itemsPerPage]);
 
   // Générer des campagnes factices pour le mode démo
-  const generateDemoCampaigns = useCallback((): AcelleCampaign[] => {
+  const generateDemoCampaigns = useCallback((page: number = 1, perPage: number = 5): AcelleCampaign[] => {
     const statuses = ["sent", "sending", "queued", "ready", "new", "paused", "failed"];
     const subjectPrefixes = ["Newsletter", "Promotion", "Annonce", "Invitation", "Bienvenue"];
     
-    return Array.from({ length: 5 }).map((_, index) => {
+    // Décaler l'index de départ en fonction de la page
+    const startIndex = (page - 1) * perPage;
+    
+    return Array.from({ length: perPage }).map((_, index) => {
       const now = new Date();
+      const globalIndex = startIndex + index;
       const randomDays = Math.floor(Math.random() * 30);
       const createdDate = new Date(now.getTime() - randomDays * 24 * 60 * 60 * 1000);
       
       const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const subject = `${subjectPrefixes[Math.floor(Math.random() * subjectPrefixes.length)]} ${index + 1}`;
+      const subject = `${subjectPrefixes[Math.floor(Math.random() * subjectPrefixes.length)]} ${globalIndex + 1}`;
       
       // Créer une campagne simulée avec statistiques
       const simulatedStats = acelleService.generateMockCampaigns(1)[0];
       
       return {
-        uid: `demo-${index}`,
-        campaign_uid: `demo-${index}`,
-        name: `Campagne démo ${index + 1}`,
+        uid: `demo-${globalIndex}`,
+        campaign_uid: `demo-${globalIndex}`,
+        name: `Campagne démo ${globalIndex + 1}`,
         subject: subject,
         status: status,
         created_at: createdDate.toISOString(),
@@ -244,6 +253,14 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   // Fermer la vue détaillée
   const handleCloseDetails = () => {
     setSelectedCampaign(null);
+  };
+  
+  // Gérer le changement de page
+  const handlePageChange = (page: number) => {
+    if (page < 1 || (totalPages > 0 && page > totalPages)) return;
+    
+    setCurrentPage(page);
+    console.log(`Changement de page: ${page}`);
   };
 
   // Si le compte est inactif
@@ -369,13 +386,14 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         </Table>
       </div>
 
-      {campaigns && campaigns.length > itemsPerPage && (
+      <div className="flex justify-end mt-4">
         <CampaignsTablePagination 
           currentPage={currentPage}
-          onPageChange={setCurrentPage}
+          onPageChange={handlePageChange}
           hasNextPage={hasNextPage}
+          totalPages={totalPages}
         />
-      )}
+      </div>
 
       <Dialog open={!!selectedCampaign} onOpenChange={(open) => {
         if (!open) handleCloseDetails();

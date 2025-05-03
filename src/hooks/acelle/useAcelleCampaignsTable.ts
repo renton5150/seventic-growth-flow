@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { AcelleCampaign } from "@/types/acelle.types";
 
@@ -9,7 +8,7 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
 
-  // Limiter à 5 campagnes par page après filtrage et tri
+  // Filtrer et trier les campagnes selon les critères sans limiter à 5
   const filteredCampaigns = useMemo(() => {
     // Log pour le débogage
     console.log(`Filtrage des campagnes: ${campaigns.length} disponibles`, {
@@ -63,8 +62,7 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
         }
 
         return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
-      })
-      .slice(0, 5);
+      });
   }, [campaigns, searchTerm, statusFilter, sortBy, sortOrder]);
   
   // Fonction helper pour récupérer des statistiques d'une campagne avec debug amélioré

@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignDetail } from '@/types/acelle.types';
 import { buildProxyUrl, callAcelleApi } from '../acelle-service';
 import { toast } from 'sonner';
@@ -784,7 +783,7 @@ export async function fetchCampaignsFromCache(
   }
   
   try {
-    console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes`);
+    console.log(`Récupération des campagnes en cache pour ${accounts.length} comptes, page ${page}, ${perPage} par page`);
     
     // Extract account IDs for the query
     const accountIds = accounts.map(a => a.id);
@@ -807,11 +806,11 @@ export async function fetchCampaignsFromCache(
     }
     
     if (!cachedCampaigns || cachedCampaigns.length === 0) {
-      console.log("Aucune campagne trouvée dans le cache");
+      console.log("Aucune campagne trouvée dans le cache pour la page", page);
       return [];
     }
     
-    console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache`);
+    console.log(`Récupéré ${cachedCampaigns.length} campagnes depuis le cache pour la page ${page}`);
     
     // Convert cache data to AcelleCampaign format
     return extractCampaignsFromCache(cachedCampaigns);
