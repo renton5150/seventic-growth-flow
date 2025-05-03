@@ -87,27 +87,34 @@ export async function refreshAllCampaignStats(
 
     // Convertir les données en objets AcelleCampaign
     const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
-      // Convertir explicitement le delivery_info en type DeliveryInfo 
-      // en utilisant une vérification de type et des valeurs par défaut sécurisées
-      let deliveryInfo: DeliveryInfo | undefined = undefined;
+      // Créer un objet DeliveryInfo approprié
+      let deliveryInfo: DeliveryInfo | null = null;
       
       if (c.delivery_info) {
-        // Traiter l'objet delivery_info comme un Record<string, any> pour l'extraction des données
-        const deliveryData = c.delivery_info as Record<string, any>;
+        // Gérer les différentes formes possibles de l'objet delivery_info
+        const rawInfo = typeof c.delivery_info === 'string' 
+          ? JSON.parse(c.delivery_info) 
+          : c.delivery_info;
+        
+        // Gérer le cas spécial du champ 'bounced' qui peut être un objet ou un nombre
+        let bouncedValue: any = rawInfo.bounced;
         
         deliveryInfo = {
-          total: typeof deliveryData.total === 'number' ? deliveryData.total : 0,
-          delivery_rate: typeof deliveryData.delivery_rate === 'number' ? deliveryData.delivery_rate : 0,
-          unique_open_rate: typeof deliveryData.unique_open_rate === 'number' ? deliveryData.unique_open_rate : 0,
-          click_rate: typeof deliveryData.click_rate === 'number' ? deliveryData.click_rate : 0,
-          bounce_rate: typeof deliveryData.bounce_rate === 'number' ? deliveryData.bounce_rate : 0,
-          unsubscribe_rate: typeof deliveryData.unsubscribe_rate === 'number' ? deliveryData.unsubscribe_rate : 0,
-          delivered: typeof deliveryData.delivered === 'number' ? deliveryData.delivered : 0,
-          opened: typeof deliveryData.opened === 'number' ? deliveryData.opened : 0,
-          clicked: typeof deliveryData.clicked === 'number' ? deliveryData.clicked : 0,
-          bounced: typeof deliveryData.bounced === 'number' ? deliveryData.bounced : 0,
-          unsubscribed: typeof deliveryData.unsubscribed === 'number' ? deliveryData.unsubscribed : 0,
-          complained: typeof deliveryData.complained === 'number' ? deliveryData.complained : 0
+          total: Number(rawInfo.total) || 0,
+          delivery_rate: Number(rawInfo.delivery_rate) || 0,
+          unique_open_rate: Number(rawInfo.unique_open_rate) || 0,
+          click_rate: Number(rawInfo.click_rate) || 0,
+          bounce_rate: Number(rawInfo.bounce_rate) || 0,
+          unsubscribe_rate: Number(rawInfo.unsubscribe_rate) || 0,
+          delivered: Number(rawInfo.delivered) || 0,
+          opened: Number(rawInfo.opened) || 0,
+          clicked: Number(rawInfo.clicked) || 0,
+          // Gérer les différentes structures possibles pour 'bounced'
+          bounced: typeof bouncedValue === 'object' 
+            ? bouncedValue 
+            : Number(bouncedValue) || 0,
+          unsubscribed: Number(rawInfo.unsubscribed) || 0,
+          complained: Number(rawInfo.complained) || 0
         };
       }
 
@@ -122,7 +129,7 @@ export async function refreshAllCampaignStats(
         delivery_date: c.delivery_date,
         run_at: c.run_at,
         last_error: c.last_error,
-        delivery_info: deliveryInfo
+        delivery_info: deliveryInfo as DeliveryInfo
       };
     });
 
