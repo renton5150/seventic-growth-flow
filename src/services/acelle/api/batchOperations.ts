@@ -85,37 +85,84 @@ export async function refreshAllCampaignStats(
       return false;
     }
 
+    console.log("Campagnes récupérées:", cachedCampaigns?.length);
+    
     // Convertir les données en objets AcelleCampaign
     const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
-      // Créer un objet DeliveryInfo approprié
+      // Log pour débugger la structure de l'objet delivery_info
+      console.log(`Traitement de la campagne ${c.campaign_uid}, delivery_info:`, c.delivery_info);
+      
+      // Créer un objet DeliveryInfo en gérant les différents formats possibles
       let deliveryInfo: DeliveryInfo | null = null;
       
       if (c.delivery_info) {
-        // Gérer les différentes formes possibles de l'objet delivery_info
-        const rawInfo = typeof c.delivery_info === 'string' 
-          ? JSON.parse(c.delivery_info) 
-          : c.delivery_info;
-        
-        // Gérer le cas spécial du champ 'bounced' qui peut être un objet ou un nombre
-        let bouncedValue: any = rawInfo.bounced;
-        
-        deliveryInfo = {
-          total: Number(rawInfo.total) || 0,
-          delivery_rate: Number(rawInfo.delivery_rate) || 0,
-          unique_open_rate: Number(rawInfo.unique_open_rate) || 0,
-          click_rate: Number(rawInfo.click_rate) || 0,
-          bounce_rate: Number(rawInfo.bounce_rate) || 0,
-          unsubscribe_rate: Number(rawInfo.unsubscribe_rate) || 0,
-          delivered: Number(rawInfo.delivered) || 0,
-          opened: Number(rawInfo.opened) || 0,
-          clicked: Number(rawInfo.clicked) || 0,
-          // Gérer les différentes structures possibles pour 'bounced'
-          bounced: typeof bouncedValue === 'object' 
-            ? bouncedValue 
-            : Number(bouncedValue) || 0,
-          unsubscribed: Number(rawInfo.unsubscribed) || 0,
-          complained: Number(rawInfo.complained) || 0
-        };
+        try {
+          // Normaliser l'objet delivery_info (peut être une chaîne JSON ou un objet)
+          const rawInfo = typeof c.delivery_info === 'string' 
+            ? JSON.parse(c.delivery_info) 
+            : c.delivery_info;
+          
+          console.log("rawInfo après normalisation:", rawInfo);
+          
+          // Traiter le champ 'bounced' qui peut avoir différentes structures
+          let bounced: any = rawInfo.bounced;
+          let bouncedTotal = 0;
+          let bouncedSoft = 0;
+          let bouncedHard = 0;
+          
+          if (bounced !== undefined && bounced !== null) {
+            if (typeof bounced === 'object') {
+              // Si c'est un objet avec des propriétés total/soft/hard
+              bouncedTotal = Number(bounced.total) || 0;
+              bouncedSoft = Number(bounced.soft) || 0;
+              bouncedHard = Number(bounced.hard) || 0;
+            } else {
+              // Si c'est directement un nombre
+              bouncedTotal = Number(bounced) || 0;
+            }
+          }
+          
+          // Construire l'objet deliveryInfo avec conversion explicite de chaque valeur
+          deliveryInfo = {
+            total: Number(rawInfo.total) || 0,
+            delivery_rate: Number(rawInfo.delivery_rate) || 0,
+            unique_open_rate: Number(rawInfo.unique_open_rate) || 0,
+            click_rate: Number(rawInfo.click_rate) || 0,
+            bounce_rate: Number(rawInfo.bounce_rate) || 0,
+            unsubscribe_rate: Number(rawInfo.unsubscribe_rate) || 0,
+            delivered: Number(rawInfo.delivered) || 0,
+            opened: Number(rawInfo.opened) || 0,
+            clicked: Number(rawInfo.clicked) || 0,
+            bounced: typeof bounced === 'object' 
+              ? {
+                  total: bouncedTotal,
+                  soft: bouncedSoft,
+                  hard: bouncedHard
+                } 
+              : bouncedTotal,
+            unsubscribed: Number(rawInfo.unsubscribed) || 0,
+            complained: Number(rawInfo.complained) || 0
+          };
+          
+          console.log("DeliveryInfo formatté:", deliveryInfo);
+        } catch (error) {
+          console.error("Erreur lors du traitement de delivery_info:", error);
+          // En cas d'erreur, créer un objet DeliveryInfo vide
+          deliveryInfo = {
+            total: 0,
+            delivery_rate: 0,
+            unique_open_rate: 0,
+            click_rate: 0,
+            bounce_rate: 0,
+            unsubscribe_rate: 0,
+            delivered: 0,
+            opened: 0,
+            clicked: 0,
+            bounced: 0,
+            unsubscribed: 0,
+            complained: 0
+          };
+        }
       }
 
       return {
