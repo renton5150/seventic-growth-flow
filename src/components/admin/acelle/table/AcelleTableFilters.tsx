@@ -25,7 +25,7 @@ export const AcelleTableFilters = ({
 }: AcelleTableFiltersProps) => {
   // Liste des statuts possibles
   const statuses = [
-    { value: null, label: "Tous les statuts" },
+    { value: "all", label: "Tous les statuts" },
     { value: "new", label: "Nouveau" },
     { value: "ready", label: "Prêt" },
     { value: "sending", label: "En envoi" },
@@ -49,15 +49,15 @@ export const AcelleTableFilters = ({
       </div>
 
       <Select
-        value={statusFilter || ""}
-        onValueChange={(value) => onStatusFilterChange(value === "" ? null : value)}
+        value={statusFilter || "all"}
+        onValueChange={(value) => onStatusFilterChange(value === "all" ? null : value)}
       >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Filtrer par statut" />
         </SelectTrigger>
         <SelectContent>
           {statuses.map((status) => (
-            <SelectItem key={status.value || "all"} value={status.value || ""}>
+            <SelectItem key={status.value} value={status.value}>
               {status.label}
             </SelectItem>
           ))}
