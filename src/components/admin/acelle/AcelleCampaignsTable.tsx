@@ -285,6 +285,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
 
   // Afficher la campagne sélectionnée
   const handleViewCampaign = (uid: string) => {
+    console.log(`Affichage des détails pour la campagne ${uid}`);
     setSelectedCampaign(uid);
   };
 
@@ -439,7 +440,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
           <DialogHeader>
             <DialogTitle>
-              {campaigns?.find(c => c.uid === selectedCampaign || c.campaign_uid === selectedCampaign)?.name || "Détails de la campagne"}
+              {selectedCampaign && "Détails de la campagne"}
             </DialogTitle>
           </DialogHeader>
           {selectedCampaign && (

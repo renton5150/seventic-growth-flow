@@ -12,6 +12,7 @@ import { CampaignStatistics } from "./stats/CampaignStatistics";
 import { CampaignGeneralInfo } from "./detail/CampaignGeneralInfo";
 import { CampaignGlobalStats } from "./detail/CampaignGlobalStats";
 import { CampaignTechnicalInfo } from "./detail/CampaignTechnicalInfo";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AcelleCampaignDetailsProps {
   campaignId: string;
@@ -58,30 +59,70 @@ const AcelleCampaignDetails = ({
     loadCampaignDetails();
   }, [campaignId, account, demoMode]);
 
-  // Fonction pour charger une campagne réelle depuis le cache
+  // Fonction pour charger une campagne réelle depuis le cache ou directement depuis la base de données
   const loadRealCampaign = async (id: string, acct: AcelleAccount) => {
     console.log(`Récupération des statistiques pour la campagne ${id}`);
     
-    // Charger depuis le cache
-    const campaigns = await fetchCampaignsFromCache([acct]);
-    const foundCampaign = campaigns.find(
-      c => c.uid === id || c.campaign_uid === id
-    );
-    
-    if (foundCampaign) {
-      console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
-      setCampaign(foundCampaign);
+    try {
+      // 1. Essayer de trouver la campagne dans le cache en mémoire
+      const campaigns = await fetchCampaignsFromCache([acct]);
+      let foundCampaign = campaigns.find(c => c.uid === id || c.campaign_uid === id);
       
-      // Récupérer les statistiques complètes
-      const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct);
+      // 2. Si non trouvée, chercher directement dans la base de données
+      if (!foundCampaign) {
+        console.log(`Campagne ${id} non trouvée en cache, recherche dans la base de données`);
+        
+        const { data, error } = await supabase
+          .from('email_campaigns_cache')
+          .select('*')
+          .eq('campaign_uid', id)
+          .eq('account_id', acct.id)
+          .single();
+        
+        if (error) {
+          console.error("Erreur lors de la récupération de la campagne depuis la base de données:", error);
+          throw new Error("Impossible de récupérer les détails de la campagne");
+        }
+        
+        if (data) {
+          // Convertir les données de la base de données en format AcelleCampaign
+          foundCampaign = {
+            uid: data.campaign_uid,
+            campaign_uid: data.campaign_uid,
+            name: data.name || '',
+            subject: data.subject || '',
+            status: data.status || '',
+            created_at: data.created_at || '',
+            updated_at: data.updated_at || '',
+            delivery_date: data.delivery_date || '',
+            run_at: data.run_at || '',
+            last_error: data.last_error || '',
+            delivery_info: typeof data.delivery_info === 'object' ? data.delivery_info : {},
+            statistics: {} // Sera rempli plus tard
+          };
+          
+          console.log(`Campagne ${data.name} trouvée dans la base de données`, foundCampaign);
+        }
+      }
       
-      // Mettre à jour l'état et la campagne avec les statistiques
-      setStats(statsResult.statistics);
-      foundCampaign.statistics = statsResult.statistics;
-      foundCampaign.delivery_info = statsResult.delivery_info;
-      
-    } else {
-      setError("Campagne non trouvée");
+      if (foundCampaign) {
+        console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
+        setCampaign(foundCampaign);
+        
+        // Récupérer les statistiques complètes
+        const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct);
+        
+        // Mettre à jour l'état et la campagne avec les statistiques
+        setStats(statsResult.statistics);
+        foundCampaign.statistics = statsResult.statistics;
+        foundCampaign.delivery_info = statsResult.delivery_info;
+        
+      } else {
+        setError("Campagne non trouvée");
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement de la campagne:", err);
+      setError(err instanceof Error ? err.message : "Erreur lors du chargement de la campagne");
     }
   };
 
