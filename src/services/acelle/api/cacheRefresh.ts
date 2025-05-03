@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Fonction pour rafraîchir les statistiques en cache
+ * Function to refresh statistics cache for email campaigns
  */
 export const refreshStatsCacheForCampaigns = async (campaignUids: string[]): Promise<boolean> => {
   if (!campaignUids.length) return false;
@@ -10,15 +10,19 @@ export const refreshStatsCacheForCampaigns = async (campaignUids: string[]): Pro
   console.log(`Refreshing statistics cache for ${campaignUids.length} campaigns`);
   
   try {
-    // Dans une application réelle, on ferait un appel à l'API puis une mise en cache
-    // Pour cette solution, on va simuler un rafraîchissement en générant des statistiques
-    // et en mettant à jour le timestamp
+    // In a real application, we would make an API call and then update the cache
+    // For this solution, we're simulating a refresh by updating the timestamp
+    // and forcing a reload of the statistics
     
-    // Pour chaque UID, mettre à jour un flag dans la base de données
+    // For each UID, update a flag in the database to trigger a refresh
     const promises = campaignUids.map(uid => 
       supabase
         .from('email_campaigns_cache')
-        .update({ updated_at: new Date().toISOString() })
+        .update({ 
+          updated_at: new Date().toISOString(),
+          cache_updated_at: new Date().toISOString(), // Add this to explicitly mark as updated for the front end
+          refresh_requested_at: new Date().toISOString() // Add a new field to track refresh requests
+        })
         .eq('campaign_uid', uid)
     );
     

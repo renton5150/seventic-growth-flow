@@ -15,7 +15,7 @@ interface StatsOptions {
 }
 
 /**
- * Directly fetch statistics from the Acelle API
+ * Directly fetch statistics from the Acelle API or database cache
  */
 export const getCampaignStatsDirectly = async (
   campaign: AcelleCampaign,
@@ -37,7 +37,7 @@ export const getCampaignStatsDirectly = async (
   const campaignUid = campaign.uid || campaign.campaign_uid;
   
   try {
-    // If useCache is active, first try to retrieve from cache
+    // If useCache is active and not forcing a refresh, first try to retrieve from cache
     if (useCache && !forceRefresh) {
       console.log(`Attempting to retrieve from cache for ${campaignUid}`);
       
@@ -66,20 +66,30 @@ export const getCampaignStatsDirectly = async (
             console.log(`Cache data exists for ${campaign.name} but contains no valid statistics`);
           }
         } else {
-          console.log(`No statistics in cache for ${campaign.name}`);
+          console.log(`No statistics in cache for ${campaign.name}`, { error });
         }
       } catch (cacheError) {
         console.error('Error retrieving from cache:', cacheError);
       }
     }
     
-    // Si nous demandons un rafraîchissement forcé ou si rien n'a été trouvé en cache
-    if (forceRefresh || (!useCache)) {
+    // If forcing a refresh or if nothing was found in cache
+    if (forceRefresh || !useCache) {
       console.log(`Forcing refresh of statistics for ${campaign.name}`);
       
-      // Essayer d'obtenir des données fraîches à partir de la base de données
-      // Note: Dans un cas réel, nous appellerions l'API directement ici
+      // First, request a cache refresh
+      if (campaignUid) {
+        await refreshStatsCacheForCampaigns([campaignUid]);
+        console.log(`Requested cache refresh for ${campaignUid}`);
+      }
+      
+      // Then try to get fresh data from the database
       try {
+        // Add a small delay to allow the database to update if a refresh was just triggered
+        if (forceRefresh) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
         const { data: freshData, error } = await supabase
           .from('email_campaigns_cache')
           .select('*')
@@ -88,42 +98,42 @@ export const getCampaignStatsDirectly = async (
           .single();
           
         if (!error && freshData && freshData.delivery_info) {
-          console.log(`Fresh statistics retrieved for ${campaign.name}`);
+          console.log(`Fresh statistics retrieved for ${campaign.name}`, freshData.delivery_info);
           
-          // Vérifier si les données fraîches contiennent des statistiques réelles
+          // Verify if the fresh data contains actual statistics
           const hasValidStats = verifyStatistics(freshData.delivery_info);
           
           if (hasValidStats) {
             console.log(`Fresh data contains valid statistics for ${campaign.name}`);
-            // Retourner les données rafraîchies
+            // Return the refreshed data
             return {
               statistics: extractStatsFromCacheRecord(freshData),
               delivery_info: freshData.delivery_info
             };
           } else {
             console.log(`Fresh data exists for ${campaign.name} but contains no valid statistics`);
-            // Générer des statistiques simulées comme fallback
+            // Generate simulated statistics as fallback
             return generateSimulatedStats();
           }
         } else {
-          console.log(`No fresh data found for ${campaign.name}`);
-          // Générer des statistiques simulées comme fallback
+          console.log(`No fresh data found for ${campaign.name}`, { error });
+          // Generate simulated statistics as fallback
           return generateSimulatedStats();
         }
       } catch (refreshError) {
         console.error('Error during forced refresh:', refreshError);
-        // Générer des statistiques simulées en cas d'erreur
+        // Generate simulated statistics in case of error
         return generateSimulatedStats();
       }
     }
     
-    // Si aucune donnée en cache ou cache non utilisé, générer des statistiques temporaires
+    // If no cached data or cache not used, generate temporary statistics
     console.log(`No cache data or refresh requested, generating temporary statistics for ${campaign.name}`);
     return generateSimulatedStats();
     
   } catch (error) {
     console.error(`Error retrieving statistics for ${campaign.name}:`, error);
-    // En cas d'erreur, générer des statistiques simulées
+    // In case of error, generate simulated statistics
     return generateSimulatedStats();
   }
 };
@@ -136,4 +146,3 @@ export {
   verifyStatistics,
   createEmptyStatistics
 };
-

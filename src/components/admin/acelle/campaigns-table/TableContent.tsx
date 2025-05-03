@@ -14,6 +14,8 @@ import { AcelleTableBatchLoader } from "../table/AcelleTableBatchLoader";
 import { toast } from "sonner";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
 import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button"; 
+import { RefreshCw } from "lucide-react"; 
 
 interface TableContentProps {
   campaigns: AcelleCampaign[];
@@ -38,6 +40,7 @@ export const TableContent = ({
   const [isInitiallyLoading, setIsInitiallyLoading] = useState(true);
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [enrichedCampaigns, setEnrichedCampaigns] = useState<AcelleCampaign[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Reset stats loading state when campaigns change
   useEffect(() => {
@@ -79,6 +82,9 @@ export const TableContent = ({
           }
         } catch (err) {
           console.error("Error enriching campaigns with statistics:", err);
+          toast.error("Erreur lors du chargement des statistiques", {
+            id: "loading-stats",
+          });
         } finally {
           setIsInitiallyLoading(false);
         }
@@ -97,7 +103,7 @@ export const TableContent = ({
   
   // Callback function when batch loading is complete
   const handleBatchLoaded = (updatedCampaigns: AcelleCampaign[]) => {
-    console.log("Batch loading completed, updating campaigns with statistics");
+    console.log("Batch loading completed, updating campaigns with statistics", updatedCampaigns);
     setEnrichedCampaigns(updatedCampaigns);
     setIsStatsLoaded(true);
     setLoadAttempts(prev => prev + 1);
@@ -122,6 +128,29 @@ export const TableContent = ({
     }
   };
 
+  // Manual refresh function for statistics
+  const handleRefreshStats = async () => {
+    if (!account || demoMode) return;
+    
+    setIsRefreshing(true);
+    toast.loading("Rafraîchissement des statistiques...", { id: "refresh-stats" });
+    
+    try {
+      // Force a batch reload with refreshed data
+      setLoadAttempts(prev => prev + 1);
+      
+      // After a short delay, update the status to avoid UI jumping
+      setTimeout(() => {
+        setIsRefreshing(false);
+        toast.success("Demande de rafraîchissement envoyée", { id: "refresh-stats" });
+      }, 1000);
+    } catch (error) {
+      console.error("Error refreshing statistics:", error);
+      toast.error("Erreur lors du rafraîchissement", { id: "refresh-stats" });
+      setIsRefreshing(false);
+    }
+  };
+
   // Display a loading state if initially loading
   if (isInitiallyLoading && !demoMode && campaigns.length > 0) {
     return (
@@ -138,49 +167,66 @@ export const TableContent = ({
   const campaignsToDisplay = enrichedCampaigns.length > 0 ? enrichedCampaigns : campaigns;
 
   return (
-    <div className="rounded-md border">
-      {/* Batch statistics loader (invisible) */}
-      <AcelleTableBatchLoader 
-        campaigns={campaigns} 
-        account={account}
-        demoMode={demoMode}
-        onBatchLoaded={handleBatchLoaded}
-      />
+    <div className="space-y-4">
+      {/* Statistics refresh button */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefreshStats}
+          disabled={isRefreshing || demoMode}
+          className="mb-2"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+          Rafraîchir les statistiques
+        </Button>
+      </div>
       
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <CampaignsTableHeader 
-              columns={[
-                { key: "name", label: "Nom" },
-                { key: "subject", label: "Sujet" },
-                { key: "status", label: "Statut" },
-                { key: "delivery_date", label: "Date d'envoi" },
-                { key: "subscriber_count", label: "Destinataires" },
-                { key: "open_rate", label: "Taux d'ouverture" },
-                { key: "click_rate", label: "Taux de clic" },
-                { key: "bounce_count", label: "Bounces" },
-                { key: "", label: "" }
-              ]}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
-              onSort={onSort}
-            />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {campaignsToDisplay.map((campaign) => (
-            <AcelleTableRow 
-              key={campaign.uid || campaign.campaign_uid} 
-              campaign={campaign} 
-              account={account}
-              onViewCampaign={onViewCampaign}
-              demoMode={demoMode}
-              forceReload={loadAttempts > 0}
-            />
-          ))}
-        </TableBody>
-      </Table>
+      <div className="rounded-md border">
+        {/* Batch statistics loader (invisible) */}
+        <AcelleTableBatchLoader 
+          campaigns={campaigns} 
+          account={account}
+          demoMode={demoMode}
+          onBatchLoaded={handleBatchLoaded}
+          forceRefresh={loadAttempts > 0}
+        />
+        
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <CampaignsTableHeader 
+                columns={[
+                  { key: "name", label: "Nom" },
+                  { key: "subject", label: "Sujet" },
+                  { key: "status", label: "Statut" },
+                  { key: "delivery_date", label: "Date d'envoi" },
+                  { key: "subscriber_count", label: "Destinataires" },
+                  { key: "open_rate", label: "Taux d'ouverture" },
+                  { key: "click_rate", label: "Taux de clic" },
+                  { key: "bounce_count", label: "Bounces" },
+                  { key: "", label: "" }
+                ]}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={onSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {campaignsToDisplay.map((campaign) => (
+              <AcelleTableRow 
+                key={campaign.uid || campaign.campaign_uid} 
+                campaign={campaign} 
+                account={account}
+                onViewCampaign={onViewCampaign}
+                demoMode={demoMode}
+                forceReload={loadAttempts > 0}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };

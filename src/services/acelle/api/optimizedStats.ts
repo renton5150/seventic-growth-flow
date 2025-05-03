@@ -9,16 +9,19 @@ import { generateSimulatedStats } from './statsGeneration';
 export function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignStatistics {
   // If no delivery_info, return empty stats
   if (!cacheRecord.delivery_info) {
+    console.log("No delivery_info found in cache record");
     return createEmptyStatistics();
   }
   
   try {
+    // Parse delivery_info if it's a string
     const deliveryInfo = typeof cacheRecord.delivery_info === 'string' 
       ? JSON.parse(cacheRecord.delivery_info) 
       : cacheRecord.delivery_info;
       
     // Ensure delivery_info is an object
     if (!deliveryInfo || typeof deliveryInfo !== 'object') {
+      console.log("Invalid delivery_info format in cache record");
       return createEmptyStatistics();
     }
     
@@ -36,10 +39,10 @@ export function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignSta
     
     // If all stats are zero and there's no data, generate some simulated stats
     if (
-      !deliveryInfo.total && 
-      !deliveryInfo.delivered && 
-      !deliveryInfo.opened && 
-      !deliveryInfo.clicked &&
+      (!deliveryInfo.total || deliveryInfo.total === 0) && 
+      (!deliveryInfo.delivered || deliveryInfo.delivered === 0) && 
+      (!deliveryInfo.opened || deliveryInfo.opened === 0) && 
+      (!deliveryInfo.clicked || deliveryInfo.clicked === 0) &&
       bouncedTotal === 0
     ) {
       console.log("No actual statistics found in cache, generating simulated data");
@@ -47,20 +50,20 @@ export function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignSta
       return simulatedStats.statistics;
     }
     
-    // Create the statistics object
+    // Create the statistics object, ensuring numeric values with fallbacks to 0
     return {
-      subscriber_count: Number(deliveryInfo.total) || 0,
-      delivered_count: Number(deliveryInfo.delivered) || 0,
-      delivered_rate: Number(deliveryInfo.delivery_rate) || 0,
-      open_count: Number(deliveryInfo.opened) || 0,
-      uniq_open_rate: Number(deliveryInfo.unique_open_rate) || 0,
-      click_count: Number(deliveryInfo.clicked) || 0,
+      subscriber_count: Number(deliveryInfo.total) || Number(deliveryInfo.subscriber_count) || 0,
+      delivered_count: Number(deliveryInfo.delivered) || Number(deliveryInfo.delivered_count) || 0,
+      delivered_rate: Number(deliveryInfo.delivery_rate) || Number(deliveryInfo.delivered_rate) || 0,
+      open_count: Number(deliveryInfo.opened) || Number(deliveryInfo.open_count) || 0,
+      uniq_open_rate: Number(deliveryInfo.unique_open_rate) || Number(deliveryInfo.uniq_open_rate) || 0,
+      click_count: Number(deliveryInfo.clicked) || Number(deliveryInfo.click_count) || 0,
       click_rate: Number(deliveryInfo.click_rate) || 0,
-      bounce_count: bouncedTotal,
-      soft_bounce_count: softBounce,
-      hard_bounce_count: hardBounce,
-      unsubscribe_count: Number(deliveryInfo.unsubscribed) || 0,
-      abuse_complaint_count: Number(deliveryInfo.complained) || 0
+      bounce_count: Number(bouncedTotal) || Number(deliveryInfo.bounce_count) || 0,
+      soft_bounce_count: Number(softBounce) || 0,
+      hard_bounce_count: Number(hardBounce) || 0,
+      unsubscribe_count: Number(deliveryInfo.unsubscribed) || Number(deliveryInfo.unsubscribe_count) || 0,
+      abuse_complaint_count: Number(deliveryInfo.complained) || Number(deliveryInfo.abuse_complaint_count) || 0
     };
   } catch (e) {
     console.error("Error extracting statistics from cache record:", e);
@@ -78,16 +81,26 @@ export function verifyStatistics(deliveryInfo: any): boolean {
     
     // If not an object, it's invalid
     if (!info || typeof info !== 'object') {
+      console.log("Invalid delivery_info format: not an object");
       return false;
     }
     
+    // Log for debugging
+    console.log("Verifying statistics in:", info);
+    
     // Check if it has at least one non-zero value in key metrics
-    return (
+    const hasValidData = (
       (info.total && Number(info.total) > 0) ||
       (info.delivered && Number(info.delivered) > 0) ||
       (info.opened && Number(info.opened) > 0) ||
-      (info.clicked && Number(info.clicked) > 0)
+      (info.clicked && Number(info.clicked) > 0) ||
+      (info.subscriber_count && Number(info.subscriber_count) > 0) ||
+      (info.delivered_count && Number(info.delivered_count) > 0) ||
+      (info.open_count && Number(info.open_count) > 0)
     );
+    
+    console.log(`Statistics verification result: ${hasValidData ? 'VALID' : 'INVALID'}`);
+    return hasValidData;
   } catch (e) {
     console.error("Error verifying statistics:", e);
     return false;
@@ -99,6 +112,7 @@ export function verifyStatistics(deliveryInfo: any): boolean {
  */
 export const extractQuickStats = (campaign: AcelleCampaign): AcelleCampaignStatistics => {
   if (!campaign.delivery_info) {
+    console.log("No delivery_info found in campaign for quick stats extraction");
     return createEmptyStatistics();
   }
   
@@ -126,4 +140,3 @@ export const getCachedStats = (campaignUid: string): AcelleCampaignStatistics | 
 export const cacheStats = (campaignUid: string, stats: AcelleCampaignStatistics): void => {
   statsCache.set(campaignUid, stats);
 };
-

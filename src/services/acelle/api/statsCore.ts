@@ -1,5 +1,4 @@
-
-import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from '@/types/acelle.types';
 import { getCampaignStatsDirectly } from "./directStats";
 import { generateSimulatedStats } from "./statsGeneration";
 import { normalizeStatistics, processApiStats } from "./statsNormalization";
@@ -13,7 +12,7 @@ interface FetchStatsOptions {
 }
 
 /**
- * Service dédié à la récupération et au traitement des statistiques de campagne
+ * Service dedicated to retrieving and processing campaign statistics
  */
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign,
@@ -24,54 +23,59 @@ export const fetchAndProcessCampaignStats = async (
   delivery_info: DeliveryInfo;
 }> => {
   try {
-    // Si mode démo, générer des statistiques simulées
+    // Generate simulated statistics if in demo mode
     if (options.demoMode) {
-      console.log(`Génération de statistiques simulées pour la campagne ${campaign.name}`);
+      console.log(`Generating simulated statistics for campaign ${campaign.name}`);
       return generateSimulatedStats();
     }
 
-    console.log(`Récupération des statistiques pour la campagne ${campaign.uid || campaign.campaign_uid}`, {
+    console.log(`Retrieving statistics for campaign ${campaign.uid || campaign.campaign_uid}`, {
       forceRefresh: options.forceRefresh,
       useCache: options.useCache
     });
     
-    // Vérifier si la campagne a déjà des statistiques valides et qu'on ne force pas le rafraîchissement
+    // Check if the campaign already has valid statistics and we're not forcing a refresh
     if (hasValidStatistics(campaign) && !options.forceRefresh) {
-      console.log(`Utilisation des statistiques existantes pour ${campaign.name}`, campaign.statistics);
+      console.log(`Using existing statistics for ${campaign.name}`, campaign.statistics);
       return normalizeStatistics(campaign);
     }
     
-    // Sinon, récupérer depuis l'API ou le cache selon les options
-    const freshStats = await getCampaignStatsDirectly(campaign, account, options);
-    console.log(`Statistiques récupérées pour ${campaign.name}:`, freshStats.statistics);
+    // Otherwise, get fresh data from the API or cache based on options
+    const freshStats = await getCampaignStatsDirectly(campaign, account, { 
+      ...options, 
+      forceRefresh: options.forceRefresh 
+    });
     
-    // Vérifier si les statistiques récupérées contiennent des données réelles
-    const hasStats = freshStats && freshStats.statistics && 
-      (freshStats.statistics.subscriber_count > 0 || 
-       freshStats.statistics.open_count > 0 || 
-       freshStats.statistics.delivered_count > 0);
+    console.log(`Statistics retrieved for ${campaign.name}:`, freshStats.statistics);
+    
+    // Check if the retrieved statistics contain real data
+    const hasStats = freshStats && freshStats.statistics && (
+      freshStats.statistics.subscriber_count > 0 || 
+      freshStats.statistics.open_count > 0 || 
+      freshStats.statistics.delivered_count > 0
+    );
        
     if (!hasStats) {
-      console.log(`Les statistiques récupérées pour ${campaign.name} sont vides, génération de données simulées`);
+      console.log(`Retrieved statistics for ${campaign.name} are empty, generating simulated data`);
       return generateSimulatedStats();
     }
     
-    // Traitement des données retournées
+    // Process the returned data
     const processedStats = processApiStats(freshStats, campaign);
-    console.log(`Statistiques traitées pour ${campaign.name}:`, processedStats.statistics);
+    console.log(`Processed statistics for ${campaign.name}:`, processedStats.statistics);
     
     return processedStats;
   } catch (error) {
-    console.error(`Erreur lors de la récupération des statistiques pour ${campaign.name}:`, error);
+    console.error(`Error retrieving statistics for ${campaign.name}:`, error);
     
-    // En cas d'erreur, essayer d'utiliser les données existantes si disponibles
+    // Try to use existing data if available in case of error
     if (campaign.statistics || campaign.delivery_info) {
-      console.log(`Utilisation des données existantes comme fallback pour ${campaign.name}`);
+      console.log(`Using existing data as fallback for ${campaign.name}`);
       return normalizeStatistics(campaign);
     }
     
-    // En dernier recours, retourner des statistiques simulées
-    console.log(`Génération de statistiques simulées pour ${campaign.name} suite à une erreur`);
+    // As a last resort, return simulated statistics
+    console.log(`Generating simulated statistics for ${campaign.name} due to an error`);
     return generateSimulatedStats();
   }
 };

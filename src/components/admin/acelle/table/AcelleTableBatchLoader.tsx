@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
@@ -71,31 +72,36 @@ export const AcelleTableBatchLoader = ({
           return;
         }
         
-        // First refresh the cache for all UIDs - IMPORTANT FOR GETTING FRESH STATS
-        console.log("Refreshing statistics cache for all campaigns");
+        // First refresh the cache for all UIDs if forceRefresh is enabled
         if (forceRefresh) {
+          console.log("Forcing refresh of statistics cache for all campaigns");
           await refreshStatsCacheForCampaigns(campaignUids);
           console.log("Cache refresh completed");
+          
+          // Add a small delay to ensure the database has time to update
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         
-        // Then process each campaign individually to assign statistics
-        let processedCount = 0;
+        // Process each campaign individually to assign statistics
         let successCount = 0;
         
-        // Utiliser Promise.all pour traiter toutes les campagnes en parallèle
+        // Use Promise.all for parallel processing of all campaigns
         const statsPromises = updatedCampaigns.map(async (campaign, index) => {
           const campaignUid = campaign.uid || campaign.campaign_uid;
           
           if (campaignUid) {
             try {
-              // Retrieve and process statistics - FORCE REFRESH to ensure we get new data
+              // Retrieve and process statistics with appropriate options
               const result = await fetchAndProcessCampaignStats(campaign, account, {
                 demoMode,
                 useCache: true,
-                forceRefresh: forceRefresh // Utiliser le paramètre forceRefresh
+                forceRefresh: forceRefresh 
               });
               
-              // Vérifier que nous avons bien des données non nulles
+              // Log the returned statistics for debugging
+              console.log(`Statistics for ${campaign.name}:`, result.statistics);
+              
+              // Check if we have non-zero data
               const hasStats = result.statistics && (
                 result.statistics.subscriber_count > 0 || 
                 result.statistics.delivered_count > 0 || 
@@ -113,7 +119,7 @@ export const AcelleTableBatchLoader = ({
                   delivery_info: result.delivery_info
                 };
               } else {
-                console.warn(`Zero statistics returned for ${campaign.name}, will use fallback`);
+                console.warn(`Zero statistics returned for ${campaign.name}, using fallback`);
                 // Generate fallback statistics
                 const fallback = generateSimulatedStats();
                 
@@ -143,15 +149,12 @@ export const AcelleTableBatchLoader = ({
         // Wait for all promises to complete
         const processedCampaigns = await Promise.all(statsPromises);
         
-        // Update the status
-        processedCount = processedCampaigns.length;
-        
         // Count campaigns with real statistics
         successCount = processedCampaigns.filter(campaign => 
           campaign.statistics && campaign.statistics.subscriber_count > 0
         ).length;
         
-        console.log(`Batch loading completed: ${processedCount}/${updatedCampaigns.length} campaigns processed, ${successCount} with statistics`);
+        console.log(`Batch loading completed: ${processedCampaigns.length} campaigns processed, ${successCount} with statistics`);
         
         if (successCount > 0) {
           toast.success(`${successCount} campagnes avec statistiques chargées`, { id: "batch-stats-loading" });
