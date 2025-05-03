@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -78,13 +77,35 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         const demoCampaigns = generateDemoCampaigns(currentPage, itemsPerPage);
         setCampaigns(demoCampaigns);
       } else if (account?.id) {
-        // Fetch campaigns from cache
+        // Fetch campaigns from cache and enrich them
+        console.log(`Fetching campaigns for account ${account.id} (page ${currentPage}, ${itemsPerPage} per page)`);
+        
         const fetchedCampaigns = await fetchCampaignsFromCache(
           [account], 
           currentPage, 
           itemsPerPage
         );
-        setCampaigns(fetchedCampaigns);
+        
+        console.log(`Fetched ${fetchedCampaigns.length} campaigns from cache`);
+        
+        // Ensure all campaigns have statistics, even if they were empty in the cache
+        if (fetchedCampaigns && fetchedCampaigns.length > 0) {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token || "";
+            
+            console.log("Enriching campaigns with statistics...");
+            const enrichedCampaigns = await enrichCampaignsWithStats(fetchedCampaigns, account, token);
+            console.log(`Enriched ${enrichedCampaigns.length} campaigns with statistics`);
+            
+            setCampaigns(enrichedCampaigns);
+          } catch (enrichError) {
+            console.error("Error enriching campaigns:", enrichError);
+            setCampaigns(fetchedCampaigns);
+          }
+        } else {
+          setCampaigns([]);
+        }
       }
     } catch (err) {
       console.error("Error fetching campaigns:", err);
@@ -254,13 +275,18 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
     
     try {
       toast.loading("Synchronisation des campagnes...", { id: "sync" });
+      
+      // Force synchronization
       const result = await forceSyncCampaigns(account, accessToken);
+      
+      // Always refresh the display, even if sync had issues
+      await refetch();
       
       if (result.success) {
         toast.success(result.message, { id: "sync" });
-        await refetch();
       } else {
-        toast.error(result.message, { id: "sync" });
+        console.warn("Sync reported issues:", result.message);
+        toast.warning("Synchronisation terminée avec des avertissements", { id: "sync" });
       }
     } catch (err) {
       console.error("Erreur lors de la synchronisation:", err);

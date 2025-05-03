@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -80,16 +79,24 @@ const AcelleCampaignDetails = ({
       }
       
       if (foundCampaign) {
-        // Obtenir un token valide pour l'authentification
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token || "";
-        
-        // Enrichir la campagne avec des statistiques
-        const enrichedCampaigns = await enrichCampaignsWithStats([foundCampaign], acct, token);
-        
-        if (enrichedCampaigns && enrichedCampaigns.length > 0) {
-          setCampaign(enrichedCampaigns[0]);
-        } else {
+        try {
+          // Obtenir un token valide pour l'authentification
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token || "";
+          
+          // Toujours enrichir la campagne avec des statistiques, même si elle en a déjà
+          console.log("Enrichissement de la campagne avec des statistiques générées");
+          const enrichedCampaigns = await enrichCampaignsWithStats([foundCampaign], acct, token);
+          
+          if (enrichedCampaigns && enrichedCampaigns.length > 0) {
+            console.log("Campagne enrichie avec succès:", enrichedCampaigns[0]);
+            setCampaign(enrichedCampaigns[0]);
+          } else {
+            console.log("Aucune campagne enrichie retournée, utilisation de la campagne d'origine");
+            setCampaign(foundCampaign);
+          }
+        } catch (enrichError) {
+          console.error("Erreur lors de l'enrichissement de la campagne:", enrichError);
           setCampaign(foundCampaign);
         }
       } else {

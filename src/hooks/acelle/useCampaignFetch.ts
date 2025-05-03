@@ -17,7 +17,7 @@ export const fetchCampaignsFromCache = async (
       return [];
     }
     
-    console.log(`Fetching cached campaigns for ${accounts.length} accounts`);
+    console.log(`Fetching cached campaigns for ${accounts.length} accounts (page ${page}, items per page: ${perPage})`);
     
     // Get account IDs
     const accountIds = accounts.map(account => account.id);
@@ -50,10 +50,12 @@ export const fetchCampaignsFromCache = async (
     }
     
     console.log(`Found ${cachedCampaigns.length} cached campaigns`);
-    console.log('Sample cached campaign data:', cachedCampaigns[0]);
+    if (cachedCampaigns.length > 0) {
+      console.log('Sample cached campaign data:', cachedCampaigns[0]);
+    }
     
     // Convert cache format to AcelleCampaign format
-    return cachedCampaigns.map(campaign => {
+    const campaigns = cachedCampaigns.map(campaign => {
       // Handle delivery_info parsing with improved error handling
       let deliveryInfo: Record<string, any> = {};
       
@@ -72,7 +74,6 @@ export const fetchCampaignsFromCache = async (
         }
       }
       
-      // Log the extracted delivery info for debugging
       console.log(`Delivery info extracted for ${campaign.name}:`, deliveryInfo);
       
       // Ensure bounced object exists with proper type safety
@@ -115,6 +116,9 @@ export const fetchCampaignsFromCache = async (
         statistics
       } as AcelleCampaign;
     });
+    
+    console.log(`Converted ${campaigns.length} campaigns with their statistics`);
+    return campaigns;
   } catch (error) {
     console.error('Error in fetchCampaignsFromCache:', error);
     return [];

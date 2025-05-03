@@ -28,11 +28,6 @@ export async function refreshCampaignStatsBatch(
     throw new Error("Compte Acelle invalide ou incomplet");
   }
   
-  if (!token) {
-    console.error("Token d'authentification manquant");
-    throw new Error("Token d'authentification requis");
-  }
-  
   console.log(`Rafraîchissement des statistiques pour ${campaigns.length} campagnes...`);
 
   try {
@@ -45,6 +40,7 @@ export async function refreshCampaignStatsBatch(
       if (!campaignUid) return;
       
       if (campaign.statistics) {
+        console.log(`Statistiques générées pour ${campaign.name} (${campaignUid}):`, campaign.statistics);
         statsMap.set(campaignUid, campaign.statistics);
         successCount++;
       }
@@ -124,8 +120,10 @@ export async function refreshAllCampaignStats(
 
     // Enrichir toutes les campagnes avec des statistiques générées
     const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, token);
+    console.log(`Campagnes enrichies: ${enrichedCampaigns.length}`);
 
     // Mettre à jour le cache pour toutes les campagnes enrichies
+    let updatedCount = 0;
     for (const campaign of enrichedCampaigns) {
       const campaignUid = campaign.uid || campaign.campaign_uid;
       if (!campaignUid) continue;
@@ -134,8 +132,9 @@ export async function refreshAllCampaignStats(
         // Convertir delivery_info en objet JSON pour éviter l'erreur TypeScript
         // En convertissant explicitement en objet, on s'assure que Supabase peut traiter les données
         const deliveryInfo = campaign.delivery_info ? { ...campaign.delivery_info } : null;
+        console.log(`Mise à jour des statistiques dans la base de données pour ${campaign.name} (${campaignUid})`);
         
-        await supabase
+        const { error } = await supabase
           .from('email_campaigns_cache')
           .update({
             delivery_info: deliveryInfo,
@@ -143,12 +142,19 @@ export async function refreshAllCampaignStats(
           })
           .eq('campaign_uid', campaignUid)
           .eq('account_id', account.id);
+          
+        if (error) {
+          console.error(`Erreur lors de la mise à jour du cache pour ${campaignUid}:`, error);
+        } else {
+          updatedCount++;
+        }
       } catch (err) {
         console.error(`Erreur lors de la mise à jour du cache pour ${campaignUid}:`, err);
       }
     }
 
-    toast.success("Synchronisation des statistiques terminée", {
+    console.log(`${updatedCount} campagnes mises à jour dans la base de données`);
+    toast.success(`Synchronisation des statistiques terminée (${updatedCount} campagnes mises à jour)`, {
       id: "stats-sync"
     });
     
