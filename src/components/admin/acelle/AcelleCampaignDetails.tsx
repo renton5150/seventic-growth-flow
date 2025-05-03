@@ -83,13 +83,25 @@ const AcelleCampaignDetails = ({
       }
       
       if (foundCampaign) {
-        // Vérifier si la campagne a des statistiques valides
-        const hasValidStats = foundCampaign.statistics && 
+        // Vérifier explicitement si la campagne a des statistiques non simulées
+        const hasRealStats = 
+          foundCampaign.statistics && 
           foundCampaign.statistics.subscriber_count > 0 && 
-          !foundCampaign.statistics.is_simulated;
+          foundCampaign.statistics.is_simulated === false;
           
-        if (hasValidStats) {
-          console.log(`La campagne ${foundCampaign.name} a déjà des statistiques valides, utilisation des données existantes`);
+        const hasRealDeliveryInfo =
+          foundCampaign.delivery_info &&
+          foundCampaign.delivery_info.is_simulated === false;
+        
+        console.log(`Vérification des statistiques pour ${foundCampaign.name}:`, {
+          hasRealStats,
+          hasRealDeliveryInfo,
+          stats: foundCampaign.statistics,
+          deliveryInfo: foundCampaign.delivery_info
+        });
+          
+        if (hasRealStats || hasRealDeliveryInfo) {
+          console.log(`La campagne ${foundCampaign.name} a des statistiques RÉELLES, utilisation des données existantes`);
           setCampaign(foundCampaign);
           setHasSimulatedStats(false);
         } else {
@@ -106,11 +118,13 @@ const AcelleCampaignDetails = ({
               const enrichedCampaign = enrichedCampaigns[0];
               console.log("Campagne enrichie avec succès:", enrichedCampaign);
               
-              // Vérifier si les statistiques sont simulées
-              setHasSimulatedStats(
+              // Vérifier à nouveau si les statistiques sont simulées après enrichissement
+              const nowSimulated = 
                 enrichedCampaign.statistics?.is_simulated === true || 
-                enrichedCampaign.delivery_info?.is_simulated === true
-              );
+                enrichedCampaign.delivery_info?.is_simulated === true;
+              
+              console.log(`État de simulation après enrichissement: ${nowSimulated ? "SIMULÉ" : "RÉEL"}`);
+              setHasSimulatedStats(nowSimulated);
               
               setCampaign(enrichedCampaign);
             } else {

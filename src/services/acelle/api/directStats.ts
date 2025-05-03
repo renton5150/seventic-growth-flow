@@ -30,9 +30,15 @@ export async function enrichCampaignsWithStats(
     const hasValidStats = isValidStatistics(campaign.statistics);
     const hasValidDeliveryInfo = isValidDeliveryInfo(campaign.delivery_info);
     
-    if (hasValidStats && hasValidDeliveryInfo) {
-      console.log(`La campagne ${campaign.name} a déjà des statistiques valides, conservation des données existantes`);
-      // Conserver les statistiques existantes, aucun changement nécessaire
+    // Ne pas réutiliser des statistiques qui sont déjà marquées comme simulées
+    const hasSimulatedStats = campaign.statistics?.is_simulated === true;
+    const hasSimulatedDeliveryInfo = campaign.delivery_info?.is_simulated === true;
+    
+    // Seulement conserver les statistiques si elles sont valides ET non simulées
+    if (hasValidStats && !hasSimulatedStats && hasValidDeliveryInfo && !hasSimulatedDeliveryInfo) {
+      console.log(`La campagne ${campaign.name} a déjà des statistiques réelles valides, conservation des données existantes`);
+      
+      // S'assurer que les statistiques sont marquées comme réelles
       campaign.statistics = {
         ...campaign.statistics,
         is_simulated: false // Marquer comme données réelles

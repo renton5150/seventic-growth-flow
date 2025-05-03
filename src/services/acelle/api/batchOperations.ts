@@ -39,7 +39,9 @@ export async function refreshCampaignStatsBatch(
       const campaignUid = campaign.uid || campaign.campaign_uid;
       if (!campaignUid) return;
       
-      if (campaign.statistics && !campaign.statistics.is_simulated) {
+      // Sauvegarder uniquement les statistiques réelles
+      if (campaign.statistics && campaign.statistics.is_simulated === false) {
+        console.log(`Sauvegarde des statistiques réelles pour ${campaign.name} (${campaignUid})`);
         originalStats.set(campaignUid, { ...campaign.statistics });
       }
     });
