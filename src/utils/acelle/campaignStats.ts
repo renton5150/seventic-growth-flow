@@ -1,3 +1,4 @@
+
 import { AcelleCampaign } from "@/types/acelle.types";
 
 export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
@@ -34,7 +35,7 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     ];
   }
 
-  console.log(`[calculateDeliveryStats] Calculing stats for ${campaigns.length} campaigns`);
+  console.log(`[calculateDeliveryStats] Calcul des stats pour ${campaigns.length} campagnes`);
   
   let totalSent = 0;
   let totalDelivered = 0;
@@ -43,42 +44,26 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalBounced = 0;
   
   campaigns.forEach(campaign => {
-    // Vérifions d'abord si la campagne est définie
-    if (!campaign) {
-      console.warn("[calculateDeliveryStats] Campaign undefined");
-      return;
-    }
-
-    // Log pour déboguer
-    const campaignId = campaign.uid || campaign.campaign_uid || 'unknown';
-    
-    if (campaign.statistics && typeof campaign.statistics === 'object') {
-      const stats = campaign.statistics;
-      
-      // Utiliser des valeurs par défaut pour éviter les erreurs
-      totalSent += typeof stats.subscriber_count === 'number' ? stats.subscriber_count : 0;
-      totalDelivered += typeof stats.delivered_count === 'number' ? stats.delivered_count : 0;
-      totalOpened += typeof stats.open_count === 'number' ? stats.open_count : 0;
-      totalClicked += typeof stats.click_count === 'number' ? stats.click_count : 0;
-      totalBounced += typeof stats.bounce_count === 'number' ? stats.bounce_count : 0;
-    }
+    // Vérifier si les statistiques ou delivery_info sont présents
+    if (campaign.statistics) {
+      totalSent += Number(campaign.statistics.subscriber_count) || 0;
+      totalDelivered += Number(campaign.statistics.delivered_count) || 0;
+      totalOpened += Number(campaign.statistics.open_count) || 0;
+      totalClicked += Number(campaign.statistics.click_count) || 0;
+      totalBounced += Number(campaign.statistics.bounce_count) || 0;
+    } 
     // Utiliser delivery_info si statistics n'existe pas
-    else if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-      const info = campaign.delivery_info;
+    else if (campaign.delivery_info) {
+      totalSent += Number(campaign.delivery_info.total) || 0;
+      totalDelivered += Number(campaign.delivery_info.delivered) || 0;
+      totalOpened += Number(campaign.delivery_info.opened) || 0;
+      totalClicked += Number(campaign.delivery_info.clicked) || 0;
       
-      // Utiliser des valeurs par défaut pour éviter les erreurs
-      totalSent += typeof info.total === 'number' ? info.total : 0;
-      totalDelivered += typeof info.delivered === 'number' ? info.delivered : 0;
-      totalOpened += typeof info.opened === 'number' ? info.opened : 0;
-      totalClicked += typeof info.clicked === 'number' ? info.clicked : 0;
-      
-      // Vérifiez les bounces
-      if (info.bounced) {
-        if (typeof info.bounced === 'object' && 'total' in info.bounced) {
-          totalBounced += typeof info.bounced.total === 'number' ? info.bounced.total : 0;
-        } else if (typeof info.bounced === 'number') {
-          totalBounced += info.bounced;
-        }
+      // Gérer le cas où bounced est soit un nombre soit un objet
+      if (typeof campaign.delivery_info.bounced === 'number') {
+        totalBounced += campaign.delivery_info.bounced;
+      } else if (campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object') {
+        totalBounced += Number(campaign.delivery_info.bounced.total) || 0;
       }
     }
   });

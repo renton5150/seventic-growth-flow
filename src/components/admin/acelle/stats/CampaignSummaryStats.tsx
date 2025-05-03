@@ -2,7 +2,6 @@
 import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
 
 interface CampaignSummaryStatsProps {
   campaigns: AcelleCampaign[];
@@ -11,26 +10,41 @@ interface CampaignSummaryStatsProps {
 export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) => {
   useEffect(() => {
     console.log(`[CampaignSummaryStats] Rendu avec ${campaigns.length} campagnes`);
-    
-    // Vérification des statistiques disponibles
-    const campaignsWithStats = campaigns.filter(c => c.statistics || c.delivery_info);
-    console.log(`[CampaignSummaryStats] ${campaignsWithStats.length} campagnes avec stats`);
   }, [campaigns]);
   
-  // Calculer les statistiques de livraison
-  const statsArray = calculateDeliveryStats(campaigns);
-  
-  // Extraire les valeurs du tableau retourné par calculateDeliveryStats
-  const findStatValue = (name: string): number => {
-    const stat = statsArray.find(item => item.name === name);
-    return stat ? stat.value : 0;
+  // Calculer directement les statistiques à partir des campagnes
+  const calculateStats = () => {
+    let totalEmails = 0;
+    let deliveredEmails = 0;
+    let openedEmails = 0;
+    let clickedEmails = 0;
+    
+    campaigns.forEach(campaign => {
+      // Utiliser soit statistics, soit delivery_info selon ce qui est disponible
+      if (campaign.statistics) {
+        totalEmails += campaign.statistics.subscriber_count || 0;
+        deliveredEmails += campaign.statistics.delivered_count || 0;
+        openedEmails += campaign.statistics.open_count || 0;
+        clickedEmails += campaign.statistics.click_count || 0;
+      } else if (campaign.delivery_info) {
+        totalEmails += campaign.delivery_info.total || 0;
+        deliveredEmails += campaign.delivery_info.delivered || 0;
+        openedEmails += campaign.delivery_info.opened || 0;
+        clickedEmails += campaign.delivery_info.clicked || 0;
+      }
+    });
+    
+    console.log(`[CampaignSummaryStats] Stats calculées: total=${totalEmails}, delivered=${deliveredEmails}, opened=${openedEmails}, clicked=${clickedEmails}`);
+    
+    return {
+      totalEmails,
+      deliveredEmails,
+      openedEmails,
+      clickedEmails
+    };
   };
   
-  // Récupérer les valeurs spécifiques
-  const totalEmails = findStatValue("Envoyés");
-  const deliveredEmails = findStatValue("Livrés");
-  const openedEmails = findStatValue("Ouverts");
-  const clickedEmails = findStatValue("Cliqués");
+  const stats = calculateStats();
   
   // Calculer les taux
   const formatRate = (value: number, total: number) => {
@@ -50,20 +64,20 @@ export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) =
             <p className="text-muted-foreground">Campagnes</p>
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{totalEmails}</p>
+            <p className="text-2xl font-bold">{stats.totalEmails}</p>
             <p className="text-muted-foreground">Emails envoyés</p>
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{openedEmails}</p>
+            <p className="text-2xl font-bold">{stats.openedEmails}</p>
             <p className="text-sm text-muted-foreground">
-              {formatRate(openedEmails, deliveredEmails)}
+              {formatRate(stats.openedEmails, stats.deliveredEmails)}
             </p>
             <p className="text-muted-foreground">Taux d'ouverture</p>
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{clickedEmails}</p>
+            <p className="text-2xl font-bold">{stats.clickedEmails}</p>
             <p className="text-sm text-muted-foreground">
-              {formatRate(clickedEmails, deliveredEmails)}
+              {formatRate(stats.clickedEmails, stats.deliveredEmails)}
             </p>
             <p className="text-muted-foreground">Taux de clic</p>
           </div>
