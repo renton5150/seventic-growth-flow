@@ -41,7 +41,7 @@ export async function batchFetchCampaignStats(
           return;
         }
 
-        // CORRECTION: Vérifier que le compte est défini avant d'appeler l'API
+        // Vérifier que le compte est défini avant d'appeler l'API
         if (!account && !demoMode) {
           console.warn(`[BatchFetch] Compte non défini pour ${campaignUid}, impossible de récupérer les stats`);
           return;
@@ -86,75 +86,118 @@ export function extractQuickStats(campaign: AcelleCampaign): {
   clickRate: number;
   bounceCount: number;
 } {
-  console.log(`[ExtractQuickStats] Extraction pour campagne ${campaign.uid || campaign.campaign_uid}`, {
+  const campaignId = campaign.uid || campaign.campaign_uid || 'unknown';
+  console.log(`[extractQuickStats] Extraction pour campagne ${campaignId}`, {
     hasStats: !!campaign.statistics,
-    hasDeliveryInfo: !!campaign.delivery_info,
-    stats: campaign.statistics,
-    delivery_info: campaign.delivery_info
+    hasDeliveryInfo: !!campaign.delivery_info
   });
 
-  // CORRECTION: Récupérer les statistiques formattées en privilégiant les sources les plus fiables
   const getTotalSent = (): number => {
-    if (campaign.statistics && typeof campaign.statistics.subscriber_count === 'number') 
+    // Priorité aux statistiques
+    if (campaign.statistics && typeof campaign.statistics.subscriber_count === 'number') {
+      console.log(`[extractQuickStats] Utilisation de subscriber_count: ${campaign.statistics.subscriber_count}`);
       return campaign.statistics.subscriber_count;
-    if (campaign.delivery_info && typeof campaign.delivery_info.total === 'number') 
+    }
+    // Puis aux infos de livraison
+    if (campaign.delivery_info && typeof campaign.delivery_info.total === 'number') {
+      console.log(`[extractQuickStats] Utilisation de delivery_info.total: ${campaign.delivery_info.total}`);
       return campaign.delivery_info.total;
+    }
+    console.log('[extractQuickStats] Pas de total trouvé, retour 0');
     return 0;
   };
 
   const getOpenRate = (): number => {
-    if (campaign.statistics && typeof campaign.statistics.uniq_open_rate === 'number') 
-      return campaign.statistics.uniq_open_rate;
-    if (campaign.statistics && typeof campaign.statistics.open_rate === 'number') 
-      return campaign.statistics.open_rate;
-    if (campaign.delivery_info && typeof campaign.delivery_info.unique_open_rate === 'number') 
-      return campaign.delivery_info.unique_open_rate;
-    
-    // Calculer le taux si nous avons les valeurs absolues
-    const delivered = campaign.statistics?.delivered_count || 
-                     (campaign.delivery_info && typeof campaign.delivery_info.delivered === 'number' ? 
-                     campaign.delivery_info.delivered : 0);
-    const opened = campaign.statistics?.open_count || 
-                  (campaign.delivery_info && typeof campaign.delivery_info.opened === 'number' ? 
-                  campaign.delivery_info.opened : 0);
-    
-    if (delivered > 0) return (opened / delivered) * 100;
+    // Priorité aux statistiques directes
+    if (campaign.statistics) {
+      if (typeof campaign.statistics.uniq_open_rate === 'number') {
+        return campaign.statistics.uniq_open_rate;
+      }
+      if (typeof campaign.statistics.open_rate === 'number') {
+        return campaign.statistics.open_rate;
+      }
+
+      // Calcul manuel si nous avons les valeurs absolues
+      const delivered = campaign.statistics.delivered_count;
+      const opened = campaign.statistics.open_count;
+      if (typeof delivered === 'number' && typeof opened === 'number' && delivered > 0) {
+        return (opened / delivered) * 100;
+      }
+    }
+
+    // Puis aux infos de livraison
+    if (campaign.delivery_info) {
+      if (typeof campaign.delivery_info.unique_open_rate === 'number') {
+        return campaign.delivery_info.unique_open_rate;
+      }
+
+      // Calcul manuel à partir des infos de livraison
+      const delivered = campaign.delivery_info.delivered;
+      const opened = campaign.delivery_info.opened;
+      if (typeof delivered === 'number' && typeof opened === 'number' && delivered > 0) {
+        return (opened / delivered) * 100;
+      }
+    }
+
     return 0;
   };
 
   const getClickRate = (): number => {
-    if (campaign.statistics && typeof campaign.statistics.click_rate === 'number') 
+    // Priorité aux statistiques directes
+    if (campaign.statistics && typeof campaign.statistics.click_rate === 'number') {
       return campaign.statistics.click_rate;
-    if (campaign.delivery_info && typeof campaign.delivery_info.click_rate === 'number') 
+    }
+    
+    // Puis aux infos de livraison
+    if (campaign.delivery_info && typeof campaign.delivery_info.click_rate === 'number') {
       return campaign.delivery_info.click_rate;
+    }
     
-    // Calculer le taux si nous avons les valeurs absolues
-    const delivered = campaign.statistics?.delivered_count || 
-                     (campaign.delivery_info && typeof campaign.delivery_info.delivered === 'number' ? 
-                     campaign.delivery_info.delivered : 0);
-    const clicked = campaign.statistics?.click_count || 
-                   (campaign.delivery_info && typeof campaign.delivery_info.clicked === 'number' ? 
-                   campaign.delivery_info.clicked : 0);
-    
-    if (delivered > 0) return (clicked / delivered) * 100;
+    // Calcul manuel si possible
+    if (campaign.statistics) {
+      const delivered = campaign.statistics.delivered_count;
+      const clicked = campaign.statistics.click_count;
+      if (typeof delivered === 'number' && typeof clicked === 'number' && delivered > 0) {
+        return (clicked / delivered) * 100;
+      }
+    }
+
+    // Calcul manuel à partir des infos de livraison
+    if (campaign.delivery_info) {
+      const delivered = campaign.delivery_info.delivered;
+      const clicked = campaign.delivery_info.clicked;
+      if (typeof delivered === 'number' && typeof clicked === 'number' && delivered > 0) {
+        return (clicked / delivered) * 100;
+      }
+    }
+
     return 0;
   };
 
   const getBounceCount = (): number => {
-    if (campaign.statistics && typeof campaign.statistics.bounce_count === 'number') 
+    // Priorité aux statistiques
+    if (campaign.statistics && typeof campaign.statistics.bounce_count === 'number') {
       return campaign.statistics.bounce_count;
+    }
     
+    // Puis aux infos de livraison
     if (campaign.delivery_info && campaign.delivery_info.bounced) {
-      if (typeof campaign.delivery_info.bounced === 'object' && 
-          campaign.delivery_info.bounced.total !== undefined && 
-          typeof campaign.delivery_info.bounced.total === 'number') {
-        return campaign.delivery_info.bounced.total;
+      if (typeof campaign.delivery_info.bounced === 'object') {
+        if (campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced.total === 'number') {
+          return campaign.delivery_info.bounced.total;
+        }
+        // Calculer le total des soft et hard bounces si total n'est pas disponible
+        const soft = campaign.delivery_info.bounced.soft || 0;
+        const hard = campaign.delivery_info.bounced.hard || 0;
+        if (typeof soft === 'number' && typeof hard === 'number') {
+          return soft + hard;
+        }
       }
       if (typeof campaign.delivery_info.bounced === 'number') {
         return campaign.delivery_info.bounced;
       }
     }
-    
+
     return 0;
   };
 
@@ -165,6 +208,6 @@ export function extractQuickStats(campaign: AcelleCampaign): {
     bounceCount: getBounceCount()
   };
   
-  console.log(`[ExtractQuickStats] Résultat:`, result);
+  console.log(`[extractQuickStats] Résultat pour ${campaignId}:`, result);
   return result;
 }

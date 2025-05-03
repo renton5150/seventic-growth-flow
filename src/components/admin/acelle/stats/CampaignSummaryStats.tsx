@@ -18,11 +18,13 @@ export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) =
     return stat ? stat.value : 0;
   };
   
+  // Récupérer les valeurs spécifiques
   const totalEmails = findStatValue("Envoyés");
   const deliveredEmails = findStatValue("Livrés");
   const openedEmails = findStatValue("Ouverts");
   const clickedEmails = findStatValue("Cliqués");
   
+  // Calculer les taux
   const formatRate = (value: number, total: number) => {
     if (total === 0) return "0%";
     return `${((value / total) * 100).toFixed(1)}%`;

@@ -26,10 +26,23 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
   useEffect(() => {
     let mounted = true;
     
+    // Logging initial pour debugging
+    console.log(`[BatchLoader] Initialisation avec ${campaigns.length} campagnes, demoMode=${demoMode}`);
+    
     // Identifier les campagnes qui ont besoin de statistiques
     const campaignsNeedingStats = campaigns.filter(campaign => {
+      // S'assurer que la campagne existe
+      if (!campaign) {
+        console.warn("[BatchLoader] Campagne undefined détectée");
+        return false;
+      }
+      
       // Si la campagne n'a pas d'identifiant valide
-      if (!campaign.uid && !campaign.campaign_uid) return false;
+      const campaignId = campaign.uid || campaign.campaign_uid;
+      if (!campaignId) {
+        console.warn("[BatchLoader] Campagne sans identifiant détectée");
+        return false;
+      }
       
       // Si la campagne a déjà des statistiques complètes
       const hasCompleteStats = campaign.statistics && 
@@ -37,7 +50,7 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
          typeof campaign.statistics.delivered_count === 'number');
          
       if (hasCompleteStats) {
-        console.log(`[BatchLoader] La campagne ${campaign.uid || campaign.campaign_uid} a déjà des statistiques complètes`);
+        console.log(`[BatchLoader] La campagne ${campaignId} a déjà des statistiques complètes`);
         return false;
       }
       
@@ -90,7 +103,8 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
         }
         
         // Notifier le parent que le chargement par lots est terminé
-        if (onBatchLoadComplete) {
+        if (onBatchLoadComplete && mounted) {
+          console.log(`[BatchLoader] Notification du parent avec ${statsMap.size} stats`);
           onBatchLoadComplete(statsMap);
         }
         
