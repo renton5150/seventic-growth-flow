@@ -2,18 +2,15 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
-import { AlertTriangle } from "lucide-react";
 
 interface CampaignStatisticsProps {
   statistics?: AcelleCampaignStatistics;
   loading?: boolean;
-  isSimulated?: boolean;
 }
 
 export const CampaignStatistics = ({ 
   statistics, 
-  loading = false,
-  isSimulated = false 
+  loading = false
 }: CampaignStatisticsProps) => {
   // Si aucune statistique n'est disponible
   if (!statistics) {

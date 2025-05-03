@@ -5,13 +5,9 @@ import { AlertTriangle } from "lucide-react";
 
 interface CampaignGlobalStatsProps {
   statistics?: AcelleCampaignStatistics;
-  isSimulated?: boolean;
 }
 
-export const CampaignGlobalStats = ({ 
-  statistics,
-  isSimulated = false
-}: CampaignGlobalStatsProps) => {
+export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) => {
   // Si aucune statistique n'est fournie
   if (!statistics) {
     return (
