@@ -12,6 +12,7 @@ import { AcelleTableRow } from "../table/AcelleTableRow";
 import { CampaignsTableHeader } from "../table/TableHeader";
 import { AcelleTableBatchLoader } from "../table/AcelleTableBatchLoader";
 import { toast } from "sonner";
+import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
 
 interface TableContentProps {
   campaigns: AcelleCampaign[];
@@ -34,10 +35,52 @@ export const TableContent = ({
 }: TableContentProps) => {
   const [isStatsLoaded, setIsStatsLoaded] = useState(false);
   const [loadAttempts, setLoadAttempts] = useState(0);
+  const [enrichedCampaigns, setEnrichedCampaigns] = useState<AcelleCampaign[]>([]);
 
   // À chaque changement de campagnes, réinitialiser l'état du chargement des statistiques
   useEffect(() => {
     setIsStatsLoaded(false);
+    
+    // Always try to enrich campaigns with statistics when campaigns change
+    const loadStats = async () => {
+      console.log(`Trying to enrich ${campaigns.length} campaigns with statistics`);
+      if (campaigns.length > 0 && account) {
+        try {
+          // Use the enrichCampaignsWithStats function to load statistics from cache
+          const result = await enrichCampaignsWithStats(campaigns, account);
+          setEnrichedCampaigns(result);
+          
+          // Check if we have actual stats
+          const hasStats = result.some(c => 
+            c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
+          );
+          
+          if (hasStats) {
+            console.log("Successfully loaded campaign statistics from cache");
+            setIsStatsLoaded(true);
+            toast.success("Statistiques chargées avec succès", {
+              id: "loading-stats",
+              duration: 2000
+            });
+          } else {
+            console.log("No statistics found in cache, will try batch loading");
+            toast.info("Chargement des statistiques...", {
+              id: "loading-stats",
+              duration: 3000
+            });
+          }
+        } catch (err) {
+          console.error("Error enriching campaigns with statistics:", err);
+        }
+      } else {
+        // If in demo mode, just set the campaigns directly
+        if (demoMode) {
+          setEnrichedCampaigns(campaigns);
+        }
+      }
+    };
+    
+    loadStats();
     
     // Nouvelle logique: forcer un rechargement si les statistiques n'ont pas chargé
     if (loadAttempts > 0) {
@@ -55,15 +98,17 @@ export const TableContent = ({
         });
       }
     }
-  }, [campaigns, loadAttempts]);
+  }, [campaigns, loadAttempts, account, demoMode]);
   
   // Fonction de rappel appelée lorsque le chargement par lot est terminé
-  const handleBatchLoaded = () => {
+  const handleBatchLoaded = (updatedCampaigns: AcelleCampaign[]) => {
+    console.log("Batch loading completed, updating campaigns");
+    setEnrichedCampaigns(updatedCampaigns);
     setIsStatsLoaded(true);
     setLoadAttempts(prev => prev + 1);
     
     // Vérifions si les campagnes ont maintenant des statistiques
-    const hasStats = campaigns.some(c => 
+    const hasStats = updatedCampaigns.some(c => 
       c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
     );
     
@@ -82,6 +127,9 @@ export const TableContent = ({
       });
     }
   };
+
+  // Use the campaigns with statistics for display
+  const campaignsToDisplay = enrichedCampaigns.length > 0 ? enrichedCampaigns : campaigns;
 
   return (
     <div className="rounded-md border">
@@ -115,13 +163,14 @@ export const TableContent = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {campaigns.map((campaign) => (
+          {campaignsToDisplay.map((campaign) => (
             <AcelleTableRow 
               key={campaign.uid || campaign.campaign_uid} 
               campaign={campaign} 
               account={account}
               onViewCampaign={onViewCampaign}
               demoMode={demoMode}
+              forceReload={loadAttempts > 0}
             />
           ))}
         </TableBody>

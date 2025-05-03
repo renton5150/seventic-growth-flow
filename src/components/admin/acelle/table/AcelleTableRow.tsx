@@ -16,13 +16,15 @@ interface AcelleTableRowProps {
   account?: AcelleAccount;
   onViewCampaign: (uid: string) => void;
   demoMode?: boolean;
+  forceReload?: boolean;
 }
 
 export const AcelleTableRow = ({ 
   campaign, 
   account, 
   onViewCampaign, 
-  demoMode = false 
+  demoMode = false,
+  forceReload = false
 }: AcelleTableRowProps) => {
   // État local pour les statistiques
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
@@ -41,14 +43,20 @@ export const AcelleTableRow = ({
 
   // Initialiser directement avec les statistiques existantes si disponibles
   useEffect(() => {
+    console.log(`Initializing stats for campaign: ${campaignName}`, {
+      hasOwnStats: !!campaign?.statistics,
+      hasDeliveryInfo: !!campaign?.delivery_info,
+      forceReload
+    });
+    
     initializeStats();
-  }, [campaign]);
+  }, [campaign, forceReload]);
 
   // Fonction pour initialiser les statistiques
   const initializeStats = () => {
     // On tente d'abord d'obtenir des statistiques existantes
     if (campaign?.statistics) {
-      console.log(`Utilisation des statistiques existantes pour ${campaignName}`);
+      console.log(`Utilisation des statistiques existantes pour ${campaignName}`, campaign.statistics);
       setStats(campaign.statistics);
       return;
     }
@@ -57,7 +65,7 @@ export const AcelleTableRow = ({
     if (campaignUid) {
       const cachedStats = getCachedStats(campaignUid);
       if (cachedStats) {
-        console.log(`Utilisation des statistiques en cache pour ${campaignName}`);
+        console.log(`Utilisation des statistiques en cache pour ${campaignName}`, cachedStats);
         setStats(cachedStats);
         
         // Enrichir également la campagne avec les statistiques du cache
@@ -82,8 +90,11 @@ export const AcelleTableRow = ({
       return;
     }
     
-    // Si aucune statistique n'est disponible, charger à partir de l'API
-    loadCampaignStats();
+    // Si aucune statistique n'est disponible ou forceReload est true, charger à partir de l'API
+    if (!stats || forceReload) {
+      console.log(`Forçage du chargement des statistiques pour ${campaignName}`);
+      loadCampaignStats();
+    }
   };
 
   // Récupérer les statistiques de la campagne si nécessaire
@@ -315,3 +326,4 @@ export const AcelleTableRow = ({
     </TableRow>
   );
 };
+

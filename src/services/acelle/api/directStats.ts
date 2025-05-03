@@ -88,6 +88,9 @@ function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignStatistics
     return createEmptyStatistics();
   }
   
+  // Log delivery_info for debugging
+  console.log("Processing delivery_info:", deliveryInfo);
+  
   // Extraire les bounces avec gestion des différentes structures
   const bounced = deliveryInfo.bounced || {};
   const bouncedTotal = typeof bounced === 'object' 
@@ -148,17 +151,21 @@ export const enrichCampaignsWithStats = async (
   
   console.log(`Enrichissement de ${campaigns.length} campagnes avec leurs statistiques`);
   
+  // Clone campaigns to avoid mutating the originals
+  const result = JSON.parse(JSON.stringify(campaigns)) as AcelleCampaign[];
+  
   // Récupérer les UIDs des campagnes
-  const campaignUids = campaigns
+  const campaignUids = result
     .filter(c => c.uid || c.campaign_uid)
     .map(c => c.uid || c.campaign_uid || '');
     
   if (campaignUids.length === 0) {
-    return campaigns;
+    return result;
   }
   
   try {
     // Récupérer les données de cache pour toutes les campagnes d'un coup
+    console.log(`Fetching cache data for ${campaignUids.length} campaigns`);
     const { data: cachedCampaigns, error } = await supabase
       .from('email_campaigns_cache')
       .select('*')
@@ -166,8 +173,10 @@ export const enrichCampaignsWithStats = async (
       
     if (error) {
       console.error("Erreur lors de la récupération des statistiques en cache:", error);
-      return campaigns;
+      return result;
     }
+    
+    console.log(`Found ${cachedCampaigns?.length || 0} campaigns in cache`);
     
     // Créer une map pour un accès rapide
     const cacheMap = new Map();
@@ -178,20 +187,24 @@ export const enrichCampaignsWithStats = async (
     });
     
     // Enrichir chaque campagne avec ses statistiques
-    return campaigns.map(campaign => {
+    for (let i = 0; i < result.length; i++) {
+      const campaign = result[i];
       const campaignUid = campaign.uid || campaign.campaign_uid;
       const cachedData = campaignUid ? cacheMap.get(campaignUid) : null;
       
       if (cachedData?.delivery_info) {
+        console.log(`Found cache data for campaign ${campaign.name}`);
         // Extraire les statistiques du cache
-        campaign.statistics = extractStatsFromCacheRecord(cachedData);
-        campaign.delivery_info = cachedData.delivery_info;
+        result[i].statistics = extractStatsFromCacheRecord(cachedData);
+        result[i].delivery_info = cachedData.delivery_info;
+      } else {
+        console.log(`No cache data for campaign ${campaign.name}`);
       }
-      
-      return campaign;
-    });
+    }
+    
+    return result;
   } catch (error) {
     console.error("Erreur lors de l'enrichissement des campagnes:", error);
-    return campaigns;
+    return result;
   }
 };

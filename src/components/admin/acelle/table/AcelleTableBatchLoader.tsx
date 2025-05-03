@@ -8,7 +8,7 @@ interface AcelleTableBatchLoaderProps {
   campaigns: AcelleCampaign[];
   account?: AcelleAccount;
   demoMode?: boolean;
-  onBatchLoaded?: () => void;
+  onBatchLoaded?: (updatedCampaigns: AcelleCampaign[]) => void;
 }
 
 export const AcelleTableBatchLoader = ({ 
@@ -28,8 +28,11 @@ export const AcelleTableBatchLoader = ({
       setIsLoading(true);
       
       try {
+        // Create a deep copy of campaigns to avoid mutating props
+        const updatedCampaigns = JSON.parse(JSON.stringify(campaigns)) as AcelleCampaign[];
+        
         // Récupérer tous les UIDs des campagnes
-        const campaignUids = campaigns
+        const campaignUids = updatedCampaigns
           .filter(c => c.uid || c.campaign_uid)
           .map(c => c.uid || c.campaign_uid || '');
         
@@ -41,14 +44,14 @@ export const AcelleTableBatchLoader = ({
         // Pour le mode démo, simplement utiliser les statistiques existantes ou en créer
         if (demoMode) {
           // S'assurer que chaque campagne a des statistiques
-          campaigns.forEach(campaign => {
+          updatedCampaigns.forEach(campaign => {
             if (!campaign.statistics) {
               campaign.statistics = extractQuickStats(campaign);
             }
           });
           
           console.log("Mode démo: statistiques prêtes pour l'affichage");
-          if (onBatchLoaded) onBatchLoaded();
+          if (onBatchLoaded) onBatchLoaded(updatedCampaigns);
           return;
         }
         
@@ -57,10 +60,11 @@ export const AcelleTableBatchLoader = ({
         
         // Traiter ensuite chaque campagne individuellement pour assigner les statistiques
         let processedCount = 0;
-        for (const campaign of campaigns) {
+        for (let i = 0; i < updatedCampaigns.length; i++) {
+          const campaign = updatedCampaigns[i];
           const campaignUid = campaign.uid || campaign.campaign_uid;
           
-          if (!campaign.statistics && campaignUid) {
+          if (campaignUid) {
             try {
               // Récupérer et traiter les statistiques avec cache
               const result = await fetchAndProcessCampaignStats(campaign, account!, {
@@ -69,27 +73,27 @@ export const AcelleTableBatchLoader = ({
               });
               
               // Mettre à jour la campagne avec les statistiques récupérées
-              campaign.statistics = result.statistics;
+              updatedCampaigns[i].statistics = result.statistics;
               
               // Mettre à jour delivery_info si nécessaire
-              if (!campaign.delivery_info && result.delivery_info) {
-                campaign.delivery_info = result.delivery_info;
+              if (!updatedCampaigns[i].delivery_info && result.delivery_info) {
+                updatedCampaigns[i].delivery_info = result.delivery_info;
               }
               
               processedCount++;
-              if (processedCount % 5 === 0 || processedCount === campaigns.length) {
-                console.log(`${processedCount}/${campaigns.length} statistiques chargées`);
+              if (processedCount % 5 === 0 || processedCount === updatedCampaigns.length) {
+                console.log(`${processedCount}/${updatedCampaigns.length} statistiques chargées`);
               }
             } catch (error) {
               console.error(`Erreur lors du chargement des statistiques pour ${campaign.name}:`, error);
             }
-          } else if (campaign.statistics) {
-            processedCount++;
           }
         }
         
-        console.log(`Chargement par lot terminé: ${processedCount}/${campaigns.length} campagnes traitées`);
-        if (onBatchLoaded) onBatchLoaded();
+        console.log(`Chargement par lot terminé: ${processedCount}/${updatedCampaigns.length} campagnes traitées`);
+        
+        // Return the updated campaigns through the callback
+        if (onBatchLoaded) onBatchLoaded(updatedCampaigns);
         
       } catch (error) {
         console.error("Erreur lors du chargement par lot des statistiques:", error);
