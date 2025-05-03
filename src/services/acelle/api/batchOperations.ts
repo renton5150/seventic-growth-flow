@@ -17,6 +17,24 @@ export async function refreshCampaignStatsBatch(
   let successCount = 0;
   let errorCount = 0;
 
+  // Vérifier les paramètres
+  if (!campaigns || campaigns.length === 0) {
+    console.log("Aucune campagne fournie pour le rafraîchissement");
+    return statsMap;
+  }
+  
+  if (!account || !account.id) {
+    console.error("Compte Acelle invalide", account);
+    throw new Error("Compte Acelle invalide ou incomplet");
+  }
+  
+  if (!token) {
+    console.error("Token d'authentification manquant");
+    throw new Error("Token d'authentification requis");
+  }
+  
+  console.log(`Rafraîchissement des statistiques pour ${campaigns.length} campagnes...`);
+
   // Création d'une promesse pour chaque campagne
   for (const campaign of campaigns) {
     const campaignUid = campaign.uid || campaign.campaign_uid;
@@ -71,6 +89,13 @@ export async function refreshAllCampaignStats(
       id: "stats-sync"
     });
 
+    // Vérifier les paramètres
+    if (!account || !account.id) {
+      console.error("Compte Acelle invalide", account);
+      toast.error("Compte Acelle invalide", { id: "stats-sync" });
+      return false;
+    }
+
     // Récupérer toutes les campagnes en cache pour ce compte
     const { data: cachedCampaigns, error: fetchError } = await supabase
       .from('email_campaigns_cache')
@@ -95,21 +120,18 @@ export async function refreshAllCampaignStats(
     }
     
     // Convertir les données en objets AcelleCampaign
-    const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => {
-      // Créer un simple objet de campagne avec les données nécessaires
-      return {
-        uid: c.campaign_uid,
-        campaign_uid: c.campaign_uid,
-        name: c.name,
-        subject: c.subject,
-        status: c.status,
-        created_at: c.created_at,
-        updated_at: c.updated_at,
-        delivery_date: c.delivery_date,
-        run_at: c.run_at,
-        last_error: c.last_error
-      };
-    });
+    const campaigns: AcelleCampaign[] = cachedCampaigns.map(c => ({
+      uid: c.campaign_uid,
+      campaign_uid: c.campaign_uid,
+      name: c.name,
+      subject: c.subject,
+      status: c.status,
+      created_at: c.created_at,
+      updated_at: c.updated_at,
+      delivery_date: c.delivery_date,
+      run_at: c.run_at,
+      last_error: c.last_error
+    }));
 
     console.log(`${campaigns.length} campagnes préparées pour synchronisation`);
 
