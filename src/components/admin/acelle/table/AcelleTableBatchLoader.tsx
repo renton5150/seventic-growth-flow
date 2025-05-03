@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from "react";
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
-import { refreshStatsCacheForCampaigns, extractQuickStats } from "@/services/acelle/api/optimizedStats";
+import { refreshStatsCacheForCampaigns } from "@/services/acelle/api/cacheRefresh";
+import { extractQuickStats } from "@/services/acelle/api/optimizedStats";
 import { toast } from "sonner";
-import { generateSimulatedStats } from "@/services/acelle/api/campaignStats";
+import { generateSimulatedStats } from "@/services/acelle/api/statsGeneration";
 
 interface AcelleTableBatchLoaderProps {
   campaigns: AcelleCampaign[];

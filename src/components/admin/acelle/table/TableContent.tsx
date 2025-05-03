@@ -12,7 +12,7 @@ import { AcelleTableRow } from "../table/AcelleTableRow";
 import { CampaignsTableHeader } from "../table/TableHeader";
 import { AcelleTableBatchLoader } from "../table/AcelleTableBatchLoader";
 import { toast } from "sonner";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
+import { enrichCampaignsWithStats } from "@/services/acelle/api/enrichCampaigns";
 import { Spinner } from "@/components/ui/spinner";
 
 interface TableContentProps {
