@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+import { extractQuickStats, getCachedStats, cacheStats } from "@/services/acelle/api/optimizedStats";
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -37,43 +38,92 @@ export const AcelleTableRow = ({
   
   // Date d'envoi avec fallback
   const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
-
-  // Récupérer les statistiques de la campagne
+  
+  // Initialiser directement avec les statistiques existantes si disponibles
   useEffect(() => {
-    const loadCampaignStats = async () => {
-      console.log(`Initialisation des statistiques pour la campagne ${campaignName}`, {
-        hasDeliveryInfo: !!campaign.delivery_info,
-        hasStatistics: !!campaign.statistics,
-        demoMode
-      });
-      
-      if (!account && !demoMode) {
-        console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
+    // On tente d'abord d'obtenir des statistiques existantes
+    if (campaign?.statistics) {
+      console.log(`Utilisation des statistiques existantes pour ${campaignName}`);
+      setStats(campaign.statistics);
+      return;
+    }
+    
+    // Ensuite on vérifie si elles sont en cache
+    if (campaignUid) {
+      const cachedStats = getCachedStats(campaignUid);
+      if (cachedStats) {
+        console.log(`Utilisation des statistiques en cache pour ${campaignName}`);
+        setStats(cachedStats);
+        
+        // Enrichir également la campagne avec les statistiques du cache
+        campaign.statistics = cachedStats;
         return;
       }
+    }
+
+    // Sinon, extraire des données rapides à partir de delivery_info
+    if (campaign?.delivery_info) {
+      const quickStats = extractQuickStats(campaign);
+      console.log(`Utilisation des quickstats pour ${campaignName}`, quickStats);
+      setStats(quickStats);
       
-      try {
-        setIsLoading(true);
-        
-        // Utiliser le nouveau service pour récupérer les statistiques
-        const result = await fetchAndProcessCampaignStats(campaign, account!, { demoMode });
-        
-        // Mettre à jour l'état local avec les statistiques récupérées
-        setStats(result.statistics);
-        
-        // Enrichir également la campagne avec les statistiques pour qu'elles soient disponibles dans le détail
-        campaign.statistics = result.statistics;
-        campaign.delivery_info = result.delivery_info;
-        
-      } catch (error) {
-        console.error(`Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
-      } finally {
-        setIsLoading(false);
+      // Mettre en cache ces statistiques rapides
+      if (campaignUid) {
+        cacheStats(campaignUid, quickStats);
       }
-    };
+      
+      // Enrichir la campagne
+      campaign.statistics = quickStats;
+      return;
+    }
     
+    // Si aucune statistique n'est disponible, charger à partir de l'API
     loadCampaignStats();
-  }, [campaign, account, campaignName, demoMode]);
+  }, [campaign]);
+
+  // Récupérer les statistiques de la campagne si nécessaire
+  const loadCampaignStats = async () => {
+    if (!campaignUid) return;
+    
+    console.log(`Initialisation des statistiques pour la campagne ${campaignName}`, {
+      hasDeliveryInfo: !!campaign.delivery_info,
+      hasStatistics: !!campaign.statistics,
+      demoMode
+    });
+    
+    if (!account && !demoMode) {
+      console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Utiliser le nouveau service pour récupérer les statistiques
+      const result = await fetchAndProcessCampaignStats(campaign, account!, { 
+        demoMode,
+        useCache: true 
+      });
+      
+      // Mettre à jour l'état local avec les statistiques récupérées
+      setStats(result.statistics);
+      
+      // Enrichir également la campagne avec les statistiques pour qu'elles soient disponibles dans le détail
+      campaign.statistics = result.statistics;
+      campaign.delivery_info = result.delivery_info;
+      
+      // Mettre en cache les statistiques récupérées
+      if (campaignUid) {
+        cacheStats(campaignUid, result.statistics);
+      }
+      
+      console.log(`Statistiques chargées pour ${campaignName}:`, result.statistics);
+    } catch (error) {
+      console.error(`Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Formatage sécurisé des dates
   const formatDateSafely = (dateString: string | null | undefined) => {
