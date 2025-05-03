@@ -230,6 +230,11 @@ export const AcelleTableRow = ({
     });
   }, [campaignName, campaignUid, totalSent, openRate, clickRate, bounceCount, stats, campaign.statistics, campaign.delivery_info]);
   
+  const handleViewCampaign = () => {
+    console.log(`Affichage des détails pour la campagne ${campaignUid}`, { campaign });
+    onViewCampaign(campaignUid);
+  };
+
   return (
     <TableRow>
       <TableCell className="font-medium">{campaignName}</TableCell>
@@ -254,7 +259,7 @@ export const AcelleTableRow = ({
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => onViewCampaign(campaignUid)}
+          onClick={handleViewCampaign}
           title="Voir les détails"
         >
           <Eye className="h-4 w-4" />

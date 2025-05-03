@@ -27,6 +27,7 @@ export interface AcelleCampaignStatistics {
   open_count: number;
   uniq_open_count?: number;
   uniq_open_rate: number;
+  unique_open_rate?: number;  // Ajouté pour compatibilité avec certaines réponses API
   click_count: number;
   click_rate: number;
   bounce_count: number;
@@ -36,10 +37,8 @@ export interface AcelleCampaignStatistics {
   abuse_complaint_count: number;
   
   // Propriétés additionnelles possibles dans les réponses d'API
-  unique_open_count?: number;
   open_rate?: number;
   complaint_count?: number;
-  unique_open_rate?: number;  // Ajouté pour corriger l'erreur
   last_open?: string;
   last_click?: string;
   abuse_feedback_count?: number;
@@ -69,7 +68,7 @@ export interface DeliveryInfo {
   } | number;
   unsubscribed?: number;
   complained?: number;
-  bounce_count?: number; // Ajouté pour corriger l'erreur
+  bounce_count?: number; // Ajouté pour la compatibilité avec certaines API
 }
 
 export interface AcelleCampaign {
@@ -81,7 +80,7 @@ export interface AcelleCampaign {
   updated_at: string;
   delivery_date: string | null;
   run_at: string | null;
-  last_error?: string;
+  last_error?: string | null;
   
   delivery_info?: DeliveryInfo;
   
