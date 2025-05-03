@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { calculateDeliveryStats } from "@/services/acelle/api/campaigns";
+import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
 
 interface CampaignSummaryStatsProps {
   campaigns: AcelleCampaign[];
@@ -10,13 +10,18 @@ interface CampaignSummaryStatsProps {
 
 export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) => {
   // Calculer les statistiques de livraison
-  const stats = calculateDeliveryStats(campaigns);
+  const statsArray = calculateDeliveryStats(campaigns);
   
-  // Extraction des valeurs pour une meilleure lisibilité
-  const totalEmails = stats.totalEmails || 0;
-  const deliveredEmails = stats.totalDelivered || 0; 
-  const openedEmails = stats.totalOpened || 0;
-  const clickedEmails = stats.totalClicked || 0;
+  // Extraire les valeurs du tableau retourné par calculateDeliveryStats
+  const findStatValue = (name: string): number => {
+    const stat = statsArray.find(item => item.name === name);
+    return stat ? stat.value : 0;
+  };
+  
+  const totalEmails = findStatValue("Envoyés");
+  const deliveredEmails = findStatValue("Livrés");
+  const openedEmails = findStatValue("Ouverts");
+  const clickedEmails = findStatValue("Cliqués");
   
   const formatRate = (value: number, total: number) => {
     if (total === 0) return "0%";

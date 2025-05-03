@@ -64,6 +64,8 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
         const softBounce = typeof info.bounced.soft === 'number' ? info.bounced.soft : 0;
         const hardBounce = typeof info.bounced.hard === 'number' ? info.bounced.hard : 0;
         totalBounced += softBounce + hardBounce;
+      } else if (typeof info.bounced === 'number') {
+        totalBounced += info.bounced;
       }
     } 
     // Fall back to statistics if available
@@ -78,6 +80,7 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     }
   });
   
+  // Return an array of objects with name and value properties for chart compatibility
   return [
     { name: "Envoyés", value: totalSent },
     { name: "Livrés", value: totalDelivered },

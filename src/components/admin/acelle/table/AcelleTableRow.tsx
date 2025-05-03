@@ -7,10 +7,35 @@ import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
+import { translateStatus } from "@/utils/acelle/campaignStats";
 import { useCampaignStatsCache } from "@/hooks/acelle/useCampaignStatsCache";
 import { extractQuickStats } from "@/services/acelle/api/optimizedStats";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+
+// Importer les utilitaires qui n'étaient pas correctement importés
+const getStatusBadgeVariant = (status: string) => {
+  switch (status.toLowerCase()) {
+    case "new":
+      return "secondary";
+    case "queued":
+      return "default";
+    case "sending":
+      return "warning";
+    case "sent":
+      return "success";
+    case "paused":
+      return "outline";
+    case "failed":
+      return "destructive";
+    default:
+      return "outline";
+  }
+};
+
+const renderPercentage = (value: number) => {
+  if (isNaN(value)) return "0.0%";
+  return `${value.toFixed(1)}%`;
+};
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -41,6 +66,13 @@ export const AcelleTableRow = ({
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
   
+  // Log pour le débogage 
+  console.log(`[TableRow] Rendu pour campagne ${campaignUid}:`, {
+    name: campaign?.name,
+    hasStats: !!campaign.statistics,
+    statsType: campaign.statistics ? typeof campaign.statistics : 'none'
+  });
+  
   // Garantir des valeurs sûres pour les propriétés obligatoires
   const campaignName = campaign?.name || "Sans nom";
   const campaignSubject = campaign?.subject || "Sans sujet";
@@ -59,7 +91,7 @@ export const AcelleTableRow = ({
         
         // Vérifier si nous avons déjà les statistiques chargées dans l'état local
         if (stats) {
-          console.log(`[TableRow] Stats déjà en état local pour ${campaignName}`);
+          console.log(`[TableRow] Stats déjà en état local pour ${campaignName}:`, stats);
           // Notifier le parent que les statistiques sont chargées
           if (onStatsLoaded) {
             onStatsLoaded(campaignUid, stats);
@@ -69,7 +101,7 @@ export const AcelleTableRow = ({
         
         // D'abord vérifier si les statistiques sont déjà présentes dans la campagne
         if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
-          console.log(`[TableRow] Utilisation des statistiques existantes pour ${campaignName}`);
+          console.log(`[TableRow] Utilisation des statistiques existantes pour ${campaignName}:`, campaign.statistics);
           setStats(campaign.statistics);
           // Mettre à jour le cache avec ces statistiques
           cacheStats(campaignUid, campaign.statistics);
@@ -86,7 +118,7 @@ export const AcelleTableRow = ({
         // Vérifier ensuite dans le cache client
         const cachedStats = getStatsFromCache(campaignUid);
         if (cachedStats) {
-          console.log(`[TableRow] Utilisation des statistiques en cache pour ${campaignName}`);
+          console.log(`[TableRow] Utilisation des statistiques en cache pour ${campaignName}:`, cachedStats);
           setStats(cachedStats);
           
           // Mettre également à jour la campagne pour faciliter l'accès ultérieur
@@ -113,7 +145,7 @@ export const AcelleTableRow = ({
         // Récupérer et traiter les statistiques
         const result = await fetchAndProcessCampaignStats(campaign, account, { demoMode });
         
-        // CORRECTION: Vérifier explicitement que les statistiques ne sont pas nulles
+        // Vérifier explicitement que les statistiques ne sont pas nulles
         if (result && result.statistics && Object.keys(result.statistics).length > 0) {
           console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, result.statistics);
           setStats(result.statistics);
@@ -152,8 +184,13 @@ export const AcelleTableRow = ({
     }
   };
 
-  // CORRECTION: Utiliser les statistiques de l'état local ou celles directement de la campagne
+  // Utiliser les statistiques de l'état local ou celles directement de la campagne
   const extractStats = () => {
+    console.log(`[TableRow] Extraction des stats pour ${campaignName}`, {
+      localStats: stats ? 'oui' : 'non', 
+      campaignStats: campaign.statistics ? 'oui' : 'non'
+    });
+    
     // Si nous avons des stats locales, les utiliser
     if (stats) {
       return extractQuickStats({ ...campaign, statistics: stats });
@@ -169,7 +206,10 @@ export const AcelleTableRow = ({
   };
   
   // Extraire les statistiques importantes
-  const { totalSent, openRate, clickRate, bounceCount } = extractStats();
+  const quickStats = extractStats();
+  
+  // Log des statistiques extraites
+  console.log(`[TableRow] Statistiques extraites pour ${campaignName}:`, quickStats);
 
   const handleViewCampaign = () => {
     onViewCampaign(campaignUid);
@@ -186,16 +226,16 @@ export const AcelleTableRow = ({
       </TableCell>
       <TableCell>{formatDateSafely(deliveryDate)}</TableCell>
       <TableCell className="font-medium tabular-nums">
-        {isLoading ? "..." : totalSent.toLocaleString()}
+        {isLoading ? "..." : quickStats.totalSent.toLocaleString()}
       </TableCell>
       <TableCell className="tabular-nums">
-        {isLoading ? "..." : renderPercentage(openRate)}
+        {isLoading ? "..." : renderPercentage(quickStats.openRate)}
       </TableCell>
       <TableCell className="tabular-nums">
-        {isLoading ? "..." : renderPercentage(clickRate)}
+        {isLoading ? "..." : renderPercentage(quickStats.clickRate)}
       </TableCell>
       <TableCell className="tabular-nums">
-        {isLoading ? "..." : bounceCount.toLocaleString()}
+        {isLoading ? "..." : quickStats.bounceCount.toLocaleString()}
       </TableCell>
       <TableCell className="text-right">
         <Button 

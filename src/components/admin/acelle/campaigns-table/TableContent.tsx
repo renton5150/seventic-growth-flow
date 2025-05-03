@@ -54,16 +54,27 @@ export function TableContent({
   const [localLoadingStats, setLocalLoadingStats] = useState(true);
   const [loadedCount, setLoadedCount] = useState(0);
 
-  // CORRECTION: Enrichir les campagnes filtrées avec les stats en cache au premier rendu
+  // Log des campagnes pour débogage
+  useEffect(() => {
+    console.log(`[TableContent] Traitement de ${campaigns.length} campagnes`);
+    if (campaigns.length > 0) {
+      console.log('[TableContent] Exemple de campagne:', campaigns[0]);
+    }
+  }, [campaigns]);
+
+  // Enrichir les campagnes filtrées avec les stats en cache au premier rendu
   useEffect(() => {
     if (!isInitialLoadComplete && filteredCampaigns.length > 0) {
       console.log("[TableContent] Enrichissement initial des campagnes avec les stats en cache");
       
       // Enrichir chaque campagne avec ses stats en cache
       const allCachedStats = getAllCachedStats();
+      console.log(`[TableContent] ${allCachedStats.size} stats trouvées dans le cache`);
+      
       const enrichedCount = filteredCampaigns.reduce((count, campaign) => {
         const uid = campaign.uid || campaign.campaign_uid || '';
         if (uid && allCachedStats.has(uid)) {
+          console.log(`[TableContent] Enrichissement de la campagne ${uid} avec stats du cache`);
           campaign.statistics = allCachedStats.get(uid)!;
           return count + 1;
         }
@@ -82,14 +93,17 @@ export function TableContent({
     }
   }, [filteredCampaigns, isInitialLoadComplete, getAllCachedStats, enrichCampaignWithCachedStats]);
 
-  // CORRECTION: Gérer le comptage des stats chargées
+  // Gérer le comptage des stats chargées
   const handleStatLoaded = (campaignUid: string, stats: AcelleCampaignStatistics) => {
+    console.log(`[TableContent] Stat chargée pour ${campaignUid}`, stats);
+    
     // Incrémenter le compteur local de statistiques chargées
     setLoadedCount(prev => {
       const newCount = prev + 1;
       
       // Si toutes les campagnes ont des stats, arrêter le chargement
       if (newCount >= filteredCampaigns.length) {
+        console.log(`[TableContent] Toutes les statistiques sont chargées (${newCount}/${filteredCampaigns.length})`);
         setLocalLoadingStats(false);
       }
       
@@ -102,7 +116,7 @@ export function TableContent({
     }
   };
   
-  // CORRECTION: Gérer la fin du chargement par lots
+  // Gérer la fin du chargement par lots
   const handleBatchLoadComplete = (statsMap: Map<string, AcelleCampaignStatistics>) => {
     console.log(`[TableContent] Chargement par lots terminé avec ${statsMap.size} statistiques`);
     

@@ -95,41 +95,59 @@ export function extractQuickStats(campaign: AcelleCampaign): {
 
   // CORRECTION: Récupérer les statistiques formattées en privilégiant les sources les plus fiables
   const getTotalSent = (): number => {
-    if (campaign.statistics?.subscriber_count) return campaign.statistics.subscriber_count;
-    if (campaign.delivery_info?.total) return campaign.delivery_info.total;
+    if (campaign.statistics && typeof campaign.statistics.subscriber_count === 'number') 
+      return campaign.statistics.subscriber_count;
+    if (campaign.delivery_info && typeof campaign.delivery_info.total === 'number') 
+      return campaign.delivery_info.total;
     return 0;
   };
 
   const getOpenRate = (): number => {
-    if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
-    if (campaign.statistics?.open_rate) return campaign.statistics.open_rate;
-    if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
+    if (campaign.statistics && typeof campaign.statistics.uniq_open_rate === 'number') 
+      return campaign.statistics.uniq_open_rate;
+    if (campaign.statistics && typeof campaign.statistics.open_rate === 'number') 
+      return campaign.statistics.open_rate;
+    if (campaign.delivery_info && typeof campaign.delivery_info.unique_open_rate === 'number') 
+      return campaign.delivery_info.unique_open_rate;
     
     // Calculer le taux si nous avons les valeurs absolues
-    const delivered = campaign.statistics?.delivered_count || campaign.delivery_info?.delivered || 0;
-    const opened = campaign.statistics?.open_count || campaign.delivery_info?.opened || 0;
-    if (delivered > 0) return (opened / delivered) * 100;
+    const delivered = campaign.statistics?.delivered_count || 
+                     (campaign.delivery_info && typeof campaign.delivery_info.delivered === 'number' ? 
+                     campaign.delivery_info.delivered : 0);
+    const opened = campaign.statistics?.open_count || 
+                  (campaign.delivery_info && typeof campaign.delivery_info.opened === 'number' ? 
+                  campaign.delivery_info.opened : 0);
     
+    if (delivered > 0) return (opened / delivered) * 100;
     return 0;
   };
 
   const getClickRate = (): number => {
-    if (campaign.statistics?.click_rate) return campaign.statistics.click_rate;
-    if (campaign.delivery_info?.click_rate) return campaign.delivery_info.click_rate;
+    if (campaign.statistics && typeof campaign.statistics.click_rate === 'number') 
+      return campaign.statistics.click_rate;
+    if (campaign.delivery_info && typeof campaign.delivery_info.click_rate === 'number') 
+      return campaign.delivery_info.click_rate;
     
     // Calculer le taux si nous avons les valeurs absolues
-    const delivered = campaign.statistics?.delivered_count || campaign.delivery_info?.delivered || 0;
-    const clicked = campaign.statistics?.click_count || campaign.delivery_info?.clicked || 0;
-    if (delivered > 0) return (clicked / delivered) * 100;
+    const delivered = campaign.statistics?.delivered_count || 
+                     (campaign.delivery_info && typeof campaign.delivery_info.delivered === 'number' ? 
+                     campaign.delivery_info.delivered : 0);
+    const clicked = campaign.statistics?.click_count || 
+                   (campaign.delivery_info && typeof campaign.delivery_info.clicked === 'number' ? 
+                   campaign.delivery_info.clicked : 0);
     
+    if (delivered > 0) return (clicked / delivered) * 100;
     return 0;
   };
 
   const getBounceCount = (): number => {
-    if (campaign.statistics?.bounce_count) return campaign.statistics.bounce_count;
+    if (campaign.statistics && typeof campaign.statistics.bounce_count === 'number') 
+      return campaign.statistics.bounce_count;
     
-    if (campaign.delivery_info?.bounced) {
-      if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total) {
+    if (campaign.delivery_info && campaign.delivery_info.bounced) {
+      if (typeof campaign.delivery_info.bounced === 'object' && 
+          campaign.delivery_info.bounced.total !== undefined && 
+          typeof campaign.delivery_info.bounced.total === 'number') {
         return campaign.delivery_info.bounced.total;
       }
       if (typeof campaign.delivery_info.bounced === 'number') {
