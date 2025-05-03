@@ -64,6 +64,9 @@ export const TableContent = ({
           
           // Use the enrichCampaignsWithStats function to load statistics from cache
           if (account) {
+            // Even in regular mode, set the original campaigns first so UI isn't empty
+            setEnrichedCampaigns(campaigns);
+            
             const result = await enrichCampaignsWithStats(campaigns, account);
             setEnrichedCampaigns(result);
             
@@ -110,6 +113,12 @@ export const TableContent = ({
   // Callback function when batch loading is complete
   const handleBatchLoaded = (updatedCampaigns: AcelleCampaign[]) => {
     console.log("Batch loading completed, updating campaigns with statistics", updatedCampaigns);
+    
+    // Log the first campaign to see if it has stats
+    if (updatedCampaigns.length > 0) {
+      console.log("First campaign statistics:", updatedCampaigns[0].statistics);
+    }
+    
     setEnrichedCampaigns(updatedCampaigns);
     setIsStatsLoaded(true);
     setLoadAttempts(prev => prev + 1);
