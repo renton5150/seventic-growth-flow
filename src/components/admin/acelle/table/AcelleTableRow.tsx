@@ -7,67 +7,10 @@ import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { translateStatus } from "@/utils/acelle/campaignStats";
+import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 import { useCampaignStatsCache } from "@/hooks/acelle/useCampaignStatsCache";
+import { extractQuickStats } from "@/services/acelle/api/optimizedStats";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
-
-// Fonction utilitaire pour les badges de statut
-const getStatusBadgeVariant = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "new":
-      return "secondary";
-    case "queued":
-      return "default";
-    case "sending":
-      return "warning";
-    case "sent":
-      return "success";
-    case "paused":
-      return "outline";
-    case "failed":
-      return "destructive";
-    default:
-      return "outline";
-  }
-};
-
-// Fonction pour l'affichage des pourcentages
-const renderPercentage = (value: number) => {
-  if (isNaN(value)) return "0.0%";
-  return `${value.toFixed(1)}%`;
-};
-
-// Fonction pour extraire rapidement les statistiques essentielles
-const extractQuickStats = (campaign: AcelleCampaign) => {
-  let totalSent = 0;
-  let openRate = 0;
-  let clickRate = 0;
-  let bounceCount = 0;
-  
-  // Priorité 1: Utiliser statistics s'ils existent
-  if (campaign.statistics) {
-    totalSent = Number(campaign.statistics.subscriber_count) || 0;
-    openRate = Number(campaign.statistics.uniq_open_rate) || 0;
-    clickRate = Number(campaign.statistics.click_rate) || 0;
-    bounceCount = Number(campaign.statistics.bounce_count) || 0;
-  } 
-  // Priorité 2: Utiliser delivery_info
-  else if (campaign.delivery_info) {
-    totalSent = Number(campaign.delivery_info.total) || 0;
-    openRate = Number(campaign.delivery_info.unique_open_rate) || 0;
-    clickRate = Number(campaign.delivery_info.click_rate) || 0;
-    
-    if (campaign.delivery_info.bounced) {
-      if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total) {
-        bounceCount = Number(campaign.delivery_info.bounced.total) || 0;
-      } else if (typeof campaign.delivery_info.bounced === 'number') {
-        bounceCount = campaign.delivery_info.bounced;
-      }
-    }
-  }
-  
-  return { totalSent, openRate, clickRate, bounceCount };
-};
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -88,12 +31,8 @@ export const AcelleTableRow = ({
   const { getStatsFromCache, cacheStats } = useCampaignStatsCache();
   
   // État local pour les statistiques
-  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(
-    campaign.statistics && Object.keys(campaign.statistics).length > 0 
-      ? campaign.statistics 
-      : null
-  );
-  const [isLoading, setIsLoading] = useState(!stats && !demoMode);
+  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
@@ -106,85 +45,64 @@ export const AcelleTableRow = ({
   // Date d'envoi avec fallback
   const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
 
-  // Récupérer les statistiques de la campagne
+  // Récupérer les statistiques de la campagne avec le cache
   useEffect(() => {
-    if (!campaignUid || demoMode) return;
-    
     const loadCampaignStats = async () => {
+      if (!campaignUid) return;
+      
+      console.log(`Initialisation des statistiques pour la campagne ${campaignName}`);
+      
+      // D'abord vérifier si les statistiques sont déjà présentes dans la campagne
+      if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
+        console.log(`[TableRow] Utilisation des statistiques existantes pour ${campaignName}`);
+        setStats(campaign.statistics);
+        // Mettre à jour le cache avec ces statistiques
+        cacheStats(campaignUid, campaign.statistics);
+        return;
+      }
+      
+      // Vérifier ensuite dans le cache client
+      const cachedStats = getStatsFromCache(campaignUid);
+      if (cachedStats) {
+        console.log(`[TableRow] Utilisation des statistiques en cache pour ${campaignName}`);
+        setStats(cachedStats);
+        
+        // Mettre également à jour la campagne pour faciliter l'accès ultérieur
+        campaign.statistics = cachedStats;
+        
+        // Notifier le parent que les statistiques sont chargées
+        if (onStatsLoaded) {
+          onStatsLoaded(campaignUid, cachedStats);
+        }
+        
+        return;
+      }
+      
+      // Si les statistiques ne sont pas en cache, les récupérer
+      if (!account && !demoMode) {
+        console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
+        return;
+      }
+      
       try {
-        console.log(`[TableRow] Chargement des stats pour ${campaignName} (${campaignUid})`);
-        
-        // Vérifier si nous avons déjà les statistiques chargées dans l'état local
-        if (stats) {
-          console.log(`[TableRow] Stats déjà en état local pour ${campaignName}:`, stats);
-          // Notifier le parent que les statistiques sont chargées
-          if (onStatsLoaded) {
-            onStatsLoaded(campaignUid, stats);
-          }
-          return;
-        }
-        
-        // D'abord vérifier si les statistiques sont déjà présentes dans la campagne
-        if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
-          console.log(`[TableRow] Utilisation des statistiques existantes pour ${campaignName}:`, campaign.statistics);
-          setStats(campaign.statistics);
-          // Mettre à jour le cache avec ces statistiques
-          cacheStats(campaignUid, campaign.statistics);
-          
-          // Notifier le parent que les statistiques sont chargées
-          if (onStatsLoaded) {
-            onStatsLoaded(campaignUid, campaign.statistics);
-          }
-          
-          setIsLoading(false);
-          return;
-        }
-        
-        // Vérifier ensuite dans le cache client
-        const cachedStats = getStatsFromCache(campaignUid);
-        if (cachedStats) {
-          console.log(`[TableRow] Utilisation des statistiques en cache pour ${campaignName}:`, cachedStats);
-          setStats(cachedStats);
-          
-          // Mettre également à jour la campagne pour faciliter l'accès ultérieur
-          campaign.statistics = cachedStats;
-          
-          // Notifier le parent que les statistiques sont chargées
-          if (onStatsLoaded) {
-            onStatsLoaded(campaignUid, cachedStats);
-          }
-          
-          setIsLoading(false);
-          return;
-        }
-        
-        // Si les statistiques ne sont pas en cache, les récupérer
-        if (!account) {
-          console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
-          setIsLoading(false);
-          return;
-        }
-        
         setIsLoading(true);
         
         // Récupérer et traiter les statistiques
-        const result = await fetchAndProcessCampaignStats(campaign, account, { demoMode });
+        const result = await fetchAndProcessCampaignStats(campaign, account!, { demoMode });
         
-        // Vérifier explicitement que les statistiques ne sont pas nulles
-        if (result && result.statistics) {
-          console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, result.statistics);
+        // Mettre à jour l'état et le cache avec les statistiques
+        if (result.statistics) {
           setStats(result.statistics);
           cacheStats(campaignUid, result.statistics);
           
           // Enrichir également la campagne pour faciliter l'accès ultérieur
           campaign.statistics = result.statistics;
+          campaign.delivery_info = result.delivery_info;
           
           // Notifier le parent que les statistiques sont chargées
           if (onStatsLoaded) {
             onStatsLoaded(campaignUid, result.statistics);
           }
-        } else {
-          console.error(`Statistiques invalides reçues pour ${campaignName}`);
         }
       } catch (error) {
         console.error(`Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
@@ -193,8 +111,10 @@ export const AcelleTableRow = ({
       }
     };
     
-    loadCampaignStats();
-  }, [campaign, account, campaignName, campaignUid, demoMode, cacheStats, getStatsFromCache, onStatsLoaded, stats]);
+    // Petit délai pour éviter trop de requêtes simultanées lors du chargement du tableau
+    const timeoutId = setTimeout(loadCampaignStats, Math.random() * 300);
+    return () => clearTimeout(timeoutId);
+  }, [campaign, account, campaignName, campaignUid, demoMode, cacheStats, getStatsFromCache, onStatsLoaded]);
 
   // Formatage sécurisé des dates
   const formatDateSafely = (dateString: string | null | undefined) => {
@@ -208,11 +128,13 @@ export const AcelleTableRow = ({
     }
   };
 
-  // Extraire les statistiques importantes - fallback avec extraction directe si nécessaire
-  let quickStats = { totalSent: 0, openRate: 0, clickRate: 0, bounceCount: 0 };
-  
-  // Utiliser directement les données de la campagne dans tous les cas pour être sûr d'avoir des valeurs
-  quickStats = extractQuickStats(campaign);
+  // Utiliser notre service pour extraire rapidement les statistiques importantes
+  const { totalSent, openRate, clickRate, bounceCount } = extractQuickStats(campaign);
+
+  const handleViewCampaign = () => {
+    console.log(`Affichage des détails pour la campagne ${campaignUid}`, { campaign });
+    onViewCampaign(campaignUid);
+  };
 
   return (
     <TableRow>
@@ -225,22 +147,22 @@ export const AcelleTableRow = ({
       </TableCell>
       <TableCell>{formatDateSafely(deliveryDate)}</TableCell>
       <TableCell className="font-medium tabular-nums">
-        {isLoading ? "..." : quickStats.totalSent.toLocaleString()}
+        {isLoading ? "..." : totalSent.toLocaleString()}
       </TableCell>
       <TableCell className="tabular-nums">
-        {isLoading ? "..." : renderPercentage(quickStats.openRate)}
+        {isLoading ? "..." : renderPercentage(openRate)}
       </TableCell>
       <TableCell className="tabular-nums">
-        {isLoading ? "..." : renderPercentage(quickStats.clickRate)}
+        {isLoading ? "..." : renderPercentage(clickRate)}
       </TableCell>
       <TableCell className="tabular-nums">
-        {isLoading ? "..." : quickStats.bounceCount.toLocaleString()}
+        {isLoading ? "..." : bounceCount.toLocaleString()}
       </TableCell>
       <TableCell className="text-right">
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => onViewCampaign(campaignUid)}
+          onClick={handleViewCampaign}
           title="Voir les détails"
         >
           <Eye className="h-4 w-4" />

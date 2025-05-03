@@ -1,54 +1,23 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcelleCampaign } from "@/types/acelle.types";
+import { calculateDeliveryStats } from "@/services/acelle/api/campaigns";
 
 interface CampaignSummaryStatsProps {
   campaigns: AcelleCampaign[];
 }
 
 export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) => {
-  useEffect(() => {
-    console.log(`[CampaignSummaryStats] Rendu avec ${campaigns.length} campagnes`);
-  }, [campaigns]);
+  // Calculer les statistiques de livraison
+  const stats = calculateDeliveryStats(campaigns);
   
-  // Calculer directement les statistiques à partir des campagnes
-  const calculateStats = () => {
-    let totalEmails = 0;
-    let deliveredEmails = 0;
-    let openedEmails = 0;
-    let clickedEmails = 0;
-    
-    campaigns.forEach(campaign => {
-      // Vérifier si les statistics existent et ont des valeurs utilisables
-      if (campaign.statistics && typeof campaign.statistics.subscriber_count === 'number') {
-        totalEmails += campaign.statistics.subscriber_count || 0;
-        deliveredEmails += campaign.statistics.delivered_count || 0;
-        openedEmails += campaign.statistics.open_count || 0;
-        clickedEmails += campaign.statistics.click_count || 0;
-      } 
-      // Utiliser delivery_info comme fallback
-      else if (campaign.delivery_info) {
-        totalEmails += Number(campaign.delivery_info.total) || 0;
-        deliveredEmails += Number(campaign.delivery_info.delivered) || 0;
-        openedEmails += Number(campaign.delivery_info.opened) || 0;
-        clickedEmails += Number(campaign.delivery_info.clicked) || 0;
-      }
-    });
-    
-    console.log(`[CampaignSummaryStats] Stats calculées: total=${totalEmails}, delivered=${deliveredEmails}, opened=${openedEmails}, clicked=${clickedEmails}`);
-    
-    return {
-      totalEmails,
-      deliveredEmails,
-      openedEmails,
-      clickedEmails
-    };
-  };
+  // Extraction des valeurs pour une meilleure lisibilité
+  const totalEmails = stats.totalEmails || 0;
+  const deliveredEmails = stats.totalDelivered || 0; 
+  const openedEmails = stats.totalOpened || 0;
+  const clickedEmails = stats.totalClicked || 0;
   
-  const stats = calculateStats();
-  
-  // Calculer les taux
   const formatRate = (value: number, total: number) => {
     if (total === 0) return "0%";
     return `${((value / total) * 100).toFixed(1)}%`;
@@ -66,20 +35,20 @@ export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) =
             <p className="text-muted-foreground">Campagnes</p>
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{stats.totalEmails}</p>
+            <p className="text-2xl font-bold">{totalEmails}</p>
             <p className="text-muted-foreground">Emails envoyés</p>
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{stats.openedEmails}</p>
+            <p className="text-2xl font-bold">{openedEmails}</p>
             <p className="text-sm text-muted-foreground">
-              {formatRate(stats.openedEmails, stats.deliveredEmails)}
+              {formatRate(openedEmails, deliveredEmails)}
             </p>
             <p className="text-muted-foreground">Taux d'ouverture</p>
           </div>
           <div className="bg-muted p-4 rounded-md text-center">
-            <p className="text-2xl font-bold">{stats.clickedEmails}</p>
+            <p className="text-2xl font-bold">{clickedEmails}</p>
             <p className="text-sm text-muted-foreground">
-              {formatRate(stats.clickedEmails, stats.deliveredEmails)}
+              {formatRate(clickedEmails, deliveredEmails)}
             </p>
             <p className="text-muted-foreground">Taux de clic</p>
           </div>

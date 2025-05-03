@@ -29,70 +29,27 @@ export async function batchFetchCampaignStats(
       try {
         const campaignUid = campaign.uid || campaign.campaign_uid || '';
         
-        if (!campaignUid) {
-          console.warn("[BatchFetch] Campagne sans UID valide", campaign);
-          return;
-        }
-        
         // Si la campagne a déjà des statistiques complètes et qu'on ne force pas la mise à jour
-        if (!force && campaign.statistics && campaign.statistics.subscriber_count !== undefined) {
-          console.log(`[BatchFetch] Utilisation des stats existantes pour ${campaignUid}`);
+        if (!force && campaign.statistics && Object.keys(campaign.statistics).length > 0) {
           statsMap.set(campaignUid, campaign.statistics);
           return;
         }
 
-        // Si la campagne a des delivery_info mais pas de statistiques complètes, les convertir
-        if (!force && !campaign.statistics && campaign.delivery_info) {
-          console.log(`[BatchFetch] Conversion des delivery_info en statistics pour ${campaignUid}`);
-          // Créer des statistiques à partir des delivery_info
-          const stats: AcelleCampaignStatistics = {
-            subscriber_count: Number(campaign.delivery_info.total) || 0,
-            delivered_count: Number(campaign.delivery_info.delivered) || 0,
-            delivered_rate: Number(campaign.delivery_info.delivery_rate) || 0,
-            open_count: Number(campaign.delivery_info.opened) || 0,
-            uniq_open_rate: Number(campaign.delivery_info.unique_open_rate) || 0,
-            click_count: Number(campaign.delivery_info.clicked) || 0,
-            click_rate: Number(campaign.delivery_info.click_rate) || 0,
-            bounce_count: typeof campaign.delivery_info.bounced === 'number' 
-              ? campaign.delivery_info.bounced 
-              : (campaign.delivery_info.bounced?.total || 0),
-            soft_bounce_count: typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced?.soft || 0 : 0,
-            hard_bounce_count: typeof campaign.delivery_info.bounced === 'object' ? campaign.delivery_info.bounced?.hard || 0 : 0,
-            unsubscribe_count: Number(campaign.delivery_info.unsubscribed) || 0,
-            abuse_complaint_count: Number(campaign.delivery_info.complained) || 0
-          };
-          
-          campaign.statistics = stats;
-          statsMap.set(campaignUid, stats);
-          return;
-        }
-
-        // Vérifier que le compte est défini avant d'appeler l'API
-        if (!account && !demoMode) {
-          console.warn(`[BatchFetch] Compte non défini pour ${campaignUid}, impossible de récupérer les stats`);
-          return;
-        }
-
-        console.log(`[BatchFetch] Récupération des stats pour ${campaignUid}`);
         const result = await fetchAndProcessCampaignStats(campaign, account!, { demoMode });
         
-        if (result && result.statistics) {
+        if (result.statistics) {
           statsMap.set(campaignUid, result.statistics);
           
           // Mettre à jour directement la campagne pour une utilisation ultérieure
           campaign.statistics = result.statistics;
           campaign.delivery_info = result.delivery_info;
-          
-          console.log(`[BatchFetch] Stats récupérées pour ${campaignUid}:`, result.statistics);
-        } else {
-          console.warn(`[BatchFetch] Pas de statistiques valides pour ${campaignUid}`);
         }
       } catch (error) {
-        console.error(`Erreur lors de la récupération des statistiques pour la campagne:`, error);
+        console.error(`Erreur lors de la récupération des statistiques pour la campagne ${campaign.name}:`, error);
       }
     });
 
-    // Exécuter toutes les promesses en parallèle
+    // Exécuter toutes les promesses en parallèle avec une limite de 5 à la fois
     await Promise.all(fetchPromises);
     
     console.log(`[BatchFetch] ${statsMap.size}/${campaigns.length} statistiques récupérées avec succès`);
@@ -112,51 +69,45 @@ export function extractQuickStats(campaign: AcelleCampaign): {
   clickRate: number;
   bounceCount: number;
 } {
-  const campaignId = campaign.uid || campaign.campaign_uid || 'unknown';
-  console.log(`[extractQuickStats] Extraction pour campagne ${campaignId}`);
-  
-  // Fonction pour extraire de manière sûre une valeur numérique
-  const safeNumber = (value: any): number => {
-    if (value === undefined || value === null) return 0;
-    const num = Number(value);
-    return isNaN(num) ? 0 : num;
+  // Récupérer les statistiques formattées en privilégiant les sources les plus fiables
+  const getTotalSent = (): number => {
+    if (campaign.statistics?.subscriber_count) return campaign.statistics.subscriber_count;
+    if (campaign.delivery_info?.total) return campaign.delivery_info.total;
+    return 0;
   };
 
-  // Récupérer les valeurs, priorité aux statistiques puis fallback sur delivery_info
-  let totalSent = 0;
-  let openRate = 0;
-  let clickRate = 0;
-  let bounceCount = 0;
-  
-  // Priorité aux statistiques complètes
-  if (campaign.statistics) {
-    totalSent = safeNumber(campaign.statistics.subscriber_count);
-    openRate = safeNumber(campaign.statistics.uniq_open_rate);
-    clickRate = safeNumber(campaign.statistics.click_rate);
-    bounceCount = safeNumber(campaign.statistics.bounce_count);
-  } 
-  // Fallback sur delivery_info
-  else if (campaign.delivery_info) {
-    totalSent = safeNumber(campaign.delivery_info.total);
-    openRate = safeNumber(campaign.delivery_info.unique_open_rate);
-    clickRate = safeNumber(campaign.delivery_info.click_rate);
-    
-    // Traiter les différents cas pour bounced
-    if (typeof campaign.delivery_info.bounced === 'number') {
-      bounceCount = campaign.delivery_info.bounced;
-    } else if (campaign.delivery_info.bounced && typeof campaign.delivery_info.bounced === 'object') {
-      bounceCount = safeNumber(campaign.delivery_info.bounced.total);
-    }
-  }
+  const getOpenRate = (): number => {
+    if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
+    if (campaign.statistics?.open_rate) return campaign.statistics.open_rate;
+    if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
+    return 0;
+  };
 
-  console.log(`[extractQuickStats] Résultat pour ${campaignId}:`, {
-    totalSent, openRate, clickRate, bounceCount
-  });
+  const getClickRate = (): number => {
+    if (campaign.statistics?.click_rate) return campaign.statistics.click_rate;
+    if (campaign.delivery_info?.click_rate) return campaign.delivery_info.click_rate;
+    return 0;
+  };
+
+  const getBounceCount = (): number => {
+    if (campaign.statistics?.bounce_count) return campaign.statistics.bounce_count;
+    
+    if (campaign.delivery_info?.bounced) {
+      if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total) {
+        return campaign.delivery_info.bounced.total;
+      }
+      if (typeof campaign.delivery_info.bounced === 'number') {
+        return campaign.delivery_info.bounced;
+      }
+    }
+    
+    return 0;
+  };
 
   return {
-    totalSent,
-    openRate,
-    clickRate,
-    bounceCount
+    totalSent: getTotalSent(),
+    openRate: getOpenRate(),
+    clickRate: getClickRate(),
+    bounceCount: getBounceCount()
   };
 }

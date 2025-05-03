@@ -26,33 +26,13 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
   useEffect(() => {
     let mounted = true;
     
-    // Logging initial pour debugging
-    console.log(`[BatchLoader] Initialisation avec ${campaigns.length} campagnes, demoMode=${demoMode}`);
-    
     // Identifier les campagnes qui ont besoin de statistiques
     const campaignsNeedingStats = campaigns.filter(campaign => {
-      // S'assurer que la campagne existe
-      if (!campaign) {
-        console.warn("[BatchLoader] Campagne undefined détectée");
-        return false;
-      }
-      
       // Si la campagne n'a pas d'identifiant valide
-      const campaignId = campaign.uid || campaign.campaign_uid;
-      if (!campaignId) {
-        console.warn("[BatchLoader] Campagne sans identifiant détectée");
-        return false;
-      }
+      if (!campaign.uid && !campaign.campaign_uid) return false;
       
       // Si la campagne a déjà des statistiques complètes
-      const hasCompleteStats = campaign.statistics && 
-        (typeof campaign.statistics.subscriber_count === 'number' || 
-         typeof campaign.statistics.delivered_count === 'number');
-         
-      if (hasCompleteStats) {
-        console.log(`[BatchLoader] La campagne ${campaignId} a déjà des statistiques complètes`);
-        return false;
-      }
+      if (campaign.statistics && Object.keys(campaign.statistics).length > 0) return false;
       
       return true;
     });
@@ -60,10 +40,6 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
     // Si aucune campagne ne nécessite de statistiques, ne rien faire
     if (campaignsNeedingStats.length === 0) {
       console.log('[BatchLoader] Toutes les campagnes ont déjà des statistiques. Aucun chargement nécessaire.');
-      if (onBatchLoadComplete) {
-        // Même s'il n'y a rien à charger, notifier le parent pour mettre à jour l'UI
-        onBatchLoadComplete(new Map());
-      }
       return;
     }
     
@@ -75,52 +51,30 @@ export const AcelleTableBatchLoader: React.FC<AcelleTableBatchLoaderProps> = ({
         const statsMap = await batchFetchCampaignStats(
           campaignsNeedingStats,
           account,
-          { demoMode, force: false }
+          { demoMode }
         );
         
         // Ne pas continuer si le composant a été démonté
         if (!mounted) return;
         
-        // Mettre les statistiques en cache et mettre à jour les objets campaign
-        if (statsMap.size > 0) {
-          console.log(`[BatchLoader] ${statsMap.size} stats récupérées, mise à jour des campagnes`);
-          
-          statsMap.forEach((stats, uid) => {
-            if (stats) {
-              console.log(`[BatchLoader] Mise en cache des stats pour ${uid}`);
-              cacheStats(uid, stats);
-              
-              // Mettre à jour les statistiques directement sur l'objet campagne
-              const campaign = campaigns.find(c => c.uid === uid || c.campaign_uid === uid);
-              if (campaign) {
-                console.log(`[BatchLoader] Mise à jour directe de la campagne ${uid} avec stats`);
-                campaign.statistics = stats;
-              }
-            }
-          });
-        } else {
-          console.warn('[BatchLoader] Aucune statistique récupérée par le batch');
-        }
+        // Mettre les statistiques en cache
+        statsMap.forEach((stats, uid) => {
+          cacheStats(uid, stats);
+        });
         
         // Notifier le parent que le chargement par lots est terminé
-        if (onBatchLoadComplete && mounted) {
-          console.log(`[BatchLoader] Notification du parent avec ${statsMap.size} stats`);
+        if (onBatchLoadComplete) {
           onBatchLoadComplete(statsMap);
         }
         
         console.log(`[BatchLoader] Chargement par lots terminé pour ${statsMap.size} campagnes`);
       } catch (error) {
         console.error('[BatchLoader] Erreur lors du chargement par lots:', error);
-        
-        // Même en cas d'erreur, notifier le parent pour mettre à jour l'UI
-        if (onBatchLoadComplete && mounted) {
-          onBatchLoadComplete(new Map());
-        }
       }
     };
     
     // Utiliser un léger délai pour ne pas bloquer le rendu initial
-    const timeoutId = setTimeout(loadStatsBatch, 100);
+    const timeoutId = setTimeout(loadStatsBatch, 300);
     
     return () => {
       mounted = false;
