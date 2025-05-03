@@ -13,6 +13,7 @@ import { CampaignsTableHeader } from "../table/TableHeader";
 import { AcelleTableBatchLoader } from "../table/AcelleTableBatchLoader";
 import { toast } from "sonner";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
+import { Spinner } from "@/components/ui/spinner";
 
 interface TableContentProps {
   campaigns: AcelleCampaign[];
@@ -34,18 +35,25 @@ export const TableContent = ({
   demoMode = false
 }: TableContentProps) => {
   const [isStatsLoaded, setIsStatsLoaded] = useState(false);
+  const [isInitiallyLoading, setIsInitiallyLoading] = useState(true);
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [enrichedCampaigns, setEnrichedCampaigns] = useState<AcelleCampaign[]>([]);
 
-  // À chaque changement de campagnes, réinitialiser l'état du chargement des statistiques
+  // Reset stats loading state when campaigns change
   useEffect(() => {
     setIsStatsLoaded(false);
+    setIsInitiallyLoading(true);
     
     // Always try to enrich campaigns with statistics when campaigns change
     const loadStats = async () => {
-      console.log(`Trying to enrich ${campaigns.length} campaigns with statistics`);
+      console.log(`Trying to enrich ${campaigns.length} campaigns with statistics from cache`);
       if (campaigns.length > 0 && account) {
         try {
+          toast.loading("Initialisation des statistiques...", {
+            id: "loading-stats",
+            duration: 3000
+          });
+          
           // Use the enrichCampaignsWithStats function to load statistics from cache
           const result = await enrichCampaignsWithStats(campaigns, account);
           setEnrichedCampaigns(result);
@@ -58,69 +66,55 @@ export const TableContent = ({
           if (hasStats) {
             console.log("Successfully loaded campaign statistics from cache");
             setIsStatsLoaded(true);
-            toast.success("Statistiques chargées avec succès", {
+            toast.success("Statistiques initiales chargées", {
               id: "loading-stats",
               duration: 2000
             });
           } else {
             console.log("No statistics found in cache, will try batch loading");
-            toast.info("Chargement des statistiques...", {
+            toast.info("Chargement complet des statistiques...", {
               id: "loading-stats",
               duration: 3000
             });
           }
         } catch (err) {
           console.error("Error enriching campaigns with statistics:", err);
+        } finally {
+          setIsInitiallyLoading(false);
         }
       } else {
         // If in demo mode, just set the campaigns directly
         if (demoMode) {
           setEnrichedCampaigns(campaigns);
+          setIsInitiallyLoading(false);
         }
       }
     };
     
     loadStats();
     
-    // Nouvelle logique: forcer un rechargement si les statistiques n'ont pas chargé
-    if (loadAttempts > 0) {
-      // Vérifions si les campagnes ont des statistiques
-      const hasStats = campaigns.some(c => 
-        c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
-      );
-      
-      if (!hasStats) {
-        console.log("Les statistiques ne sont pas encore chargées, forçage du rechargement...");
-        // Toast pour informer l'utilisateur
-        toast.info("Chargement des statistiques...", {
-          id: "loading-stats",
-          duration: 3000
-        });
-      }
-    }
-  }, [campaigns, loadAttempts, account, demoMode]);
+  }, [campaigns, account, demoMode]);
   
-  // Fonction de rappel appelée lorsque le chargement par lot est terminé
+  // Callback function when batch loading is complete
   const handleBatchLoaded = (updatedCampaigns: AcelleCampaign[]) => {
-    console.log("Batch loading completed, updating campaigns");
+    console.log("Batch loading completed, updating campaigns with statistics");
     setEnrichedCampaigns(updatedCampaigns);
     setIsStatsLoaded(true);
     setLoadAttempts(prev => prev + 1);
     
-    // Vérifions si les campagnes ont maintenant des statistiques
+    // Check if campaigns now have statistics
     const hasStats = updatedCampaigns.some(c => 
       c.statistics && (c.statistics.subscriber_count > 0 || c.statistics.open_count > 0)
     );
     
     if (hasStats) {
-      console.log("Les statistiques ont été chargées avec succès");
-      toast.success("Statistiques chargées", {
+      console.log("Statistics loaded successfully");
+      toast.success("Statistiques complètes chargées", {
         id: "loading-stats",
         duration: 2000
       });
     } else if (loadAttempts > 0) {
-      console.warn("Echec du chargement des statistiques après tentative");
-      // Si c'est le deuxième essai, on informe l'utilisateur
+      console.warn("Failed to load statistics after attempt");
       toast.error("Certaines statistiques n'ont pas pu être chargées", {
         id: "loading-stats",
         duration: 3000
@@ -128,12 +122,24 @@ export const TableContent = ({
     }
   };
 
+  // Display a loading state if initially loading
+  if (isInitiallyLoading && !demoMode && campaigns.length > 0) {
+    return (
+      <div className="rounded-md border p-8 flex flex-col items-center justify-center">
+        <Spinner className="w-8 h-8 mb-4" />
+        <p className="text-center text-gray-500">
+          Chargement des statistiques initiales...
+        </p>
+      </div>
+    );
+  }
+
   // Use the campaigns with statistics for display
   const campaignsToDisplay = enrichedCampaigns.length > 0 ? enrichedCampaigns : campaigns;
 
   return (
     <div className="rounded-md border">
-      {/* Chargeur par lot des statistiques (invisible) */}
+      {/* Batch statistics loader (invisible) */}
       <AcelleTableBatchLoader 
         campaigns={campaigns} 
         account={account}

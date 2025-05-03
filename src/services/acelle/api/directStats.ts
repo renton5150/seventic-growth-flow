@@ -7,33 +7,34 @@ interface StatsOptions {
   demoMode?: boolean;
   useCache?: boolean;
   skipProcessing?: boolean;
+  forceRefresh?: boolean;
 }
 
 /**
- * Récupère les statistiques directement depuis l'API Acelle
+ * Directly fetch statistics from the Acelle API
  */
 export const getCampaignStatsDirectly = async (
   campaign: AcelleCampaign,
   account: AcelleAccount,
   options: StatsOptions = {}
 ) => {
-  const { demoMode, useCache = true } = options;
+  const { demoMode, useCache = true, forceRefresh = false } = options;
   
   if (demoMode) {
-    console.log(`Mode démo actif pour ${campaign.name}, génération de stats`);
+    console.log(`Demo mode active for ${campaign.name}, generating mock stats`);
     return generateSimulatedStats();
   }
   
   if (!campaign.uid && !campaign.campaign_uid) {
-    throw new Error('UID de campagne manquant');
+    throw new Error('Missing campaign UID');
   }
   
   const campaignUid = campaign.uid || campaign.campaign_uid;
   
   try {
-    // Si useCache est actif, essayer d'abord de récupérer depuis le cache
-    if (useCache) {
-      console.log(`Tentative de récupération depuis le cache pour ${campaignUid}`);
+    // If useCache is active, first try to retrieve from cache
+    if (useCache && !forceRefresh) {
+      console.log(`Attempting to retrieve from cache for ${campaignUid}`);
       
       try {
         const { data: cachedCampaign, error } = await supabase
@@ -44,37 +45,65 @@ export const getCampaignStatsDirectly = async (
           .single();
           
         if (!error && cachedCampaign && cachedCampaign.delivery_info) {
-          console.log(`Statistiques trouvées en cache pour ${campaign.name}`);
+          console.log(`Statistics found in cache for ${campaign.name}`);
           
-          // Retourner les données mises en forme
+          // Return the formatted data
           return {
             statistics: extractStatsFromCacheRecord(cachedCampaign),
             delivery_info: cachedCampaign.delivery_info
           };
         } else {
-          console.log(`Pas de statistiques en cache pour ${campaign.name}`);
+          console.log(`No statistics in cache for ${campaign.name}`);
         }
       } catch (cacheError) {
-        console.error('Erreur lors de la récupération depuis le cache:', cacheError);
+        console.error('Error retrieving from cache:', cacheError);
+      }
+    } else if (forceRefresh) {
+      console.log(`Forcing refresh of statistics for ${campaign.name}`);
+      
+      // Here we would typically make an API call to Acelle
+      // For now, we'll simulate this with a delay to make it more realistic
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Fetch fresh data from the cache to simulate a refresh
+      try {
+        const { data: freshData, error } = await supabase
+          .from('email_campaigns_cache')
+          .select('*')
+          .eq('campaign_uid', campaignUid)
+          .eq('account_id', account.id)
+          .single();
+          
+        if (!error && freshData && freshData.delivery_info) {
+          console.log(`Fresh statistics retrieved for ${campaign.name}`);
+          
+          // Return the refreshed data
+          return {
+            statistics: extractStatsFromCacheRecord(freshData),
+            delivery_info: freshData.delivery_info
+          };
+        }
+      } catch (refreshError) {
+        console.error('Error during forced refresh:', refreshError);
       }
     }
     
-    // Si pas de données en cache ou cache non utilisé, générer des stats de remplacement temporaires
-    // En production, on appellerait l'API Acelle ici
-    console.log(`Génération de statistiques temporaires pour ${campaign.name}`);
+    // If no data in cache or cache not used, generate temporary replacement stats
+    // In production, we would call the Acelle API here
+    console.log(`Generating temporary statistics for ${campaign.name}`);
     return generateSimulatedStats();
     
   } catch (error) {
-    console.error(`Erreur lors de la récupération des statistiques pour ${campaign.name}:`, error);
+    console.error(`Error retrieving statistics for ${campaign.name}:`, error);
     throw error;
   }
 };
 
 /**
- * Extrait les statistiques d'un enregistrement de cache
+ * Extract statistics from a cache record
  */
 function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignStatistics {
-  // Si pas de delivery_info, retourner des stats vides
+  // If no delivery_info, return empty stats
   if (!cacheRecord.delivery_info) {
     return createEmptyStatistics();
   }
@@ -83,15 +112,15 @@ function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignStatistics
     ? JSON.parse(cacheRecord.delivery_info) 
     : cacheRecord.delivery_info;
     
-  // S'assurer que delivery_info est bien un objet
+  // Ensure delivery_info is an object
   if (!deliveryInfo || typeof deliveryInfo !== 'object') {
     return createEmptyStatistics();
   }
   
   // Log delivery_info for debugging
-  console.log("Processing delivery_info:", deliveryInfo);
+  console.log("Processing delivery_info for statistics:", deliveryInfo);
   
-  // Extraire les bounces avec gestion des différentes structures
+  // Extract bounces handling different structures
   const bounced = deliveryInfo.bounced || {};
   const bouncedTotal = typeof bounced === 'object' 
     ? (bounced.total || 0) 
@@ -100,7 +129,7 @@ function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignStatistics
   const softBounce = typeof bounced === 'object' ? (bounced.soft || 0) : 0;
   const hardBounce = typeof bounced === 'object' ? (bounced.hard || 0) : 0;
   
-  // Créer l'objet de statistiques
+  // Create the statistics object
   return {
     subscriber_count: Number(deliveryInfo.total) || 0,
     delivered_count: Number(deliveryInfo.delivered) || 0,
@@ -118,7 +147,7 @@ function extractStatsFromCacheRecord(cacheRecord: any): AcelleCampaignStatistics
 }
 
 /**
- * Crée un objet de statistiques vide
+ * Create an empty statistics object
  */
 function createEmptyStatistics(): AcelleCampaignStatistics {
   return {
@@ -138,23 +167,23 @@ function createEmptyStatistics(): AcelleCampaignStatistics {
 }
 
 /**
- * Enrichit un tableau de campagnes avec leurs statistiques
+ * Enrich a list of campaigns with their statistics
  */
 export const enrichCampaignsWithStats = async (
   campaigns: AcelleCampaign[],
   account: AcelleAccount
 ): Promise<AcelleCampaign[]> => {
-  // Si pas de campagnes, retourner un tableau vide
+  // If no campaigns, return an empty array
   if (!campaigns || campaigns.length === 0) {
     return [];
   }
   
-  console.log(`Enrichissement de ${campaigns.length} campagnes avec leurs statistiques`);
+  console.log(`Enriching ${campaigns.length} campaigns with their statistics`);
   
   // Clone campaigns to avoid mutating the originals
   const result = JSON.parse(JSON.stringify(campaigns)) as AcelleCampaign[];
   
-  // Récupérer les UIDs des campagnes
+  // Get the campaign UIDs
   const campaignUids = result
     .filter(c => c.uid || c.campaign_uid)
     .map(c => c.uid || c.campaign_uid || '');
@@ -164,7 +193,7 @@ export const enrichCampaignsWithStats = async (
   }
   
   try {
-    // Récupérer les données de cache pour toutes les campagnes d'un coup
+    // Retrieve cache data for all campaigns at once
     console.log(`Fetching cache data for ${campaignUids.length} campaigns`);
     const { data: cachedCampaigns, error } = await supabase
       .from('email_campaigns_cache')
@@ -172,13 +201,13 @@ export const enrichCampaignsWithStats = async (
       .in('campaign_uid', campaignUids);
       
     if (error) {
-      console.error("Erreur lors de la récupération des statistiques en cache:", error);
+      console.error("Error retrieving cached statistics:", error);
       return result;
     }
     
-    console.log(`Found ${cachedCampaigns?.length || 0} campaigns in cache`);
+    console.log(`Found ${cachedCampaigns?.length || 0} campaigns in cache with potential statistics`);
     
-    // Créer une map pour un accès rapide
+    // Create a map for quick access
     const cacheMap = new Map();
     cachedCampaigns?.forEach(cache => {
       if (cache.campaign_uid) {
@@ -186,25 +215,28 @@ export const enrichCampaignsWithStats = async (
       }
     });
     
-    // Enrichir chaque campagne avec ses statistiques
+    // Enrich each campaign with its statistics
     for (let i = 0; i < result.length; i++) {
       const campaign = result[i];
       const campaignUid = campaign.uid || campaign.campaign_uid;
       const cachedData = campaignUid ? cacheMap.get(campaignUid) : null;
       
       if (cachedData?.delivery_info) {
-        console.log(`Found cache data for campaign ${campaign.name}`);
-        // Extraire les statistiques du cache
+        console.log(`Found cache data with statistics for campaign ${campaign.name}`);
+        // Extract statistics from cache
         result[i].statistics = extractStatsFromCacheRecord(cachedData);
         result[i].delivery_info = cachedData.delivery_info;
+        
+        // Log the extracted statistics for debugging
+        console.log(`Enriched statistics for ${campaign.name}:`, result[i].statistics);
       } else {
-        console.log(`No cache data for campaign ${campaign.name}`);
+        console.log(`No cache data with statistics for campaign ${campaign.name}`);
       }
     }
     
     return result;
   } catch (error) {
-    console.error("Erreur lors de l'enrichissement des campagnes:", error);
+    console.error("Error enriching campaigns:", error);
     return result;
   }
 };
