@@ -14,7 +14,6 @@ import { AcelleTableRow } from "../table/AcelleTableRow";
 import { CampaignsTableHeader } from "../table/TableHeader";
 import { AcelleTableBatchLoader } from "../table/AcelleTableBatchLoader";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
-import { useCampaignStatsCache } from "@/hooks/acelle/useCampaignStatsCache";
 
 interface TableContentProps {
   campaigns: AcelleCampaign[];
@@ -38,19 +37,9 @@ export function TableContent({
   statsLoadedCount = 0
 }: TableContentProps) {
   const {
-    searchTerm,
-    setSearchTerm,
-    statusFilter,
-    setStatusFilter,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
     filteredCampaigns
   } = useAcelleCampaignsTable(campaigns || []);
 
-  const { enrichCampaignWithCachedStats, getAllCachedStats } = useCampaignStatsCache();
-  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
   const [localLoadingStats, setLocalLoadingStats] = useState(true);
   const [loadedCount, setLoadedCount] = useState(0);
 
@@ -61,60 +50,6 @@ export function TableContent({
       console.log('[TableContent] Exemple de campagne:', campaigns[0]);
     }
   }, [campaigns]);
-
-  // Enrichir les campagnes filtrées avec les stats en cache au premier rendu
-  useEffect(() => {
-    if (!isInitialLoadComplete && filteredCampaigns.length > 0) {
-      console.log("[TableContent] Enrichissement initial des campagnes avec les stats en cache");
-      
-      // Enrichir chaque campagne avec ses stats en cache
-      const allCachedStats = getAllCachedStats();
-      console.log(`[TableContent] ${allCachedStats.size} stats trouvées dans le cache`);
-      
-      const enrichedCount = filteredCampaigns.reduce((count, campaign) => {
-        const uid = campaign.uid || campaign.campaign_uid || '';
-        if (uid && allCachedStats.has(uid)) {
-          console.log(`[TableContent] Enrichissement de la campagne ${uid} avec stats du cache`);
-          campaign.statistics = allCachedStats.get(uid)!;
-          return count + 1;
-        }
-        return count;
-      }, 0);
-      
-      console.log(`[TableContent] ${enrichedCount}/${filteredCampaigns.length} campagnes enrichies avec des stats en cache`);
-      
-      setLoadedCount(enrichedCount);
-      setIsInitialLoadComplete(true);
-      
-      // Si toutes les campagnes ont des stats, arrêter le chargement
-      if (enrichedCount === filteredCampaigns.length) {
-        setLocalLoadingStats(false);
-      }
-    }
-  }, [filteredCampaigns, isInitialLoadComplete, getAllCachedStats, enrichCampaignWithCachedStats]);
-
-  // Gérer le comptage des stats chargées
-  const handleStatLoaded = (campaignUid: string, stats: AcelleCampaignStatistics) => {
-    console.log(`[TableContent] Stat chargée pour ${campaignUid}`, stats);
-    
-    // Incrémenter le compteur local de statistiques chargées
-    setLoadedCount(prev => {
-      const newCount = prev + 1;
-      
-      // Si toutes les campagnes ont des stats, arrêter le chargement
-      if (newCount >= filteredCampaigns.length) {
-        console.log(`[TableContent] Toutes les statistiques sont chargées (${newCount}/${filteredCampaigns.length})`);
-        setLocalLoadingStats(false);
-      }
-      
-      return newCount;
-    });
-    
-    // Propager l'événement au parent si nécessaire
-    if (onStatLoaded) {
-      onStatLoaded(campaignUid, stats);
-    }
-  };
   
   // Gérer la fin du chargement par lots
   const handleBatchLoadComplete = (statsMap: Map<string, AcelleCampaignStatistics>) => {
@@ -125,10 +60,20 @@ export function TableContent({
       onBatchLoadComplete(statsMap);
     }
     
-    // Mise à jour de l'état de chargement si toutes les campagnes ont des stats
-    if (statsMap.size >= filteredCampaigns.length || 
-        loadedCount + statsMap.size >= filteredCampaigns.length) {
-      setLocalLoadingStats(false);
+    // Mise à jour de l'état de chargement
+    setLocalLoadingStats(false);
+  };
+
+  // Gérer le comptage des stats chargées
+  const handleStatLoaded = (campaignUid: string, stats: AcelleCampaignStatistics) => {
+    console.log(`[TableContent] Stat chargée pour ${campaignUid}`);
+    
+    // Incrémenter le compteur local de statistiques chargées
+    setLoadedCount(prev => prev + 1);
+    
+    // Propager l'événement au parent si nécessaire
+    if (onStatLoaded) {
+      onStatLoaded(campaignUid, stats);
     }
   };
 
@@ -169,16 +114,9 @@ export function TableContent({
                   { key: "bounce_count", label: "Bounces" },
                   { key: "", label: "" }
                 ]}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                onSort={(column) => {
-                  if (sortBy === column) {
-                    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                  } else {
-                    setSortBy(column);
-                    setSortOrder("desc");
-                  }
-                }}
+                sortBy="name"
+                sortOrder="desc"
+                onSort={() => {}}
               />
             </TableRow>
           </TableHeader>

@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcelleCampaign } from "@/types/acelle.types";
 import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
@@ -9,6 +9,14 @@ interface CampaignSummaryStatsProps {
 }
 
 export const CampaignSummaryStats = ({ campaigns }: CampaignSummaryStatsProps) => {
+  useEffect(() => {
+    console.log(`[CampaignSummaryStats] Rendu avec ${campaigns.length} campagnes`);
+    
+    // Vérification des statistiques disponibles
+    const campaignsWithStats = campaigns.filter(c => c.statistics || c.delivery_info);
+    console.log(`[CampaignSummaryStats] ${campaignsWithStats.length} campagnes avec stats`);
+  }, [campaigns]);
+  
   // Calculer les statistiques de livraison
   const statsArray = calculateDeliveryStats(campaigns);
   
