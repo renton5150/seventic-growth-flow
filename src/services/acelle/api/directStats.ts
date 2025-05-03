@@ -1,5 +1,5 @@
 
-import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 
 /**
  * Interface pour les options de récupération de statistiques
@@ -128,10 +128,27 @@ export async function enrichCampaignsWithStats(
       try {
         const stats = await getCampaignStatsDirectly(campaign, account, options);
         
+        // Ensure proper typing for statistics
+        const typedStats: Partial<AcelleCampaignStatistics> = {
+          subscriber_count: stats.subscriber_count || 0,
+          delivered_count: stats.delivered_count || 0,
+          delivered_rate: stats.delivered_rate || 0,
+          open_count: stats.open_count || 0,
+          uniq_open_rate: stats.open_rate || stats.uniq_open_rate || 0,
+          click_count: stats.click_count || 0,
+          click_rate: stats.click_rate || 0,
+          bounce_count: stats.bounce_count || 0,
+          soft_bounce_count: stats.soft_bounce_count || 0,
+          hard_bounce_count: stats.hard_bounce_count || 0,
+          unsubscribe_count: stats.unsubscribe_count || 0,
+          abuse_complaint_count: stats.complaint_count || stats.abuse_complaint_count || 0
+        };
+        
+        // Create a proper typed campaign object
         return {
           ...campaign,
           delivery_info: stats.delivery_info || stats,
-          statistics: stats
+          statistics: typedStats as AcelleCampaignStatistics
         };
       } catch (error) {
         console.error(`Erreur lors de l'enrichissement de la campagne ${campaign.name}:`, error);

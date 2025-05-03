@@ -42,8 +42,8 @@ export interface AcelleCampaign {
   status: string;
   created_at: string;
   updated_at: string;
-  delivery_date: string;
-  run_at: string;
+  delivery_date: string | null;
+  run_at: string | null;
   last_error?: string;
   
   delivery_info?: {
@@ -60,7 +60,7 @@ export interface AcelleCampaign {
       soft?: number;
       hard?: number;
       total?: number;
-    };
+    } | number;
     unsubscribed?: number;
     complained?: number;
   };
