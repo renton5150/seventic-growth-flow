@@ -33,6 +33,15 @@ export interface AcelleCampaignStatistics {
   hard_bounce_count: number;
   unsubscribe_count: number;
   abuse_complaint_count: number;
+  
+  // Propriétés additionnelles possibles dans les réponses d'API
+  unique_open_count?: number;
+  open_rate?: number;
+  complaint_count?: number;
+  uniq_open_count?: number;
+  last_open?: string;
+  last_click?: string;
+  abuse_feedback_count?: number;
 }
 
 export interface AcelleCampaign {
@@ -101,7 +110,7 @@ export interface AcelleCampaignDeliveryInfo {
     soft: number;
     hard: number;
     total: number;
-  };
+  } | number;
   unsubscribed: number;
   complained: number;
 }

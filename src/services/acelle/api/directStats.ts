@@ -42,7 +42,17 @@ export async function getCampaignStatsDirectly(
       });
       
       // Mode dégrédé: utiliser les stats existantes
-      return campaign.delivery_info || {};
+      if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
+        console.log("Utilisation des statistiques existantes dans campaign.statistics");
+        return campaign.statistics;
+      }
+      
+      if (campaign.delivery_info && Object.keys(campaign.delivery_info).length > 0) {
+        console.log("Utilisation des statistiques existantes dans campaign.delivery_info");
+        return campaign.delivery_info;
+      }
+      
+      return {};
     }
     
     if (useDirectApi) {
@@ -63,20 +73,22 @@ export async function getCampaignStatsDirectly(
         
         // Mettre à jour le format pour qu'il soit compatible avec le format d'affichage
         return {
-          ...processedStats,
+          statistics: processedStats,
           delivery_info: {
             total: processedStats.subscriber_count || 0,
             delivered: processedStats.delivered_count || 0,
             delivery_rate: processedStats.delivered_rate || 0,
             opened: processedStats.open_count || 0,
-            unique_open_rate: processedStats.open_rate || 0,
+            unique_open_rate: processedStats.uniq_open_rate || processedStats.open_rate || 0,
             clicked: processedStats.click_count || 0,
             click_rate: processedStats.click_rate || 0,
             bounced: {
-              total: processedStats.bounce_count || 0
+              total: processedStats.bounce_count || 0,
+              soft: processedStats.soft_bounce_count || 0,
+              hard: processedStats.hard_bounce_count || 0
             },
             unsubscribed: processedStats.unsubscribe_count || 0,
-            complained: processedStats.complaint_count || 0
+            complained: processedStats.complaint_count || processedStats.abuse_complaint_count || 0
           }
         };
       }
@@ -85,7 +97,15 @@ export async function getCampaignStatsDirectly(
     // Si l'appel direct échoue et que le mode de repli est activé
     if (useFallback) {
       console.log("Utilisation des stats existantes dans les données de campagne");
-      return campaign.delivery_info || campaign.statistics || {};
+      
+      // Vérifier d'abord statistics puis delivery_info
+      if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
+        return { statistics: campaign.statistics };
+      }
+      
+      if (campaign.delivery_info && Object.keys(campaign.delivery_info).length > 0) {
+        return { delivery_info: campaign.delivery_info };
+      }
     }
     
     return {};
@@ -94,7 +114,13 @@ export async function getCampaignStatsDirectly(
     
     // En cas d'erreur et si le mode de repli est activé
     if (useFallback) {
-      return campaign.delivery_info || campaign.statistics || {};
+      if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
+        return { statistics: campaign.statistics };
+      }
+      
+      if (campaign.delivery_info && Object.keys(campaign.delivery_info).length > 0) {
+        return { delivery_info: campaign.delivery_info };
+      }
     }
     
     return {};
@@ -126,30 +152,56 @@ export async function enrichCampaignsWithStats(
   const enrichedCampaigns = await Promise.all(
     campaignsToEnrich.map(async (campaign) => {
       try {
-        const stats = await getCampaignStatsDirectly(campaign, account, options);
+        const statsResult = await getCampaignStatsDirectly(campaign, account, options);
         
-        // Ensure proper typing for statistics
+        // Extraire les valeurs statistiques des résultats
+        const stats = statsResult.statistics || statsResult.delivery_info || statsResult;
+        
+        // S'assurer que le typage est correct pour les statistiques
         const typedStats: Partial<AcelleCampaignStatistics> = {
-          subscriber_count: stats.subscriber_count || 0,
-          delivered_count: stats.delivered_count || 0,
-          delivered_rate: stats.delivered_rate || 0,
-          open_count: stats.open_count || 0,
-          uniq_open_rate: stats.open_rate || stats.uniq_open_rate || 0,
-          click_count: stats.click_count || 0,
+          subscriber_count: stats.subscriber_count || stats.total || 0,
+          delivered_count: stats.delivered_count || stats.delivered || 0,
+          delivered_rate: stats.delivered_rate || stats.delivery_rate || 0,
+          open_count: stats.open_count || stats.opened || 0,
+          uniq_open_rate: stats.uniq_open_rate || stats.open_rate || stats.unique_open_rate || 0,
+          click_count: stats.click_count || stats.clicked || 0,
           click_rate: stats.click_rate || 0,
-          bounce_count: stats.bounce_count || 0,
-          soft_bounce_count: stats.soft_bounce_count || 0,
-          hard_bounce_count: stats.hard_bounce_count || 0,
-          unsubscribe_count: stats.unsubscribe_count || 0,
-          abuse_complaint_count: stats.complaint_count || stats.abuse_complaint_count || 0
+          bounce_count: stats.bounce_count || 
+            (stats.bounced ? (typeof stats.bounced === 'object' ? stats.bounced.total : stats.bounced) : 0),
+          soft_bounce_count: stats.soft_bounce_count || 
+            (stats.bounced && typeof stats.bounced === 'object' ? stats.bounced.soft : 0),
+          hard_bounce_count: stats.hard_bounce_count || 
+            (stats.bounced && typeof stats.bounced === 'object' ? stats.bounced.hard : 0),
+          unsubscribe_count: stats.unsubscribe_count || stats.unsubscribed || 0,
+          abuse_complaint_count: stats.complaint_count || stats.complained || stats.abuse_complaint_count || 0
         };
         
-        // Create a proper typed campaign object
-        return {
+        // Construire l'objet delivery_info compatible
+        const deliveryInfo = {
+          total: typedStats.subscriber_count || 0,
+          delivered: typedStats.delivered_count || 0,
+          delivery_rate: typedStats.delivered_rate || 0,
+          opened: typedStats.open_count || 0,
+          unique_open_rate: typedStats.uniq_open_rate || 0,
+          clicked: typedStats.click_count || 0,
+          click_rate: typedStats.click_rate || 0,
+          bounced: {
+            total: typedStats.bounce_count || 0,
+            soft: typedStats.soft_bounce_count || 0,
+            hard: typedStats.hard_bounce_count || 0
+          },
+          unsubscribed: typedStats.unsubscribe_count || 0,
+          complained: typedStats.abuse_complaint_count || 0
+        };
+        
+        // Créer un objet campagne correctement typé
+        const enrichedCampaign: AcelleCampaign = {
           ...campaign,
-          delivery_info: stats.delivery_info || stats,
+          delivery_info: deliveryInfo,
           statistics: typedStats as AcelleCampaignStatistics
         };
+        
+        return enrichedCampaign;
       } catch (error) {
         console.error(`Erreur lors de l'enrichissement de la campagne ${campaign.name}:`, error);
         return campaign;

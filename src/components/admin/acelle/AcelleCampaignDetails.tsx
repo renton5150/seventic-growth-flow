@@ -40,7 +40,8 @@ const AcelleCampaignDetails = ({
           // En mode démo, créer une campagne factice
           const demoCampaign = createDemoCampaign(campaignId);
           setCampaign(demoCampaign);
-          setStats(generateSimulatedStats());
+          const demoStats = generateSimulatedStats();
+          setStats(demoStats.delivery_info);
         } else {
           // Charger depuis le cache
           const campaigns = await fetchCampaignsFromCache([account]);
@@ -50,10 +51,37 @@ const AcelleCampaignDetails = ({
           
           if (foundCampaign) {
             setCampaign(foundCampaign);
+            console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
             
             // Récupérer les statistiques à jour
-            const freshStats = await getCampaignStatsDirectly(foundCampaign, account);
-            setStats(freshStats);
+            try {
+              console.log(`Récupération des statistiques pour la campagne ${campaignId}`);
+              const freshStats = await getCampaignStatsDirectly(foundCampaign, account);
+              console.log("Statistiques récupérées:", freshStats);
+              
+              // Utiliser les nouvelles statistiques ou celles déjà présentes
+              if (freshStats && Object.keys(freshStats).length > 0) {
+                if (freshStats.delivery_info) {
+                  setStats(freshStats.delivery_info);
+                } else if (freshStats.statistics) {
+                  setStats(freshStats.statistics);
+                } else {
+                  setStats(freshStats);
+                }
+              } else if (foundCampaign.delivery_info && Object.keys(foundCampaign.delivery_info).length > 0) {
+                setStats(foundCampaign.delivery_info);
+              } else if (foundCampaign.statistics && Object.keys(foundCampaign.statistics).length > 0) {
+                setStats(foundCampaign.statistics);
+              }
+            } catch (err) {
+              console.error("Erreur lors de la récupération des statistiques:", err);
+              // En cas d'erreur, utiliser les stats existantes
+              if (foundCampaign.delivery_info) {
+                setStats(foundCampaign.delivery_info);
+              } else if (foundCampaign.statistics) {
+                setStats(foundCampaign.statistics);
+              }
+            }
           } else {
             setError("Campagne non trouvée");
           }
@@ -111,6 +139,12 @@ const AcelleCampaignDetails = ({
     }
   };
 
+  useEffect(() => {
+    // Log des statistiques pour le débogage
+    console.log("Statistiques disponibles pour la campagne détaillée:", stats);
+    console.log("Campaign object:", campaign);
+  }, [stats, campaign]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -128,23 +162,63 @@ const AcelleCampaignDetails = ({
   }
 
   // Extraction des statistiques
-  const statsData = stats || campaign.delivery_info || campaign.statistics || {};
-  const { 
-    total = 0,
-    delivered = 0, 
-    opened = 0, 
-    clicked = 0, 
-    bounced = { total: 0 },
-    unsubscribed = 0,
-    complained = 0,
-    delivery_rate = 0,
-    open_rate = 0,
-    click_rate = 0
-  } = statsData;
+  const getStatValue = (key: string, defaultValue: number = 0): number => {
+    if (!stats) return defaultValue;
+    
+    if (typeof stats[key] === 'number') {
+      return stats[key];
+    }
+    
+    // Recherche de mappages alternatifs
+    const mappings: Record<string, string[]> = {
+      'total': ['subscriber_count', 'recipients_count'],
+      'delivered': ['delivered_count'],
+      'opened': ['open_count'],
+      'clicked': ['click_count'],
+      'delivery_rate': ['delivered_rate'],
+      'unique_open_rate': ['open_rate', 'uniq_open_rate'],
+      'click_rate': ['click_rate']
+    };
+    
+    if (mappings[key]) {
+      for (const altKey of mappings[key]) {
+        if (typeof stats[altKey] === 'number') {
+          return stats[altKey];
+        }
+      }
+    }
+    
+    // Gestion spéciale pour bounced
+    if (key === 'bounced' || key === 'total_bounces') {
+      if (typeof stats.bounced === 'object' && stats.bounced) {
+        return stats.bounced.total || defaultValue;
+      }
+      if (typeof stats.bounced === 'number') {
+        return stats.bounced;
+      }
+      if (typeof stats.bounce_count === 'number') {
+        return stats.bounce_count;
+      }
+    }
+    
+    return defaultValue;
+  };
 
-  const totalBounces = typeof bounced === 'object' ? bounced.total : bounced;
-  const softBounces = typeof bounced === 'object' ? bounced.soft : 0;
-  const hardBounces = typeof bounced === 'object' ? bounced.hard : 0;
+  // Valeurs statistiques avec extraction fiable
+  const total = getStatValue('total');
+  const delivered = getStatValue('delivered');
+  const opened = getStatValue('opened');
+  const clicked = getStatValue('clicked');
+  const totalBounces = getStatValue('bounced');
+  const softBounces = stats && stats.bounced && typeof stats.bounced === 'object' ? 
+    (stats.bounced.soft || 0) : 0;
+  const hardBounces = stats && stats.bounced && typeof stats.bounced === 'object' ? 
+    (stats.bounced.hard || 0) : 0;
+  const unsubscribed = getStatValue('unsubscribed');
+  const complained = getStatValue('complained');
+  const delivery_rate = getStatValue('delivery_rate');
+  const open_rate = getStatValue('unique_open_rate');
+  const click_rate = getStatValue('click_rate');
 
   return (
     <div className="space-y-6">

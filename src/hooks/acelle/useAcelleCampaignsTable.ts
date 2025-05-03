@@ -11,12 +11,32 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
 
   // Limiter à 5 campagnes par page après filtrage et tri
   const filteredCampaigns = useMemo(() => {
+    // Log pour le débogage
+    console.log(`Filtrage des campagnes: ${campaigns.length} disponibles`, {
+      searchTerm,
+      statusFilter,
+      sortBy,
+      sortOrder
+    });
+    
+    // S'assurer que campaigns est un tableau valide
+    if (!Array.isArray(campaigns)) {
+      console.warn("campaigns n'est pas un tableau valide", campaigns);
+      return [];
+    }
+    
     return campaigns
-      .filter(campaign => 
-        (campaign.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-        (campaign.subject?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
-      )
-      .filter(campaign => !statusFilter || campaign.status === statusFilter)
+      .filter(campaign => {
+        // Filtrage par terme de recherche
+        const nameMatch = campaign.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
+        const subjectMatch = campaign.subject?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
+        const matchesSearch = !searchTerm || nameMatch || subjectMatch;
+        
+        // Filtrage par statut
+        const matchesStatus = !statusFilter || campaign.status === statusFilter;
+        
+        return matchesSearch && matchesStatus;
+      })
       .sort((a, b) => {
         let valueA: any;
         let valueB: any;
@@ -28,14 +48,15 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
           valueA = a[sortBy]?.toLowerCase() || '';
           valueB = b[sortBy]?.toLowerCase() || '';
         } else if (sortBy === "open_rate") {
-          valueA = a.delivery_info?.unique_open_rate || a.statistics?.uniq_open_rate || 0;
-          valueB = b.delivery_info?.unique_open_rate || b.statistics?.uniq_open_rate || 0;
+          // Tentative de récupération du taux d'ouverture dans différents emplacements
+          valueA = getStatValue(a, 'open_rate', 'unique_open_rate', 'uniq_open_rate');
+          valueB = getStatValue(b, 'open_rate', 'unique_open_rate', 'uniq_open_rate');
         } else if (sortBy === "click_rate") {
-          valueA = a.delivery_info?.click_rate || a.statistics?.click_rate || 0;
-          valueB = b.delivery_info?.click_rate || b.statistics?.click_rate || 0;
+          valueA = getStatValue(a, 'click_rate');
+          valueB = getStatValue(b, 'click_rate');
         } else if (sortBy === "subscriber_count") {
-          valueA = a.delivery_info?.total || a.statistics?.subscriber_count || 0;
-          valueB = b.delivery_info?.total || b.statistics?.subscriber_count || 0;
+          valueA = getStatValue(a, 'subscriber_count', 'total');
+          valueB = getStatValue(b, 'subscriber_count', 'total');
         } else {
           valueA = 0;
           valueB = 0;
@@ -43,9 +64,40 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]) => {
 
         return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
       })
-      // Limiter à 5 résultats par page dans le hook
       .slice(0, 5);
   }, [campaigns, searchTerm, statusFilter, sortBy, sortOrder]);
+  
+  // Fonction helper pour récupérer des statistiques d'une campagne
+  const getStatValue = (campaign: AcelleCampaign, ...keys: string[]): number => {
+    if (!campaign) return 0;
+    
+    // Chercher dans delivery_info
+    if (campaign.delivery_info) {
+      for (const key of keys) {
+        if (typeof campaign.delivery_info[key] === 'number') {
+          return campaign.delivery_info[key];
+        }
+      }
+    }
+    
+    // Chercher dans statistics
+    if (campaign.statistics) {
+      for (const key of keys) {
+        if (typeof campaign.statistics[key] === 'number') {
+          return campaign.statistics[key];
+        }
+      }
+    }
+    
+    // Chercher directement dans la campagne
+    for (const key of keys) {
+      if (typeof campaign[key] === 'number') {
+        return campaign[key];
+      }
+    }
+    
+    return 0;
+  };
 
   return {
     searchTerm,
