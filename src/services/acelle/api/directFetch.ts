@@ -25,20 +25,20 @@ export const fetchCampaignStatsDirectly = async (
     console.log(`Récupération directe des statistiques pour ${campaign.name} (${campaignUid})`);
     
     // Vérifier si l'API endpoint est disponible
-    if (!account.api_endpoint || !account.api_token) {
+    if (!account.apiEndpoint || !account.apiToken) {
       console.error("Configuration API manquante pour le compte Acelle");
       return null;
     }
     
     // Construire l'URL avec timestamp pour éviter la mise en cache
     const timestamp = new Date().getTime();
-    const apiEndpoint = account.api_endpoint.endsWith('/') 
-      ? account.api_endpoint.slice(0, -1) 
-      : account.api_endpoint;
+    const apiEndpoint = account.apiEndpoint.endsWith('/') 
+      ? account.apiEndpoint.slice(0, -1) 
+      : account.apiEndpoint;
       
     // URL pour récupérer les détails d'une campagne spécifique avec ses statistiques
     const url = `${CORS_PROXY}?url=${encodeURIComponent(
-      `${apiEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${account.api_token}&include_stats=true&_t=${timestamp}`
+      `${apiEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${account.apiToken}&include_stats=true&_t=${timestamp}`
     )}`;
     
     console.log(`Requête API directe: ${url}`);
@@ -50,7 +50,7 @@ export const fetchCampaignStatsDirectly = async (
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        'X-Acelle-Key': account.api_token
+        'X-Acelle-Key': account.apiToken
       }
     });
     
@@ -86,7 +86,7 @@ export const fetchCampaignStatsDirectly = async (
     };
     
     // Enregistrer en cache
-    saveCampaignStatsToCache(campaignUid, account.id, stats, data);
+    saveCampaignStatsToCache(campaignUid, account.id, stats);
     
     return stats;
   } catch (error) {
@@ -101,8 +101,7 @@ export const fetchCampaignStatsDirectly = async (
 const saveCampaignStatsToCache = async (
   campaignUid: string,
   accountId: string,
-  statistics: AcelleCampaignStatistics,
-  rawData: any
+  statistics: AcelleCampaignStatistics
 ) => {
   try {
     // Convertir les statistiques en format delivery_info
@@ -128,9 +127,8 @@ const saveCampaignStatsToCache = async (
       campaign_uid: campaignUid,
       account_id: accountId,
       delivery_info: deliveryInfo,
-      raw_api_response: rawData,
-      cache_updated_at: new Date().toISOString(),
-      direct_fetch_at: new Date().toISOString()
+      direct_fetch_at: new Date().toISOString(),
+      cache_updated_at: new Date().toISOString()
     }, { onConflict: 'campaign_uid' });
     
     if (error) {
@@ -180,10 +178,13 @@ export const refreshAllCampaignStats = async (account: AcelleAccount): Promise<b
         // Convertir le format cache en format campagne
         const campaign: AcelleCampaign = {
           uid: cachedCampaign.campaign_uid,
-          name: cachedCampaign.name,
-          status: cachedCampaign.status,
-          created_at: cachedCampaign.created_at,
-          updated_at: cachedCampaign.updated_at
+          name: cachedCampaign.name || '',
+          subject: cachedCampaign.subject || '',
+          status: cachedCampaign.status || '',
+          created_at: cachedCampaign.created_at || '',
+          updated_at: cachedCampaign.updated_at || '',
+          delivery_date: cachedCampaign.delivery_date,
+          run_at: cachedCampaign.run_at
         };
         
         // Récupérer directement les statistiques
