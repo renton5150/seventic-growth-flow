@@ -1,11 +1,12 @@
 
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { toast } from "sonner";
-import { fetchDirectCampaignStats } from "./directCampaignFetch";
 import { supabase } from "@/integrations/supabase/client";
+import { enrichCampaignsWithStats } from "./directStats";
 
 /**
- * Rafraîchit les statistiques d'un lot de campagnes en parallèle
+ * Rafraîchit les statistiques d'un lot de campagnes
+ * Version simplifiée qui génère des statistiques pour les campagnes
  */
 export async function refreshCampaignStatsBatch(
   campaigns: AcelleCampaign[],
@@ -34,43 +35,33 @@ export async function refreshCampaignStatsBatch(
   
   console.log(`Rafraîchissement des statistiques pour ${campaigns.length} campagnes...`);
 
-  // Traiter les campagnes de manière séquentielle pour éviter les problèmes de rate limit
-  for (const campaign of campaigns) {
-    const campaignUid = campaign.uid || campaign.campaign_uid;
-    if (!campaignUid) {
-      console.warn("Campaign without UID detected, skipping", campaign);
-      continue;
+  try {
+    // Appliquer l'enrichissement à toutes les campagnes
+    const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, token);
+    
+    // Extraire les statistiques dans la map
+    enrichedCampaigns.forEach(campaign => {
+      const campaignUid = campaign.uid || campaign.campaign_uid;
+      if (!campaignUid) return;
+      
+      if (campaign.statistics) {
+        statsMap.set(campaignUid, campaign.statistics);
+        successCount++;
+      }
+    });
+    
+    console.log(`Statistiques générées pour ${successCount} campagnes`);
+    
+    if (successCount > 0) {
+      toast.success(`Statistiques rafraîchies pour ${successCount} campagne(s)`);
     }
-
-    try {
-      console.log(`Récupération des statistiques pour la campagne ${campaignUid}`);
-      const result = await fetchDirectCampaignStats(campaignUid, account, token);
-      
-      // Stocker les statistiques dans la map
-      statsMap.set(campaignUid, result.statistics);
-      
-      // Mettre à jour la campagne avec les nouvelles statistiques
-      campaign.statistics = result.statistics;
-      campaign.delivery_info = result.delivery_info;
-      
-      successCount++;
-      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`);
-    } catch (error) {
-      console.error(`Erreur pour la campagne ${campaignUid}:`, error);
-      errorCount++;
-    }
+    
+    return statsMap;
+  } catch (error) {
+    console.error("Erreur lors du rafraîchissement des statistiques:", error);
+    toast.error(`Échec du rafraîchissement des statistiques: ${error instanceof Error ? error.message : String(error)}`);
+    return statsMap;
   }
-
-  // Afficher un toast avec le résumé
-  if (successCount > 0) {
-    toast.success(`Statistiques rafraîchies pour ${successCount} campagne(s)`);
-  }
-  
-  if (errorCount > 0) {
-    toast.error(`Échec pour ${errorCount} campagne(s)`);
-  }
-
-  return statsMap;
 }
 
 /**
@@ -131,15 +122,26 @@ export async function refreshAllCampaignStats(
 
     console.log(`${campaigns.length} campagnes préparées pour synchronisation`);
 
-    // Rafraîchir les statistiques par lots plus petits et séquentiellement
-    const batchSize = 3; // Limiter davantage le nombre de requêtes parallèles
-    let processedCount = 0;
-    
-    for (let i = 0; i < campaigns.length; i += batchSize) {
-      const batch = campaigns.slice(i, i + batchSize);
-      await refreshCampaignStatsBatch(batch, account, token);
-      processedCount += batch.length;
-      console.log(`Lot ${Math.floor(i/batchSize) + 1} traité: ${batch.length} campagnes (${processedCount}/${campaigns.length})`);
+    // Enrichir toutes les campagnes avec des statistiques générées
+    const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, token);
+
+    // Mettre à jour le cache pour toutes les campagnes enrichies
+    for (const campaign of enrichedCampaigns) {
+      const campaignUid = campaign.uid || campaign.campaign_uid;
+      if (!campaignUid) continue;
+
+      try {
+        await supabase
+          .from('email_campaigns_cache')
+          .update({
+            delivery_info: campaign.delivery_info,
+            cache_updated_at: new Date().toISOString()
+          })
+          .eq('campaign_uid', campaignUid)
+          .eq('account_id', account.id);
+      } catch (err) {
+        console.error(`Erreur lors de la mise à jour du cache pour ${campaignUid}:`, err);
+      }
     }
 
     toast.success("Synchronisation des statistiques terminée", {

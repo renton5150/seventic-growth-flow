@@ -3,9 +3,9 @@ import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
-import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
-import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
 import { supabase } from "@/integrations/supabase/client";
 
 // Composants réutilisables
@@ -28,7 +28,6 @@ const AcelleCampaignDetails = ({
   demoMode = false
 }: AcelleCampaignDetailsProps) => {
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
-  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,9 +40,7 @@ const AcelleCampaignDetails = ({
       try {
         if (demoMode) {
           // Mode démo: créer une campagne factice avec des statistiques
-          const { campaignData, statsData } = await loadDemoCampaign(campaignId);
-          setCampaign(campaignData);
-          setStats(statsData);
+          await loadDemoCampaign(campaignId);
         } else {
           // Mode normal: charger depuis le cache et enrichir avec les statistiques
           await loadRealCampaign(campaignId, account);
@@ -65,7 +62,7 @@ const AcelleCampaignDetails = ({
     
     try {
       // 1. Essayer de trouver la campagne dans le cache en mémoire
-      const campaigns = await fetchCampaignsFromCache([acct]);
+      const campaigns = await fetchCampaignsFromCache([acct], 1, 50, true);
       let foundCampaign = campaigns.find(c => c.uid === id || c.campaign_uid === id);
       
       // 2. Si non trouvée, chercher directement dans la base de données
@@ -83,19 +80,17 @@ const AcelleCampaignDetails = ({
       }
       
       if (foundCampaign) {
-        console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
-        setCampaign(foundCampaign);
+        // Obtenir un token valide pour l'authentification
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token || "";
         
-        // Récupérer les statistiques complètes
-        const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct);
+        // Enrichir la campagne avec des statistiques
+        const enrichedCampaigns = await enrichCampaignsWithStats([foundCampaign], acct, token);
         
-        // Mettre à jour l'état et la campagne avec les statistiques
-        setStats(statsResult.statistics);
-        foundCampaign.statistics = statsResult.statistics;
-        
-        // Assurez-vous que delivery_info est du bon type
-        if (statsResult.delivery_info) {
-          foundCampaign.delivery_info = statsResult.delivery_info as DeliveryInfo;
+        if (enrichedCampaigns && enrichedCampaigns.length > 0) {
+          setCampaign(enrichedCampaigns[0]);
+        } else {
+          setCampaign(foundCampaign);
         }
       } else {
         setError("Campagne non trouvée");
@@ -124,13 +119,17 @@ const AcelleCampaignDetails = ({
       last_error: null
     };
     
-    // Générer des statistiques
-    const { statistics } = await fetchAndProcessCampaignStats(campaignData, null!, { demoMode: true });
+    // Obtenir un token vide (pas nécessaire en mode démo)
+    const token = "";
     
-    // Attribuer les statistiques à la campagne
-    campaignData.statistics = statistics;
+    // Enrichir la campagne avec des statistiques
+    const enrichedCampaigns = await enrichCampaignsWithStats([campaignData], {} as AcelleAccount, token);
     
-    return { campaignData, statsData: statistics };
+    if (enrichedCampaigns && enrichedCampaigns.length > 0) {
+      setCampaign(enrichedCampaigns[0]);
+    } else {
+      setCampaign(campaignData);
+    }
   };
 
   // Afficher un spinner pendant le chargement
@@ -152,7 +151,7 @@ const AcelleCampaignDetails = ({
   }
 
   // Utiliser les statistiques de la campagne ou créer un objet vide
-  const campaignStats = stats || campaign.statistics || {
+  const campaignStats = campaign.statistics || {
     subscriber_count: 0,
     delivered_count: 0,
     delivered_rate: 0,
