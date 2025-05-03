@@ -36,6 +36,12 @@ export const useCampaignStatsCache = (options: UseCampaignStatsCacheOptions = {}
   
   // Fonction pour stocker des statistiques dans le cache
   const cacheStats = useCallback((campaignUid: string, statistics: AcelleCampaignStatistics) => {
+    // Vérifier les données d'entrée
+    if (!campaignUid || !statistics) {
+      console.warn("[StatsCache] Tentative de mise en cache avec des données invalides", { campaignUid, statistics });
+      return null;
+    }
+    
     const now = Date.now();
     const cache = cacheRef.current;
     
@@ -58,6 +64,12 @@ export const useCampaignStatsCache = (options: UseCampaignStatsCacheOptions = {}
       }
     }
     
+    // S'assurer que statistics est un objet valide
+    if (typeof statistics !== 'object') {
+      console.error("[StatsCache] Format de statistiques invalide", statistics);
+      return null;
+    }
+    
     // Ajouter ou mettre à jour l'entrée dans le cache
     cache.set(campaignUid, {
       campaignUid,
@@ -78,6 +90,11 @@ export const useCampaignStatsCache = (options: UseCampaignStatsCacheOptions = {}
   
   // Fonction pour récupérer des statistiques du cache
   const getStatsFromCache = useCallback((campaignUid: string): AcelleCampaignStatistics | null => {
+    if (!campaignUid) {
+      console.warn("[StatsCache] Tentative de récupération avec un UID invalide");
+      return null;
+    }
+    
     const cache = cacheRef.current;
     const now = Date.now();
     

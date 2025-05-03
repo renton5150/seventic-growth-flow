@@ -31,7 +31,11 @@ export const AcelleTableRow = ({
   const { getStatsFromCache, cacheStats } = useCampaignStatsCache();
   
   // État local pour les statistiques
-  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
+  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(
+    campaign.statistics && Object.keys(campaign.statistics).length > 0 
+      ? campaign.statistics 
+      : null
+  );
   const [isLoading, setIsLoading] = useState(false);
   
   // Garantir la présence d'un UID valide
@@ -50,7 +54,14 @@ export const AcelleTableRow = ({
     const loadCampaignStats = async () => {
       if (!campaignUid) return;
       
-      console.log(`Initialisation des statistiques pour la campagne ${campaignName}`);
+      // Vérifier si nous avons déjà les statistiques chargées dans l'état local
+      if (stats) {
+        // Notifier le parent que les statistiques sont chargées
+        if (onStatsLoaded) {
+          onStatsLoaded(campaignUid, stats);
+        }
+        return;
+      }
       
       // D'abord vérifier si les statistiques sont déjà présentes dans la campagne
       if (campaign.statistics && Object.keys(campaign.statistics).length > 0) {
@@ -58,6 +69,12 @@ export const AcelleTableRow = ({
         setStats(campaign.statistics);
         // Mettre à jour le cache avec ces statistiques
         cacheStats(campaignUid, campaign.statistics);
+        
+        // Notifier le parent que les statistiques sont chargées
+        if (onStatsLoaded) {
+          onStatsLoaded(campaignUid, campaign.statistics);
+        }
+        
         return;
       }
       
@@ -111,10 +128,8 @@ export const AcelleTableRow = ({
       }
     };
     
-    // Petit délai pour éviter trop de requêtes simultanées lors du chargement du tableau
-    const timeoutId = setTimeout(loadCampaignStats, Math.random() * 300);
-    return () => clearTimeout(timeoutId);
-  }, [campaign, account, campaignName, campaignUid, demoMode, cacheStats, getStatsFromCache, onStatsLoaded]);
+    loadCampaignStats();
+  }, [campaign, account, campaignName, campaignUid, demoMode, cacheStats, getStatsFromCache, onStatsLoaded, stats]);
 
   // Formatage sécurisé des dates
   const formatDateSafely = (dateString: string | null | undefined) => {
@@ -128,8 +143,13 @@ export const AcelleTableRow = ({
     }
   };
 
-  // Utiliser notre service pour extraire rapidement les statistiques importantes
-  const { totalSent, openRate, clickRate, bounceCount } = extractQuickStats(campaign);
+  // Utiliser les statistiques de l'état local ou celles de la campagne
+  const currentStats = stats || campaign.statistics;
+  
+  // Extraire les statistiques importantes
+  const { totalSent, openRate, clickRate, bounceCount } = currentStats 
+    ? extractQuickStats({ ...campaign, statistics: currentStats })
+    : { totalSent: 0, openRate: 0, clickRate: 0, bounceCount: 0 };
 
   const handleViewCampaign = () => {
     console.log(`Affichage des détails pour la campagne ${campaignUid}`, { campaign });

@@ -49,7 +49,7 @@ export async function batchFetchCampaignStats(
       }
     });
 
-    // Exécuter toutes les promesses en parallèle avec une limite de 5 à la fois
+    // Exécuter toutes les promesses en parallèle
     await Promise.all(fetchPromises);
     
     console.log(`[BatchFetch] ${statsMap.size}/${campaigns.length} statistiques récupérées avec succès`);
