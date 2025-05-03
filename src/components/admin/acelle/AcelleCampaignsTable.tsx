@@ -16,7 +16,6 @@ import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
 import { CampaignsTableHeader } from "./table/TableHeader";
 import { CampaignsTablePagination } from "./table/TablePagination";
-import { AcelleTableSyncHeader } from "./table/AcelleTableSyncHeader";
 import {
   TableLoadingState,
   TableErrorState,
@@ -31,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Bug, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
-import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
+import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
 
 interface AcelleCampaignsTableProps {
@@ -47,6 +46,8 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   const [retryCount, setRetryCount] = useState(0);
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -55,18 +56,15 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   const [error, setError] = useState<Error | null>(null);
   const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
   
-  // Utiliser notre hook de synchronisation avec une période de 5 minutes
+  // Utiliser notre hook useCampaignCache pour les opérations de cache
   const { 
-    isSyncing, 
-    syncError, 
-    lastSyncTime, 
-    forceSyncNow,
-    campaignsCount,
-    accessToken
-  } = useCampaignSync({
-    account,
-    syncInterval: 5 * 60 * 1000 // 5 minutes
-  });
+    campaignsCount, 
+    getCachedCampaignsCount, 
+    clearAccountCache,
+    checkCacheStatistics,
+    lastRefreshTimestamp,
+    isCacheBusy
+  } = useCampaignCache(account);
   
   // Create a refetch function to reload the campaigns
   const refetch = useCallback(async () => {
@@ -96,11 +94,41 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
       setIsLoading(false);
     }
   }, [account, currentPage, demoMode, itemsPerPage]);
+
+  // Obtenir le token d'authentification dès le montage du composant
+  useEffect(() => {
+    const getAuthToken = async () => {
+      try {
+        console.log("Récupération du token d'authentification pour les requêtes API");
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        
+        if (token) {
+          console.log("Token d'authentification récupéré avec succès");
+          setAccessToken(token);
+        } else {
+          console.error("Aucun token d'authentification disponible dans la session");
+          toast.error("Erreur d'authentification: Impossible de récupérer le token d'authentification");
+          
+          // Activer le mode démo automatiquement si pas d'authentification
+          enableDemoMode(true);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération du token d'authentification:", error);
+        toast.error("Erreur lors de la récupération du token d'authentification");
+        
+        // Activer le mode démo automatiquement en cas d'erreur d'authentification
+        enableDemoMode(true);
+      }
+    };
+    
+    getAuthToken();
+  }, []);
   
   // Fetch campaigns when page changes or account changes
   useEffect(() => {
     refetch();
-  }, [refetch, currentPage, account, campaignsCount]);
+  }, [refetch, currentPage, account]);
 
   // Calcul du nombre total de pages en fonction du nombre total de campagnes
   useEffect(() => {
@@ -217,14 +245,30 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
 
   // Synchroniser manuellement les campagnes
   const handleSync = useCallback(async () => {
-    try {
-      await forceSyncNow();
-      await refetch();
-    } catch (err) {
-      console.error("Erreur lors de la synchronisation manuelle:", err);
-      toast.error("Erreur lors de la synchronisation", { id: "sync" });
+    if (!accessToken || !account) {
+      toast.error("Impossible de synchroniser: token ou compte manquant", { id: "sync" });
+      return;
     }
-  }, [forceSyncNow, refetch]);
+    
+    setIsSyncing(true);
+    
+    try {
+      toast.loading("Synchronisation des campagnes...", { id: "sync" });
+      const result = await forceSyncCampaigns(account, accessToken);
+      
+      if (result.success) {
+        toast.success(result.message, { id: "sync" });
+        await refetch();
+      } else {
+        toast.error(result.message, { id: "sync" });
+      }
+    } catch (err) {
+      console.error("Erreur lors de la synchronisation:", err);
+      toast.error("Erreur lors de la synchronisation des campagnes", { id: "sync" });
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [accessToken, account, refetch]);
 
   // Traitement des campagnes filtrées avec le hook
   const {
@@ -312,7 +356,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
             variant="outline"
             size="sm"
             onClick={handleSync}
-            disabled={isSyncing}
+            disabled={isSyncing || !accessToken}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
             Synchroniser
@@ -329,29 +373,11 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         </div>
       </div>
       
-      {!demoMode && (
-        <AcelleTableSyncHeader
-          lastSyncTime={lastSyncTime}
-          isSyncing={isSyncing}
-          onSyncClick={handleSync}
-          className="mb-4"
-        />
-      )}
-      
       {connectionError && (
         <Card className="bg-amber-50 border-amber-200">
           <CardContent className="p-4 text-amber-800 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             <p>{connectionError}</p>
-          </CardContent>
-        </Card>
-      )}
-      
-      {syncError && (
-        <Card className="bg-red-50 border-red-200 mb-4">
-          <CardContent className="p-4 text-red-800 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            <p>{syncError}</p>
           </CardContent>
         </Card>
       )}

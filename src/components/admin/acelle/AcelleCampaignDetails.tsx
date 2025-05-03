@@ -7,15 +7,12 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo }
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
 import { supabase } from "@/integrations/supabase/client";
-import { useCampaignSync } from "@/hooks/acelle/useCampaignSync";
-import { toast } from "sonner";
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
 import { CampaignGeneralInfo } from "./detail/CampaignGeneralInfo";
 import { CampaignGlobalStats } from "./detail/CampaignGlobalStats";
 import { CampaignTechnicalInfo } from "./detail/CampaignTechnicalInfo";
-import { CampaignSyncControls } from "./sync/CampaignSyncControls";
 
 interface AcelleCampaignDetailsProps {
   campaignId: string;
@@ -34,18 +31,6 @@ const AcelleCampaignDetails = ({
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Utiliser notre hook de synchronisation
-  const { 
-    isSyncing, 
-    syncError, 
-    lastSyncTime, 
-    forceSyncNow, 
-    campaignsCount 
-  } = useCampaignSync({
-    account,
-    syncInterval: 5 * 60 * 1000 // 5 minutes
-  });
 
   // Chargement des détails de la campagne
   useEffect(() => {
@@ -147,25 +132,6 @@ const AcelleCampaignDetails = ({
     
     return { campaignData, statsData: statistics };
   };
-  
-  // Fonction pour forcer une synchronisation et recharger la campagne
-  const handleForceSyncAndRefresh = async () => {
-    if (!demoMode && account) {
-      try {
-        toast.loading("Synchronisation en cours...");
-        await forceSyncNow();
-        
-        // Recharger les données de la campagne après synchronisation
-        if (campaign && campaignId) {
-          await loadRealCampaign(campaignId, account);
-          toast.success("Les données de la campagne ont été synchronisées et actualisées");
-        }
-      } catch (err) {
-        toast.error("Erreur lors de la synchronisation");
-        console.error("Erreur de synchronisation:", err);
-      }
-    }
-  };
 
   // Afficher un spinner pendant le chargement
   if (isLoading) {
@@ -203,16 +169,6 @@ const AcelleCampaignDetails = ({
 
   return (
     <div className="space-y-6">
-      {!demoMode && (
-        <CampaignSyncControls
-          lastSyncTime={lastSyncTime}
-          isSyncing={isSyncing}
-          campaignsCount={campaignsCount}
-          onSyncClick={handleForceSyncAndRefresh}
-          syncError={syncError}
-        />
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <CampaignGeneralInfo campaign={campaign} />
         <CampaignGlobalStats statistics={campaignStats} />
