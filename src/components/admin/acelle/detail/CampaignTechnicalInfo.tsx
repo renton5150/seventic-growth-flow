@@ -1,142 +1,82 @@
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
-import { AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 interface CampaignTechnicalInfoProps {
   campaign: AcelleCampaign;
-  demoMode?: boolean;
-  hasSimulatedStats?: boolean;
-  noStatsAvailable?: boolean;
+  noStatsAvailable: boolean;
 }
 
-export const CampaignTechnicalInfo = ({ 
-  campaign, 
-  demoMode = false,
-  hasSimulatedStats = false,
-  noStatsAvailable = false
+export const CampaignTechnicalInfo = ({
+  campaign,
+  noStatsAvailable
 }: CampaignTechnicalInfoProps) => {
-  if (!campaign) return null;
-
-  // Formatage sécurisé des dates
-  const formatDateSafely = (dateString: string | null | undefined) => {
-    if (!dateString) return "Non défini";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "Date invalide";
-      return format(date, "dd/MM/yyyy HH:mm", { locale: fr });
-    } catch {
-      return "Date invalide";
-    }
-  };
-
-  // Traduction du statut
-  const translateStatus = (status: string): string => {
-    const translations: Record<string, string> = {
-      "new": "Nouveau",
-      "queued": "En attente",
-      "sending": "En envoi",
-      "sent": "Envoyé",
-      "paused": "En pause",
-      "failed": "Échoué"
-    };
-    
-    return translations[status] || status;
-  };
-
   return (
     <div className="space-y-4">
+      {/* Informations sur les statistiques */}
+      {!noStatsAvailable && (
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-500 mr-2" />
+          <AlertDescription className="text-blue-800">
+            Les statistiques affichées sont des données réelles provenant de l'API Acelle.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Informations techniques */}
       <Card>
         <CardHeader>
-          <CardTitle>Informations de la campagne</CardTitle>
+          <CardTitle className="text-base">Informations techniques</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-            <div className="flex flex-col">
-              <span className="text-sm text-muted-foreground">Identifiant</span>
-              <span>{campaign.uid || campaign.campaign_uid || "Non défini"}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm text-muted-foreground">Statut</span>
-              <div className="flex items-center gap-2">
-                <Badge variant={campaign.status === "sent" ? "success" : "secondary"}>
-                  {translateStatus(campaign.status)}
-                </Badge>
+        <CardContent className="space-y-4">
+          <div>
+            <h4 className="font-medium mb-1">Identifiants</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="p-2 bg-muted rounded-md">
+                <p className="text-xs text-muted-foreground">UID</p>
+                <p className="font-mono text-sm break-all">{campaign.uid || campaign.campaign_uid || 'N/A'}</p>
+              </div>
+              <div className="p-2 bg-muted rounded-md">
+                <p className="text-xs text-muted-foreground">Type</p>
+                <p className="font-mono text-sm">{campaign.type || 'standard'}</p>
               </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm text-muted-foreground">Créée le</span>
-              <span>{formatDateSafely(campaign.created_at)}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm text-muted-foreground">Mise à jour le</span>
-              <span>{formatDateSafely(campaign.updated_at)}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm text-muted-foreground">Date d'envoi</span>
-              <span>{formatDateSafely(campaign.delivery_date || campaign.run_at)}</span>
-            </div>
-            {campaign.last_error && (
-              <div className="flex flex-col col-span-2">
-                <span className="text-sm text-muted-foreground">Dernière erreur</span>
-                <span className="text-red-500">{campaign.last_error}</span>
-              </div>
-            )}
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Statistiques
-            {noStatsAvailable && (
-              <span className="text-sm font-normal text-red-600 flex items-center">
-                <AlertTriangle className="h-4 w-4 mr-1" />
-                Non disponibles
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {noStatsAvailable ? (
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500" />
-                <p className="text-sm">
-                  <strong>Aucune statistique n'est disponible pour cette campagne.</strong>
-                  <span className="block mt-1">
-                    Pour obtenir des statistiques réelles, essayez de synchroniser les données depuis l'API Acelle.
-                    Si après synchronisation les statistiques restent indisponibles, il est possible que les données n'aient 
-                    pas encore été enregistrées par le serveur d'emailing.
-                  </span>
+          
+          <div>
+            <h4 className="font-medium mb-1">Dates et statut</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="p-2 bg-muted rounded-md">
+                <p className="text-xs text-muted-foreground">Créée le</p>
+                <p className="font-mono text-sm">
+                  {campaign.created_at ? new Date(campaign.created_at).toLocaleString() : 'N/A'}
                 </p>
               </div>
-            ) : (
-              <div className="flex items-start gap-2">
-                <Info className="h-5 w-5 text-blue-500" />
-                <p className="text-sm">
-                  <strong>Les statistiques affichées sont réelles.</strong>
-                  <span className="block mt-1">
-                    Ces données ont été récupérées depuis l'API Acelle ou le cache de la base de données.
-                  </span>
+              <div className="p-2 bg-muted rounded-md">
+                <p className="text-xs text-muted-foreground">Envoyée le</p>
+                <p className="font-mono text-sm">
+                  {campaign.delivery_date ? new Date(campaign.delivery_date).toLocaleString() : 'N/A'}
                 </p>
               </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-              <div className="flex flex-col">
-                <span className="text-sm text-muted-foreground">Source des données</span>
-                <span>{noStatsAvailable ? "Aucune donnée disponible" : "API Acelle ou cache de la base de données"}</span>
+            </div>
+          </div>
+          
+          {campaign.last_error && (
+            <div>
+              <h4 className="font-medium mb-1">Dernière erreur</h4>
+              <div className="p-2 bg-red-50 border-red-100 border rounded-md">
+                <p className="text-sm text-red-800">{campaign.last_error}</p>
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm text-muted-foreground">Type de données</span>
-                <span>{noStatsAvailable ? "Aucune donnée disponible" : "Données réelles"}</span>
-              </div>
+            </div>
+          )}
+          
+          <div>
+            <h4 className="font-medium mb-1">Métadonnées brutes</h4>
+            <div className="p-2 bg-muted rounded-md overflow-auto max-h-60">
+              <pre className="text-xs">{JSON.stringify(campaign, null, 2)}</pre>
             </div>
           </div>
         </CardContent>

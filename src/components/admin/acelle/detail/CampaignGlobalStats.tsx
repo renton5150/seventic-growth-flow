@@ -2,6 +2,7 @@
 import React from "react";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 import { AlertTriangle } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 interface CampaignGlobalStatsProps {
   statistics?: AcelleCampaignStatistics;
@@ -11,12 +12,12 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
   // Si aucune statistique n'est fournie
   if (!statistics) {
     return (
-      <div className="relative">
+      <Card className="p-4">
         <h3 className="font-medium mb-2">Statistiques globales</h3>
         <div className="text-center py-4 text-gray-500">
           Aucune statistique disponible
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -46,10 +47,8 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
   const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
 
   return (
-    <div className="relative">
-      <h3 className="font-medium mb-2 flex items-center">
-        Statistiques globales
-      </h3>
+    <Card className="p-4">
+      <h3 className="font-medium mb-2">Statistiques globales</h3>
       <div className="space-y-2">
         <div className="flex justify-between">
           <span className="text-gray-600">Destinataires:</span>
@@ -76,6 +75,6 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
           <span>{formatNumber(unsubscribed)}</span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };

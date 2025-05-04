@@ -859,3 +859,23 @@ serve(async (req: Request) => {
     });
   }
 });
+
+const updateStatsCache = async (campaign: any, accountId: string) => {
+  if (campaign && campaign.statistics && campaign.uid) {
+    try {
+      // Vérifier si les statistiques contiennent des données réelles
+      const hasRealData = 
+        (campaign.statistics.subscriber_count > 0) || 
+        (campaign.statistics.delivered_count > 0) ||
+        (campaign.statistics.open_count > 0);
+      
+      if (hasRealData) {
+        debugLog(`Mise à jour du cache de statistiques pour la campagne ${campaign.uid}`, {}, LOG_LEVELS.DEBUG);
+        
+        // Upsert dans la table campaign_stats_cache
+        const { error } = await supabase
+          .from('campaign_stats_cache')
+          .upsert({
+            campaign_uid: campaign.uid,
+            account_id: accountId,
+            statistics: campaign.statistics,

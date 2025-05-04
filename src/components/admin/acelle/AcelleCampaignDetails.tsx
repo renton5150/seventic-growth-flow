@@ -4,11 +4,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, Info, RefreshCw } from "lucide-react";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
+import { Button } from "@/components/ui/button";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
+
+// Import du nouveau hook pour les statistiques
+import { useSmartCampaignStats } from "@/hooks/acelle/useSmartCampaignStats";
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
@@ -20,19 +24,29 @@ interface AcelleCampaignDetailsProps {
   campaignId: string;
   account: AcelleAccount;
   onClose: () => void;
-  demoMode?: boolean;
 }
 
 const AcelleCampaignDetails = ({ 
   campaignId, 
   account, 
   onClose,
-  demoMode = false
 }: AcelleCampaignDetailsProps) => {
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noStatsAvailable, setNoStatsAvailable] = useState(false);
+  
+  // Utiliser le hook pour les statistiques
+  const { 
+    statistics, 
+    isLoading: statsLoading, 
+    loadStatistics,
+    lastUpdated
+  } = useSmartCampaignStats({
+    campaign,
+    account,
+    autoLoad: false // Ne pas charger automatiquement, nous le ferons manuellement après avoir la campagne
+  });
 
   // Chargement des détails de la campagne
   useEffect(() => {
@@ -42,13 +56,18 @@ const AcelleCampaignDetails = ({
       setNoStatsAvailable(false);
       
       try {
-        if (demoMode) {
-          // Mode démo est désactivé pour empêcher l'utilisation de données simulées
-          setError("Mode démo désactivé - seules des données réelles sont autorisées");
-        } else {
-          // Mode normal: charger depuis le cache et n'utiliser que des statistiques réelles
-          await loadRealCampaign(campaignId, account);
+        // Charger la campagne depuis la base de données
+        const loadedCampaign = await fetchCampaignById(campaignId, account.id);
+        
+        if (!loadedCampaign) {
+          throw new Error("Impossible de récupérer les détails de la campagne");
         }
+        
+        console.log(`Campagne ${loadedCampaign.name} chargée`, loadedCampaign);
+        setCampaign(loadedCampaign);
+        
+        // Une fois la campagne chargée, utiliser notre hook pour charger les statistiques
+        loadStatistics(true);
       } catch (err) {
         console.error("Erreur lors du chargement des détails de la campagne:", err);
         setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -58,96 +77,27 @@ const AcelleCampaignDetails = ({
     };
     
     loadCampaignDetails();
-  }, [campaignId, account, demoMode]);
+  }, [campaignId, account, loadStatistics]);
 
-  // Fonction pour charger une campagne réelle depuis le cache ou directement depuis la base de données
-  const loadRealCampaign = async (id: string, acct: AcelleAccount) => {
-    console.log(`Récupération des statistiques pour la campagne ${id}`);
+  // Effet pour mettre à jour le statut des statistiques quand statistics change
+  useEffect(() => {
+    if (campaign && statistics) {
+      // Mettre à jour la campagne avec les statistiques récupérées
+      setCampaign(prev => prev ? { ...prev, statistics } : null);
+      setNoStatsAvailable(false);
+    } else if (campaign && !statistics) {
+      setNoStatsAvailable(true);
+    }
+  }, [campaign, statistics]);
+
+  const handleRefreshStats = async () => {
+    if (!campaign) return;
     
     try {
-      // 1. Essayer de trouver la campagne dans le cache en mémoire
-      const campaigns = await fetchCampaignsFromCache([acct], 1, 50, true);
-      let foundCampaign = campaigns.find(c => c.uid === id || c.campaign_uid === id);
-      
-      // 2. Si non trouvée, chercher directement dans la base de données
-      if (!foundCampaign) {
-        console.log(`Campagne ${id} non trouvée en cache, recherche dans la base de données`);
-        
-        // Utiliser la fonction fetchCampaignById pour récupérer les données
-        foundCampaign = await fetchCampaignById(id, acct.id);
-        
-        if (!foundCampaign) {
-          throw new Error("Impossible de récupérer les détails de la campagne");
-        }
-        
-        console.log(`Campagne ${foundCampaign.name} trouvée dans la base de données`, foundCampaign);
-      }
-      
-      if (foundCampaign) {
-        // Vérifier si la campagne a des statistiques réelles
-        const hasValidStats = 
-          foundCampaign.statistics && 
-          foundCampaign.statistics.subscriber_count > 0;
-        
-        const hasValidDeliveryInfo =
-          foundCampaign.delivery_info &&
-          (typeof foundCampaign.delivery_info.total === 'number' && foundCampaign.delivery_info.total > 0);
-          
-        console.log(`Vérification des statistiques pour ${foundCampaign.name}:`, {
-          hasValidStats,
-          hasValidDeliveryInfo,
-          stats: foundCampaign.statistics,
-          deliveryInfo: foundCampaign.delivery_info
-        });
-          
-        if (hasValidStats || hasValidDeliveryInfo) {
-          console.log(`La campagne ${foundCampaign.name} a des statistiques réelles, utilisation des données existantes`);
-          setCampaign(foundCampaign);
-        } else {
-          console.log(`La campagne ${foundCampaign.name} n'a pas de statistiques valides`);
-          
-          try {
-            // Obtenir un token valide pour l'authentification
-            const { data: sessionData } = await supabase.auth.getSession();
-            const token = sessionData?.session?.access_token || "";
-            
-            // Essayer d'enrichir la campagne avec des statistiques réelles uniquement
-            console.log("Tentative d'enrichissement de la campagne avec des statistiques réelles...");
-            const enrichedCampaigns = await enrichCampaignsWithStats([foundCampaign], acct, token);
-            
-            if (enrichedCampaigns && enrichedCampaigns.length > 0) {
-              const enrichedCampaign = enrichedCampaigns[0];
-              console.log("Campagne enrichie:", enrichedCampaign);
-              
-              // Vérifier à nouveau si des statistiques réelles sont disponibles après enrichissement
-              if (enrichedCampaign.statistics || 
-                  (enrichedCampaign.delivery_info && 
-                   typeof enrichedCampaign.delivery_info.total === 'number' && 
-                   enrichedCampaign.delivery_info.total > 0)) {
-                console.log("Statistiques réelles trouvées après enrichissement");
-                setCampaign(enrichedCampaign);
-              } else {
-                console.log("Aucune statistique réelle trouvée, même après enrichissement");
-                setCampaign(foundCampaign); // Utiliser la campagne sans statistiques
-                setNoStatsAvailable(true);
-              }
-            } else {
-              console.log("Aucune campagne enrichie retournée");
-              setCampaign(foundCampaign); // Utiliser la campagne sans statistiques
-              setNoStatsAvailable(true);
-            }
-          } catch (enrichError) {
-            console.error("Erreur lors de l'enrichissement de la campagne:", enrichError);
-            setCampaign(foundCampaign); // Utiliser la campagne sans statistiques
-            setNoStatsAvailable(true);
-          }
-        }
-      } else {
-        setError("Campagne non trouvée");
-      }
+      await loadStatistics(true); // Forcer le rafraîchissement
     } catch (err) {
-      console.error("Erreur lors du chargement de la campagne:", err);
-      setError(err instanceof Error ? err.message : "Erreur lors du chargement de la campagne");
+      console.error("Erreur lors du rafraîchissement des statistiques:", err);
+      setError("Erreur lors du rafraîchissement des statistiques");
     }
   };
 
@@ -181,15 +131,33 @@ const AcelleCampaignDetails = ({
         </Alert>
       )}
       
-      {/* Information sur les données */}
-      {!noStatsAvailable && (
-        <Alert variant="default" className="bg-green-50 border-green-200">
-          <Info className="h-4 w-4 text-green-500 mr-2" />
-          <AlertDescription className="text-green-800">
-            Affichage des données réelles de la campagne.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Information sur les données et bouton de rafraîchissement */}
+      <div className="flex flex-col sm:flex-row justify-between items-center">
+        {!noStatsAvailable && (
+          <Alert variant="default" className="bg-green-50 border-green-200 flex-grow">
+            <Info className="h-4 w-4 text-green-500 mr-2" />
+            <AlertDescription className="text-green-800">
+              Affichage des données réelles de la campagne
+              {lastUpdated && (
+                <span className="ml-1 text-xs text-green-600">
+                  (mise à jour {formatDistanceToNow(lastUpdated, { addSuffix: true, locale: fr })})
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefreshStats} 
+          disabled={statsLoading}
+          className="mt-2 sm:mt-0 sm:ml-2"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${statsLoading ? "animate-spin" : ""}`} />
+          Actualiser les stats
+        </Button>
+      </div>
       
       {/* Informations générales et statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -233,8 +201,6 @@ const AcelleCampaignDetails = ({
         <TabsContent value="technical" className="py-4">
           <CampaignTechnicalInfo 
             campaign={campaign} 
-            demoMode={demoMode}
-            hasSimulatedStats={false}
             noStatsAvailable={noStatsAvailable}
           />
         </TabsContent>
