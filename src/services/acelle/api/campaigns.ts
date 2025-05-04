@@ -1,5 +1,5 @@
 
-import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, CachedCampaign } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
 import { enrichCampaignsWithStats } from "./directStats";
@@ -194,6 +194,70 @@ export const generateDemoCampaigns = (count: number = 10): AcelleCampaign[] => {
       }
     };
   });
+};
+
+/**
+ * Fonction manquante pour extraire les campagnes du cache
+ */
+export const extractCampaignsFromCache = (cachedCampaigns: CachedCampaign[]): AcelleCampaign[] => {
+  if (!cachedCampaigns || cachedCampaigns.length === 0) {
+    return [];
+  }
+
+  return cachedCampaigns.map(item => ({
+    uid: item.campaign_uid,
+    campaign_uid: item.campaign_uid,
+    name: item.name,
+    subject: item.subject,
+    status: item.status,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+    delivery_date: item.delivery_date,
+    run_at: item.run_at,
+    delivery_info: item.delivery_info,
+    last_error: item.last_error
+  }));
+};
+
+/**
+ * Fonction pour obtenir le statut du cache
+ */
+export const getCacheStatus = async (accountId: string): Promise<{
+  count: number;
+  lastUpdated: string | null;
+  hasData: boolean;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('cache_updated_at')
+      .eq('account_id', accountId)
+      .order('cache_updated_at', { ascending: false })
+      .limit(1);
+
+    if (error || !data || data.length === 0) {
+      return { count: 0, lastUpdated: null, hasData: false };
+    }
+    
+    // Compter le nombre total d'entrées pour ce compte
+    const { count, error: countError } = await supabase
+      .from('email_campaigns_cache')
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', accountId);
+    
+    if (countError) {
+      return { count: 0, lastUpdated: data[0].cache_updated_at, hasData: true };
+    }
+    
+    return {
+      count: count || 0,
+      lastUpdated: data[0].cache_updated_at,
+      hasData: true
+    };
+  } catch (error) {
+    console.error("Erreur lors de la vérification du statut du cache:", error);
+    return { count: 0, lastUpdated: null, hasData: false };
+  }
 };
 
 /**

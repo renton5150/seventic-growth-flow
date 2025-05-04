@@ -1,5 +1,5 @@
 
-import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
+import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics, CampaignStatsCache } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
@@ -52,7 +52,7 @@ export const fetchAndProcessCampaignStats = async (
           const statistics = typeof cachedStats.statistics === 'string' 
             ? JSON.parse(cachedStats.statistics) 
             : cachedStats.statistics;
-            
+          
           const delivery_info = typeof cachedStats.delivery_info === 'string'
             ? JSON.parse(cachedStats.delivery_info)
             : cachedStats.delivery_info;
@@ -147,11 +147,12 @@ export const fetchAndProcessCampaignStats = async (
         .from('campaign_stats_cache')
         .upsert({
           campaign_uid: campaignUid,
+          account_id: account.id,
           statistics: statistics as any,
-          delivery_info,
+          delivery_info: delivery_info as any,
           last_updated: new Date().toISOString()
         }, {
-          onConflict: 'campaign_uid'
+          onConflict: 'account_id,campaign_uid'
         });
       
       console.log(`Statistiques mises en cache pour ${campaignUid}`);

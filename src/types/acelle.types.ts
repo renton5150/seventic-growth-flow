@@ -1,3 +1,4 @@
+
 export interface AcelleAccount {
   id: string;
   created_at: string;
@@ -5,15 +6,15 @@ export interface AcelleAccount {
   api_endpoint: string;
   api_token: string;
   status: 'active' | 'inactive' | 'error';
-  lastSyncDate: string | null;
-  lastSyncError: string | null;
-  cachePriority: number;
+  last_sync_date: string | null;
+  last_sync_error: string | null;
+  cache_priority: number;
   
   // Propriétés additionnelles utilisées dans le code
-  missionId?: string;
-  missionName?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  mission_id?: string;
+  mission_name?: string;
+  created_at?: string;
+  updated_at?: string;
   updated_at?: string;
 }
 
@@ -184,4 +185,14 @@ export interface AcelleConnectionLog {
   request_url?: string;
   request_method?: string;
   response_data?: any;
+}
+
+// Type pour la table de statistiques de campagne
+export interface CampaignStatsCache {
+  account_id: string;
+  campaign_uid: string;
+  id: string;
+  last_updated: string;
+  statistics: any;
+  delivery_info: any;
 }

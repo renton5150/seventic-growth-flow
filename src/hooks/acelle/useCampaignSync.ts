@@ -37,7 +37,7 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
     syncError, 
     lastSyncTime,
     syncCampaignsCache 
-  } = useSyncOperation(account);
+  } = useSyncOperation({ account });
 
   const [lastManuallySyncedAt, setLastManuallySyncedAt] = useState<Date | null>(null);
   const [syncResult, setSyncResult] = useState<{success: boolean, message: string} | null>(null);
