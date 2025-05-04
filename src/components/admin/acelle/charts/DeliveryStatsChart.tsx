@@ -11,20 +11,16 @@ interface DeliveryStatsChartProps {
 }
 
 export const DeliveryStatsChart = ({ campaigns }: DeliveryStatsChartProps) => {
-  const deliveryStats = calculateDeliveryStats(campaigns);
+  const stats = calculateDeliveryStats(campaigns);
   
-  // Format data to show both number and percentage
-  const formattedStats = deliveryStats.map(stat => {
-    let percentage = 0;
-    if (deliveryStats[0].value > 0) {
-      percentage = (stat.value / deliveryStats[0].value) * 100;
-    }
-    
-    return {
-      ...stat,
-      percentage: percentage.toFixed(1)
-    };
-  });
+  // Convert stats object to an array format required by the chart component
+  const formattedStats = [
+    { name: "Emails envoyés", value: stats.totalEmails || 0, percentage: "100" },
+    { name: "Livrés", value: stats.totalDelivered || 0, percentage: ((stats.totalDelivered / stats.totalEmails) * 100 || 0).toFixed(1) },
+    { name: "Ouverts", value: stats.totalOpened || 0, percentage: ((stats.totalOpened / stats.totalDelivered) * 100 || 0).toFixed(1) },
+    { name: "Clics", value: stats.totalClicked || 0, percentage: ((stats.totalClicked / stats.totalDelivered) * 100 || 0).toFixed(1) },
+    { name: "Bounces", value: stats.totalBounced || 0, percentage: ((stats.totalBounced / stats.totalEmails) * 100 || 0).toFixed(1) }
+  ];
 
   return (
     <Card>

@@ -43,6 +43,10 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
   }));
 };
 
+/**
+ * Calcule les statistiques de livraison à partir des campagnes directement,
+ * sans utiliser le cache
+ */
 export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   // Log pour déboguer
   console.log(`Calculating delivery stats for ${campaigns.length} campaigns`);
@@ -54,7 +58,6 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalBounced = 0;
   
   campaigns.forEach(campaign => {
-    // Amélioration: vérifier les types avant d'accéder aux propriétés
     if (!campaign) {
       console.warn("Campaign object is undefined or null in calculateDeliveryStats");
       return;
@@ -75,6 +78,8 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
         const softBounce = typeof info.bounced.soft === 'number' ? info.bounced.soft : 0;
         const hardBounce = typeof info.bounced.hard === 'number' ? info.bounced.hard : 0;
         totalBounced += softBounce + hardBounce;
+      } else if (typeof info.bounced === 'number') {
+        totalBounced += info.bounced;
       }
     } 
     // Fall back to statistics if available
