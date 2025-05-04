@@ -1,29 +1,12 @@
 
-// This file can be modified or created if it doesn't exist
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
+import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
- * Crée un objet de statistiques vide mais valide avec des valeurs par défaut
+ * Récupère et traite les statistiques d'une campagne, soit depuis les données existantes,
+ * soit en générant des données démo si demandé
  */
-const createEmptyStatistics = (): AcelleCampaignStatistics => {
-  return {
-    subscriber_count: 0,
-    delivered_count: 0,
-    delivered_rate: 0,
-    open_count: 0,
-    uniq_open_rate: 0,
-    click_count: 0,
-    click_rate: 0,
-    bounce_count: 0,
-    soft_bounce_count: 0,
-    hard_bounce_count: 0,
-    unsubscribe_count: 0,
-    abuse_complaint_count: 0
-  };
-};
-
-// Fonction pour récupérer et traiter les statistiques d'une campagne
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign, 
   account: AcelleAccount,

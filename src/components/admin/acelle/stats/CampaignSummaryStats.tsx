@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { calculateDeliveryStats } from "@/services/acelle/api/campaigns";
+import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
 
 interface CampaignSummaryStatsProps {
   campaigns: AcelleCampaign[];

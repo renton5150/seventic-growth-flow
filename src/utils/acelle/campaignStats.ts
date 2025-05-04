@@ -89,13 +89,13 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     }
   });
   
-  return [
-    { name: "Envoyés", value: totalSent },
-    { name: "Livrés", value: totalDelivered },
-    { name: "Ouverts", value: totalOpened },
-    { name: "Cliqués", value: totalClicked },
-    { name: "Bounces", value: totalBounced }
-  ];
+  return {
+    totalEmails: totalSent,
+    totalDelivered: totalDelivered,
+    totalOpened: totalOpened,
+    totalClicked: totalClicked,
+    totalBounced: totalBounced
+  };
 };
 
 export const translateStatus = (status: string): string => {
