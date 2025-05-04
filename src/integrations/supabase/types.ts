@@ -62,6 +62,30 @@ export type Database = {
           },
         ]
       }
+      campaign_stats_cache: {
+        Row: {
+          account_id: string
+          campaign_uid: string
+          id: string
+          last_updated: string
+          statistics: Json
+        }
+        Insert: {
+          account_id: string
+          campaign_uid: string
+          id?: string
+          last_updated?: string
+          statistics: Json
+        }
+        Update: {
+          account_id?: string
+          campaign_uid?: string
+          id?: string
+          last_updated?: string
+          statistics?: Json
+        }
+        Relationships: []
+      }
       database_files: {
         Row: {
           created_at: string
