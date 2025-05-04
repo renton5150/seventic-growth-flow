@@ -3,8 +3,8 @@ export interface AcelleAccount {
   id: string;
   created_at: string;
   name: string;
-  apiEndpoint: string;
-  apiToken: string;
+  api_endpoint: string;
+  api_token: string;
   status: 'active' | 'inactive' | 'error';
   lastSyncDate: string | null;
   lastSyncError: string | null;

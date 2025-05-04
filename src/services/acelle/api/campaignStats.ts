@@ -39,11 +39,11 @@ export const fetchAndProcessCampaignStats = async (
     // Récupérer les statistiques depuis l'API Acelle
     console.log(`Tentative de récupération des statistiques depuis l'API pour la campagne ${campaign.uid}`);
     
-    if (!account || !account.apiToken || !account.apiEndpoint) {
+    if (!account || !account.api_token || !account.api_endpoint) {
       console.error("Informations de compte Acelle incomplètes:", { 
         hasAccount: !!account, 
-        hasToken: !!account?.apiToken, 
-        hasEndpoint: !!account?.apiEndpoint 
+        hasToken: !!account?.api_token, 
+        hasEndpoint: !!account?.api_endpoint 
       });
       throw new Error("Informations de compte Acelle incomplètes pour l'appel API");
     }
@@ -51,13 +51,13 @@ export const fetchAndProcessCampaignStats = async (
     try {
       // Construire les paramètres pour l'API
       const params = {
-        api_token: account.apiToken,
+        api_token: account.api_token,
         uid: campaign.uid,
         _t: Date.now().toString() // Anti-cache
       };
       
       // Vérifier que l'endpoint est correctement formaté
-      let apiEndpoint = account.apiEndpoint;
+      let apiEndpoint = account.api_endpoint;
       if (!apiEndpoint) {
         console.error("Endpoint API non défini:", account);
         throw new Error("L'endpoint API n'est pas défini");
@@ -124,6 +124,19 @@ export const fetchAndProcessCampaignStats = async (
       
       console.log(`Statistiques extraites pour la campagne ${campaign.uid}:`, statistics);
       
+      // Également mettre à jour le cache dans la base de données
+      try {
+        await supabase.from('campaign_stats_cache').upsert({
+          campaign_uid: campaign.uid,
+          account_id: account.id,
+          statistics: statistics
+        });
+        console.log(`Cache mis à jour pour la campagne ${campaign.uid}`);
+      } catch (cacheError) {
+        console.error(`Erreur lors de la mise à jour du cache pour la campagne ${campaign.uid}:`, cacheError);
+        // Ne pas bloquer le flux principal si la mise à jour du cache échoue
+      }
+      
       return {
         statistics,
         delivery_info: deliveryInfo
@@ -138,6 +151,26 @@ export const fetchAndProcessCampaignStats = async (
           statistics: campaign.statistics,
           delivery_info: campaign.delivery_info || {}
         };
+      }
+      
+      // Essayer de récupérer depuis le cache
+      try {
+        const { data: cacheData } = await supabase
+          .from('campaign_stats_cache')
+          .select('statistics')
+          .eq('campaign_uid', campaign.uid)
+          .eq('account_id', account.id)
+          .single();
+          
+        if (cacheData && cacheData.statistics) {
+          console.log(`Statistiques récupérées depuis le cache pour la campagne ${campaign.uid}`);
+          return {
+            statistics: cacheData.statistics,
+            delivery_info: {}  // Pas d'info de livraison dans le cache
+          };
+        }
+      } catch (cacheError) {
+        console.error(`Erreur lors de la récupération depuis le cache pour la campagne ${campaign.uid}:`, cacheError);
       }
       
       // Sinon, on renvoie des statistiques vides mais valides

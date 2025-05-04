@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -152,8 +153,8 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
         accountInfo: {
           id: account.id,
           name: account.name,
-          hasApiEndpoint: !!account.apiEndpoint,
-          hasApiToken: !!account.apiToken
+          hasApiEndpoint: !!account.api_endpoint,
+          hasApiToken: !!account.api_token
         }
       });
       

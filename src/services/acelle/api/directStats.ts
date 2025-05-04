@@ -18,11 +18,11 @@ export const enrichCampaignsWithStats = async (
   console.log(`Enrichissement de ${campaigns.length} campagnes avec des statistiques...`);
   
   // Vérification des informations du compte
-  if (!account || !account.apiToken || !account.apiEndpoint) {
+  if (!account || !account.api_token || !account.api_endpoint) {
     console.error("Impossible d'enrichir les campagnes: informations de compte incomplètes", {
       hasAccount: !!account,
-      hasToken: account ? !!account.apiToken : false,
-      hasEndpoint: account ? !!account.apiEndpoint : false
+      hasToken: account ? !!account.api_token : false,
+      hasEndpoint: account ? !!account.api_endpoint : false
     });
     return campaigns;
   }
@@ -57,7 +57,7 @@ export const enrichCampaignsWithStats = async (
       }
       
       console.log(`Récupération des statistiques pour la campagne ${campaign.name}`, {
-        endpoint: account.apiEndpoint,
+        endpoint: account.api_endpoint,
         campaignId: campaign.uid || campaign.campaign_uid
       });
       

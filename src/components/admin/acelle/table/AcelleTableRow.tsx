@@ -46,8 +46,8 @@ export const AcelleTableRow = ({
         hasStatistics: !!campaign.statistics,
         demoMode,
         account: account ? {
-          hasToken: !!account.apiToken,
-          hasEndpoint: !!account.apiEndpoint
+          hasToken: !!account.api_token,
+          hasEndpoint: !!account.api_endpoint
         } : 'No account'
       });
       
