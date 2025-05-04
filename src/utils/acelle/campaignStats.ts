@@ -40,15 +40,6 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       return;
     }
 
-    // Log détaillé pour débogage
-    const campaignId = campaign.uid || campaign.campaign_uid || 'unknown';
-    console.log(`Processing campaign ${campaignId}`, { 
-      hasDeliveryInfo: !!campaign.delivery_info, 
-      hasStats: !!campaign.statistics,
-      stats: campaign.statistics,
-      delivery_info: campaign.delivery_info
-    });
-
     // Prioritize delivery_info as it's our primary structure
     if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
       const info = campaign.delivery_info;
