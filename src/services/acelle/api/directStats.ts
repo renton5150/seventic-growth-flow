@@ -5,7 +5,7 @@ import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
  * Enrichit les campagnes avec des statistiques directement depuis l'API Acelle
- * ou génère des statistiques démo si demandé
+ * N'utilise les données démo QUE si explicitement demandé
  */
 export const enrichCampaignsWithStats = async (
   campaigns: AcelleCampaign[], 
@@ -25,7 +25,7 @@ export const enrichCampaignsWithStats = async (
       
       // En mode démo, nous utilisons toujours les statistiques de démo
       if (options?.demoMode) {
-        console.log(`Mode démo activé pour la campagne ${campaign.name}`);
+        console.log(`Mode démo activé explicitement pour la campagne ${campaign.name}`);
         const demoData = await fetchAndProcessCampaignStats(campaign, account, { demoMode: true });
         
         enrichedCampaigns[i] = {
@@ -53,7 +53,9 @@ export const enrichCampaignsWithStats = async (
         campaign, 
         account, 
         { 
-          refresh: true
+          refresh: true,
+          // NE PAS UTILISER de mode démo automatique sauf si spécifié
+          demoMode: false
         }
       );
       
@@ -63,24 +65,19 @@ export const enrichCampaignsWithStats = async (
         statistics: result.statistics || createEmptyStatistics(),
         delivery_info: result.delivery_info || {}
       };
+      
+      console.log(`Statistiques appliquées à la campagne ${campaign.name}:`, {
+        statistics: result.statistics,
+        delivery_info: result.delivery_info
+      });
     } catch (error) {
       console.error(`Erreur lors de l'enrichissement de la campagne ${enrichedCampaigns[i].name}:`, error);
       
-      // En cas d'erreur, utiliser les données de démo comme fallback
-      console.log(`Tentative d'utilisation du mode démo comme fallback pour la campagne ${enrichedCampaigns[i].name}`);
+      // NE PAS utiliser le mode démo comme fallback, afficher une erreur correctement
+      // et conserver les données existantes de la campagne
+      console.log(`ERREUR: Impossible d'enrichir la campagne ${enrichedCampaigns[i].name}`);
       
-      try {
-        const demoData = await fetchAndProcessCampaignStats(enrichedCampaigns[i], account, { demoMode: true });
-        
-        enrichedCampaigns[i] = {
-          ...enrichedCampaigns[i],
-          statistics: demoData.statistics,
-          delivery_info: demoData.delivery_info
-        };
-      } catch (fallbackError) {
-        console.error(`Échec du fallback pour la campagne ${enrichedCampaigns[i].name}:`, fallbackError);
-        // Ne pas modifier la campagne si même le fallback échoue
-      }
+      // On ne modifie pas la campagne, on garde l'état actuel
     }
   }
   

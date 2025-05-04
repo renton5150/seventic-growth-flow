@@ -45,7 +45,7 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
 
 /**
  * Calcule les statistiques de livraison à partir des campagnes directement,
- * sans utiliser le cache
+ * sans utiliser le cache et sans ajouter de données démo
  */
 export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   // Log pour déboguer
@@ -63,9 +63,14 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       return;
     }
 
+    console.log(`Processing campaign ${campaign.name || 'unknown'} with ID ${campaign.uid || 'unknown'}`);
+    console.log(`Campaign has delivery_info:`, !!campaign.delivery_info);
+    console.log(`Campaign has statistics:`, !!campaign.statistics);
+
     // Prioritize delivery_info as it's our primary structure
     if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
       const info = campaign.delivery_info;
+      console.log(`Campaign ${campaign.name} delivery_info:`, info);
       
       // Utiliser des valeurs par défaut pour éviter les erreurs
       totalSent += typeof info.total === 'number' ? info.total : 0;
@@ -85,22 +90,29 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     // Fall back to statistics if available
     else if (campaign.statistics && typeof campaign.statistics === 'object') {
       const stats = campaign.statistics;
+      console.log(`Campaign ${campaign.name} statistics:`, stats);
       
       totalSent += typeof stats.subscriber_count === 'number' ? stats.subscriber_count : 0;
       totalDelivered += typeof stats.delivered_count === 'number' ? stats.delivered_count : 0;
       totalOpened += typeof stats.open_count === 'number' ? stats.open_count : 0;
       totalClicked += typeof stats.click_count === 'number' ? stats.click_count : 0;
       totalBounced += typeof stats.bounce_count === 'number' ? stats.bounce_count : 0;
+    } else {
+      console.warn(`No statistics found for campaign ${campaign.name || 'unknown'}`);
     }
   });
   
-  return {
+  const result = {
     totalEmails: totalSent,
     totalDelivered: totalDelivered,
     totalOpened: totalOpened,
     totalClicked: totalClicked,
     totalBounced: totalBounced
   };
+  
+  console.log("Final calculated stats:", result);
+  
+  return result;
 };
 
 export const translateStatus = (status: string): string => {

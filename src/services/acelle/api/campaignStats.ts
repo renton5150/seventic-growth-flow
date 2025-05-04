@@ -2,10 +2,12 @@
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
+import { callAcelleApi } from '../acelle-service';
+import { toast } from 'sonner';
 
 /**
- * Récupère et traite les statistiques d'une campagne, soit depuis les données existantes,
- * soit en générant des données démo si demandé
+ * Récupère et traite les statistiques d'une campagne directement depuis l'API Acelle,
+ * utilise les données existantes comme fallback, et ne génère des démos que si explicitement demandé
  */
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign, 
@@ -19,8 +21,9 @@ export const fetchAndProcessCampaignStats = async (
   delivery_info?: Record<string, any>;
 }> => {
   try {
-    // Mode démo: générer des statistiques fictives
+    // Mode démo: générer des statistiques fictives seulement si explicitement demandé
     if (options?.demoMode) {
+      console.log(`Génération de statistiques démo pour la campagne ${campaign.uid}`);
       return generateDemoStats(campaign);
     }
     
@@ -33,32 +36,114 @@ export const fetchAndProcessCampaignStats = async (
       };
     }
     
-    // En situation réelle, nous devrions appeler l'API Acelle pour obtenir les statistiques
-    // Mais comme la configuration complète n'est pas disponible, retourner ce que nous avons
-    console.log(`Aucune API disponible pour récupérer les statistiques de la campagne ${campaign.uid}, utilisation des données existantes`);
+    // Récupérer les statistiques depuis l'API Acelle
+    console.log(`Tentative de récupération des statistiques depuis l'API pour la campagne ${campaign.uid}`);
     
-    // Si les statistiques ne sont pas complètes, utiliser le mode démo comme fallback
-    if (!campaign.statistics?.subscriber_count && !campaign.delivery_info?.total) {
-      console.log(`Données manquantes pour la campagne ${campaign.uid}, utilisation du mode démo comme fallback`);
-      return generateDemoStats(campaign);
+    if (!account || !account.apiToken || !account.api_endpoint) {
+      throw new Error("Informations de compte Acelle incomplètes pour l'appel API");
     }
     
-    return {
-      statistics: campaign.statistics || createEmptyStatistics(),
-      delivery_info: campaign.delivery_info || {}
-    };
+    try {
+      // Construire les paramètres pour l'API
+      const params = {
+        api_token: account.apiToken,
+        uid: campaign.uid,
+        _t: Date.now().toString() // Anti-cache
+      };
+      
+      // Appel à l'API Acelle pour récupérer les stats
+      console.log(`Appel API pour récupérer les statistiques de la campagne ${campaign.uid}`);
+      const endpoint = `campaigns/${campaign.uid}`;
+      
+      const campaignData = await callAcelleApi(endpoint, params);
+      
+      if (!campaignData) {
+        throw new Error(`Aucune donnée retournée par l'API pour la campagne ${campaign.uid}`);
+      }
+      
+      console.log(`Données reçues de l'API pour la campagne ${campaign.uid}:`, campaignData);
+      
+      // Extraire les statistiques
+      const apiStats = campaignData.statistics || {};
+      
+      // Créer des statistiques correctement formatées
+      const statistics: AcelleCampaignStatistics = {
+        subscriber_count: parseInt(apiStats.subscriber_count) || 0,
+        delivered_count: parseInt(apiStats.delivered_count) || 0,
+        delivered_rate: parseFloat(apiStats.delivered_rate) || 0,
+        open_count: parseInt(apiStats.open_count) || 0,
+        uniq_open_rate: parseFloat(apiStats.uniq_open_rate) || 0,
+        click_count: parseInt(apiStats.click_count) || 0,
+        click_rate: parseFloat(apiStats.click_rate) || 0,
+        bounce_count: parseInt(apiStats.bounce_count) || 0,
+        soft_bounce_count: parseInt(apiStats.soft_bounce_count) || 0,
+        hard_bounce_count: parseInt(apiStats.hard_bounce_count) || 0,
+        unsubscribe_count: parseInt(apiStats.unsubscribe_count) || 0,
+        abuse_complaint_count: parseInt(apiStats.abuse_complaint_count) || 0
+      };
+      
+      // Créer une structure de données delivery_info cohérente
+      const deliveryInfo = {
+        total: parseInt(apiStats.subscriber_count) || 0,
+        delivered: parseInt(apiStats.delivered_count) || 0,
+        delivery_rate: parseFloat(apiStats.delivered_rate) || 0,
+        opened: parseInt(apiStats.open_count) || 0,
+        unique_open_rate: parseFloat(apiStats.uniq_open_rate) || 0,
+        clicked: parseInt(apiStats.click_count) || 0,
+        click_rate: parseFloat(apiStats.click_rate) || 0,
+        bounced: {
+          soft: parseInt(apiStats.soft_bounce_count) || 0,
+          hard: parseInt(apiStats.hard_bounce_count) || 0,
+          total: parseInt(apiStats.bounce_count) || 0
+        },
+        unsubscribed: parseInt(apiStats.unsubscribe_count) || 0,
+        complained: parseInt(apiStats.abuse_complaint_count) || 0
+      };
+      
+      console.log(`Statistiques extraites pour la campagne ${campaign.uid}:`, statistics);
+      
+      return {
+        statistics,
+        delivery_info: deliveryInfo
+      };
+    } catch (apiError) {
+      console.error(`Erreur API pour la campagne ${campaign.uid}:`, apiError);
+      
+      // Si les statistiques existent déjà sur la campagne, on les utilise comme fallback
+      if (campaign.statistics?.subscriber_count) {
+        console.log(`Utilisation des statistiques existantes comme fallback pour la campagne ${campaign.uid}`);
+        return {
+          statistics: campaign.statistics,
+          delivery_info: campaign.delivery_info || {}
+        };
+      }
+      
+      // Sinon, on renvoie des statistiques vides mais valides
+      console.warn(`Aucune statistique disponible pour la campagne ${campaign.uid}, utilisation de stats vides`);
+      return {
+        statistics: createEmptyStatistics(),
+        delivery_info: {}
+      };
+    }
   } catch (error) {
     console.error("Erreur lors de la récupération des statistiques de campagne:", error);
-    console.log("Utilisation du mode démo comme fallback après erreur");
-    return generateDemoStats(campaign);
+    
+    // NE PAS générer de données démo automatiquement en cas d'erreur
+    // Renvoyer des statistiques vides
+    return {
+      statistics: createEmptyStatistics(),
+      delivery_info: {}
+    };
   }
 };
 
-// Fonction pour générer des statistiques de démo adaptées à l'état de la campagne
+// Fonction pour générer des statistiques de démo UNIQUEMENT quand explicitement demandé
 const generateDemoStats = (campaign: AcelleCampaign): {
   statistics: AcelleCampaignStatistics;
   delivery_info: Record<string, any>;
 } => {
+  console.log(`Génération de statistiques démo explicites pour la campagne ${campaign.uid || 'inconnue'}`);
+  
   // Créer des statistiques réalistes en fonction du statut de la campagne
   let totalSubscribers = Math.floor(Math.random() * 1000) + 500;
   let deliveryRate = 0.97 + Math.random() * 0.03; // 97-100% delivery rate
@@ -139,6 +224,8 @@ const generateDemoStats = (campaign: AcelleCampaign): {
     unsubscribe_rate: +(unsubscribeCount / deliveredCount * 100).toFixed(1),
     bounce_rate: +(bounceCount / totalSubscribers * 100).toFixed(1)
   };
+  
+  console.log("Statistiques démo générées:", statistics);
   
   return { statistics, delivery_info: deliveryInfo };
 };

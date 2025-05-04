@@ -11,16 +11,21 @@ interface DeliveryStatsChartProps {
 }
 
 export const DeliveryStatsChart = ({ campaigns }: DeliveryStatsChartProps) => {
+  // Calculer les statistiques à partir des campagnes
   const stats = calculateDeliveryStats(campaigns);
   
-  // Convert stats object to an array format required by the chart component
+  // Convertir les stats en format pour le graphique (array explicite)
   const formattedStats = [
     { name: "Emails envoyés", value: stats.totalEmails || 0, percentage: "100" },
-    { name: "Livrés", value: stats.totalDelivered || 0, percentage: ((stats.totalDelivered / stats.totalEmails) * 100 || 0).toFixed(1) },
-    { name: "Ouverts", value: stats.totalOpened || 0, percentage: ((stats.totalOpened / stats.totalDelivered) * 100 || 0).toFixed(1) },
-    { name: "Clics", value: stats.totalClicked || 0, percentage: ((stats.totalClicked / stats.totalDelivered) * 100 || 0).toFixed(1) },
-    { name: "Bounces", value: stats.totalBounced || 0, percentage: ((stats.totalBounced / stats.totalEmails) * 100 || 0).toFixed(1) }
+    { name: "Livrés", value: stats.totalDelivered || 0, percentage: stats.totalEmails > 0 ? ((stats.totalDelivered / stats.totalEmails) * 100).toFixed(1) : "0" },
+    { name: "Ouverts", value: stats.totalOpened || 0, percentage: stats.totalDelivered > 0 ? ((stats.totalOpened / stats.totalDelivered) * 100).toFixed(1) : "0" },
+    { name: "Clics", value: stats.totalClicked || 0, percentage: stats.totalDelivered > 0 ? ((stats.totalClicked / stats.totalDelivered) * 100).toFixed(1) : "0" },
+    { name: "Bounces", value: stats.totalBounced || 0, percentage: stats.totalEmails > 0 ? ((stats.totalBounced / stats.totalEmails) * 100).toFixed(1) : "0" }
   ];
+
+  // Journalisation pour diagnostic
+  console.log("Stats calculées:", stats);
+  console.log("Stats formatées pour graphique:", formattedStats);
 
   return (
     <Card>

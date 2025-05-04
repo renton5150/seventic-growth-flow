@@ -84,7 +84,20 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
           currentPage, 
           itemsPerPage
         );
-        setCampaigns(fetchedCampaigns);
+        
+        // À ce stade, les campagnes n'ont pas encore de statistiques enrichies
+        // Nous devons enrichir les campagnes avec des statistiques réelles
+        if (fetchedCampaigns.length > 0) {
+          console.log(`Enrichissement de ${fetchedCampaigns.length} campagnes avec des statistiques...`);
+          const enrichedCampaigns = await enrichCampaignsWithStats(
+            fetchedCampaigns, 
+            account, 
+            { forceRefresh: true, demoMode: false }
+          );
+          setCampaigns(enrichedCampaigns);
+        } else {
+          setCampaigns(fetchedCampaigns);
+        }
       }
     } catch (err) {
       console.error("Error fetching campaigns:", err);
