@@ -1,10 +1,9 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
-import { toast } from "sonner";
 
 // Définir une constante pour la durée de fraîcheur des données (24 heures en millisecondes)
-const CACHE_FRESHNESS_DURATION = 24 * 60 * 60 * 1000; // 24 heures
+export const CACHE_FRESHNESS_DURATION = 24 * 60 * 60 * 1000; // 24 heures
 
 /**
  * Vérifie si les données en cache sont considérées comme "fraîches" (moins de 24h)
