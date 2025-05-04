@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +19,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { ChevronDown, ChevronUp, RefreshCw, Plus } from "lucide-react";
 import { AcelleAccount } from "@/types/acelle.types";
-import { AcelleTableRow } from "@/components/admin/acelle/AcelleTableRow";
+import { AcelleTableRow } from "./AcelleTableRow";
 
 export interface AcelleAccountsTableProps {
   accounts: AcelleAccount[];
@@ -91,7 +91,7 @@ export default function AcelleAccountsTable({
   if (isLoading) {
     return (
       <div className="flex justify-center items-center p-8">
-        <Spinner size="lg" />
+        <Spinner className="h-8 w-8" />
       </div>
     );
   }

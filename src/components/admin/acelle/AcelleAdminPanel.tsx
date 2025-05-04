@@ -8,7 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 
-export default function AcelleAdminPanel() {
+interface AcelleAdminPanelProps {
+  onDemoModeChange?: (isDemoMode: boolean) => void;
+}
+
+export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelProps) {
   const [accounts, setAccounts] = useState<AcelleAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +30,23 @@ export default function AcelleAdminPanel() {
       
       if (error) throw error;
       
-      setAccounts(data || []);
+      // Convert database rows to AcelleAccount objects with correct typing
+      const typedAccounts: AcelleAccount[] = data.map(acc => ({
+        id: acc.id,
+        created_at: acc.created_at,
+        name: acc.name,
+        api_endpoint: acc.api_endpoint,
+        api_token: acc.api_token,
+        status: acc.status as 'active' | 'inactive' | 'error',
+        last_sync_date: acc.last_sync_date,
+        last_sync_error: acc.last_sync_error,
+        cache_priority: acc.cache_priority || 0,
+        mission_id: acc.mission_id,
+        updated_at: acc.updated_at,
+        cache_last_updated: acc.cache_last_updated
+      }));
+      
+      setAccounts(typedAccounts);
     } catch (err) {
       console.error("Erreur lors de la récupération des comptes:", err);
       setError("Erreur lors de la récupération des comptes Acelle");

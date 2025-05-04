@@ -34,10 +34,10 @@ const formSchema = z.object({
   api_endpoint: z.string().min(1, "L'URL de l'API est requise").url("L'URL n'est pas valide"),
   api_token: z.string().min(1, "Le token API est requis"),
   status: z.enum(['active', 'inactive', 'error']).default('inactive'),
-  missionId: z.string().optional(),
-  lastSyncError: z.string().nullable().optional(),
-  cachePriority: z.number().int().min(0).default(0).optional(),
-  lastSyncDate: z.string().nullable().optional(),
+  mission_id: z.string().optional(),
+  last_sync_error: z.string().nullable().optional(),
+  cache_priority: z.number().int().min(0).default(0).optional(),
+  last_sync_date: z.string().nullable().optional(),
 });
 
 const AcelleAccountForm = ({
@@ -61,10 +61,10 @@ const AcelleAccountForm = ({
       api_endpoint: account?.api_endpoint || '',
       api_token: account?.api_token || '',
       status: account?.status || 'inactive',
-      missionId: account?.missionId || '',
-      lastSyncError: account?.lastSyncError || null,
-      cachePriority: account?.cachePriority || 0,
-      lastSyncDate: account?.lastSyncDate || null,
+      mission_id: account?.mission_id || '',
+      last_sync_error: account?.last_sync_error || null,
+      cache_priority: account?.cache_priority || 0,
+      last_sync_date: account?.last_sync_date || null,
     },
   });
 
@@ -79,11 +79,11 @@ const AcelleAccountForm = ({
         name: form.getValues('name'),
         api_endpoint: form.getValues('api_endpoint'),
         api_token: form.getValues('api_token'),
-        status: form.getValues('status') as 'active' | 'inactive' | 'error',
+        status: form.getValues('status'),
         created_at: '',
-        lastSyncDate: null,
-        lastSyncError: null,
-        cachePriority: 0,
+        last_sync_date: null,
+        last_sync_error: null,
+        cache_priority: 0,
       };
 
       const result = await testAcelleConnection(testAccount);
@@ -190,7 +190,7 @@ const AcelleAccountForm = ({
               
               <FormField
                 control={form.control}
-                name="cachePriority"
+                name="cache_priority"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Priorité du cache</FormLabel>

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { toast } from "sonner";
@@ -16,22 +17,19 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
     if (error) throw error;
 
     return data.map(account => {
-      // Create the base account object
+      // Create the base account object with consistent property naming
       const accountData: AcelleAccount = {
         id: account.id,
-        missionId: account.mission_id,
-        missionName: account.missions?.name || "Mission inconnue",
+        mission_id: account.mission_id,
         name: account.name,
         api_endpoint: account.api_endpoint,
         api_token: account.api_token,
-        lastSyncDate: account.last_sync_date,
+        last_sync_date: account.last_sync_date,
         status: account.status as AcelleAccount["status"],
         created_at: account.created_at,
         updated_at: account.updated_at,
-        createdAt: account.created_at, // Adding compatibility fields
-        updatedAt: account.updated_at, // Adding compatibility fields
-        cachePriority: account.cache_priority || 0,
-        lastSyncError: account.last_sync_error
+        cache_priority: account.cache_priority || 0,
+        last_sync_error: account.last_sync_error
       };
       
       return accountData;
@@ -56,22 +54,19 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
     
     if (error) throw error;
     
-    // Create the base account object
+    // Create the base account object with consistent property naming
     const accountData: AcelleAccount = {
       id: data.id,
-      missionId: data.mission_id,
-      missionName: data.missions?.name || "Mission inconnue",
+      mission_id: data.mission_id,
       name: data.name,
       api_endpoint: data.api_endpoint,
       api_token: data.api_token,
-      lastSyncDate: data.last_sync_date,
+      last_sync_date: data.last_sync_date,
       status: data.status as AcelleAccount["status"],
       created_at: data.created_at,
       updated_at: data.updated_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-      cachePriority: data.cache_priority || 0,
-      lastSyncError: data.last_sync_error
+      cache_priority: data.cache_priority || 0,
+      last_sync_error: data.last_sync_error
     };
     
     return accountData;
@@ -84,23 +79,23 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
 // Create account
 export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "created_at" | "updated_at">): Promise<AcelleAccount | null> => {
   try {
-    let lastSyncDate = null;
+    let last_sync_date = null;
     
-    if (account.lastSyncDate) {
-      lastSyncDate = account.lastSyncDate;
+    if (account.last_sync_date) {
+      last_sync_date = account.last_sync_date;
     }
     
     const { data, error } = await supabase
       .from("acelle_accounts")
       .insert({
-        mission_id: account.missionId,
+        mission_id: account.mission_id,
         name: account.name,
         api_endpoint: account.api_endpoint,
         api_token: account.api_token,
         status: account.status,
-        last_sync_date: lastSyncDate,
-        last_sync_error: account.lastSyncError,
-        cache_priority: account.cachePriority || 0
+        last_sync_date: last_sync_date,
+        last_sync_error: account.last_sync_error,
+        cache_priority: account.cache_priority || 0
       })
       .select()
       .single();
@@ -113,9 +108,7 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
       ...account,
       id: data.id,
       created_at: data.created_at,
-      updated_at: data.updated_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
+      updated_at: data.updated_at
     };
   } catch (error) {
     console.error("Error creating Acelle account:", error);
@@ -127,21 +120,21 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
 // Update account
 export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount | null> => {
   try {
-    let lastSyncDate = null;
+    let last_sync_date = null;
     
-    if (account.lastSyncDate) {
-      lastSyncDate = account.lastSyncDate;
+    if (account.last_sync_date) {
+      last_sync_date = account.last_sync_date;
     }
       
     const updateData: Record<string, any> = {
-      mission_id: account.missionId,
+      mission_id: account.mission_id,
       name: account.name,
       api_endpoint: account.api_endpoint,
       api_token: account.api_token,
       status: account.status,
-      last_sync_date: lastSyncDate,
-      last_sync_error: account.lastSyncError,
-      cache_priority: account.cachePriority || 0
+      last_sync_date: last_sync_date,
+      last_sync_error: account.last_sync_error,
+      cache_priority: account.cache_priority || 0
     };
 
     const { data, error } = await supabase
@@ -157,8 +150,7 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
     
     return {
       ...account,
-      updated_at: data.updated_at,
-      updatedAt: data.updated_at
+      updated_at: data.updated_at
     };
   } catch (error) {
     console.error(`Error updating Acelle account ${account.id}:`, error);

@@ -6,10 +6,10 @@ export interface AcelleFormValues {
   api_endpoint: string;
   api_token: string;
   status: 'active' | 'inactive' | 'error';
-  missionId?: string;
-  lastSyncError?: string | null;
-  cachePriority?: number;
-  lastSyncDate?: string | null;
+  mission_id?: string;
+  last_sync_error?: string | null;
+  cache_priority?: number;
+  last_sync_date?: string | null;
 }
 
 export interface AcelleAccountFormProps {

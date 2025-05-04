@@ -10,12 +10,10 @@ export interface AcelleAccount {
   last_sync_error: string | null;
   cache_priority: number;
   
-  // Propriétés additionnelles utilisées dans le code
+  // Optional properties
   mission_id?: string;
-  mission_name?: string;
-  created_at?: string;
   updated_at?: string;
-  updated_at?: string;
+  cache_last_updated?: string;
 }
 
 // Interface claire pour les statistiques des campagnes

@@ -1,472 +1,401 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { AcelleAccount } from '@/types/acelle.types';
 import { toast } from 'sonner';
 
-interface SystemStatus {
-  accounts: number;
-  campaigns: number;
-  cacheAge: {
-    min: number;
-    max: number;
-    avg: number;
-    lastUpdate: string | null;
-  };
-  apiStatus: {
-    proxyAvailable: boolean;
-    lastCheck: string | null;
-    latency: number | null;
-  };
-  storageInfo: {
-    cacheRows: number;
-    cacheSize: string;
-  };
-  edgeFunctions: {
-    available: string[];
-    status: 'available' | 'unavailable' | 'loading';
-    lastCheck: string | null;
-  };
-}
-
 export const useSystemStatus = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isTesting, setIsTesting] = useState(false);
-  const [status, setStatus] = useState<SystemStatus>({
-    accounts: 0,
-    campaigns: 0,
-    cacheAge: {
-      min: 0,
-      max: 0,
-      avg: 0,
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [systemStatus, setSystemStatus] = useState<Record<string, boolean>>({});
+  const [edgeFunctionsStatus, setEdgeFunctionsStatus] = useState<{
+    acelle: boolean;
+    sync: boolean;
+    latency: number;
+    isAvailable: boolean;
+  }>({
+    acelle: false,
+    sync: false,
+    latency: 0,
+    isAvailable: false
+  });
+  const [databaseStatus, setDatabaseStatus] = useState<{
+    isConnected: boolean;
+    count: number;
+  }>({
+    isConnected: false,
+    count: 0
+  });
+  const [cachingStatus, setCachingStatus] = useState<{
+    emailCampaignsCache: {
+      totalRows: number;
+      estimatedSize: string;
+      lastUpdate: Date | null;
+      accountsWithCache: number;
+    };
+    campaignStatsCache: {
+      totalRows: number;
+      estimatedSize: string;
+      lastUpdate: Date | null;
+      accountsWithCache: number;
+    };
+  }>({
+    emailCampaignsCache: {
+      totalRows: 0,
+      estimatedSize: 'Inconnu',
       lastUpdate: null,
+      accountsWithCache: 0
     },
-    apiStatus: {
-      proxyAvailable: false,
-      lastCheck: null,
-      latency: null,
-    },
-    storageInfo: {
-      cacheRows: 0,
-      cacheSize: '0 KB',
-    },
-    edgeFunctions: {
-      available: [],
-      status: 'loading',
-      lastCheck: null,
-    },
+    campaignStatsCache: {
+      totalRows: 0,
+      estimatedSize: 'Inconnu',
+      lastUpdate: null,
+      accountsWithCache: 0
+    }
   });
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [endpointStatus, setEndpointStatus] = useState({ isAvailable: false, latency: 0 });
-  const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-  const [authStatus, setAuthStatus] = useState({ isLoggedIn: false, user: null });
-  const [activeTab, setActiveTab] = useState("status");
-  const [cacheInfo, setCacheInfo] = useState({ 
-    totalRows: 0, 
-    estimatedSize: '0 KB', 
-    lastUpdate: null,
-    accountsWithCache: 0
+  const [authStatus, setAuthStatus] = useState<{
+    isLoggedIn: boolean;
+    user: any;
+  }>({
+    isLoggedIn: false,
+    user: null
   });
+  const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
+  
+  const { user } = useAuth();
 
-  // Vérifier la disponibilité des fonctions Edge
+  // Vérifier la connexion à la base de données
+  const checkDatabaseConnection = useCallback(async () => {
+    try {
+      const { count, error } = await supabase
+        .from('acelle_accounts')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+      
+      setDatabaseStatus({
+        isConnected: true,
+        count: count || 0
+      });
+      
+      return true;
+    } catch (err) {
+      console.error("Erreur de connexion à la base de données:", err);
+      setDatabaseStatus({
+        isConnected: false,
+        count: 0
+      });
+      return false;
+    }
+  }, []);
+
+  // Vérifier la disponibilité des Edge Functions
   const checkEdgeFunctions = useCallback(async () => {
     try {
-      // Tester la fonction acelle-proxy
-      const response = await fetch('https://emailing.plateforme-solution.net/api/v1/me', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
+      // Vérifier si nous avons un token d'authentification
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
       
-      if (response.ok) {
-        return {
-          status: 'available' as const,
-          available: ['acelle-proxy'],
-          lastCheck: new Date().toISOString(),
-        };
-      } else {
-        return {
-          status: 'unavailable' as const,
-          available: [],
-          lastCheck: new Date().toISOString(),
-        };
-      }
-    } catch (e) {
-      console.error("Erreur lors de la vérification des fonctions Edge:", e);
-      return {
-        status: 'unavailable' as const,
-        available: [],
-        lastCheck: new Date().toISOString(),
-      };
-    }
-  }, []);
-
-  // Calculer la taille de la cache
-  const calculateCacheSize = useCallback(async () => {
-    try {
-      // Compter le nombre de lignes dans la cache
-      const { count: campaignsCount, error: campaignsError } = await supabase
-        .from('email_campaigns_cache')
-        .select('*', { count: 'exact', head: true });
-      
-      if (campaignsError) {
-        throw campaignsError;
-      }
-      
-      const { count: statsCount, error: statsError } = await supabase
-        .from('campaign_stats_cache')
-        .select('*', { count: 'exact', head: true });
-      
-      if (statsError) {
-        throw statsError;
-      }
-      
-      // Estimation de la taille (approximative)
-      const avgRowSizeKB = 5; // 5 KB par ligne en moyenne
-      const totalRows = (campaignsCount || 0) + (statsCount || 0);
-      const totalSizeKB = totalRows * avgRowSizeKB;
-      
-      // Formater la taille
-      let sizeStr: string;
-      if (totalSizeKB > 1024) {
-        sizeStr = `${(totalSizeKB / 1024).toFixed(1)} MB`;
-      } else {
-        sizeStr = `${totalSizeKB.toFixed(0)} KB`;
-      }
-      
-      return {
-        cacheRows: totalRows,
-        cacheSize: sizeStr,
-      };
-    } catch (e) {
-      console.error("Erreur lors du calcul de la taille du cache:", e);
-      return {
-        cacheRows: 0,
-        cacheSize: 'Erreur',
-      };
-    }
-  }, []);
-
-  // Calculer les statistiques de l'âge du cache
-  const calculateCacheAge = useCallback(async () => {
-    try {
-      // Récupérer des statistiques sur l'âge du cache
-      const { data, error } = await supabase
-        .from('email_campaigns_cache')
-        .select('cache_updated_at');
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (!data?.length) {
-        return {
-          min: 0,
-          max: 0,
-          avg: 0,
-          lastUpdate: null,
-        };
-      }
-      
-      // Calculer l'âge pour chaque entrée en minutes
-      const now = new Date();
-      const ages = data
-        .filter(item => item.cache_updated_at)
-        .map(item => {
-          const updatedAt = new Date(item.cache_updated_at);
-          const ageMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
-          return ageMinutes;
+      if (!token) {
+        console.error("Aucun token d'authentification disponible pour tester les Edge Functions");
+        setEdgeFunctionsStatus({
+          acelle: false,
+          sync: false,
+          latency: 0,
+          isAvailable: false
         });
-        
-      if (ages.length === 0) {
-        return {
-          min: 0,
-          max: 0,
-          avg: 0,
-          lastUpdate: null,
-        };
+        return false;
       }
-        
-      // Calculer min, max et moyenne
-      const min = Math.min(...ages);
-      const max = Math.max(...ages);
-      const avg = ages.reduce((sum, age) => sum + age, 0) / ages.length;
       
-      // Trouver la date de mise à jour la plus récente
-      const mostRecent = data
-        .filter(item => item.cache_updated_at)
-        .sort((a, b) => new Date(b.cache_updated_at).getTime() - new Date(a.cache_updated_at).getTime())[0];
-        
-      return {
-        min: Math.round(min),
-        max: Math.round(max),
-        avg: Math.round(avg),
-        lastUpdate: mostRecent?.cache_updated_at || null,
-      };
-    } catch (e) {
-      console.error("Erreur lors du calcul de l'âge du cache:", e);
-      return {
-        min: 0,
-        max: 0,
-        avg: 0,
-        lastUpdate: null,
-      };
-    }
-  }, []);
-
-  // Réveiller les edge functions
-  const wakeUpEdgeFunctions = useCallback(async (token: string | null) => {
-    try {
-      setIsTesting(true);
-      
-      // Test simple de l'endpoint
+      // Test de l'Edge Function acelle-proxy avec un ping simple
       const startTime = performance.now();
-      const response = await fetch('https://emailing.plateforme-solution.net/api/v1/me', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      const response = await fetch(
+        'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', 
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-      });
+      );
       
       const endTime = performance.now();
       const latency = Math.round(endTime - startTime);
       
       const isAvailable = response.ok;
-      setEndpointStatus({ isAvailable, latency });
       
-      // Mettre à jour le statut global
-      setStatus(prev => ({
-        ...prev,
-        apiStatus: {
-          ...prev.apiStatus,
-          proxyAvailable: isAvailable,
-          lastCheck: new Date().toISOString(),
-          latency: latency
-        }
-      }));
-      
-      setLastTestTime(new Date());
-      
-      try {
-        const respData = await response.json();
-        setDebugInfo({
-          endpoint: 'https://emailing.plateforme-solution.net/api/v1/me',
-          status: response.status,
-          latency: `${latency}ms`,
-          data: respData,
-          headers: Object.fromEntries(response.headers.entries())
-        });
-      } catch (jsonError) {
-        setDebugInfo({
-          endpoint: 'https://emailing.plateforme-solution.net/api/v1/me',
-          status: response.status,
-          latency: `${latency}ms`,
-          error: 'Impossible de parser la réponse JSON',
-          text: await response.text()
-        });
-      }
-      
-      return isAvailable;
-    } catch (error) {
-      console.error("Erreur lors du test de connexion:", error);
-      setEndpointStatus({ isAvailable: false, latency: 0 });
-      setDebugInfo({
-        endpoint: 'https://emailing.plateforme-solution.net/api/v1/me',
-        error: error instanceof Error ? error.message : String(error)
+      setEdgeFunctionsStatus({
+        acelle: isAvailable,
+        sync: isAvailable, // On suppose que si l'un fonctionne, l'autre aussi
+        latency,
+        isAvailable
       });
       
-      // Mettre à jour le statut global
-      setStatus(prev => ({
-        ...prev,
-        apiStatus: {
-          ...prev.apiStatus,
-          proxyAvailable: false,
-          lastCheck: new Date().toISOString(),
-          latency: null
-        }
-      }));
-      
-      setLastTestTime(new Date());
+      return isAvailable;
+    } catch (err) {
+      console.error("Erreur lors de la vérification des Edge Functions:", err);
+      setEdgeFunctionsStatus({
+        acelle: false,
+        sync: false,
+        latency: 0,
+        isAvailable: false
+      });
       return false;
-    } finally {
-      setIsTesting(false);
     }
   }, []);
 
-  // Vérifier la disponibilité de l'API
-  const checkApiAvailability = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token || null;
-    return await wakeUpEdgeFunctions(token);
-  }, [wakeUpEdgeFunctions]);
-
-  // Actualiser les informations de cache
-  const refreshCacheInfo = useCallback(async () => {
+  // Vérifier l'état du cache
+  const checkCacheStatus = useCallback(async () => {
     try {
-      // Compter les lignes de cache
-      const { count: campaignsCount, error: campaignsError } = await supabase
+      // Vérifier les statistiques du cache des campagnes
+      const { count: campaignCount, error: campaignError } = await supabase
         .from('email_campaigns_cache')
         .select('*', { count: 'exact', head: true });
-      
-      // Compter le nombre de comptes avec du cache
-      const { data: accountsData, error: accountsError } = await supabase
-        .from('email_campaigns_cache')
-        .select('account_id')
-        .distinct('account_id');
         
-      // Récupérer la date de mise à jour la plus récente
-      const { data: recentData, error: recentError } = await supabase
+      if (campaignError) throw campaignError;
+      
+      // Obtenir la dernière mise à jour du cache des campagnes
+      const { data: lastCampaignUpdate, error: updateError } = await supabase
         .from('email_campaigns_cache')
         .select('cache_updated_at')
         .order('cache_updated_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      // Récupérer le nombre de comptes distincts avec des campagnes en cache
+      const { data: uniqueAccountsData } = await supabase
+        .from('email_campaigns_cache')
+        .select('account_id', { count: 'exact' })
         .limit(1);
       
-      if (!campaignsError) {
-        // Calcul de la taille estimée
-        const totalRows = campaignsCount || 0;
-        const avgRowSizeKB = 5; // 5 KB par ligne en moyenne
-        const totalSizeKB = totalRows * avgRowSizeKB;
-        
-        // Formater la taille
-        let sizeStr: string;
-        if (totalSizeKB > 1024) {
-          sizeStr = `${(totalSizeKB / 1024).toFixed(1)} MB`;
-        } else {
-          sizeStr = `${totalSizeKB.toFixed(0)} KB`;
-        }
-        
-        setCacheInfo({
-          totalRows,
-          estimatedSize: sizeStr,
-          lastUpdate: recentData && recentData.length > 0 ? recentData[0].cache_updated_at : null,
-          accountsWithCache: accountsData && !accountsError ? accountsData.length : 0
+      // Compter manuellement les comptes uniques
+      const uniqueAccountsSet = new Set();
+      const { data: allAccountsData } = await supabase
+        .from('email_campaigns_cache')
+        .select('account_id');
+      
+      if (allAccountsData) {
+        allAccountsData.forEach(row => {
+          if (row.account_id) {
+            uniqueAccountsSet.add(row.account_id);
+          }
         });
       }
-    } catch (error) {
-      console.error("Erreur lors de l'actualisation des informations de cache:", error);
+      
+      // Vérifier les statistiques du cache des statistiques de campagnes
+      const { count: statsCount, error: statsError } = await supabase
+        .from('campaign_stats_cache')
+        .select('*', { count: 'exact', head: true });
+        
+      if (statsError) throw statsError;
+      
+      // Obtenir la dernière mise à jour du cache des statistiques
+      const { data: lastStatsUpdate, error: statsUpdateError } = await supabase
+        .from('campaign_stats_cache')
+        .select('last_updated')
+        .order('last_updated', { ascending: false })
+        .limit(1)
+        .single();
+        
+      // Récupérer le nombre de comptes distincts avec des statistiques en cache
+      const { data: uniqueStatsAccountsData } = await supabase
+        .from('campaign_stats_cache')
+        .select('account_id');
+        
+      // Compter manuellement les comptes uniques pour les statistiques
+      const uniqueStatsAccountsSet = new Set();
+      if (uniqueStatsAccountsData) {
+        uniqueStatsAccountsData.forEach(row => {
+          if (row.account_id) {
+            uniqueStatsAccountsSet.add(row.account_id);
+          }
+        });
+      }
+          
+      setCachingStatus({
+        emailCampaignsCache: {
+          totalRows: campaignCount || 0,
+          estimatedSize: formatSizeInKB(campaignCount || 0, 2), // Estimation de 2 KB par entrée
+          lastUpdate: lastCampaignUpdate?.cache_updated_at ? new Date(lastCampaignUpdate.cache_updated_at) : null,
+          accountsWithCache: uniqueAccountsSet.size
+        },
+        campaignStatsCache: {
+          totalRows: statsCount || 0,
+          estimatedSize: formatSizeInKB(statsCount || 0, 5), // Estimation de 5 KB par entrée
+          lastUpdate: lastStatsUpdate?.last_updated ? new Date(lastStatsUpdate.last_updated) : null,
+          accountsWithCache: uniqueStatsAccountsSet.size
+        }
+      });
+      
+      return true;
+    } catch (err) {
+      console.error("Erreur lors de la vérification de l'état du cache:", err);
+      return false;
     }
   }, []);
 
-  // Vérifier les informations de débogage
-  const getDebugInfo = useCallback(async () => {
-    try {
-      // Récupérer la session
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      // Mettre à jour le statut d'authentification
-      setAuthStatus({
-        isLoggedIn: !!sessionData?.session?.user,
-        user: sessionData?.session?.user || null
-      });
-      
-      // Vérifier si le token est disponible
-      if (sessionData?.session?.access_token) {
-        // Réveil des fonctions edge avec le token
-        await wakeUpEdgeFunctions(sessionData.session.access_token);
-      } else {
-        // Réveil sans token
-        await wakeUpEdgeFunctions(null);
-      }
-    } catch (error) {
-      console.error("Erreur lors de la récupération des informations de débogage:", error);
-      setDebugInfo({
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
-      });
+  // Format de taille en KB ou MB
+  const formatSizeInKB = (count: number, sizePerRow: number): string => {
+    const sizeInKB = count * sizePerRow;
+    if (sizeInKB > 1024) {
+      return `${(sizeInKB / 1024).toFixed(2)} MB`;
     }
-  }, [wakeUpEdgeFunctions]);
+    return `${sizeInKB} KB`;
+  };
 
-  // Exécuter un diagnostic complet
-  const runDiagnostics = useCallback(async () => {
-    setIsRefreshing(true);
-    setError(null);
+  // Vérifier l'authentification
+  const checkAuthStatus = useCallback(() => {
+    setAuthStatus({
+      isLoggedIn: !!user,
+      user
+    });
+    
+    return !!user;
+  }, [user]);
+
+  // Récupérer tous les comptes Acelle
+  const getAcelleAccounts = useCallback(async (): Promise<AcelleAccount[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('acelle_accounts')
+        .select('*');
+        
+      if (error) throw error;
+      
+      return data as AcelleAccount[];
+    } catch (err) {
+      console.error("Erreur lors de la récupération des comptes Acelle:", err);
+      return [];
+    }
+  }, []);
+
+  // Test de connexion à acelle-proxy
+  const testEdgeFunctionConnection = useCallback(async (token: string | null): Promise<boolean> => {
+    if (!token) return false;
     
     try {
-      // Vérifier l'authentification
-      await getDebugInfo();
+      const response = await fetch(
+        'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
       
-      // Récupérer les informations sur les comptes
-      const { count: accountsCount } = await supabase
-        .from('acelle_accounts')
-        .select('*', { count: 'exact', head: true });
+      return response.ok;
+    } catch (err) {
+      console.error("Erreur lors du test de connexion à l'Edge Function:", err);
+      return false;
+    }
+  }, []);
+
+  // Rafraîchir tous les statuts
+  const refreshStatus = useCallback(async () => {
+    setIsLoading(true);
+    setLastRefresh(new Date());
+    
+    try {
+      const dbStatus = await checkDatabaseConnection();
+      const authOk = checkAuthStatus();
+      const edgeFunctionsOk = await checkEdgeFunctions();
+      await checkCacheStatus();
       
-      // Récupérer les informations sur les campagnes en cache
-      const { count: campaignsCount } = await supabase
-        .from('email_campaigns_cache')
-        .select('*', { count: 'exact', head: true });
-      
-      // Récupérer les informations sur l'âge du cache
-      const cacheAge = await calculateCacheAge();
-      
-      // Vérifier les fonctions edge
-      const edgeFunctionsStatus = await checkEdgeFunctions();
-      
-      // Récupérer la taille du cache
-      const storageInfo = await calculateCacheSize();
-      
-      // Mettre à jour les informations de cache
-      await refreshCacheInfo();
-      
-      // Mettre à jour l'état global
-      setStatus({
-        accounts: accountsCount || 0,
-        campaigns: campaignsCount || 0,
-        cacheAge,
-        apiStatus: {
-          proxyAvailable: edgeFunctionsStatus.status === 'available',
-          lastCheck: edgeFunctionsStatus.lastCheck,
-          latency: endpointStatus.latency || 0,
-        },
-        storageInfo,
-        edgeFunctions: edgeFunctionsStatus,
+      setSystemStatus({
+        database: dbStatus,
+        auth: authOk,
+        edgeFunctions: edgeFunctionsOk,
       });
-      
-      setLastRefresh(new Date());
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      console.error("Erreur lors du diagnostic:", errorMessage);
-      setError(errorMessage);
-      toast.error(`Erreur: ${errorMessage}`);
+    } catch (err) {
+      console.error("Erreur lors de l'actualisation des statuts:", err);
+      toast.error("Erreur lors de la vérification des statuts");
     } finally {
-      setIsRefreshing(false);
       setIsLoading(false);
     }
-  }, [
-    calculateCacheAge, 
-    calculateCacheSize, 
-    checkEdgeFunctions, 
-    endpointStatus.latency, 
-    getDebugInfo,
-    refreshCacheInfo
-  ]);
+  }, [checkDatabaseConnection, checkAuthStatus, checkEdgeFunctions, checkCacheStatus]);
 
-  // Récupération initiale du statut
+  // Exécuter les tests de diagnostic
+  const performTests = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      toast.loading("Exécution des tests de diagnostic...", { id: "diagnostic" });
+      
+      // Obtenez le token d'authentification
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      if (!token) {
+        toast.error("Aucun token d'authentification disponible", { id: "diagnostic" });
+        return;
+      }
+      
+      // Test 1: Vérifier la connexion à l'Edge Function
+      const edgeFunctionConnected = await testEdgeFunctionConnection(token);
+      
+      // Test 2: Vérifier la base de données
+      const dbConnected = await checkDatabaseConnection();
+      
+      // Test 3: Vérifier l'état du cache
+      await checkCacheStatus();
+      
+      // Résultats compilés
+      const results = {
+        timestamp: new Date().toISOString(),
+        auth: {
+          isLoggedIn: !!user,
+          token: !!token
+        },
+        edgeFunction: {
+          connected: edgeFunctionConnected,
+          latency: edgeFunctionsStatus.latency
+        },
+        database: {
+          connected: dbConnected,
+          accountsCount: databaseStatus.count
+        },
+        cache: {
+          campaigns: cachingStatus.emailCampaignsCache.totalRows,
+          stats: cachingStatus.campaignStatsCache.totalRows
+        }
+      };
+      
+      setDiagnosticResult(results);
+      toast.success("Tests de diagnostic terminés", { id: "diagnostic" });
+      
+      return results;
+    } catch (err) {
+      console.error("Erreur lors de l'exécution des tests:", err);
+      toast.error("Erreur lors des tests de diagnostic", { id: "diagnostic" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, testEdgeFunctionConnection, checkDatabaseConnection, checkCacheStatus, edgeFunctionsStatus.latency, databaseStatus.count, cachingStatus]);
+
+  // Exécuter la vérification initiale au chargement
   useEffect(() => {
-    runDiagnostics();
-  }, [runDiagnostics]);
+    refreshStatus();
+    
+    // Rafraîchir automatiquement toutes les 60 secondes (si voulu)
+    // const interval = setInterval(refreshStatus, 60000);
+    // return () => clearInterval(interval);
+  }, [refreshStatus]);
 
   return {
     isLoading,
-    isTesting,
-    status,
-    error,
-    refresh: runDiagnostics,
-    isRefreshing,
+    systemStatus,
+    refreshStatus,
+    edgeFunctionsStatus,
+    databaseStatus,
+    cachingStatus,
     lastRefresh,
-    endpointStatus,
-    lastTestTime,
-    debugInfo,
     authStatus,
-    activeTab,
-    setActiveTab,
-    cacheInfo,
-    wakeUpEdgeFunctions,
-    refreshCacheInfo,
-    getDebugInfo,
-    runDiagnostics
+    performTests,
+    diagnosticResult,
+    getAcelleAccounts,
+    testEdgeFunctionConnection
   };
 };

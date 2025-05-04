@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AcelleAccount } from "@/types/acelle.types";
-import { useAcelleCampaigns } from "@/hooks/acelle/useAcelleCampaigns";
 import { CampaignStatusChart } from "./charts/CampaignStatusChart";
 import { DeliveryStatsChart } from "./charts/DeliveryStatsChart";
 import { CampaignSummaryStats } from "./stats/CampaignSummaryStats";
@@ -14,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { useAcelleCampaignsDashboard } from "./useAcelleCampaignsDashboard";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
@@ -35,7 +35,7 @@ export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: Acell
     resetCache,
     lastManualSync,
     syncStatus
-  } = useAcelleCampaigns(accounts);
+  } = useAcelleCampaignsDashboard(accounts);
   
   const [isWakingUpServices, setIsWakingUpServices] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
@@ -98,43 +98,6 @@ export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: Acell
     
     try {
       await handleRetry();
-      
-      // Check if Edge Functions are running by directly pinging them
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      
-      if (accessToken) {
-        // Try to wake up both Edge Functions 
-        const wakeUpPromises = [
-          // Wake up acelle-proxy
-          fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Cache-Control': 'no-store',
-              'X-Wake-Request': 'true'
-            }
-          }).catch(() => console.log("Wake-up attempt for acelle-proxy completed")),
-          
-          // Wake up sync-email-campaigns
-          fetch('https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns', {
-            method: 'OPTIONS',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Cache-Control': 'no-store'
-            }
-          }).catch(() => console.log("Wake-up attempt for sync-email-campaigns completed"))
-        ];
-        
-        await Promise.all(wakeUpPromises);
-      }
-      
-      // Wait a bit for services to fully initialize
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Force a full sync after waking up services
-      await forceSyncNow();
-      
       toast.success("Services réveillés, données synchronisées", { id: "wake-up-toast" });
     } catch (e) {
       console.error("Error during wake-up sequence:", e);
@@ -142,7 +105,7 @@ export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: Acell
     } finally {
       setIsWakingUpServices(false);
     }
-  }, [handleRetry, forceSyncNow]);
+  }, [handleRetry]);
 
   const handleClearCache = useCallback(async () => {
     toast.info("Nettoyage du cache en cours...");
