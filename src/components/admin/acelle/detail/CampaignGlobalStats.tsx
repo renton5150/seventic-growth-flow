@@ -1,26 +1,12 @@
 
 import React from "react";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
-import { AlertTriangle } from "lucide-react";
-import { Card } from "@/components/ui/card";
 
 interface CampaignGlobalStatsProps {
-  statistics?: AcelleCampaignStatistics;
+  statistics: AcelleCampaignStatistics;
 }
 
 export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) => {
-  // Si aucune statistique n'est fournie
-  if (!statistics) {
-    return (
-      <Card className="p-4">
-        <h3 className="font-medium mb-2">Statistiques globales</h3>
-        <div className="text-center py-4 text-gray-500">
-          Aucune statistique disponible
-        </div>
-      </Card>
-    );
-  }
-
   // Formatage des nombres
   const formatNumber = (value?: number): string => {
     if (value === undefined || value === null) return "0";
@@ -47,7 +33,7 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
   const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
 
   return (
-    <Card className="p-4">
+    <div>
       <h3 className="font-medium mb-2">Statistiques globales</h3>
       <div className="space-y-2">
         <div className="flex justify-between">
@@ -75,6 +61,6 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
           <span>{formatNumber(unsubscribed)}</span>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };

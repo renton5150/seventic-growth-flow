@@ -1,86 +1,62 @@
 
 import React from "react";
-import { AcelleCampaign } from "@/types/acelle.types";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info } from "lucide-react";
+import { AcelleCampaign } from "@/types/acelle.types";
 
 interface CampaignTechnicalInfoProps {
   campaign: AcelleCampaign;
-  noStatsAvailable: boolean;
+  demoMode?: boolean;
 }
 
-export const CampaignTechnicalInfo = ({
+export const CampaignTechnicalInfo = ({ 
   campaign,
-  noStatsAvailable
+  demoMode = false
 }: CampaignTechnicalInfoProps) => {
+  // Formatage des dates
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return "Non définie";
+    
+    try {
+      const date = new Date(dateString);
+      return format(date, "dd MMMM yyyy à HH:mm", { locale: fr });
+    } catch {
+      return "Date invalide";
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Informations sur les statistiques */}
-      {!noStatsAvailable && (
-        <Alert className="bg-blue-50 border-blue-200">
-          <Info className="h-4 w-4 text-blue-500 mr-2" />
-          <AlertDescription className="text-blue-800">
-            Les statistiques affichées sont des données réelles provenant de l'API Acelle.
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {/* Informations techniques */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Informations techniques</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-medium mb-1">Identifiants</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div className="p-2 bg-muted rounded-md">
-                <p className="text-xs text-muted-foreground">UID</p>
-                <p className="font-mono text-sm break-all">{campaign.uid || campaign.campaign_uid || 'N/A'}</p>
-              </div>
-              <div className="p-2 bg-muted rounded-md">
-                <p className="text-xs text-muted-foreground">Type</p>
-                <p className="font-mono text-sm">{campaign.meta?.type || 'standard'}</p>
-              </div>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Données techniques</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <span className="text-gray-600">ID:</span>
+            <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+              {campaign.uid || campaign.campaign_uid}
+            </code>
           </div>
-          
-          <div>
-            <h4 className="font-medium mb-1">Dates et statut</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div className="p-2 bg-muted rounded-md">
-                <p className="text-xs text-muted-foreground">Créée le</p>
-                <p className="font-mono text-sm">
-                  {campaign.created_at ? new Date(campaign.created_at).toLocaleString() : 'N/A'}
-                </p>
-              </div>
-              <div className="p-2 bg-muted rounded-md">
-                <p className="text-xs text-muted-foreground">Envoyée le</p>
-                <p className="font-mono text-sm">
-                  {campaign.delivery_date ? new Date(campaign.delivery_date).toLocaleString() : 'N/A'}
-                </p>
-              </div>
-            </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Dernière mise à jour:</span>
+            <span>{formatDate(campaign.updated_at)}</span>
           </div>
-          
-          {campaign.last_error && (
-            <div>
-              <h4 className="font-medium mb-1">Dernière erreur</h4>
-              <div className="p-2 bg-red-50 border-red-100 border rounded-md">
-                <p className="text-sm text-red-800">{campaign.last_error}</p>
-              </div>
+          {campaign.run_at && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Date planifiée:</span>
+              <span>{formatDate(campaign.run_at)}</span>
             </div>
           )}
-          
-          <div>
-            <h4 className="font-medium mb-1">Métadonnées brutes</h4>
-            <div className="p-2 bg-muted rounded-md overflow-auto max-h-60">
-              <pre className="text-xs">{JSON.stringify(campaign, null, 2)}</pre>
-            </div>
+        </div>
+        
+        {demoMode && (
+          <div className="mt-4 p-2 bg-yellow-50 text-yellow-800 text-sm rounded-md">
+            Mode démonstration activé : les données affichées sont simulées.
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };

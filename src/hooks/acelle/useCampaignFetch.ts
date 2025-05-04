@@ -17,7 +17,7 @@ export const fetchCampaignsFromCache = async (
       return [];
     }
     
-    console.log(`Fetching cached campaigns for ${accounts.length} accounts (page ${page}, items per page: ${perPage})`);
+    console.log(`Fetching cached campaigns for ${accounts.length} accounts`);
     
     // Get account IDs
     const accountIds = accounts.map(account => account.id);
@@ -50,12 +50,10 @@ export const fetchCampaignsFromCache = async (
     }
     
     console.log(`Found ${cachedCampaigns.length} cached campaigns`);
-    if (cachedCampaigns.length > 0) {
-      console.log('Sample cached campaign data:', cachedCampaigns[0]);
-    }
+    console.log('Sample cached campaign data:', cachedCampaigns[0]);
     
     // Convert cache format to AcelleCampaign format
-    const campaigns = cachedCampaigns.map(campaign => {
+    return cachedCampaigns.map(campaign => {
       // Handle delivery_info parsing with improved error handling
       let deliveryInfo: Record<string, any> = {};
       
@@ -72,65 +70,34 @@ export const fetchCampaignsFromCache = async (
           // It's already an object
           deliveryInfo = campaign.delivery_info as Record<string, any>;
         }
-        
-        // Vérifier si les valeurs ne sont pas toutes à zéro (indices de données réelles)
-        const hasNonZeroValues = 
-          (typeof deliveryInfo.total === 'number' && deliveryInfo.total > 0) || 
-          (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) || 
-          (typeof deliveryInfo.opened === 'number' && deliveryInfo.opened > 0);
-        
-        // Si aucune donnée réelle n'est détectée, ne pas utiliser ces statistiques
-        if (!hasNonZeroValues) {
-          console.log(`Campagne ${campaign.name}: pas de statistiques réelles détectées (valeurs toutes à zéro)`);
-          deliveryInfo = null;
-        } else {
-          console.log(`Campagne ${campaign.name}: statistiques réelles détectées (valeurs non nulles)`);
-        }
-      } else {
-        deliveryInfo = null;
       }
       
-      // Create statistics from delivery_info only if we have valid data
-      let statistics: AcelleCampaignStatistics | undefined = undefined;
+      // Log the extracted delivery info for debugging
+      console.log(`Delivery info extracted for ${campaign.name}:`, deliveryInfo);
       
-      if (deliveryInfo && Object.keys(deliveryInfo).length > 0) {
-        // Ensure bounced object exists with proper type safety
-        const bouncedInfo = (
-          deliveryInfo && 
-          typeof deliveryInfo === 'object' && 
-          deliveryInfo.bounced && 
-          typeof deliveryInfo.bounced === 'object'
-        ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
-        
-        statistics = {
-          subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
-          delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
-          delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
-          open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
-          uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
-          click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
-          click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
-          bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
-          soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
-          hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
-          unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
-          abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0,
-          is_simulated: false
-        };
-        
-        // Si les valeurs essentielles sont toutes à zéro, ne pas utiliser ces statistiques
-        const hasNonZeroStats = 
-          statistics.subscriber_count > 0 || 
-          statistics.delivered_count > 0 || 
-          statistics.open_count > 0;
-          
-        if (!hasNonZeroStats) {
-          console.log(`Campagne ${campaign.name}: pas de statistiques réelles (valeurs toutes à zéro)`);
-          statistics = undefined;
-        } else {
-          console.log(`Campagne ${campaign.name}: statistiques réelles confirmées`);
-        }
-      }
+      // Ensure bounced object exists with proper type safety
+      const bouncedInfo = (
+        deliveryInfo && 
+        typeof deliveryInfo === 'object' && 
+        deliveryInfo.bounced && 
+        typeof deliveryInfo.bounced === 'object'
+      ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+      
+      // Create statistics from delivery_info with safe type access and ensure all required properties exist
+      const statistics: AcelleCampaignStatistics = {
+        subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
+        delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
+        delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
+        open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+        uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
+        click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
+        click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
+        bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
+        soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
+        hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
+        unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
+        abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+      };
       
       // Return consistent AcelleCampaign format
       return {
@@ -148,9 +115,6 @@ export const fetchCampaignsFromCache = async (
         statistics
       } as AcelleCampaign;
     });
-    
-    console.log(`Converted ${campaigns.length} campaigns with their statistics`);
-    return campaigns;
   } catch (error) {
     console.error('Error in fetchCampaignsFromCache:', error);
     return [];
@@ -187,7 +151,7 @@ export const fetchCampaignById = async (
     
     console.log(`Found campaign: ${data.name}`);
     
-    // Convert database record to AcelleCampaign format with the same logic as above
+    // Convert database record to AcelleCampaign format (same logic as in fetchCampaignsFromCache)
     let deliveryInfo: Record<string, any> = {};
     
     if (data.delivery_info) {
@@ -201,64 +165,29 @@ export const fetchCampaignById = async (
       } else if (typeof data.delivery_info === 'object') {
         deliveryInfo = data.delivery_info as Record<string, any>;
       }
-      
-      // Vérifier si les valeurs ne sont pas toutes à zéro (indices de données réelles)
-      const hasNonZeroValues = 
-        (typeof deliveryInfo.total === 'number' && deliveryInfo.total > 0) || 
-        (typeof deliveryInfo.delivered === 'number' && deliveryInfo.delivered > 0) || 
-        (typeof deliveryInfo.opened === 'number' && deliveryInfo.opened > 0);
-      
-      // Si aucune donnée réelle n'est détectée, ne pas utiliser ces statistiques
-      if (!hasNonZeroValues) {
-        console.log(`Campagne ${data.name}: pas de statistiques réelles détectées (valeurs toutes à zéro)`);
-        deliveryInfo = null;
-      } else {
-        console.log(`Campagne ${data.name}: statistiques réelles détectées (valeurs non nulles)`);
-      }
-    } else {
-      deliveryInfo = null;
     }
     
-    // Create statistics only if we have valid delivery info
-    let statistics: AcelleCampaignStatistics | undefined = undefined;
+    const bouncedInfo = (
+      deliveryInfo && 
+      typeof deliveryInfo === 'object' && 
+      deliveryInfo.bounced && 
+      typeof deliveryInfo.bounced === 'object'
+    ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
     
-    if (deliveryInfo && Object.keys(deliveryInfo).length > 0) {
-      const bouncedInfo = (
-        deliveryInfo && 
-        typeof deliveryInfo === 'object' && 
-        deliveryInfo.bounced && 
-        typeof deliveryInfo.bounced === 'object'
-      ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
-      
-      statistics = {
-        subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
-        delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
-        delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
-        open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
-        uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
-        click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
-        click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
-        bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
-        soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
-        hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
-        unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
-        abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0,
-        is_simulated: false
-      };
-      
-      // Si les valeurs essentielles sont toutes à zéro, ne pas utiliser ces statistiques
-      const hasNonZeroStats = 
-        statistics.subscriber_count > 0 || 
-        statistics.delivered_count > 0 || 
-        statistics.open_count > 0;
-        
-      if (!hasNonZeroStats) {
-        console.log(`Campagne ${data.name}: pas de statistiques réelles (valeurs toutes à zéro)`);
-        statistics = undefined;
-      } else {
-        console.log(`Campagne ${data.name}: statistiques réelles confirmées`);
-      }
-    }
+    const statistics: AcelleCampaignStatistics = {
+      subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
+      delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
+      delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
+      open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+      uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
+      click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
+      click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
+      bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
+      soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
+      hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
+      unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
+      abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+    };
     
     return {
       uid: data.campaign_uid,

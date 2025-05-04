@@ -1,109 +1,94 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-/**
- * Hook pour gérer l'authentification et les tokens
- * avec rafraîchissement automatique et gestion des erreurs
- * 
- * Ce hook fournit un token d'authentification et des méthodes
- * pour le gérer, tout en s'assurant qu'il reste valide via des
- * rafraîchissements périodiques.
- */
 export const useAuthToken = () => {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [refreshError, setRefreshError] = useState<Error | null>(null);
 
-  /**
-   * Obtient un token d'authentification valide avec gestion d'erreur améliorée
-   * Cette fonction rafraîchit d'abord la session puis récupère le token
-   * 
-   * @returns Promise<string | null> - Un token valide ou null en cas d'échec
-   */
-  const getValidAuthToken = useCallback(async (): Promise<string | null> => {
-    try {
-      setIsRefreshing(true);
-      setRefreshError(null);
-      console.log("Obtention d'un token d'authentification valide");
-      
-      // Essayer d'abord de rafraîchir la session pour garantir un token à jour
+  // Charger initialement le token d'authentification
+  useEffect(() => {
+    const loadAuthToken = async () => {
       try {
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          console.warn("Avertissement lors du rafraîchissement de la session:", refreshError.message);
-        } else {
-          console.log("Session rafraîchie avec succès");
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          setAuthToken(sessionData.session.access_token);
+          console.log("Token d'authentification initial chargé");
         }
-      } catch (refreshError) {
-        console.warn("Erreur lors du rafraîchissement de la session:", refreshError);
-        // Continuer malgré l'erreur - on peut toujours essayer d'utiliser la session existante
+      } catch (error) {
+        console.error("Erreur lors du chargement du token d'authentification:", error);
+      }
+    };
+    
+    loadAuthToken();
+  }, []);
+  
+  // Actualiser périodiquement le token pour éviter l'expiration
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        
+        if (error) {
+          console.warn("Impossible de rafraîchir la session:", error);
+        }
+        
+        if (data?.session) {
+          setAuthToken(data.session.access_token);
+          console.log("Token d'authentification rafraîchi");
+        }
+      } catch (err) {
+        console.error("Erreur lors du rafraîchissement du token:", err);
+      }
+    }, 10 * 60 * 1000); // Toutes les 10 minutes
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
+  
+  // Récupérer un token frais
+  const getValidAuthToken = useCallback(async () => {
+    setIsRefreshing(true);
+    
+    try {
+      console.log("Récupération d'un token valide...");
+      
+      // D'abord vérifier si le token actuel est valide
+      if (authToken) {
+        console.log("Utilisation du token existant");
+        setIsRefreshing(false);
+        return authToken;
       }
       
-      // Récupérer la session après le rafraîchissement
-      const { data: sessionData, error } = await supabase.auth.getSession();
+      // Si pas de token disponible, essayer de rafraîchir la session
+      const { data, error } = await supabase.auth.refreshSession();
+      
       if (error) {
-        console.error("Erreur d'authentification Supabase:", error.message);
-        setRefreshError(error);
+        console.error("Erreur lors du rafraîchissement de la session:", error);
         return null;
       }
       
-      const token = sessionData?.session?.access_token;
-      if (!token) {
-        const noTokenError = new Error("Aucun token d'accès disponible dans la session");
-        console.error(noTokenError.message);
-        setRefreshError(noTokenError);
-        return null;
+      const newToken = data?.session?.access_token || null;
+      setAuthToken(newToken);
+      
+      if (newToken) {
+        console.log("Nouveau token obtenu après rafraîchissement");
+      } else {
+        console.warn("Aucun token n'a pu être obtenu");
       }
       
-      console.log("Token d'authentification récupéré avec succès");
-      setAuthToken(token);
-      setLastRefresh(new Date());
-      return token;
-    } catch (e) {
-      const error = e instanceof Error ? e : new Error("Exception inconnue lors de l'obtention du token");
-      console.error("Exception lors de l'obtention du token d'authentification:", error);
-      setRefreshError(error);
+      return newToken;
+    } catch (err) {
+      console.error("Erreur lors de la récupération d'un token valide:", err);
       return null;
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [authToken]);
 
-  // Charge le token au montage du composant et configure un rafraîchissement périodique
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadToken = async () => {
-      if (isMounted) {
-        await getValidAuthToken();
-      }
-    };
-    
-    loadToken();
-    
-    // Configure un rafraîchissement périodique
-    const refreshInterval = setInterval(() => {
-      if (isMounted) {
-        console.log("Rafraîchissement périodique du token d'authentification");
-        getValidAuthToken();
-      }
-    }, 25 * 60 * 1000); // 25 minutes
-    
-    // Nettoyage à la destruction du composant
-    return () => {
-      isMounted = false;
-      clearInterval(refreshInterval);
-    };
-  }, [getValidAuthToken]);
-
-  return {
-    authToken,
-    isRefreshing,
-    lastRefresh,
-    refreshError,
-    getValidAuthToken,
-    setAuthToken
+  return { 
+    authToken, 
+    setAuthToken, 
+    getValidAuthToken, 
+    isRefreshing 
   };
 };

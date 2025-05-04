@@ -4,23 +4,11 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 
 interface CampaignStatisticsProps {
-  statistics?: AcelleCampaignStatistics;
+  statistics: AcelleCampaignStatistics;
   loading?: boolean;
 }
 
-export const CampaignStatistics = ({ 
-  statistics, 
-  loading = false
-}: CampaignStatisticsProps) => {
-  // Si aucune statistique n'est disponible
-  if (!statistics) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-gray-500">Les statistiques détaillées ne sont pas disponibles pour cette campagne.</p>
-      </Card>
-    );
-  }
-
+export const CampaignStatistics = ({ statistics, loading = false }: CampaignStatisticsProps) => {
   // Formatage des nombres
   const formatNumber = (value?: number): string => {
     if (loading) return "...";

@@ -36,9 +36,6 @@ export interface AcelleCampaignStatistics {
   unsubscribe_count: number;
   abuse_complaint_count: number;
   
-  // Marqueur pour savoir si les statistiques sont simulées
-  is_simulated?: boolean;
-  
   // Propriétés additionnelles possibles dans les réponses d'API
   open_rate?: number;
   complaint_count?: number;
@@ -56,9 +53,6 @@ export interface AcelleCampaignStatistics {
   delivered?: number;
   opened?: number;
   clicked?: number;
-  
-  // Index signature pour permettre l'accès dynamique aux propriétés
-  [key: string]: any;
 }
 
 // Interface pour la structure delivery_info
@@ -81,9 +75,6 @@ export interface DeliveryInfo {
   complained?: number;
   bounce_count?: number; // Ajouté pour la compatibilité avec certaines API
   
-  // Marqueur pour savoir si les informations sont simulées
-  is_simulated?: boolean;
-  
   // Ajout de propriétés supplémentaires pour une compatibilité maximale
   subscriber_count?: number;
   delivered_count?: number;
@@ -91,9 +82,6 @@ export interface DeliveryInfo {
   open_count?: number;
   open_rate?: number;
   uniq_open_rate?: number;
-  
-  // Index signature pour permettre l'accès dynamique aux propriétés
-  [key: string]: any;
 }
 
 export interface AcelleCampaign {
