@@ -17,6 +17,16 @@ export const enrichCampaignsWithStats = async (
 ): Promise<AcelleCampaign[]> => {
   console.log(`Enrichissement de ${campaigns.length} campagnes avec des statistiques...`);
   
+  // Vérification des informations du compte
+  if (!account || !account.apiToken || !account.apiEndpoint) {
+    console.error("Impossible d'enrichir les campagnes: informations de compte incomplètes", {
+      hasAccount: !!account,
+      hasToken: account ? !!account.apiToken : false,
+      hasEndpoint: account ? !!account.apiEndpoint : false
+    });
+    return campaigns;
+  }
+  
   const enrichedCampaigns = [...campaigns];
   
   for (let i = 0; i < enrichedCampaigns.length; i++) {
@@ -46,7 +56,10 @@ export const enrichCampaignsWithStats = async (
         continue;
       }
       
-      console.log(`Récupération des statistiques pour la campagne ${campaign.name}`);
+      console.log(`Récupération des statistiques pour la campagne ${campaign.name}`, {
+        endpoint: account.apiEndpoint,
+        campaignId: campaign.uid || campaign.campaign_uid
+      });
       
       // Récupérer les statistiques enrichies directement depuis l'API
       const result = await fetchAndProcessCampaignStats(

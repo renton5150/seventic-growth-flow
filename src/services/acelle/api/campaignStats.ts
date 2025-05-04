@@ -39,7 +39,12 @@ export const fetchAndProcessCampaignStats = async (
     // Récupérer les statistiques depuis l'API Acelle
     console.log(`Tentative de récupération des statistiques depuis l'API pour la campagne ${campaign.uid}`);
     
-    if (!account || !account.apiToken || !account.api_endpoint) {
+    if (!account || !account.apiToken || !account.apiEndpoint) {
+      console.error("Informations de compte Acelle incomplètes:", { 
+        hasAccount: !!account, 
+        hasToken: !!account?.apiToken, 
+        hasEndpoint: !!account?.apiEndpoint 
+      });
       throw new Error("Informations de compte Acelle incomplètes pour l'appel API");
     }
     
@@ -51,8 +56,25 @@ export const fetchAndProcessCampaignStats = async (
         _t: Date.now().toString() // Anti-cache
       };
       
+      // Vérifier que l'endpoint est correctement formaté
+      let apiEndpoint = account.apiEndpoint;
+      if (!apiEndpoint) {
+        console.error("Endpoint API non défini:", account);
+        throw new Error("L'endpoint API n'est pas défini");
+      }
+      
+      // S'assurer que l'endpoint ne se termine pas par un slash
+      if (apiEndpoint.endsWith('/')) {
+        apiEndpoint = apiEndpoint.slice(0, -1);
+      }
+      
+      // Journaliser pour le débogage
+      console.log(`Appel API pour récupérer les statistiques de la campagne ${campaign.uid}`, {
+        endpoint: apiEndpoint,
+        campaignId: campaign.uid
+      });
+      
       // Appel à l'API Acelle pour récupérer les stats
-      console.log(`Appel API pour récupérer les statistiques de la campagne ${campaign.uid}`);
       const endpoint = `campaigns/${campaign.uid}`;
       
       const campaignData = await callAcelleApi(endpoint, params);
@@ -128,7 +150,6 @@ export const fetchAndProcessCampaignStats = async (
   } catch (error) {
     console.error("Erreur lors de la récupération des statistiques de campagne:", error);
     
-    // NE PAS générer de données démo automatiquement en cas d'erreur
     // Renvoyer des statistiques vides
     return {
       statistics: createEmptyStatistics(),

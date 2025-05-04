@@ -14,6 +14,15 @@ export const DeliveryStatsChart = ({ campaigns }: DeliveryStatsChartProps) => {
   // Calculer les statistiques à partir des campagnes
   const stats = calculateDeliveryStats(campaigns);
   
+  // Journaliser en détail chaque statistique calculée
+  console.log("Stats détaillées pour le graphique:", {
+    totalEmails: stats.totalEmails,
+    totalDelivered: stats.totalDelivered,
+    totalOpened: stats.totalOpened,
+    totalClicked: stats.totalClicked,
+    totalBounced: stats.totalBounced
+  });
+  
   // Convertir les stats en format pour le graphique (array explicite)
   const formattedStats = [
     { name: "Emails envoyés", value: stats.totalEmails || 0, percentage: "100" },
@@ -24,7 +33,6 @@ export const DeliveryStatsChart = ({ campaigns }: DeliveryStatsChartProps) => {
   ];
 
   // Journalisation pour diagnostic
-  console.log("Stats calculées:", stats);
   console.log("Stats formatées pour graphique:", formattedStats);
 
   return (

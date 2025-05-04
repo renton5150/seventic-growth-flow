@@ -44,7 +44,11 @@ export const AcelleTableRow = ({
       console.log(`Initialisation des statistiques pour la campagne ${campaignName}`, {
         hasDeliveryInfo: !!campaign.delivery_info,
         hasStatistics: !!campaign.statistics,
-        demoMode
+        demoMode,
+        account: account ? {
+          hasToken: !!account.apiToken,
+          hasEndpoint: !!account.apiEndpoint
+        } : 'No account'
       });
       
       if (!account && !demoMode) {
@@ -56,7 +60,12 @@ export const AcelleTableRow = ({
         setIsLoading(true);
         
         // Utiliser le nouveau service pour récupérer les statistiques
-        const result = await fetchAndProcessCampaignStats(campaign, account!, { demoMode });
+        const result = await fetchAndProcessCampaignStats(campaign, account!, { 
+          demoMode,
+          refresh: true // Forcer le rafraîchissement pour toujours récupérer les données fraîches
+        });
+        
+        console.log(`Statistiques récupérées pour ${campaignName}:`, result);
         
         // Mettre à jour l'état local avec les statistiques récupérées
         setStats(result.statistics);

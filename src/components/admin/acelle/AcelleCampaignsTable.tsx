@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -142,6 +141,38 @@ export default function AcelleCampaignsTable({ account, onDemoMode }: AcelleCamp
   useEffect(() => {
     refetch();
   }, [refetch, currentPage, account]);
+
+  // Ensure campaigns have statistics when loaded
+  useEffect(() => {
+    const enrichCampaignsStats = async () => {
+      if (!campaigns.length || !account || demoMode) return;
+      
+      console.log("Enriching campaigns with statistics from API...", {
+        campaignsCount: campaigns.length,
+        accountInfo: {
+          id: account.id,
+          name: account.name,
+          hasApiEndpoint: !!account.apiEndpoint,
+          hasApiToken: !!account.apiToken
+        }
+      });
+      
+      try {
+        // Force refresh for all campaigns to ensure we have the latest statistics
+        const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
+          forceRefresh: true,
+          demoMode: false
+        });
+        
+        console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
+        setCampaigns(enrichedCampaigns);
+      } catch (err) {
+        console.error("Error enriching campaigns with statistics:", err);
+      }
+    };
+    
+    enrichCampaignsStats();
+  }, [campaigns.length, account, demoMode]);
 
   // Calcul du nombre total de pages en fonction du nombre total de campagnes
   useEffect(() => {
