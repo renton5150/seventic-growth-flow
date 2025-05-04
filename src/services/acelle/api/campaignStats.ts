@@ -3,6 +3,26 @@
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Crée un objet de statistiques vide mais valide avec des valeurs par défaut
+ */
+const createEmptyStatistics = (): AcelleCampaignStatistics => {
+  return {
+    subscriber_count: 0,
+    delivered_count: 0,
+    delivered_rate: 0,
+    open_count: 0,
+    uniq_open_rate: 0,
+    click_count: 0,
+    click_rate: 0,
+    bounce_count: 0,
+    soft_bounce_count: 0,
+    hard_bounce_count: 0,
+    unsubscribe_count: 0,
+    abuse_complaint_count: 0
+  };
+};
+
 // Fonction pour récupérer et traiter les statistiques d'une campagne
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign, 
@@ -22,7 +42,7 @@ export const fetchAndProcessCampaignStats = async (
     }
     
     // Récupérer les statistiques depuis les données de la campagne
-    let statistics: AcelleCampaignStatistics = campaign.statistics || {};
+    let statistics: AcelleCampaignStatistics = campaign.statistics || createEmptyStatistics();
     let deliveryInfo = campaign.delivery_info || {};
     
     // Si les statistiques ne sont pas complètes, essayer de les enrichir
@@ -40,7 +60,7 @@ export const fetchAndProcessCampaignStats = async (
   } catch (error) {
     console.error("Erreur lors de la récupération des statistiques de campagne:", error);
     return {
-      statistics: {} as AcelleCampaignStatistics
+      statistics: createEmptyStatistics()
     };
   }
 };
