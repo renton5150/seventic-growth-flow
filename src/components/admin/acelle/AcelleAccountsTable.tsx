@@ -1,9 +1,6 @@
-import React, { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Edit, Trash2, RefreshCw, Check, X, Loader2 } from "lucide-react";
 
+import React, { useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
@@ -12,216 +9,283 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-import { acelleService } from "@/services/acelle/acelle-service";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { MoreHorizontal, CalendarIcon, Edit, Trash, ListFilter } from "lucide-react";
 import { AcelleAccount } from "@/types/acelle.types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AcelleAccountForm from "./AcelleAccountForm";
-import { toast } from "sonner";
+import { AcelleFormValues } from "./AcelleAccountForm.types";
+import { useAcelleAccountsFilter } from "@/hooks/acelle/useAcelleAccountsFilter";
 
-export default function AcelleAccountsTable() {
-  const queryClient = useQueryClient();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+interface AcelleAccountsTableProps {
+  accounts: AcelleAccount[];
+  isLoading: boolean;
+  error: Error | null;
+  onCreateAccount: (account: Omit<AcelleAccount, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  onUpdateAccount: (account: AcelleAccount) => Promise<void>;
+  onDeleteAccount: (id: string) => Promise<void>;
+  onRefresh: () => void;
+  onSelectAccount?: (account: AcelleAccount) => void;
+  selectedAccountId?: string;
+}
+
+export default function AcelleAccountsTable({
+  accounts,
+  isLoading,
+  error,
+  onCreateAccount,
+  onUpdateAccount,
+  onDeleteAccount,
+  onRefresh,
+  onSelectAccount,
+  selectedAccountId
+}: AcelleAccountsTableProps) {
   const [selectedAccount, setSelectedAccount] = useState<AcelleAccount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-  const { data: accounts = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["acelleAccounts"],
-    queryFn: acelleService.getAcelleAccounts,
-  });
+  // Utiliser le hook de filtrage pour les comptes
+  const {
+    filteredAccounts,
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
+    setStatusFilter
+  } = useAcelleAccountsFilter(accounts);
 
-  const handleAddAccount = async (data: AcelleAccount) => {
-    setIsSubmitting(true);
+  const handleCreateAccount = async (formData: AcelleFormValues) => {
     try {
-      const newAccount = await acelleService.createAcelleAccount({
-        ...data,
-        lastSyncDate: null
+      setIsSubmitting(true);
+      await onCreateAccount({
+        name: formData.name,
+        api_endpoint: formData.api_endpoint,
+        api_token: formData.api_token,
+        status: formData.status,
+        missionId: formData.missionId,
+        lastSyncDate: formData.lastSyncDate,
+        lastSyncError: formData.lastSyncError,
+        cachePriority: formData.cachePriority || 0,
       });
-      
-      if (newAccount) {
-        setIsAddDialogOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
-      }
+      setShowCreateForm(false);
+      onRefresh();
     } catch (error) {
-      console.error("Erreur lors de l'ajout du compte:", error);
-      toast.error("Erreur lors de l'ajout du compte");
+      console.error("Error creating account:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleEditAccount = async (data: AcelleAccount) => {
+  const handleUpdateAccount = async (formData: AcelleFormValues) => {
     if (!selectedAccount) return;
     
-    setIsSubmitting(true);
     try {
-      const updatedAccount = await acelleService.updateAcelleAccount({
+      setIsSubmitting(true);
+      await onUpdateAccount({
         ...selectedAccount,
-        ...data,
-        lastSyncDate: selectedAccount.lastSyncDate
+        name: formData.name,
+        api_endpoint: formData.api_endpoint,
+        api_token: formData.api_token,
+        status: formData.status,
+        missionId: formData.missionId,
+        lastSyncDate: formData.lastSyncDate,
+        lastSyncError: formData.lastSyncError,
+        cachePriority: formData.cachePriority || 0,
       });
-      
-      if (updatedAccount) {
-        setIsEditDialogOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
-      }
+      setSelectedAccount(null);
+      onRefresh();
     } catch (error) {
-      console.error("Erreur lors de la mise à jour du compte:", error);
-      toast.error("Erreur lors de la mise à jour du compte");
+      console.error("Error updating account:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!selectedAccount) return;
-    
+  const handleDeleteAccount = async (id: string) => {
     try {
-      const success = await acelleService.deleteAcelleAccount(selectedAccount.id);
-      
-      if (success) {
-        queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
-      }
+      setIsSubmitting(true);
+      await onDeleteAccount(id);
+      setShowDeleteConfirm(null);
+      onRefresh();
     } catch (error) {
-      console.error(error);
+      console.error("Error deleting account:", error);
     } finally {
-      setIsDeleteDialogOpen(false);
-      setSelectedAccount(null);
+      setIsSubmitting(false);
     }
   };
 
-  const handleRefreshAccount = async (account: AcelleAccount) => {
-    setRefreshingId(account.id);
+  const renderStatusBadge = (status: string) => {
+    switch(status) {
+      case 'active':
+        return <Badge variant="success">Actif</Badge>;
+      case 'inactive':
+        return <Badge variant="secondary">Inactif</Badge>;
+      case 'error':
+        return <Badge variant="destructive">Erreur</Badge>;
+      default:
+        return <Badge>{status}</Badge>;
+    }
+  };
+
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "Jamais";
     try {
-      await acelleService.getAcelleCampaigns(account);
-      toast.success(`Données synchronisées pour ${account.name}`);
-      queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
+      return format(new Date(dateStr), "dd MMM yyyy HH:mm", { locale: fr });
     } catch (error) {
-      console.error(`Erreur lors de la synchronisation pour ${account.name}:`, error);
-      toast.error(`Échec de la synchronisation pour ${account.name}`);
-    } finally {
-      setRefreshingId(null);
+      return "Date invalide";
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex justify-center items-center p-6">
+        <Spinner className="h-8 w-8" />
       </div>
     );
   }
 
-  if (isError) {
+  if (error) {
     return (
-      <div className="text-center py-8">
-        <p className="text-red-500 mb-4">Une erreur est survenue lors du chargement des comptes</p>
-        <Button onClick={() => refetch()}>Réessayer</Button>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-red-500">
+            Erreur lors du chargement des comptes: {error.message}
+          </div>
+          <Button onClick={onRefresh} className="mt-4">
+            Réessayer
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Comptes Acelle Mail</h2>
-        <Button onClick={() => setIsAddDialogOpen(true)}>Ajouter un compte</Button>
-      </div>
-      
-      {accounts.length === 0 ? (
-        <div className="text-center py-8 border rounded-md bg-muted/20">
-          <p className="text-muted-foreground">Aucun compte Acelle Mail configuré</p>
-          <Button 
-            variant="outline" 
-            className="mt-4"
-            onClick={() => setIsAddDialogOpen(true)}
-          >
-            Ajouter votre premier compte
-          </Button>
+    <div>
+      <div className="mb-4 flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex flex-col sm:flex-row gap-2 items-center">
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              className="w-full h-10 pl-3 pr-10 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <ListFilter className="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <select
+              value={statusFilter || "all"}
+              onChange={(e) => setStatusFilter(e.target.value === "all" ? null : e.target.value)}
+              className="h-10 pl-3 pr-8 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="all">Tous les statuts</option>
+              <option value="active">Actifs</option>
+              <option value="inactive">Inactifs</option>
+              <option value="error">En erreur</option>
+            </select>
+          </div>
         </div>
+
+        <Button onClick={() => setShowCreateForm(true)}>
+          Ajouter un compte
+        </Button>
+      </div>
+
+      {filteredAccounts.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <div className="text-muted-foreground">Aucun compte Acelle trouvé</div>
+            {accounts.length > 0 && (
+              <div className="text-sm text-muted-foreground mt-2">
+                Essayez de modifier vos filtres de recherche
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="border rounded-md">
+        <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nom</TableHead>
-                <TableHead>Mission</TableHead>
-                <TableHead>URL API</TableHead>
+                <TableHead>API</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Dernière synchronisation</TableHead>
+                <TableHead>Priorité</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {accounts.map((account) => (
-                <TableRow key={account.id}>
-                  <TableCell className="font-medium">{account.name}</TableCell>
-                  <TableCell>{account.missionName}</TableCell>
+              {filteredAccounts.map((account) => (
+                <TableRow 
+                  key={account.id}
+                  className={selectedAccountId === account.id ? "bg-primary/5" : undefined}
+                  onClick={() => onSelectAccount && onSelectAccount(account)}
+                  style={{ cursor: onSelectAccount ? 'pointer' : 'default' }}
+                >
+                  <TableCell className="font-medium">
+                    {account.name}
+                  </TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    {account.apiEndpoint}
+                    {account.api_endpoint}
                   </TableCell>
                   <TableCell>
-                    {account.status === "active" ? (
-                      <Badge className="bg-green-500">Actif</Badge>
-                    ) : (
-                      <Badge variant="secondary">Inactif</Badge>
+                    {renderStatusBadge(account.status)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>{formatDate(account.lastSyncDate)}</span>
+                    </div>
+                    {account.lastSyncError && (
+                      <div className="text-xs text-red-500 truncate max-w-[200px]" title={account.lastSyncError}>
+                        {account.lastSyncError}
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>
-                    {account.lastSyncDate 
-                      ? format(new Date(account.lastSyncDate), "dd/MM/yyyy HH:mm", { locale: fr }) 
-                      : "Jamais"}
+                    {account.cachePriority || 0}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRefreshAccount(account)}
-                        disabled={refreshingId === account.id}
-                      >
-                        {refreshingId === account.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedAccount(account);
-                          setIsEditDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedAccount(account);
-                          setIsDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Ouvrir le menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setSelectedAccount(account)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setShowDeleteConfirm(account.id)}
+                          className="text-red-600"
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -230,57 +294,68 @@ export default function AcelleAccountsTable() {
         </div>
       )}
 
-      {/* Dialogue d'ajout de compte */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+      {/* Dialog de création */}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Ajouter un compte Acelle Mail</DialogTitle>
+            <DialogTitle>Ajouter un compte Acelle</DialogTitle>
+            <DialogDescription>
+              Connectez un nouveau compte Acelle à la plateforme.
+            </DialogDescription>
           </DialogHeader>
           <AcelleAccountForm
-            onSubmit={handleAddAccount}
-            onCancel={() => setIsAddDialogOpen(false)}
+            onSubmit={handleCreateAccount}
+            onCancel={() => setShowCreateForm(false)}
             isSubmitting={isSubmitting}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de modification de compte */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+      {/* Dialog de modification */}
+      <Dialog open={!!selectedAccount} onOpenChange={(open) => !open && setSelectedAccount(null)}>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Modifier le compte Acelle Mail</DialogTitle>
+            <DialogTitle>Modifier le compte Acelle</DialogTitle>
+            <DialogDescription>
+              Mettez à jour les informations du compte {selectedAccount?.name}.
+            </DialogDescription>
           </DialogHeader>
           {selectedAccount && (
             <AcelleAccountForm
               account={selectedAccount}
-              onSubmit={handleEditAccount}
-              onCancel={() => setIsEditDialogOpen(false)}
+              onSubmit={handleUpdateAccount}
+              onCancel={() => setSelectedAccount(null)}
               isSubmitting={isSubmitting}
             />
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue de suppression de compte */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer le compte "{selectedAccount?.name}" ? Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteAccount}
-              className="bg-red-500 hover:bg-red-600"
+      {/* Dialog de confirmation de suppression */}
+      <Dialog open={!!showDeleteConfirm} onOpenChange={(open) => !open && setShowDeleteConfirm(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer ce compte Acelle ? 
+              Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(null)}>
+              Annuler
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => showDeleteConfirm && handleDeleteAccount(showDeleteConfirm)}
+              disabled={isSubmitting}
             >
+              {isSubmitting && <Spinner className="mr-2 h-4 w-4" />}
               Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

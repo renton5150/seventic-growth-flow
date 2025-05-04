@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { AcelleAccount, AcelleCampaign, AcelleConnectionDebug } from "@/types/acelle.types";
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { calculateDeliveryStats, extractCampaignsFromCache, forceSyncCampaigns, getCacheStatus } from '@/services/acelle/api/campaigns';
+import { forceSyncCampaigns } from '@/services/acelle/api/campaigns';
+import { calculateDeliveryStats } from '@/utils/acelle/campaignStats';
 
 export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
   const [campaignsData, setCampaignsData] = useState<AcelleCampaign[]>([]);
@@ -46,6 +47,75 @@ export const useAcelleCampaigns = (accounts: AcelleAccount[]) => {
     
     getAuthToken();
   }, []);
+
+  // Fonction pour extraire les campagnes du cache
+  const extractCampaignsFromCache = (cachedData: any[]): AcelleCampaign[] => {
+    console.log(`Extracting ${cachedData.length} campaigns from cache`);
+    
+    return cachedData.map(item => {
+      // Transformer les données du cache en objets AcelleCampaign
+      return {
+        uid: item.campaign_uid,
+        campaign_uid: item.campaign_uid,
+        name: item.name,
+        subject: item.subject,
+        status: item.status,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        delivery_date: item.delivery_date,
+        run_at: item.run_at,
+        delivery_info: item.delivery_info || null,
+        last_error: item.last_error
+      };
+    });
+  };
+
+  // Fonction pour récupérer l'état du cache
+  const getCacheStatus = async (accountId: string) => {
+    console.log(`Getting cache status for account ${accountId}`);
+    
+    try {
+      // Compter les campagnes en cache pour ce compte
+      const { count: campaignsCount, error: countError } = await supabase
+        .from('email_campaigns_cache')
+        .select('*', { count: 'exact', head: true })
+        .eq('account_id', accountId);
+
+      if (countError) {
+        console.error(`Error counting cached campaigns for account ${accountId}:`, countError);
+        return { campaignsCount: 0, lastSyncDate: null, lastSyncError: countError.message };
+      }
+      
+      // Obtenir les informations de synchronisation du compte
+      const { data: accountData, error: accountError } = await supabase
+        .from('acelle_accounts')
+        .select('last_sync_date, last_sync_error')
+        .eq('id', accountId)
+        .single();
+      
+      if (accountError) {
+        console.error(`Error getting sync status for account ${accountId}:`, accountError);
+        return { 
+          campaignsCount: campaignsCount || 0, 
+          lastSyncDate: null, 
+          lastSyncError: accountError.message 
+        };
+      }
+      
+      return {
+        campaignsCount: campaignsCount || 0,
+        lastSyncDate: accountData?.last_sync_date || null,
+        lastSyncError: accountData?.last_sync_error || null
+      };
+    } catch (e) {
+      console.error(`Error getting cache status for account ${accountId}:`, e);
+      return { 
+        campaignsCount: 0, 
+        lastSyncDate: null, 
+        lastSyncError: e instanceof Error ? e.message : String(e)
+      };
+    }
+  };
 
   // Fetch campaigns data
   const fetchCampaigns = useCallback(async () => {

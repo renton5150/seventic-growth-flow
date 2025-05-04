@@ -17,8 +17,9 @@ export const getAcelleCampaigns = async (
     
     // Si le mode démo est activé, générer des campagnes fictives
     if (options?.demoMode) {
-      const { data: mockCampaigns } = await supabase.rpc('generate_mock_campaigns', { count: 10 });
-      return mockCampaigns || [];
+      // Utiliser une fonction JavaScript locale pour générer des données de démonstration
+      const mockCampaigns = generateDemoCampaigns(10);
+      return mockCampaigns;
     }
     
     // Si pas de rafraîchissement demandé, essayer d'abord depuis le cache
@@ -32,8 +33,23 @@ export const getAcelleCampaigns = async (
       if (!cacheError && cachedCampaigns && cachedCampaigns.length > 0) {
         console.log(`${cachedCampaigns.length} campagnes récupérées depuis le cache`);
         
+        // Transformer les données du cache en objets AcelleCampaign
+        const transformedCampaigns = cachedCampaigns.map(item => ({
+          uid: item.campaign_uid,
+          campaign_uid: item.campaign_uid,
+          name: item.name,
+          subject: item.subject,
+          status: item.status,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          delivery_date: item.delivery_date,
+          run_at: item.run_at,
+          delivery_info: item.delivery_info || null,
+          last_error: item.last_error
+        }));
+        
         // Enrichir avec des statistiques
-        const enrichedCampaigns = await enrichCampaignsWithStats(cachedCampaigns, account);
+        const enrichedCampaigns = await enrichCampaignsWithStats(transformedCampaigns, account);
         return enrichedCampaigns;
       }
     }
@@ -121,6 +137,63 @@ export const getAcelleCampaigns = async (
     console.error(`Erreur lors de la récupération des campagnes pour ${account.name}:`, error);
     throw error;
   }
+};
+
+/**
+ * Fonction de démonstration pour générer des campagnes factices
+ */
+export const generateDemoCampaigns = (count: number = 10): AcelleCampaign[] => {
+  const statuses = ["sent", "sending", "queued", "ready", "new", "paused", "failed"];
+  const subjects = ["Newsletter mensuelle", "Promotion spéciale", "Annonce importante", "Webinar à venir", "Invitation"];
+  
+  return Array.from({ length: count }).map((_, index) => {
+    const now = new Date();
+    const randomDays = Math.floor(Math.random() * 30);
+    const createdDate = new Date(now.getTime() - randomDays * 24 * 60 * 60 * 1000);
+    
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const subject = subjects[Math.floor(Math.random() * subjects.length)];
+    const subscriberCount = Math.floor(Math.random() * 10000) + 100;
+    const openRate = Math.random() * 0.7;
+    const clickRate = Math.random() * 0.3;
+    
+    return {
+      uid: `demo-${index}`,
+      campaign_uid: `demo-${index}`,
+      name: `Campagne démo ${index + 1}`,
+      subject: `${subject} ${index + 1}`,
+      status: status,
+      created_at: createdDate.toISOString(),
+      updated_at: new Date().toISOString(),
+      delivery_date: status === "new" ? null : new Date(createdDate.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      run_at: status === "sending" ? new Date().toISOString() : null,
+      statistics: {
+        subscriber_count: subscriberCount,
+        delivered_count: subscriberCount - Math.floor(subscriberCount * 0.05),
+        delivered_rate: 0.95,
+        open_count: Math.floor(subscriberCount * openRate),
+        uniq_open_count: Math.floor(subscriberCount * openRate * 0.8),
+        uniq_open_rate: openRate,
+        click_count: Math.floor(subscriberCount * clickRate),
+        click_rate: clickRate,
+        bounce_count: Math.floor(subscriberCount * 0.03),
+        soft_bounce_count: Math.floor(subscriberCount * 0.02),
+        hard_bounce_count: Math.floor(subscriberCount * 0.01),
+        unsubscribe_count: Math.floor(subscriberCount * 0.005),
+        abuse_complaint_count: Math.floor(subscriberCount * 0.002)
+      },
+      delivery_info: {
+        total: subscriberCount,
+        delivered: subscriberCount - Math.floor(subscriberCount * 0.05),
+        opened: Math.floor(subscriberCount * openRate),
+        clicked: Math.floor(subscriberCount * clickRate),
+        bounced: Math.floor(subscriberCount * 0.03),
+        delivery_rate: 0.95,
+        unique_open_rate: openRate,
+        click_rate: clickRate
+      }
+    };
+  });
 };
 
 /**
