@@ -41,7 +41,7 @@ export const CampaignTechnicalInfo = ({
               </div>
               <div className="p-2 bg-muted rounded-md">
                 <p className="text-xs text-muted-foreground">Type</p>
-                <p className="font-mono text-sm">{campaign.type || 'standard'}</p>
+                <p className="font-mono text-sm">{campaign.meta?.type || 'standard'}</p>
               </div>
             </div>
           </div>

@@ -56,6 +56,9 @@ export interface AcelleCampaignStatistics {
   delivered?: number;
   opened?: number;
   clicked?: number;
+  
+  // Index signature pour permettre l'accès dynamique aux propriétés
+  [key: string]: any;
 }
 
 // Interface pour la structure delivery_info
@@ -88,6 +91,9 @@ export interface DeliveryInfo {
   open_count?: number;
   open_rate?: number;
   uniq_open_rate?: number;
+  
+  // Index signature pour permettre l'accès dynamique aux propriétés
+  [key: string]: any;
 }
 
 export interface AcelleCampaign {

@@ -78,7 +78,7 @@ export const updateCachedStats = async (
       .upsert({
         campaign_uid: campaignUid,
         account_id: accountId,
-        statistics,
+        statistics: statistics as any, // Cast pour éviter les problèmes de type avec JSONB
         last_updated: new Date().toISOString()
       }, {
         onConflict: 'campaign_uid,account_id'

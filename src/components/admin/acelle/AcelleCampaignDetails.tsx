@@ -24,12 +24,14 @@ interface AcelleCampaignDetailsProps {
   campaignId: string;
   account: AcelleAccount;
   onClose: () => void;
+  demoMode?: boolean; // Ajout de cette prop optionnelle
 }
 
 const AcelleCampaignDetails = ({ 
   campaignId, 
   account, 
   onClose,
+  demoMode = false // Valeur par défaut à false
 }: AcelleCampaignDetailsProps) => {
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);

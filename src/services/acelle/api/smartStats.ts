@@ -57,8 +57,8 @@ export const getSmartCampaignStats = async (
     // Récupérer les statistiques depuis l'API
     const apiStats = await fetchCampaignStats(
       campaignUid,
-      account.api_endpoint,
-      account.api_token
+      account.apiEndpoint,
+      account.apiToken
     );
     
     if (!apiStats) {
