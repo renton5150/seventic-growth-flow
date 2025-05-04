@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -27,13 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { 
-  getAcelleAccounts, 
-  deleteAcelleAccount, 
-  createAcelleAccount, 
-  updateAcelleAccount, 
-  getAcelleCampaigns 
-} from "@/services/acelle/acelle-service";
+import { acelleService } from "@/services/acelle/acelle-service";
 import { AcelleAccount } from "@/types/acelle.types";
 import AcelleAccountForm from "./AcelleAccountForm";
 import { toast } from "sonner";
@@ -49,13 +42,13 @@ export default function AcelleAccountsTable() {
 
   const { data: accounts = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["acelleAccounts"],
-    queryFn: getAcelleAccounts,
+    queryFn: acelleService.getAcelleAccounts,
   });
 
-  const handleAddAccount = async (data: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt" | "lastSyncDate">) => {
+  const handleAddAccount = async (data: AcelleAccount) => {
     setIsSubmitting(true);
     try {
-      const newAccount = await createAcelleAccount({
+      const newAccount = await acelleService.createAcelleAccount({
         ...data,
         lastSyncDate: null
       });
@@ -72,12 +65,12 @@ export default function AcelleAccountsTable() {
     }
   };
 
-  const handleEditAccount = async (data: Omit<AcelleAccount, "id" | "createdAt" | "updatedAt" | "lastSyncDate">) => {
+  const handleEditAccount = async (data: AcelleAccount) => {
     if (!selectedAccount) return;
     
     setIsSubmitting(true);
     try {
-      const updatedAccount = await updateAcelleAccount({
+      const updatedAccount = await acelleService.updateAcelleAccount({
         ...selectedAccount,
         ...data,
         lastSyncDate: selectedAccount.lastSyncDate
@@ -99,7 +92,7 @@ export default function AcelleAccountsTable() {
     if (!selectedAccount) return;
     
     try {
-      const success = await deleteAcelleAccount(selectedAccount.id);
+      const success = await acelleService.deleteAcelleAccount(selectedAccount.id);
       
       if (success) {
         queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
@@ -115,7 +108,7 @@ export default function AcelleAccountsTable() {
   const handleRefreshAccount = async (account: AcelleAccount) => {
     setRefreshingId(account.id);
     try {
-      await getAcelleCampaigns(account);
+      await acelleService.getAcelleCampaigns(account);
       toast.success(`Données synchronisées pour ${account.name}`);
       queryClient.invalidateQueries({ queryKey: ["acelleAccounts"] });
     } catch (error) {

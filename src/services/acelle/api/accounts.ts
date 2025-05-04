@@ -22,8 +22,8 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
         missionId: account.mission_id,
         missionName: account.missions?.name || "Mission inconnue",
         name: account.name,
-        apiEndpoint: account.api_endpoint,
-        apiToken: account.api_token,
+        api_endpoint: account.api_endpoint,
+        api_token: account.api_token,
         lastSyncDate: account.last_sync_date,
         status: account.status as AcelleAccount["status"],
         created_at: account.created_at,
@@ -31,8 +31,7 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
         createdAt: account.created_at, // Adding compatibility fields
         updatedAt: account.updated_at, // Adding compatibility fields
         cachePriority: account.cache_priority || 0,
-        apiKey: account.api_token, // For compatibility
-        lastSyncError: account.last_sync_error // Access the property directly now that it exists in the database
+        lastSyncError: account.last_sync_error
       };
       
       return accountData;
@@ -63,8 +62,8 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       missionId: data.mission_id,
       missionName: data.missions?.name || "Mission inconnue",
       name: data.name,
-      apiEndpoint: data.api_endpoint,
-      apiToken: data.api_token,
+      api_endpoint: data.api_endpoint,
+      api_token: data.api_token,
       lastSyncDate: data.last_sync_date,
       status: data.status as AcelleAccount["status"],
       created_at: data.created_at,
@@ -72,8 +71,7 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       cachePriority: data.cache_priority || 0,
-      apiKey: data.api_token,
-      lastSyncError: data.last_sync_error // Access the property directly
+      lastSyncError: data.last_sync_error
     };
     
     return accountData;
@@ -97,8 +95,8 @@ export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "c
       .insert({
         mission_id: account.missionId,
         name: account.name,
-        api_endpoint: account.apiEndpoint,
-        api_token: account.apiToken,
+        api_endpoint: account.api_endpoint,
+        api_token: account.api_token,
         status: account.status,
         last_sync_date: lastSyncDate,
         last_sync_error: account.lastSyncError,
@@ -138,8 +136,8 @@ export const updateAcelleAccount = async (account: AcelleAccount): Promise<Acell
     const updateData: Record<string, any> = {
       mission_id: account.missionId,
       name: account.name,
-      api_endpoint: account.apiEndpoint,
-      api_token: account.apiToken,
+      api_endpoint: account.api_endpoint,
+      api_token: account.api_token,
       status: account.status,
       last_sync_date: lastSyncDate,
       last_sync_error: account.lastSyncError,

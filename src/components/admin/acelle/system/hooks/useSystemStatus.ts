@@ -1,9 +1,10 @@
-
-import { useState, useEffect } from "react";
-import { AcelleConnectionDebug, AcelleAccount } from "@/types/acelle.types";
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { testAcelleConnection } from "@/services/acelle/api/connection";
+import { useQuery } from '@tanstack/react-query';
+import { getAcelleAccounts } from '@/services/acelle/api/accounts';
+import { AcelleAccount, AcelleConnectionDebug } from '@/types/acelle.types';
 import { isSupabaseAuthenticated } from "@/services/missions-service/auth/supabaseAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const useSystemStatus = () => {
@@ -24,13 +25,13 @@ export const useSystemStatus = () => {
     status: "unknown"
   });
 
-  // Create a test account to use for API checks
+  // Test account for API check
   const testAccount: AcelleAccount = {
-    id: "system-test",
-    apiEndpoint: "https://emailing.plateforme-solution.net",
-    apiToken: "test-token",
-    name: "System Test",
-    status: "active" as "active" | "inactive" | "error",
+    id: 'system-test',
+    name: 'Test Account',
+    api_endpoint: 'https://emailing.plateforme-solution.net/api/v1',
+    api_token: 'test-token',
+    status: 'inactive',
     created_at: new Date().toISOString(),
     lastSyncDate: null,
     lastSyncError: null,
@@ -374,6 +375,44 @@ export const useSystemStatus = () => {
       setIsTesting(false);
     }
   };
+
+  // Check Edge Function status
+  const checkEdgeFunctionStatus = useCallback(async () => {
+    try {
+      const { data: edgeFunctionStatus } = await supabase
+        .from('edge_functions')
+        .select('*')
+        .eq('name', 'cors-proxy')
+        .eq('status', 'active');
+      
+      if (edgeFunctionStatus && edgeFunctionStatus.length > 0) {
+        console.log("Edge Function 'cors-proxy' is active");
+      } else {
+        console.log("Edge Function 'cors-proxy' is not active");
+      }
+    } catch (error) {
+      console.error("Error checking Edge Function status:", error);
+    }
+  }, []);
+
+  // Check database status
+  const checkDatabaseStatus = useCallback(async () => {
+    try {
+      const { data: databaseStatus } = await supabase
+        .from('database')
+        .select('*')
+        .eq('name', 'emailing')
+        .eq('status', 'active');
+      
+      if (databaseStatus && databaseStatus.length > 0) {
+        console.log("Database 'emailing' is active");
+      } else {
+        console.log("Database 'emailing' is not active");
+      }
+    } catch (error) {
+      console.error("Error checking database status:", error);
+    }
+  }, []);
 
   return {
     isTesting,

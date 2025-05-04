@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import AcelleAccountsTable from "./AcelleAccountsTable";
 import AcelleCampaignsTable from "./AcelleCampaignsTable";
 import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
-import { getAcelleAccounts } from "@/services/acelle/acelle-service";
+import { acelleService } from "@/services/acelle/acelle-service";
 import { AcelleAccount } from "@/types/acelle.types";
 import { SystemStatus } from "./system/SystemStatus";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +32,7 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
     refetch 
   } = useQuery({
     queryKey: ["acelleAccounts"],
-    queryFn: getAcelleAccounts,
+    queryFn: acelleService.getAcelleAccounts,
   });
 
   useEffect(() => {

@@ -63,7 +63,7 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     
     // Use the customers endpoint which should be available in all Acelle instances
     const testUrl = buildProxyUrl('customers', { 
-      api_token: account.apiToken,
+      api_token: account.api_token,
       _t: cacheBuster // Add timestamp to prevent caching
     });
     

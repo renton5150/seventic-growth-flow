@@ -18,8 +18,8 @@ import { AcelleFormValues, AcelleAccountFormProps } from "./AcelleAccountForm.ty
 // Form schema with validation
 const formSchema = z.object({
   name: z.string().min(2, { message: "Le nom doit contenir au moins 2 caractères" }),
-  apiEndpoint: z.string().url({ message: "L'URL de l'API doit être valide" }),
-  apiToken: z.string().min(5, { message: "Le token API doit contenir au moins 5 caractères" }),
+  api_endpoint: z.string().url({ message: "L'URL de l'API doit être valide" }),
+  api_token: z.string().min(5, { message: "Le token API doit contenir au moins 5 caractères" }),
   status: z.enum(["active", "inactive", "error"]),
   missionId: z.string().optional(),
 });
@@ -34,10 +34,10 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: account?.name || "",
-      apiEndpoint: account?.apiEndpoint || "",
-      apiToken: account?.apiToken || "",
+      api_endpoint: account?.api_endpoint || "",
+      api_token: account?.api_token || "",
       status: account?.status || "inactive",
-      missionId: account?.missionId || "none", // Changé de "" à "none"
+      missionId: account?.missionId || "none",
     },
   });
 
@@ -50,11 +50,11 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
 
   // Test API connection - fixed to use only one argument
   const testConnection = async () => {
-    const apiEndpoint = form.getValues("apiEndpoint");
-    const apiToken = form.getValues("apiToken");
+    const api_endpoint = form.getValues("api_endpoint");
+    const api_token = form.getValues("api_token");
     
-    if (!apiEndpoint || !apiToken) {
-      form.trigger(["apiEndpoint", "apiToken"]);
+    if (!api_endpoint || !api_token) {
+      form.trigger(["api_endpoint", "api_token"]);
       return;
     }
 
@@ -66,10 +66,10 @@ const AcelleAccountForm = ({ account, onSubmit, onCancel, isSubmitting = false }
       // Create a temporary account object for testing
       const testAccount = {
         id: "temp-id",
-        apiEndpoint,
-        apiToken,
+        api_endpoint,
+        api_token,
         name: "Test Connection",
-        status: "inactive" as "active" | "inactive" | "error", // Explicitly type as the required union type
+        status: "inactive" as "active" | "inactive" | "error",
         created_at: new Date().toISOString(),
         lastSyncDate: null,
         lastSyncError: null,

@@ -1,4 +1,3 @@
-
 export interface AcelleAccount {
   id: string;
   created_at: string;
@@ -15,7 +14,6 @@ export interface AcelleAccount {
   missionName?: string;
   createdAt?: string;
   updatedAt?: string;
-  apiKey?: string;
   updated_at?: string;
 }
 

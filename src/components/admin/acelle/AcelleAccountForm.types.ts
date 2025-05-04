@@ -3,8 +3,8 @@ import { AcelleAccount } from "@/types/acelle.types";
 
 export interface AcelleFormValues {
   name: string;
-  apiEndpoint: string;
-  apiToken: string;
+  api_endpoint: string;
+  api_token: string;
   status: 'active' | 'inactive' | 'error';
   missionId?: string;
   lastSyncError?: string | null;

@@ -77,7 +77,10 @@ export const fetchAndProcessCampaignStats = async (
       // Appel à l'API Acelle pour récupérer les stats
       const endpoint = `campaigns/${campaign.uid}`;
       
-      const campaignData = await callAcelleApi(endpoint, params);
+      const campaignData = await callAcelleApi(endpoint, {
+        ...params,
+        api_endpoint: apiEndpoint
+      });
       
       if (!campaignData) {
         throw new Error(`Aucune donnée retournée par l'API pour la campagne ${campaign.uid}`);
@@ -129,7 +132,7 @@ export const fetchAndProcessCampaignStats = async (
         await supabase.from('campaign_stats_cache').upsert({
           campaign_uid: campaign.uid,
           account_id: account.id,
-          statistics: statistics
+          statistics: statistics as any // Cast temporaire pour résoudre l'erreur
         });
         console.log(`Cache mis à jour pour la campagne ${campaign.uid}`);
       } catch (cacheError) {
@@ -165,7 +168,7 @@ export const fetchAndProcessCampaignStats = async (
         if (cacheData && cacheData.statistics) {
           console.log(`Statistiques récupérées depuis le cache pour la campagne ${campaign.uid}`);
           return {
-            statistics: cacheData.statistics,
+            statistics: cacheData.statistics as AcelleCampaignStatistics,
             delivery_info: {}  // Pas d'info de livraison dans le cache
           };
         }
