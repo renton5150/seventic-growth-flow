@@ -57,6 +57,13 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
   let totalClicked = 0;
   let totalBounced = 0;
   
+  // Helper function to safely get a numeric value
+  const safeNumber = (value: any): number => {
+    if (value === undefined || value === null) return 0;
+    const num = Number(value);
+    return !isNaN(num) ? num : 0;
+  };
+  
   campaigns.forEach(campaign => {
     if (!campaign) {
       console.warn("Campaign object is undefined or null in calculateDeliveryStats");
@@ -77,16 +84,16 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       console.log(`Campaign ${campaign.name} delivery_info:`, info);
       
       // Safely access numerical properties
-      totalSent += Number(info.total) || 0;
-      totalDelivered += Number(info.delivered) || 0;
-      totalOpened += Number(info.opened) || 0;
-      totalClicked += Number(info.clicked) || 0;
+      totalSent += safeNumber(info.total);
+      totalDelivered += safeNumber(info.delivered);
+      totalOpened += safeNumber(info.opened);
+      totalClicked += safeNumber(info.clicked);
       
       // Handle bounces from the bounced subobject
       if (info.bounced !== undefined) {
         if (typeof info.bounced === 'object' && info.bounced !== null) {
-          const softBounce = Number(info.bounced.soft) || 0;
-          const hardBounce = Number(info.bounced.hard) || 0;
+          const softBounce = safeNumber(info.bounced.soft);
+          const hardBounce = safeNumber(info.bounced.hard);
           totalBounced += softBounce + hardBounce;
         } else if (typeof info.bounced === 'number') {
           totalBounced += info.bounced;
@@ -98,11 +105,11 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       const stats = campaign.statistics;
       console.log(`Campaign ${campaign.name} statistics:`, stats);
       
-      totalSent += Number(stats.subscriber_count) || 0;
-      totalDelivered += Number(stats.delivered_count) || 0;
-      totalOpened += Number(stats.open_count) || 0;
-      totalClicked += Number(stats.click_count) || 0;
-      totalBounced += Number(stats.bounce_count) || 0;
+      totalSent += safeNumber(stats.subscriber_count);
+      totalDelivered += safeNumber(stats.delivered_count);
+      totalOpened += safeNumber(stats.open_count);
+      totalClicked += safeNumber(stats.click_count);
+      totalBounced += safeNumber(stats.bounce_count);
     } else {
       console.warn(`No statistics found for campaign ${campaign.name || 'unknown'}`);
     }

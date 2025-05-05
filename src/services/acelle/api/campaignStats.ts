@@ -51,15 +51,20 @@ export const fetchAndProcessCampaignStats = async (
           // Convertir les données JSON en objets
           const statistics = typeof cachedStats.statistics === 'string' 
             ? JSON.parse(cachedStats.statistics) 
-            : cachedStats.statistics;
+            : (cachedStats.statistics || {});
           
-          // Check if delivery_info exists in cachedStats and handle accordingly
+          // Handle delivery_info safely with type check
           let delivery_info = {};
           
-          if (cachedStats.delivery_info !== undefined) {
-            delivery_info = typeof cachedStats.delivery_info === 'string'
-              ? JSON.parse(cachedStats.delivery_info)
-              : cachedStats.delivery_info;
+          // Make sure cachedStats is not undefined and check if delivery_info exists
+          if (cachedStats && 'delivery_info' in cachedStats) {
+            const rawDeliveryInfo = cachedStats.delivery_info;
+            
+            if (rawDeliveryInfo !== null && rawDeliveryInfo !== undefined) {
+              delivery_info = typeof rawDeliveryInfo === 'string'
+                ? JSON.parse(rawDeliveryInfo)
+                : rawDeliveryInfo;
+            }
           }
             
           return { 

@@ -22,15 +22,22 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaign
       .slice(0, 5);
     
     return deliveredCampaigns.map(campaign => {
-      // Ensure we have objects even if they're empty
+      // Define default empty objects to avoid null access
       const stats = campaign.statistics || {};
       const deliveryInfo = campaign.delivery_info || {};
       
-      // Safely access properties with fallbacks
-      const total = Number(stats?.subscriber_count) || Number(deliveryInfo?.total) || 0;
-      const delivered = Number(stats?.delivered_count) || Number(deliveryInfo?.delivered) || 0;
-      const opened = Number(stats?.open_count) || Number(deliveryInfo?.opened) || 0;
-      const clicked = Number(stats?.click_count) || Number(deliveryInfo?.clicked) || 0;
+      // Helper function to safely access nested properties 
+      const safelyGet = (obj: any, key: string, fallback: number = 0): number => {
+        if (!obj) return fallback;
+        const value = obj[key];
+        return typeof value === 'number' ? value : fallback;
+      };
+      
+      // Safely access statistics with fallbacks
+      const total = safelyGet(stats, 'subscriber_count', 0) || safelyGet(deliveryInfo, 'total', 0);
+      const delivered = safelyGet(stats, 'delivered_count', 0) || safelyGet(deliveryInfo, 'delivered', 0);
+      const opened = safelyGet(stats, 'open_count', 0) || safelyGet(deliveryInfo, 'opened', 0);
+      const clicked = safelyGet(stats, 'click_count', 0) || safelyGet(deliveryInfo, 'clicked', 0);
       
       // Handle complex types like the bounced field
       let bounced = 0;
@@ -38,7 +45,7 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaign
         bounced = stats.bounce_count;
       } else if (deliveryInfo && deliveryInfo.bounced !== undefined) {
         if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
-          bounced = Number(deliveryInfo.bounced.total) || 0;
+          bounced = safelyGet(deliveryInfo.bounced, 'total', 0);
         } else if (typeof deliveryInfo.bounced === 'number') {
           bounced = deliveryInfo.bounced;
         }
