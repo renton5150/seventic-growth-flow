@@ -57,9 +57,18 @@ export const fetchAndProcessCampaignStats = async (
           console.log(`[Stats] Utilisation du cache stats pour ${campaignUid}, âge: ${cacheAgeHours.toFixed(2)}h`);
           
           // Extraire les statistiques du cache (gérer string ou objet)
-          const statistics = typeof cachedStatsData.statistics === 'string' 
-            ? JSON.parse(cachedStatsData.statistics) 
-            : cachedStatsData.statistics;
+          let statistics: AcelleCampaignStatistics;
+          
+          if (typeof cachedStatsData.statistics === 'string') {
+            try {
+              statistics = JSON.parse(cachedStatsData.statistics);
+            } catch (e) {
+              console.error(`[Stats] Erreur parsing JSON du cache:`, e);
+              statistics = createEmptyStatistics();
+            }
+          } else {
+            statistics = cachedStatsData.statistics as AcelleCampaignStatistics;
+          }
           
           return {
             statistics: statistics,
@@ -249,6 +258,7 @@ export const fetchAndProcessCampaignStats = async (
       console.log(`[Stats] Mise à jour du cache campaign_stats_cache pour ${campaignUid}`);
       
       // Fix: Convert statistics object to a standard JSON object to match the Json type expected by Supabase
+      // This creates a plain object that can be safely stored as Json
       const statisticsJson = JSON.parse(JSON.stringify(statistics));
       
       const { error: statsUpsertError } = await supabase
@@ -256,7 +266,7 @@ export const fetchAndProcessCampaignStats = async (
         .upsert({
           campaign_uid: campaignUid,
           account_id: account.id,
-          statistics: statisticsJson,  // Now using the JSON-compatible version
+          statistics: statisticsJson,  // Using the JSON-compatible version
           last_updated: new Date().toISOString()
         }, {
           onConflict: 'campaign_uid,account_id'
