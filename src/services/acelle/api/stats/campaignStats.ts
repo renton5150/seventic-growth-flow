@@ -45,6 +45,7 @@ export const fetchAndProcessCampaignStats = async (
  * Re-export enrichCampaignsWithStats for compatibility
  */
 export { enrichCampaignsWithStats } from "./directStats";
+export { ensureValidStatistics } from "./validation";
 
 /**
  * Ajoute des statistiques simulées à une seule campagne (utilisé pour le mode démo)

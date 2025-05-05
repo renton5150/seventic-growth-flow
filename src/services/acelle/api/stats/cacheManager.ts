@@ -23,7 +23,7 @@ export async function getCachedStatistics(
     }
     
     console.log(`[Stats Cache] Statistiques trouvées en cache pour ${campaignUid}`);
-    return data.statistics as AcelleCampaignStatistics;
+    return data.statistics as unknown as AcelleCampaignStatistics;
   } catch (error) {
     console.error('[Stats Cache] Erreur lors de la récupération du cache:', error);
     return null;
@@ -44,7 +44,7 @@ export async function saveCampaignStatistics(
       .upsert({
         campaign_uid: campaignUid,
         account_id: accountId,
-        statistics: statistics
+        statistics: statistics as unknown as Record<string, any>
       }, { 
         onConflict: 'campaign_uid,account_id' 
       });

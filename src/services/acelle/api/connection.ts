@@ -69,8 +69,8 @@ export const checkAcelleConnectionStatus = async (
       return {
         success: true,
         timestamp: new Date().toISOString(),
-        responseTime: result.responseTime,
-        apiVersion: result.apiVersion
+        apiVersion: result.apiVersion,
+        responseTime: result.responseTime
       };
     } catch (error) {
       return {

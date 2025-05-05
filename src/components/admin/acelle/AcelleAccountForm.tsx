@@ -56,7 +56,7 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
       api_endpoint: account?.api_endpoint || "",
       api_token: account?.api_token || "",
       cache_priority: account?.cache_priority || 0,
-      status: account?.status || "inactive",
+      status: (account?.status as "active" | "inactive" | "error") || "inactive",
     },
   });
 
@@ -123,7 +123,7 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         // Mise à jour d'un compte existant
         const { data, error } = await supabase
           .from('acelle_accounts')
-          .update(values)
+          .update(accountData)
           .eq('id', account.id)
           .select()
           .single();
@@ -131,19 +131,19 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         if (error) throw new Error(error.message);
         
         toast.success("Compte mis à jour avec succès");
-        onSuccess(data, true);
+        onSuccess(data as AcelleAccount, true);
       } else {
         // Création d'un nouveau compte
         const { data, error } = await supabase
           .from('acelle_accounts')
-          .insert([values])
+          .insert([accountData])
           .select()
           .single();
           
         if (error) throw new Error(error.message);
         
         toast.success("Compte créé avec succès");
-        onSuccess(data, false);
+        onSuccess(data as AcelleAccount, false);
       }
     } catch (error) {
       console.error("Erreur lors de la sauvegarde du compte:", error);
