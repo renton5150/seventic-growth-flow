@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AcelleAccountsTable from "@/components/admin/acelle/AcelleAccountsTable";
 import { SystemStatus } from "@/components/admin/acelle/system/SystemStatus";
@@ -8,6 +8,14 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
 import { AcelleAccountForm } from "./AcelleAccountForm";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 
 interface AcelleAdminPanelProps {
   onDemoModeChange?: (isDemoMode: boolean) => void;
