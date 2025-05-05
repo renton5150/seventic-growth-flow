@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -107,20 +106,22 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
     setIsSubmitting(true);
     
     try {
-      const accountData = {
-        ...values,
-        // Propager les autres champs existants si on édite
-        ...(isEditing && {
+      const accountData: AcelleAccount = {
+        name: values.name,
+        api_endpoint: values.api_endpoint,
+        api_token: values.api_token,
+        status: values.status,
+        cache_priority: values.cache_priority || 0,
+        ...(account && {
           id: account.id,
           created_at: account.created_at,
           updated_at: new Date().toISOString(),
           last_sync_date: account.last_sync_date,
           last_sync_error: account.last_sync_error
-        }),
+        })
       };
       
       if (isEditing) {
-        // Mise à jour d'un compte existant
         const { data, error } = await supabase
           .from('acelle_accounts')
           .update(accountData)
@@ -133,7 +134,6 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         toast.success("Compte mis à jour avec succès");
         onSuccess(data as AcelleAccount, true);
       } else {
-        // Création d'un nouveau compte
         const { data, error } = await supabase
           .from('acelle_accounts')
           .insert([accountData])

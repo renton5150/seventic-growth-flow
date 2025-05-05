@@ -1,7 +1,49 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { enrichCampaignsWithStats as enrichWithDirectStats } from "./directStats";
+
+/**
+ * Test function for cache insertion
+ */
+export const testCacheInsertion = async (account: AcelleAccount): Promise<boolean> => {
+  if (!account?.id) return false;
+  
+  try {
+    // Create a test campaign with mock data
+    const testCampaign: AcelleCampaign = {
+      uid: `test-${Date.now()}`,
+      name: "Test Campaign",
+      subject: "Test Subject",
+      status: "new",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      delivery_date: null,
+      run_at: null,
+      statistics: {
+        subscriber_count: 0,
+        delivered_count: 0,
+        delivered_rate: 0,
+        open_count: 0,
+        uniq_open_count: 0,
+        uniq_open_rate: 0,
+        click_count: 0,
+        click_rate: 0,
+        bounce_count: 0,
+        soft_bounce_count: 0,
+        hard_bounce_count: 0,
+        unsubscribe_count: 0,
+        abuse_complaint_count: 0
+      }
+    };
+    
+    // Try to process the test campaign
+    const result = await fetchAndProcessCampaignStats(testCampaign, account);
+    return !!result;
+  } catch (error) {
+    console.error("Error during cache test:", error);
+    return false;
+  }
+};
 
 /**
  * Récupère et traite les statistiques pour une liste de campagnes
@@ -46,6 +88,9 @@ export const fetchAndProcessCampaignStats = async (
  */
 export { enrichCampaignsWithStats } from "./directStats";
 export { ensureValidStatistics } from "./validation";
+
+// Re-export addMockStatistics for testing purposes
+export { addMockStatistics } from "./campaignStats";
 
 /**
  * Ajoute des statistiques simulées à une seule campagne (utilisé pour le mode démo)

@@ -1,7 +1,11 @@
 
 // Fichier de compatibilité pour assurer la rétrocompatibilité avec le code existant
-import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { fetchAndProcessCampaignStats as fetchAndProcessStats, ensureValidStatistics } from "./stats/campaignStats";
+import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
+import { 
+  fetchAndProcessCampaignStats as fetchAndProcessStats,
+  testCacheInsertion,
+  ensureValidStatistics 
+} from "./stats/campaignStats";
 import { enrichCampaignsWithStats } from "./stats/directStats";
 
 /**
@@ -16,9 +20,13 @@ export const fetchAndProcessCampaignStats = async (
   }
 ): Promise<AcelleCampaign> => {
   const result = await fetchAndProcessStats(campaign, account, options);
-  // Ensure the result is usable even if it's just a campaign with optional properties
   return result as AcelleCampaign;
 };
 
-// Re-exporter les fonctions utilitaires
-export { ensureValidStatistics, enrichCampaignsWithStats };
+// Re-export utility functions
+export { 
+  testCacheInsertion,
+  ensureValidStatistics, 
+  enrichCampaignsWithStats 
+};
+
