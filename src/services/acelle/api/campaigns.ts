@@ -44,7 +44,7 @@ export const getAcelleCampaigns = async (
           updated_at: item.updated_at,
           delivery_date: item.delivery_date,
           run_at: item.run_at,
-          delivery_info: item.delivery_info || null,
+          delivery_info: item.delivery_info || {},
           last_error: item.last_error
         }));
         
@@ -214,7 +214,7 @@ export const extractCampaignsFromCache = (cachedCampaigns: CachedCampaign[]): Ac
     updated_at: item.updated_at,
     delivery_date: item.delivery_date,
     run_at: item.run_at,
-    delivery_info: item.delivery_info,
+    delivery_info: item.delivery_info || {},
     last_error: item.last_error
   }));
 };
