@@ -39,7 +39,7 @@ export const fetchAndProcessCampaignStats = async (
           total: cachedStats.subscriber_count || 0,
           delivered: cachedStats.delivered_count || 0,
           delivery_rate: cachedStats.delivered_rate || 0,
-          opened: cachedStats.open_count || cachedStats.uniq_open_count || 0,
+          opened: cachedStats.open_count || 0,
           unique_open_rate: cachedStats.uniq_open_rate || 0,
           clicked: cachedStats.click_count || 0,
           click_rate: cachedStats.click_rate || 0,

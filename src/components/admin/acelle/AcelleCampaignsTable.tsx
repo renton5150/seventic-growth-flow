@@ -31,7 +31,7 @@ import { RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
+import { enrichCampaignsWithStats } from "@/services/acelle/api/campaignStats";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
