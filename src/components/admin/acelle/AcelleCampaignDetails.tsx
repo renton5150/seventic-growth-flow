@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -6,13 +7,13 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo }
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
 import { supabase } from "@/integrations/supabase/client";
-import { acelleService } from "@/services/acelle"; // Added this import
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
 import { CampaignGeneralInfo } from "./detail/CampaignGeneralInfo";
 import { CampaignGlobalStats } from "./detail/CampaignGlobalStats";
 import { CampaignTechnicalInfo } from "./detail/CampaignTechnicalInfo";
+import { acelleService } from "@/services/acelle";
 
 interface AcelleCampaignDetailsProps {
   campaignId: string;
@@ -160,16 +161,31 @@ const AcelleCampaignDetails = ({
       
       // Enrichir avec les statistiques détaillées seulement si nécessaires
       if (!campaign.statistics || Object.keys(campaign.statistics).length === 0) {
-        const enrichedCampaign = await acelleService.campaigns.getStats(campaign, account, {
+        const enrichedCampaignResult = await acelleService.campaigns.getStats(campaign, account, {
           refresh: false // Utiliser le cache si disponible
         });
         
-        if (enrichedCampaign && typeof enrichedCampaign === 'object') {
-          setCampaign(prevCampaign => ({
-            ...prevCampaign,
-            statistics: enrichedCampaign.statistics,
-            delivery_info: enrichedCampaign.delivery_info
-          }));
+        // Vérifier si le résultat est un tableau ou un objet unique
+        if (enrichedCampaignResult) {
+          // S'assurer que nous traitons un seul objet campaigne, pas un tableau
+          if (Array.isArray(enrichedCampaignResult)) {
+            // Si c'est un tableau, prendre le premier élément s'il existe
+            if (enrichedCampaignResult.length > 0) {
+              const enrichedCampaign = enrichedCampaignResult[0];
+              setCampaign(prevCampaign => ({
+                ...prevCampaign!,
+                statistics: enrichedCampaign.statistics,
+                delivery_info: enrichedCampaign.delivery_info
+              }));
+            }
+          } else {
+            // C'est un objet unique, utiliser directement
+            setCampaign(prevCampaign => ({
+              ...prevCampaign!,
+              statistics: enrichedCampaignResult.statistics,
+              delivery_info: enrichedCampaignResult.delivery_info
+            }));
+          }
         }
       }
       
