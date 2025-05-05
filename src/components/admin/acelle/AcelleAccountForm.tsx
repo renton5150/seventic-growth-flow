@@ -45,14 +45,13 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         <FormField
           control={form.control}
           name="api_endpoint"
-          render={({ field }) => (
+          render={() => (
             <TextField
               form={form}
               name="api_endpoint"
               label="URL de l'API"
               placeholder="https://emailing.example.com/api/v1"
               description="URL de base de l'API Acelle (sans le slash final)"
-              {...field}
               onChange={handleApiEndpointChange}
             />
           )}
@@ -61,7 +60,7 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         <FormField
           control={form.control}
           name="api_token"
-          render={({ field }) => (
+          render={() => (
             <TextField
               form={form}
               name="api_token"
@@ -69,7 +68,6 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
               placeholder="votre-token-api"
               description="Token d'authentification pour accéder à l'API"
               type="password"
-              {...field}
               onChange={handleApiTokenChange}
             />
           )}

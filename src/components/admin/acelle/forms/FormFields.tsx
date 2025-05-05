@@ -21,6 +21,7 @@ interface TextFieldProps {
   placeholder: string;
   description: string;
   type?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export function TextField({ 
@@ -29,7 +30,8 @@ export function TextField({
   label, 
   placeholder, 
   description, 
-  type = "text" 
+  type = "text",
+  onChange
 }: TextFieldProps) {
   return (
     <FormField
@@ -43,9 +45,9 @@ export function TextField({
               placeholder={placeholder} 
               {...field} 
               type={type}
-              onChange={type === "number" 
+              onChange={onChange || (type === "number" 
                 ? (e) => field.onChange(parseInt(e.target.value)) 
-                : field.onChange}
+                : field.onChange)}
             />
           </FormControl>
           <FormDescription>{description}</FormDescription>
