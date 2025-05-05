@@ -2,11 +2,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleCampaignStatistics, AcelleAccount } from "@/types/acelle.types";
 import { buildProxyUrl } from "../../acelle-service";
+import { ensureValidStatistics } from "./validation";
 
 /**
- * Récupère les statistiques d'une campagne depuis l'API Acelle
+ * Fetch statistics for a campaign from the Acelle API
  */
-export async function fetchStatsFromApi(
+export async function fetchCampaignStatisticsFromApi(
   campaignUid: string,
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> {
@@ -75,7 +76,7 @@ export async function fetchStatsFromApi(
   }
   
   // Convertir et normaliser les statistiques
-  const statistics: AcelleCampaignStatistics = {
+  return ensureValidStatistics({
     subscriber_count: apiStats.subscriber_count || 0,
     delivered_count: apiStats.delivered_count || 0,
     delivered_rate: apiStats.delivered_rate || 0,
@@ -89,7 +90,5 @@ export async function fetchStatsFromApi(
     hard_bounce_count: apiStats.hard_bounce_count || 0,
     unsubscribe_count: apiStats.unsubscribe_count || 0,
     abuse_complaint_count: apiStats.abuse_complaint_count || 0,
-  };
-  
-  return statistics;
+  });
 }

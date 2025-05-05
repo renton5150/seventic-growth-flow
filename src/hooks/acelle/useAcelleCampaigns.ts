@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { AcelleAccount, AcelleCampaign } from '@/types/acelle.types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCampaigns, extractCampaignsFromCache, getCacheStatus } from '@/services/acelle/api/campaigns';
-import { enrichCampaignsWithStats } from '@/services/acelle/api/stats/campaignStats';
+import { enrichCampaignsWithStats } from '@/services/acelle/api/stats/directStats';
 
 export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
   page?: number;

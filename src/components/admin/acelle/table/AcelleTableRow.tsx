@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -56,19 +57,20 @@ export const AcelleTableRow = ({
         setIsLoading(true);
         
         // Utiliser le service pour récupérer les statistiques avec cache intelligent
-        const result = await fetchAndProcessCampaignStats(campaign, account!, { 
+        const enrichedCampaign = await fetchAndProcessCampaignStats(campaign, account, { 
           refresh: false // Utiliser le cache si disponible et frais
-        });
+        }) as AcelleCampaign;
         
-        console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, result);
+        console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, enrichedCampaign);
         
         // Mettre à jour l'état local avec les statistiques récupérées
-        setStats(result.statistics);
-        
-        // Enrichir également la campagne avec les statistiques pour qu'elles soient disponibles dans le détail
-        campaign.statistics = result.statistics;
-        campaign.delivery_info = result.delivery_info;
-        
+        if (enrichedCampaign && enrichedCampaign.statistics) {
+          setStats(enrichedCampaign.statistics);
+          
+          // Enrichir également la campagne avec les statistiques pour qu'elles soient disponibles dans le détail
+          campaign.statistics = enrichedCampaign.statistics;
+          campaign.delivery_info = enrichedCampaign.delivery_info;
+        }
       } catch (error) {
         console.error(`[TableRow] Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
       } finally {

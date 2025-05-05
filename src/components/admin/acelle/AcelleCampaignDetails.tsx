@@ -87,15 +87,17 @@ const AcelleCampaignDetails = ({
         setCampaign(foundCampaign);
         
         // Récupérer les statistiques complètes
-        const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct);
+        const enrichedCampaign = await fetchAndProcessCampaignStats(foundCampaign, acct, { refresh: true }) as AcelleCampaign;
         
         // Mettre à jour l'état et la campagne avec les statistiques
-        setStats(statsResult.statistics);
-        foundCampaign.statistics = statsResult.statistics;
-        
-        // Assurez-vous que delivery_info est du bon type
-        if (statsResult.delivery_info) {
-          foundCampaign.delivery_info = statsResult.delivery_info as DeliveryInfo;
+        if (enrichedCampaign && enrichedCampaign.statistics) {
+          setStats(enrichedCampaign.statistics);
+          foundCampaign.statistics = enrichedCampaign.statistics;
+          
+          // Assurez-vous que delivery_info est du bon type
+          if (enrichedCampaign.delivery_info) {
+            foundCampaign.delivery_info = enrichedCampaign.delivery_info as DeliveryInfo;
+          }
         }
       } else {
         setError("Campagne non trouvée");
@@ -121,13 +123,16 @@ const AcelleCampaignDetails = ({
       updated_at: now.toISOString(),
       delivery_date: now.toISOString(),
       run_at: null,
-      last_error: null
+      last_error: null,
+      statistics: null,
+      delivery_info: {}
     };
     
     // Générer des statistiques
-    const { statistics } = await fetchAndProcessCampaignStats(campaignData, null!, { demoMode: true });
+    const enrichedCampaign = await fetchAndProcessCampaignStats(campaignData, null!, { demoMode: true }) as AcelleCampaign;
     
     // Attribuer les statistiques à la campagne
+    const statistics = enrichedCampaign.statistics || null;
     campaignData.statistics = statistics;
     
     return { campaignData, statsData: statistics };
@@ -157,6 +162,7 @@ const AcelleCampaignDetails = ({
     delivered_count: 0,
     delivered_rate: 0,
     open_count: 0,
+    uniq_open_count: 0,
     uniq_open_rate: 0,
     click_count: 0,
     click_rate: 0,

@@ -4,15 +4,14 @@ import {
   createAcelleAccount, 
   updateAcelleAccount, 
   deleteAcelleAccount,
-  getActiveAccount
+  getActiveAccount,
+  getAcelleAccountById
 } from "./api/accounts";
 
 import { 
   getCampaigns, 
   getCampaign, 
-  forceSyncCampaigns, 
-  fetchCampaigns, 
-  fetchCampaign
+  forceSyncCampaigns
 } from "./api/campaigns";
 
 import { 
@@ -20,7 +19,7 @@ import {
   enrichCampaignsWithStats 
 } from "./api/stats/campaignStats";
 
-import { checkAcelleConnectionStatus, checkConnectionStatus } from "./api/connection";
+import { checkAcelleConnectionStatus } from "./api/connection";
 import { buildProxyUrl } from "./acelle-service";
 
 export const acelleService = {
@@ -29,7 +28,8 @@ export const acelleService = {
     create: createAcelleAccount,
     update: updateAcelleAccount,
     delete: deleteAcelleAccount,
-    getActive: getActiveAccount
+    getActive: getActiveAccount,
+    getById: getAcelleAccountById
   },
   campaigns: {
     fetchAll: getCampaigns,

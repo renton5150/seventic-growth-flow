@@ -1,52 +1,55 @@
+
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { buildProxyUrl } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
+import { buildProxyUrl } from "../acelle-service";
+import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
- * Récupère toutes les campagnes pour un compte Acelle
+ * Récupère les campagnes d'un compte Acelle depuis l'API
  */
 export const getCampaigns = async (
-  account: AcelleAccount,
-  options?: {
+  account: AcelleAccount, 
+  options?: { 
     page?: number;
     perPage?: number;
   }
 ): Promise<AcelleCampaign[]> => {
   try {
     if (!account || !account.api_token || !account.api_endpoint) {
-      console.error("Informations de compte invalides pour la récupération des campagnes");
+      console.error("Informations de compte incomplètes pour la récupération des campagnes");
       return [];
     }
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!accessToken) {
-      console.error("Pas de token d'accès disponible pour l'appel API");
-      return [];
-    }
-
-    // Paramètres par défaut pour la pagination
     const page = options?.page || 1;
-    const perPage = options?.perPage || 25;
+    const perPage = options?.perPage || 20;
 
-    // Construire l'URL pour la récupération des campagnes
-    const endpoint = "campaigns";
+    // Construction des paramètres
     const params = {
       api_token: account.api_token,
       page: page.toString(),
       per_page: perPage.toString(),
+      _t: Date.now().toString() // Empêche la mise en cache
     };
 
-    const url = buildProxyUrl(endpoint, params);
+    // Construction de l'URL
+    const url = buildProxyUrl("campaigns", params);
+    console.log(`Requesting campaigns from API: ${url}`);
 
-    console.log(`Fetching campaigns from: ${url}`);
+    // Récupérer le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
+    if (!token) {
+      console.error("Aucun token d'authentification disponible");
+      return [];
+    }
+
+    // Effectuer la requête API
     const response = await fetch(url, {
       headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
     });
 
     if (!response.ok) {
@@ -54,29 +57,29 @@ export const getCampaigns = async (
       return [];
     }
 
+    // Traiter la réponse
     const data = await response.json();
-
-    if (!data || !Array.isArray(data.data)) {
-      console.error("Format de réponse inattendu:", data);
-      return [];
+    
+    // Normaliser les données des campagnes
+    if (data.data && Array.isArray(data.data)) {
+      return data.data.map((campaign: any): AcelleCampaign => ({
+        uid: campaign.uid,
+        campaign_uid: campaign.uid,
+        name: campaign.name || '',
+        subject: campaign.subject || '',
+        status: campaign.status || '',
+        created_at: campaign.created_at || '',
+        updated_at: campaign.updated_at || '',
+        delivery_date: campaign.delivery_at || campaign.run_at || '',
+        run_at: campaign.run_at || '',
+        last_error: campaign.last_error || '',
+        delivery_info: campaign.delivery_info || {},
+        statistics: campaign.statistics || createEmptyStatistics()
+      }));
     }
-
-    // Mapper les données API au format interne
-    const campaigns: AcelleCampaign[] = data.data.map((item: any) => ({
-      uid: item.uid,
-      name: item.name || "Sans nom",
-      subject: item.subject || "Sans sujet",
-      status: item.status || "unknown",
-      created_at: item.created_at || new Date().toISOString(),
-      updated_at: item.updated_at || new Date().toISOString(),
-      delivery_date: item.delivery_at || item.run_at || null,
-      run_at: item.run_at || null,
-      last_error: item.last_error || null,
-      delivery_info: item.delivery_info || {},
-      statistics: item.statistics || null,
-    }));
-
-    return campaigns;
+    
+    console.error("Format de réponse API inattendu:", data);
+    return [];
   } catch (error) {
     console.error("Erreur lors de la récupération des campagnes:", error);
     return [];
@@ -87,35 +90,38 @@ export const getCampaigns = async (
  * Récupère une campagne spécifique par son UID
  */
 export const getCampaign = async (
-  campaignUid: string,
+  uid: string,
   account: AcelleAccount
 ): Promise<AcelleCampaign | null> => {
   try {
-    if (!account || !account.api_token || !account.api_endpoint) {
-      console.error("Informations de compte invalides pour la récupération de la campagne");
+    if (!uid || !account || !account.api_token) {
       return null;
     }
 
+    // Construction des paramètres
+    const params = {
+      api_token: account.api_token,
+      _t: Date.now().toString()
+    };
+
+    // Construction de l'URL
+    const url = buildProxyUrl(`campaigns/${uid}`, params);
+
+    // Récupérer le token d'authentification
     const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
+    const token = sessionData?.session?.access_token;
 
-    if (!accessToken) {
-      console.error("Pas de token d'accès disponible pour l'appel API");
+    if (!token) {
+      console.error("Aucun token d'authentification disponible");
       return null;
     }
 
-    // Construire l'URL pour la récupération de la campagne
-    const endpoint = `campaigns/${campaignUid}`;
-    const params = { api_token: account.api_token };
-    const url = buildProxyUrl(endpoint, params);
-
-    console.log(`Fetching campaign: ${url}`);
-
+    // Effectuer la requête API
     const response = await fetch(url, {
       headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
     });
 
     if (!response.ok) {
@@ -123,91 +129,95 @@ export const getCampaign = async (
       return null;
     }
 
+    // Traiter la réponse
     const data = await response.json();
 
-    if (!data || !data.campaign) {
-      console.error("Format de réponse inattendu:", data);
-      return null;
+    if (data && data.campaign) {
+      const campaign = data.campaign;
+      return {
+        uid: campaign.uid,
+        campaign_uid: campaign.uid,
+        name: campaign.name || '',
+        subject: campaign.subject || '',
+        status: campaign.status || '',
+        created_at: campaign.created_at || '',
+        updated_at: campaign.updated_at || '',
+        delivery_date: campaign.delivery_at || campaign.run_at || '',
+        run_at: campaign.run_at || '',
+        last_error: campaign.last_error || '',
+        delivery_info: campaign.delivery_info || {},
+        statistics: campaign.statistics || createEmptyStatistics()
+      };
     }
-
-    // Mapper les données API au format interne
-    const campaign: AcelleCampaign = {
-      uid: data.campaign.uid,
-      name: data.campaign.name || "Sans nom",
-      subject: data.campaign.subject || "Sans sujet",
-      status: data.campaign.status || "unknown",
-      created_at: data.campaign.created_at || new Date().toISOString(),
-      updated_at: data.campaign.updated_at || new Date().toISOString(),
-      delivery_date: data.campaign.delivery_at || data.campaign.run_at || null,
-      run_at: data.campaign.run_at || null,
-      last_error: data.campaign.last_error || null,
-      delivery_info: data.delivery_info || {},
-      statistics: data.statistics || null,
-    };
-
-    return campaign;
+    
+    return null;
   } catch (error) {
-    console.error("Erreur lors de la récupération de la campagne:", error);
+    console.error(`Erreur lors de la récupération de la campagne ${uid}:`, error);
     return null;
   }
 };
 
 /**
- * Force la synchronisation des campagnes
+ * Force la synchronisation des campagnes pour un compte
  */
 export const forceSyncCampaigns = async (
   account: AcelleAccount,
   accessToken: string
 ): Promise<{ success: boolean; message: string }> => {
   try {
-    if (!account || !account.id) {
-      return { success: false, message: "Compte invalide pour la synchronisation" };
+    if (!account?.id) {
+      return { success: false, message: "Aucun compte spécifié" };
     }
 
     if (!accessToken) {
-      return { success: false, message: "Token d'accès manquant pour la synchronisation" };
+      return { success: false, message: "Token d'authentification manquant" };
     }
 
-    // Appeler la fonction Edge pour synchroniser les campagnes
-    const syncUrl = '/api/functions/v1/sync-email-campaigns';
-    
-    const response = await fetch(syncUrl, {
+    console.log(`Forçage de la synchronisation des campagnes pour le compte ${account.name}`);
+
+    // Appeler la fonction Edge pour synchroniser
+    const { data, error } = await supabase.functions.invoke('sync-email-campaigns', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ 
-        accountId: account.id,
-        forceSync: true
-      })
+      body: { 
+        accountId: account.id
+      }
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
+    
+    if (error) {
+      console.error("Erreur lors de la synchronisation:", error);
       return { 
         success: false, 
-        message: `Erreur lors de la synchronisation: ${response.status} ${errorText}`
+        message: `Erreur: ${error.message || "Échec de la synchronisation"}` 
       };
     }
 
-    const result = await response.json();
-    
-    return { 
-      success: true, 
-      message: result.message || "Synchronisation réussie"
-    };
+    if (data?.success) {
+      return { 
+        success: true, 
+        message: data.message || "Synchronisation réussie" 
+      };
+    } else {
+      console.error("La synchronisation a échoué:", data);
+      return { 
+        success: false, 
+        message: data?.message || "La synchronisation a échoué pour une raison inconnue" 
+      };
+    }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Erreur lors de la synchronisation forcée:", error);
     return { 
       success: false, 
-      message: `Erreur lors de la synchronisation: ${errorMessage}`
+      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"}` 
     };
   }
 };
 
 /**
- * Extract campaigns from the cache for a given account
+ * Extraire les campagnes du cache par le compte
  */
 export const extractCampaignsFromCache = async (
   accountId: string,
@@ -218,84 +228,103 @@ export const extractCampaignsFromCache = async (
 ): Promise<AcelleCampaign[]> => {
   try {
     const page = options?.page || 1;
-    const perPage = options?.perPage || 25;
-    const offset = (page - 1) * perPage;
-    
-    const { data, error } = await supabase
+    const perPage = options?.perPage || 10;
+    const start = (page - 1) * perPage;
+    const end = start + perPage - 1;
+
+    console.log(`Extraction des campagnes en cache pour le compte ${accountId}, page ${page}`);
+
+    let query = supabase
       .from('email_campaigns_cache')
       .select('*')
       .eq('account_id', accountId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + perPage - 1);
-      
+      .order('created_at', { ascending: false });
+
+    // Appliquer la pagination
+    query = query.range(start, end);
+
+    const { data, error } = await query;
+
     if (error) {
-      console.error("Error extracting campaigns from cache:", error);
+      console.error("Erreur lors de l'extraction des campagnes du cache:", error);
       return [];
     }
-    
-    return data.map(item => ({
-      uid: item.campaign_uid,
-      name: item.name || "Sans nom",
-      subject: item.subject || "Sans sujet",
-      status: item.status || "unknown",
-      created_at: item.created_at || new Date().toISOString(),
-      updated_at: item.updated_at || new Date().toISOString(),
-      delivery_date: item.delivery_date || null,
-      run_at: item.run_at || null,
-      last_error: item.last_error || null,
-      delivery_info: item.delivery_info || {},
-      statistics: null, // Will be filled later by enrichCampaignsWithStats
-    }));
-    
+
+    const campaigns = data.map((item): AcelleCampaign => {
+      // Analyser delivery_info
+      let deliveryInfo = {};
+      try {
+        deliveryInfo = typeof item.delivery_info === 'string' 
+          ? JSON.parse(item.delivery_info) 
+          : item.delivery_info || {};
+      } catch (e) {
+        console.warn(`Erreur lors de l'analyse de delivery_info pour la campagne ${item.campaign_uid}:`, e);
+      }
+
+      return {
+        uid: item.campaign_uid,
+        campaign_uid: item.campaign_uid,
+        name: item.name || '',
+        subject: item.subject || '',
+        status: item.status || '',
+        created_at: item.created_at || '',
+        updated_at: item.updated_at || '',
+        delivery_date: item.delivery_date || '',
+        run_at: item.run_at || '',
+        last_error: item.last_error || '',
+        delivery_info: deliveryInfo,
+        statistics: createEmptyStatistics() // Les statistiques seront enrichies plus tard
+      };
+    });
+
+    console.log(`${campaigns.length} campagnes extraites du cache`);
+    return campaigns;
   } catch (error) {
-    console.error("Exception while extracting campaigns from cache:", error);
+    console.error("Erreur lors de l'extraction des campagnes du cache:", error);
     return [];
   }
 };
 
 /**
- * Get cache status for a specific account
+ * Obtenir le statut du cache des campagnes
  */
-export const getCacheStatus = async (accountId: string): Promise<{
-  lastUpdated: string | null;
-  count: number;
-}> => {
+export const getCacheStatus = async (
+  accountId: string
+): Promise<{ lastUpdated: string | null; count: number }> => {
   try {
-    // Get the latest cache update timestamp
-    const { data: latestData, error: latestError } = await supabase
+    // Vérifier quand le cache a été mis à jour pour la dernière fois
+    const { data: cacheData, error: cacheError } = await supabase
       .from('email_campaigns_cache')
       .select('cache_updated_at')
       .eq('account_id', accountId)
       .order('cache_updated_at', { ascending: false })
       .limit(1);
-      
-    // Get the count of cached campaigns
+
+    if (cacheError) {
+      console.error("Erreur lors de la récupération de l'état du cache:", cacheError);
+      return { lastUpdated: null, count: 0 };
+    }
+
+    // Compter le nombre de campagnes en cache
     const { count, error: countError } = await supabase
       .from('email_campaigns_cache')
       .select('*', { count: 'exact', head: true })
       .eq('account_id', accountId);
-      
-    if (latestError || countError) {
-      console.error("Error getting cache status:", latestError || countError);
-      return { lastUpdated: null, count: 0 };
+
+    if (countError) {
+      console.error("Erreur lors du comptage des campagnes en cache:", countError);
+      return { 
+        lastUpdated: cacheData && cacheData.length > 0 ? cacheData[0].cache_updated_at : null, 
+        count: 0 
+      };
     }
-    
+
     return {
-      lastUpdated: latestData && latestData.length > 0 ? latestData[0].cache_updated_at : null,
+      lastUpdated: cacheData && cacheData.length > 0 ? cacheData[0].cache_updated_at : null,
       count: count || 0
     };
-    
   } catch (error) {
-    console.error("Exception while getting cache status:", error);
+    console.error("Erreur lors de la récupération de l'état du cache:", error);
     return { lastUpdated: null, count: 0 };
   }
 };
-
-// Export alias for compatibility with existing code
-export const getAcelleCampaigns = getCampaigns;
-
-// Export alias for compatibility with existing code
-export const fetchCampaign = getCampaign;
-
-// Export alias for compatibility with existing code
-export const fetchCampaigns = getCampaigns;

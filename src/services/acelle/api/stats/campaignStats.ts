@@ -1,21 +1,43 @@
 
-import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
-import { enrichCampaignsWithStats } from "./directStats";
+import { enrichCampaignsWithStats as enrichWithDirectStats } from "./directStats";
 
 /**
  * Récupère et traite les statistiques pour une liste de campagnes
  */
 export const fetchAndProcessCampaignStats = async (
-  campaigns: AcelleCampaign[],
-  account: AcelleAccount
-): Promise<AcelleCampaign[]> => {
+  campaigns: AcelleCampaign | AcelleCampaign[],
+  account: AcelleAccount,
+  options?: { 
+    refresh?: boolean;
+    demoMode?: boolean;
+  }
+): Promise<AcelleCampaign | AcelleCampaign[]> => {
   try {
-    // Utiliser la fonction d'enrichissement pour ajouter les statistiques
-    return enrichCampaignsWithStats(campaigns, account);
+    // Handle demo mode with mock data
+    if (options?.demoMode) {
+      return Array.isArray(campaigns)
+        ? addMockStatistics(campaigns)
+        : addMockStatisticsSingle(campaigns);
+    }
+    
+    // Handle single campaign case
+    if (!Array.isArray(campaigns)) {
+      const campaignsArray = await enrichWithDirectStats([campaigns], account, {
+        forceRefresh: options?.refresh
+      });
+      return campaignsArray[0];
+    }
+    
+    // Handle multiple campaigns case
+    return enrichWithDirectStats(campaigns, account, {
+      forceRefresh: options?.refresh
+    });
   } catch (error) {
     console.error("Erreur lors de la récupération des statistiques:", error);
-    return campaigns; // Retourner les campagnes sans statistiques en cas d'erreur
+    // Return the original campaigns without modification in case of error
+    return campaigns;
   }
 };
 
@@ -23,6 +45,14 @@ export const fetchAndProcessCampaignStats = async (
  * Re-export enrichCampaignsWithStats for compatibility
  */
 export { enrichCampaignsWithStats } from "./directStats";
+
+/**
+ * Ajoute des statistiques simulées à une seule campagne (utilisé pour le mode démo)
+ */
+const addMockStatisticsSingle = (campaign: AcelleCampaign): AcelleCampaign => {
+  const mockCampaigns = addMockStatistics([campaign]);
+  return mockCampaigns[0];
+};
 
 /**
  * Ajoute des statistiques simulées aux campagnes (utilisé pour le mode démo)

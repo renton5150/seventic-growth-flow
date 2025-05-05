@@ -19,7 +19,9 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
     
     return data?.map(account => ({
       ...account,
-      status: account.status as 'active' | 'inactive' | 'error'
+      status: account.status as 'active' | 'inactive' | 'error',
+      last_sync_date: account.last_sync_date || null,
+      last_sync_error: account.last_sync_error || null
     })) || [];
   } catch (error) {
     console.error("Exception lors de la récupération des comptes Acelle:", error);
@@ -45,7 +47,9 @@ export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | 
     
     return {
       ...data,
-      status: data.status as 'active' | 'inactive' | 'error'
+      status: data.status as 'active' | 'inactive' | 'error',
+      last_sync_date: data.last_sync_date || null,
+      last_sync_error: data.last_sync_error || null
     };
   } catch (error) {
     console.error("Exception lors de la récupération du compte Acelle:", error);
@@ -78,7 +82,9 @@ export const createAcelleAccount = async (
       success: true, 
       data: {
         ...data,
-        status: data.status as 'active' | 'inactive' | 'error'
+        status: data.status as 'active' | 'inactive' | 'error',
+        last_sync_date: data.last_sync_date || null,
+        last_sync_error: data.last_sync_error || null
       } 
     };
   } catch (error) {
@@ -110,7 +116,9 @@ export const updateAcelleAccount = async (
       success: true, 
       data: {
         ...data,
-        status: data.status as 'active' | 'inactive' | 'error'
+        status: data.status as 'active' | 'inactive' | 'error',
+        last_sync_date: data.last_sync_date || null,
+        last_sync_error: data.last_sync_error || null
       } 
     };
   } catch (error) {
