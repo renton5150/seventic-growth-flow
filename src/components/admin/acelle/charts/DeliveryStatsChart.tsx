@@ -39,15 +39,24 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaign
       const opened = safelyGet(stats, 'open_count', 0) || safelyGet(deliveryInfo, 'opened', 0);
       const clicked = safelyGet(stats, 'click_count', 0) || safelyGet(deliveryInfo, 'clicked', 0);
       
-      // Handle complex types like the bounced field
+      // Handle bounced field specifically, which could be complex or non-existent
       let bounced = 0;
-      if (stats && typeof stats.bounce_count === 'number') {
-        bounced = stats.bounce_count;
-      } else if (deliveryInfo && deliveryInfo.bounced !== undefined) {
-        if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
-          bounced = safelyGet(deliveryInfo.bounced, 'total', 0);
-        } else if (typeof deliveryInfo.bounced === 'number') {
-          bounced = deliveryInfo.bounced;
+      
+      // First try to get bounce_count from statistics
+      if (stats && typeof stats === 'object') {
+        bounced = safelyGet(stats, 'bounce_count', 0);
+      }
+      
+      // If no bounce_count in statistics, try to get from delivery_info
+      if (bounced === 0 && deliveryInfo && typeof deliveryInfo === 'object') {
+        if (deliveryInfo.bounced !== undefined) {
+          if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
+            // If bounced is an object with total property
+            bounced = safelyGet(deliveryInfo.bounced, 'total', 0);
+          } else if (typeof deliveryInfo.bounced === 'number') {
+            // If bounced is directly a number
+            bounced = deliveryInfo.bounced;
+          }
         }
       }
       
