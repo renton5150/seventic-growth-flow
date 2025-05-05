@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -185,7 +184,7 @@ export const AcelleTableRow = ({
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={handleViewCampaign}
+          onClick={() => onViewCampaign(campaignUid)}
           title="Voir les détails"
         >
           <Eye className="h-4 w-4" />

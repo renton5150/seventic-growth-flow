@@ -98,6 +98,10 @@ export const fetchAndProcessCampaignStats = async (
       return { statistics: createEmptyStatistics(), delivery_info: {} };
     }
     
+    // IMPORTANT : Changement de l'endpoint pour récupérer les statistiques détaillées
+    // Utiliser l'endpoint /campaigns/{uid} comme recommandé
+    const apiEndpoint = `campaigns/${campaignUid}`;
+    
     // Construire l'URL pour les statistiques
     const statsParams = { 
       api_token: account.api_token,
@@ -105,7 +109,9 @@ export const fetchAndProcessCampaignStats = async (
     };
     
     // Créer l'URL pour les statistiques
-    const statsUrl = buildProxyUrl(`campaigns/${campaignUid}/track`, statsParams);
+    const statsUrl = buildProxyUrl(apiEndpoint, statsParams);
+    
+    console.log(`Requête API statistiques: ${statsUrl}`);
     
     // Effectuer l'appel API
     const statsResponse = await fetch(statsUrl, {
@@ -123,31 +129,36 @@ export const fetchAndProcessCampaignStats = async (
     // Analyser la réponse
     const responseData = await statsResponse.json();
     
-    if (!responseData || !responseData.data) {
+    if (!responseData) {
       console.error('Format de réponse API inattendu:', responseData);
       return { statistics: createEmptyStatistics(), delivery_info: {} };
     }
     
     console.log(`Statistiques récupérées pour ${campaignUid}:`, responseData);
     
-    // Ensure data is an object
-    const apiData = responseData.data || {};
+    // Structure de réponse attendue : { campaign: {...}, statistics: {...} }
+    const apiStats = responseData.statistics || responseData.data || {};
+    
+    if (!apiStats || Object.keys(apiStats).length === 0) {
+      console.error('Aucune statistique trouvée dans la réponse API:', responseData);
+      return { statistics: createEmptyStatistics(), delivery_info: {} };
+    }
     
     // Convertir et normaliser les statistiques
     const statistics: AcelleCampaignStatistics = {
-      subscriber_count: apiData.subscriber_count || apiData.total || 0,
-      delivered_count: apiData.delivered_count || apiData.delivered || 0,
-      delivered_rate: apiData.delivered_rate || 0,
-      open_count: apiData.open_count || apiData.opened || 0,
-      uniq_open_count: apiData.uniq_open_count || 0,
-      uniq_open_rate: apiData.uniq_open_rate || apiData.unique_open_rate || 0,
-      click_count: apiData.click_count || apiData.clicked || 0,
-      click_rate: apiData.click_rate || 0,
-      bounce_count: apiData.bounce_count || 0,
-      soft_bounce_count: apiData.soft_bounce_count || 0,
-      hard_bounce_count: apiData.hard_bounce_count || 0,
-      unsubscribe_count: apiData.unsubscribe_count || 0,
-      abuse_complaint_count: apiData.abuse_complaint_count || 0,
+      subscriber_count: apiStats.subscriber_count || 0,
+      delivered_count: apiStats.delivered_count || 0,
+      delivered_rate: apiStats.delivered_rate || 0,
+      open_count: apiStats.open_count || apiStats.unique_open_count || 0,
+      uniq_open_count: apiStats.uniq_open_count || apiStats.unique_open_count || 0,
+      uniq_open_rate: apiStats.uniq_open_rate || apiStats.unique_open_rate || 0,
+      click_count: apiStats.click_count || 0,
+      click_rate: apiStats.click_rate || 0,
+      bounce_count: apiStats.bounce_count || 0,
+      soft_bounce_count: apiStats.soft_bounce_count || 0,
+      hard_bounce_count: apiStats.hard_bounce_count || 0,
+      unsubscribe_count: apiStats.unsubscribe_count || 0,
+      abuse_complaint_count: apiStats.abuse_complaint_count || 0,
     };
     
     // Créer un format unifié pour delivery_info
@@ -159,7 +170,9 @@ export const fetchAndProcessCampaignStats = async (
       unique_open_rate: statistics.uniq_open_rate,
       clicked: statistics.click_count,
       click_rate: statistics.click_rate,
-      bounced: statistics.bounce_count
+      bounced: statistics.bounce_count,
+      unsubscribed: statistics.unsubscribe_count,
+      complained: statistics.abuse_complaint_count
     };
     
     // Mettre en cache les statistiques pour une utilisation ultérieure

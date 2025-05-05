@@ -1,6 +1,8 @@
 
+import { BadgeProps } from "@/components/ui/badge";
+
 /**
- * Traduit les statuts techniques des campagnes en libellés français pour l'affichage
+ * Traduit les statuts techniques en libellés français pour l'affichage
  */
 export const translateStatus = (status: string): string => {
   const translations: Record<string, string> = {
@@ -9,6 +11,7 @@ export const translateStatus = (status: string): string => {
     'ready': 'En attente',
     'sending': 'En envoi',
     'sent': 'Envoyé',
+    'done': 'Terminé',
     'paused': 'En pause',
     'failed': 'Échoué'
   };
@@ -17,35 +20,34 @@ export const translateStatus = (status: string): string => {
 };
 
 /**
- * Retourne la variante de badge appropriée en fonction du statut
+ * Détermine la variante de badge à utiliser en fonction du statut
  */
-export const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-  const statusLower = status.toLowerCase();
+export const getStatusBadgeVariant = (status: string): BadgeProps["variant"] => {
+  const statusMap: Record<string, BadgeProps["variant"]> = {
+    'new': 'secondary',
+    'queued': 'secondary',
+    'ready': 'secondary',
+    'sending': 'default',
+    'sent': 'success',
+    'done': 'success',
+    'paused': 'outline',
+    'failed': 'destructive'
+  };
   
-  switch (statusLower) {
-    case 'sent':
-      return "default"; // Vert par défaut
-    case 'sending':
-      return "secondary"; // Bleu
-    case 'failed':
-      return "destructive"; // Rouge
-    case 'new':
-    case 'queued':
-    case 'ready':
-    case 'paused':
-    default:
-      return "outline"; // Gris
-  }
+  return statusMap[status.toLowerCase()] || 'secondary';
 };
 
 /**
- * Formate un pourcentage pour l'affichage
+ * Formatte un pourcentage pour l'affichage
  */
-export const renderPercentage = (value?: number): string => {
-  if (value === undefined || value === null) return "0%";
+export const renderPercentage = (value: number): string => {
+  if (typeof value !== 'number' || isNaN(value)) return '0,0%';
   
-  // Convertir en pourcentage si c'est une décimale
-  const percentage = value > 1 ? value : value * 100;
+  // Si la valeur est déjà un pourcentage (0-100)
+  if (value > 1) {
+    return `${value.toFixed(1).replace('.', ',')}%`;
+  }
   
-  return `${percentage.toFixed(1)}%`;
+  // Si la valeur est une proportion (0-1)
+  return `${(value * 100).toFixed(1).replace('.', ',')}%`;
 };

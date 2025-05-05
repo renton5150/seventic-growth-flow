@@ -20,13 +20,20 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
   const formatPercentage = (value?: number): string => {
     if (loading) return "...";
     if (value === undefined || value === null) return "0%";
-    return `${value.toFixed(1)}%`;
+    
+    // Si la valeur est déjà un pourcentage (0-100)
+    if (value > 1) {
+      return `${value.toFixed(1)}%`;
+    }
+    
+    // Si la valeur est une proportion (0-1)
+    return `${(value * 100).toFixed(1)}%`;
   };
 
   // Récupération des valeurs importantes
   const total = statistics?.subscriber_count || 0;
   const delivered = statistics?.delivered_count || 0;
-  const opened = statistics?.open_count || 0;
+  const opened = statistics?.open_count || statistics?.uniq_open_count || 0;
   const clicked = statistics?.click_count || 0;
   const bounces = statistics?.bounce_count || 0;
   const softBounces = statistics?.soft_bounce_count || 0;

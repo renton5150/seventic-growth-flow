@@ -1,88 +1,127 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { testAcelleConnection } from "@/services/acelle/api/connection";
-import { useAuthToken } from './useAuthToken';
-import { useEdgeFunctionWakeup } from './useEdgeFunctionWakeup';
 
-/**
- * Hook for managing API connections and diagnostics
- */
-export const useApiConnection = (account: AcelleAccount) => {
+// Hook pour vérifier la connexion à l'API Acelle
+export function useApiConnection(account?: AcelleAccount) {
+  const [isChecking, setIsChecking] = useState(false);
+  const [lastCheckResult, setLastCheckResult] = useState<boolean | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
-  
-  // Utiliser les hooks extraits
-  const { authToken, isRefreshing, getValidAuthToken } = useAuthToken();
-  const { wakeupAttempts, wakeUpEdgeFunctions } = useEdgeFunctionWakeup();
-  
-  // Check if API endpoints are available
-  const checkApiAvailability = useCallback(async () => {
+
+  // Réveille l'edge function avant utilisation
+  const wakeUpEdgeFunctions = useCallback(async (token?: string | null) => {
+    if (!token) return false;
+
     try {
-      // Make sure we have a valid token
-      const token = authToken || await getValidAuthToken();
-      if (!token) {
-        return {
-          available: false,
-          error: "No valid authentication token available",
-          debugInfo: null
-        };
-      }
+      console.log("Réveil des edge functions...");
       
-      // Try to wake up first
-      await wakeUpEdgeFunctions(token);
-      
-      // Test the connection with the current token
-      const connectionDebug = await testAcelleConnection(account);
-      setDebugInfo(connectionDebug);
-      
-      // If first attempt fails, try again with a fresh token
-      if (!connectionDebug.success && wakeupAttempts < 2) {
-        console.log("First API check failed, refreshing token and trying again...");
-        
-        const freshToken = await getValidAuthToken();
-        if (!freshToken) {
-          return {
-            available: false,
-            error: "Failed to refresh authentication token",
-            debugInfo: connectionDebug
-          };
+      const response = await fetch(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/ping`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         }
-        
-        // Wake up services again with fresh token
-        await wakeUpEdgeFunctions(freshToken);
-        
-        // Retry with fresh token
-        const retryConnectionDebug = await testAcelleConnection(account);
-        setDebugInfo(retryConnectionDebug);
-        
-        return {
-          available: retryConnectionDebug.success,
-          debugInfo: retryConnectionDebug
-        };
-      }
+      });
       
+      const result = await response.json();
+      console.log("Résultat du réveil:", result);
+      
+      return result.success;
+    } catch (error) {
+      console.error("Erreur lors du réveil des edge functions:", error);
+      return false;
+    }
+  }, []);
+
+  // Vérifie si l'API est disponible
+  const checkApiAvailability = useCallback(async (token?: string | null) => {
+    if (!account || !token) {
+      setLastCheckResult(false);
+      return false;
+    }
+
+    try {
+      setIsChecking(true);
+      
+      // Construire l'URL pour la vérification
+      const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
+      url.searchParams.append("url", account.api_endpoint);
+      
+      // Effectuer la requête
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      const result = await response.json();
+      setLastCheckResult(result.success);
+      setDebugInfo(result);
+      
+      return result.success;
+    } catch (error) {
+      console.error("Erreur lors de la vérification de l'API:", error);
+      setLastCheckResult(false);
+      setDebugInfo({
+        success: false,
+        timestamp: new Date().toISOString(),
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
+      return false;
+    } finally {
+      setIsChecking(false);
+    }
+  }, [account]);
+
+  // Récupère des informations de diagnostic
+  const getDebugInfo = useCallback(async (token?: string | null): Promise<AcelleConnectionDebug> => {
+    if (!account || !token) {
       return {
-        available: connectionDebug.success,
-        debugInfo: connectionDebug
-      };
-    } catch (e) {
-      console.error("API availability check failed:", e);
-      return {
-        available: false,
-        error: e instanceof Error ? e.message : "Unknown error",
-        debugInfo: null
+        success: false,
+        timestamp: new Date().toISOString(),
+        errorMessage: "Aucun compte ou token fourni"
       };
     }
-  }, [account, authToken, getValidAuthToken, wakeUpEdgeFunctions, wakeupAttempts]);
+
+    try {
+      // Construire l'URL pour la vérification
+      const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
+      url.searchParams.append("url", account.api_endpoint);
+      url.searchParams.append("token", account.api_token);
+      url.searchParams.append("detailed", "true");
+      
+      // Effectuer la requête
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      const result = await response.json();
+      setDebugInfo(result);
+      return result;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des infos de diagnostic:", error);
+      const errorInfo = {
+        success: false,
+        timestamp: new Date().toISOString(),
+        errorMessage: error instanceof Error ? error.message : String(error)
+      };
+      setDebugInfo(errorInfo);
+      return errorInfo;
+    }
+  }, [account]);
 
   return {
-    wakeUpEdgeFunctions: (token: string | null) => wakeUpEdgeFunctions(token),
+    isChecking,
+    lastCheckResult,
+    wakeUpEdgeFunctions,
     checkApiAvailability,
-    getDebugInfo: () => debugInfo,
-    debugInfo,
-    wakeupAttempts,
-    authToken,
-    isRefreshing,
-    refreshAuthToken: getValidAuthToken
+    getDebugInfo,
+    debugInfo
   };
-};
+}
