@@ -1,4 +1,3 @@
-
 export interface AcelleAccount {
   id: string;
   created_at: string;

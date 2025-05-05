@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle, Power, Server, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -17,10 +16,10 @@ import { useAcelleCampaignsDashboard } from "./useAcelleCampaignsDashboard";
 
 interface AcelleCampaignsDashboardProps {
   accounts: AcelleAccount[];
-  onDemoMode?: (isDemoMode: boolean) => void;
+  onDemoModeChange?: (isDemoMode: boolean) => void; // Make this optional
 }
 
-export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: AcelleCampaignsDashboardProps) {
+export default function AcelleCampaignsDashboard({ accounts, onDemoModeChange }: AcelleCampaignsDashboardProps) {
   const { 
     activeAccounts, 
     campaignsData, 
@@ -78,14 +77,14 @@ export default function AcelleCampaignsDashboard({ accounts, onDemoMode }: Acell
       setRecoveryAttempts(0);
       
       // Notify parent that we're using real data
-      if (onDemoMode) {
-        onDemoMode(false);
+      if (onDemoModeChange) {
+        onDemoModeChange(false);
       }
-    } else if ((isError || syncError) && onDemoMode) {
+    } else if ((isError || syncError) && onDemoModeChange) {
       // Notify parent that we're in demo mode due to errors
-      onDemoMode(true);
+      onDemoModeChange(true);
     }
-  }, [campaignsData, isLoading, isError, syncError, onDemoMode]);
+  }, [campaignsData, isLoading, isError, syncError, onDemoModeChange]);
 
   const handleRefresh = useCallback(() => {
     toast.info("Actualisation des données en cours...");

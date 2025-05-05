@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AcelleAccountsTable from "@/components/admin/acelle/AcelleAccountsTable";
@@ -193,7 +192,11 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
         
         <TabsContent value="campaigns">
           <Card>
-            <AcelleCampaignsDashboard accounts={accounts} onDemoModeChange={onDemoModeChange} />
+            <AcelleCampaignsDashboard 
+              accounts={accounts} 
+              // Pass onDemoModeChange only if it exists in the props
+              {...(onDemoModeChange ? { onDemoModeChange } : {})} 
+            />
           </Card>
         </TabsContent>
         

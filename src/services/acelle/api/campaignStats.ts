@@ -1,4 +1,3 @@
-
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics, CampaignStatsCache } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,8 +55,8 @@ export const fetchAndProcessCampaignStats = async (
           // Handle delivery_info safely with type check
           let delivery_info = {};
           
-          // Make sure cachedStats is not undefined and check if delivery_info exists
-          if (cachedStats && typeof cachedStats === 'object' && cachedStats.delivery_info) {
+          // Make sure cachedStats has delivery_info property
+          if (cachedStats && typeof cachedStats === 'object' && 'delivery_info' in cachedStats) {
             const rawDeliveryInfo = cachedStats.delivery_info;
             
             if (rawDeliveryInfo !== null && rawDeliveryInfo !== undefined) {
