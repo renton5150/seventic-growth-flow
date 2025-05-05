@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -38,7 +39,7 @@ export const AcelleTableRow = ({
   // Récupérer les statistiques de la campagne
   useEffect(() => {
     const loadCampaignStats = async () => {
-      console.log(`Initialisation des statistiques pour la campagne ${campaignName}`, {
+      console.log(`[TableRow] Initialisation des statistiques pour la campagne ${campaignName}`, {
         hasDeliveryInfo: !!campaign.delivery_info,
         hasStatistics: !!campaign.statistics,
         account: account ? {
@@ -48,19 +49,19 @@ export const AcelleTableRow = ({
       });
       
       if (!account) {
-        console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
+        console.warn(`[TableRow] Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
         return;
       }
       
       try {
         setIsLoading(true);
         
-        // Utiliser le service pour récupérer les statistiques
+        // Utiliser le service pour récupérer les statistiques avec cache intelligent
         const result = await fetchAndProcessCampaignStats(campaign, account!, { 
-          refresh: true // Forcer le rafraîchissement pour toujours récupérer les données fraîches
+          refresh: false // Utiliser le cache si disponible et frais
         });
         
-        console.log(`Statistiques récupérées pour ${campaignName}:`, result);
+        console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, result);
         
         // Mettre à jour l'état local avec les statistiques récupérées
         setStats(result.statistics);
@@ -70,7 +71,7 @@ export const AcelleTableRow = ({
         campaign.delivery_info = result.delivery_info;
         
       } catch (error) {
-        console.error(`Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
+        console.error(`[TableRow] Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
       } finally {
         setIsLoading(false);
       }
@@ -138,7 +139,7 @@ export const AcelleTableRow = ({
 
   // Journaliser les données de la campagne pour le débogage
   useEffect(() => {
-    console.debug(`Données finales pour campagne ${campaignName}:`, {
+    console.debug(`[TableRow] Données finales pour campagne ${campaignName}:`, {
       id: campaignUid,
       hasStats: !!stats,
       statsValues: {
@@ -154,7 +155,7 @@ export const AcelleTableRow = ({
   }, [campaignName, campaignUid, totalSent, openRate, clickRate, bounceCount, stats, campaign.statistics, campaign.delivery_info]);
   
   const handleViewCampaign = () => {
-    console.log(`Affichage des détails pour la campagne ${campaignUid}`, { campaign });
+    console.log(`[TableRow] Affichage des détails pour la campagne ${campaignUid}`, { campaign });
     onViewCampaign(campaignUid);
   };
 
@@ -184,7 +185,7 @@ export const AcelleTableRow = ({
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => onViewCampaign(campaignUid)}
+          onClick={handleViewCampaign}
           title="Voir les détails"
         >
           <Eye className="h-4 w-4" />

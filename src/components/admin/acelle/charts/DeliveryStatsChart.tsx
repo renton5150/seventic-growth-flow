@@ -6,6 +6,9 @@ import { AcelleAccount } from "@/types/acelle.types";
 import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
 import { Skeleton } from "@/components/ui/skeleton";
+import { testCacheInsertion } from "@/services/acelle/api/campaignStats";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface DeliveryStatsChartProps {
   accounts: AcelleAccount[];
@@ -15,6 +18,7 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     const loadDeliveryStats = async () => {
@@ -65,6 +69,33 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
     loadDeliveryStats();
   }, [accounts]);
 
+  // Fonction pour tester l'insertion dans le cache
+  const handleTestCache = async () => {
+    if (!accounts || accounts.length === 0) {
+      toast.error("Aucun compte Acelle disponible pour le test");
+      return;
+    }
+    
+    try {
+      setIsTesting(true);
+      toast.loading("Test d'insertion dans le cache...", { id: "cache-test" });
+      
+      const account = accounts[0]; // Utiliser le premier compte disponible
+      const result = await testCacheInsertion(account);
+      
+      if (result) {
+        toast.success("Test d'insertion dans le cache réussi", { id: "cache-test" });
+      } else {
+        toast.error("Échec du test d'insertion dans le cache", { id: "cache-test" });
+      }
+    } catch (error) {
+      console.error("Erreur lors du test du cache:", error);
+      toast.error("Erreur lors du test du cache", { id: "cache-test" });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -97,8 +128,18 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
         <CardHeader>
           <CardTitle>Statistiques de livraison</CardTitle>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center">
-          <p className="text-muted-foreground">Aucune donnée disponible</p>
+        <CardContent className="h-[300px]">
+          <div className="flex flex-col items-center justify-center h-full">
+            <p className="text-muted-foreground mb-4">Aucune donnée disponible</p>
+            <Button 
+              variant="outline" 
+              onClick={handleTestCache}
+              disabled={isTesting}
+              size="sm"
+            >
+              Tester le cache de statistiques
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -125,6 +166,16 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
               <Bar dataKey="bounces" fill="#FF8042" name="Bounces" />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+        <div className="flex justify-end mt-4">
+          <Button 
+            variant="outline" 
+            onClick={handleTestCache}
+            disabled={isTesting}
+            size="sm"
+          >
+            Tester le cache de statistiques
+          </Button>
         </div>
       </CardContent>
     </Card>

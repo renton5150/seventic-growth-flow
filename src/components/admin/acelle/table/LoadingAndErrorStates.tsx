@@ -1,78 +1,88 @@
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, AlertTriangle, RefreshCw } from "lucide-react";
+import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 
+/**
+ * Affiche un état de chargement
+ */
 export const TableLoadingState = () => {
   return (
-    <div className="flex justify-center items-center p-8">
-      <div className="flex flex-col items-center gap-4">
-        <Spinner size={32} className="w-8 h-8" />
-        <p className="text-muted-foreground">Chargement des campagnes...</p>
-      </div>
-    </div>
+    <Card className="w-full p-6">
+      <CardContent className="flex flex-col items-center justify-center p-6">
+        <Spinner className="h-8 w-8 mb-4" aria-label="Chargement..." />
+        <p className="text-muted-foreground">Chargement des campagnes en cours...</p>
+      </CardContent>
+    </Card>
   );
 };
 
-interface TableErrorStateProps {
+/**
+ * Affiche un état d'erreur
+ */
+export const TableErrorState = ({ 
+  error, 
+  onRetry, 
+  retryCount = 0 
+}: { 
   error: string;
-  onRetry: () => void;
-  retryCount: number;
-}
-
-export const TableErrorState = ({ error, onRetry, retryCount }: TableErrorStateProps) => {
+  onRetry?: () => void;
+  retryCount?: number;
+}) => {
   return (
-    <Alert variant="destructive" className="my-4">
-      <AlertCircle className="h-5 w-5" />
-      <AlertTitle>Erreur lors du chargement des campagnes</AlertTitle>
-      <AlertDescription className="flex flex-col gap-4">
-        <p>{error}</p>
-        <Button 
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={onRetry}
-          disabled={retryCount > 3}
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          {retryCount > 3 ? "Trop de tentatives" : "Réessayer"}
-        </Button>
-      </AlertDescription>
-    </Alert>
-  );
-};
-
-interface EmptyStateProps {
-  onSync: () => void;
-}
-
-export const EmptyState = ({ onSync }: EmptyStateProps) => {
-  return (
-    <div className="text-center p-8 border rounded-md">
-      <div className="flex flex-col items-center gap-4">
-        <AlertTriangle className="h-10 w-10 text-amber-500" />
-        <h3 className="text-lg font-medium">Aucune campagne trouvée</h3>
-        <p className="text-muted-foreground">
-          Aucune campagne n'est disponible pour ce compte.
+    <Card className="w-full p-6 border-red-200 bg-red-50">
+      <CardContent className="flex flex-col items-center justify-center p-6">
+        <AlertTriangle className="h-8 w-8 text-red-500 mb-4" />
+        <p className="text-red-800 mb-4">
+          Une erreur est survenue lors du chargement des données
         </p>
-        <Button onClick={onSync}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Synchroniser les campagnes
-        </Button>
-      </div>
-    </div>
+        <p className="text-sm text-red-600 mb-6">
+          {error}
+        </p>
+        {onRetry && (
+          <Button variant="outline" onClick={onRetry}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {retryCount > 0 ? `Réessayer (${retryCount})` : "Réessayer"}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
+/**
+ * Affiche un état vide
+ */
+export const EmptyState = ({ onSync }: { onSync?: () => void }) => {
+  return (
+    <Card className="w-full p-6">
+      <CardContent className="flex flex-col items-center justify-center p-6">
+        <p className="text-muted-foreground mb-4">Aucune campagne trouvée</p>
+        {onSync && (
+          <Button variant="outline" onClick={onSync}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Synchroniser
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+/**
+ * Affiche un état pour un compte inactif
+ */
 export const InactiveAccountState = () => {
   return (
-    <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800">
-      <AlertTriangle className="h-5 w-5 text-amber-500" />
-      <AlertTitle>Compte inactif</AlertTitle>
-      <AlertDescription>
-        Ce compte Acelle est actuellement inactif. Pour voir les campagnes, veuillez d'abord activer ce compte.
-      </AlertDescription>
-    </Alert>
+    <Card className="w-full p-6 border-amber-200 bg-amber-50">
+      <CardContent className="flex flex-col items-center justify-center p-6">
+        <AlertTriangle className="h-8 w-8 text-amber-500 mb-4" />
+        <p className="text-amber-800">
+          Ce compte est inactif. Veuillez l'activer pour voir les campagnes.
+        </p>
+      </CardContent>
+    </Card>
   );
 };

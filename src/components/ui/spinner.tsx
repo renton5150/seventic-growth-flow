@@ -1,24 +1,22 @@
 
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
-interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: string | number;
+export interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
+  size?: string;
 }
 
-export const Spinner = ({ className, size = "24px", ...props }: SpinnerProps) => {
-  // Convert size to pixels if it's a number
-  const sizeValue = typeof size === 'number' ? `${size}px` : size;
-  
+export function Spinner({ className, size, ...props }: SpinnerProps) {
   return (
     <div
-      className={cn("animate-spin rounded-full border-2 border-t-transparent", className)}
-      style={{ 
-        borderTopColor: "transparent", 
-        borderWidth: "2px",
-        width: sizeValue,
-        height: sizeValue
-      }}
+      className={cn(
+        "animate-spin rounded-full border-2 border-current border-t-transparent",
+        size ? `h-${size} w-${size}` : "h-4 w-4", 
+        className
+      )}
       {...props}
-    ></div>
+    >
+      <span className="sr-only">Chargement</span>
+    </div>
   );
-};
+}
