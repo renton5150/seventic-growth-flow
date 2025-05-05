@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,3 +205,97 @@ export const forceSyncCampaigns = async (
     };
   }
 };
+
+/**
+ * Extract campaigns from the cache for a given account
+ */
+export const extractCampaignsFromCache = async (
+  accountId: string,
+  options?: {
+    page?: number;
+    perPage?: number;
+  }
+): Promise<AcelleCampaign[]> => {
+  try {
+    const page = options?.page || 1;
+    const perPage = options?.perPage || 25;
+    const offset = (page - 1) * perPage;
+    
+    const { data, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + perPage - 1);
+      
+    if (error) {
+      console.error("Error extracting campaigns from cache:", error);
+      return [];
+    }
+    
+    return data.map(item => ({
+      uid: item.campaign_uid,
+      name: item.name || "Sans nom",
+      subject: item.subject || "Sans sujet",
+      status: item.status || "unknown",
+      created_at: item.created_at || new Date().toISOString(),
+      updated_at: item.updated_at || new Date().toISOString(),
+      delivery_date: item.delivery_date || null,
+      run_at: item.run_at || null,
+      last_error: item.last_error || null,
+      delivery_info: item.delivery_info || {},
+      statistics: null, // Will be filled later by enrichCampaignsWithStats
+    }));
+    
+  } catch (error) {
+    console.error("Exception while extracting campaigns from cache:", error);
+    return [];
+  }
+};
+
+/**
+ * Get cache status for a specific account
+ */
+export const getCacheStatus = async (accountId: string): Promise<{
+  lastUpdated: string | null;
+  count: number;
+}> => {
+  try {
+    // Get the latest cache update timestamp
+    const { data: latestData, error: latestError } = await supabase
+      .from('email_campaigns_cache')
+      .select('cache_updated_at')
+      .eq('account_id', accountId)
+      .order('cache_updated_at', { ascending: false })
+      .limit(1);
+      
+    // Get the count of cached campaigns
+    const { count, error: countError } = await supabase
+      .from('email_campaigns_cache')
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', accountId);
+      
+    if (latestError || countError) {
+      console.error("Error getting cache status:", latestError || countError);
+      return { lastUpdated: null, count: 0 };
+    }
+    
+    return {
+      lastUpdated: latestData && latestData.length > 0 ? latestData[0].cache_updated_at : null,
+      count: count || 0
+    };
+    
+  } catch (error) {
+    console.error("Exception while getting cache status:", error);
+    return { lastUpdated: null, count: 0 };
+  }
+};
+
+// Export alias for compatibility with existing code
+export const getAcelleCampaigns = getCampaigns;
+
+// Export alias for compatibility with existing code
+export const fetchCampaign = getCampaign;
+
+// Export alias for compatibility with existing code
+export const fetchCampaigns = getCampaigns;

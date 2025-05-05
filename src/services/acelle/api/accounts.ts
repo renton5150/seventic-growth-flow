@@ -17,10 +17,39 @@ export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
       return [];
     }
     
-    return data || [];
+    return data?.map(account => ({
+      ...account,
+      status: account.status as 'active' | 'inactive' | 'error'
+    })) || [];
   } catch (error) {
     console.error("Exception lors de la récupération des comptes Acelle:", error);
     return [];
+  }
+};
+
+/**
+ * Récupère un compte Acelle par son ID
+ */
+export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('acelle_accounts')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error || !data) {
+      console.error("Erreur lors de la récupération du compte Acelle:", error);
+      return null;
+    }
+    
+    return {
+      ...data,
+      status: data.status as 'active' | 'inactive' | 'error'
+    };
+  } catch (error) {
+    console.error("Exception lors de la récupération du compte Acelle:", error);
+    return null;
   }
 };
 
@@ -45,7 +74,13 @@ export const createAcelleAccount = async (
       return { success: false, error: error.message };
     }
     
-    return { success: true, data };
+    return { 
+      success: true, 
+      data: {
+        ...data,
+        status: data.status as 'active' | 'inactive' | 'error'
+      } 
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
@@ -71,7 +106,13 @@ export const updateAcelleAccount = async (
       return { success: false, error: error.message };
     }
     
-    return { success: true, data };
+    return { 
+      success: true, 
+      data: {
+        ...data,
+        status: data.status as 'active' | 'inactive' | 'error'
+      } 
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
@@ -98,5 +139,18 @@ export const deleteAcelleAccount = async (
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
+  }
+};
+
+/**
+ * Récupère le compte Acelle actif
+ */
+export const getActiveAccount = async (): Promise<AcelleAccount | null> => {
+  try {
+    const accounts = await getAcelleAccounts();
+    return accounts.find(acc => acc.status === 'active') || null;
+  } catch (error) {
+    console.error("Erreur lors de la récupération du compte actif:", error);
+    return null;
   }
 };

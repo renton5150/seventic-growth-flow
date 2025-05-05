@@ -1,76 +1,67 @@
-
-import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
-import { fetchAndProcessCampaignStats } from "./campaignStats";
-import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
+import { ensureValidStatistics } from "./validation";
+import { fetchCampaignStatisticsFromApi } from "./apiClient";
+import { getCachedStatistics, saveCampaignStatistics } from "./cacheManager";
 
 /**
- * Enrichit les campagnes avec des statistiques directement depuis l'API Acelle
+ * Enrichit les campagnes avec des statistiques en utilisant l'API directe ou le cache
  */
 export const enrichCampaignsWithStats = async (
-  campaigns: AcelleCampaign[], 
+  campaigns: AcelleCampaign[],
   account: AcelleAccount,
-  options?: { 
+  options?: {
     forceRefresh?: boolean;
   }
 ): Promise<AcelleCampaign[]> => {
-  console.log(`Enrichissement de ${campaigns.length} campagnes avec des statistiques...`);
+  if (!campaigns.length) return campaigns;
   
-  // Vérification des informations du compte
-  if (!account || !account.api_token || !account.api_endpoint) {
-    console.error("Impossible d'enrichir les campagnes: informations de compte incomplètes", {
-      hasAccount: !!account,
-      hasToken: account ? !!account.api_token : false,
-      hasEndpoint: account ? !!account.api_endpoint : false
-    });
-    return campaigns;
-  }
+  const forceRefresh = options?.forceRefresh || false;
+  const enrichedCampaigns: AcelleCampaign[] = [];
   
-  const enrichedCampaigns = [...campaigns];
-  
-  for (let i = 0; i < enrichedCampaigns.length; i++) {
+  for (const campaign of campaigns) {
     try {
-      const campaign = enrichedCampaigns[i];
+      const campaignUid = campaign.uid || '';
+      let statistics: AcelleCampaignStatistics | null = null;
       
-      // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement, on saute
-      if (!options?.forceRefresh && 
-          campaign.delivery_info && 
-          typeof campaign.delivery_info === 'object' &&
-          campaign.delivery_info.total && 
-          campaign.delivery_info.delivered) {
-        console.log(`Statistiques déjà disponibles pour la campagne ${campaign.name}, aucun enrichissement nécessaire`);
-        continue;
+      if (!forceRefresh) {
+        // Try to get from cache first if not forcing refresh
+        statistics = await getCachedStatistics(campaignUid, account.id);
       }
       
-      console.log(`Récupération des statistiques pour la campagne ${campaign.name}`, {
-        endpoint: account.api_endpoint,
-        campaignId: campaign.uid || campaign.campaign_uid
-      });
+      // If not found in cache or forcing refresh, fetch from API
+      if (!statistics) {
+        statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
+        
+        if (statistics) {
+          // Save to cache for future use
+          await saveCampaignStatistics(campaignUid, account.id, statistics);
+        }
+      }
       
-      // Récupérer les statistiques enrichies directement depuis l'API
-      const result = await fetchAndProcessCampaignStats(
-        campaign, 
-        account, 
-        { refresh: true }
-      );
-      
-      // Appliquer les statistiques enrichies à la campagne
-      enrichedCampaigns[i] = {
+      // Add statistics to campaign
+      enrichedCampaigns.push({
         ...campaign,
-        statistics: result.statistics || createEmptyStatistics(),
-        delivery_info: result.delivery_info || {}
-      };
-      
-      console.log(`Statistiques appliquées à la campagne ${campaign.name}:`, {
-        statistics: result.statistics,
-        delivery_info: result.delivery_info
+        statistics: statistics ? ensureValidStatistics(statistics) : null
       });
     } catch (error) {
-      console.error(`Erreur lors de l'enrichissement de la campagne ${enrichedCampaigns[i].name}:`, error);
-      
-      // Conserver les données existantes de la campagne
-      console.log(`ERREUR: Impossible d'enrichir la campagne ${enrichedCampaigns[i].name}`);
+      console.error(`Error enriching campaign ${campaign.uid} with stats:`, error);
+      // Still include the campaign without statistics
+      enrichedCampaigns.push(campaign);
     }
   }
   
   return enrichedCampaigns;
+};
+
+// Other exports for compatibility with other modules
+export const fetchDirectStatistics = async (
+  campaignUid: string,
+  account: AcelleAccount
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    return await fetchCampaignStatisticsFromApi(campaignUid, account);
+  } catch (error) {
+    console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
+    return null;
+  }
 };

@@ -97,3 +97,68 @@ export const checkAcelleConnectionStatus = async (
 
   return debugInfo;
 };
+
+// Export alias for compatibility
+export const checkConnectionStatus = checkAcelleConnectionStatus;
+
+/**
+ * Test the connection to an Acelle account
+ * Used by the AcelleAccountForm
+ */
+export const testAcelleConnection = async (
+  endpoint: string,
+  apiToken: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    if (!endpoint || !apiToken) {
+      return {
+        success: false,
+        message: "L'endpoint et le token API sont requis"
+      };
+    }
+    
+    // Get the auth token
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    
+    if (!accessToken) {
+      return {
+        success: false,
+        message: "Pas de token d'accès disponible"
+      };
+    }
+    
+    // Create a temporary account object for testing
+    const testAccount: AcelleAccount = {
+      id: 'test',
+      name: 'Test Connection',
+      api_endpoint: endpoint,
+      api_token: apiToken,
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      cache_priority: 0
+    };
+    
+    // Test the connection
+    const result = await checkAcelleConnectionStatus(testAccount, accessToken);
+    
+    if (result.success) {
+      return {
+        success: true,
+        message: "Connexion établie avec succès"
+      };
+    } else {
+      return {
+        success: false,
+        message: `Échec de la connexion: ${result.errorMessage || "Erreur inconnue"}`
+      };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      message: `Erreur lors du test: ${errorMessage}`
+    };
+  }
+};
