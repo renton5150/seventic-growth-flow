@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -136,6 +135,49 @@ const AcelleCampaignDetails = ({
     campaignData.statistics = statistics;
     
     return { campaignData, statsData: statistics };
+  };
+
+  // Optimiser la fonction fetchCampaignDetails pour utiliser le cache plus efficacement
+  const fetchCampaignDetails = async () => {
+    if (!campaignId || !account) {
+      setError("Identifiant de campagne ou compte manquant");
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      // Récupérer les détails de la campagne
+      const campaign = await acelleService.campaigns.fetchOne(campaignId, account);
+      
+      if (!campaign) {
+        setError("Campagne introuvable");
+        setIsLoading(false);
+        return;
+      }
+      
+      setCampaign(campaign);
+      
+      // Enrichir avec les statistiques détaillées seulement si nécessaires
+      if (!campaign.statistics || Object.keys(campaign.statistics).length === 0) {
+        const enrichedCampaign = await acelleService.campaigns.getStats(campaign, account, {
+          refresh: false // Utiliser le cache si disponible
+        });
+        
+        if (enrichedCampaign && typeof enrichedCampaign === 'object') {
+          setCampaign(prevCampaign => ({
+            ...prevCampaign,
+            statistics: enrichedCampaign.statistics,
+            delivery_info: enrichedCampaign.delivery_info
+          }));
+        }
+      }
+      
+      setIsLoading(false);
+    } catch (err) {
+      console.error("Erreur lors de la récupération des détails de la campagne:", err);
+      setError("Erreur lors de la récupération des détails de la campagne");
+      setIsLoading(false);
+    }
   };
 
   // Afficher un spinner pendant le chargement

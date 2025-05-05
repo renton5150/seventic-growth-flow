@@ -1,3 +1,4 @@
+
 // Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -85,7 +86,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           const enrichedCampaigns = await enrichCampaignsWithStats(
             fetchedCampaigns, 
             account, 
-            { forceRefresh: true }
+            { forceRefresh: false } // MODIFICATION: Ne plus forcer le rafraîchissement
           );
           setCampaigns(enrichedCampaigns);
         } else {
@@ -146,13 +147,25 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       });
       
       try {
-        // Force refresh for all campaigns to ensure we have the latest statistics
-        const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
-          forceRefresh: true
-        });
+        // Vérifier si les statistiques sont déjà présentes avant de forcer un rafraîchissement
+        const needsEnrichment = campaigns.some(campaign => 
+          !campaign.statistics || 
+          Object.keys(campaign.statistics).length === 0 ||
+          campaign.statistics.subscriber_count === 0
+        );
         
-        console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
-        setCampaigns(enrichedCampaigns);
+        // N'enrichir que si nécessaire
+        if (needsEnrichment) {
+          // Enrichir sans forcer le rafraîchissement - utiliser le cache si disponible
+          const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
+            forceRefresh: false // MODIFICATION: Ne plus forcer le rafraîchissement
+          });
+          
+          console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
+          setCampaigns(enrichedCampaigns);
+        } else {
+          console.log("Toutes les campagnes ont déjà des statistiques, pas besoin d'enrichissement");
+        }
       } catch (err) {
         console.error("Error enriching campaigns with statistics:", err);
       }
