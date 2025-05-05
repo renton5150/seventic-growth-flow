@@ -8,7 +8,7 @@ export const TableLoadingState = () => {
   return (
     <div className="flex justify-center items-center p-8">
       <div className="flex flex-col items-center gap-4">
-        <Spinner size="lg" />
+        <Spinner size={32} className="w-8 h-8" />
         <p className="text-muted-foreground">Chargement des campagnes...</p>
       </div>
     </div>

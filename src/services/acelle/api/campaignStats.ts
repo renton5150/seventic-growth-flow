@@ -43,7 +43,7 @@ export const fetchAndProcessCampaignStats = async (
         
         try {
           // Type checking et normalisation
-          let delivery_info = {};
+          let delivery_info: Record<string, any> = {};
           
           if (cachedStats.delivery_info !== null) {
             // Parse delivery_info if it's a string, otherwise use as is if it's an object
@@ -51,7 +51,12 @@ export const fetchAndProcessCampaignStats = async (
               ? JSON.parse(cachedStats.delivery_info)
               : cachedStats.delivery_info;
               
-            // Calculer les statistiques de base
+            // Make sure delivery_info is an object
+            if (typeof delivery_info !== 'object' || delivery_info === null) {
+              delivery_info = {};
+            }
+              
+            // Calculer les statistiques de base avec des valeurs par défaut si les propriétés n'existent pas
             const statistics: AcelleCampaignStatistics = {
               subscriber_count: delivery_info.total || 0,
               delivered_count: delivery_info.delivered || 0,
@@ -125,21 +130,24 @@ export const fetchAndProcessCampaignStats = async (
     
     console.log(`Statistiques récupérées pour ${campaignUid}:`, responseData);
     
+    // Ensure data is an object
+    const apiData = responseData.data || {};
+    
     // Convertir et normaliser les statistiques
     const statistics: AcelleCampaignStatistics = {
-      subscriber_count: responseData.data?.subscriber_count || responseData.data?.total || 0,
-      delivered_count: responseData.data?.delivered_count || responseData.data?.delivered || 0,
-      delivered_rate: responseData.data?.delivered_rate || 0,
-      open_count: responseData.data?.open_count || responseData.data?.opened || 0,
-      uniq_open_count: responseData.data?.uniq_open_count || 0,
-      uniq_open_rate: responseData.data?.uniq_open_rate || responseData.data?.unique_open_rate || 0,
-      click_count: responseData.data?.click_count || responseData.data?.clicked || 0,
-      click_rate: responseData.data?.click_rate || 0,
-      bounce_count: responseData.data?.bounce_count || 0,
-      soft_bounce_count: responseData.data?.soft_bounce_count || 0,
-      hard_bounce_count: responseData.data?.hard_bounce_count || 0,
-      unsubscribe_count: responseData.data?.unsubscribe_count || 0,
-      abuse_complaint_count: responseData.data?.abuse_complaint_count || 0,
+      subscriber_count: apiData.subscriber_count || apiData.total || 0,
+      delivered_count: apiData.delivered_count || apiData.delivered || 0,
+      delivered_rate: apiData.delivered_rate || 0,
+      open_count: apiData.open_count || apiData.opened || 0,
+      uniq_open_count: apiData.uniq_open_count || 0,
+      uniq_open_rate: apiData.uniq_open_rate || apiData.unique_open_rate || 0,
+      click_count: apiData.click_count || apiData.clicked || 0,
+      click_rate: apiData.click_rate || 0,
+      bounce_count: apiData.bounce_count || 0,
+      soft_bounce_count: apiData.soft_bounce_count || 0,
+      hard_bounce_count: apiData.hard_bounce_count || 0,
+      unsubscribe_count: apiData.unsubscribe_count || 0,
+      abuse_complaint_count: apiData.abuse_complaint_count || 0,
     };
     
     // Créer un format unifié pour delivery_info
