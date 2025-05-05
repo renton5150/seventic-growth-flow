@@ -1,134 +1,280 @@
 
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save } from 'lucide-react';
-import { AcelleFormValues, AcelleAccountFormProps } from './AcelleAccountForm.types';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { testAcelleConnection } from "@/services/acelle/api/connection";
+import { supabase } from "@/integrations/supabase/client";
+import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
+import { toast } from "sonner";
+import { AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 
-const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ 
-  account, 
-  onSubmit, 
-  onCancel,
-  isSubmitting = false
-}) => {
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<AcelleFormValues>({
-    defaultValues: {
-      name: account?.name || '',
-      api_endpoint: account?.api_endpoint || '',
-      api_token: account?.api_token || '',
-      status: account?.status || 'inactive',
-      mission_id: account?.mission_id || undefined,
-      cache_priority: account?.cache_priority || 0,
-    }
+interface AcelleAccountFormProps {
+  account?: AcelleAccount;
+  onSubmit: (formData: any) => Promise<void>;
+  onCancel: () => void;
+}
+
+const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ account, onSubmit, onCancel }) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    api_endpoint: "",
+    api_token: "",
+    status: "inactive",
+    mission_id: "",
+    cache_priority: 0
   });
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
+  const [missions, setMissions] = useState<{id: string, name: string}[]>([]);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] = useState<AcelleConnectionDebug | null>(null);
 
-  // Pour les champs qui utilisent Select, nous devons utiliser setValue
-  React.useEffect(() => {
-    if (account) {
-      setValue('status', account.status);
+  // Charger les données initiales si on édite un compte existant
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (account) {
+        setFormData({
+          name: account.name || "",
+          api_endpoint: account.api_endpoint || "",
+          api_token: account.api_token || "",
+          status: account.status || "inactive",
+          mission_id: account.mission_id || "",
+          cache_priority: account.cache_priority || 0
+        });
+      }
+
+      // Charger la liste des missions
+      try {
+        const { data, error } = await supabase
+          .from("missions")
+          .select("id, name")
+          .order("name");
+
+        if (error) throw error;
+        setMissions(data || []);
+      } catch (err) {
+        console.error("Erreur lors du chargement des missions:", err);
+        toast.error("Impossible de charger la liste des missions");
+      }
+    };
+
+    loadInitialData();
+  }, [account]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsFormSubmitting(true);
+
+    try {
+      await onSubmit(formData);
+    } catch (err) {
+      console.error("Erreur lors de la soumission du formulaire:", err);
+    } finally {
+      setIsFormSubmitting(false);
     }
-  }, [account, setValue]);
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setConnectionTestResult(null);
+    
+    try {
+      const testAccount: AcelleAccount = {
+        ...account,
+        id: account?.id || 'system-test',
+        name: formData.name,
+        api_endpoint: formData.api_endpoint,
+        api_token: formData.api_token,
+        status: 'inactive',
+        created_at: new Date().toISOString(),
+      } as AcelleAccount;
+      
+      const result = await testAcelleConnection(testAccount);
+      setConnectionTestResult(result);
+      
+      if (result.success) {
+        toast.success("Connexion à l'API réussie !");
+        // Si le test est réussi, on met le statut à 'active'
+        setFormData(prev => ({ ...prev, status: 'active' }));
+      } else {
+        toast.error(`Erreur de connexion: ${result.errorMessage || 'Problème de connexion inconnu'}`);
+      }
+    } catch (err) {
+      console.error("Erreur lors du test de connexion:", err);
+      toast.error("Erreur lors du test de connexion");
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>{account ? `Modifier ${account.name}` : 'Nouveau compte Acelle'}</CardTitle>
-        <CardDescription>
-          {account 
-            ? 'Modifiez les informations du compte Acelle' 
-            : 'Renseignez les informations pour créer un compte Acelle'}
-        </CardDescription>
-      </CardHeader>
-      
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          {/* Nom du compte */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Nom du compte</Label>
-            <Input
-              id="name"
-              placeholder="Ex: Client X - Marketing"
-              {...register('name', { required: 'Le nom est obligatoire' })}
-            />
-            {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
-          </div>
-          
-          {/* API Endpoint */}
-          <div className="space-y-2">
-            <Label htmlFor="api_endpoint">URL de l'API Acelle</Label>
-            <Input
-              id="api_endpoint"
-              placeholder="Ex: https://acelle.example.com/api/v1"
-              {...register('api_endpoint', { required: "L'URL de l'API est obligatoire" })}
-            />
-            {errors.api_endpoint && <p className="text-sm text-red-500">{errors.api_endpoint.message}</p>}
-          </div>
-          
-          {/* API Token */}
-          <div className="space-y-2">
-            <Label htmlFor="api_token">Token API</Label>
-            <Input
-              id="api_token"
-              type="password"
-              placeholder="Token d'API Acelle"
-              {...register('api_token', { required: "Le token API est obligatoire" })}
-            />
-            {errors.api_token && <p className="text-sm text-red-500">{errors.api_token.message}</p>}
-          </div>
-          
-          {/* Statut */}
-          <div className="space-y-2">
-            <Label htmlFor="status">Statut</Label>
-            <Select 
-              defaultValue={account?.status || 'inactive'} 
-              onValueChange={(value) => setValue('status', value as 'active' | 'inactive' | 'error')}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionnez un statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Actif</SelectItem>
-                <SelectItem value="inactive">Inactif</SelectItem>
-                <SelectItem value="error">Erreur</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.status && <p className="text-sm text-red-500">{errors.status.message}</p>}
-          </div>
-          
-          {/* Priorité de cache (optionnel) */}
-          <div className="space-y-2">
-            <Label htmlFor="cache_priority">Priorité de cache</Label>
-            <Input
-              id="cache_priority"
-              type="number"
-              placeholder="0"
-              {...register('cache_priority', { 
-                valueAsNumber: true,
-                min: { value: 0, message: 'La priorité doit être un nombre positif' } 
-              })}
-            />
-            <p className="text-xs text-gray-500">
-              Optionnel. Définit la priorité du compte pour la synchronisation automatique.
-            </p>
-            {errors.cache_priority && <p className="text-sm text-red-500">{errors.cache_priority.message}</p>}
-          </div>
-        </CardContent>
+    <Card className="w-full max-w-3xl mx-auto">
+      <CardContent className="p-6">
+        <h2 className="text-2xl font-bold mb-4">
+          {account ? `Éditer ${account.name}` : "Créer un nouveau compte Acelle"}
+        </h2>
         
-        <CardFooter className="flex justify-between">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Annuler
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            <Save className="mr-2 h-4 w-4" />
-            {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
-          </Button>
-        </CardFooter>
-      </form>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Nom du compte</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Nom du compte"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="status">Statut</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => handleSelectChange("status", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Actif</SelectItem>
+                    <SelectItem value="inactive">Inactif</SelectItem>
+                    <SelectItem value="error">Erreur</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="api_endpoint">URL de l'API Acelle</Label>
+              <Input
+                id="api_endpoint"
+                name="api_endpoint"
+                value={formData.api_endpoint}
+                onChange={handleInputChange}
+                placeholder="https://emailing.exemple.com/api/v1"
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="api_token">Token d'API</Label>
+              <Input
+                id="api_token"
+                name="api_token"
+                type="password"
+                value={formData.api_token}
+                onChange={handleInputChange}
+                placeholder="Votre token d'API Acelle"
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="mission_id">Mission associée (optionnel)</Label>
+                <Select
+                  value={formData.mission_id}
+                  onValueChange={(value) => handleSelectChange("mission_id", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une mission" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Aucune mission</SelectItem>
+                    {missions.map((mission) => (
+                      <SelectItem key={mission.id} value={mission.id}>
+                        {mission.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="cache_priority">Priorité de cache</Label>
+                <Input
+                  id="cache_priority"
+                  name="cache_priority"
+                  type="number"
+                  value={formData.cache_priority.toString()}
+                  onChange={handleInputChange}
+                  min="0"
+                  max="100"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="pt-2">
+            <Label>Test de connexion</Label>
+            <div className="flex items-center gap-4 mt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleTestConnection}
+                disabled={!formData.api_endpoint || !formData.api_token || testingConnection}
+              >
+                {testingConnection ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Tester la connexion
+              </Button>
+              
+              {connectionTestResult && (
+                <div className="flex items-center">
+                  {connectionTestResult.success ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
+                      <span className="text-green-500">Connexion réussie</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                      <span className="text-red-500">
+                        Erreur: {connectionTestResult.errorMessage || "Connexion échouée"}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <Separator className="my-4" />
+          
+          <div className="flex justify-end space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isFormSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isFormSubmitting}>
+              {isFormSubmitting && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
+              {account ? "Mettre à jour" : "Créer"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
     </Card>
   );
 };
