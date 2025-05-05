@@ -1,3 +1,5 @@
+
+// Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -26,7 +28,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Bug, AlertTriangle } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
@@ -34,21 +36,17 @@ import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
-  onDemoMode?: (isDemoMode: boolean) => void;
-  demoMode?: boolean;
 }
 
-export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = false }: AcelleCampaignsTableProps) {
+export default function AcelleCampaignsTable({ account }: AcelleCampaignsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5); // Limité à 5 campagnes par page
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [internalDemoMode, setInternalDemoMode] = useState(demoMode);
   const [totalPages, setTotalPages] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,11 +54,6 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
   const [error, setError] = useState<Error | null>(null);
   const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
   
-  // Use the demoMode prop when it changes
-  useEffect(() => {
-    setInternalDemoMode(demoMode);
-  }, [demoMode]);
-
   // Utiliser notre hook useCampaignCache pour les opérations de cache
   const { 
     campaignsCount, 
@@ -78,11 +71,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
     setError(null);
     
     try {
-      if (internalDemoMode) {
-        // Generate demo campaigns
-        const demoCampaigns = generateDemoCampaigns(currentPage, itemsPerPage);
-        setCampaigns(demoCampaigns);
-      } else if (account?.id) {
+      if (account?.id) {
         // Fetch campaigns from cache
         const fetchedCampaigns = await fetchCampaignsFromCache(
           [account], 
@@ -97,7 +86,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
           const enrichedCampaigns = await enrichCampaignsWithStats(
             fetchedCampaigns, 
             account, 
-            { forceRefresh: true, demoMode: false }
+            { forceRefresh: true }
           );
           setCampaigns(enrichedCampaigns);
         } else {
@@ -111,7 +100,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
     } finally {
       setIsLoading(false);
     }
-  }, [account, currentPage, internalDemoMode, itemsPerPage]);
+  }, [account, currentPage, itemsPerPage]);
 
   // Obtenir le token d'authentification dès le montage du composant
   useEffect(() => {
@@ -127,16 +116,10 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
         } else {
           console.error("Aucun token d'authentification disponible dans la session");
           toast.error("Erreur d'authentification: Impossible de récupérer le token d'authentification");
-          
-          // Activer le mode démo automatiquement si pas d'authentification
-          enableDemoMode(true);
         }
       } catch (error) {
         console.error("Erreur lors de la récupération du token d'authentification:", error);
         toast.error("Erreur lors de la récupération du token d'authentification");
-        
-        // Activer le mode démo automatiquement en cas d'erreur d'authentification
-        enableDemoMode(true);
       }
     };
     
@@ -151,7 +134,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
   // Ensure campaigns have statistics when loaded
   useEffect(() => {
     const enrichCampaignsStats = async () => {
-      if (!campaigns.length || !account || internalDemoMode) return;
+      if (!campaigns.length || !account) return;
       
       console.log("Enriching campaigns with statistics from API...", {
         campaignsCount: campaigns.length,
@@ -166,8 +149,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
       try {
         // Force refresh for all campaigns to ensure we have the latest statistics
         const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
-          forceRefresh: true,
-          demoMode: false
+          forceRefresh: true
         });
         
         console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
@@ -178,18 +160,12 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
     };
     
     enrichCampaignsStats();
-  }, [campaigns.length, account, internalDemoMode]);
+  }, [campaigns.length, account]);
 
   // Calcul du nombre total de pages en fonction du nombre total de campagnes
   useEffect(() => {
     const calculateTotalPages = async () => {
       try {
-        if (internalDemoMode) {
-          // En mode démo, on suppose qu'il y a 20 campagnes (4 pages)
-          setTotalPages(4);
-          return;
-        }
-
         if (!account?.id) {
           setTotalPages(0);
           return;
@@ -218,63 +194,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
     };
     
     calculateTotalPages();
-  }, [account?.id, campaignsCount, currentPage, internalDemoMode, itemsPerPage]);
-
-  // Générer des campagnes factices pour le mode démo
-  const generateDemoCampaigns = useCallback((page: number = 1, perPage: number = 5): AcelleCampaign[] => {
-    const statuses = ["sent", "sending", "queued", "ready", "new", "paused", "failed"];
-    const subjectPrefixes = ["Newsletter", "Promotion", "Annonce", "Invitation", "Bienvenue"];
-    
-    // Décaler l'index de départ en fonction de la page
-    const startIndex = (page - 1) * perPage;
-    
-    return Array.from({ length: perPage }).map((_, index) => {
-      const now = new Date();
-      const globalIndex = startIndex + index;
-      const randomDays = Math.floor(Math.random() * 30);
-      const createdDate = new Date(now.getTime() - randomDays * 24 * 60 * 60 * 1000);
-      
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const subject = `${subjectPrefixes[Math.floor(Math.random() * subjectPrefixes.length)]} ${globalIndex + 1}`;
-      
-      // Créer une campagne simulée avec statistiques
-      const simulatedStats = acelleService.generateMockCampaigns(1)[0];
-      
-      return {
-        uid: `demo-${globalIndex}`,
-        campaign_uid: `demo-${globalIndex}`,
-        name: `Campagne démo ${globalIndex + 1}`,
-        subject: subject,
-        status: status,
-        created_at: createdDate.toISOString(),
-        updated_at: new Date().toISOString(),
-        delivery_date: status === "new" ? null : new Date().toISOString(),
-        run_at: null,
-        delivery_info: simulatedStats.delivery_info,
-        statistics: simulatedStats.statistics
-      } as AcelleCampaign;
-    });
-  }, []);
-
-  // Activer ou désactiver le mode démo
-  const enableDemoMode = useCallback((enable: boolean) => {
-    setInternalDemoMode(enable);
-    if (onDemoMode) {
-      onDemoMode(enable);
-    }
-    
-    if (enable) {
-      toast.info("Mode démo activé: les données affichées sont fictives", {
-        id: "demo-mode",
-        duration: 5000
-      });
-    } else {
-      toast.info("Mode démo désactivé: affichage des données réelles", {
-        id: "demo-mode",
-        duration: 5000
-      });
-    }
-  }, [onDemoMode]);
+  }, [account?.id, campaignsCount, currentPage, itemsPerPage]);
 
   // Rafraîchir manuellement les campagnes
   const handleRefresh = useCallback(async () => {
@@ -353,17 +273,17 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
   };
 
   // Si le compte est inactif
-  if (account?.status !== 'active' && !internalDemoMode) {
+  if (account?.status !== 'active') {
     return <InactiveAccountState />;
   }
 
   // Afficher un état de chargement
-  if (isLoading && !internalDemoMode) {
+  if (isLoading) {
     return <TableLoadingState />;
   }
 
   // Afficher un état d'erreur
-  if (isError && !internalDemoMode) {
+  if (isError) {
     return (
       <TableErrorState 
         error={error instanceof Error ? error.message : "Une erreur est survenue"} 
@@ -377,7 +297,7 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
   }
 
   // Si aucune campagne n'est trouvée
-  if (!filteredCampaigns?.length && !internalDemoMode) {
+  if (!filteredCampaigns?.length) {
     return <EmptyState onSync={handleSync} />;
   }
 
@@ -410,15 +330,6 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
             Synchroniser
-          </Button>
-          
-          <Button
-            variant={internalDemoMode ? "destructive" : "outline"}
-            size="sm"
-            onClick={() => enableDemoMode(!internalDemoMode)}
-          >
-            <Bug className="h-4 w-4 mr-2" />
-            {internalDemoMode ? "Désactiver démo" : "Mode démo"}
           </Button>
         </div>
       </div>
@@ -468,7 +379,6 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
                 campaign={campaign} 
                 account={account}
                 onViewCampaign={handleViewCampaign}
-                demoMode={internalDemoMode}
               />
             ))}
           </TableBody>
@@ -498,7 +408,6 @@ export default function AcelleCampaignsTable({ account, onDemoMode, demoMode = f
               campaignId={selectedCampaign} 
               account={account} 
               onClose={handleCloseDetails}
-              demoMode={internalDemoMode}
             />
           )}
         </DialogContent>

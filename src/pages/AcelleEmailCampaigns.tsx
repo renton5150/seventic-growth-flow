@@ -12,7 +12,6 @@ import { toast } from "sonner";
 
 const AcelleEmailCampaigns = () => {
   const { isAdmin, user } = useAuth();
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   
@@ -111,16 +110,7 @@ const AcelleEmailCampaigns = () => {
           </Alert>
         )}
         
-        {isDemoMode && (
-          <Alert variant="default" className="bg-blue-50 text-blue-700 border-blue-200">
-            <InfoIcon className="h-4 w-4 mr-2" />
-            <AlertDescription>
-              Mode démonstration activé : certaines données peuvent être temporaires en raison de problèmes de connexion à l'API.
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <AcelleAdminPanel onDemoModeChange={setIsDemoMode} />
+        <AcelleAdminPanel />
       </div>
     </AppLayout>
   );

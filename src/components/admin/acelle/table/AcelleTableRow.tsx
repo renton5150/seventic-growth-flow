@@ -14,14 +14,12 @@ interface AcelleTableRowProps {
   campaign: AcelleCampaign;
   account?: AcelleAccount;
   onViewCampaign: (uid: string) => void;
-  demoMode?: boolean;
 }
 
 export const AcelleTableRow = ({ 
   campaign, 
   account, 
-  onViewCampaign, 
-  demoMode = false 
+  onViewCampaign
 }: AcelleTableRowProps) => {
   // État local pour les statistiques
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
@@ -44,14 +42,13 @@ export const AcelleTableRow = ({
       console.log(`Initialisation des statistiques pour la campagne ${campaignName}`, {
         hasDeliveryInfo: !!campaign.delivery_info,
         hasStatistics: !!campaign.statistics,
-        demoMode,
         account: account ? {
           hasToken: !!account.api_token,
           hasEndpoint: !!account.api_endpoint
         } : 'No account'
       });
       
-      if (!account && !demoMode) {
+      if (!account) {
         console.warn(`Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
         return;
       }
@@ -59,9 +56,8 @@ export const AcelleTableRow = ({
       try {
         setIsLoading(true);
         
-        // Utiliser le nouveau service pour récupérer les statistiques
+        // Utiliser le service pour récupérer les statistiques
         const result = await fetchAndProcessCampaignStats(campaign, account!, { 
-          demoMode,
           refresh: true // Forcer le rafraîchissement pour toujours récupérer les données fraîches
         });
         
@@ -82,7 +78,7 @@ export const AcelleTableRow = ({
     };
     
     loadCampaignStats();
-  }, [campaign, account, campaignName, demoMode]);
+  }, [campaign, account, campaignName]);
 
   // Formatage sécurisé des dates
   const formatDateSafely = (dateString: string | null | undefined) => {

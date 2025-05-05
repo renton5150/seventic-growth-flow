@@ -1,19 +1,48 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { AcelleAccount, AcelleCampaign } from '@/types/acelle.types';
+import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { calculateDeliveryStats } from '@/utils/acelle/campaignStats';
+import { fetchCampaignsFromCache } from '@/hooks/acelle/useCampaignFetch';
 
 interface DeliveryStatsChartProps {
   accounts: AcelleAccount[];
-  demoMode: boolean;
+  demoMode?: boolean;
 }
 
-export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts, demoMode }) => {
+export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts, demoMode = false }) => {
+  const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Charger les campagnes depuis le cache
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      if (demoMode) {
+        setLoading(false);
+        return; // Ne pas charger les données réelles en mode démo
+      }
+      
+      if (accounts && accounts.length > 0) {
+        setLoading(true);
+        try {
+          // Récupérer les 5 dernières campagnes pour chaque compte
+          const fetchedCampaigns = await fetchCampaignsFromCache(accounts, 1, 5, false);
+          setCampaigns(fetchedCampaigns);
+        } catch (error) {
+          console.error("Erreur lors de la récupération des campagnes:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadCampaigns();
+  }, [accounts, demoMode]);
+
   // Préparer les données pour le graphique
   const chartData = useMemo(() => {
-    // Limiter aux 5 dernières campagnes envoyées pour une meilleure lisibilité
+    // Si mode démo, générer des données factices
     if (demoMode) {
       // Données de démonstration
       return [
@@ -25,35 +54,66 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
       ];
     }
     
-    // Si aucun compte actif
-    if (!accounts || accounts.length === 0) {
+    // Si aucune campagne ou en cours de chargement
+    if (!campaigns || campaigns.length === 0) {
       return [];
     }
     
-    // Récupérer les campagnes de tous les comptes actifs
-    const allCampaigns: AcelleCampaign[] = [];
+    // Limiter aux 5 dernières campagnes envoyées pour une meilleure lisibilité
+    const recentCampaigns = [...campaigns]
+      .filter(c => c.status === 'sent' || c.status === 'sending')
+      .sort((a, b) => {
+        const dateA = new Date(a.delivery_date || a.created_at || 0).getTime();
+        const dateB = new Date(b.delivery_date || b.created_at || 0).getTime();
+        return dateB - dateA; // Tri par date décroissante
+      })
+      .slice(0, 5);
     
-    // Si pas de données ou d'erreur, retourner un tableau vide
-    if (allCampaigns.length === 0) {
-      console.log("Aucune campagne trouvée pour les statistiques de livraison");
-      return [];
-    }
-    
-    const stats = calculateDeliveryStats(allCampaigns);
-    
-    // Format pour le graphique
-    return [
-      {
-        name: "Totaux",
-        delivered: stats.totalDelivered,
-        opened: stats.totalOpened,
-        clicked: stats.totalClicked,
-        bounced: stats.totalBounced,
-        total: stats.totalEmails
+    // Créer les données pour le graphique
+    return recentCampaigns.map(campaign => {
+      // Extraire les statistiques
+      const stats = campaign.statistics;
+      const delivery = campaign.delivery_info;
+      
+      let total = 0, delivered = 0, opened = 0, clicked = 0, bounced = 0;
+      
+      // Utiliser la source la plus fiable entre statistics et delivery_info
+      if (stats) {
+        total = stats.subscriber_count || 0;
+        delivered = stats.delivered_count || 0;
+        opened = stats.open_count || 0;
+        clicked = stats.click_count || 0;
+        bounced = stats.bounce_count || 0;
+      } else if (delivery) {
+        total = delivery.total || 0;
+        delivered = delivery.delivered || 0;
+        opened = delivery.opened || 0;
+        clicked = delivery.clicked || 0;
+        
+        if (typeof delivery.bounced === 'number') {
+          bounced = delivery.bounced;
+        } else if (typeof delivery.bounced === 'object' && delivery.bounced) {
+          bounced = delivery.bounced.total || 0;
+        }
       }
-    ];
-  }, [accounts, demoMode]);
+      
+      // Formater le nom pour limiter la longueur
+      const name = campaign.name && campaign.name.length > 20
+        ? `${campaign.name.substring(0, 20)}...`
+        : campaign.name || 'Sans nom';
+      
+      return {
+        name,
+        total,
+        delivered,
+        opened,
+        clicked,
+        bounced
+      };
+    });
+  }, [campaigns, demoMode]);
 
+  // Format personnalisé pour le tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -71,6 +131,21 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
     return null;
   };
 
+  // Si les données agrégées pour toutes les campagnes
+  const aggregatedData = useMemo(() => {
+    if (demoMode || !campaigns || campaigns.length === 0) return null;
+    
+    const stats = calculateDeliveryStats(campaigns);
+    return {
+      name: "Totaux",
+      total: stats.totalEmails,
+      delivered: stats.totalDelivered,
+      opened: stats.totalOpened,
+      clicked: stats.totalClicked,
+      bounced: stats.totalBounced
+    };
+  }, [campaigns, demoMode]);
+
   return (
     <Card>
       <CardHeader>
@@ -79,7 +154,11 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
       </CardHeader>
       <CardContent className="pt-2">
         <div className="h-60">
-          {chartData.length > 0 ? (
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Chargement des données...
+            </div>
+          ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
@@ -108,6 +187,31 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts
             </div>
           )}
         </div>
+        
+        {aggregatedData && (
+          <div className="mt-4 grid grid-cols-5 gap-2 text-center text-sm">
+            <div className="bg-gray-100 p-2 rounded">
+              <div className="font-medium">Total</div>
+              <div>{aggregatedData.total.toLocaleString()}</div>
+            </div>
+            <div className="bg-green-50 p-2 rounded">
+              <div className="font-medium text-green-700">Délivrés</div>
+              <div>{aggregatedData.delivered.toLocaleString()}</div>
+            </div>
+            <div className="bg-blue-50 p-2 rounded">
+              <div className="font-medium text-blue-700">Ouverts</div>
+              <div>{aggregatedData.opened.toLocaleString()}</div>
+            </div>
+            <div className="bg-amber-50 p-2 rounded">
+              <div className="font-medium text-amber-700">Cliqués</div>
+              <div>{aggregatedData.clicked.toLocaleString()}</div>
+            </div>
+            <div className="bg-red-50 p-2 rounded">
+              <div className="font-medium text-red-700">Rebonds</div>
+              <div>{aggregatedData.bounced.toLocaleString()}</div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

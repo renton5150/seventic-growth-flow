@@ -3,27 +3,47 @@ import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { calculateStatusCounts } from '@/utils/acelle/campaignStats';
+import { calculateStatusCounts, translateStatus } from '@/utils/acelle/campaignStats';
+import { fetchCampaignsFromCache } from '@/hooks/acelle/useCampaignFetch';
 
 interface StatusDistributionChartProps {
   accounts: AcelleAccount[];
-  demoMode: boolean;
+  demoMode?: boolean;
 }
 
-export const StatusDistributionChart: React.FC<StatusDistributionChartProps> = ({ accounts, demoMode }) => {
+export const StatusDistributionChart: React.FC<StatusDistributionChartProps> = ({ accounts, demoMode = false }) => {
+  const [campaigns, setCampaigns] = React.useState<AcelleCampaign[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  // Charger les campagnes depuis le cache
+  React.useEffect(() => {
+    const loadCampaigns = async () => {
+      if (demoMode) {
+        setLoading(false);
+        return; // Ne pas charger les données réelles en mode démo
+      }
+      
+      if (accounts && accounts.length > 0) {
+        setLoading(true);
+        try {
+          // Récupérer toutes les campagnes sans pagination (skipPagination=true)
+          const fetchedCampaigns = await fetchCampaignsFromCache(accounts, 1, 100, true);
+          setCampaigns(fetchedCampaigns);
+        } catch (error) {
+          console.error("Erreur lors de la récupération des campagnes:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadCampaigns();
+  }, [accounts, demoMode]);
+
   // Préparer les données pour le graphique
   const chartData = useMemo(() => {
-    // Si aucun compte actif
-    if (!accounts || accounts.length === 0) {
-      return [];
-    }
-
-    // Récupérer les campagnes de tous les comptes actifs
-    let allCampaigns: AcelleCampaign[] = [];
-    
     // Si mode démo, générer des données factices
     if (demoMode) {
-      // Données de démo
       return [
         { status: 'Envoyé', count: 15, color: '#10b981' },
         { status: 'En envoi', count: 3, color: '#3b82f6' },
@@ -34,14 +54,13 @@ export const StatusDistributionChart: React.FC<StatusDistributionChartProps> = (
       ];
     }
     
-    // Si pas de données réelles ou d'erreur, retourner un tableau vide
-    if (allCampaigns.length === 0) {
-      console.log("Aucune campagne trouvée pour la distribution des statuts");
+    // Si aucune campagne ou en cours de chargement
+    if (!campaigns || campaigns.length === 0) {
       return [];
     }
     
     // Calculer la distribution des statuts
-    const statusCounts = calculateStatusCounts(allCampaigns);
+    const statusCounts = calculateStatusCounts(campaigns);
     
     // Associer des couleurs aux statuts
     const statusColors: Record<string, string> = {
@@ -58,7 +77,7 @@ export const StatusDistributionChart: React.FC<StatusDistributionChartProps> = (
       ...item,
       color: statusColors[item.status] || "#9ca3af"  // gris par défaut si status inconnu
     }));
-  }, [accounts, demoMode]);
+  }, [campaigns, demoMode]);
 
   // Format personnalisé pour le tooltip
   const CustomTooltip = ({ active, payload }: any) => {
@@ -80,7 +99,11 @@ export const StatusDistributionChart: React.FC<StatusDistributionChartProps> = (
       </CardHeader>
       <CardContent>
         <div className="h-60">
-          {chartData.length > 0 ? (
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Chargement des données...
+            </div>
+          ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

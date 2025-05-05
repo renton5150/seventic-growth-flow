@@ -1,6 +1,4 @@
 
-import React from "react";
-import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -9,58 +7,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Search } from "lucide-react";
 
-export interface AcelleTableFiltersProps {
+interface AcelleTableFiltersProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  statusFilter: string | null;
-  onStatusFilterChange: (value: string | null) => void;
+  statusFilter: string;
+  onStatusFilterChange: (value: string) => void;
 }
 
-export const AcelleTableFilters = ({
+export const AcelleTableFilters: React.FC<AcelleTableFiltersProps> = ({
   searchTerm,
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
-}: AcelleTableFiltersProps) => {
-  // Liste des statuts possibles
-  const statuses = [
-    { value: "all", label: "Tous les statuts" },
-    { value: "new", label: "Nouveau" },
-    { value: "ready", label: "Prêt" },
-    { value: "sending", label: "En envoi" },
-    { value: "sent", label: "Envoyé" },
-    { value: "done", label: "Terminé" },
-    { value: "queued", label: "En attente" },
-    { value: "paused", label: "En pause" },
-    { value: "failed", label: "Échoué" },
-  ];
-
+}) => {
   return (
     <div className="flex flex-col sm:flex-row gap-4">
-      <div className="relative flex items-center w-full max-w-sm">
-        <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="relative w-full sm:max-w-xs">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground/70" />
         <Input
-          placeholder="Rechercher..."
+          placeholder="Rechercher des campagnes..."
+          className="pl-8"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-8 w-full"
         />
       </div>
-
-      <Select
-        value={statusFilter || "all"}
-        onValueChange={(value) => onStatusFilterChange(value === "all" ? null : value)}
+      <Select 
+        value={statusFilter}
+        onValueChange={onStatusFilterChange}
       >
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-full sm:w-[180px]">
           <SelectValue placeholder="Filtrer par statut" />
         </SelectTrigger>
         <SelectContent>
-          {statuses.map((status) => (
-            <SelectItem key={status.value} value={status.value}>
-              {status.label}
-            </SelectItem>
-          ))}
+          <SelectItem value="all">Tous les statuts</SelectItem>
+          <SelectItem value="sent">Envoyé</SelectItem>
+          <SelectItem value="sending">En envoi</SelectItem>
+          <SelectItem value="queued">En attente</SelectItem>
+          <SelectItem value="ready">Prêt</SelectItem>
+          <SelectItem value="new">Nouveau</SelectItem>
+          <SelectItem value="paused">En pause</SelectItem>
+          <SelectItem value="failed">Échoué</SelectItem>
         </SelectContent>
       </Select>
     </div>

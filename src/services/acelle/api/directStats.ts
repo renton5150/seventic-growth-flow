@@ -5,13 +5,11 @@ import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
  * Enrichit les campagnes avec des statistiques directement depuis l'API Acelle
- * N'utilise les données démo QUE si explicitement demandé
  */
 export const enrichCampaignsWithStats = async (
   campaigns: AcelleCampaign[], 
   account: AcelleAccount,
   options?: { 
-    demoMode?: boolean;
     forceRefresh?: boolean;
   }
 ): Promise<AcelleCampaign[]> => {
@@ -33,19 +31,6 @@ export const enrichCampaignsWithStats = async (
     try {
       const campaign = enrichedCampaigns[i];
       
-      // En mode démo, nous utilisons toujours les statistiques de démo
-      if (options?.demoMode) {
-        console.log(`Mode démo activé explicitement pour la campagne ${campaign.name}`);
-        const demoData = await fetchAndProcessCampaignStats(campaign, account, { demoMode: true });
-        
-        enrichedCampaigns[i] = {
-          ...campaign,
-          statistics: demoData.statistics,
-          delivery_info: demoData.delivery_info
-        };
-        continue;
-      }
-      
       // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement, on saute
       if (!options?.forceRefresh && 
           campaign.delivery_info && 
@@ -65,11 +50,7 @@ export const enrichCampaignsWithStats = async (
       const result = await fetchAndProcessCampaignStats(
         campaign, 
         account, 
-        { 
-          refresh: true,
-          // NE PAS UTILISER de mode démo automatique sauf si spécifié
-          demoMode: false
-        }
+        { refresh: true }
       );
       
       // Appliquer les statistiques enrichies à la campagne
@@ -86,11 +67,8 @@ export const enrichCampaignsWithStats = async (
     } catch (error) {
       console.error(`Erreur lors de l'enrichissement de la campagne ${enrichedCampaigns[i].name}:`, error);
       
-      // NE PAS utiliser le mode démo comme fallback, afficher une erreur correctement
-      // et conserver les données existantes de la campagne
+      // Conserver les données existantes de la campagne
       console.log(`ERREUR: Impossible d'enrichir la campagne ${enrichedCampaigns[i].name}`);
-      
-      // On ne modifie pas la campagne, on garde l'état actuel
     }
   }
   

@@ -21,7 +21,11 @@ export const createEmptyStatistics = () => {
   };
 };
 
+/**
+ * Calcule la distribution des statuts de campagne
+ */
 export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
+  // Initialiser les compteurs pour les différents statuts
   const counts: Record<string, number> = {
     "new": 0,
     "queued": 0,
@@ -31,12 +35,17 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
     "failed": 0
   };
   
+  // Compter les campagnes par statut
   campaigns.forEach(campaign => {
-    if (campaign.status in counts) {
-      counts[campaign.status]++;
+    const status = (campaign.status || '').toLowerCase();
+    if (status in counts) {
+      counts[status]++;
+    } else if (status === 'ready') {
+      counts['queued']++; // Considérer 'ready' comme 'queued'
     }
   });
   
+  // Traduire les statuts pour l'affichage
   return Object.entries(counts).map(([status, count]) => ({
     status: translateStatus(status),
     count
@@ -44,99 +53,67 @@ export const calculateStatusCounts = (campaigns: AcelleCampaign[]) => {
 };
 
 /**
- * Calcule les statistiques de livraison à partir des campagnes directement,
- * sans utiliser le cache et sans ajouter de données démo
+ * Traduit les statuts techniques en libellés français pour l'affichage
+ */
+export const translateStatus = (status: string): string => {
+  const translations: Record<string, string> = {
+    'new': 'Nouveau',
+    'queued': 'En attente',
+    'ready': 'En attente',
+    'sending': 'En envoi',
+    'sent': 'Envoyé',
+    'paused': 'En pause',
+    'failed': 'Échoué'
+  };
+  
+  return translations[status.toLowerCase()] || 'Inconnu';
+};
+
+/**
+ * Calcule les statistiques de livraison globales pour un ensemble de campagnes
  */
 export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
-  // Log pour déboguer
-  console.log(`Calculating delivery stats for ${campaigns.length} campaigns`);
-  
-  let totalSent = 0;
+  // Initialiser les compteurs
+  let totalEmails = 0;
   let totalDelivered = 0;
   let totalOpened = 0;
   let totalClicked = 0;
   let totalBounced = 0;
   
-  // Helper function to safely get a numeric value
-  const safeNumber = (value: any): number => {
-    if (value === undefined || value === null) return 0;
-    const num = Number(value);
-    return !isNaN(num) ? num : 0;
-  };
-  
+  // Parcourir toutes les campagnes pour agréger les statistiques
   campaigns.forEach(campaign => {
-    if (!campaign) {
-      console.warn("Campaign object is undefined or null in calculateDeliveryStats");
-      return;
-    }
-
-    console.log(`Processing campaign ${campaign.name || 'unknown'} with ID ${campaign.uid || 'unknown'}`);
-    console.log(`Campaign has delivery_info:`, !!campaign.delivery_info);
-    console.log(`Campaign has statistics:`, !!campaign.statistics);
-
-    // Ensure we have objects to access, even if empty
-    const deliveryInfo = campaign.delivery_info || {};
-    const stats = campaign.statistics || {};
-
-    // Prioritize delivery_info as it's our primary structure
-    if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
-      const info = campaign.delivery_info;
-      console.log(`Campaign ${campaign.name} delivery_info:`, info);
+    // Extraire les statistiques de la campagne
+    const stats = campaign.statistics;
+    const delivery = campaign.delivery_info;
+    
+    // Utiliser la source la plus fiable entre statistics et delivery_info
+    if (stats) {
+      totalEmails += stats.subscriber_count || 0;
+      totalDelivered += stats.delivered_count || 0;
+      totalOpened += stats.open_count || 0;
+      totalClicked += stats.click_count || 0;
+      totalBounced += stats.bounce_count || 0;
+    } else if (delivery) {
+      totalEmails += delivery.total || 0;
+      totalDelivered += delivery.delivered || 0;
+      totalOpened += delivery.opened || 0;
+      totalClicked += delivery.clicked || 0;
       
-      // Safely access numerical properties
-      totalSent += safeNumber(info.total);
-      totalDelivered += safeNumber(info.delivered);
-      totalOpened += safeNumber(info.opened);
-      totalClicked += safeNumber(info.clicked);
-      
-      // Handle bounces from the bounced subobject
-      if (info.bounced !== undefined) {
-        if (typeof info.bounced === 'object' && info.bounced !== null) {
-          const softBounce = safeNumber(info.bounced.soft);
-          const hardBounce = safeNumber(info.bounced.hard);
-          totalBounced += softBounce + hardBounce;
-        } else if (typeof info.bounced === 'number') {
-          totalBounced += info.bounced;
-        }
+      // Gérer les différentes structures possibles pour les bounces
+      if (typeof delivery.bounced === 'number') {
+        totalBounced += delivery.bounced;
+      } else if (typeof delivery.bounced === 'object' && delivery.bounced) {
+        totalBounced += delivery.bounced.total || 0;
       }
-    } 
-    // Fall back to statistics if available
-    else if (campaign.statistics && typeof campaign.statistics === 'object') {
-      const stats = campaign.statistics;
-      console.log(`Campaign ${campaign.name} statistics:`, stats);
-      
-      totalSent += safeNumber(stats.subscriber_count);
-      totalDelivered += safeNumber(stats.delivered_count);
-      totalOpened += safeNumber(stats.open_count);
-      totalClicked += safeNumber(stats.click_count);
-      totalBounced += safeNumber(stats.bounce_count);
-    } else {
-      console.warn(`No statistics found for campaign ${campaign.name || 'unknown'}`);
     }
   });
   
-  const result = {
-    totalEmails: totalSent,
-    totalDelivered: totalDelivered,
-    totalOpened: totalOpened,
-    totalClicked: totalClicked,
-    totalBounced: totalBounced
+  // Retourner les statistiques agrégées
+  return {
+    totalEmails,
+    totalDelivered,
+    totalOpened,
+    totalClicked,
+    totalBounced
   };
-  
-  console.log("Final calculated stats:", result);
-  
-  return result;
-};
-
-export const translateStatus = (status: string): string => {
-  const translations: Record<string, string> = {
-    "new": "Nouveau",
-    "queued": "En attente",
-    "sending": "En envoi",
-    "sent": "Envoyé",
-    "paused": "En pause",
-    "failed": "Échoué"
-  };
-  
-  return translations[status] || status;
 };
