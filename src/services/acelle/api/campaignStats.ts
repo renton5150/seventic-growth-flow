@@ -1,4 +1,3 @@
-
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,13 +60,29 @@ export const fetchAndProcessCampaignStats = async (
           
           if (typeof cachedStatsData.statistics === 'string') {
             try {
-              statistics = JSON.parse(cachedStatsData.statistics);
+              const parsedData = JSON.parse(cachedStatsData.statistics);
+              // Vérifier que les données analysées sont bien un objet avec les propriétés attendues
+              if (typeof parsedData === 'object' && parsedData !== null && !Array.isArray(parsedData)) {
+                statistics = parsedData as AcelleCampaignStatistics;
+              } else {
+                console.error(`[Stats] Format de données JSON invalide:`, parsedData);
+                statistics = createEmptyStatistics();
+              }
             } catch (e) {
               console.error(`[Stats] Erreur parsing JSON du cache:`, e);
               statistics = createEmptyStatistics();
             }
+          } else if (typeof cachedStatsData.statistics === 'object' && cachedStatsData.statistics !== null) {
+            // Assurer que c'est un objet (pas un tableau)
+            if (!Array.isArray(cachedStatsData.statistics)) {
+              statistics = cachedStatsData.statistics as AcelleCampaignStatistics;
+            } else {
+              console.error(`[Stats] Format de données invalide (tableau):`, cachedStatsData.statistics);
+              statistics = createEmptyStatistics();
+            }
           } else {
-            statistics = cachedStatsData.statistics as AcelleCampaignStatistics;
+            console.error(`[Stats] Format de données invalide:`, cachedStatsData.statistics);
+            statistics = createEmptyStatistics();
           }
           
           return {
@@ -76,7 +91,7 @@ export const fetchAndProcessCampaignStats = async (
               total: statistics.subscriber_count || 0,
               delivered: statistics.delivered_count || 0,
               delivery_rate: statistics.delivered_rate || 0,
-              opened: statistics.open_count || statistics.unique_open_count || 0,
+              opened: statistics.open_count || statistics.uniq_open_count || 0,
               unique_open_rate: statistics.uniq_open_rate || 0,
               clicked: statistics.click_count || 0,
               click_rate: statistics.click_rate || 0,
