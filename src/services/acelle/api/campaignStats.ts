@@ -53,12 +53,14 @@ export const fetchAndProcessCampaignStats = async (
             ? JSON.parse(cachedStats.statistics) 
             : cachedStats.statistics;
           
-          // Check if delivery_info exists in cachedStats
-          const delivery_info = cachedStats.delivery_info !== undefined 
-            ? (typeof cachedStats.delivery_info === 'string'
-                ? JSON.parse(cachedStats.delivery_info)
-                : cachedStats.delivery_info)
-            : {};
+          // Check if delivery_info exists in cachedStats and handle accordingly
+          let delivery_info = {};
+          
+          if (cachedStats.delivery_info !== undefined) {
+            delivery_info = typeof cachedStats.delivery_info === 'string'
+              ? JSON.parse(cachedStats.delivery_info)
+              : cachedStats.delivery_info;
+          }
             
           return { 
             statistics: statistics as AcelleCampaignStatistics, 

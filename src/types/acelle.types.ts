@@ -192,5 +192,5 @@ export interface CampaignStatsCache {
   id: string;
   last_updated: string;
   statistics: any;
-  delivery_info: any;  // Added missing delivery_info property
+  delivery_info: any;
 }

@@ -34,7 +34,7 @@ export const getAcelleCampaigns = async (
         console.log(`${cachedCampaigns.length} campagnes récupérées depuis le cache`);
         
         // Transformer les données du cache en objets AcelleCampaign
-        const transformedCampaigns = cachedCampaigns.map(item => ({
+        const transformedCampaigns: AcelleCampaign[] = cachedCampaigns.map(item => ({
           uid: item.campaign_uid,
           campaign_uid: item.campaign_uid,
           name: item.name,
@@ -44,7 +44,9 @@ export const getAcelleCampaigns = async (
           updated_at: item.updated_at,
           delivery_date: item.delivery_date,
           run_at: item.run_at,
-          delivery_info: item.delivery_info || {},
+          delivery_info: typeof item.delivery_info === 'string' 
+            ? JSON.parse(item.delivery_info) 
+            : (item.delivery_info || {}),
           last_error: item.last_error
         }));
         
@@ -214,7 +216,9 @@ export const extractCampaignsFromCache = (cachedCampaigns: CachedCampaign[]): Ac
     updated_at: item.updated_at,
     delivery_date: item.delivery_date,
     run_at: item.run_at,
-    delivery_info: item.delivery_info || {},
+    delivery_info: typeof item.delivery_info === 'string' 
+      ? JSON.parse(item.delivery_info) 
+      : (item.delivery_info || {}),
     last_error: item.last_error
   }));
 };

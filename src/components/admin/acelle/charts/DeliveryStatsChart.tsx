@@ -22,33 +22,23 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaign
       .slice(0, 5);
     
     return deliveredCampaigns.map(campaign => {
+      // Ensure we have objects even if they're empty
       const stats = campaign.statistics || {};
       const deliveryInfo = campaign.delivery_info || {};
       
-      // Obtenir des statistiques cohérentes quelle que soit la source
-      const total = (stats.subscriber_count !== undefined ? stats.subscriber_count : 0) || 
-                    (deliveryInfo.total !== undefined ? deliveryInfo.total : 0) || 
-                    0;
-                    
-      const delivered = (stats.delivered_count !== undefined ? stats.delivered_count : 0) || 
-                        (deliveryInfo.delivered !== undefined ? deliveryInfo.delivered : 0) || 
-                        0;
-                        
-      const opened = (stats.open_count !== undefined ? stats.open_count : 0) || 
-                     (deliveryInfo.opened !== undefined ? deliveryInfo.opened : 0) || 
-                     0;
-                     
-      const clicked = (stats.click_count !== undefined ? stats.click_count : 0) || 
-                      (deliveryInfo.clicked !== undefined ? deliveryInfo.clicked : 0) || 
-                      0;
+      // Safely access properties with fallbacks
+      const total = Number(stats?.subscriber_count) || Number(deliveryInfo?.total) || 0;
+      const delivered = Number(stats?.delivered_count) || Number(deliveryInfo?.delivered) || 0;
+      const opened = Number(stats?.open_count) || Number(deliveryInfo?.opened) || 0;
+      const clicked = Number(stats?.click_count) || Number(deliveryInfo?.clicked) || 0;
       
+      // Handle complex types like the bounced field
       let bounced = 0;
-      // Handle bounces with type checking
-      if (stats.bounce_count !== undefined) {
+      if (stats && typeof stats.bounce_count === 'number') {
         bounced = stats.bounce_count;
-      } else if (deliveryInfo.bounced !== undefined) {
+      } else if (deliveryInfo && deliveryInfo.bounced !== undefined) {
         if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
-          bounced = deliveryInfo.bounced.total || 0;
+          bounced = Number(deliveryInfo.bounced.total) || 0;
         } else if (typeof deliveryInfo.bounced === 'number') {
           bounced = deliveryInfo.bounced;
         }

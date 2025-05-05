@@ -67,24 +67,30 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
     console.log(`Campaign has delivery_info:`, !!campaign.delivery_info);
     console.log(`Campaign has statistics:`, !!campaign.statistics);
 
+    // Ensure we have objects to access, even if empty
+    const deliveryInfo = campaign.delivery_info || {};
+    const stats = campaign.statistics || {};
+
     // Prioritize delivery_info as it's our primary structure
     if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
       const info = campaign.delivery_info;
       console.log(`Campaign ${campaign.name} delivery_info:`, info);
       
-      // Utiliser des valeurs par défaut pour éviter les erreurs
-      totalSent += typeof info.total === 'number' ? info.total : 0;
-      totalDelivered += typeof info.delivered === 'number' ? info.delivered : 0;
-      totalOpened += typeof info.opened === 'number' ? info.opened : 0;
-      totalClicked += typeof info.clicked === 'number' ? info.clicked : 0;
+      // Safely access numerical properties
+      totalSent += Number(info.total) || 0;
+      totalDelivered += Number(info.delivered) || 0;
+      totalOpened += Number(info.opened) || 0;
+      totalClicked += Number(info.clicked) || 0;
       
       // Handle bounces from the bounced subobject
-      if (info.bounced && typeof info.bounced === 'object') {
-        const softBounce = typeof info.bounced.soft === 'number' ? info.bounced.soft : 0;
-        const hardBounce = typeof info.bounced.hard === 'number' ? info.bounced.hard : 0;
-        totalBounced += softBounce + hardBounce;
-      } else if (typeof info.bounced === 'number') {
-        totalBounced += info.bounced;
+      if (info.bounced !== undefined) {
+        if (typeof info.bounced === 'object' && info.bounced !== null) {
+          const softBounce = Number(info.bounced.soft) || 0;
+          const hardBounce = Number(info.bounced.hard) || 0;
+          totalBounced += softBounce + hardBounce;
+        } else if (typeof info.bounced === 'number') {
+          totalBounced += info.bounced;
+        }
       }
     } 
     // Fall back to statistics if available
@@ -92,11 +98,11 @@ export const calculateDeliveryStats = (campaigns: AcelleCampaign[]) => {
       const stats = campaign.statistics;
       console.log(`Campaign ${campaign.name} statistics:`, stats);
       
-      totalSent += typeof stats.subscriber_count === 'number' ? stats.subscriber_count : 0;
-      totalDelivered += typeof stats.delivered_count === 'number' ? stats.delivered_count : 0;
-      totalOpened += typeof stats.open_count === 'number' ? stats.open_count : 0;
-      totalClicked += typeof stats.click_count === 'number' ? stats.click_count : 0;
-      totalBounced += typeof stats.bounce_count === 'number' ? stats.bounce_count : 0;
+      totalSent += Number(stats.subscriber_count) || 0;
+      totalDelivered += Number(stats.delivered_count) || 0;
+      totalOpened += Number(stats.open_count) || 0;
+      totalClicked += Number(stats.click_count) || 0;
+      totalBounced += Number(stats.bounce_count) || 0;
     } else {
       console.warn(`No statistics found for campaign ${campaign.name || 'unknown'}`);
     }
