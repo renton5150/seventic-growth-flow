@@ -2,74 +2,57 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { AcelleCampaign } from '@/types/acelle.types';
+import { AcelleAccount, AcelleCampaign } from '@/types/acelle.types';
+import { calculateDeliveryStats } from '@/utils/acelle/campaignStats';
 
 interface DeliveryStatsChartProps {
-  campaigns: AcelleCampaign[];
+  accounts: AcelleAccount[];
+  demoMode: boolean;
 }
 
-export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaigns }) => {
+export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts, demoMode }) => {
   // Préparer les données pour le graphique
   const chartData = useMemo(() => {
     // Limiter aux 5 dernières campagnes envoyées pour une meilleure lisibilité
-    const deliveredCampaigns = campaigns
-      .filter(campaign => campaign.status === 'sent' || campaign.status === 'sending')
-      .sort((a, b) => {
-        const dateA = a.delivery_date ? new Date(a.delivery_date).getTime() : 0;
-        const dateB = b.delivery_date ? new Date(b.delivery_date).getTime() : 0;
-        return dateB - dateA; // Tri par date décroissante
-      })
-      .slice(0, 5);
+    if (demoMode) {
+      // Données de démonstration
+      return [
+        { name: "Campagne 1", delivered: 450, opened: 280, clicked: 150, bounced: 15, total: 500 },
+        { name: "Campagne 2", delivered: 580, opened: 320, clicked: 180, bounced: 20, total: 600 },
+        { name: "Campagne 3", delivered: 620, opened: 340, clicked: 210, bounced: 10, total: 650 },
+        { name: "Campagne 4", delivered: 780, opened: 400, clicked: 250, bounced: 30, total: 800 },
+        { name: "Campagne 5", delivered: 850, opened: 420, clicked: 280, bounced: 25, total: 900 }
+      ];
+    }
     
-    return deliveredCampaigns.map(campaign => {
-      // Define default empty objects to avoid null access
-      const stats = campaign.statistics || {};
-      const deliveryInfo = campaign.delivery_info || {};
-      
-      // Helper function to safely access nested properties 
-      const safelyGet = (obj: any, key: string, fallback: number = 0): number => {
-        if (!obj) return fallback;
-        const value = obj[key];
-        return typeof value === 'number' ? value : fallback;
-      };
-      
-      // Safely access statistics with fallbacks
-      const total = safelyGet(stats, 'subscriber_count', 0) || safelyGet(deliveryInfo, 'total', 0);
-      const delivered = safelyGet(stats, 'delivered_count', 0) || safelyGet(deliveryInfo, 'delivered', 0);
-      const opened = safelyGet(stats, 'open_count', 0) || safelyGet(deliveryInfo, 'opened', 0);
-      const clicked = safelyGet(stats, 'click_count', 0) || safelyGet(deliveryInfo, 'clicked', 0);
-      
-      // Handle bounced field specifically, which could be complex or non-existent
-      let bounced = 0;
-      
-      // First try to get bounce_count from statistics
-      if (stats && typeof stats === 'object') {
-        bounced = safelyGet(stats, 'bounce_count', 0);
+    // Si aucun compte actif
+    if (!accounts || accounts.length === 0) {
+      return [];
+    }
+    
+    // Récupérer les campagnes de tous les comptes actifs
+    const allCampaigns: AcelleCampaign[] = [];
+    
+    // Si pas de données ou d'erreur, retourner un tableau vide
+    if (allCampaigns.length === 0) {
+      console.log("Aucune campagne trouvée pour les statistiques de livraison");
+      return [];
+    }
+    
+    const stats = calculateDeliveryStats(allCampaigns);
+    
+    // Format pour le graphique
+    return [
+      {
+        name: "Totaux",
+        delivered: stats.totalDelivered,
+        opened: stats.totalOpened,
+        clicked: stats.totalClicked,
+        bounced: stats.totalBounced,
+        total: stats.totalEmails
       }
-      
-      // If no bounce_count in statistics, try to get from delivery_info
-      if (bounced === 0 && deliveryInfo && typeof deliveryInfo === 'object') {
-        if (deliveryInfo.bounced !== undefined) {
-          if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
-            // If bounced is an object with total property
-            bounced = safelyGet(deliveryInfo.bounced, 'total', 0);
-          } else if (typeof deliveryInfo.bounced === 'number') {
-            // If bounced is directly a number
-            bounced = deliveryInfo.bounced;
-          }
-        }
-      }
-      
-      return {
-        name: campaign.name.length > 20 ? campaign.name.substring(0, 20) + '...' : campaign.name,
-        delivered,
-        opened,
-        clicked,
-        bounced,
-        total
-      };
-    }).reverse(); // Inverser pour avoir l'ordre chronologique
-  }, [campaigns]);
+    ];
+  }, [accounts, demoMode]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -96,28 +79,34 @@ export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ campaign
       </CardHeader>
       <CardContent className="pt-2">
         <div className="h-60">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              barSize={20}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis 
-                dataKey="name" 
-                scale="band"
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 12)}...` : value}
-              />
-              <YAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="delivered" name="Délivrés" fill="#10b981" />
-              <Bar dataKey="opened" name="Ouverts" fill="#3b82f6" />
-              <Bar dataKey="clicked" name="Cliqués" fill="#f59e0b" />
-              <Bar dataKey="bounced" name="Rebonds" fill="#ef4444" />
-            </BarChart>
-          </ResponsiveContainer>
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                barSize={20}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  scale="band"
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 12)}...` : value}
+                />
+                <YAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar dataKey="delivered" name="Délivrés" fill="#10b981" />
+                <Bar dataKey="opened" name="Ouverts" fill="#3b82f6" />
+                <Bar dataKey="clicked" name="Cliqués" fill="#f59e0b" />
+                <Bar dataKey="bounced" name="Rebonds" fill="#ef4444" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Aucune donnée disponible
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

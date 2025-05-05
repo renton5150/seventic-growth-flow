@@ -64,7 +64,7 @@ export default function AcelleCampaignsDashboard({
       </div>
       
       {activeAccounts.length === 0 && (
-        <Alert variant="warning" className="bg-amber-50 border-amber-200 text-amber-800">
+        <Alert className="bg-amber-50 border-amber-200 text-amber-800">
           <AlertCircle className="h-4 w-4 mr-2" />
           <AlertDescription>
             Aucun compte Acelle actif n'est disponible. Activez au moins un compte pour voir les données réelles.
