@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { enrichCampaignsWithStats as enrichWithDirectStats } from "./directStats";
@@ -88,9 +89,6 @@ export const fetchAndProcessCampaignStats = async (
  */
 export { enrichCampaignsWithStats } from "./directStats";
 export { ensureValidStatistics } from "./validation";
-
-// Re-export addMockStatistics for testing purposes
-export { addMockStatistics } from "./campaignStats";
 
 /**
  * Ajoute des statistiques simulées à une seule campagne (utilisé pour le mode démo)
