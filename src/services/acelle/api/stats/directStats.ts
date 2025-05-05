@@ -2,28 +2,11 @@
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { fetchCampaignStatisticsFromApi } from "./apiClient";
-import { getCachedStatistics, saveCampaignStatistics } from "./cacheManager";
+import { getCachedStatistics, getLastUpdatedTimestamp, saveCampaignStatistics, isCacheValid } from "./cacheManager";
+import { supabase } from "@/integrations/supabase/client";
 
 // Constante pour définir la durée de validité du cache (5 minutes par défaut)
 const CACHE_VALIDITY_DURATION_MS = 5 * 60 * 1000; // 5 minutes en millisecondes
-
-/**
- * Vérifie si les statistiques en cache sont récentes
- */
-const isCacheValid = (lastUpdated: string | null, maxAgeMs: number = CACHE_VALIDITY_DURATION_MS): boolean => {
-  if (!lastUpdated) return false;
-  
-  try {
-    const lastUpdatedDate = new Date(lastUpdated);
-    const now = new Date();
-    const ageMs = now.getTime() - lastUpdatedDate.getTime();
-    
-    return ageMs < maxAgeMs;
-  } catch (error) {
-    console.error("Erreur lors de la vérification de validité du cache:", error);
-    return false;
-  }
-};
 
 /**
  * Enrichit les campagnes avec des statistiques en utilisant l'API directe ou le cache
@@ -86,14 +69,8 @@ export const enrichCampaignsWithStats = async (
         
         // Vérifier la fraîcheur du cache si nous avons des statistiques
         if (statistics && statistics.subscriber_count > 0) {
-          const { data } = await supabase
-            .from('campaign_stats_cache')
-            .select('last_updated')
-            .eq('campaign_uid', campaignUid)
-            .eq('account_id', account.id)
-            .single();
-            
-          const isCacheFresh = isCacheValid(data?.last_updated, cacheMaxAgeMs);
+          const lastUpdated = await getLastUpdatedTimestamp(campaignUid, account.id);
+          const isCacheFresh = isCacheValid(lastUpdated, cacheMaxAgeMs);
           
           if (isCacheFresh) {
             console.log(`Statistiques en cache valides et récentes pour ${campaignUid}, utilisation du cache`);
@@ -138,7 +115,7 @@ export const enrichCampaignsWithStats = async (
   return enrichedCampaigns;
 };
 
-// Other exports for compatibility with other modules
+// Fonction optimisée pour récupérer les statistiques d'une seule campagne
 export const fetchDirectStatistics = async (
   campaignUid: string,
   account: AcelleAccount,
@@ -151,34 +128,40 @@ export const fetchDirectStatistics = async (
     const forceRefresh = options?.forceRefresh || false;
     const cacheMaxAgeMs = options?.cacheMaxAgeMs || CACHE_VALIDITY_DURATION_MS;
     
+    console.log(`[DirectStats] Récupération des statistiques pour ${campaignUid}, forceRefresh=${forceRefresh}`);
+    
     // Try to get from cache first if not forcing refresh
     if (!forceRefresh) {
       const cachedStats = await getCachedStatistics(campaignUid, account.id);
       
       if (cachedStats && cachedStats.subscriber_count > 0) {
-        const { data } = await supabase
-          .from('campaign_stats_cache')
-          .select('last_updated')
-          .eq('campaign_uid', campaignUid)
-          .eq('account_id', account.id)
-          .single();
-          
-        const isCacheFresh = isCacheValid(data?.last_updated, cacheMaxAgeMs);
+        const lastUpdated = await getLastUpdatedTimestamp(campaignUid, account.id);
+        const isCacheFresh = isCacheValid(lastUpdated, cacheMaxAgeMs);
         
         if (isCacheFresh) {
-          console.log(`Statistiques en cache valides et récentes pour ${campaignUid}, utilisation du cache`);
+          console.log(`[DirectStats] Utilisation du cache pour ${campaignUid}, données récentes`);
           return ensureValidStatistics(cachedStats);
+        } else {
+          console.log(`[DirectStats] Cache expiré pour ${campaignUid}, rafraîchissement nécessaire`);
         }
+      } else {
+        console.log(`[DirectStats] Pas de cache pour ${campaignUid} ou données invalides`);
       }
+    } else {
+      console.log(`[DirectStats] Rechargement forcé des statistiques pour ${campaignUid}`);
     }
     
     // If we're here, either cache is invalid or we're forcing refresh
+    console.log(`[DirectStats] Appel à l'API pour ${campaignUid}`);
     const apiStats = await fetchCampaignStatisticsFromApi(campaignUid, account);
     
     if (apiStats) {
       // Save to cache for future use
+      console.log(`[DirectStats] Sauvegarde en cache pour ${campaignUid}`);
       await saveCampaignStatistics(campaignUid, account.id, apiStats);
       return ensureValidStatistics(apiStats);
+    } else {
+      console.log(`[DirectStats] Pas de résultat API pour ${campaignUid}`);
     }
     
     return null;
@@ -187,6 +170,3 @@ export const fetchDirectStatistics = async (
     return null;
   }
 };
-
-// Importer supabase pour les opérations de cache
-import { supabase } from "@/integrations/supabase/client";

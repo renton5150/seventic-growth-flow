@@ -37,6 +37,8 @@ export async function getCachedStatistics(
 
 /**
  * Vérifie si les statistiques en cache sont récentes
+ * @param lastUpdated Date de dernière mise à jour du cache
+ * @param maxAgeMs Durée maximale de validité du cache en millisecondes
  */
 export function isCacheValid(lastUpdated: string | null, maxAgeMs: number = DEFAULT_CACHE_MAX_AGE_MS): boolean {
   if (!lastUpdated) return false;
@@ -46,7 +48,14 @@ export function isCacheValid(lastUpdated: string | null, maxAgeMs: number = DEFA
     const now = new Date();
     const ageMs = now.getTime() - lastUpdatedDate.getTime();
     
-    return ageMs < maxAgeMs;
+    const isValid = ageMs < maxAgeMs;
+    if (isValid) {
+      console.log(`[Stats Cache] Cache valide, âge: ${Math.floor(ageMs / 1000)}s, max: ${Math.floor(maxAgeMs / 1000)}s`);
+    } else {
+      console.log(`[Stats Cache] Cache expiré, âge: ${Math.floor(ageMs / 1000)}s, max: ${Math.floor(maxAgeMs / 1000)}s`);
+    }
+    
+    return isValid;
   } catch (error) {
     console.error("Erreur lors de la vérification de validité du cache:", error);
     return false;
@@ -62,6 +71,8 @@ export async function saveCampaignStatistics(
   statistics: AcelleCampaignStatistics
 ): Promise<boolean> {
   try {
+    console.log(`[Stats Cache] Sauvegarde des statistiques en cache pour ${campaignUid}`);
+    
     const { error } = await supabase
       .from('campaign_stats_cache')
       .upsert({

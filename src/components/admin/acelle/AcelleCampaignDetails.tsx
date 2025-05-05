@@ -6,6 +6,7 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo }
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
 import { supabase } from "@/integrations/supabase/client";
+import { acelleService } from "@/services/acelle"; // Added this import
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
