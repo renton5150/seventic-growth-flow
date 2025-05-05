@@ -5,7 +5,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
-import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
 import { supabase } from "@/integrations/supabase/client";
 
 // Composants réutilisables

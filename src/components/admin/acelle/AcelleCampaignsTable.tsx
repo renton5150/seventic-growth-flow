@@ -1,4 +1,3 @@
-
 // Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -32,7 +31,7 @@ import { RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/directStats";
+import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;

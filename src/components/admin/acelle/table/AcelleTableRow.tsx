@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -8,7 +7,7 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
-import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;

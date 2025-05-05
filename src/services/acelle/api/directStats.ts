@@ -1,6 +1,6 @@
 
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
-import { fetchAndProcessCampaignStats } from "./campaignStats";
+import { fetchAndProcessCampaignStats } from "./stats/campaignStats";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
