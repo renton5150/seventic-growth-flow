@@ -12,7 +12,7 @@ export const TableLoadingState = () => {
   return (
     <Card className="w-full p-6">
       <CardContent className="flex flex-col items-center justify-center p-6">
-        <Spinner className="h-8 w-8 mb-4" aria-label="Chargement..." />
+        <Spinner size="lg" className="mb-4" aria-label="Chargement..." />
         <p className="text-muted-foreground">Chargement des campagnes en cours...</p>
       </CardContent>
     </Card>

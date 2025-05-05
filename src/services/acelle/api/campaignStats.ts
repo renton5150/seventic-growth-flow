@@ -248,12 +248,15 @@ export const fetchAndProcessCampaignStats = async (
     try {
       console.log(`[Stats] Mise à jour du cache campaign_stats_cache pour ${campaignUid}`);
       
+      // Fix: Convert statistics object to a standard JSON object to match the Json type expected by Supabase
+      const statisticsJson = JSON.parse(JSON.stringify(statistics));
+      
       const { error: statsUpsertError } = await supabase
         .from('campaign_stats_cache')
         .upsert({
           campaign_uid: campaignUid,
           account_id: account.id,
-          statistics: statistics,
+          statistics: statisticsJson,  // Now using the JSON-compatible version
           last_updated: new Date().toISOString()
         }, {
           onConflict: 'campaign_uid,account_id'
@@ -318,24 +321,30 @@ export const testCacheInsertion = async (
   try {
     console.log(`[Stats] Test d'insertion dans le cache pour compte ${account.name}`);
     
+    // Create a test statistics object
+    const testStats: AcelleCampaignStatistics = {
+      subscriber_count: 100,
+      delivered_count: 80,
+      delivered_rate: 0.8,
+      open_count: 40,
+      uniq_open_count: 35,
+      uniq_open_rate: 0.35,
+      click_count: 20,
+      click_rate: 0.2,
+      bounce_count: 5,
+      soft_bounce_count: 3,
+      hard_bounce_count: 2,
+      unsubscribe_count: 2,
+      abuse_complaint_count: 0
+    };
+    
+    // Convert to a standard JSON object to satisfy the Json type requirement
+    const statisticsJson = JSON.parse(JSON.stringify(testStats));
+    
     const testData = {
       campaign_uid: "test-campaign-uid",
       account_id: account.id,
-      statistics: {
-        subscriber_count: 100,
-        delivered_count: 80,
-        delivered_rate: 0.8,
-        open_count: 40,
-        uniq_open_count: 35,
-        uniq_open_rate: 0.35,
-        click_count: 20,
-        click_rate: 0.2,
-        bounce_count: 5,
-        soft_bounce_count: 3,
-        hard_bounce_count: 2,
-        unsubscribe_count: 2,
-        abuse_complaint_count: 0
-      },
+      statistics: statisticsJson,  // Using the JSON-compatible version
       last_updated: new Date().toISOString()
     };
     
