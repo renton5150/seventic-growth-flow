@@ -12,7 +12,7 @@ export function ensureValidStatistics(data: any): AcelleCampaignStatistics {
     delivered_count: 0,
     delivered_rate: 0,
     open_count: 0,
-    uniq_open_count: 0,
+    uniq_open_count: 0, // Ensuring this field exists
     uniq_open_rate: 0,
     click_count: 0,
     click_rate: 0,

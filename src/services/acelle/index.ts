@@ -1,27 +1,27 @@
 
-import { fetchAcelleAccounts, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount, getActiveAccount } from "./api/accounts";
-import { fetchCampaigns, fetchCampaign, forceSyncCampaigns } from "./api/campaigns";
+import { getAcelleAccounts, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
+import { getCampaigns, getCampaign, forceSyncCampaigns } from "./api/campaigns";
 import { fetchAndProcessCampaignStats, enrichCampaignsWithStats } from "./api/campaignStats";
-import { checkConnectionStatus } from "./api/connection";
+import { checkAcelleConnectionStatus } from "./api/connection";
 import { buildProxyUrl } from "./acelle-service";
 
 export const acelleService = {
   accounts: {
-    fetchAll: fetchAcelleAccounts,
+    fetchAll: getAcelleAccounts,
     create: createAcelleAccount,
     update: updateAcelleAccount,
     delete: deleteAcelleAccount,
-    getActive: getActiveAccount
+    getActive: () => getAcelleAccounts().then(accounts => accounts.find(acc => acc.status === 'active') || null)
   },
   campaigns: {
-    fetchAll: fetchCampaigns,
-    fetchOne: fetchCampaign,
+    fetchAll: getCampaigns,
+    fetchOne: getCampaign,
     forceSync: forceSyncCampaigns,
     getStats: fetchAndProcessCampaignStats,
     enrichWithStats: enrichCampaignsWithStats
   },
   connection: {
-    checkStatus: checkConnectionStatus
+    checkStatus: checkAcelleConnectionStatus
   },
   utils: {
     buildProxyUrl
