@@ -57,7 +57,7 @@ export const fetchAndProcessCampaignStats = async (
           let delivery_info = {};
           
           // Make sure cachedStats is not undefined and check if delivery_info exists
-          if (cachedStats && 'delivery_info' in cachedStats) {
+          if (cachedStats && typeof cachedStats === 'object' && cachedStats.delivery_info) {
             const rawDeliveryInfo = cachedStats.delivery_info;
             
             if (rawDeliveryInfo !== null && rawDeliveryInfo !== undefined) {

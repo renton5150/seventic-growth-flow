@@ -7,6 +7,8 @@ import { AcelleAccount } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
+import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
+import AcelleAccountForm from "./AcelleAccountForm";
 
 interface AcelleAdminPanelProps {
   onDemoModeChange?: (isDemoMode: boolean) => void;
@@ -17,6 +19,8 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("accounts");
+  const [editingAccount, setEditingAccount] = useState<AcelleAccount | undefined>(undefined);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const fetchAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -61,13 +65,60 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
   }, [fetchAccounts]);
 
   const handleCreateAccount = () => {
-    // Implémenter plus tard
-    toast.info("La création de compte sera implémentée prochainement");
+    setEditingAccount(undefined);
+    setIsFormOpen(true);
   };
 
   const handleEditAccount = (account: AcelleAccount) => {
-    // Implémenter plus tard
-    toast.info(`Édition du compte ${account.name} à implémenter`);
+    setEditingAccount(account);
+    setIsFormOpen(true);
+  };
+
+  const handleFormSubmit = async (formData: any) => {
+    try {
+      if (editingAccount) {
+        // Mise à jour d'un compte existant
+        const { error } = await supabase
+          .from("acelle_accounts")
+          .update({
+            name: formData.name,
+            api_endpoint: formData.api_endpoint,
+            api_token: formData.api_token,
+            status: formData.status,
+            mission_id: formData.mission_id,
+            cache_priority: formData.cache_priority || 0
+          })
+          .eq("id", editingAccount.id);
+
+        if (error) throw error;
+        toast.success(`Compte ${formData.name} mis à jour avec succès`);
+      } else {
+        // Création d'un nouveau compte
+        const { error } = await supabase
+          .from("acelle_accounts")
+          .insert({
+            name: formData.name,
+            api_endpoint: formData.api_endpoint,
+            api_token: formData.api_token,
+            status: formData.status,
+            mission_id: formData.mission_id,
+            cache_priority: formData.cache_priority || 0
+          });
+
+        if (error) throw error;
+        toast.success(`Compte ${formData.name} créé avec succès`);
+      }
+
+      setIsFormOpen(false);
+      fetchAccounts();
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde du compte:", err);
+      toast.error("Erreur lors de la sauvegarde du compte");
+    }
+  };
+
+  const handleFormCancel = () => {
+    setIsFormOpen(false);
   };
 
   const handleSyncAccount = async (account: AcelleAccount) => {
@@ -105,11 +156,23 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
     }
   };
 
+  // Si le formulaire est ouvert, afficher le formulaire au lieu des onglets
+  if (isFormOpen) {
+    return (
+      <AcelleAccountForm
+        account={editingAccount}
+        onSubmit={handleFormSubmit}
+        onCancel={handleFormCancel}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="accounts">Comptes Acelle</TabsTrigger>
+          <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
           <TabsTrigger value="system">État du système</TabsTrigger>
         </TabsList>
         
@@ -125,6 +188,12 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
               onDeleteAccount={handleDeleteAccount}
               onRefresh={fetchAccounts}
             />
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="campaigns">
+          <Card>
+            <AcelleCampaignsDashboard accounts={accounts} onDemoModeChange={onDemoModeChange} />
           </Card>
         </TabsContent>
         

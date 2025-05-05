@@ -1,255 +1,135 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Save } from 'lucide-react';
 import { AcelleFormValues, AcelleAccountFormProps } from './AcelleAccountForm.types';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { testAcelleConnection } from '@/services/acelle/api/connection';
-import { AcelleConnectionDebug } from '@/types/acelle.types';
-import { Spinner } from '@/components/ui/spinner';
-import { Separator } from '@/components/ui/separator';
 
-// Validation schema
-const formSchema = z.object({
-  name: z.string().min(1, "Le nom du compte est requis"),
-  api_endpoint: z.string().min(1, "L'URL de l'API est requise").url("L'URL n'est pas valide"),
-  api_token: z.string().min(1, "Le token API est requis"),
-  status: z.enum(['active', 'inactive', 'error']).default('inactive'),
-  mission_id: z.string().optional(),
-  last_sync_error: z.string().nullable().optional(),
-  cache_priority: z.number().int().min(0).default(0).optional(),
-  last_sync_date: z.string().nullable().optional(),
-});
-
-const AcelleAccountForm = ({
-  account,
-  onSubmit,
+const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ 
+  account, 
+  onSubmit, 
   onCancel,
   isSubmitting = false
-}: AcelleAccountFormProps) => {
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectionResult, setConnectionResult] = useState<{
-    success: boolean;
-    message: string;
-    details?: AcelleConnectionDebug;
-  } | null>(null);
-  
-  // Configure le formulaire avec les valeurs de compte par défaut
-  const form = useForm<AcelleFormValues>({
-    resolver: zodResolver(formSchema),
+}) => {
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<AcelleFormValues>({
     defaultValues: {
       name: account?.name || '',
       api_endpoint: account?.api_endpoint || '',
       api_token: account?.api_token || '',
       status: account?.status || 'inactive',
-      mission_id: account?.mission_id || '',
-      last_sync_error: account?.last_sync_error || null,
+      mission_id: account?.mission_id || undefined,
       cache_priority: account?.cache_priority || 0,
-      last_sync_date: account?.last_sync_date || null,
-    },
+    }
   });
 
-  // Test la connexion à l'API Acelle
-  const testConnection = async () => {
-    try {
-      setIsConnecting(true);
-      setConnectionResult(null);
-      
-      const testAccount = {
-        id: account?.id || 'system-test',
-        name: form.getValues('name'),
-        api_endpoint: form.getValues('api_endpoint'),
-        api_token: form.getValues('api_token'),
-        status: form.getValues('status'),
-        created_at: '',
-        last_sync_date: null,
-        last_sync_error: null,
-        cache_priority: 0,
-      };
-
-      const result = await testAcelleConnection(testAccount);
-      
-      if (result.success) {
-        setConnectionResult({
-          success: true,
-          message: "Connexion établie avec succès",
-          details: result
-        });
-        
-        // Définir le statut sur actif si la connexion est réussie
-        form.setValue('status', 'active');
-      } else {
-        setConnectionResult({
-          success: false,
-          message: `Échec de la connexion: ${result.errorMessage}`,
-          details: result
-        });
-      }
-    } catch (error) {
-      console.error("Error testing connection:", error);
-      setConnectionResult({
-        success: false,
-        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    } finally {
-      setIsConnecting(false);
+  // Pour les champs qui utilisent Select, nous devons utiliser setValue
+  React.useEffect(() => {
+    if (account) {
+      setValue('status', account.status);
     }
-  };
-
-  const handleSubmit = (data: AcelleFormValues) => {
-    onSubmit(data);
-  };
+  }, [account, setValue]);
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nom du compte</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Ex: Acelle Production" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="api_endpoint"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL de l'API</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="https://acelle.example.com/api/v1" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="api_token"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Token API</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="password" placeholder="Token d'authentification API" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Compte actif</FormLabel>
-                      <FormControl>
-                        <Switch 
-                          checked={field.value === 'active'} 
-                          onCheckedChange={(checked) => {
-                            form.setValue('status', checked ? 'active' : 'inactive');
-                          }}
-                        />
-                      </FormControl>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="cache_priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priorité du cache</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min={0}
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                        value={field.value || 0}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="flex flex-col gap-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={testConnection}
-                  disabled={isConnecting}
-                >
-                  {isConnecting && <Spinner className="mr-2 h-4 w-4" />}
-                  Tester la connexion
-                </Button>
-                
-                {connectionResult && (
-                  <Card className={connectionResult.success ? "bg-green-50" : "bg-red-50"}>
-                    <CardContent className="p-4">
-                      <div className={`font-medium ${connectionResult.success ? "text-green-600" : "text-red-600"}`}>
-                        {connectionResult.message}
-                      </div>
-                      {connectionResult.details && (
-                        <div className="mt-2 text-xs">
-                          <div>Status: {connectionResult.details.statusCode}</div>
-                          <div>Durée: {connectionResult.details.duration}ms</div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </div>
-          </CardContent>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>{account ? `Modifier ${account.name}` : 'Nouveau compte Acelle'}</CardTitle>
+        <CardDescription>
+          {account 
+            ? 'Modifiez les informations du compte Acelle' 
+            : 'Renseignez les informations pour créer un compte Acelle'}
+        </CardDescription>
+      </CardHeader>
+      
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <CardContent className="space-y-4">
+          {/* Nom du compte */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Nom du compte</Label>
+            <Input
+              id="name"
+              placeholder="Ex: Client X - Marketing"
+              {...register('name', { required: 'Le nom est obligatoire' })}
+            />
+            {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+          </div>
           
-          <CardFooter className="flex justify-between border-t p-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Spinner className="mr-2 h-4 w-4" />}
-              {account ? "Mettre à jour" : "Créer le compte"}
-            </Button>
-          </CardFooter>
-        </Card>
+          {/* API Endpoint */}
+          <div className="space-y-2">
+            <Label htmlFor="api_endpoint">URL de l'API Acelle</Label>
+            <Input
+              id="api_endpoint"
+              placeholder="Ex: https://acelle.example.com/api/v1"
+              {...register('api_endpoint', { required: "L'URL de l'API est obligatoire" })}
+            />
+            {errors.api_endpoint && <p className="text-sm text-red-500">{errors.api_endpoint.message}</p>}
+          </div>
+          
+          {/* API Token */}
+          <div className="space-y-2">
+            <Label htmlFor="api_token">Token API</Label>
+            <Input
+              id="api_token"
+              type="password"
+              placeholder="Token d'API Acelle"
+              {...register('api_token', { required: "Le token API est obligatoire" })}
+            />
+            {errors.api_token && <p className="text-sm text-red-500">{errors.api_token.message}</p>}
+          </div>
+          
+          {/* Statut */}
+          <div className="space-y-2">
+            <Label htmlFor="status">Statut</Label>
+            <Select 
+              defaultValue={account?.status || 'inactive'} 
+              onValueChange={(value) => setValue('status', value as 'active' | 'inactive' | 'error')}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionnez un statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Actif</SelectItem>
+                <SelectItem value="inactive">Inactif</SelectItem>
+                <SelectItem value="error">Erreur</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.status && <p className="text-sm text-red-500">{errors.status.message}</p>}
+          </div>
+          
+          {/* Priorité de cache (optionnel) */}
+          <div className="space-y-2">
+            <Label htmlFor="cache_priority">Priorité de cache</Label>
+            <Input
+              id="cache_priority"
+              type="number"
+              placeholder="0"
+              {...register('cache_priority', { 
+                valueAsNumber: true,
+                min: { value: 0, message: 'La priorité doit être un nombre positif' } 
+              })}
+            />
+            <p className="text-xs text-gray-500">
+              Optionnel. Définit la priorité du compte pour la synchronisation automatique.
+            </p>
+            {errors.cache_priority && <p className="text-sm text-red-500">{errors.cache_priority.message}</p>}
+          </div>
+        </CardContent>
+        
+        <CardFooter className="flex justify-between">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Annuler
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            <Save className="mr-2 h-4 w-4" />
+            {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+        </CardFooter>
       </form>
-    </Form>
+    </Card>
   );
 };
 
