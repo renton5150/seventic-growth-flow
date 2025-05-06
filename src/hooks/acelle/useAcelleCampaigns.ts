@@ -190,15 +190,17 @@ export const fetchCampaignsFromCache = async (
     const campaigns = data.map(item => ({
       uid: item.campaign_uid,
       campaign_uid: item.campaign_uid,
-      name: item.name,
-      subject: item.subject,
-      status: item.status,
-      created_at: item.created_at,
-      updated_at: item.updated_at,
-      delivery_date: item.delivery_date,
-      run_at: item.run_at,
-      delivery_info: item.delivery_info,
-      last_error: item.last_error
+      name: item.name || '',
+      subject: item.subject || '',
+      status: item.status || '',
+      created_at: item.created_at || '',
+      updated_at: item.updated_at || '',
+      delivery_date: item.delivery_date || '',
+      run_at: item.run_at || '',
+      last_error: item.last_error,
+      delivery_info: typeof item.delivery_info === 'string' 
+        ? JSON.parse(item.delivery_info) 
+        : (item.delivery_info || {})
     })) as AcelleCampaign[];
     
     return campaigns;

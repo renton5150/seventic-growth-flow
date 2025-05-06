@@ -52,7 +52,7 @@ export const getAcelleCampaigns = async (
     }
     
     // Récupérer depuis l'API si pas de cache ou rafraîchissement demandé
-    const apiPath = 'campaigns';
+    const apiPath = '/api/v1/campaigns';
     const url = buildCorsProxyUrl(apiPath);
     
     console.log(`Récupération des campagnes depuis l'API via CORS proxy: ${url}`);

@@ -18,14 +18,12 @@ interface AcelleCampaignDetailsProps {
   campaignId: string;
   account: AcelleAccount;
   onClose: () => void;
-  demoMode?: boolean;
 }
 
 const AcelleCampaignDetails = ({ 
   campaignId, 
   account, 
-  onClose,
-  demoMode = false
+  onClose
 }: AcelleCampaignDetailsProps) => {
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
@@ -39,15 +37,8 @@ const AcelleCampaignDetails = ({
       setError(null);
       
       try {
-        if (demoMode) {
-          // Mode démo: créer une campagne factice avec des statistiques
-          const { campaignData, statsData } = await loadDemoCampaign(campaignId);
-          setCampaign(campaignData);
-          setStats(statsData);
-        } else {
-          // Mode normal: charger depuis le cache et enrichir avec les statistiques
-          await loadRealCampaign(campaignId, account);
-        }
+        // Mode normal: charger depuis le cache et enrichir avec les statistiques
+        await loadRealCampaign(campaignId, account);
       } catch (err) {
         console.error("Erreur lors du chargement des détails de la campagne:", err);
         setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -57,7 +48,7 @@ const AcelleCampaignDetails = ({
     };
     
     loadCampaignDetails();
-  }, [campaignId, account, demoMode]);
+  }, [campaignId, account]);
 
   // Fonction pour charger une campagne réelle depuis le cache ou directement depuis la base de données
   const loadRealCampaign = async (id: string, acct: AcelleAccount) => {
@@ -106,63 +97,6 @@ const AcelleCampaignDetails = ({
     }
   };
 
-  // Fonction pour générer une campagne de démonstration
-  const loadDemoCampaign = async (id: string) => {
-    const now = new Date();
-    
-    // Créer la campagne
-    const campaignData: AcelleCampaign = {
-      uid: id,
-      campaign_uid: id,
-      name: "Campagne démo détaillée",
-      subject: "Sujet de la campagne démo détaillée",
-      status: "sent",
-      created_at: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: now.toISOString(),
-      delivery_date: now.toISOString(),
-      run_at: null,
-      last_error: null
-    };
-    
-    // Générer des statistiques fictives
-    const dummyStats: AcelleCampaignStatistics = {
-      subscriber_count: 1000,
-      delivered_count: 950,
-      delivered_rate: 0.95,
-      open_count: 500,
-      uniq_open_rate: 0.45,
-      click_count: 300,
-      click_rate: 0.30,
-      bounce_count: 50,
-      soft_bounce_count: 30,
-      hard_bounce_count: 20,
-      unsubscribe_count: 15,
-      abuse_complaint_count: 5,
-      open_rate: 0.55
-    };
-    
-    // Attribuer les statistiques à la campagne
-    campaignData.statistics = dummyStats;
-    campaignData.delivery_info = {
-      total: 1000,
-      delivered: 950,
-      opened: 500,
-      clicked: 300,
-      bounced: {
-        total: 50,
-        soft: 30,
-        hard: 20
-      },
-      delivery_rate: 0.95,
-      unique_open_rate: 0.45,
-      click_rate: 0.30,
-      unsubscribed: 15,
-      complained: 5
-    };
-    
-    return { campaignData, statsData: dummyStats };
-  };
-
   // Afficher un spinner pendant le chargement
   if (isLoading) {
     return (
@@ -194,7 +128,8 @@ const AcelleCampaignDetails = ({
     soft_bounce_count: 0,
     hard_bounce_count: 0,
     unsubscribe_count: 0,
-    abuse_complaint_count: 0
+    abuse_complaint_count: 0,
+    open_rate: 0
   };
 
   return (
@@ -226,7 +161,7 @@ const AcelleCampaignDetails = ({
         </TabsContent>
 
         <TabsContent value="technical" className="py-4">
-          <CampaignTechnicalInfo campaign={campaign} demoMode={demoMode} />
+          <CampaignTechnicalInfo campaign={campaign} />
         </TabsContent>
       </Tabs>
     </div>
