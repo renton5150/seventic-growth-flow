@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { AcelleAccount, AcelleCampaign, AcelleConnectionDebug } from '@/types/acelle.types';
 import { useApiConnection } from '@/hooks/acelle/useApiConnection';
@@ -46,13 +45,13 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
       }
 
       // Simulation de la récupération des données
-      // Dans un cas réel, vous appelleriez une API ou récupéreriez des données du cache
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Simulation de données réussie
-      const mockCampaigns = activeAccounts.flatMap(account => 
+      // Simulation de données réussie avec tous les champs requis
+      const mockCampaigns: AcelleCampaign[] = activeAccounts.flatMap(account => 
         Array(5).fill(null).map((_, index) => ({
           uid: `campaign-${account.id}-${index}`,
+          campaign_uid: `campaign-${account.id}-${index}`, // Added required campaign_uid property
           name: `Campagne ${index + 1} de ${account.name}`,
           subject: `Sujet ${index + 1}`,
           status: ['sent', 'draft', 'queued', 'sending'][Math.floor(Math.random() * 4)],
@@ -72,7 +71,9 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
             soft_bounce_count: Math.floor(Math.random() * 30),
             hard_bounce_count: Math.floor(Math.random() * 20),
             unsubscribe_count: Math.floor(Math.random() * 20),
-            abuse_complaint_count: Math.floor(Math.random() * 5)
+            abuse_complaint_count: Math.floor(Math.random() * 5),
+            open_rate: Math.random() * 0.5, // Added open_rate for compatibility
+            uniq_open_count: Math.floor(Math.random() * 450) // Added uniq_open_count for compatibility
           }
         }))
       );
