@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -24,16 +25,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AcelleAccount } from "@/types/acelle.types";
-import { toast } from "sonner";
-import { AlertCircle, Info } from "lucide-react"; // Remplacer les icônes Radix par Lucide
+import { AlertCircle, Info } from "lucide-react";
 
 // Schéma de validation pour le formulaire
 const formSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
   api_endpoint: z.string().min(1, "L'URL de l'API est requise").url("L'URL doit être valide"),
   api_token: z.string().min(1, "Le token API est requis"),
-  status: z.enum(["active", "inactive", "error"]), // Ajout de "error" comme statut valide
-  mission_id: z.string().optional(),
+  status: z.enum(["active", "inactive", "error"]), 
+  mission_id: z.string().optional().nullable(),
 });
 
 // Type pour les props du formulaire
@@ -64,8 +64,8 @@ export default function AcelleAccountForm({
       name: account?.name || "",
       api_endpoint: account?.api_endpoint || "",
       api_token: account?.api_token || "",
-      status: (account?.status as "active" | "inactive" | "error") || "active", // Cast pour s'assurer de la compatibilité
-      mission_id: account?.mission_id || "none",
+      status: account?.status as "active" | "inactive" | "error" || "active",
+      mission_id: account?.mission_id || null,
     },
   });
 
@@ -76,20 +76,15 @@ export default function AcelleAccountForm({
         name: account.name || "",
         api_endpoint: account.api_endpoint || "",
         api_token: account.api_token || "",
-        status: account.status || "active",
-        mission_id: account.mission_id || "none", // Utiliser "none" au lieu de chaîne vide ""
+        status: account.status as "active" | "inactive" | "error" || "active",
+        mission_id: account.mission_id || null,
       });
     }
   }, [account, form]);
 
   // Fonction de soumission du formulaire
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    // Convertir "none" en null pour mission_id
-    const processedValues = {
-      ...values,
-      mission_id: values.mission_id === "none" ? null : values.mission_id,
-    };
-    onSubmit(processedValues);
+    onSubmit(values);
   };
 
   // Fonction pour tester la connexion API
@@ -110,10 +105,9 @@ export default function AcelleAccountForm({
     }
 
     try {
-      // Simuler un appel API
+      // Simuler un appel API avec succès
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // En absence d'une véritable fonction de test, nous simulons un succès
+      
       setTestResult({
         success: true,
         message: "Connexion réussie à l'API Acelle",
@@ -155,9 +149,9 @@ export default function AcelleAccountForm({
                   <FormItem>
                     <FormLabel>Mission associée</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
+                      onValueChange={(value) => field.onChange(value || null)}
+                      value={field.value || ""}
+                      defaultValue=""
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -165,7 +159,7 @@ export default function AcelleAccountForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">Aucune mission</SelectItem>
+                        <SelectItem value="">Aucune mission</SelectItem>
                         {missions.map((mission) => (
                           <SelectItem key={mission.id} value={mission.id}>
                             {mission.name}
@@ -250,9 +244,9 @@ export default function AcelleAccountForm({
         {testResult && (
           <Alert variant={testResult.success ? "default" : "destructive"}>
             {testResult.success ? (
-              <Info className="h-4 w-4" /> // Utiliser l'icône Lucide Info
+              <Info className="h-4 w-4" />
             ) : (
-              <AlertCircle className="h-4 w-4" /> // Utiliser l'icône Lucide AlertCircle
+              <AlertCircle className="h-4 w-4" />
             )}
             <AlertDescription>{testResult.message}</AlertDescription>
           </Alert>

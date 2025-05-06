@@ -1,7 +1,8 @@
 
-// Export the acelle service object
+// Export du service Acelle
 import { acelleApiService } from './acelle-service';
 
-// Export the service as default and named export
+// Export du service comme exportation nommée et par défaut
 export { acelleApiService };
 export default acelleApiService;
+
