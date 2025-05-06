@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { testAcelleConnection } from "@/services/acelle/api/connection";
+import { toast } from "sonner";
 
 interface ConnectionTesterProps {
   apiEndpoint: string;
@@ -33,10 +34,29 @@ export function ConnectionTester({ apiEndpoint, apiToken }: ConnectionTesterProp
         throw new Error("Erreur d'authentification");
       }
       
+      console.log("Test de connexion avec:", {
+        endpoint: apiEndpoint,
+        tokenLength: apiToken.length,
+        token: apiToken.substring(0, 5) + '...'
+      });
+      
+      toast.loading("Test de connexion en cours...", { id: "connection-test" });
+      
       const result = await testAcelleConnection(apiEndpoint, apiToken, token);
+      
+      if (result.success) {
+        toast.success("Connexion réussie", { id: "connection-test" });
+      } else {
+        toast.error(`Échec de la connexion: ${result.errorMessage}`, { id: "connection-test" });
+      }
+      
       setConnectionResult(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Erreur lors du test de connexion:", errorMessage);
+      
+      toast.error(`Erreur de connexion: ${errorMessage}`, { id: "connection-test" });
+      
       setConnectionResult({
         success: false,
         timestamp: new Date().toISOString(),

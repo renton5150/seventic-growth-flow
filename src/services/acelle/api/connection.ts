@@ -1,6 +1,7 @@
 
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
+import { buildProxyUrl } from "../acelle-service";
 
 /**
  * Vérifie la connexion à l'API Acelle
@@ -32,23 +33,30 @@ export const checkAcelleConnectionStatus = async (
       }
     }
     
-    // Essayer d'appeler l'Edge Function pour vérifier la connexion à Acelle
+    // Utiliser le proxy CORS pour vérifier la connexion à Acelle
     try {
-      // Construire l'URL pour la vérification
-      const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
-      url.searchParams.append("url", account.api_endpoint);
-      url.searchParams.append("token", account.api_token);
+      const startTime = new Date().getTime();
+      
+      // Construire l'URL pour la vérification en utilisant le proxy CORS existant
+      // Utiliser l'endpoint /me qui teste les informations du compte et l'authentification
+      const url = buildProxyUrl('me', { api_token: account.api_token });
+      
+      console.log("Test de connexion via proxy CORS:", url);
       
       // Effectuer la requête
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`
+          "Authorization": `Bearer ${accessToken}`,
+          "X-Acelle-Endpoint": account.api_endpoint
         }
       });
       
+      const responseTime = new Date().getTime() - startTime;
+      
       if (!response.ok) {
+        console.error("Erreur de connexion:", response.status, response.statusText);
         return {
           success: false,
           timestamp: new Date().toISOString(),
@@ -56,22 +64,34 @@ export const checkAcelleConnectionStatus = async (
         };
       }
       
-      const result = await response.json();
-      
-      if (!result.success) {
+      // Tenter de parser la réponse
+      try {
+        const result = await response.json();
+        
+        console.log("Résultat du test de connexion:", result);
+        
+        // Si la réponse contient les informations du compte, c'est un succès
+        if (result && result.user) {
+          return {
+            success: true,
+            timestamp: new Date().toISOString(),
+            apiVersion: result.version || "Inconnue",
+            responseTime: responseTime
+          };
+        } else {
+          return {
+            success: false,
+            timestamp: new Date().toISOString(),
+            errorMessage: "Réponse API invalide"
+          };
+        }
+      } catch (parseError) {
         return {
           success: false,
           timestamp: new Date().toISOString(),
-          errorMessage: result.errorMessage || "La vérification de l'API a échoué"
+          errorMessage: `Erreur de parsing JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`
         };
       }
-      
-      return {
-        success: true,
-        timestamp: new Date().toISOString(),
-        apiVersion: result.apiVersion,
-        responseTime: result.responseTime
-      };
     } catch (error) {
       return {
         success: false,
