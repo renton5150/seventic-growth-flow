@@ -193,6 +193,21 @@ serve(async (req: Request) => {
         console.error(`[CORS Proxy] Corps de la réponse (premiers 1000 caractères): ${responseBodyText.substring(0, 1000)}`);
       }
       
+      // Ajout de journalisation étendue pour améliorer le débogage de la réponse
+      console.log(`[CORS Proxy] Réponse reçue de l'API. Taille: ${responseBodyText.length} caractères`);
+      if (responseBodyText.length > 0) {
+        try {
+          // Tenter de parser en JSON pour journalisation propre
+          const jsonResponse = JSON.parse(responseBodyText);
+          console.log(`[CORS Proxy] Aperçu de la réponse:`, 
+            JSON.stringify(jsonResponse).substring(0, 500) + 
+            (responseBodyText.length > 500 ? '...' : ''));
+        } catch (e) {
+          // Si ce n'est pas du JSON valide, journaliser une partie du texte brut
+          console.log(`[CORS Proxy] Aperçu de la réponse (non-JSON): ${responseBodyText.substring(0, 200)}...`);
+        }
+      }
+      
       // Calcul et journalisation de la durée totale de la requête
       const requestDuration = Date.now() - requestStartTime;
       console.log(`[CORS Proxy] Requête complétée en ${requestDuration}ms pour ${targetUrl}`);

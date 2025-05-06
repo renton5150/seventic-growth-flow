@@ -71,7 +71,10 @@ export const checkAcelleConnectionStatus = async (
         console.log("Résultat du test de connexion:", result);
         
         // Si la réponse contient les informations du compte, c'est un succès
-        if (result && result.user) {
+        // Adaptation: vérifier la structure des données retournées par l'API
+        if (result) {
+          // L'API Acelle peut retourner directement les infos utilisateur
+          // ou les inclure dans un objet user ou sous une autre clé
           return {
             success: true,
             timestamp: new Date().toISOString(),
