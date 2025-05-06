@@ -2,7 +2,7 @@
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "./campaignStats";
 import { createEmptyStatistics } from "./campaignStats";
-import { buildCorsProxyUrl, buildCorsProxyHeaders } from "../cors-proxy";
+import { buildCorsProxyUrl, buildCorsProxyHeaders, wakeupCorsProxy } from "../cors-proxy";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -25,6 +25,22 @@ export const enrichCampaignsWithStats = async (
       hasEndpoint: account ? !!account.api_endpoint : false
     });
     return campaigns;
+  }
+  
+  // Obtenir le token d'authentification pour les appels API
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  
+  if (!token) {
+    console.error("Token d'authentification non disponible");
+    return campaigns;
+  }
+  
+  // Réveiller le proxy CORS au début pour éviter les problèmes de timeout
+  try {
+    await wakeupCorsProxy(token);
+  } catch (error) {
+    console.warn("Échec du réveil du proxy CORS, tentative de continuer:", error);
   }
   
   const enrichedCampaigns = [...campaigns];
@@ -54,28 +70,64 @@ export const enrichCampaignsWithStats = async (
         campaignUid
       });
       
+      // Vérifier d'abord si on a des statistiques en cache
+      const { data: cachedStats, error: cacheError } = await supabase
+        .from('campaign_stats_cache')
+        .select('statistics, last_updated')
+        .eq('campaign_uid', campaignUid)
+        .single();
+      
+      // Si nous avons des statistiques en cache et qu'on ne force pas le rafraîchissement
+      if (!cacheError && cachedStats && !options?.forceRefresh) {
+        console.log(`Utilisation des statistiques en cache pour ${campaignUid}, dernière mise à jour: ${cachedStats.last_updated}`);
+        
+        // Appliquer les statistiques depuis le cache
+        enrichedCampaigns[i] = {
+          ...campaign,
+          statistics: cachedStats.statistics,
+          delivery_info: {
+            total: cachedStats.statistics.subscriber_count || 0,
+            delivered: cachedStats.statistics.delivered_count || 0,
+            opened: cachedStats.statistics.open_count || 0,
+            clicked: cachedStats.statistics.click_count || 0,
+            bounced: {
+              total: cachedStats.statistics.bounce_count || 0,
+              hard: cachedStats.statistics.hard_bounce_count || 0,
+              soft: cachedStats.statistics.soft_bounce_count || 0
+            },
+            delivery_rate: cachedStats.statistics.delivered_rate || 0,
+            unique_open_rate: cachedStats.statistics.uniq_open_rate || 0,
+            click_rate: cachedStats.statistics.click_rate || 0,
+            unsubscribed: cachedStats.statistics.unsubscribe_count || 0,
+            complained: cachedStats.statistics.abuse_complaint_count || 0
+          }
+        };
+        
+        continue;
+      }
+      
       try {
-        // Utiliser le proxy CORS
+        // Utiliser le proxy CORS pour obtenir les statistiques de la campagne
         const apiPath = `campaigns/${campaignUid}/overview`;
         const url = buildCorsProxyUrl(apiPath);
         
         console.log(`Appel via CORS proxy pour les statistiques de ${campaignUid}: ${url}`);
         
-        // Obtenir le token d'authentification
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        
-        if (!token) {
-          throw new Error("Token d'authentification non disponible");
-        }
-        
-        // Construire les en-têtes
+        // Construire les en-têtes avec le token Supabase pour l'authentification
         const headers = buildCorsProxyHeaders(account, {
           'Authorization': `Bearer ${token}`
         });
         
-        // Effectuer la requête
-        const response = await fetch(url, { headers });
+        // Effectuer la requête avec un timeout étendu
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes timeout
+        
+        const response = await fetch(url, { 
+          headers, 
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
           throw new Error(`Erreur API lors de la récupération des stats: ${response.status}`);
@@ -131,11 +183,33 @@ export const enrichCampaignsWithStats = async (
             delivery_info: delivery_info
           };
           
+          // Mettre à jour le cache des statistiques
+          await supabase
+            .from('campaign_stats_cache')
+            .upsert({
+              campaign_uid: campaignUid,
+              account_id: account.id,
+              statistics: statistics,
+              last_updated: new Date().toISOString()
+            }, {
+              onConflict: 'campaign_uid'
+            });
+          
           console.log(`Statistiques appliquées directement à la campagne ${campaign.name}`);
         } else {
           // Fallback à l'ancienne méthode en cas d'échec
           console.warn(`Pas de données reçues pour ${campaignUid}, tentative avec l'ancienne méthode...`);
           
+          // Vérifier si on a déjà des statistiques dans l'objet campaign
+          if (campaign.statistics || campaign.delivery_info) {
+            console.info(`Tentative de récupération de statistiques alternatives pour ${campaignUid}`);
+            console.info(`Utilisation des statistiques existantes dans la campagne pour ${campaignUid}`);
+            
+            // Si on a déjà des statistiques dans l'objet campaign, les utiliser
+            continue;
+          }
+          
+          // Sinon, essayer avec l'ancienne méthode
           const result = await fetchAndProcessCampaignStats(
             campaign, 
             account, 
@@ -150,29 +224,37 @@ export const enrichCampaignsWithStats = async (
           };
         }
       } catch (apiError) {
-        console.error(`Erreur API pour ${campaignUid}:`, apiError);
+        console.error(`Erreur lors de l'appel à l'API Acelle:`, apiError);
+        
+        // Vérifier si on a déjà des statistiques dans l'objet campaign
+        if (campaign.statistics || campaign.delivery_info) {
+          console.info(`Tentative de récupération de statistiques alternatives pour ${campaignUid}`);
+          console.info(`Utilisation des statistiques existantes dans la campagne pour ${campaignUid}`);
+          continue;
+        }
         
         // Fallback à l'ancienne méthode en cas d'erreur API
         console.warn(`Erreur API pour ${campaignUid}, tentative avec l'ancienne méthode...`);
         
-        const result = await fetchAndProcessCampaignStats(
-          campaign, 
-          account, 
-          { refresh: true }
-        );
-        
-        // Appliquer les statistiques enrichies à la campagne
-        enrichedCampaigns[i] = {
-          ...campaign,
-          statistics: result.statistics || createEmptyStatistics(),
-          delivery_info: result.delivery_info || {}
-        };
+        try {
+          const result = await fetchAndProcessCampaignStats(
+            campaign, 
+            account, 
+            { refresh: true }
+          );
+          
+          // Appliquer les statistiques enrichies à la campagne
+          enrichedCampaigns[i] = {
+            ...campaign,
+            statistics: result.statistics || createEmptyStatistics(),
+            delivery_info: result.delivery_info || {}
+          };
+        } catch (processError) {
+          console.error(`Erreur lors du traitement des statistiques pour ${campaignUid}:`, processError);
+        }
       }
-    } catch (error) {
-      console.error(`Erreur lors de l'enrichissement de la campagne ${enrichedCampaigns[i].name}:`, error);
-      
-      // Conserver les données existantes de la campagne
-      console.log(`ERREUR: Impossible d'enrichir la campagne ${enrichedCampaigns[i].name}`);
+    } catch (campaignError) {
+      console.error(`Erreur lors du traitement de la campagne ${enrichedCampaigns[i]?.name}:`, campaignError);
     }
   }
   

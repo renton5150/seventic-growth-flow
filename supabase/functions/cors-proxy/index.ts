@@ -112,43 +112,61 @@ serve(async (req) => {
     // Envoi de la requête à l'API Acelle
     console.log(`Transmission de la requête vers: ${targetUrl}`);
     
-    // Simuler un délai pour les tests (à supprimer en production)
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Répondre avec des données de démo pour résoudre le problème immédiatement
-    // Cette approche garantit le fonctionnement même si l'API est inaccessible
-    
-    // Créer des données de démo en fonction du chemin de l'API demandé
-    let demoResponse = {};
-    
-    // Si c'est une demande pour la liste des campagnes
-    if (targetPath.match(/^campaigns\/?$/)) {
-      demoResponse = generateDemoCampaignsList(10);
-    } 
-    // Si c'est une demande pour une campagne spécifique
-    else if (targetPath.match(/^campaigns\/[a-z0-9]+$/)) {
-      const campaignId = targetPath.split('/')[1];
-      demoResponse = generateDemoCampaignDetails(campaignId);
-    } 
-    // Si c'est une demande pour les statistiques d'une campagne
-    else if (targetPath.match(/^campaigns\/[a-z0-9]+\/overview$/)) {
-      const campaignId = targetPath.split('/')[1];
-      demoResponse = generateDemoCampaignStats(campaignId);
+    try {
+      const apiResponse = await fetch(targetUrl, requestOptions);
+      
+      // Récupérer le contenu de la réponse
+      const responseData = await apiResponse.text();
+      
+      // Tenter de parser en JSON pour le logging
+      try {
+        const jsonData = JSON.parse(responseData);
+        console.log("Réponse API reçue:", {
+          status: apiResponse.status,
+          statusText: apiResponse.statusText,
+          data: jsonData
+        });
+      } catch (e) {
+        // Si ce n'est pas du JSON valide, on log juste le statut
+        console.log("Réponse API reçue (non-JSON):", {
+          status: apiResponse.status,
+          statusText: apiResponse.statusText,
+          length: responseData.length
+        });
+      }
+      
+      // Créer les en-têtes pour la réponse
+      const responseHeaders = new Headers({ 
+        ...corsHeaders,
+        'Content-Type': apiResponse.headers.get('Content-Type') || 'application/json'
+      });
+      
+      // Copier tous les en-têtes pertinents de la réponse d'origine
+      apiResponse.headers.forEach((value, key) => {
+        // Exclure les en-têtes qui pourraient causer des problèmes CORS
+        if (!['access-control-allow-origin', 'access-control-allow-headers'].includes(key.toLowerCase())) {
+          responseHeaders.set(key, value);
+        }
+      });
+      
+      // Renvoyer la réponse de l'API au client
+      return new Response(responseData, {
+        status: apiResponse.status,
+        statusText: apiResponse.statusText,
+        headers: responseHeaders
+      });
+    } catch (apiError) {
+      console.error("Erreur lors de la communication avec l'API Acelle:", apiError);
+      return new Response(JSON.stringify({ 
+        error: true, 
+        message: `Erreur lors de la communication avec l'API Acelle: ${apiError.message}`,
+        details: apiError.stack
+      }), {
+        status: 502, // Bad Gateway
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
-    // Si c'est une autre requête, répondre avec un objet générique
-    else {
-      demoResponse = { 
-        status: "success", 
-        message: "Opération simulée réussie", 
-        data: {} 
-      };
-    }
-
-    // Retourner la réponse démo avec les en-têtes CORS
-    return new Response(JSON.stringify(demoResponse), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    
   } catch (error) {
     console.error("Erreur dans le proxy CORS:", error);
     
@@ -163,93 +181,3 @@ serve(async (req) => {
     });
   }
 });
-
-/**
- * Génère une liste de campagnes de démo pour les tests
- */
-function generateDemoCampaignsList(count = 10) {
-  const campaigns = [];
-  const statuses = ["sent", "sending", "queued", "ready", "paused"];
-  
-  // Générer les campagnes
-  for (let i = 0; i < count; i++) {
-    const id = (Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8));
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    
-    const date = new Date();
-    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
-    
-    campaigns.push({
-      uid: id,
-      name: `Campagne demo ${i + 1}`,
-      subject: `Sujet de la campagne ${i + 1}`,
-      status: status,
-      created_at: date.toISOString(),
-      updated_at: new Date().toISOString(),
-      delivery_date: status === "sent" ? new Date().toISOString() : null,
-      run_at: status === "sending" ? new Date().toISOString() : null,
-      from_email: "contact@exemple.fr",
-      from_name: "Service Marketing",
-      reply_to: "no-reply@exemple.fr",
-      type: "regular"
-    });
-  }
-  
-  return campaigns;
-}
-
-/**
- * Génère des détails pour une campagne de démo
- */
-function generateDemoCampaignDetails(campaignId: string) {
-  return {
-    uid: campaignId,
-    name: `Campagne détaillée ${campaignId}`,
-    subject: `Sujet de la campagne ${campaignId}`,
-    status: "sent",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    delivery_date: new Date().toISOString(),
-    from_email: "contact@exemple.fr",
-    from_name: "Service Marketing",
-    reply_to: "no-reply@exemple.fr",
-    plain: "Contenu texte de la campagne",
-    html: "<p>Contenu HTML de la campagne</p>",
-    type: "regular"
-  };
-}
-
-/**
- * Génère des statistiques pour une campagne de démo
- */
-function generateDemoCampaignStats(campaignId: string) {
-  const subscriberCount = 5000 + Math.floor(Math.random() * 5000);
-  const deliveryRate = 0.95 + (Math.random() * 0.05);
-  const openRate = 0.25 + (Math.random() * 0.3);
-  const clickRate = 0.05 + (Math.random() * 0.15);
-  
-  const delivered = Math.floor(subscriberCount * deliveryRate);
-  const opened = Math.floor(delivered * openRate);
-  const clicked = Math.floor(opened * clickRate);
-  
-  return {
-    data: {
-      uid: campaignId,
-      name: `Campagne ${campaignId}`,
-      subscribers_count: subscriberCount,
-      recipients_count: delivered,
-      delivery_rate: deliveryRate * 100,
-      unique_opens_count: opened,
-      unique_opens_rate: openRate * 100,
-      opens_count: opened + Math.floor(opened * 0.3),
-      unique_clicks_count: clicked,
-      clicks_count: clicked + Math.floor(clicked * 0.5),
-      clicks_rate: clickRate * 100,
-      bounce_count: Math.floor(subscriberCount * 0.03),
-      soft_bounce_count: Math.floor(subscriberCount * 0.02),
-      hard_bounce_count: Math.floor(subscriberCount * 0.01),
-      unsubscribe_count: Math.floor(subscriberCount * 0.005),
-      feedback_count: Math.floor(subscriberCount * 0.001)
-    }
-  };
-}

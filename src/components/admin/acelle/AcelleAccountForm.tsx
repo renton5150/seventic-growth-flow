@@ -188,14 +188,14 @@ const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ account, onSubmit
               <div>
                 <Label htmlFor="mission_id">Mission associée (optionnel)</Label>
                 <Select
-                  value={formData.mission_id || ""}
+                  value={formData.mission_id || undefined}
                   onValueChange={(value) => handleSelectChange("mission_id", value === "" ? null : value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une mission" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucune mission</SelectItem>
+                    <SelectItem value="none">Aucune mission</SelectItem>
                     {missions.map((mission) => (
                       <SelectItem key={mission.id} value={mission.id}>
                         {mission.name}

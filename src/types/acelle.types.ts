@@ -75,7 +75,7 @@ export interface CachedCampaign {
   updated_at: string;
   delivery_date: string;
   run_at: string;
-  delivery_info: any; // Modification: permet d'accepter le type Json de Supabase
+  delivery_info: any; // Modifié pour accepter JSON de Supabase
   cache_updated_at: string;
   last_error?: string;
 }
@@ -85,7 +85,6 @@ export interface AcelleConnectionDebug {
   accountName?: string;
   version?: string;
   errorMessage?: string;
-  // Add missing properties used in the debug components
   timestamp?: string;
   statusCode?: number;
   duration?: number;

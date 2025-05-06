@@ -1,77 +1,22 @@
+
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { buildCorsProxyUrl, buildCorsProxyHeaders } from "../cors-proxy";
 import { supabase } from "@/integrations/supabase/client";
+import { enrichCampaignsWithStats } from "./directStats";
 import { toast } from "sonner";
-import { acelleApiService } from "../acelle-service";
 
 /**
  * Récupère les campagnes depuis l'API Acelle
- * En cas d'échec, utilise des données de démo
  */
 export const getAcelleCampaigns = async (
   account: AcelleAccount,
-  options?: { refresh?: boolean; demoMode?: boolean; }
+  options?: { refresh?: boolean; }
 ): Promise<AcelleCampaign[]> => {
   try {
     console.log(`Récupération des campagnes pour ${account.name}...`);
-
-    // Force le mode démo par défaut pour garantir le fonctionnement
-    const useDemoMode = true;
     
-    if (useDemoMode) {
-      console.log("Utilisation du mode démo pour les campagnes");
-      // Utiliser directement les données générées par notre service
-      const demoCampaigns = acelleApiService.generateDemoCampaigns(15);
-      
-      // Transformer en format AcelleCampaign
-      const campaigns: AcelleCampaign[] = demoCampaigns.map((campaign: any) => ({
-        uid: campaign.uid,
-        campaign_uid: campaign.uid,
-        name: campaign.name,
-        subject: campaign.subject,
-        status: campaign.status,
-        created_at: campaign.created_at,
-        updated_at: campaign.updated_at,
-        delivery_date: campaign.delivery_date,
-        run_at: campaign.run_at,
-        statistics: {
-          subscriber_count: Math.floor(Math.random() * 10000) + 100,
-          delivered_count: Math.floor(Math.random() * 9000) + 50,
-          delivered_rate: Math.random() * 0.9 + 0.1,
-          open_count: Math.floor(Math.random() * 5000),
-          uniq_open_count: Math.floor(Math.random() * 4500),
-          uniq_open_rate: Math.random() * 0.5,
-          click_count: Math.floor(Math.random() * 3000),
-          click_rate: Math.random() * 0.3,
-          bounce_count: Math.floor(Math.random() * 500),
-          soft_bounce_count: Math.floor(Math.random() * 300),
-          hard_bounce_count: Math.floor(Math.random() * 200),
-          unsubscribe_count: Math.floor(Math.random() * 200),
-          abuse_complaint_count: Math.floor(Math.random() * 50)
-        },
-        delivery_info: {
-          total: Math.floor(Math.random() * 10000) + 100,
-          delivered: Math.floor(Math.random() * 9000) + 50,
-          opened: Math.floor(Math.random() * 5000), 
-          clicked: Math.floor(Math.random() * 3000),
-          bounced: {
-            total: Math.floor(Math.random() * 500),
-            hard: Math.floor(Math.random() * 200),
-            soft: Math.floor(Math.random() * 300)
-          },
-          delivery_rate: Math.random() * 0.9 + 0.1,
-          unique_open_rate: Math.random() * 0.5,
-          click_rate: Math.random() * 0.3,
-          unsubscribed: Math.floor(Math.random() * 200),
-          complained: Math.floor(Math.random() * 50)
-        }
-      }));
-      
-      return campaigns;
-    }
-
-    // Si ce n'est pas un rafraîchissement forcé et qu'on n'est pas en mode démo,
-    // essayer d'abord le cache
-    if (!options?.refresh && !options?.demoMode) {
+    // Si pas de rafraîchissement demandé, essayer d'abord depuis le cache
+    if (!options?.refresh) {
       const { data: cachedCampaigns, error: cacheError } = await supabase
         .from('email_campaigns_cache')
         .select('*')
@@ -81,268 +26,108 @@ export const getAcelleCampaigns = async (
       if (!cacheError && cachedCampaigns && cachedCampaigns.length > 0) {
         console.log(`${cachedCampaigns.length} campagnes récupérées depuis le cache`);
         
-        // Transformer les données brutes en objets AcelleCampaign directement
-        // au lieu d'utiliser extractCampaignsFromCache qui provoquait l'erreur
-        const transformedCampaigns: AcelleCampaign[] = cachedCampaigns.map(item => {
-          let deliveryInfo: any = {};
-          
-          if (item.delivery_info) {
-            if (typeof item.delivery_info === 'string') {
-              try {
-                deliveryInfo = JSON.parse(item.delivery_info);
-              } catch (e) {
-                console.warn('Error parsing delivery_info JSON:', e);
-                deliveryInfo = {};
-              }
-            } else {
-              deliveryInfo = item.delivery_info;
-            }
-          }
-          
-          return {
-            uid: item.campaign_uid,
-            campaign_uid: item.campaign_uid,
-            name: item.name || '',
-            subject: item.subject || '',
-            status: item.status || '',
-            created_at: item.created_at || '',
-            updated_at: item.updated_at || '',
-            delivery_date: item.delivery_date || null,
-            run_at: item.run_at || null,
-            last_error: item.last_error || null,
-            delivery_info: deliveryInfo
-          };
-        });
+        // Transformer les données du cache en objets AcelleCampaign
+        const transformedCampaigns: AcelleCampaign[] = cachedCampaigns.map(item => ({
+          uid: item.campaign_uid,
+          campaign_uid: item.campaign_uid,
+          name: item.name || "Sans nom",
+          subject: item.subject || "",
+          status: item.status || "unknown",
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          delivery_date: item.delivery_date,
+          run_at: item.run_at,
+          delivery_info: typeof item.delivery_info === 'string' 
+            ? JSON.parse(item.delivery_info) 
+            : (item.delivery_info || {}),
+          last_error: item.last_error
+        }));
         
-        return transformedCampaigns;
+        // Enrichir avec des statistiques
+        const enrichedCampaigns = await enrichCampaignsWithStats(transformedCampaigns, account);
+        return enrichedCampaigns;
       }
     }
     
-    // Si aucune donnée en cache ou si rafraîchissement forcé,
-    // et qu'on n'est pas en mode démo, tenter un appel API
+    // Récupérer depuis l'API si pas de cache ou rafraîchissement demandé
     const apiPath = 'campaigns';
-    const response = await acelleApiService.callAcelleApi(
-      account, 
-      apiPath, 
-      {
-        method: 'GET',
-        useProxy: true,
-        demoMode: options?.demoMode
-      }
-    );
+    const url = buildCorsProxyUrl(apiPath);
     
-    // Transformer la réponse en objets AcelleCampaign
-    const campaigns: AcelleCampaign[] = Array.isArray(response) ? 
-      response.map((campaign: any) => ({
-        uid: campaign.uid,
-        campaign_uid: campaign.uid,
-        name: campaign.name || "Sans nom",
-        subject: campaign.subject || "",
-        status: campaign.status || "unknown",
-        created_at: campaign.created_at,
-        updated_at: campaign.updated_at,
-        delivery_date: campaign.delivery_date,
-        run_at: campaign.run_at,
-        // Ajout d'objets statistics et delivery_info de base
-        // qui seront enrichis par la suite
-        statistics: {
-          subscriber_count: 0,
-          delivered_count: 0,
-          delivered_rate: 0,
-          open_count: 0,
-          uniq_open_count: 0,
-          uniq_open_rate: 0,
-          click_count: 0,
-          click_rate: 0,
-          bounce_count: 0,
-          soft_bounce_count: 0,
-          hard_bounce_count: 0,
-          unsubscribe_count: 0,
-          abuse_complaint_count: 0
-        },
-        delivery_info: {
-          total: 0,
-          delivered: 0,
-          opened: 0,
-          clicked: 0,
-          bounced: { total: 0, hard: 0, soft: 0 },
-          delivery_rate: 0,
-          unique_open_rate: 0,
-          click_rate: 0
-        }
-      })) : [];
+    console.log(`Récupération des campagnes depuis l'API via CORS proxy: ${url}`);
+    
+    // Appel CORS Proxy
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    
+    if (!token) {
+      throw new Error("Token d'authentification non disponible");
+    }
+    
+    const headers = buildCorsProxyHeaders(account, {
+      'Authorization': `Bearer ${token}`
+    });
+    
+    const response = await fetch(url, { headers });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur lors de la récupération des campagnes: ${response.status} ${response.statusText}`);
+    }
+    
+    const apiResponse = await response.json();
+    
+    // Vérifier que nous recevons bien un tableau dans la réponse
+    if (!Array.isArray(apiResponse)) {
+      console.error("Format de réponse inattendu:", apiResponse);
+      throw new Error("Format de réponse API inattendu: la réponse n'est pas un tableau");
+    }
+    
+    const campaigns: AcelleCampaign[] = apiResponse.map((campaign: any) => ({
+      uid: campaign.uid,
+      campaign_uid: campaign.uid,
+      name: campaign.name || "Sans nom",
+      subject: campaign.subject || "",
+      status: campaign.status || "unknown",
+      created_at: campaign.created_at || new Date().toISOString(),
+      updated_at: campaign.updated_at || new Date().toISOString(),
+      delivery_date: campaign.delivery_date,
+      run_at: campaign.run_at
+    }));
     
     console.log(`${campaigns.length} campagnes récupérées depuis l'API`);
     
-    // Mettre à jour le cache si on n'est pas en mode démo
-    if (!options?.demoMode && campaigns.length > 0) {
-      try {
-        for (const campaign of campaigns) {
-          await supabase
-            .from('email_campaigns_cache')
-            .upsert({
-              account_id: account.id,
-              campaign_uid: campaign.uid,
-              name: campaign.name,
-              subject: campaign.subject,
-              status: campaign.status,
-              created_at: campaign.created_at,
-              updated_at: campaign.updated_at,
-              delivery_date: campaign.delivery_date,
-              run_at: campaign.run_at,
-              cache_updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'account_id,campaign_uid'
-            });
-        }
-        console.log(`${campaigns.length} campagnes mises en cache`);
-      } catch (cacheError) {
-        console.error("Erreur lors de la mise à jour du cache:", cacheError);
+    // Mettre à jour le cache
+    try {
+      for (const campaign of campaigns) {
+        await supabase
+          .from('email_campaigns_cache')
+          .upsert({
+            account_id: account.id,
+            campaign_uid: campaign.uid,
+            name: campaign.name,
+            subject: campaign.subject,
+            status: campaign.status,
+            created_at: campaign.created_at,
+            updated_at: campaign.updated_at,
+            delivery_date: campaign.delivery_date,
+            run_at: campaign.run_at,
+            cache_updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'account_id,campaign_uid'
+          });
       }
+      console.log(`${campaigns.length} campagnes mises en cache`);
+    } catch (cacheError) {
+      console.error("Erreur lors de la mise à jour du cache:", cacheError);
     }
     
-    // Ajouter des statistiques simulées pour chaque campagne
-    return campaigns.map(campaign => ({
-      ...campaign,
-      statistics: {
-        subscriber_count: Math.floor(Math.random() * 10000) + 100,
-        delivered_count: Math.floor(Math.random() * 9000) + 50,
-        delivered_rate: Math.random() * 0.9 + 0.1,
-        open_count: Math.floor(Math.random() * 5000),
-        uniq_open_count: Math.floor(Math.random() * 4500),
-        uniq_open_rate: Math.random() * 0.5,
-        click_count: Math.floor(Math.random() * 3000),
-        click_rate: Math.random() * 0.3,
-        bounce_count: Math.floor(Math.random() * 500),
-        soft_bounce_count: Math.floor(Math.random() * 300),
-        hard_bounce_count: Math.floor(Math.random() * 200),
-        unsubscribe_count: Math.floor(Math.random() * 200),
-        abuse_complaint_count: Math.floor(Math.random() * 50)
-      },
-      delivery_info: {
-        total: Math.floor(Math.random() * 10000) + 100,
-        delivered: Math.floor(Math.random() * 9000) + 50,
-        opened: Math.floor(Math.random() * 5000), 
-        clicked: Math.floor(Math.random() * 3000),
-        bounced: {
-          total: Math.floor(Math.random() * 500),
-          hard: Math.floor(Math.random() * 200),
-          soft: Math.floor(Math.random() * 300)
-        },
-        delivery_rate: Math.random() * 0.9 + 0.1,
-        unique_open_rate: Math.random() * 0.5,
-        click_rate: Math.random() * 0.3,
-        unsubscribed: Math.floor(Math.random() * 200),
-        complained: Math.floor(Math.random() * 50)
-      }
-    }));
+    // Enrichir les campagnes avec des statistiques
+    const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account);
+    
+    return enrichedCampaigns;
   } catch (error) {
     console.error(`Erreur lors de la récupération des campagnes pour ${account.name}:`, error);
-    
-    // En cas d'erreur, retourner des données de démo pour assurer le fonctionnement
-    console.log("Fallback vers données de démo suite à une erreur");
-    const demoCampaigns = acelleApiService.generateDemoCampaigns(10);
-    
-    return demoCampaigns.map((campaign: any) => ({
-      uid: campaign.uid,
-      campaign_uid: campaign.uid,
-      name: campaign.name,
-      subject: campaign.subject,
-      status: campaign.status,
-      created_at: campaign.created_at,
-      updated_at: campaign.updated_at,
-      delivery_date: campaign.delivery_date,
-      run_at: campaign.run_at,
-      statistics: {
-        subscriber_count: Math.floor(Math.random() * 10000) + 100,
-        delivered_count: Math.floor(Math.random() * 9000) + 50,
-        delivered_rate: Math.random() * 0.9 + 0.1,
-        open_count: Math.floor(Math.random() * 5000),
-        uniq_open_count: Math.floor(Math.random() * 4500),
-        uniq_open_rate: Math.random() * 0.5,
-        click_count: Math.floor(Math.random() * 3000),
-        click_rate: Math.random() * 0.3,
-        bounce_count: Math.floor(Math.random() * 500),
-        soft_bounce_count: Math.floor(Math.random() * 300),
-        hard_bounce_count: Math.floor(Math.random() * 200),
-        unsubscribe_count: Math.floor(Math.random() * 200),
-        abuse_complaint_count: Math.floor(Math.random() * 50)
-      },
-      delivery_info: {
-        total: Math.floor(Math.random() * 10000) + 100,
-        delivered: Math.floor(Math.random() * 9000) + 50,
-        opened: Math.floor(Math.random() * 5000), 
-        clicked: Math.floor(Math.random() * 3000),
-        bounced: {
-          total: Math.floor(Math.random() * 500),
-          hard: Math.floor(Math.random() * 200),
-          soft: Math.floor(Math.random() * 300)
-        },
-        delivery_rate: Math.random() * 0.9 + 0.1,
-        unique_open_rate: Math.random() * 0.5,
-        click_rate: Math.random() * 0.3,
-        unsubscribed: Math.floor(Math.random() * 200),
-        complained: Math.floor(Math.random() * 50)
-      }
-    }));
+    throw error;
   }
-};
-
-/**
- * Fonction pour extraire les campagnes du cache
- */
-export const extractCampaignsFromCache = (cachedCampaigns: any[]): AcelleCampaign[] => {
-  if (!cachedCampaigns || cachedCampaigns.length === 0) {
-    return [];
-  }
-
-  return cachedCampaigns.map(item => {
-    // Traitement spécial pour delivery_info qui peut être une chaîne ou un objet
-    let deliveryInfo: any = {};
-    
-    if (item.delivery_info) {
-      if (typeof item.delivery_info === 'string') {
-        try {
-          deliveryInfo = JSON.parse(item.delivery_info);
-        } catch (e) {
-          console.warn('Error parsing delivery_info JSON:', e);
-          deliveryInfo = {};
-        }
-      } else {
-        deliveryInfo = item.delivery_info;
-      }
-    }
-    
-    return {
-      uid: item.campaign_uid,
-      campaign_uid: item.campaign_uid,
-      name: item.name || "Sans nom",
-      subject: item.subject || "",
-      status: item.status || "unknown",
-      created_at: item.created_at,
-      updated_at: item.updated_at,
-      delivery_date: item.delivery_date,
-      run_at: item.run_at,
-      delivery_info: deliveryInfo,
-      last_error: item.last_error,
-      // Ajouter des statistiques simulées pour garantir l'affichage
-      statistics: {
-        subscriber_count: Math.floor(Math.random() * 10000) + 100,
-        delivered_count: Math.floor(Math.random() * 9000) + 50,
-        delivered_rate: Math.random() * 0.9 + 0.1,
-        open_count: Math.floor(Math.random() * 5000),
-        uniq_open_count: Math.floor(Math.random() * 4500),
-        uniq_open_rate: Math.random() * 0.5,
-        click_count: Math.floor(Math.random() * 3000),
-        click_rate: Math.random() * 0.3,
-        bounce_count: Math.floor(Math.random() * 500),
-        soft_bounce_count: Math.floor(Math.random() * 300),
-        hard_bounce_count: Math.floor(Math.random() * 200),
-        unsubscribe_count: Math.floor(Math.random() * 200),
-        abuse_complaint_count: Math.floor(Math.random() * 50)
-      }
-    };
-  });
 };
 
 /**
@@ -396,147 +181,145 @@ export const getAcelleCampaignDetails = async (
   try {
     console.log(`Récupération des détails pour la campagne ${campaignUid}`);
     
-    // Utiliser des données de démo pour garantir le fonctionnement
-    const demoDetails = acelleApiService.generateDemoCampaignDetails(campaignUid);
+    // D'abord, essayons de récupérer les détails depuis le cache
+    const { data: cachedCampaign, error: cacheError } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .eq('account_id', account.id)
+      .eq('campaign_uid', campaignUid)
+      .single();
     
-    // Transformer en format AcelleCampaign
-    const campaignDetails: AcelleCampaign = {
-      uid: demoDetails.uid,
-      campaign_uid: demoDetails.uid,
-      name: demoDetails.name,
-      subject: demoDetails.subject,
-      status: demoDetails.status,
-      created_at: demoDetails.created_at,
-      updated_at: demoDetails.updated_at,
-      delivery_date: demoDetails.delivery_date,
-      run_at: null,
-      statistics: {
-        subscriber_count: Math.floor(Math.random() * 10000) + 100,
-        delivered_count: Math.floor(Math.random() * 9000) + 50,
-        delivered_rate: Math.random() * 0.9 + 0.1,
-        open_count: Math.floor(Math.random() * 5000),
-        uniq_open_count: Math.floor(Math.random() * 4500),
-        uniq_open_rate: Math.random() * 0.5,
-        click_count: Math.floor(Math.random() * 3000),
-        click_rate: Math.random() * 0.3,
-        bounce_count: Math.floor(Math.random() * 500),
-        soft_bounce_count: Math.floor(Math.random() * 300),
-        hard_bounce_count: Math.floor(Math.random() * 200),
-        unsubscribe_count: Math.floor(Math.random() * 200),
-        abuse_complaint_count: Math.floor(Math.random() * 50)
-      },
-      delivery_info: {
-        total: Math.floor(Math.random() * 10000) + 100,
-        delivered: Math.floor(Math.random() * 9000) + 50,
-        opened: Math.floor(Math.random() * 5000), 
-        clicked: Math.floor(Math.random() * 3000),
-        bounced: {
-          total: Math.floor(Math.random() * 500),
-          hard: Math.floor(Math.random() * 200),
-          soft: Math.floor(Math.random() * 300)
-        },
-        delivery_rate: Math.random() * 0.9 + 0.1,
-        unique_open_rate: Math.random() * 0.5,
-        click_rate: Math.random() * 0.3,
-        unsubscribed: Math.floor(Math.random() * 200),
-        complained: Math.floor(Math.random() * 50)
-      },
-      content: demoDetails.html,
-      html: demoDetails.html
+    if (!cacheError && cachedCampaign) {
+      console.log(`Détails de la campagne ${campaignUid} récupérés depuis le cache`);
+      
+      // Transformer les données du cache
+      const campaign: AcelleCampaign = {
+        uid: cachedCampaign.campaign_uid,
+        campaign_uid: cachedCampaign.campaign_uid,
+        name: cachedCampaign.name,
+        subject: cachedCampaign.subject,
+        status: cachedCampaign.status,
+        created_at: cachedCampaign.created_at,
+        updated_at: cachedCampaign.updated_at,
+        delivery_date: cachedCampaign.delivery_date,
+        run_at: cachedCampaign.run_at,
+        delivery_info: typeof cachedCampaign.delivery_info === 'string'
+          ? JSON.parse(cachedCampaign.delivery_info)
+          : (cachedCampaign.delivery_info || {})
+      };
+      
+      // Enrichir avec des statistiques à jour
+      const enrichedCampaign = await enrichCampaignsWithStats([campaign], account, { forceRefresh: true });
+      return enrichedCampaign[0];
+    }
+    
+    // Si aucune campagne trouvée dans le cache, récupérer depuis l'API
+    const apiPath = `campaigns/${campaignUid}`;
+    const url = buildCorsProxyUrl(apiPath);
+    
+    // Obtenir le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    
+    if (!token) {
+      throw new Error("Token d'authentification non disponible");
+    }
+    
+    // Construire les en-têtes pour la requête
+    const headers = buildCorsProxyHeaders(account, {
+      'Authorization': `Bearer ${token}`
+    });
+    
+    console.log(`Récupération des détails de la campagne ${campaignUid} depuis l'API via CORS proxy`);
+    const response = await fetch(url, { headers });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur lors de la récupération des détails de la campagne: ${response.status} ${response.statusText}`);
+    }
+    
+    const apiResponse = await response.json();
+    
+    if (!apiResponse || !apiResponse.uid) {
+      throw new Error("Format de réponse API inattendu pour les détails de la campagne");
+    }
+    
+    // Transformer les données de l'API
+    const campaign: AcelleCampaign = {
+      uid: apiResponse.uid,
+      campaign_uid: apiResponse.uid,
+      name: apiResponse.name,
+      subject: apiResponse.subject,
+      status: apiResponse.status,
+      created_at: apiResponse.created_at,
+      updated_at: apiResponse.updated_at,
+      delivery_date: apiResponse.delivery_date,
+      run_at: apiResponse.run_at
     };
     
-    return campaignDetails;
+    // Mettre à jour le cache
+    await supabase
+      .from('email_campaigns_cache')
+      .upsert({
+        account_id: account.id,
+        campaign_uid: campaign.uid,
+        name: campaign.name,
+        subject: campaign.subject,
+        status: campaign.status,
+        created_at: campaign.created_at,
+        updated_at: campaign.updated_at,
+        delivery_date: campaign.delivery_date,
+        run_at: campaign.run_at,
+        cache_updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'account_id,campaign_uid'
+      });
+    
+    // Enrichir avec des statistiques
+    const enrichedCampaign = await enrichCampaignsWithStats([campaign], account);
+    return enrichedCampaign[0];
   } catch (error) {
     console.error(`Erreur lors de la récupération des détails de la campagne ${campaignUid}:`, error);
-    
-    // En cas d'erreur, retourner tout de même des données de démo
-    const fallbackDetails = acelleApiService.generateDemoCampaignDetails(campaignUid);
-    
-    return {
-      uid: fallbackDetails.uid,
-      campaign_uid: fallbackDetails.uid,
-      name: fallbackDetails.name,
-      subject: fallbackDetails.subject,
-      status: fallbackDetails.status,
-      created_at: fallbackDetails.created_at,
-      updated_at: fallbackDetails.updated_at,
-      delivery_date: fallbackDetails.delivery_date,
-      run_at: null,
-      content: fallbackDetails.html,
-      html: fallbackDetails.html,
-      statistics: {
-        subscriber_count: Math.floor(Math.random() * 10000) + 100,
-        delivered_count: Math.floor(Math.random() * 9000) + 50,
-        delivered_rate: Math.random() * 0.9 + 0.1,
-        open_count: Math.floor(Math.random() * 5000),
-        uniq_open_count: Math.floor(Math.random() * 4500),
-        uniq_open_rate: Math.random() * 0.5,
-        click_count: Math.floor(Math.random() * 3000),
-        click_rate: Math.random() * 0.3,
-        bounce_count: Math.floor(Math.random() * 500),
-        soft_bounce_count: Math.floor(Math.random() * 300),
-        hard_bounce_count: Math.floor(Math.random() * 200),
-        unsubscribe_count: Math.floor(Math.random() * 200),
-        abuse_complaint_count: Math.floor(Math.random() * 50)
-      },
-      delivery_info: {
-        total: Math.floor(Math.random() * 10000) + 100,
-        delivered: Math.floor(Math.random() * 9000) + 50,
-        opened: Math.floor(Math.random() * 5000), 
-        clicked: Math.floor(Math.random() * 3000),
-        bounced: {
-          total: Math.floor(Math.random() * 500),
-          hard: Math.floor(Math.random() * 200),
-          soft: Math.floor(Math.random() * 300)
-        },
-        delivery_rate: Math.random() * 0.9 + 0.1,
-        unique_open_rate: Math.random() * 0.5,
-        click_rate: Math.random() * 0.3
-      }
-    };
+    return null;
   }
 };
 
 /**
- * Force la synchronisation des campagnes pour un compte
- * (version simulée qui fonctionnera toujours)
+ * Force la synchronisation des campagnes avec l'API Acelle
  */
 export const forceSyncCampaigns = async (
   account: AcelleAccount,
   authToken: string
-): Promise<{ success: boolean; message: string }> => {
-  console.log(`Simulation de synchronisation des campagnes pour ${account.name}...`);
-  
+): Promise<{success: boolean, message: string}> => {
   try {
-    // Simuler un délai pour donner l'impression de traitement
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log(`Synchronisation forcée des campagnes pour ${account.name}...`);
     
-    // Générer un nombre aléatoire pour le message
-    const campaignsCount = Math.floor(Math.random() * 20) + 5;
+    // Appeler la fonction Edge pour synchroniser les campagnes
+    const response = await fetch(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/sync-email-campaigns`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        accountId: account.id
+      })
+    });
     
-    // Stocker la date de synchronisation dans la BDD
-    try {
-      await supabase
-        .from('acelle_accounts')
-        .update({ 
-          last_sync_date: new Date().toISOString(),
-          last_sync_error: null
-        })
-        .eq('id', account.id);
-    } catch (dbError) {
-      console.error("Erreur lors de la mise à jour de la date de sync:", dbError);
+    if (!response.ok) {
+      throw new Error(`Erreur lors de la synchronisation: ${response.status} ${response.statusText}`);
     }
+    
+    const result = await response.json();
     
     return {
       success: true,
-      message: `${campaignsCount} campagnes synchronisées avec succès`
+      message: "Synchronisation des campagnes réussie"
     };
   } catch (error) {
-    console.error("Erreur lors de la synchronisation forcée (simulée):", error);
-    
+    console.error("Erreur lors de la synchronisation forcée:", error);
     return {
-      success: true, // Toujours renvoyer succès même en cas d'erreur
-      message: `La synchronisation a réussi`
+      success: false,
+      message: `Erreur: ${error instanceof Error ? error.message : "Erreur de synchronisation"}`
     };
   }
 };

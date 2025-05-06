@@ -40,12 +40,6 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     
     const duration = Date.now() - startTime;
     
-    // Récupérer les en-têtes pour le débogage
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-    
     // Si le statut n'est pas OK
     if (!response.ok) {
       const errorText = await response.text();
