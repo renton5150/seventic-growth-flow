@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -52,8 +51,7 @@ export const AcelleTableRow = ({
 
       // Vérifier si nous avons déjà des statistiques valides
       const hasValidStats = stats && 
-                           stats.subscriber_count > 0 && 
-                           (stats.delivered_count > 0 || stats.delivered_rate >= 0);
+                           stats.subscriber_count > 0;
       
       // Si nous avons déjà des statistiques valides, ne pas recharger
       if (hasValidStats) {
@@ -79,9 +77,9 @@ export const AcelleTableRow = ({
         
         console.log(`[TableRow] Chargement des statistiques pour la campagne ${campaignName} avec forceRefresh=true`);
         
-        // RESTAURÉ: Forcer le rafraîchissement pour résoudre le problème de mise en cache
+        // IMPORTANT: Forcer le rafraîchissement pour résoudre le problème de mise en cache
         const enrichedCampaign = await fetchAndProcessCampaignStats(campaign, account, { 
-          refresh: true
+          refresh: true // Forcer le rafraîchissement pour obtenir les données depuis l'API
         }) as AcelleCampaign;
         
         console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, 

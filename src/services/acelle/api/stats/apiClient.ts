@@ -45,15 +45,17 @@ export async function fetchCampaignStatisticsFromApi(
     
     // Effectuer l'appel API avec timeout augmenté
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 secondes timeout
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 secondes timeout (augmenté)
     
     const statsResponse = await fetch(statsUrl, {
       headers: {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token}`,
-        'X-Acelle-Endpoint': account.api_endpoint
+        'X-Acelle-Endpoint': account.api_endpoint,
+        'Cache-Control': 'no-cache, no-store'
       },
-      signal: controller.signal
+      signal: controller.signal,
+      cache: 'no-store'
     });
     
     clearTimeout(timeoutId);

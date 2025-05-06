@@ -145,16 +145,27 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           hasApiToken: !!account.api_token
         }
       });
-      
+
       try {
-        // RESTAURÉ : Forcer le rafraîchissement pour toujours obtenir les dernières statistiques
-        // lors du changement de page ou du compte
-        const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
-          forceRefresh: true // RESTAURÉ: Force le rafraîchissement pour assurer des données à jour
-        });
+        // Vérifier quelles campagnes ont besoin d'un enrichissement
+        const campaignsToEnrich = campaigns.filter(campaign => 
+          !campaign.statistics || 
+          campaign.statistics.subscriber_count <= 0
+        );
+
+        if (campaignsToEnrich.length > 0) {
+          console.log(`${campaignsToEnrich.length} campagnes nécessitent un enrichissement avec API`);
           
-        console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
-        setCampaigns(enrichedCampaigns);
+          // IMPORTANT: Forcer le rafraîchissement uniquement pour les campagnes sans statistiques
+          const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
+            forceRefresh: true // Force le rafraîchissement pour assurer des données à jour
+          });
+            
+          console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
+          setCampaigns(enrichedCampaigns);
+        } else {
+          console.log('Toutes les campagnes ont déjà des statistiques valides');
+        }
       } catch (err) {
         console.error("Error enriching campaigns with statistics:", err);
       }

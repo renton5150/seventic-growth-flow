@@ -7,9 +7,11 @@ import { corsHeaders } from "../_shared/cors.ts";
  * Configuration du proxy CORS
  */
 const CONFIG = {
-  version: "1.3.3",
-  timeout: 60000, // 60 secondes
-  userAgent: "Seventic-CORS-Proxy/1.3"
+  version: "1.3.4", // Version incrémentée
+  timeout: 120000, // 120 secondes (augmenté)
+  userAgent: "Seventic-CORS-Proxy/1.3",
+  maxRetries: 3,    // Nombre maximum de tentatives
+  retryDelay: 1000  // Délai entre les tentatives en ms
 };
 
 console.log(`CORS Proxy v${CONFIG.version} démarré`);
@@ -62,23 +64,40 @@ serve(async (req) => {
     delete forwardHeaders['x-forwarded-for'];
     delete forwardHeaders['x-forwarded-proto'];
     
-    // Ajouter notre user agent pour le suivi
+    // Ajouter notre user agent et désactiver le cache
     forwardHeaders['user-agent'] = CONFIG.userAgent;
+    forwardHeaders['cache-control'] = 'no-cache, no-store';
+    forwardHeaders['pragma'] = 'no-cache';
     
     console.log("[CORS Proxy] En-têtes de la requête envoyée:", forwardHeaders);
     console.log("[CORS Proxy] Transmission de la requête vers:", targetUrl);
     
-    // Effectuer la requête avec un timeout adapté
+    // Fonction pour effectuer une requête avec retentatives
+    const fetchWithRetry = async (url: string, options: RequestInit, retries = CONFIG.maxRetries): Promise<Response> => {
+      try {
+        return await fetch(url, options);
+      } catch (error) {
+        if (retries > 0) {
+          console.log(`[CORS Proxy] Erreur, tentative ${CONFIG.maxRetries - retries + 1}/${CONFIG.maxRetries} dans ${CONFIG.retryDelay}ms`);
+          await new Promise(resolve => setTimeout(resolve, CONFIG.retryDelay));
+          return fetchWithRetry(url, options, retries - 1);
+        }
+        throw error;
+      }
+    };
+    
+    // Effectuer la requête avec timeout adapté
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
     
     const startTime = Date.now();
     
-    const response = await fetch(targetUrl, {
+    const response = await fetchWithRetry(targetUrl, {
       method: req.method,
       headers: forwardHeaders,
       body: (req.method !== 'HEAD' && req.method !== 'GET') ? await req.blob() : undefined,
-      signal: controller.signal
+      signal: controller.signal,
+      redirect: 'follow'
     });
     
     clearTimeout(timeoutId);
@@ -86,9 +105,19 @@ serve(async (req) => {
     console.log("[CORS Proxy] Réponse cible:", `${response.status} ${response.statusText} pour ${targetUrl}`);
     
     // Obtenir le corps de la réponse
-    const responseBody = response.headers.get('content-type')?.includes('application/json')
-      ? await response.json().catch(() => null)
-      : await response.text().catch(() => null);
+    let responseBody;
+    let contentType = response.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      try {
+        responseBody = await response.json();
+      } catch (e) {
+        console.warn("[CORS Proxy] Échec de parsing JSON, traitement comme texte", e);
+        responseBody = await response.text();
+      }
+    } else {
+      responseBody = await response.text();
+    }
     
     // Résumer la réponse reçue pour le débogage
     if (responseBody) {
@@ -106,23 +135,34 @@ serve(async (req) => {
       }
     }
     
-    // Construire la réponse CORS
-    const corsResponse = new Response(
+    // Construire les en-têtes de réponse avec CORS
+    const responseHeaders = new Headers({
+      ...corsHeaders,
+      'Content-Type': contentType || 'application/json'
+    });
+    
+    // Ajouter d'autres en-têtes pertinents de la réponse originale
+    for (const [key, value] of response.headers.entries()) {
+      if (!['content-type', 'content-length'].includes(key.toLowerCase())) {
+        responseHeaders.set(key, value);
+      }
+    }
+    
+    // Ajouter un en-tête indiquant le temps de réponse
+    const endTime = Date.now();
+    const responseTime = endTime - startTime;
+    responseHeaders.set('X-Response-Time', `${responseTime}`);
+    
+    console.log("[CORS Proxy] Requête complétée en", `${responseTime}ms pour ${targetUrl}`);
+    
+    return new Response(
       typeof responseBody === 'object' ? JSON.stringify(responseBody) : responseBody,
       {
         status: response.status,
         statusText: response.statusText,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': response.headers.get('Content-Type') || 'application/json',
-        }
+        headers: responseHeaders
       }
     );
-    
-    const endTime = Date.now();
-    console.log("[CORS Proxy] Requête complétée en", `${endTime - startTime}ms pour ${targetUrl}`);
-    
-    return corsResponse;
   } catch (error) {
     console.error("[CORS Proxy] Erreur lors de la transmission de la requête:", error);
     

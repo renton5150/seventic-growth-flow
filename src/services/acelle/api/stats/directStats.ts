@@ -4,6 +4,7 @@ import { ensureValidStatistics } from "./validation";
 import { fetchCampaignStatisticsFromApi } from "./apiClient";
 import { getCachedStatistics, getLastUpdatedTimestamp, saveCampaignStatistics, isCacheValid } from "./cacheManager";
 import { supabase } from "@/integrations/supabase/client";
+import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 // Constante pour définir la durée de validité du cache (5 minutes par défaut)
 const CACHE_VALIDITY_DURATION_MS = 5 * 60 * 1000; // 5 minutes en millisecondes
@@ -41,9 +42,19 @@ export const enrichCampaignsWithStats = async (
       console.log(`[directStats] Traitement de la campagne ${campaignUid} (${campaign.name})`);
       
       let statistics: AcelleCampaignStatistics | null = null;
+      const hasExistingStats = campaign.statistics && 
+                              campaign.statistics.subscriber_count > 0 && 
+                              campaign.statistics.delivered_count >= 0;
       
+      // Si des statistiques valides existent déjà et qu'on ne force pas le rafraîchissement
+      if (!forceRefresh && hasExistingStats) {
+        console.log(`[directStats] La campagne ${campaignUid} a déjà des statistiques valides, utilisation des données existantes`);
+        enrichedCampaigns.push(campaign);
+        continue;
+      }
+      
+      // 1. Essayer d'abord de récupérer depuis le cache si on ne force pas le rafraîchissement
       if (!forceRefresh) {
-        // Try to get from cache first if not forcing refresh
         statistics = await getCachedStatistics(campaignUid, account.id);
         
         // Vérifier la fraîcheur du cache si nous avons des statistiques
@@ -69,31 +80,32 @@ export const enrichCampaignsWithStats = async (
         console.log(`[directStats] Forçage du rafraîchissement pour ${campaignUid}`);
       }
       
-      // Si nous sommes ici, c'est que nous devons récupérer les statistiques depuis l'API
+      // 2. Récupérer depuis l'API si le cache est invalide, trop ancien ou forceRefresh=true
       console.log(`[directStats] Récupération des statistiques depuis l'API pour ${campaignUid}`);
       statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
       
       if (statistics) {
-        // Toujours sauvegarder en cache les nouvelles statistiques, même en cas de forceRefresh
+        // Toujours sauvegarder en cache les nouvelles statistiques
         console.log(`[directStats] Sauvegarde des nouvelles statistiques en cache pour ${campaignUid}`);
         await saveCampaignStatistics(campaignUid, account.id, statistics);
         
-        // Add statistics to campaign
+        // Ajouter les statistiques à la campagne
         enrichedCampaigns.push({
           ...campaign,
           statistics: ensureValidStatistics(statistics)
         });
       } else {
         console.warn(`[directStats] Pas de statistiques API pour ${campaignUid}, utilisation des statistiques existantes`);
-        // Utiliser les statistiques existantes de la campagne si disponibles
+        // Utiliser les statistiques existantes de la campagne si disponibles, sinon créer des statistiques vides
+        const fallbackStats = campaign.statistics || createEmptyStatistics();
         enrichedCampaigns.push({
           ...campaign,
-          statistics: campaign.statistics ? ensureValidStatistics(campaign.statistics) : null
+          statistics: ensureValidStatistics(fallbackStats)
         });
       }
     } catch (error) {
       console.error(`[directStats] Error enriching campaign ${campaign.uid || campaign.name} with stats:`, error);
-      // Still include the campaign without statistics
+      // Still include the campaign without statistics or with existing statistics
       enrichedCampaigns.push(campaign);
     }
   }
