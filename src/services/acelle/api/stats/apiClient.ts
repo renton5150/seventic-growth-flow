@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleCampaignStatistics, AcelleAccount } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { buildProxyUrl } from "../../acelle-service";
 import { ensureValidStatistics } from "./validation";
 

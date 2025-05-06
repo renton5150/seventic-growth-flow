@@ -32,7 +32,7 @@ export const enrichCampaignsWithStats = async (
   
   for (const campaign of campaigns) {
     try {
-      const campaignUid = campaign.uid || campaign.campaign_uid || '';
+      const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
       if (!campaignUid) {
         console.warn("[directStats] Campagne sans UID détectée, impossible d'enrichir avec des statistiques");
         enrichedCampaigns.push(campaign);
