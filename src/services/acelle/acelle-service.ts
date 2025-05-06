@@ -37,46 +37,85 @@ export const buildAcelleApiUrl = (
 };
 
 /**
+ * Fonction de délai (sleep) pour les retry
+ */
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
  * Appelle directement l'API Acelle avec gestion des erreurs et retries
  */
 export const callAcelleApi = async (
   url: string, 
   options: RequestInit = {},
-  retries = 2
+  retries = 2,
+  retryDelay = 1000
 ): Promise<any> => {
-  try {
-    console.log(`Appel API Acelle: ${url}`);
-    
-    // S'assurer que les headers sont définis
-    const headers = {
-      'Accept': 'application/json',
-      ...options.headers
-    };
-    
-    const response = await fetch(url, {
-      ...options,
-      headers
-    });
-    
-    // Vérifier si la réponse est OK
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Erreur API Acelle (${response.status}): ${errorText}`);
-      
-      // Réessayer en cas d'erreur de serveur (5xx)
-      if (response.status >= 500 && retries > 0) {
-        console.log(`Réessai de l'appel API (${retries} tentatives restantes)...`);
-        return callAcelleApi(url, options, retries - 1);
+  let lastError: any = null;
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`Tentative ${attempt}/${retries} pour l'appel à ${url}`);
+        await delay(retryDelay * attempt); // Délai exponentiel entre les tentatives
       }
       
-      throw new Error(`API Acelle: ${response.status} ${response.statusText}`);
+      console.log(`Appel API Acelle: ${url}`);
+      
+      // S'assurer que les headers sont définis
+      const headers = {
+        'Accept': 'application/json',
+        ...options.headers
+      };
+      
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        // Assurer que les requêtes échouent rapidement en cas de problème réseau
+        signal: AbortSignal.timeout(15000) // 15 secondes timeout
+      });
+      
+      // Vérifier si la réponse est OK
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Erreur API Acelle (${response.status}): ${errorText}`);
+        
+        // Stocker l'erreur pour la dernière tentative
+        lastError = new Error(`API Acelle: ${response.status} ${response.statusText} - ${errorText}`);
+        
+        // Si c'est une erreur de serveur (5xx) ou certaines erreurs 4xx qui peuvent être transitoires
+        // On continue la boucle pour réessayer
+        if (response.status >= 500 || response.status === 429 || response.status === 408) {
+          continue;
+        }
+        
+        // Pour les autres erreurs (400, 401, 403, etc.), on abandonne directement
+        throw lastError;
+      }
+      
+      // Si on arrive ici, la requête a réussi
+      const data = await response.json();
+      return data;
+      
+    } catch (error: any) {
+      console.error(`Erreur lors de l'appel API Acelle (tentative ${attempt}/${retries}):`, error);
+      lastError = error;
+      
+      // Si c'est une erreur de timeout ou de réseau et qu'il nous reste des tentatives, on continue
+      if ((error.name === 'AbortError' || error.name === 'TypeError') && attempt < retries) {
+        continue;
+      }
+      
+      // Pour les autres erreurs ou si c'était la dernière tentative, on abandonne
+      if (attempt >= retries) {
+        console.error(`Échec après ${retries} tentatives pour ${url}`);
+      }
+      
+      throw lastError;
     }
-    
-    return response.json();
-  } catch (error) {
-    console.error(`Erreur lors de l'appel API Acelle:`, error);
-    throw error;
   }
+  
+  // On ne devrait jamais arriver ici, mais au cas où
+  throw lastError || new Error(`Échec inexpliqué de l'appel API: ${url}`);
 };
 
 /**

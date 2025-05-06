@@ -1,440 +1,354 @@
-
-import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { buildProxyUrl } from "../acelle-service";
+import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
+import { buildAcelleApiUrl, callAcelleApi } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
-import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
+
+/**
+ * Crée des statistiques de campagne vides
+ */
+export const createEmptyStatistics = (): AcelleCampaignStatistics => ({
+  subscriber_count: 0,
+  delivered_count: 0,
+  delivered_rate: 0,
+  open_count: 0,
+  uniq_open_rate: 0,
+  click_count: 0,
+  click_rate: 0,
+  bounce_count: 0,
+  soft_bounce_count: 0,
+  hard_bounce_count: 0,
+  unsubscribe_count: 0,
+  abuse_complaint_count: 0
+});
+
+/**
+ * Crée des statistiques de démonstration
+ */
+export const createDemoStats = (campaign: AcelleCampaign): {
+  statistics: AcelleCampaignStatistics;
+  delivery_info: DeliveryInfo;
+} => {
+  const subscriberCount = Math.floor(Math.random() * 10000) + 100;
+  const openRate = Math.random() * 0.7;
+  const clickRate = Math.random() * 0.3;
+  const bounceRate = 0.03;
+
+  const statistics: AcelleCampaignStatistics = {
+    subscriber_count: subscriberCount,
+    delivered_count: subscriberCount - Math.floor(subscriberCount * bounceRate),
+    delivered_rate: 1 - bounceRate,
+    open_count: Math.floor(subscriberCount * openRate),
+    uniq_open_rate: openRate,
+    click_count: Math.floor(subscriberCount * clickRate),
+    click_rate: clickRate,
+    bounce_count: Math.floor(subscriberCount * bounceRate),
+    soft_bounce_count: Math.floor(subscriberCount * bounceRate / 2),
+    hard_bounce_count: Math.floor(subscriberCount * bounceRate / 2),
+    unsubscribe_count: Math.floor(subscriberCount * 0.005),
+    abuse_complaint_count: Math.floor(subscriberCount * 0.002)
+  };
+
+  const delivery_info: DeliveryInfo = {
+    total: subscriberCount,
+    delivered: subscriberCount - Math.floor(subscriberCount * bounceRate),
+    opened: Math.floor(subscriberCount * openRate),
+    clicked: Math.floor(subscriberCount * clickRate),
+    bounced: Math.floor(subscriberCount * bounceRate),
+    delivery_rate: 1 - bounceRate,
+    unique_open_rate: openRate,
+    click_rate: clickRate
+  };
+
+  console.log(`[DemoStats] Statistiques générées pour ${campaign.name}:`, { statistics, delivery_info });
+
+  return { statistics, delivery_info };
+};
+
+/**
+ * Vérifie si le cache est toujours frais
+ */
+const isCacheFresh = (lastUpdated: string | undefined, maxAge: number): boolean => {
+  if (!lastUpdated) return false;
+  const lastUpdatedDate = new Date(lastUpdated);
+  const now = Date.now();
+  return now - lastUpdatedDate.getTime() < maxAge;
+};
 
 /**
  * Récupère et traite les statistiques d'une campagne
+ * avec gestion intelligente du cache
  */
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign,
-  account: AcelleAccount,
+  account: AcelleAccount | null,
   options?: {
     refresh?: boolean;
     demoMode?: boolean;
   }
 ): Promise<{
   statistics: AcelleCampaignStatistics;
-  delivery_info: any;
+  delivery_info: DeliveryInfo;
+  lastUpdated?: string;
 }> => {
-  // Identifiant de la campagne
-  const campaignUid = campaign.uid || campaign.campaign_uid;
-  
-  if (!campaignUid) {
-    console.error("Aucun UID de campagne fourni pour la récupération des statistiques");
-    return {
-      statistics: createEmptyStatistics(),
-      delivery_info: {}
-    };
-  }
+  // Données par défaut
+  const emptyStats = createEmptyStatistics();
+  const emptyDeliveryInfo = {};
   
   try {
-    console.log(`[Stats] Début récupération stats pour campagne ${campaignUid}`);
-    
-    // Vérifier d'abord si les statistiques sont déjà dans le cache
-    if (!options?.refresh) {
-      console.log(`[Stats] Vérification du cache pour campagne ${campaignUid}...`);
-      
-      // Essayer d'abord campaign_stats_cache (table spécifique aux statistiques)
-      const { data: cachedStatsData, error: cacheStatsError } = await supabase
-        .from('campaign_stats_cache')
-        .select('statistics, last_updated')
-        .eq('campaign_uid', campaignUid)
-        .single();
-      
-      console.log(`[Stats] Résultat cache stats:`, 
-        cachedStatsData ? "Données trouvées" : "Cache stats vide", 
-        cacheStatsError ? `Erreur: ${cacheStatsError.message}` : "Pas d'erreur");
-      
-      if (!cacheStatsError && cachedStatsData && cachedStatsData.statistics) {
-        // Vérifier la fraîcheur du cache
-        const lastUpdated = new Date(cachedStatsData.last_updated);
-        const now = new Date();
-        const cacheAgeHours = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
-        
-        if (cacheAgeHours < 24) {
-          console.log(`[Stats] Utilisation du cache stats pour ${campaignUid}, âge: ${cacheAgeHours.toFixed(2)}h`);
-          
-          // Extraire les statistiques du cache (gérer string ou objet)
-          let statistics: AcelleCampaignStatistics;
-          
-          if (typeof cachedStatsData.statistics === 'string') {
-            try {
-              const parsedData = JSON.parse(cachedStatsData.statistics);
-              // Vérifier que les données analysées sont bien un objet avec les propriétés attendues
-              if (typeof parsedData === 'object' && parsedData !== null && !Array.isArray(parsedData)) {
-                // Convertir explicitement en utilisant la fonction de validation/complétion
-                statistics = ensureValidStatistics(parsedData);
-              } else {
-                console.error(`[Stats] Format de données JSON invalide:`, parsedData);
-                statistics = createEmptyStatistics();
-              }
-            } catch (e) {
-              console.error(`[Stats] Erreur parsing JSON du cache:`, e);
-              statistics = createEmptyStatistics();
-            }
-          } else if (typeof cachedStatsData.statistics === 'object' && cachedStatsData.statistics !== null) {
-            // Assurer que c'est un objet (pas un tableau)
-            if (!Array.isArray(cachedStatsData.statistics)) {
-              // Convertir explicitement en utilisant la fonction de validation/complétion
-              statistics = ensureValidStatistics(cachedStatsData.statistics);
-            } else {
-              console.error(`[Stats] Format de données invalide (tableau):`, cachedStatsData.statistics);
-              statistics = createEmptyStatistics();
-            }
-          } else {
-            console.error(`[Stats] Format de données invalide:`, cachedStatsData.statistics);
-            statistics = createEmptyStatistics();
-          }
-          
-          return {
-            statistics: statistics,
-            delivery_info: {
-              total: statistics.subscriber_count || 0,
-              delivered: statistics.delivered_count || 0,
-              delivery_rate: statistics.delivered_rate || 0,
-              opened: statistics.open_count || statistics.uniq_open_count || 0,
-              unique_open_rate: statistics.uniq_open_rate || 0,
-              clicked: statistics.click_count || 0,
-              click_rate: statistics.click_rate || 0,
-              bounced: statistics.bounce_count || 0,
-              unsubscribed: statistics.unsubscribe_count || 0,
-              complained: statistics.abuse_complaint_count || 0
-            }
-          };
-        } else {
-          console.log(`[Stats] Cache expiré pour ${campaignUid}, âge: ${cacheAgeHours.toFixed(2)}h > 24h`);
-        }
-      }
-      
-      // Fallback sur email_campaigns_cache si aucune donnée dans campaign_stats_cache
-      console.log(`[Stats] Vérification du cache email_campaigns_cache pour ${campaignUid}...`);
-      const { data: cachedCampaign, error: cacheCampaignError } = await supabase
-        .from('email_campaigns_cache')
-        .select('delivery_info, cache_updated_at')
-        .eq('campaign_uid', campaignUid)
-        .single();
-      
-      console.log(`[Stats] Résultat cache campaigns:`, 
-        cachedCampaign ? "Données trouvées" : "Cache campaigns vide", 
-        cacheCampaignError ? `Erreur: ${cacheCampaignError.message}` : "Pas d'erreur");
-      
-      if (!cacheCampaignError && cachedCampaign && cachedCampaign.delivery_info) {
-        // Vérifier la fraîcheur du cache
-        const lastUpdated = new Date(cachedCampaign.cache_updated_at || new Date());
-        const now = new Date();
-        const cacheAgeHours = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
-        
-        if (cacheAgeHours < 24) {
-          console.log(`[Stats] Utilisation du cache campaigns pour ${campaignUid}, âge: ${cacheAgeHours.toFixed(2)}h`);
-          
-          try {
-            // Parse delivery_info if it's a string, otherwise use as is if it's an object
-            const delivery_info = typeof cachedCampaign.delivery_info === 'string'
-              ? JSON.parse(cachedCampaign.delivery_info)
-              : cachedCampaign.delivery_info || {};
-            
-            // Ensure delivery_info is an object and has the required properties
-            if (typeof delivery_info === 'object' && delivery_info !== null) {
-              // Calculer les statistiques à partir de delivery_info
-              const statistics: AcelleCampaignStatistics = {
-                subscriber_count: delivery_info.total || 0,
-                delivered_count: delivery_info.delivered || 0,
-                delivered_rate: delivery_info.delivery_rate || 0,
-                open_count: delivery_info.opened || 0,
-                uniq_open_count: delivery_info.opened || 0,
-                uniq_open_rate: delivery_info.unique_open_rate || 0,
-                click_count: delivery_info.clicked || 0,
-                click_rate: delivery_info.click_rate || 0,
-                bounce_count: typeof delivery_info.bounced === 'object' ? 
-                  (delivery_info.bounced?.total || 0) : 
-                  (typeof delivery_info.bounced === 'number' ? delivery_info.bounced : 0),
-                soft_bounce_count: typeof delivery_info.bounced === 'object' ? 
-                  (delivery_info.bounced?.soft || 0) : 0,
-                hard_bounce_count: typeof delivery_info.bounced === 'object' ? 
-                  (delivery_info.bounced?.hard || 0) : 0,
-                unsubscribe_count: delivery_info.unsubscribed || 0,
-                abuse_complaint_count: delivery_info.complained || 0
-              };
-              
-              return { statistics, delivery_info };
-            }
-          } catch (parseError) {
-            console.error(`[Stats] Erreur lors de l'analyse des stats en cache:`, parseError);
-          }
-        } else {
-          console.log(`[Stats] Cache campaigns expiré pour ${campaignUid}, âge: ${cacheAgeHours.toFixed(2)}h > 24h`);
-        }
-      }
-    } else {
-      console.log(`[Stats] Rafraîchissement forcé pour campagne ${campaignUid}`);
+    // Mode démo: renvoyer des statistiques fictives
+    if (options?.demoMode) {
+      console.log("Génération de statistiques de démonstration pour", campaign.name || campaign.uid);
+      return createDemoStats(campaign);
     }
     
-    // Si pas de cache ou refresh demandé, récupérer depuis l'API
-    console.log(`[Stats] Appel API pour campagne ${campaignUid}`);
-    
-    // Vérification des informations du compte
-    if (!account || !account.api_token || !account.api_endpoint) {
-      console.error('[Stats] Informations de compte incomplètes pour la récupération des stats');
-      return { statistics: createEmptyStatistics(), delivery_info: {} };
-    }
-    
-    // Récupérer les statistiques depuis l'API
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    
-    if (!token) {
-      console.error("[Stats] Aucun token d'authentification disponible");
-      return { statistics: createEmptyStatistics(), delivery_info: {} };
-    }
-    
-    // IMPORTANT : Utiliser l'endpoint /campaigns/{uid} comme recommandé
-    const apiEndpoint = `campaigns/${campaignUid}`;
-    
-    // Construire l'URL pour les statistiques
-    const statsParams = { 
-      api_token: account.api_token,
-      _t: Date.now().toString()  // Anti-cache
-    };
-    
-    // Créer l'URL pour les statistiques
-    const statsUrl = buildProxyUrl(apiEndpoint, statsParams);
-    
-    console.log(`[Stats] Requête API statistiques: ${statsUrl}`);
-    
-    // Effectuer l'appel API
-    const statsResponse = await fetch(statsUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    console.log(`[Stats] Réponse API: Status ${statsResponse.status}`);
-    
-    if (!statsResponse.ok) {
-      console.error(`[Stats] Erreur API (${statsResponse.status}): ${statsResponse.statusText}`);
-      return { statistics: createEmptyStatistics(), delivery_info: {} };
-    }
-    
-    // Analyser la réponse
-    const responseData = await statsResponse.json();
-    
-    if (!responseData) {
-      console.error('[Stats] Format de réponse API inattendu:', responseData);
-      return { statistics: createEmptyStatistics(), delivery_info: {} };
-    }
-    
-    console.log(`[Stats] Données reçues pour ${campaignUid}:`, responseData);
-    
-    // Structure de réponse attendue : { campaign: {...}, statistics: {...} }
-    const apiStats = responseData.statistics || responseData.data || {};
-    
-    if (!apiStats || Object.keys(apiStats).length === 0) {
-      console.error('[Stats] Aucune statistique trouvée dans la réponse API:', responseData);
-      return { statistics: createEmptyStatistics(), delivery_info: {} };
-    }
-    
-    // Convertir et normaliser les statistiques
-    const statistics: AcelleCampaignStatistics = {
-      subscriber_count: apiStats.subscriber_count || 0,
-      delivered_count: apiStats.delivered_count || 0,
-      delivered_rate: apiStats.delivered_rate || 0,
-      open_count: apiStats.open_count || apiStats.uniq_open_count || 0,
-      uniq_open_count: apiStats.uniq_open_count || apiStats.open_count || 0,
-      uniq_open_rate: apiStats.uniq_open_rate || apiStats.unique_open_rate || 0,
-      click_count: apiStats.click_count || 0,
-      click_rate: apiStats.click_rate || 0,
-      bounce_count: apiStats.bounce_count || 0,
-      soft_bounce_count: apiStats.soft_bounce_count || 0,
-      hard_bounce_count: apiStats.hard_bounce_count || 0,
-      unsubscribe_count: apiStats.unsubscribe_count || 0,
-      abuse_complaint_count: apiStats.abuse_complaint_count || 0,
-    };
-    
-    // Créer un format unifié pour delivery_info
-    const delivery_info = {
-      total: statistics.subscriber_count,
-      delivered: statistics.delivered_count,
-      delivery_rate: statistics.delivered_rate,
-      opened: statistics.open_count,
-      unique_open_rate: statistics.uniq_open_rate,
-      clicked: statistics.click_count,
-      click_rate: statistics.click_rate,
-      bounced: {
-        total: statistics.bounce_count,
-        soft: statistics.soft_bounce_count,
-        hard: statistics.hard_bounce_count
-      },
-      unsubscribed: statistics.unsubscribe_count,
-      complained: statistics.abuse_complaint_count
-    };
-    
-    // Mettre à jour le cache dans campaign_stats_cache
-    try {
-      console.log(`[Stats] Mise à jour du cache campaign_stats_cache pour ${campaignUid}`);
-      
-      // Fix: Convert statistics object to a standard JSON object to match the Json type expected by Supabase
-      // This creates a plain object that can be safely stored as Json
-      const statisticsJson = JSON.parse(JSON.stringify(statistics));
-      
-      const { error: statsUpsertError } = await supabase
-        .from('campaign_stats_cache')
-        .upsert({
-          campaign_uid: campaignUid,
-          account_id: account.id,
-          statistics: statisticsJson,  // Using the JSON-compatible version
-          last_updated: new Date().toISOString()
-        }, {
-          onConflict: 'campaign_uid,account_id'
-        });
-      
-      if (statsUpsertError) {
-        console.error(`[Stats] Erreur lors de la mise à jour de campaign_stats_cache:`, statsUpsertError);
-      } else {
-        console.log(`[Stats] Mise à jour de campaign_stats_cache réussie pour ${campaignUid}`);
-      }
-    } catch (cacheStatsError) {
-      console.error(`[Stats] Exception lors de la mise à jour de campaign_stats_cache:`, cacheStatsError);
-    }
-    
-    // Mettre en cache les statistiques dans email_campaigns_cache pour une utilisation ultérieure
-    try {
-      console.log(`[Stats] Mise à jour du cache email_campaigns_cache pour ${campaignUid}`);
-      
-      const { error: campaignUpsertError } = await supabase
-        .from('email_campaigns_cache')
-        .update({
-          delivery_info: delivery_info,
-          cache_updated_at: new Date().toISOString()
-        })
-        .eq('campaign_uid', campaignUid)
-        .eq('account_id', account.id);
-      
-      if (campaignUpsertError) {
-        console.error(`[Stats] Erreur lors de la mise à jour de email_campaigns_cache:`, campaignUpsertError);
-      } else {
-        console.log(`[Stats] Mise à jour de email_campaigns_cache réussie pour ${campaignUid}`);
-      }
-    } catch (cacheCampaignError) {
-      console.error(`[Stats] Exception lors de la mise à jour de email_campaigns_cache:`, cacheCampaignError);
-    }
-    
-    return { statistics, delivery_info };
-  } catch (error) {
-    console.error(`[Stats] Erreur lors de la récupération des statistiques pour ${campaignUid}:`, error);
-    
-    // En cas d'erreur, essayer d'utiliser les statistiques existantes de la campagne
-    if (campaign.statistics) {
-      return {
-        statistics: campaign.statistics,
-        delivery_info: campaign.delivery_info || {}
+    // Vérifier les identifiants de campagne
+    const campaignUid = campaign.uid || campaign.campaign_uid;
+    if (!campaignUid) {
+      console.error("Impossible de récupérer les statistiques: UID de campagne manquant");
+      return { 
+        statistics: emptyStats,
+        delivery_info: emptyDeliveryInfo
       };
     }
     
-    return {
-      statistics: createEmptyStatistics(),
-      delivery_info: {}
-    };
-  }
-};
+    console.log(`Traitement des statistiques pour la campagne ${campaign.name || campaignUid}`);
 
-/**
- * S'assure qu'un objet de statistiques respecte l'interface AcelleCampaignStatistics
- * en fournissant des valeurs par défaut pour les propriétés manquantes
- */
-function ensureValidStatistics(data: any): AcelleCampaignStatistics {
-  // Créer une structure de base avec des valeurs par défaut
-  const validStats: AcelleCampaignStatistics = {
-    subscriber_count: 0,
-    delivered_count: 0,
-    delivered_rate: 0,
-    open_count: 0,
-    uniq_open_count: 0,
-    uniq_open_rate: 0,
-    click_count: 0,
-    click_rate: 0,
-    bounce_count: 0,
-    soft_bounce_count: 0,
-    hard_bounce_count: 0,
-    unsubscribe_count: 0,
-    abuse_complaint_count: 0
-  };
-  
-  // Si les données d'entrée sont nulles ou non-objets, retourner les valeurs par défaut
-  if (!data || typeof data !== 'object') {
-    return validStats;
-  }
-  
-  // Fusionner les données d'entrée avec la structure de base
-  // en ne conservant que les propriétés valides
-  return {
-    subscriber_count: typeof data.subscriber_count === 'number' ? data.subscriber_count : validStats.subscriber_count,
-    delivered_count: typeof data.delivered_count === 'number' ? data.delivered_count : validStats.delivered_count,
-    delivered_rate: typeof data.delivered_rate === 'number' ? data.delivered_rate : validStats.delivered_rate,
-    open_count: typeof data.open_count === 'number' ? data.open_count : validStats.open_count,
-    uniq_open_count: typeof data.uniq_open_count === 'number' ? data.uniq_open_count : validStats.uniq_open_count,
-    uniq_open_rate: typeof data.uniq_open_rate === 'number' ? data.uniq_open_rate : validStats.uniq_open_rate,
-    click_count: typeof data.click_count === 'number' ? data.click_count : validStats.click_count,
-    click_rate: typeof data.click_rate === 'number' ? data.click_rate : validStats.click_rate,
-    bounce_count: typeof data.bounce_count === 'number' ? data.bounce_count : validStats.bounce_count,
-    soft_bounce_count: typeof data.soft_bounce_count === 'number' ? data.soft_bounce_count : validStats.soft_bounce_count,
-    hard_bounce_count: typeof data.hard_bounce_count === 'number' ? data.hard_bounce_count : validStats.hard_bounce_count,
-    unsubscribe_count: typeof data.unsubscribe_count === 'number' ? data.unsubscribe_count : validStats.unsubscribe_count,
-    abuse_complaint_count: typeof data.abuse_complaint_count === 'number' ? data.abuse_complaint_count : validStats.abuse_complaint_count
-  };
-}
-
-/**
- * Teste l'insertion d'une statistique dans le cache pour vérification
- */
-export const testCacheInsertion = async (
-  account: AcelleAccount
-): Promise<boolean> => {
-  try {
-    console.log(`[Stats] Test d'insertion dans le cache pour compte ${account.name}`);
-    
-    // Create a test statistics object
-    const testStats: AcelleCampaignStatistics = {
-      subscriber_count: 100,
-      delivered_count: 80,
-      delivered_rate: 0.8,
-      open_count: 40,
-      uniq_open_count: 35,
-      uniq_open_rate: 0.35,
-      click_count: 20,
-      click_rate: 0.2,
-      bounce_count: 5,
-      soft_bounce_count: 3,
-      hard_bounce_count: 2,
-      unsubscribe_count: 2,
-      abuse_complaint_count: 0
-    };
-    
-    // Convert to a standard JSON object to satisfy the Json type requirement
-    const statisticsJson = JSON.parse(JSON.stringify(testStats));
-    
-    const testData = {
-      campaign_uid: "test-campaign-uid",
-      account_id: account.id,
-      statistics: statisticsJson,  // Using the JSON-compatible version
-      last_updated: new Date().toISOString()
-    };
-    
-    const { error: insertError } = await supabase
-      .from('campaign_stats_cache')
-      .upsert(testData);
-    
-    if (insertError) {
-      console.error(`[Stats] Erreur lors du test d'insertion:`, insertError);
-      return false;
+    if (!options?.refresh) {
+      // 1) Vérifier d'abord si nous avons des stats en cache Supabase
+      try {
+        // Récupération depuis la table de cache des statistiques
+        const { data: cachedStats, error } = await supabase
+          .from('campaign_stats_cache')
+          .select('statistics, last_updated')
+          .eq('campaign_uid', campaignUid)
+          .single();
+          
+        if (!error && cachedStats && cachedStats.statistics) {
+          console.log(`Statistiques trouvées en cache pour ${campaignUid}`);
+          
+          // Vérifier la fraîcheur des données (max 4 heures)
+          const lastUpdated = cachedStats.last_updated;
+          const isStillFresh = isCacheFresh(lastUpdated, 4 * 60 * 60 * 1000); // 4 heures
+          
+          if (isStillFresh) {
+            console.log(`Cache frais pour ${campaignUid}, utilisation des données en cache`);
+            return {
+              statistics: cachedStats.statistics as AcelleCampaignStatistics,
+              delivery_info: campaign.delivery_info || {},
+              lastUpdated
+            };
+          } else {
+            console.log(`Cache expiré pour ${campaignUid}, rafraîchissement nécessaire`);
+          }
+        } else {
+          console.log(`Aucune donnée en cache pour ${campaignUid}`);
+        }
+      } catch (cacheError) {
+        console.warn(`Erreur d'accès au cache pour ${campaignUid}:`, cacheError);
+      }
     }
     
-    console.log(`[Stats] Test d'insertion réussi`);
-    return true;
+    // 2) Si pas de cache ou rafraîchissement demandé, récupérer depuis l'API
+    if (!account || !account.api_token || !account.api_endpoint) {
+      console.error(`Impossible d'appeler l'API: informations de compte Acelle incomplètes`);
+      
+      // Si nous avons des statistiques dans la campagne, les utiliser comme fallback
+      if (campaign.statistics || campaign.delivery_info) {
+        console.log(`Utilisation des statistiques existantes pour ${campaignUid} comme fallback`);
+        return {
+          statistics: campaign.statistics || emptyStats,
+          delivery_info: campaign.delivery_info || emptyDeliveryInfo
+        };
+      }
+      
+      return {
+        statistics: emptyStats,
+        delivery_info: emptyDeliveryInfo
+      };
+    }
+    
+    // Essayer d'obtenir les statistiques directement via l'API
+    try {
+      // URL direct pour les statistiques de la campagne
+      const url = buildAcelleApiUrl(account, `campaigns/${campaignUid}/overview`);
+      console.log(`Appel direct à l'API pour les statistiques de ${campaignUid}: ${url}`);
+      
+      const response = await callAcelleApi(url, {}, 3); // 3 tentatives max
+      
+      if (response && response.data) {
+        console.log(`Statistiques reçues pour ${campaignUid}:`, response.data);
+        
+        const statsData = response.data;
+        
+        // Structurer les statistiques selon le format attendu
+        const statistics = {
+          subscriber_count: statsData.subscribers_count || 0,
+          delivered_count: statsData.recipients_count || 0,
+          delivered_rate: statsData.delivery_rate ? statsData.delivery_rate / 100 : 0,
+          open_count: statsData.unique_opens_count || 0,
+          uniq_open_count: statsData.unique_opens_count || 0,
+          uniq_open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
+          click_count: statsData.unique_clicks_count || 0,
+          click_rate: statsData.clicks_rate ? statsData.clicks_rate / 100 : 0,
+          bounce_count: (statsData.bounce_count || 0),
+          soft_bounce_count: (statsData.soft_bounce_count || 0),
+          hard_bounce_count: (statsData.hard_bounce_count || 0),
+          unsubscribe_count: (statsData.unsubscribe_count || 0),
+          abuse_complaint_count: (statsData.feedback_count || 0)
+        };
+        
+        // Structurer les delivery_info
+        const delivery_info = {
+          total: statsData.subscribers_count || 0,
+          delivered: statsData.recipients_count || 0,
+          opened: statsData.unique_opens_count || 0,
+          clicked: statsData.unique_clicks_count || 0,
+          bounced: {
+            total: (statsData.bounce_count || 0),
+            hard: (statsData.hard_bounce_count || 0),
+            soft: (statsData.soft_bounce_count || 0)
+          },
+          delivery_rate: statsData.delivery_rate ? statsData.delivery_rate / 100 : 0,
+          unique_open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
+          click_rate: statsData.clicks_rate ? statsData.clicks_rate / 100 : 0,
+          unsubscribed: (statsData.unsubscribe_count || 0),
+          complained: (statsData.feedback_count || 0)
+        };
+        
+        // Mise à jour du cache des statistiques
+        try {
+          await supabase
+            .from('campaign_stats_cache')
+            .upsert({
+              campaign_uid: campaignUid,
+              statistics: statistics,
+              last_updated: new Date().toISOString()
+            }, { 
+              onConflict: 'campaign_uid' 
+            });
+          console.log(`Cache des statistiques mis à jour pour ${campaignUid}`);
+        } catch (cacheError) {
+          console.warn(`Erreur lors de la mise à jour du cache pour ${campaignUid}:`, cacheError);
+        }
+        
+        return {
+          statistics,
+          delivery_info,
+          lastUpdated: new Date().toISOString()
+        };
+      }
+    } catch (apiError) {
+      console.error(`Erreur lors de l'appel API pour ${campaignUid}:`, apiError);
+    }
+    
+    // 3) Si l'API échoue, essayer de récupérer des statistiques depuis les données de la campagne
+    // ou d'autres sources de données
+    console.log(`Tentative de récupération de statistiques alternatives pour ${campaignUid}`);
+    
+    // Si la campagne a des statistiques, les utiliser
+    if (campaign.statistics) {
+      console.log(`Utilisation des statistiques existantes dans la campagne pour ${campaignUid}`);
+      return {
+        statistics: campaign.statistics,
+        delivery_info: campaign.delivery_info || emptyDeliveryInfo
+      };
+    }
+    
+    // Si la campagne a des delivery_info, extraire des statistiques
+    if (campaign.delivery_info && typeof campaign.delivery_info === 'object') {
+      console.log(`Extraction de statistiques depuis delivery_info pour ${campaignUid}`);
+      
+      // Essayer de récupérer depuis email_campaigns_cache
+      try {
+        const { data: cachedCampaign } = await supabase
+          .from('email_campaigns_cache')
+          .select('delivery_info, cache_updated_at')
+          .eq('campaign_uid', campaignUid)
+          .single();
+          
+        if (cachedCampaign && cachedCampaign.delivery_info) {
+          console.log(`Données de cache trouvées pour ${campaignUid}`);
+          
+          const deliveryInfo = typeof cachedCampaign.delivery_info === 'string' 
+            ? JSON.parse(cachedCampaign.delivery_info) 
+            : cachedCampaign.delivery_info;
+          
+          const bouncedInfo = (
+            deliveryInfo && 
+            typeof deliveryInfo === 'object' && 
+            deliveryInfo.bounced && 
+            typeof deliveryInfo.bounced === 'object'
+          ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+          
+          const statistics: AcelleCampaignStatistics = {
+            subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
+            delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
+            delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
+            open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+            uniq_open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+            uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
+            click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
+            click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
+            bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
+            soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
+            hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
+            unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
+            abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+          };
+          
+          return {
+            statistics,
+            delivery_info: deliveryInfo,
+            lastUpdated: cachedCampaign.cache_updated_at
+          };
+        }
+      } catch (dbError) {
+        console.warn(`Erreur lors de l'accès à la base de données pour ${campaignUid}:`, dbError);
+      }
+      
+      // Extraction des informations de delivery_info de la campagne
+      const deliveryInfo = campaign.delivery_info;
+      
+      const bouncedInfo = (
+        deliveryInfo && 
+        typeof deliveryInfo === 'object' && 
+        deliveryInfo.bounced && 
+        typeof deliveryInfo.bounced === 'object'
+      ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+      
+      const extractedStats: AcelleCampaignStatistics = {
+        subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
+        delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
+        delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
+        open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+        uniq_open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+        uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
+        click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
+        click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
+        bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
+        soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
+        hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
+        unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
+        abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+      };
+      
+      return {
+        statistics: extractedStats,
+        delivery_info: deliveryInfo
+      };
+    }
+    
+    // En dernier recours, retourner des statistiques vides
+    console.log(`Aucune statistique disponible pour ${campaignUid}, utilisation de valeurs par défaut`);
+    return {
+      statistics: emptyStats,
+      delivery_info: emptyDeliveryInfo
+    };
+    
   } catch (error) {
-    console.error(`[Stats] Exception lors du test d'insertion:`, error);
-    return false;
+    console.error("Erreur lors du traitement des statistiques de campagne:", error);
+    return { 
+      statistics: emptyStats,
+      delivery_info: emptyDeliveryInfo
+    };
   }
 };

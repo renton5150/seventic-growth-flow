@@ -31,6 +31,12 @@ export const enrichCampaignsWithStats = async (
   for (let i = 0; i < enrichedCampaigns.length; i++) {
     try {
       const campaign = enrichedCampaigns[i];
+      const campaignUid = campaign.uid || campaign.campaign_uid;
+      
+      if (!campaignUid) {
+        console.error(`Campagne sans UID valide: ${campaign.name}`);
+        continue;
+      }
       
       // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement, on saute
       if (!options?.forceRefresh && 
@@ -44,27 +50,100 @@ export const enrichCampaignsWithStats = async (
       
       console.log(`Récupération des statistiques pour la campagne ${campaign.name}`, {
         endpoint: account.api_endpoint,
-        campaignId: campaign.uid || campaign.campaign_uid
+        campaignUid
       });
       
-      // Récupérer les statistiques enrichies directement depuis l'API
-      const result = await fetchAndProcessCampaignStats(
-        campaign, 
-        account, 
-        { refresh: true }
-      );
-      
-      // Appliquer les statistiques enrichies à la campagne
-      enrichedCampaigns[i] = {
-        ...campaign,
-        statistics: result.statistics || createEmptyStatistics(),
-        delivery_info: result.delivery_info || {}
-      };
-      
-      console.log(`Statistiques appliquées à la campagne ${campaign.name}:`, {
-        statistics: result.statistics,
-        delivery_info: result.delivery_info
-      });
+      try {
+        // URL direct pour les statistiques de la campagne
+        const url = buildAcelleApiUrl(account, `campaigns/${campaignUid}/overview`);
+        console.log(`Appel direct à l'API pour les statistiques de ${campaignUid}: ${url}`);
+        
+        const response = await callAcelleApi(url, {}, 3); // 3 tentatives max
+        
+        if (response && response.data) {
+          console.log(`Statistiques reçues pour ${campaignUid}:`, response.data);
+          
+          const statsData = response.data;
+          
+          // Structurer les statistiques selon le format attendu
+          const statistics = {
+            subscriber_count: statsData.subscribers_count || 0,
+            delivered_count: statsData.recipients_count || 0,
+            delivered_rate: statsData.delivery_rate ? statsData.delivery_rate / 100 : 0,
+            open_count: statsData.unique_opens_count || 0,
+            uniq_open_count: statsData.unique_opens_count || 0,
+            uniq_open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
+            click_count: statsData.unique_clicks_count || 0,
+            click_rate: statsData.clicks_rate ? statsData.clicks_rate / 100 : 0,
+            bounce_count: (statsData.bounce_count || 0),
+            soft_bounce_count: (statsData.soft_bounce_count || 0),
+            hard_bounce_count: (statsData.hard_bounce_count || 0),
+            unsubscribe_count: (statsData.unsubscribe_count || 0),
+            abuse_complaint_count: (statsData.feedback_count || 0)
+          };
+          
+          // Structurer les delivery_info
+          const delivery_info = {
+            total: statsData.subscribers_count || 0,
+            delivered: statsData.recipients_count || 0,
+            opened: statsData.unique_opens_count || 0,
+            clicked: statsData.unique_clicks_count || 0,
+            bounced: {
+              total: (statsData.bounce_count || 0),
+              hard: (statsData.hard_bounce_count || 0),
+              soft: (statsData.soft_bounce_count || 0)
+            },
+            delivery_rate: statsData.delivery_rate ? statsData.delivery_rate / 100 : 0,
+            unique_open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
+            click_rate: statsData.clicks_rate ? statsData.clicks_rate / 100 : 0,
+            unsubscribed: (statsData.unsubscribe_count || 0),
+            complained: (statsData.feedback_count || 0)
+          };
+          
+          // Appliquer les statistiques directement
+          enrichedCampaigns[i] = {
+            ...campaign,
+            statistics: statistics,
+            delivery_info: delivery_info
+          };
+          
+          console.log(`Statistiques appliquées directement à la campagne ${campaign.name}`);
+        } else {
+          // Fallback à l'ancienne méthode en cas d'échec
+          console.warn(`Pas de données reçues pour ${campaignUid}, tentative avec l'ancienne méthode...`);
+          
+          const result = await fetchAndProcessCampaignStats(
+            campaign, 
+            account, 
+            { refresh: true }
+          );
+          
+          // Appliquer les statistiques enrichies à la campagne
+          enrichedCampaigns[i] = {
+            ...campaign,
+            statistics: result.statistics || createEmptyStatistics(),
+            delivery_info: result.delivery_info || {}
+          };
+        }
+      } catch (apiError) {
+        console.error(`Erreur API pour ${campaignUid}:`, apiError);
+        
+        // Fallback à l'ancienne méthode en cas d'erreur API
+        console.warn(`Erreur API pour ${campaignUid}, tentative avec l'ancienne méthode...`);
+        
+        const result = await fetchAndProcessCampaignStats(
+          campaign, 
+          account, 
+          { refresh: true }
+        );
+        
+        // Appliquer les statistiques enrichies à la campagne
+        enrichedCampaigns[i] = {
+          ...campaign,
+          statistics: result.statistics || createEmptyStatistics(),
+          delivery_info: result.delivery_info || {}
+        };
+      }
     } catch (error) {
       console.error(`Erreur lors de l'enrichissement de la campagne ${enrichedCampaigns[i].name}:`, error);
       
