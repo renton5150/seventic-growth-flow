@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -26,14 +25,14 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AcelleAccount } from "@/types/acelle.types";
 import { toast } from "sonner";
-import { InfoCircledIcon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { AlertCircle, Info } from "lucide-react"; // Remplacer les icônes Radix par Lucide
 
 // Schéma de validation pour le formulaire
 const formSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
   api_endpoint: z.string().min(1, "L'URL de l'API est requise").url("L'URL doit être valide"),
   api_token: z.string().min(1, "Le token API est requis"),
-  status: z.enum(["active", "inactive"]),
+  status: z.enum(["active", "inactive", "error"]), // Ajout de "error" comme statut valide
   mission_id: z.string().optional(),
 });
 
@@ -65,8 +64,8 @@ export default function AcelleAccountForm({
       name: account?.name || "",
       api_endpoint: account?.api_endpoint || "",
       api_token: account?.api_token || "",
-      status: account?.status || "active",
-      mission_id: account?.mission_id || "none", // Utiliser "none" au lieu de chaîne vide ""
+      status: (account?.status as "active" | "inactive" | "error") || "active", // Cast pour s'assurer de la compatibilité
+      mission_id: account?.mission_id || "none",
     },
   });
 
@@ -237,6 +236,7 @@ export default function AcelleAccountForm({
                       <SelectContent>
                         <SelectItem value="active">Actif</SelectItem>
                         <SelectItem value="inactive">Inactif</SelectItem>
+                        <SelectItem value="error">Erreur</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -250,9 +250,9 @@ export default function AcelleAccountForm({
         {testResult && (
           <Alert variant={testResult.success ? "default" : "destructive"}>
             {testResult.success ? (
-              <InfoCircledIcon className="h-4 w-4" />
+              <Info className="h-4 w-4" /> // Utiliser l'icône Lucide Info
             ) : (
-              <ExclamationTriangleIcon className="h-4 w-4" />
+              <AlertCircle className="h-4 w-4" /> // Utiliser l'icône Lucide AlertCircle
             )}
             <AlertDescription>{testResult.message}</AlertDescription>
           </Alert>

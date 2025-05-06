@@ -74,6 +74,62 @@ const isCacheFresh = (lastUpdated: string | undefined, maxAge: number): boolean 
 };
 
 /**
+ * Fonction de test pour l'insertion dans le cache
+ * Utilisée par DeliveryStatsChart pour tester le mécanisme de cache
+ */
+export const testCacheInsertion = async (
+  account: AcelleAccount
+): Promise<boolean> => {
+  try {
+    console.log("Test d'insertion dans le cache des statistiques...");
+    
+    // Création d'un ID de campagne de test
+    const testCampaignUid = `test-${Date.now()}`;
+    
+    // Création de statistiques de test
+    const testStats: AcelleCampaignStatistics = {
+      subscriber_count: 100,
+      delivered_count: 95,
+      delivered_rate: 0.95,
+      open_count: 50,
+      uniq_open_count: 45,
+      uniq_open_rate: 0.45,
+      click_count: 30,
+      click_rate: 0.30,
+      bounce_count: 5,
+      soft_bounce_count: 3,
+      hard_bounce_count: 2,
+      unsubscribe_count: 2,
+      abuse_complaint_count: 1
+    };
+    
+    // Insertion dans la table de cache
+    const { error } = await supabase
+      .from('campaign_stats_cache')
+      .upsert({
+        account_id: account.id,  // Ajout account_id manquant
+        campaign_uid: testCampaignUid,
+        statistics: testStats,
+        last_updated: new Date().toISOString()
+      }, { 
+        onConflict: 'campaign_uid' 
+      });
+      
+    if (error) {
+      console.error("Erreur lors du test d'insertion dans le cache:", error);
+      return false;
+    }
+    
+    console.log("Test d'insertion dans le cache réussi !");
+    return true;
+    
+  } catch (err) {
+    console.error("Exception lors du test d'insertion dans le cache:", err);
+    return false;
+  }
+};
+
+/**
  * Récupère et traite les statistiques d'une campagne
  * avec gestion intelligente du cache
  */
@@ -131,8 +187,10 @@ export const fetchAndProcessCampaignStats = async (
           
           if (isStillFresh) {
             console.log(`Cache frais pour ${campaignUid}, utilisation des données en cache`);
+            // Conversion explicite pour résoudre le problème de typage
+            const typedStatistics = cachedStats.statistics as unknown as AcelleCampaignStatistics;
             return {
-              statistics: cachedStats.statistics as AcelleCampaignStatistics,
+              statistics: typedStatistics,
               delivery_info: campaign.delivery_info || {},
               lastUpdated
             };
@@ -219,6 +277,7 @@ export const fetchAndProcessCampaignStats = async (
           await supabase
             .from('campaign_stats_cache')
             .upsert({
+              account_id: account?.id || 'unknown', // Ajout de account_id requis
               campaign_uid: campaignUid,
               statistics: statistics,
               last_updated: new Date().toISOString()
