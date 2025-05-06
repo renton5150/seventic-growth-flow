@@ -42,6 +42,11 @@ export const checkAcelleConnectionStatus = async (
       const url = buildProxyUrl('me', { api_token: account.api_token });
       
       console.log("Test de connexion via proxy CORS:", url);
+      console.log("Headers utilisés:", {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+        "X-Acelle-Endpoint": account.api_endpoint
+      });
       
       // Effectuer la requête
       const response = await fetch(url, {
@@ -55,12 +60,27 @@ export const checkAcelleConnectionStatus = async (
       
       const responseTime = new Date().getTime() - startTime;
       
+      console.log("Réponse du test:", {
+        status: response.status,
+        statusText: response.statusText,
+        responseTime: responseTime
+      });
+      
       if (!response.ok) {
         console.error("Erreur de connexion:", response.status, response.statusText);
+        // Essayer de lire le corps de la réponse pour plus d'informations
+        try {
+          const errorText = await response.text();
+          console.error("Corps de la réponse d'erreur:", errorText);
+        } catch (e) {
+          console.error("Impossible de lire le corps de la réponse d'erreur");
+        }
+        
         return {
           success: false,
           timestamp: new Date().toISOString(),
-          errorMessage: `Erreur HTTP ${response.status}: ${response.statusText}`
+          errorMessage: `Erreur HTTP ${response.status}: ${response.statusText}`,
+          statusCode: response.status
         };
       }
       
@@ -70,25 +90,25 @@ export const checkAcelleConnectionStatus = async (
         
         console.log("Résultat du test de connexion:", result);
         
-        // Si la réponse contient les informations du compte, c'est un succès
-        // Adaptation: vérifier la structure des données retournées par l'API
+        // Si la réponse contient les informations du compte ou n'est pas vide, c'est un succès
+        // Toute réponse non-vide est considérée comme valide
         if (result) {
-          // L'API Acelle peut retourner directement les infos utilisateur
-          // ou les inclure dans un objet user ou sous une autre clé
           return {
             success: true,
             timestamp: new Date().toISOString(),
             apiVersion: result.version || "Inconnue",
-            responseTime: responseTime
+            responseTime: responseTime,
+            responseData: result
           };
         } else {
           return {
             success: false,
             timestamp: new Date().toISOString(),
-            errorMessage: "Réponse API invalide"
+            errorMessage: "Réponse API vide ou invalide"
           };
         }
       } catch (parseError) {
+        console.error("Erreur de parsing JSON:", parseError);
         return {
           success: false,
           timestamp: new Date().toISOString(),
@@ -96,6 +116,7 @@ export const checkAcelleConnectionStatus = async (
         };
       }
     } catch (error) {
+      console.error("Erreur lors du test de connexion:", error);
       return {
         success: false,
         timestamp: new Date().toISOString(),
@@ -103,6 +124,7 @@ export const checkAcelleConnectionStatus = async (
       };
     }
   } catch (error) {
+    console.error("Erreur globale lors de la vérification de connexion:", error);
     return {
       success: false,
       timestamp: new Date().toISOString(),

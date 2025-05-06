@@ -23,7 +23,7 @@ const corsHeaders = {
 
 // Version actuelle du proxy CORS
 const CORS_PROXY_VERSION = "1.3.2";
-const DEFAULT_TIMEOUT = 30000; // 30 secondes de timeout par défaut
+const DEFAULT_TIMEOUT = 60000; // 60 secondes de timeout (augmenté pour les API lentes)
 
 console.log("CORS Proxy v" + CORS_PROXY_VERSION + " démarré");
 
@@ -147,6 +147,10 @@ serve(async (req: Request) => {
     // Ajout d'en-têtes d'identification pour notre proxy
     (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.3');
     (requestInit.headers as Headers).set('Referer', 'https://emailing.plateforme-solution.net/');
+    
+    // Log détaillé des en-têtes envoyés
+    console.log("[CORS Proxy] En-têtes de la requête envoyée:", 
+      Object.fromEntries([...(requestInit.headers as Headers).entries()]));
     
     // Copie du corps s'il est présent et si la méthode HTTP l'autorise
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.body) {

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -40,17 +41,30 @@ export const AcelleTableRow = ({
   // Récupérer les statistiques de la campagne uniquement si nécessaire
   useEffect(() => {
     const loadCampaignStats = async () => {
+      // Debug log pour montrer les statistiques actuelles et l'origine
+      console.log(`[TableRow] Vérification des statistiques pour ${campaignName}:`, {
+        hasStats: !!stats,
+        campaignHasStats: !!campaign.statistics,
+        campaignStatsData: campaign.statistics,
+        statsSubscriberCount: stats?.subscriber_count || 'non défini',
+        campaignStatsSubscriberCount: campaign.statistics?.subscriber_count || 'non défini'
+      });
+
       // Vérifier si nous avons déjà des statistiques valides
       const hasValidStats = stats && 
                            stats.subscriber_count > 0 && 
                            (stats.delivered_count > 0 || stats.delivered_rate >= 0);
       
-      // Si nous avons déjà des statistiques valides ou que la campagne a déjà des statistiques, ne pas recharger
-      if (hasValidStats || (campaign.statistics && campaign.statistics.subscriber_count > 0)) {
-        console.log(`[TableRow] Campagne ${campaignName} a déjà des statistiques valides, pas de rechargement nécessaire`);
-        if (!stats && campaign.statistics) {
-          setStats(campaign.statistics);
-        }
+      // Si nous avons déjà des statistiques valides, ne pas recharger
+      if (hasValidStats) {
+        console.log(`[TableRow] ${campaignName} a déjà des statistiques valides en état local, pas de rechargement nécessaire`);
+        return;
+      }
+
+      // Si les statistiques de la campagne semblent valides, les utiliser
+      if (campaign.statistics && campaign.statistics.subscriber_count > 0) {
+        console.log(`[TableRow] ${campaignName} a des statistiques valides dans les props, utilisation de ces données`);
+        setStats(campaign.statistics);
         return;
       }
       
@@ -63,11 +77,11 @@ export const AcelleTableRow = ({
       try {
         setIsLoading(true);
         
-        console.log(`[TableRow] Chargement des statistiques pour la campagne ${campaignName}`);
+        console.log(`[TableRow] Chargement des statistiques pour la campagne ${campaignName} avec forceRefresh=true`);
         
-        // Utiliser le service pour récupérer les statistiques avec cache intelligent - sans forcer le refresh
+        // CHANGEMENT: Forcer le rafraîchissement pour résoudre le problème de mise en cache
         const enrichedCampaign = await fetchAndProcessCampaignStats(campaign, account, { 
-          refresh: false // Utiliser le cache si disponible et frais
+          refresh: true
         }) as AcelleCampaign;
         
         console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, 

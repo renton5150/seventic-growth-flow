@@ -86,7 +86,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           const enrichedCampaigns = await enrichCampaignsWithStats(
             fetchedCampaigns, 
             account, 
-            { forceRefresh: false } // MODIFICATION: Ne plus forcer le rafraîchissement
+            { forceRefresh: true } // RESTAURÉ: Forcer le rafraîchissement pour assurer des données à jour
           );
           setCampaigns(enrichedCampaigns);
         } else {
@@ -147,25 +147,14 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       });
       
       try {
-        // Vérifier si les statistiques sont déjà présentes avant de forcer un rafraîchissement
-        const needsEnrichment = campaigns.some(campaign => 
-          !campaign.statistics || 
-          Object.keys(campaign.statistics).length === 0 ||
-          campaign.statistics.subscriber_count === 0
-        );
-        
-        // N'enrichir que si nécessaire
-        if (needsEnrichment) {
-          // Enrichir sans forcer le rafraîchissement - utiliser le cache si disponible
-          const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
-            forceRefresh: false // MODIFICATION: Ne plus forcer le rafraîchissement
-          });
+        // RESTAURÉ : Forcer le rafraîchissement pour toujours obtenir les dernières statistiques
+        // lors du changement de page ou du compte
+        const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
+          forceRefresh: true // RESTAURÉ: Force le rafraîchissement pour assurer des données à jour
+        });
           
-          console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
-          setCampaigns(enrichedCampaigns);
-        } else {
-          console.log("Toutes les campagnes ont déjà des statistiques, pas besoin d'enrichissement");
-        }
+        console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
+        setCampaigns(enrichedCampaigns);
       } catch (err) {
         console.error("Error enriching campaigns with statistics:", err);
       }
