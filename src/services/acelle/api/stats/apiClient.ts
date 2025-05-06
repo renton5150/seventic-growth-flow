@@ -11,7 +11,7 @@ export async function fetchCampaignStatisticsFromApi(
   campaignUid: string,
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> {
-  console.log(`[Stats] Appel API pour campagne ${campaignUid}`);
+  console.log(`[Stats] Appel API direct pour campagne ${campaignUid}`);
   
   // Vérification des informations du compte
   if (!account || !account.api_token || !account.api_endpoint) {
@@ -38,30 +38,33 @@ export async function fetchCampaignStatisticsFromApi(
       _t: Date.now().toString()  // Anti-cache
     };
     
-    // Créer l'URL pour les statistiques
-    const statsUrl = buildProxyUrl(apiEndpoint, statsParams);
+    // Créer l'URL pour les statistiques - appel direct sans proxy
+    const statsUrl = buildProxyUrl(apiEndpoint, statsParams, false);
     
-    console.log(`[Stats] Requête API statistiques: ${statsUrl}`);
+    console.log(`[Stats] Requête API directe: ${statsUrl}`);
     
     // Effectuer l'appel API avec timeout augmenté
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 secondes timeout (augmenté)
     
     const statsResponse = await fetch(statsUrl, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'X-Acelle-Endpoint': account.api_endpoint,
+        'Content-Type': 'application/json',
         'Cache-Control': 'no-cache, no-store',
-        'Pragma': 'no-cache'
+        'Pragma': 'no-cache',
+        'X-Requested-With': 'XMLHttpRequest'
       },
       signal: controller.signal,
+      credentials: 'omit', // Important pour les appels cross-origin
+      mode: 'cors', // S'assurer que le mode CORS est activé
       cache: 'no-store'
     });
     
     clearTimeout(timeoutId);
     
-    console.log(`[Stats] Réponse API: Status ${statsResponse.status}`);
+    console.log(`[Stats] Réponse API directe: Status ${statsResponse.status}`);
     
     if (!statsResponse.ok) {
       console.error(`[Stats] Erreur API (${statsResponse.status}): ${statsResponse.statusText}`);

@@ -84,15 +84,19 @@ export const acelleService = {
 };
 
 /**
- * Construit l'URL pour le proxy CORS
+ * Construit l'URL pour l'API Acelle (directe ou via proxy)
+ * @param path Chemin de l'API
+ * @param params Paramètres de la requête
+ * @param useProxy Utiliser le proxy CORS (par défaut: false)
  */
-export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
-  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
-  
+export const buildProxyUrl = (path: string, params: Record<string, string> = {}, useProxy: boolean = false): string => {
+  // Base URL pour l'API Acelle
   const apiPath = path.startsWith('/') ? path.substring(1) : path;
   
+  // URL complète pour l'API
   let apiUrl = `https://emailing.plateforme-solution.net/api/v1/${apiPath}`;
   
+  // Ajouter les paramètres à l'URL
   if (Object.keys(params).length > 0) {
     const searchParams = new URLSearchParams();
     
@@ -103,7 +107,13 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
     apiUrl += '?' + searchParams.toString();
   }
   
-  const encodedApiUrl = encodeURIComponent(apiUrl);
+  // Si useProxy est true, utiliser le proxy CORS
+  if (useProxy) {
+    const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
+    const encodedApiUrl = encodeURIComponent(apiUrl);
+    return `${baseProxyUrl}?url=${encodedApiUrl}`;
+  }
   
-  return `${baseProxyUrl}?url=${encodedApiUrl}`;
+  // Sinon, retourner l'URL directe
+  return apiUrl;
 };

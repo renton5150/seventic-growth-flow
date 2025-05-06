@@ -57,7 +57,8 @@ export const enrichCampaignsWithStats = async (
             // Si le cache est valide et récent, on l'utilise
             enrichedCampaigns.push({
               ...campaign,
-              statistics: ensureValidStatistics(statistics)
+              statistics: ensureValidStatistics(statistics),
+              last_updated: lastUpdated // Ajout du timestamp de mise à jour
             });
             continue;
           } else {
@@ -79,10 +80,14 @@ export const enrichCampaignsWithStats = async (
         console.log(`[directStats] Sauvegarde des nouvelles statistiques en cache pour ${campaignUid}`);
         await saveCampaignStatistics(campaignUid, account.id, statistics);
         
+        // Récupérer le nouveau timestamp
+        const newLastUpdated = await getLastUpdatedTimestamp(campaignUid, account.id);
+        
         // Ajouter les statistiques à la campagne
         enrichedCampaigns.push({
           ...campaign,
-          statistics: ensureValidStatistics(statistics)
+          statistics: ensureValidStatistics(statistics),
+          last_updated: newLastUpdated // Ajout du timestamp de mise à jour
         });
       } else {
         console.warn(`[directStats] Pas de statistiques API pour ${campaignUid}, utilisation des statistiques existantes`);
