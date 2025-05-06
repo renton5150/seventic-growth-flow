@@ -45,14 +45,15 @@ export async function fetchCampaignStatisticsFromApi(
     
     // Effectuer l'appel API avec timeout augmenté
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 secondes timeout (augmenté)
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 secondes timeout (augmenté)
     
     const statsResponse = await fetch(statsUrl, {
       headers: {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token}`,
         'X-Acelle-Endpoint': account.api_endpoint,
-        'Cache-Control': 'no-cache, no-store'
+        'Cache-Control': 'no-cache, no-store',
+        'Pragma': 'no-cache'
       },
       signal: controller.signal,
       cache: 'no-store'
@@ -86,8 +87,21 @@ export async function fetchCampaignStatisticsFromApi(
     
     console.log(`[Stats] Données reçues pour ${campaignUid}:`, responseData);
     
-    // Structure de réponse attendue : { campaign: {...}, statistics: {...} }
-    const apiStats = responseData.statistics || responseData.data || {};
+    // Structure de réponse attendue : { campaign: {...}, statistics: {...} } 
+    // OU directement les statistiques dans l'objet responseData.statistics
+    
+    // 1. D'abord essayer d'extraire les statistiques selon la structure documentée
+    let apiStats = responseData.statistics || null;
+    
+    // 2. Si non trouvé, chercher dans data (ancienne implémentation)
+    if (!apiStats && responseData.data) {
+      apiStats = responseData.data;
+    }
+    
+    // 3. Si toujours pas trouvé, vérifier si l'objet entier pourrait contenir directement les statistiques
+    if (!apiStats && typeof responseData === 'object' && responseData.subscriber_count !== undefined) {
+      apiStats = responseData;
+    }
     
     if (!apiStats || Object.keys(apiStats).length === 0) {
       console.error('[Stats] Aucune statistique trouvée dans la réponse API:', responseData);
@@ -100,7 +114,7 @@ export async function fetchCampaignStatisticsFromApi(
       delivered_count: apiStats.delivered_count || 0,
       delivered_rate: apiStats.delivered_rate || 0,
       open_count: apiStats.open_count || apiStats.uniq_open_count || 0,
-      uniq_open_count: apiStats.uniq_open_count || apiStats.open_count || 0,
+      uniq_open_count: apiStats.uniq_open_count || apiStats.unique_open_count || apiStats.open_count || 0,
       uniq_open_rate: apiStats.uniq_open_rate || apiStats.unique_open_rate || 0,
       click_count: apiStats.click_count || 0,
       click_rate: apiStats.click_rate || 0,

@@ -1,5 +1,5 @@
 
-// Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
+// Mise à jour du composant AcelleCampaignsTable pour inclure la colonne Last Updated
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -83,10 +83,11 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         // Nous devons enrichir les campagnes avec des statistiques réelles
         if (fetchedCampaigns.length > 0) {
           console.log(`Enrichissement de ${fetchedCampaigns.length} campagnes avec des statistiques...`);
+          // IMPORTANT: Forcer l'enrichissement avec des données actualisées
           const enrichedCampaigns = await enrichCampaignsWithStats(
             fetchedCampaigns, 
             account, 
-            { forceRefresh: true } // RESTAURÉ: Forcer le rafraîchissement pour assurer des données à jour
+            { forceRefresh: true } // Forcer le rafraîchissement pour obtenir des données à jour
           );
           setCampaigns(enrichedCampaigns);
         } else {
@@ -130,49 +131,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   useEffect(() => {
     refetch();
   }, [refetch, currentPage, account]);
-
-  // Ensure campaigns have statistics when loaded
-  useEffect(() => {
-    const enrichCampaignsStats = async () => {
-      if (!campaigns.length || !account) return;
-      
-      console.log("Enriching campaigns with statistics from API...", {
-        campaignsCount: campaigns.length,
-        accountInfo: {
-          id: account.id,
-          name: account.name,
-          hasApiEndpoint: !!account.api_endpoint,
-          hasApiToken: !!account.api_token
-        }
-      });
-
-      try {
-        // Vérifier quelles campagnes ont besoin d'un enrichissement
-        const campaignsToEnrich = campaigns.filter(campaign => 
-          !campaign.statistics || 
-          campaign.statistics.subscriber_count <= 0
-        );
-
-        if (campaignsToEnrich.length > 0) {
-          console.log(`${campaignsToEnrich.length} campagnes nécessitent un enrichissement avec API`);
-          
-          // IMPORTANT: Forcer le rafraîchissement uniquement pour les campagnes sans statistiques
-          const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
-            forceRefresh: true // Force le rafraîchissement pour assurer des données à jour
-          });
-            
-          console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
-          setCampaigns(enrichedCampaigns);
-        } else {
-          console.log('Toutes les campagnes ont déjà des statistiques valides');
-        }
-      } catch (err) {
-        console.error("Error enriching campaigns with statistics:", err);
-      }
-    };
-    
-    enrichCampaignsStats();
-  }, [campaigns.length, account]);
 
   // Calcul du nombre total de pages en fonction du nombre total de campagnes
   useEffect(() => {
@@ -369,6 +327,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
                   { key: "open_rate", label: "Taux d'ouverture" },
                   { key: "click_rate", label: "Taux de clic" },
                   { key: "bounce_count", label: "Bounces" },
+                  { key: "last_updated", label: "Dernière màj" },
                   { key: "", label: "" }
                 ]}
                 sortBy={sortBy}

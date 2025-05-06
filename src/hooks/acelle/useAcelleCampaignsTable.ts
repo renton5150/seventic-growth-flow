@@ -82,6 +82,11 @@ export const useAcelleCampaignsTable = (campaigns: AcelleCampaign[]): UseAcelleC
           valueB = b.statistics?.bounce_count || 
                   (typeof b.delivery_info?.bounced === 'number' ? b.delivery_info.bounced : 0);
           break;
+        case 'last_updated':
+          // Utiliser la date de dernière mise à jour si disponible
+          valueA = a.last_updated ? new Date(a.last_updated).getTime() : 0;
+          valueB = b.last_updated ? new Date(b.last_updated).getTime() : 0;
+          break;
         case 'created_at':
         default:
           valueA = a.created_at ? new Date(a.created_at).getTime() : 0;

@@ -42,16 +42,6 @@ export const enrichCampaignsWithStats = async (
       console.log(`[directStats] Traitement de la campagne ${campaignUid} (${campaign.name})`);
       
       let statistics: AcelleCampaignStatistics | null = null;
-      const hasExistingStats = campaign.statistics && 
-                              campaign.statistics.subscriber_count > 0 && 
-                              campaign.statistics.delivered_count >= 0;
-      
-      // Si des statistiques valides existent déjà et qu'on ne force pas le rafraîchissement
-      if (!forceRefresh && hasExistingStats) {
-        console.log(`[directStats] La campagne ${campaignUid} a déjà des statistiques valides, utilisation des données existantes`);
-        enrichedCampaigns.push(campaign);
-        continue;
-      }
       
       // 1. Essayer d'abord de récupérer depuis le cache si on ne force pas le rafraîchissement
       if (!forceRefresh) {
@@ -80,7 +70,7 @@ export const enrichCampaignsWithStats = async (
         console.log(`[directStats] Forçage du rafraîchissement pour ${campaignUid}`);
       }
       
-      // 2. Récupérer depuis l'API si le cache est invalide, trop ancien ou forceRefresh=true
+      // 2. Récupérer depuis l'API si le cache est invalide, trop ancien, forceRefresh=true ou les statistiques ne sont pas complètes
       console.log(`[directStats] Récupération des statistiques depuis l'API pour ${campaignUid}`);
       statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
       
