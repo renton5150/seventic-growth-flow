@@ -79,7 +79,7 @@ export const AcelleTableRow = ({
         
         console.log(`[TableRow] Chargement des statistiques pour la campagne ${campaignName} avec forceRefresh=true`);
         
-        // CHANGEMENT: Forcer le rafraîchissement pour résoudre le problème de mise en cache
+        // RESTAURÉ: Forcer le rafraîchissement pour résoudre le problème de mise en cache
         const enrichedCampaign = await fetchAndProcessCampaignStats(campaign, account, { 
           refresh: true
         }) as AcelleCampaign;

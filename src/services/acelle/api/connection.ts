@@ -39,7 +39,10 @@ export const checkAcelleConnectionStatus = async (
       
       // Construire l'URL pour la vérification en utilisant le proxy CORS existant
       // Utiliser l'endpoint /me qui teste les informations du compte et l'authentification
-      const url = buildProxyUrl('me', { api_token: account.api_token });
+      const url = buildProxyUrl('me', { 
+        api_token: account.api_token,
+        _t: Date.now().toString()  // Anti-cache timestamp
+      });
       
       console.log("Test de connexion via proxy CORS:", url);
       console.log("Headers utilisés:", {
@@ -48,15 +51,21 @@ export const checkAcelleConnectionStatus = async (
         "X-Acelle-Endpoint": account.api_endpoint
       });
       
-      // Effectuer la requête
+      // Effectuer la requête avec timeout augmenté
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 secondes de timeout
+      
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${accessToken}`,
           "X-Acelle-Endpoint": account.api_endpoint
-        }
+        },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       const responseTime = new Date().getTime() - startTime;
       
@@ -91,7 +100,6 @@ export const checkAcelleConnectionStatus = async (
         console.log("Résultat du test de connexion:", result);
         
         // Si la réponse contient les informations du compte ou n'est pas vide, c'est un succès
-        // Toute réponse non-vide est considérée comme valide
         if (result) {
           return {
             success: true,
