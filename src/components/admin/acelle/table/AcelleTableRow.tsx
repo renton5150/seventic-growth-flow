@@ -104,6 +104,7 @@ export const AcelleTableRow = ({
     if (stats?.uniq_open_rate) return stats.uniq_open_rate;
     if (stats?.open_rate) return stats.open_rate;
     if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
+    if (campaign.statistics?.open_rate) return campaign.statistics.open_rate;
     if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
     return 0;
   };

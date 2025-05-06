@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 
@@ -88,7 +89,7 @@ export const fetchCampaignsFromCache = async (
         delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
         delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
         open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
-        uniq_open_count: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.opened : 0,
+        open_rate: typeof deliveryInfo.open_rate === 'number' ? deliveryInfo.open_rate : 0,
         uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
         click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
         click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,

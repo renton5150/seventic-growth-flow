@@ -1,3 +1,4 @@
+
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { buildAcelleApiUrl, callAcelleApi } from "../acelle-service";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +11,7 @@ export const createEmptyStatistics = (): AcelleCampaignStatistics => ({
   delivered_count: 0,
   delivered_rate: 0,
   open_count: 0,
+  open_rate: 0,
   uniq_open_rate: 0,
   click_count: 0,
   click_rate: 0,
@@ -37,6 +39,7 @@ export const createDemoStats = (campaign: AcelleCampaign): {
     delivered_count: subscriberCount - Math.floor(subscriberCount * bounceRate),
     delivered_rate: 1 - bounceRate,
     open_count: Math.floor(subscriberCount * openRate),
+    open_rate: openRate,
     uniq_open_rate: openRate,
     click_count: Math.floor(subscriberCount * clickRate),
     click_rate: clickRate,
@@ -92,7 +95,7 @@ export const testCacheInsertion = async (
       delivered_count: 95,
       delivered_rate: 0.95,
       open_count: 50,
-      uniq_open_count: 45,
+      open_rate: 0.45,
       uniq_open_rate: 0.45,
       click_count: 30,
       click_rate: 0.30,
@@ -107,9 +110,9 @@ export const testCacheInsertion = async (
     const { error } = await supabase
       .from('campaign_stats_cache')
       .upsert({
-        account_id: account.id,  // Ajout account_id manquant
+        account_id: account.id,
         campaign_uid: testCampaignUid,
-        statistics: testStats,
+        statistics: testStats as any, // Cast to satisfy Supabase's Json type
         last_updated: new Date().toISOString()
       }, { 
         onConflict: 'campaign_uid' 
@@ -238,12 +241,12 @@ export const fetchAndProcessCampaignStats = async (
         const statsData = response.data;
         
         // Structurer les statistiques selon le format attendu
-        const statistics = {
+        const statistics: AcelleCampaignStatistics = {
           subscriber_count: statsData.subscribers_count || 0,
           delivered_count: statsData.recipients_count || 0,
           delivered_rate: statsData.delivery_rate ? statsData.delivery_rate / 100 : 0,
           open_count: statsData.unique_opens_count || 0,
-          uniq_open_count: statsData.unique_opens_count || 0,
+          open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
           uniq_open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
           click_count: statsData.unique_clicks_count || 0,
           click_rate: statsData.clicks_rate ? statsData.clicks_rate / 100 : 0,
@@ -277,9 +280,9 @@ export const fetchAndProcessCampaignStats = async (
           await supabase
             .from('campaign_stats_cache')
             .upsert({
-              account_id: account?.id || 'unknown', // Ajout de account_id requis
+              account_id: account?.id || 'unknown',
               campaign_uid: campaignUid,
-              statistics: statistics,
+              statistics: statistics as any, // Cast to satisfy Supabase's Json type
               last_updated: new Date().toISOString()
             }, { 
               onConflict: 'campaign_uid' 

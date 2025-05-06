@@ -1,7 +1,6 @@
-
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "./campaignStats";
-import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
+import { createEmptyStatistics } from "./campaignStats";
 import { callAcelleApi, buildAcelleApiUrl } from "../acelle-service";
 
 /**
@@ -71,7 +70,7 @@ export const enrichCampaignsWithStats = async (
             delivered_count: statsData.recipients_count || 0,
             delivered_rate: statsData.delivery_rate ? statsData.delivery_rate / 100 : 0,
             open_count: statsData.unique_opens_count || 0,
-            uniq_open_count: statsData.unique_opens_count || 0,
+            open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
             uniq_open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
             click_count: statsData.unique_clicks_count || 0,
             click_rate: statsData.clicks_rate ? statsData.clicks_rate / 100 : 0,

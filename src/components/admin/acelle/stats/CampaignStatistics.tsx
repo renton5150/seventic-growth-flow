@@ -33,7 +33,7 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
   // Récupération des valeurs importantes
   const total = statistics?.subscriber_count || 0;
   const delivered = statistics?.delivered_count || 0;
-  const opened = statistics?.open_count || statistics?.uniq_open_count || 0;
+  const opened = statistics?.open_count || (statistics?.uniq_open_count || 0);
   const clicked = statistics?.click_count || 0;
   const bounces = statistics?.bounce_count || 0;
   const softBounces = statistics?.soft_bounce_count || 0;
@@ -43,7 +43,7 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
 
   // Calcul des taux si nécessaire
   const deliveryRate = statistics?.delivered_rate || (total > 0 ? (delivered / total) * 100 : 0);
-  const openRate = statistics?.uniq_open_rate || statistics?.open_rate || 
+  const openRate = statistics?.uniq_open_rate || statistics?.open_rate ||
     (delivered > 0 ? (opened / delivered) * 100 : 0);
   const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
 

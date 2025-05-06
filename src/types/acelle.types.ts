@@ -1,3 +1,4 @@
+
 export interface AcelleAccount {
   id: string;
   name: string;
@@ -42,6 +43,9 @@ export interface AcelleCampaignStatistics {
   hard_bounce_count: number;
   unsubscribe_count: number;
   abuse_complaint_count: number;
+  // Add missing properties that are used in the components
+  open_rate?: number;
+  uniq_open_count?: number; 
 }
 
 export interface DeliveryInfo {
@@ -81,4 +85,14 @@ export interface AcelleConnectionDebug {
   accountName?: string;
   version?: string;
   errorMessage?: string;
+  // Add missing properties used in the debug components
+  timestamp?: string;
+  statusCode?: number;
+  duration?: number;
+  request?: {
+    url?: string;
+    method?: string;
+    headers?: Record<string, string>;
+  };
+  responseData?: any;
 }
