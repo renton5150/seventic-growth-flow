@@ -1,6 +1,5 @@
-
 import { AcelleAccount, AcelleCampaign, CachedCampaign } from "@/types/acelle.types";
-import { buildProxyUrl } from "../acelle-service";
+import { buildCorsProxyUrl, buildCorsProxyHeaders } from "../cors-proxy";
 import { supabase } from "@/integrations/supabase/client";
 import { enrichCampaignsWithStats } from "./directStats";
 import { toast } from "sonner";
@@ -57,15 +56,10 @@ export const getAcelleCampaigns = async (
     }
     
     // Récupérer depuis l'API si pas de cache ou rafraîchissement demandé
-    const params = {
-      api_token: account.api_token,
-      sort_order: 'desc',
-      _t: Date.now().toString() // Anti-cache
-    };
+    const apiPath = 'campaigns';
+    const url = buildCorsProxyUrl(apiPath);
     
-    const url = buildProxyUrl('campaigns', params);
-    
-    console.log(`Récupération des campagnes depuis l'API...`);
+    console.log(`Récupération des campagnes depuis l'API via CORS proxy: ${url}`);
     
     // Appel CORS Proxy
     const { data: sessionData } = await supabase.auth.getSession();
@@ -75,12 +69,11 @@ export const getAcelleCampaigns = async (
       throw new Error("Token d'authentification non disponible");
     }
     
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    const headers = buildCorsProxyHeaders(account, {
+      'Authorization': `Bearer ${token}`
     });
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       throw new Error(`Erreur lors de la récupération des campagnes: ${response.status} ${response.statusText}`);
@@ -290,12 +283,9 @@ export const getAcelleCampaignDetails = async (
       };
     }
     
-    const params = {
-      api_token: account.api_token,
-      _t: Date.now().toString() // Anti-cache
-    };
-    
-    const url = buildProxyUrl(`campaigns/${campaignUid}`, params);
+    // Utiliser le proxy CORS
+    const apiPath = `campaigns/${campaignUid}`;
+    const url = buildCorsProxyUrl(apiPath);
     
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
@@ -304,12 +294,11 @@ export const getAcelleCampaignDetails = async (
       throw new Error("Token d'authentification non disponible");
     }
     
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    const headers = buildCorsProxyHeaders(account, {
+      'Authorization': `Bearer ${token}`
     });
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       throw new Error(`Erreur lors de la récupération des détails de la campagne: ${response.status} ${response.statusText}`);
@@ -349,20 +338,14 @@ export const forceSyncCampaigns = async (
     }
     
     // Appeler l'API pour récupérer les campagnes
-    const params = {
-      api_token: account.api_token,
-      sort_order: 'desc',
-      _t: Date.now().toString() // Anti-cache
-    };
+    const apiPath = 'campaigns';
+    const url = buildCorsProxyUrl(apiPath);
     
-    const url = buildProxyUrl('campaigns', params);
-    
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      }
+    const headers = buildCorsProxyHeaders(account, {
+      'Authorization': `Bearer ${authToken}`
     });
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       console.error(`Erreur API lors de la sync: ${response.status} ${response.statusText}`);

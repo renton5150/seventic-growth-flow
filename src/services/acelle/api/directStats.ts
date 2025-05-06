@@ -2,7 +2,8 @@
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "./campaignStats";
 import { createEmptyStatistics } from "./campaignStats";
-import { callAcelleApi, buildAcelleApiUrl, buildProxyUrl } from "../acelle-service";
+import { buildCorsProxyUrl, buildCorsProxyHeaders } from "../cors-proxy";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Enrichit les campagnes avec des statistiques directement depuis l'API Acelle
@@ -54,26 +55,38 @@ export const enrichCampaignsWithStats = async (
       });
       
       try {
-        // MODIFICATION: Utiliser le proxy CORS au lieu de l'appel direct
-        // Construire l'URL pour le proxy CORS
+        // Utiliser le proxy CORS
         const apiPath = `campaigns/${campaignUid}/overview`;
-        const url = buildProxyUrl(account, apiPath);
+        const url = buildCorsProxyUrl(apiPath);
         
         console.log(`Appel via CORS proxy pour les statistiques de ${campaignUid}: ${url}`);
         
-        const response = await callAcelleApi(url, {
-          useProxy: true,   // Forcer l'utilisation du proxy
-          maxRetries: 3,    // 3 tentatives max
-          headers: {
-            'X-Acelle-Token': account.api_token,
-            'X-Acelle-Endpoint': account.api_endpoint
-          }
+        // Obtenir le token d'authentification
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        
+        if (!token) {
+          throw new Error("Token d'authentification non disponible");
+        }
+        
+        // Construire les en-têtes
+        const headers = buildCorsProxyHeaders(account, {
+          'Authorization': `Bearer ${token}`
         });
         
-        if (response && response.data) {
-          console.log(`Statistiques reçues pour ${campaignUid}:`, response.data);
+        // Effectuer la requête
+        const response = await fetch(url, { headers });
+        
+        if (!response.ok) {
+          throw new Error(`Erreur API lors de la récupération des stats: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        
+        if (responseData && responseData.data) {
+          console.log(`Statistiques reçues pour ${campaignUid}:`, responseData.data);
           
-          const statsData = response.data;
+          const statsData = responseData.data;
           
           // Structurer les statistiques selon le format attendu
           const statistics = {

@@ -1,4 +1,3 @@
-
 /**
  * Utilities pour l'API Acelle
  */
@@ -141,4 +140,11 @@ export const callAcelleApi = async (url: string, options?: {
     
     throw error;
   }
+};
+
+// Export des fonctions principales sous forme d'objet service
+export const acelleApiService = {
+  buildAcelleApiUrl,
+  buildProxyUrl,
+  callAcelleApi
 };
