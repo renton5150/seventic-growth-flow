@@ -91,6 +91,7 @@ export interface AcelleCampaign {
   delivery_date: string | null;
   run_at: string | null;
   last_error?: string | null;
+  last_updated?: string | null;  // Ajout de la propriété last_updated pour les statistiques
   
   delivery_info?: DeliveryInfo;
   
