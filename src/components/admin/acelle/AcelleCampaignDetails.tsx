@@ -5,7 +5,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
-import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
+import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
 import { supabase } from "@/integrations/supabase/client";
 
 // Composants réutilisables
@@ -13,7 +13,6 @@ import { CampaignStatistics } from "./stats/CampaignStatistics";
 import { CampaignGeneralInfo } from "./detail/CampaignGeneralInfo";
 import { CampaignGlobalStats } from "./detail/CampaignGlobalStats";
 import { CampaignTechnicalInfo } from "./detail/CampaignTechnicalInfo";
-import { acelleService } from "@/services/acelle";
 
 interface AcelleCampaignDetailsProps {
   campaignId: string;
@@ -88,17 +87,15 @@ const AcelleCampaignDetails = ({
         setCampaign(foundCampaign);
         
         // Récupérer les statistiques complètes
-        const enrichedCampaign = await fetchAndProcessCampaignStats(foundCampaign, acct, { refresh: true }) as AcelleCampaign;
+        const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct);
         
         // Mettre à jour l'état et la campagne avec les statistiques
-        if (enrichedCampaign && enrichedCampaign.statistics) {
-          setStats(enrichedCampaign.statistics);
-          foundCampaign.statistics = enrichedCampaign.statistics;
-          
-          // Assurez-vous que delivery_info est du bon type
-          if (enrichedCampaign.delivery_info) {
-            foundCampaign.delivery_info = enrichedCampaign.delivery_info as DeliveryInfo;
-          }
+        setStats(statsResult.statistics);
+        foundCampaign.statistics = statsResult.statistics;
+        
+        // Assurez-vous que delivery_info est du bon type
+        if (statsResult.delivery_info) {
+          foundCampaign.delivery_info = statsResult.delivery_info as DeliveryInfo;
         }
       } else {
         setError("Campagne non trouvée");
@@ -124,77 +121,16 @@ const AcelleCampaignDetails = ({
       updated_at: now.toISOString(),
       delivery_date: now.toISOString(),
       run_at: null,
-      last_error: null,
-      statistics: null,
-      delivery_info: {}
+      last_error: null
     };
     
     // Générer des statistiques
-    const enrichedCampaign = await fetchAndProcessCampaignStats(campaignData, null!, { demoMode: true }) as AcelleCampaign;
+    const { statistics } = await fetchAndProcessCampaignStats(campaignData, null!, { demoMode: true });
     
     // Attribuer les statistiques à la campagne
-    const statistics = enrichedCampaign.statistics || null;
     campaignData.statistics = statistics;
     
     return { campaignData, statsData: statistics };
-  };
-
-  // Optimiser la fonction fetchCampaignDetails pour utiliser le cache plus efficacement
-  const fetchCampaignDetails = async () => {
-    if (!campaignId || !account) {
-      setError("Identifiant de campagne ou compte manquant");
-      setIsLoading(false);
-      return;
-    }
-    
-    try {
-      // Récupérer les détails de la campagne
-      const campaign = await acelleService.campaigns.fetchOne(campaignId, account);
-      
-      if (!campaign) {
-        setError("Campagne introuvable");
-        setIsLoading(false);
-        return;
-      }
-      
-      setCampaign(campaign);
-      
-      // Enrichir avec les statistiques détaillées seulement si nécessaires
-      if (!campaign.statistics || Object.keys(campaign.statistics).length === 0) {
-        const enrichedCampaignResult = await acelleService.campaigns.getStats(campaign, account, {
-          refresh: false // Utiliser le cache si disponible
-        });
-        
-        // Vérifier si le résultat est un tableau ou un objet unique
-        if (enrichedCampaignResult) {
-          // S'assurer que nous traitons un seul objet campaigne, pas un tableau
-          if (Array.isArray(enrichedCampaignResult)) {
-            // Si c'est un tableau, prendre le premier élément s'il existe
-            if (enrichedCampaignResult.length > 0) {
-              const enrichedCampaign = enrichedCampaignResult[0];
-              setCampaign(prevCampaign => ({
-                ...prevCampaign!,
-                statistics: enrichedCampaign.statistics,
-                delivery_info: enrichedCampaign.delivery_info
-              }));
-            }
-          } else {
-            // C'est un objet unique, utiliser directement
-            setCampaign(prevCampaign => ({
-              ...prevCampaign!,
-              statistics: enrichedCampaignResult.statistics,
-              delivery_info: enrichedCampaignResult.delivery_info
-            }));
-          }
-        }
-      }
-      
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Erreur lors de la récupération des détails de la campagne:", err);
-      setError("Erreur lors de la récupération des détails de la campagne");
-      setIsLoading(false);
-    }
   };
 
   // Afficher un spinner pendant le chargement
@@ -221,7 +157,6 @@ const AcelleCampaignDetails = ({
     delivered_count: 0,
     delivered_rate: 0,
     open_count: 0,
-    uniq_open_count: 0,
     uniq_open_rate: 0,
     click_count: 0,
     click_rate: 0,

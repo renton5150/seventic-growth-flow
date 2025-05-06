@@ -91,7 +91,6 @@ export interface AcelleCampaign {
   delivery_date: string | null;
   run_at: string | null;
   last_error?: string | null;
-  last_updated?: string | null;  // Ajout de la propriété last_updated pour les statistiques
   
   delivery_info?: DeliveryInfo;
   
@@ -143,8 +142,6 @@ export interface AcelleConnectionDebug {
   statusCode?: number;
   responseData?: any;
   duration?: number;
-  responseTime?: number;
-  apiVersion?: string;
   request?: {
     url?: string;
     headers?: Record<string, string>;

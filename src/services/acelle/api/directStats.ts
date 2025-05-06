@@ -1,6 +1,6 @@
 
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
-import { fetchAndProcessCampaignStats } from "./stats/campaignStats";
+import { fetchAndProcessCampaignStats } from "./campaignStats";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
@@ -33,8 +33,10 @@ export const enrichCampaignsWithStats = async (
       
       // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement, on saute
       if (!options?.forceRefresh && 
-          campaign.statistics && 
-          campaign.statistics.subscriber_count > 0) {
+          campaign.delivery_info && 
+          typeof campaign.delivery_info === 'object' &&
+          campaign.delivery_info.total && 
+          campaign.delivery_info.delivered) {
         console.log(`Statistiques déjà disponibles pour la campagne ${campaign.name}, aucun enrichissement nécessaire`);
         continue;
       }
@@ -45,22 +47,22 @@ export const enrichCampaignsWithStats = async (
       });
       
       // Récupérer les statistiques enrichies directement depuis l'API
-      const enrichedCampaign = await fetchAndProcessCampaignStats(
+      const result = await fetchAndProcessCampaignStats(
         campaign, 
         account, 
         { refresh: true }
-      ) as AcelleCampaign;
+      );
       
       // Appliquer les statistiques enrichies à la campagne
       enrichedCampaigns[i] = {
         ...campaign,
-        statistics: enrichedCampaign.statistics || createEmptyStatistics(),
-        delivery_info: enrichedCampaign.delivery_info || {}
+        statistics: result.statistics || createEmptyStatistics(),
+        delivery_info: result.delivery_info || {}
       };
       
       console.log(`Statistiques appliquées à la campagne ${campaign.name}:`, {
-        statistics: enrichedCampaigns[i].statistics,
-        delivery_info: enrichedCampaigns[i].delivery_info
+        statistics: result.statistics,
+        delivery_info: result.delivery_info
       });
     } catch (error) {
       console.error(`Erreur lors de l'enrichissement de la campagne ${enrichedCampaigns[i].name}:`, error);

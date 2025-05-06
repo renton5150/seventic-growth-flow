@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AcelleAccountsTable from "@/components/admin/acelle/AcelleAccountsTable";
 import { SystemStatus } from "@/components/admin/acelle/system/SystemStatus";
@@ -8,15 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
-import { AcelleAccountForm } from "./AcelleAccountForm";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import AcelleAccountForm from "./AcelleAccountForm";
 
 interface AcelleAdminPanelProps {
   onDemoModeChange?: (isDemoMode: boolean) => void;
@@ -169,11 +161,7 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
     return (
       <AcelleAccountForm
         account={editingAccount}
-        onSuccess={(account: AcelleAccount, wasEditing: boolean) => {
-          setIsFormOpen(false);
-          fetchAccounts();
-          toast.success(`Compte ${account.name} ${wasEditing ? 'mis à jour' : 'créé'} avec succès`);
-        }}
+        onSubmit={handleFormSubmit}
         onCancel={handleFormCancel}
       />
     );

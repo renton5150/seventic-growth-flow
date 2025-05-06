@@ -1,15 +1,14 @@
 
 import React from "react";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { TableHead } from "@/components/ui/table";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-interface Column {
-  key: string;
-  label: string;
-}
-
-interface CampaignsTableHeaderProps {
-  columns: Column[];
+export interface TableHeaderProps {
+  columns: Array<{
+    key: string;
+    label: string;
+  }>;
   sortBy: string;
   sortOrder: "asc" | "desc";
   onSort: (column: string) => void;
@@ -20,52 +19,34 @@ export const CampaignsTableHeader = ({
   sortBy,
   sortOrder,
   onSort
-}: CampaignsTableHeaderProps) => {
-  const getSortIndicator = (column: string) => {
-    if (sortBy !== column) return null;
-    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+}: TableHeaderProps) => {
+  // Récupérer l'icône appropriée pour l'ordre de tri
+  const getSortIcon = (columnKey: string) => {
+    if (sortBy !== columnKey) {
+      return <ArrowUpDown className="ml-1 h-4 w-4" />;
+    }
+    return sortOrder === "asc" ? 
+      <ArrowUp className="ml-1 h-4 w-4" /> : 
+      <ArrowDown className="ml-1 h-4 w-4" />;
   };
 
-  const getSortableHeader = (column: Column) => {
-    const isSortable = [
-      "name", 
-      "subject", 
-      "status", 
-      "delivery_date", 
-      "subscriber_count", 
-      "open_rate", 
-      "click_rate",
-      "bounce_count",
-      "last_updated"
-    ].includes(column.key);
-    
-    const content = (
-      <div className="flex items-center space-x-2">
-        <span>{column.label}</span>
-        {getSortIndicator(column.key)}
-      </div>
-    );
-    
-    if (!isSortable) return content;
-    
-    return (
-      <button
-        className="flex items-center space-x-1 focus:outline-none"
-        onClick={() => onSort(column.key)}
-      >
-        {content}
-      </button>
-    );
-  };
-  
   return (
     <>
       {columns.map((column) => (
-        <TableHead 
-          key={column.key}
-          className={column.key === "name" ? "w-[250px]" : ""}
-        >
-          {getSortableHeader(column)}
+        <TableHead key={column.key} className={column.key === "" ? "w-[50px]" : ""}>
+          {column.key ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 p-0 font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => onSort(column.key)}
+            >
+              {column.label}
+              {column.key !== "" && getSortIcon(column.key)}
+            </Button>
+          ) : (
+            column.label
+          )}
         </TableHead>
       ))}
     </>

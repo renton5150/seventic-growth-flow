@@ -2,24 +2,20 @@
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
-import { forceSyncCampaigns, getCampaigns } from "./api/campaigns";
+import { forceSyncCampaigns, getAcelleCampaigns } from "./api/campaigns";
 
 /**
  * Service pour gérer les appels à l'API Acelle
  */
 export const acelleService = {
   // Exporter les fonctions d'API
-  accounts: {
-    getAll: getAcelleAccounts,
-    getById: getAcelleAccountById,
-    create: createAcelleAccount,
-    update: updateAcelleAccount,
-    delete: deleteAcelleAccount
-  },
-  campaigns: {
-    getAll: getCampaigns,
-    forceSync: forceSyncCampaigns
-  },
+  getAcelleAccounts,
+  getAcelleAccountById,
+  createAcelleAccount,
+  updateAcelleAccount,
+  deleteAcelleAccount,
+  forceSyncCampaigns,
+  getAcelleCampaigns,
   
   /**
    * Génère des campagnes fictives pour le mode démo
@@ -38,21 +34,17 @@ export const acelleService = {
       
       return {
         uid: `demo-${index}`,
-        campaign_uid: `demo-${index}`,
         name: `Campagne démo ${index + 1}`,
         subject: `Sujet de la campagne ${index + 1}`,
         status: ["sent", "sending", "queued", "new", "paused", "failed"][Math.floor(Math.random() * 6)],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         delivery_date: new Date().toISOString(),
-        run_at: null,
-        last_error: null,
         statistics: {
           subscriber_count: totalEmails,
           delivered_count: delivered,
           delivered_rate: deliveredRate * 100,
           open_count: opened,
-          uniq_open_count: opened * 0.9,
           uniq_open_rate: openRate * 100,
           click_count: clicked,
           click_rate: clickRate * 100,
@@ -84,19 +76,93 @@ export const acelleService = {
 };
 
 /**
- * Construit l'URL pour l'API Acelle (directe ou via proxy)
- * @param path Chemin de l'API
- * @param params Paramètres de la requête
- * @param useProxy Utiliser le proxy CORS (par défaut: false)
+ * Appelle l'API Acelle via le proxy CORS Supabase
+ * @param endpoint Point de terminaison API Acelle (sans le domaine)
+ * @param params Paramètres à inclure dans la requête
  */
-export const buildProxyUrl = (path: string, params: Record<string, string> = {}, useProxy: boolean = false): string => {
-  // Base URL pour l'API Acelle
+export const callAcelleApi = async (endpoint: string, params: Record<string, any>) => {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    
+    if (!token) {
+      throw new Error("Token d'authentification non disponible");
+    }
+    
+    const { api_endpoint: apiEndpoint } = params;
+    
+    // Construire l'URL de l'API Acelle
+    let baseUrl = params.api_endpoint;
+    if (!baseUrl) {
+      throw new Error("L'endpoint API n'est pas défini");
+    }
+    
+    // S'assurer que l'URL ne se termine pas par un slash
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+    
+    // S'assurer que l'endpoint a un slash au début s'il n'est pas vide
+    const formattedEndpoint = endpoint ? (endpoint.startsWith('/') ? endpoint : `/${endpoint}`) : '';
+    
+    // Construire l'URL finale
+    const url = `${baseUrl}${formattedEndpoint}`;
+    
+    console.log(`Appel à l'API Acelle: ${url}`, { params });
+    
+    // Activer le debug pour voir les détails
+    const debugMode = true;
+    
+    // Construire les paramètres de requête
+    const queryParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (key !== 'api_endpoint') { // Ne pas inclure 'api_endpoint' dans les paramètres
+        queryParams.append(key, String(value));
+      }
+    }
+    
+    // Ajouter le paramètre de debug si nécessaire
+    if (debugMode) {
+      queryParams.append('debug', 'true');
+    }
+    
+    // Ajouter un timestamp pour éviter les problèmes de cache
+    queryParams.append('_t', Date.now().toString());
+    
+    // Appeler l'API Acelle directement en utilisant CORS Proxy
+    const response = await fetch(`${url}?${queryParams.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Erreur API Acelle (${response.status}): ${errorText}`);
+      throw new Error(`Erreur API Acelle: ${response.status} ${response.statusText}`);
+    }
+    
+    const responseData = await response.json();
+    return responseData;
+  } catch (error) {
+    console.error("Erreur lors de l'appel à l'API Acelle:", error);
+    throw error;
+  }
+};
+
+/**
+ * Construit l'URL pour le proxy CORS
+ */
+export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
+  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
+  
   const apiPath = path.startsWith('/') ? path.substring(1) : path;
   
-  // URL complète pour l'API
   let apiUrl = `https://emailing.plateforme-solution.net/api/v1/${apiPath}`;
   
-  // Ajouter les paramètres à l'URL
   if (Object.keys(params).length > 0) {
     const searchParams = new URLSearchParams();
     
@@ -107,13 +173,7 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {},
     apiUrl += '?' + searchParams.toString();
   }
   
-  // Si useProxy est true, utiliser le proxy CORS
-  if (useProxy) {
-    const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
-    const encodedApiUrl = encodeURIComponent(apiUrl);
-    return `${baseProxyUrl}?url=${encodedApiUrl}`;
-  }
+  const encodedApiUrl = encodeURIComponent(apiUrl);
   
-  // Sinon, retourner l'URL directe
-  return apiUrl;
+  return `${baseProxyUrl}?url=${encodedApiUrl}`;
 };
