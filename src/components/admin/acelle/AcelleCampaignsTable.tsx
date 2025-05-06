@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle";
+import { acelleApiService } from "@/services/acelle";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
