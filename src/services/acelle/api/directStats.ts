@@ -130,7 +130,8 @@ async function getCachedCampaignStats(campaignUid: string): Promise<AcelleCampai
     
     // Convertir les statistiques JSON en objet AcelleCampaignStatistics
     try {
-      const typedStats = statsData as AcelleCampaignStatistics;
+      // Conversion explicite du JSON en type connu
+      const typedStats = statsData as unknown as AcelleCampaignStatistics;
       return {
         subscriber_count: typedStats.subscriber_count || 0,
         delivered_count: typedStats.delivered_count || 0,

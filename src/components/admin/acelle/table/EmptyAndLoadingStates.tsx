@@ -1,71 +1,94 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Database } from "lucide-react";
+import { Inbox, AlertCircle, RefreshCw, AlertTriangle, XCircle } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
-interface EmptyStateProps {
+export const EmptyState = ({ 
+  onSync, 
+  isLoading = false 
+}: { 
   onSync?: () => void;
   isLoading?: boolean;
-}
-
-export const EmptyState = ({ onSync, isLoading }: EmptyStateProps) => {
+}) => {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center bg-gray-50 rounded-lg border border-dashed border-gray-300">
-      <Database className="h-12 w-12 text-gray-400 mb-3" />
-      <h3 className="text-lg font-medium text-gray-900 mb-1">Aucune campagne trouvée</h3>
-      <p className="text-gray-500 mb-4 max-w-md">
-        Aucune campagne n'a été trouvée dans le système. Synchronisez avec la plateforme d'emailing pour importer les campagnes.
+    <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-center">
+      <Inbox className="h-10 w-10 text-gray-400" />
+      <h3 className="mt-4 text-lg font-medium text-gray-900">Aucune campagne</h3>
+      <p className="mt-2 text-sm text-gray-500">
+        Aucune campagne n'a été trouvée dans le système.
       </p>
       {onSync && (
-        <Button 
-          variant="outline" 
+        <Button
           onClick={onSync}
+          className="mt-4"
           disabled={isLoading}
-          className="min-w-[200px]"
         >
-          {isLoading ? 'Synchronisation...' : 'Synchroniser maintenant'}
+          {isLoading ? (
+            <>
+              <Spinner className="mr-2 h-4 w-4" />
+              Synchronisation...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Synchroniser
+            </>
+          )}
         </Button>
       )}
     </div>
   );
 };
 
-export const TableLoadingState = () => (
-  <div className="flex items-center justify-center h-64">
-    <div className="text-center">
-      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-      <p className="text-gray-500">Chargement des campagnes...</p>
+export const TableLoadingState = () => {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-center">
+      <Spinner className="h-8 w-8 text-primary" />
+      <h3 className="mt-4 text-lg font-medium text-gray-900">Chargement...</h3>
+      <p className="mt-2 text-sm text-gray-500">
+        Récupération des données de campagnes.
+      </p>
     </div>
-  </div>
-);
+  );
+};
 
-export const TableErrorState = ({ error, retryCount, onRetry }: { error: Error | null, retryCount: number, onRetry: () => void }) => (
-  <div className="flex flex-col items-center justify-center h-64 text-center">
-    <div className="bg-red-50 text-red-700 rounded-full p-3 mb-4">
-      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
+export const TableErrorState = ({ 
+  error, 
+  retryCount, 
+  onRetry 
+}: { 
+  error: Error | null; 
+  retryCount: number; 
+  onRetry: () => void;
+}) => {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-red-300 p-12 text-center">
+      <AlertCircle className="h-10 w-10 text-red-400" />
+      <h3 className="mt-4 text-lg font-medium text-gray-900">Erreur de chargement</h3>
+      <p className="mt-2 text-sm text-gray-500">
+        {error?.message || "Une erreur s'est produite lors du chargement des campagnes."}
+      </p>
+      <Button 
+        onClick={onRetry} 
+        className="mt-4" 
+        variant="outline"
+      >
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Réessayer {retryCount > 0 ? `(${retryCount})` : ''}
+      </Button>
     </div>
-    <h3 className="text-lg font-medium text-gray-900 mb-1">Erreur de chargement</h3>
-    <p className="text-gray-500 mb-4 max-w-md">
-      Impossible de charger les campagnes. {error && error.message}
-    </p>
-    <Button onClick={onRetry} variant="outline" className="min-w-[200px]">
-      Réessayer {retryCount > 0 && `(${retryCount})`}
-    </Button>
-  </div>
-);
+  );
+};
 
-export const InactiveAccountState = () => (
-  <div className="flex flex-col items-center justify-center h-64 text-center">
-    <div className="bg-amber-50 text-amber-700 rounded-full p-3 mb-4">
-      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
+export const InactiveAccountState = () => {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-amber-300 p-12 text-center">
+      <AlertTriangle className="h-10 w-10 text-amber-400" />
+      <h3 className="mt-4 text-lg font-medium text-gray-900">Compte inactif</h3>
+      <p className="mt-2 text-sm text-gray-500">
+        Le compte Acelle n'est pas configuré ou est inactif. Veuillez activer le compte pour voir les campagnes.
+      </p>
     </div>
-    <h3 className="text-lg font-medium text-gray-900 mb-1">Compte inactif</h3>
-    <p className="text-gray-500 mb-4 max-w-md">
-      Veuillez configurer et activer un compte Acelle pour voir les campagnes d'emailing.
-    </p>
-  </div>
-);
+  );
+};

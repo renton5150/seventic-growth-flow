@@ -11,17 +11,17 @@ import {
 import { Search } from "lucide-react";
 
 export interface AcelleTableFiltersProps {
-  searchTerm: string;
-  onSearchChange: (value: string) => void;
-  statusFilter: string;
-  onStatusFilterChange: (value: string) => void;
+  searchTerm?: string;
+  onSearchChange?: (value: string) => void;
+  statusFilter?: string;
+  onStatusFilterChange?: (value: string) => void;
 }
 
 export const AcelleTableFilters = ({
-  searchTerm,
-  onSearchChange,
-  statusFilter,
-  onStatusFilterChange
+  searchTerm = "",
+  onSearchChange = () => {},
+  statusFilter = "all",
+  onStatusFilterChange = () => {}
 }: AcelleTableFiltersProps) => {
   return (
     <div className="flex flex-col md:flex-row gap-3">

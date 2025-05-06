@@ -4,13 +4,18 @@ import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 export interface TableHeaderProps {
-  columns: string[];
-  sortBy: string;
-  sortOrder: 'asc' | 'desc';
-  onSort: (column: string) => void;
+  columns?: string[];
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  onSort?: (column: string) => void;
 }
 
-export const CampaignsTableHeader = () => {
+export const CampaignsTableHeader = ({ 
+  columns, 
+  sortBy = "created_at", 
+  sortOrder = "desc", 
+  onSort = () => {} 
+}: TableHeaderProps = {}) => {
   return (
     <TableRow>
       <TableHead>Nom</TableHead>
