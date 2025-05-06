@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { getAcelleCampaigns, getCacheStatus, extractCampaignsFromCache } from "@/services/acelle/api/campaigns";
+import { getAcelleCampaigns, getCacheStatus } from "@/services/acelle/api/campaigns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthToken } from "./useAuthToken";
 

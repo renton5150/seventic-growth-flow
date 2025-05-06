@@ -78,7 +78,9 @@ const AcelleCampaignDetails = ({
         setCampaign(foundCampaign);
         
         // Récupérer les statistiques complètes
-        const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct);
+        const statsResult = await fetchAndProcessCampaignStats(foundCampaign, acct, {
+          refresh: true
+        });
         
         // Mettre à jour l'état et la campagne avec les statistiques
         setStats(statsResult.statistics);

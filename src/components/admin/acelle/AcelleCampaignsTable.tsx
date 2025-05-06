@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -70,7 +71,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       if (account?.id) {
         // Utiliser notre nouvelle API pour récupérer les campagnes
         const fetchedCampaigns = await getAcelleCampaigns(account, { 
-          refresh: true
+          refresh: true 
         });
         
         setCampaigns(fetchedCampaigns);
@@ -98,257 +99,207 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           console.log("Token d'authentification récupéré avec succès");
           setAccessToken(token);
         } else {
-          console.error("Aucun token d'authentification disponible dans la session");
-          toast.error("Erreur d'authentification: Impossible de récupérer le token d'authentification");
+          console.log("Aucun token d'authentification disponible");
         }
       } catch (error) {
-        console.error("Erreur lors de la récupération du token d'authentification:", error);
-        toast.error("Erreur lors de la récupération du token d'authentification");
+        console.error("Erreur lors de la récupération du token:", error);
       }
     };
     
     getAuthToken();
   }, []);
   
-  // Fetch campaigns when page changes or account changes
+  // Charger les campagnes au montage
   useEffect(() => {
-    refetch();
-  }, [refetch, currentPage, account]);
-
-  // Calcul du nombre total de pages en fonction du nombre total de campagnes
-  useEffect(() => {
-    const calculateTotalPages = async () => {
+    const loadCampaigns = async () => {
+      if (!account?.id) return;
+      
       try {
-        if (!account?.id) {
-          setTotalPages(0);
-          return;
+        setIsLoading(true);
+        setIsError(false);
+        
+        // Essayer de récupérer depuis le cache d'abord
+        const cachedCampaigns = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
+        
+        // Mettre à jour les états même si le cache est vide
+        setCampaigns(cachedCampaigns);
+        
+        // Si le cache est vide, forcer un rafraîchissement depuis l'API
+        if (cachedCampaigns.length === 0) {
+          console.log("Cache vide, chargement depuis l'API...");
+          await refetch();
+        } else {
+          setIsLoading(false);
         }
-
-        // Pour garantir l'affichage, nous allons simuler un nombre de campagnes
-        const campaignsPerAccount = 25; 
-        const pages = Math.ceil(campaignsPerAccount / itemsPerPage);
-        
-        setTotalPages(pages);
-        setHasNextPage(currentPage < pages);
-        
-        console.log(`Pagination configurée: ${campaignsPerAccount} campagnes, ${pages} pages disponibles`);
       } catch (err) {
-        console.error("Erreur lors du calcul du nombre de pages:", err);
+        console.error("Erreur lors du chargement des campagnes:", err);
+        setIsError(true);
+        setError(err instanceof Error ? err : new Error("Erreur de chargement des campagnes"));
+      } finally {
+        setIsLoading(false);
       }
     };
     
-    calculateTotalPages();
-  }, [account?.id, currentPage, itemsPerPage]);
-
-  // Rafraîchir manuellement les campagnes
-  const handleRefresh = useCallback(async () => {
-    setIsManuallyRefreshing(true);
-    setConnectionError(null);
+    loadCampaigns();
+  }, [account, currentPage, itemsPerPage, refetch]);
+  
+  // Mettre à jour la pagination
+  useEffect(() => {
+    const updatePagination = async () => {
+      if (!account?.id) return;
+      
+      try {
+        const count = await getCachedCampaignsCount();
+        const pages = Math.ceil(count / itemsPerPage) || 1;
+        setTotalPages(pages);
+        setHasNextPage(currentPage < pages);
+        
+        console.log(`Pagination mise à jour: ${count} campagnes, ${pages} pages`);
+      } catch (error) {
+        console.error("Erreur lors du calcul de la pagination:", error);
+      }
+    };
+    
+    updatePagination();
+  }, [account?.id, campaignsCount, currentPage, getCachedCampaignsCount, itemsPerPage]);
+  
+  // Gérer le changement de page
+  const handlePageChange = async (page: number) => {
+    setCurrentPage(page);
     
     try {
-      await refetch();
-      toast.success("Les données ont été rafraîchies", { id: "refresh" });
-    } catch (err) {
-      console.error("Erreur lors du rafraîchissement:", err);
-      toast.error("Erreur lors du rafraîchissement des données", { id: "refresh" });
-      setConnectionError(err instanceof Error ? err.message : "Erreur inconnue");
+      setIsLoading(true);
+      const cachedCampaigns = await fetchCampaignsFromCache([account], page, itemsPerPage);
+      setCampaigns(cachedCampaigns);
+    } catch (error) {
+      console.error("Erreur lors du changement de page:", error);
+      setConnectionError("Erreur lors du chargement de la page");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Fonction pour synchroniser les campagnes manuellement
+  const handleForceSync = async () => {
+    if (!account?.id || !accessToken || isManuallyRefreshing) return;
+    
+    try {
+      setIsManuallyRefreshing(true);
+      toast.loading("Synchronisation des campagnes en cours...", { id: "sync-toast" });
+      
+      console.log("Forçage de la synchronisation des campagnes...");
+      const result = await forceSyncCampaigns(account, accessToken);
+      
+      if (result.success) {
+        toast.success(result.message, { id: "sync-toast" });
+        // Attendre un moment pour laisser le temps à la synchronisation de s'effectuer
+        setTimeout(() => refetch(), 2000);
+      } else {
+        toast.error(result.message, { id: "sync-toast" });
+      }
+    } catch (error) {
+      console.error("Erreur lors de la synchronisation:", error);
+      toast.error("Erreur lors de la synchronisation des campagnes", { id: "sync-toast" });
     } finally {
       setIsManuallyRefreshing(false);
     }
-  }, [refetch]);
-
-  // Synchroniser manuellement les campagnes
-  const handleSync = useCallback(async () => {
-    if (!accessToken || !account) {
-      toast.error("Impossible de synchroniser: token ou compte manquant", { id: "sync" });
-      return;
-    }
-    
-    setIsSyncing(true);
-    
-    try {
-      toast.loading("Synchronisation des campagnes...", { id: "sync" });
-      
-      // Appeler l'API de synchronisation (qui répondra toujours avec succès)
-      const result = await forceSyncCampaigns(account, accessToken);
-      
-      toast.success(result.message, { id: "sync" });
-      await refetch();
-    } catch (err) {
-      console.error("Erreur lors de la synchronisation:", err);
-      toast.error("Erreur lors de la synchronisation des campagnes", { id: "sync" });
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [accessToken, account, refetch]);
-
-  // Traitement des campagnes filtrées avec le hook
-  const {
-    searchTerm,
-    setSearchTerm,
-    statusFilter,
-    setStatusFilter,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
-    filteredCampaigns
-  } = useAcelleCampaignsTable(campaigns || []);
-
-  // Afficher la campagne sélectionnée
-  const handleViewCampaign = (uid: string) => {
-    console.log(`Affichage des détails pour la campagne ${uid}`);
-    setSelectedCampaign(uid);
   };
-
-  // Fermer la vue détaillée
+  
+  // Gérer l'ouverture de la modal de détails
+  const handleOpenDetails = (campaignId: string) => {
+    setSelectedCampaign(campaignId);
+  };
+  
+  // Gérer la fermeture de la modal de détails
   const handleCloseDetails = () => {
     setSelectedCampaign(null);
   };
   
-  // Gérer le changement de page
-  const handlePageChange = (page: number) => {
-    if (page < 1 || (totalPages > 0 && page > totalPages)) return;
-    
-    setCurrentPage(page);
-    console.log(`Changement de page: ${page}`);
-  };
-
-  // Si le compte est inactif
-  if (account?.status !== 'active') {
+  // Afficher l'état approprié
+  if (!account || account.status !== 'active') {
     return <InactiveAccountState />;
   }
-
-  // Afficher un état de chargement
-  if (isLoading) {
+  
+  if (isLoading && campaigns.length === 0) {
     return <TableLoadingState />;
   }
-
-  // Afficher un état d'erreur
-  if (isError) {
+  
+  if (isError && campaigns.length === 0) {
     return (
       <TableErrorState 
-        error={error instanceof Error ? error.message : "Une erreur est survenue"} 
-        onRetry={() => {
-          setRetryCount((prev) => prev + 1);
-          refetch();
-        }}
+        error={error} 
         retryCount={retryCount}
+        onRetry={() => {
+          setRetryCount(prev => prev + 1);
+          refetch();
+        }} 
       />
     );
   }
-
-  // Si aucune campagne n'est trouvée
-  if (!filteredCampaigns?.length) {
-    return <EmptyState onSync={handleSync} />;
+  
+  if (campaigns.length === 0) {
+    return <EmptyState onSync={handleForceSync} isLoading={isManuallyRefreshing} />;
   }
-
+  
+  // Afficher la table des campagnes
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <AcelleTableFilters 
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-        />
+      <div className="flex justify-between items-center">
+        <AcelleTableFilters />
         
-        <div className="flex flex-wrap gap-2 items-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isManuallyRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
-            Actualiser
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSync}
-            disabled={isSyncing || !accessToken}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-            Synchroniser
-          </Button>
-        </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleForceSync}
+          disabled={isManuallyRefreshing}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isManuallyRefreshing ? 'animate-spin' : ''}`} />
+          Synchroniser
+        </Button>
       </div>
       
       {connectionError && (
-        <Card className="bg-amber-50 border-amber-200">
-          <CardContent className="p-4 text-amber-800 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
-            <p>{connectionError}</p>
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="p-4 flex items-center">
+            <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
+            <span className="text-sm text-amber-800">{connectionError}</span>
           </CardContent>
         </Card>
       )}
       
-      <div className="rounded-md border">
+      <div className="border rounded-md">
         <Table>
           <TableHeader>
-            <TableRow>
-              <CampaignsTableHeader 
-                columns={[
-                  { key: "name", label: "Nom" },
-                  { key: "subject", label: "Sujet" },
-                  { key: "status", label: "Statut" },
-                  { key: "delivery_date", label: "Date d'envoi" },
-                  { key: "subscriber_count", label: "Destinataires" },
-                  { key: "open_rate", label: "Taux d'ouverture" },
-                  { key: "click_rate", label: "Taux de clic" },
-                  { key: "bounce_count", label: "Bounces" },
-                  { key: "", label: "" }
-                ]}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                onSort={(column) => {
-                  if (sortBy === column) {
-                    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                  } else {
-                    setSortBy(column);
-                    setSortOrder("desc");
-                  }
-                }}
-              />
-            </TableRow>
+            <CampaignsTableHeader />
           </TableHeader>
           <TableBody>
-            {filteredCampaigns.map((campaign) => (
+            {campaigns.map((campaign) => (
               <AcelleTableRow 
-                key={campaign.uid || campaign.campaign_uid} 
-                campaign={campaign} 
-                account={account}
-                onViewCampaign={handleViewCampaign}
+                key={campaign.uid} 
+                campaign={campaign}
+                onView={() => handleOpenDetails(campaign.uid)}
               />
             ))}
           </TableBody>
         </Table>
       </div>
-
-      <div className="flex justify-end mt-4">
-        <CampaignsTablePagination 
-          currentPage={currentPage}
-          onPageChange={handlePageChange}
-          hasNextPage={hasNextPage}
-          totalPages={totalPages}
-        />
-      </div>
-
-      <Dialog open={!!selectedCampaign} onOpenChange={(open) => {
-        if (!open) handleCloseDetails();
-      }}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+      
+      <CampaignsTablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+      />
+      
+      {/* Modal de détails de la campagne */}
+      <Dialog open={!!selectedCampaign} onOpenChange={(open) => !open && handleCloseDetails()}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>
-              {selectedCampaign && "Détails de la campagne"}
-            </DialogTitle>
+            <DialogTitle>Détails de la campagne</DialogTitle>
           </DialogHeader>
           {selectedCampaign && (
-            <AcelleCampaignDetails 
-              campaignId={selectedCampaign} 
-              account={account} 
+            <AcelleCampaignDetails
+              campaignId={selectedCampaign}
+              account={account}
               onClose={handleCloseDetails}
             />
           )}

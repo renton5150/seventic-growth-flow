@@ -1,152 +1,68 @@
 
 import { AcelleAccount } from "@/types/acelle.types";
 
-/**
- * Constantes pour le proxy CORS
- */
-export const CORS_PROXY_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy";
+// URL de base du proxy CORS
+const CORS_PROXY_URL = import.meta.env.VITE_CORS_PROXY_URL || "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
 
 /**
- * Construit l'URL complète pour le proxy CORS
- * 
- * @param path - Le chemin de l'API à appeler
- * @returns L'URL complète pour le proxy CORS
+ * Construit l'URL complète pour faire une requête via le proxy CORS
+ * @param path Chemin de l'API après la base URL
  */
-export const buildCorsProxyUrl = (path: string): string => {
-  // Normaliser le chemin
-  const normalizedPath = path.startsWith("/") ? path.substring(1) : path;
-  return `${CORS_PROXY_URL}/${normalizedPath}`;
-};
+export function buildCorsProxyUrl(path: string): string {
+  // Enlever le slash initial si présent pour éviter les doubles slashes
+  const cleanedPath = path.startsWith('/') ? path.substring(1) : path;
+  return `${CORS_PROXY_URL}/${cleanedPath}`;
+}
 
 /**
- * Construit les en-têtes pour une requête via le proxy CORS
- * 
- * @param account - Le compte Acelle avec les informations d'API
- * @param additionalHeaders - En-têtes supplémentaires à inclure
- * @returns Les en-têtes HTTP pour la requête
+ * Construit les en-têtes pour faire une requête via le proxy CORS
+ * @param account Le compte Acelle pour lequel faire la requête
+ * @param additionalHeaders En-têtes supplémentaires à inclure
  */
-export const buildCorsProxyHeaders = (
+export function buildCorsProxyHeaders(
   account: AcelleAccount,
-  additionalHeaders?: Record<string, string>
-): Record<string, string> => {
+  additionalHeaders: Record<string, string> = {}
+): Record<string, string> {
   return {
     "Content-Type": "application/json",
     "Accept": "application/json",
     "X-Acelle-Token": account.api_token,
     "X-Acelle-Endpoint": account.api_endpoint,
-    "X-Auth-Method": "token", // Méthode d'authentification préférée
-    ...(additionalHeaders || {})
+    ...additionalHeaders
   };
-};
+}
 
 /**
- * Effectue un appel à l'API Acelle via le proxy CORS
- * 
- * @param account - Le compte Acelle avec les informations d'API
- * @param path - Le chemin de l'API à appeler
- * @param options - Options supplémentaires pour la requête
- * @returns Les données de la réponse JSON
+ * Fonction pour réveiller le proxy CORS
+ * @param authToken Token d'authentification optionnel
  */
-export const callAcelleViaProxy = async (
-  account: AcelleAccount,
-  path: string,
-  options?: {
-    method?: string;
-    body?: any;
-    additionalHeaders?: Record<string, string>;
-    timeout?: number;
-  }
-): Promise<any> => {
-  try {
-    // Configuration de base
-    const method = options?.method || "GET";
-    const timeout = options?.timeout || 30000; // 30 secondes par défaut
-    
-    // Construction de l'URL et des en-têtes
-    const url = buildCorsProxyUrl(path);
-    const headers = buildCorsProxyHeaders(account, options?.additionalHeaders);
-    
-    console.log(`Appel API via proxy CORS: ${url}`, { method });
-    
-    // Configuration du timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
-    // Configuration de la requête
-    const requestOptions: RequestInit = {
-      method,
-      headers,
-      signal: controller.signal
-    };
-    
-    // Ajout du corps si nécessaire
-    if (options?.body && method !== "GET") {
-      requestOptions.body = JSON.stringify(options.body);
-    }
-    
-    // Exécution de la requête
-    const response = await fetch(url, requestOptions);
-    clearTimeout(timeoutId);
-    
-    // Vérification de la réponse
-    if (!response.ok) {
-      console.error(`Erreur API via proxy CORS: ${response.status} - ${response.statusText}`);
-      
-      // Tentative de récupération du corps de l'erreur
-      try {
-        const errorText = await response.text();
-        console.error("Détails de l'erreur:", errorText);
-      } catch (e) {}
-      
-      throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
-    }
-    
-    // Traitement de la réponse JSON
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    if (errorMessage.includes("aborted")) {
-      console.error(`Timeout de la requête après ${options?.timeout || 30000}ms: ${path}`);
-      throw new Error(`Délai d'attente dépassé pour la requête: ${path}`);
-    }
-    
-    console.error("Erreur lors de l'appel à l'API via proxy CORS:", error);
-    throw error;
-  }
-};
-
-/**
- * Réveille le proxy CORS pour s'assurer qu'il est actif
- * 
- * @param authToken - Token d'authentification Supabase
- * @returns Promise<void>
- */
-export const wakeupCorsProxy = async (authToken: string): Promise<void> => {
+export async function wakeupCorsProxy(authToken: string | null = null): Promise<boolean> {
   try {
     console.log("Réveil du proxy CORS...");
     
-    const pingUrl = `${CORS_PROXY_URL}/ping`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    };
     
-    const response = await fetch(pingUrl, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": `Bearer ${authToken}`,
-        "X-Wake-Request": "true"
-      }
-    });
-    
-    if (!response.ok) {
-      console.warn(`Le proxy CORS n'a pas répondu correctement: ${response.status}`);
-      return;
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
     }
     
-    const data = await response.json();
-    console.log("Proxy CORS réveillé avec succès:", data);
+    const response = await fetch(CORS_PROXY_URL, {
+      method: "GET",
+      headers
+    });
+    
+    if (response.ok) {
+      console.log("Proxy CORS réveillé avec succès");
+      return true;
+    } else {
+      console.error(`Erreur lors du réveil du proxy CORS: ${response.status} ${response.statusText}`);
+      return false;
+    }
   } catch (error) {
-    console.warn("Échec du réveil du proxy CORS:", error);
+    console.error("Erreur lors de la tentative de réveil du proxy CORS:", error);
+    return false;
   }
-};
+}
