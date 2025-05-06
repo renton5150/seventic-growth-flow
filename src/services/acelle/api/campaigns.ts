@@ -1,5 +1,4 @@
-
-import { AcelleAccount, AcelleCampaign, CachedCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { acelleApiService } from "../acelle-service";
@@ -82,8 +81,40 @@ export const getAcelleCampaigns = async (
       if (!cacheError && cachedCampaigns && cachedCampaigns.length > 0) {
         console.log(`${cachedCampaigns.length} campagnes récupérées depuis le cache`);
         
-        // Transformer les données du cache en objets AcelleCampaign
-        return extractCampaignsFromCache(cachedCampaigns);
+        // Transformer les données brutes en objets AcelleCampaign directement
+        // au lieu d'utiliser extractCampaignsFromCache qui provoquait l'erreur
+        const transformedCampaigns: AcelleCampaign[] = cachedCampaigns.map(item => {
+          let deliveryInfo: any = {};
+          
+          if (item.delivery_info) {
+            if (typeof item.delivery_info === 'string') {
+              try {
+                deliveryInfo = JSON.parse(item.delivery_info);
+              } catch (e) {
+                console.warn('Error parsing delivery_info JSON:', e);
+                deliveryInfo = {};
+              }
+            } else {
+              deliveryInfo = item.delivery_info;
+            }
+          }
+          
+          return {
+            uid: item.campaign_uid,
+            campaign_uid: item.campaign_uid,
+            name: item.name || '',
+            subject: item.subject || '',
+            status: item.status || '',
+            created_at: item.created_at || '',
+            updated_at: item.updated_at || '',
+            delivery_date: item.delivery_date || null,
+            run_at: item.run_at || null,
+            last_error: item.last_error || null,
+            delivery_info: deliveryInfo
+          };
+        });
+        
+        return transformedCampaigns;
       }
     }
     
@@ -260,42 +291,58 @@ export const getAcelleCampaigns = async (
 /**
  * Fonction pour extraire les campagnes du cache
  */
-export const extractCampaignsFromCache = (cachedCampaigns: CachedCampaign[]): AcelleCampaign[] => {
+export const extractCampaignsFromCache = (cachedCampaigns: any[]): AcelleCampaign[] => {
   if (!cachedCampaigns || cachedCampaigns.length === 0) {
     return [];
   }
 
-  return cachedCampaigns.map(item => ({
-    uid: item.campaign_uid,
-    campaign_uid: item.campaign_uid,
-    name: item.name || "Sans nom",
-    subject: item.subject || "",
-    status: item.status || "unknown",
-    created_at: item.created_at,
-    updated_at: item.updated_at,
-    delivery_date: item.delivery_date,
-    run_at: item.run_at,
-    delivery_info: typeof item.delivery_info === 'string' 
-      ? JSON.parse(item.delivery_info) 
-      : (item.delivery_info || {}),
-    last_error: item.last_error,
-    // Ajouter des statistiques simulées pour garantir l'affichage
-    statistics: {
-      subscriber_count: Math.floor(Math.random() * 10000) + 100,
-      delivered_count: Math.floor(Math.random() * 9000) + 50,
-      delivered_rate: Math.random() * 0.9 + 0.1,
-      open_count: Math.floor(Math.random() * 5000),
-      uniq_open_count: Math.floor(Math.random() * 4500),
-      uniq_open_rate: Math.random() * 0.5,
-      click_count: Math.floor(Math.random() * 3000),
-      click_rate: Math.random() * 0.3,
-      bounce_count: Math.floor(Math.random() * 500),
-      soft_bounce_count: Math.floor(Math.random() * 300),
-      hard_bounce_count: Math.floor(Math.random() * 200),
-      unsubscribe_count: Math.floor(Math.random() * 200),
-      abuse_complaint_count: Math.floor(Math.random() * 50)
+  return cachedCampaigns.map(item => {
+    // Traitement spécial pour delivery_info qui peut être une chaîne ou un objet
+    let deliveryInfo: any = {};
+    
+    if (item.delivery_info) {
+      if (typeof item.delivery_info === 'string') {
+        try {
+          deliveryInfo = JSON.parse(item.delivery_info);
+        } catch (e) {
+          console.warn('Error parsing delivery_info JSON:', e);
+          deliveryInfo = {};
+        }
+      } else {
+        deliveryInfo = item.delivery_info;
+      }
     }
-  }));
+    
+    return {
+      uid: item.campaign_uid,
+      campaign_uid: item.campaign_uid,
+      name: item.name || "Sans nom",
+      subject: item.subject || "",
+      status: item.status || "unknown",
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      delivery_date: item.delivery_date,
+      run_at: item.run_at,
+      delivery_info: deliveryInfo,
+      last_error: item.last_error,
+      // Ajouter des statistiques simulées pour garantir l'affichage
+      statistics: {
+        subscriber_count: Math.floor(Math.random() * 10000) + 100,
+        delivered_count: Math.floor(Math.random() * 9000) + 50,
+        delivered_rate: Math.random() * 0.9 + 0.1,
+        open_count: Math.floor(Math.random() * 5000),
+        uniq_open_count: Math.floor(Math.random() * 4500),
+        uniq_open_rate: Math.random() * 0.5,
+        click_count: Math.floor(Math.random() * 3000),
+        click_rate: Math.random() * 0.3,
+        bounce_count: Math.floor(Math.random() * 500),
+        soft_bounce_count: Math.floor(Math.random() * 300),
+        hard_bounce_count: Math.floor(Math.random() * 200),
+        unsubscribe_count: Math.floor(Math.random() * 200),
+        abuse_complaint_count: Math.floor(Math.random() * 50)
+      }
+    };
+  });
 };
 
 /**

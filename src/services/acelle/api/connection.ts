@@ -20,7 +20,7 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     
     // Construire l'URL pour tester la connexion (endpoint /me)
     const apiPath = "me";
-    const url = buildProxyUrl(account, apiPath);
+    const url = buildProxyUrl(apiPath);
     
     console.log(`Test d'API avec URL: ${url}`);
     

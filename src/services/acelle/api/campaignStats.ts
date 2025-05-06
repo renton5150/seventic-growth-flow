@@ -233,7 +233,7 @@ export const fetchAndProcessCampaignStats = async (
       const url = buildAcelleApiUrl(account, `campaigns/${campaignUid}/overview`);
       console.log(`Appel direct à l'API pour les statistiques de ${campaignUid}: ${url}`);
       
-      const response = await callAcelleApi(url, {}, 3); // 3 tentatives max
+      const response = await callAcelleApi(account, `campaigns/${campaignUid}/overview`, {}, 3); // 3 tentatives max
       
       if (response && response.data) {
         console.log(`Statistiques reçues pour ${campaignUid}:`, response.data);
