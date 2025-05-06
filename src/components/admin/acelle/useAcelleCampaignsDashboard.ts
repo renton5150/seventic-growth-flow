@@ -1,9 +1,11 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { AcelleAccount, AcelleCampaign, AcelleConnectionDebug } from '@/types/acelle.types';
 import { useApiConnection } from '@/hooks/acelle/useApiConnection';
 import { useCampaignCache } from '@/hooks/acelle/useCampaignCache';
 import { useCampaignSync } from '@/hooks/acelle/useCampaignSync';
 import { useAuthToken } from '@/hooks/acelle/useAuthToken';
+import { useServiceAvailability } from '@/hooks/acelle/useServiceAvailability';
 import { toast } from 'sonner';
 
 // Hook personnalisé pour le tableau de bord des campagnes
@@ -20,6 +22,9 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
 
   // Get auth token for API calls
   const { authToken, isRefreshing: isRefreshingToken, getValidAuthToken } = useAuthToken();
+  
+  // Services availability management
+  const { ensureServicesAvailable, forceWakeupServices } = useServiceAvailability();
   
   // Filtrer les comptes actifs
   useEffect(() => {
@@ -41,7 +46,15 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
       // Si aucun compte actif, ne rien faire
       if (activeAccounts.length === 0) {
         setCampaignsData([]);
+        setIsLoading(false);
         return;
+      }
+      
+      // Vérifier que les services nécessaires sont disponibles
+      const servicesAvailable = await ensureServicesAvailable();
+      if (!servicesAvailable) {
+        console.warn("Services non disponibles, utilisation des données de démonstration");
+        toast.warning("Services API non disponibles. Affichage des données de démonstration.");
       }
 
       // Simulation de la récupération des données
@@ -88,13 +101,20 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeAccounts]);
+  }, [activeAccounts, ensureServicesAvailable]);
 
   // Wake up Edge Functions and fetch data
   const handleRetry = useCallback(async () => {
     try {
       setIsLoading(true);
       setSyncError(null);
+      
+      // Force le réveil des services
+      const servicesAwoken = await forceWakeupServices();
+      
+      if (!servicesAwoken) {
+        throw new Error("Impossible de réveiller les services");
+      }
       
       // Ensure we have a valid token
       const token = authToken || await getValidAuthToken();
@@ -103,8 +123,8 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
         throw new Error("Impossible d'obtenir un token d'authentification valide");
       }
       
-      // Simulate waking up services
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Force le réveil des services avec le token disponible
+      await ensureServicesAvailable(true);
       
       // Simulate API check
       const debugInfo = {
@@ -135,13 +155,16 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [authToken, getValidAuthToken, fetchCampaignsData]);
+  }, [authToken, getValidAuthToken, fetchCampaignsData, forceWakeupServices, ensureServicesAvailable]);
 
   // Force synchronization
   const forceSyncNow = useCallback(async () => {
     try {
       setIsLoading(true);
       toast.loading("Synchronisation forcée en cours...", { id: "force-sync" });
+      
+      // Force le réveil des services
+      await forceWakeupServices();
       
       // Simulate sync process
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -167,13 +190,16 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchCampaignsData]);
+  }, [fetchCampaignsData, forceWakeupServices]);
 
   // Reset cache (simulated)
   const resetCache = useCallback(async () => {
     try {
       setIsLoading(true);
       toast.loading("Nettoyage du cache en cours...", { id: "reset-cache" });
+      
+      // S'assurer que les services sont disponibles
+      await ensureServicesAvailable();
       
       // Simulate cache reset
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -198,7 +224,7 @@ export const useAcelleCampaignsDashboard = (accounts: AcelleAccount[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchCampaignsData]);
+  }, [fetchCampaignsData, ensureServicesAvailable]);
 
   // Initial data load
   useEffect(() => {

@@ -1,166 +1,144 @@
 
-import { supabase } from "@/integrations/supabase/client";
+/**
+ * Utilities pour l'API Acelle
+ */
 import { AcelleAccount } from "@/types/acelle.types";
-import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
-import { forceSyncCampaigns, getAcelleCampaigns } from "./api/campaigns";
 
 /**
- * Construit l'URL pour l'API Acelle
+ * Construit l'URL pour l'API Acelle en tenant compte de la configuration du compte
  */
-export const buildAcelleApiUrl = (
-  account: AcelleAccount, 
-  endpoint: string, 
-  params?: Record<string, string>
-): string => {
-  // S'assurer que l'endpoint n'a pas de slash au début
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-  
-  // S'assurer que l'api_endpoint n'a pas de slash à la fin
-  const baseUrl = account.api_endpoint.endsWith('/') 
+export const buildAcelleApiUrl = (account: AcelleAccount, path: string): string => {
+  // Normaliser le endpoint en supprimant le slash final si présent
+  const apiBase = account.api_endpoint?.endsWith("/") 
     ? account.api_endpoint.slice(0, -1) 
     : account.api_endpoint;
   
-  // Construire l'URL avec les paramètres
-  const url = new URL(`${baseUrl}/${cleanEndpoint}`);
+  // Vérifier si le path commence par un slash et l'ajuster
+  const apiPath = path.startsWith("/") ? path.substring(1) : path;
   
-  // Ajouter le token API
-  url.searchParams.append('api_token', account.api_token);
+  // Déterminer si l'API contient déjà "api/v1" dans son URL
+  const needsApiV1 = !apiBase.includes("/api/v1");
+  const apiV1Path = needsApiV1 ? "/api/v1/" : "/";
   
-  // Ajouter d'autres paramètres si fournis
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, value);
-    });
-  }
+  // Construire l'URL finale avec le token d'API
+  const apiToken = account.api_token;
+  const separator = apiPath.includes("?") ? "&" : "?";
+  const finalPath = `${apiPath}${separator}api_token=${apiToken}`;
   
-  return url.toString();
+  return `${apiBase}${apiV1Path}${finalPath}`;
 };
 
 /**
- * Fonction de délai (sleep) pour les retry
+ * Construit l'URL pour le proxy CORS
  */
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const buildProxyUrl = (account: AcelleAccount, path: string): string => {
+  // URL de base pour le proxy CORS
+  const proxyBase = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
+  
+  // Normaliser le endpoint en supprimant le slash final si présent
+  const apiBase = account.api_endpoint?.endsWith("/") 
+    ? account.api_endpoint.slice(0, -1) 
+    : account.api_endpoint;
+  
+  // Vérifier si le path commence par un slash et l'ajuster
+  const apiPath = path.startsWith("/") ? path.substring(1) : path;
+  
+  // Déterminer si l'API contient déjà "api/v1" dans son URL
+  const needsApiV1 = !apiBase.includes("/api/v1");
+  const apiV1Path = needsApiV1 ? "/api/v1/" : "/";
+  
+  // Construire l'URL de l'API cible (sans token, car il sera passé en en-tête)
+  const targetUrl = `${apiBase}${apiV1Path}${apiPath}`;
+  
+  // Construire l'URL finale pour le proxy
+  return `${proxyBase}/${apiPath}`;
+};
 
 /**
- * Appelle directement l'API Acelle avec gestion des erreurs et retries
+ * Effectue un appel à l'API Acelle
  */
-export const callAcelleApi = async (
-  url: string, 
-  options: RequestInit = {},
-  retries = 2,
-  retryDelay = 1000
-): Promise<any> => {
-  let lastError: any = null;
-  
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      if (attempt > 0) {
-        console.log(`Tentative ${attempt}/${retries} pour l'appel à ${url}`);
-        await delay(retryDelay * attempt); // Délai exponentiel entre les tentatives
-      }
-      
-      console.log(`Appel API Acelle: ${url}`);
-      
-      // S'assurer que les headers sont définis
-      const headers = {
-        'Accept': 'application/json',
-        ...options.headers
-      };
-      
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        // Assurer que les requêtes échouent rapidement en cas de problème réseau
-        signal: AbortSignal.timeout(15000) // 15 secondes timeout
-      });
-      
-      // Vérifier si la réponse est OK
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Erreur API Acelle (${response.status}): ${errorText}`);
-        
-        // Stocker l'erreur pour la dernière tentative
-        lastError = new Error(`API Acelle: ${response.status} ${response.statusText} - ${errorText}`);
-        
-        // Si c'est une erreur de serveur (5xx) ou certaines erreurs 4xx qui peuvent être transitoires
-        // On continue la boucle pour réessayer
-        if (response.status >= 500 || response.status === 429 || response.status === 408) {
-          continue;
-        }
-        
-        // Pour les autres erreurs (400, 401, 403, etc.), on abandonne directement
-        throw lastError;
-      }
-      
-      // Si on arrive ici, la requête a réussi
-      const data = await response.json();
-      return data;
-      
-    } catch (error: any) {
-      console.error(`Erreur lors de l'appel API Acelle (tentative ${attempt}/${retries}):`, error);
-      lastError = error;
-      
-      // Si c'est une erreur de timeout ou de réseau et qu'il nous reste des tentatives, on continue
-      if ((error.name === 'AbortError' || error.name === 'TypeError') && attempt < retries) {
-        continue;
-      }
-      
-      // Pour les autres erreurs ou si c'était la dernière tentative, on abandonne
-      if (attempt >= retries) {
-        console.error(`Échec après ${retries} tentatives pour ${url}`);
-      }
-      
-      throw lastError;
+export const callAcelleApi = async (url: string, options?: {
+  method?: string;
+  body?: any;
+  maxRetries?: number;
+  useProxy?: boolean;
+  headers?: Record<string, string>;
+}, retryCount = 0): Promise<any> => {
+  try {
+    // Configuration par défaut
+    const method = options?.method || "GET";
+    const maxRetries = options?.maxRetries || 1;
+    const useProxy = options?.useProxy || false;
+
+    // Construire les en-têtes HTTP
+    const headers: Record<string, string> = {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      ...options?.headers
+    };
+    
+    console.log(`Appel API Acelle (${retryCount + 1}/${maxRetries + 1}): ${url}`, { method, useProxy });
+
+    // Configuration de la requête
+    const requestOptions: RequestInit = {
+      method,
+      headers,
+      cache: "no-store"
+    };
+
+    // Ajouter le corps de la requête si nécessaire
+    if (options?.body && method !== "GET") {
+      requestOptions.body = JSON.stringify(options.body);
     }
-  }
-  
-  // On ne devrait jamais arriver ici, mais au cas où
-  throw lastError || new Error(`Échec inexpliqué de l'appel API: ${url}`);
-};
 
-/**
- * Construit l'URL pour le proxy CORS (pour compatibilité)
- */
-export const buildProxyUrl = (endpoint: string, params?: Record<string, string>): string => {
-  const baseUrl = '/api/proxy/acelle';
-  
-  // S'assurer que l'endpoint n'a pas de slash au début
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-  
-  // Construire l'URL
-  let url = `${baseUrl}/${cleanEndpoint}`;
-  
-  // Ajouter les paramètres d'URL
-  if (params) {
-    const queryParams = new URLSearchParams();
+    // Exécuter la requête
+    const response = await fetch(url, requestOptions);
     
-    Object.entries(params).forEach(([key, value]) => {
-      queryParams.append(key, value);
-    });
+    // Vérifier le statut de la réponse
+    if (!response.ok) {
+      console.error(`Erreur API Acelle: ${response.status} - ${response.statusText}`, { url });
+      
+      if (response.status === 404) {
+        console.error("URL introuvable:", url);
+      }
+      
+      // Tentative avec le body de l'erreur
+      try {
+        const errorBody = await response.text();
+        console.error("Détails de l'erreur:", errorBody);
+      } catch (e) {
+        // Ignorer l'erreur de lecture du corps
+      }
+      
+      // Si on n'a pas atteint le nombre max de tentatives, réessayer
+      if (retryCount < maxRetries) {
+        console.log(`Nouvelle tentative (${retryCount + 2}/${maxRetries + 1}) pour: ${url}`);
+        
+        // Attendre un délai avant de réessayer
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        
+        return callAcelleApi(url, options, retryCount + 1);
+      }
+      
+      throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
+    }
+
+    // Traiter la réponse
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Erreur lors de l'appel à l'API Acelle:", error);
     
-    url += `?${queryParams.toString()}`;
+    // Si on n'a pas atteint le nombre max de tentatives, réessayer
+    if (retryCount < (options?.maxRetries || 1)) {
+      console.log(`Nouvelle tentative après erreur (${retryCount + 2}/${(options?.maxRetries || 1) + 1}) pour: ${url}`);
+      
+      // Attendre un délai avant de réessayer
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+      
+      return callAcelleApi(url, options, retryCount + 1);
+    }
+    
+    throw error;
   }
-  
-  return url;
 };
-
-/**
- * Service pour gérer les appels à l'API Acelle
- */
-export const acelleService = {
-  // Exporter les fonctions d'API
-  getAcelleAccounts,
-  getAcelleAccountById,
-  createAcelleAccount,
-  updateAcelleAccount,
-  deleteAcelleAccount,
-  forceSyncCampaigns,
-  getAcelleCampaigns,
-  
-  // Exporter les fonctions utilitaires
-  buildAcelleApiUrl,
-  callAcelleApi,
-  buildProxyUrl
-};
-
-export default acelleService;

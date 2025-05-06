@@ -24,7 +24,7 @@ const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ account, onSubmit
     api_endpoint: "",
     api_token: "",
     status: "inactive",
-    mission_id: "",
+    mission_id: null as string | null,
     cache_priority: 0
   });
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
@@ -41,7 +41,7 @@ const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ account, onSubmit
           api_endpoint: account.api_endpoint || "",
           api_token: account.api_token || "",
           status: account.status || "inactive",
-          mission_id: account.mission_id || "",
+          mission_id: account.mission_id || null,
           cache_priority: account.cache_priority || 0
         });
       }
@@ -69,7 +69,7 @@ const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ account, onSubmit
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (name: string, value: string) => {
+  const handleSelectChange = (name: string, value: string | null) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -188,8 +188,8 @@ const AcelleAccountForm: React.FC<AcelleAccountFormProps> = ({ account, onSubmit
               <div>
                 <Label htmlFor="mission_id">Mission associée (optionnel)</Label>
                 <Select
-                  value={formData.mission_id}
-                  onValueChange={(value) => handleSelectChange("mission_id", value)}
+                  value={formData.mission_id || ""}
+                  onValueChange={(value) => handleSelectChange("mission_id", value === "" ? null : value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une mission" />

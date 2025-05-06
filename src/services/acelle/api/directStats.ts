@@ -1,7 +1,8 @@
+
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "./campaignStats";
 import { createEmptyStatistics } from "./campaignStats";
-import { callAcelleApi, buildAcelleApiUrl } from "../acelle-service";
+import { callAcelleApi, buildAcelleApiUrl, buildProxyUrl } from "../acelle-service";
 
 /**
  * Enrichit les campagnes avec des statistiques directement depuis l'API Acelle
@@ -53,11 +54,21 @@ export const enrichCampaignsWithStats = async (
       });
       
       try {
-        // URL direct pour les statistiques de la campagne
-        const url = buildAcelleApiUrl(account, `campaigns/${campaignUid}/overview`);
-        console.log(`Appel direct à l'API pour les statistiques de ${campaignUid}: ${url}`);
+        // MODIFICATION: Utiliser le proxy CORS au lieu de l'appel direct
+        // Construire l'URL pour le proxy CORS
+        const apiPath = `campaigns/${campaignUid}/overview`;
+        const url = buildProxyUrl(account, apiPath);
         
-        const response = await callAcelleApi(url, {}, 3); // 3 tentatives max
+        console.log(`Appel via CORS proxy pour les statistiques de ${campaignUid}: ${url}`);
+        
+        const response = await callAcelleApi(url, {
+          useProxy: true,   // Forcer l'utilisation du proxy
+          maxRetries: 3,    // 3 tentatives max
+          headers: {
+            'X-Acelle-Token': account.api_token,
+            'X-Acelle-Endpoint': account.api_endpoint
+          }
+        });
         
         if (response && response.data) {
           console.log(`Statistiques reçues pour ${campaignUid}:`, response.data);
@@ -72,6 +83,7 @@ export const enrichCampaignsWithStats = async (
             open_count: statsData.unique_opens_count || 0,
             open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
             uniq_open_rate: statsData.unique_opens_rate ? statsData.unique_opens_rate / 100 : 0,
+            uniq_open_count: statsData.unique_opens_count || 0,
             click_count: statsData.unique_clicks_count || 0,
             click_rate: statsData.clicks_rate ? statsData.clicks_rate / 100 : 0,
             bounce_count: (statsData.bounce_count || 0),
