@@ -50,12 +50,17 @@ export function AcelleAccountForm({
       api_endpoint: account?.api_endpoint || "",
       api_token: account?.api_token || "",
       status: account?.status as "active" | "inactive" || "inactive",
-      mission_id: account?.mission_id || "",
+      mission_id: account?.mission_id || "none", // Valeur non vide par défaut 
       cache_priority: account?.cache_priority || 0,
     },
   });
 
   const handleSubmit = (data: z.infer<typeof formSchema>) => {
+    // Si la valeur est "none", la convertir en champ vide pour la base de données
+    if (data.mission_id === "none") {
+      data.mission_id = "";
+    }
+    
     // Valider les données et envoyer
     onSubmit(data);
   };
@@ -157,7 +162,7 @@ export function AcelleAccountForm({
               <FormLabel>Mission associée</FormLabel>
               <Select 
                 onValueChange={field.onChange} 
-                defaultValue={field.value}
+                defaultValue={field.value || "none"}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -165,7 +170,7 @@ export function AcelleAccountForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">Aucune</SelectItem>
+                  <SelectItem value="none">Aucune</SelectItem>
                   {missions.map((mission) => (
                     <SelectItem key={mission.id} value={mission.id}>
                       {mission.name}

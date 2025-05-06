@@ -2,6 +2,7 @@
 import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "./campaignStats";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
+import { callAcelleApi, buildAcelleApiUrl } from "../acelle-service";
 
 /**
  * Enrichit les campagnes avec des statistiques directement depuis l'API Acelle
