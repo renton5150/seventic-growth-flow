@@ -49,7 +49,7 @@ export async function enrichCampaignsWithStats(
         campaign.statistics = stats;
         
         // Mettre à jour le cache
-        await updateCampaignStatsCache(campaign.uid, stats);
+        await updateCampaignStatsCache(campaign.uid, account.id, stats);
       } catch (error) {
         console.error(`Erreur lors de la récupération des statistiques pour la campagne ${campaign.uid}:`, error);
         campaign.statistics = createEmptyStatistics();
@@ -130,7 +130,7 @@ async function getCachedCampaignStats(campaignUid: string): Promise<AcelleCampai
     
     // Convertir les statistiques JSON en objet AcelleCampaignStatistics
     try {
-      const typedStats = statsData as unknown as AcelleCampaignStatistics;
+      const typedStats = statsData as AcelleCampaignStatistics;
       return {
         subscriber_count: typedStats.subscriber_count || 0,
         delivered_count: typedStats.delivered_count || 0,
@@ -161,6 +161,7 @@ async function getCachedCampaignStats(campaignUid: string): Promise<AcelleCampai
  */
 async function updateCampaignStatsCache(
   campaignUid: string,
+  accountId: string,
   statistics: AcelleCampaignStatistics
 ): Promise<void> {
   try {
@@ -184,6 +185,7 @@ async function updateCampaignStatsCache(
     await supabase
       .from('campaign_stats_cache')
       .upsert({
+        account_id: accountId,
         campaign_uid: campaignUid,
         statistics: statsObject,
         last_updated: new Date().toISOString()

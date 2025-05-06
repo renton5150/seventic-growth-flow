@@ -4,7 +4,6 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -14,14 +13,14 @@ import { acelleApiService } from "@/services/acelle";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
-import { CampaignsTableHeader } from "./table/TableHeader";
+import { CampaignsTableHeader } from "./table/CampaignsTableHeader";
 import { CampaignsTablePagination } from "./table/TablePagination";
 import {
   TableLoadingState,
   TableErrorState,
   EmptyState,
   InactiveAccountState
-} from "./table/LoadingAndErrorStates";
+} from "./table/EmptyAndLoadingStates";
 import AcelleCampaignDetails from "./AcelleCampaignDetails";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,8 +48,12 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
+  
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   // Utiliser notre hook useCampaignCache pour les opérations de cache
   const { 
@@ -80,7 +83,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     } catch (err) {
       console.error("Error fetching campaigns:", err);
       setIsError(true);
-      setError(err instanceof Error ? err : new Error("Failed to fetch campaigns"));
+      setError(err instanceof Error ? err.message : "Failed to fetch campaigns");
       setConnectionError("Impossible de récupérer les campagnes. Veuillez réessayer.");
     } finally {
       setIsLoading(false);
@@ -134,7 +137,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       } catch (err) {
         console.error("Erreur lors du chargement des campagnes:", err);
         setIsError(true);
-        setError(err instanceof Error ? err : new Error("Erreur de chargement des campagnes"));
+        setError(err instanceof Error ? err.message : "Erreur de chargement des campagnes");
       } finally {
         setIsLoading(false);
       }
@@ -227,7 +230,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   if (isError && campaigns.length === 0) {
     return (
       <TableErrorState 
-        error={error} 
+        error={error ? new Error(error) : null} 
         retryCount={retryCount}
         onRetry={() => {
           setRetryCount(prev => prev + 1);
@@ -245,7 +248,12 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <AcelleTableFilters />
+        <AcelleTableFilters 
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+        />
         
         <Button 
           variant="outline" 
@@ -270,14 +278,19 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       <div className="border rounded-md">
         <Table>
           <TableHeader>
-            <CampaignsTableHeader />
+            <CampaignsTableHeader 
+              columns={["name", "subject", "status", "delivery_date", "recipients", "open_rate", "click_rate", "actions"]}
+              sortBy="created_at"
+              sortOrder="desc"
+              onSort={() => {}} 
+            />
           </TableHeader>
           <TableBody>
             {campaigns.map((campaign) => (
               <AcelleTableRow 
                 key={campaign.uid} 
                 campaign={campaign}
-                onView={() => handleOpenDetails(campaign.uid)}
+                onView={handleOpenDetails}
               />
             ))}
           </TableBody>
@@ -287,6 +300,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       <CampaignsTablePagination
         currentPage={currentPage}
         totalPages={totalPages}
+        hasNextPage={hasNextPage}
         onPageChange={handlePageChange}
       />
       

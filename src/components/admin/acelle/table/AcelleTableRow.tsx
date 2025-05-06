@@ -1,192 +1,81 @@
 
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Eye } from "lucide-react";
+import { AcelleCampaign } from "@/types/acelle.types";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Eye } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { TableRow, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
-import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
 
-interface AcelleTableRowProps {
+export interface AcelleTableRowProps {
   campaign: AcelleCampaign;
-  account?: AcelleAccount;
-  onViewCampaign: (uid: string) => void;
+  onView?: (campaignId: string) => void;
 }
 
-export const AcelleTableRow = ({ 
-  campaign, 
-  account, 
-  onViewCampaign
-}: AcelleTableRowProps) => {
-  // État local pour les statistiques
-  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+export const AcelleTableRow = ({ campaign, onView }: AcelleTableRowProps) => {
+  // Format delivery date if available
+  const formattedDate = campaign.delivery_date
+    ? format(new Date(campaign.delivery_date), 'dd MMM yyyy', { locale: fr })
+    : "Non défini";
   
-  // Garantir la présence d'un UID valide
-  const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
+  // Get statistics
+  const totalRecipients = campaign.statistics?.subscriber_count || campaign.delivery_info?.total || 0;
+  const openRate = campaign.statistics?.uniq_open_rate || campaign.delivery_info?.unique_open_rate || 0;
+  const clickRate = campaign.statistics?.click_rate || campaign.delivery_info?.click_rate || 0;
   
-  // Garantir des valeurs sûres pour les propriétés obligatoires
-  const campaignName = campaign?.name || "Sans nom";
-  const campaignSubject = campaign?.subject || "Sans sujet";
-  const campaignStatus = (campaign?.status || "unknown").toLowerCase();
-  
-  // Date d'envoi avec fallback
-  const deliveryDate = campaign?.delivery_date || campaign?.run_at || null;
-
-  // Récupérer les statistiques de la campagne
-  useEffect(() => {
-    const loadCampaignStats = async () => {
-      console.log(`[TableRow] Initialisation des statistiques pour la campagne ${campaignName}`, {
-        hasDeliveryInfo: !!campaign.delivery_info,
-        hasStatistics: !!campaign.statistics,
-        account: account ? {
-          hasToken: !!account.api_token,
-          hasEndpoint: !!account.api_endpoint
-        } : 'No account'
-      });
-      
-      if (!account) {
-        console.warn(`[TableRow] Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
-        return;
-      }
-      
-      try {
-        setIsLoading(true);
-        
-        // Utiliser le service pour récupérer les statistiques avec cache intelligent
-        const result = await fetchAndProcessCampaignStats(campaign, account!, { 
-          refresh: false // Utiliser le cache si disponible et frais
-        });
-        
-        console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, result);
-        
-        // Mettre à jour l'état local avec les statistiques récupérées
-        setStats(result.statistics);
-        
-        // Enrichir également la campagne avec les statistiques pour qu'elles soient disponibles dans le détail
-        campaign.statistics = result.statistics;
-        campaign.delivery_info = result.delivery_info;
-        
-      } catch (error) {
-        console.error(`[TableRow] Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadCampaignStats();
-  }, [campaign, account, campaignName]);
-
-  // Formatage sécurisé des dates
-  const formatDateSafely = (dateString: string | null | undefined) => {
-    if (!dateString) return "Non programmé";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "Date invalide";
-      return format(date, "dd/MM/yyyy HH:mm", { locale: fr });
-    } catch {
-      return "Date invalide";
+  // Format status
+  const getStatusClassName = () => {
+    switch (campaign.status?.toLowerCase()) {
+      case 'sent':
+        return 'bg-green-100 text-green-700';
+      case 'sending':
+        return 'bg-blue-100 text-blue-700';
+      case 'ready':
+        return 'bg-cyan-100 text-cyan-700';
+      case 'failed':
+        return 'bg-red-100 text-red-700';
+      case 'paused':
+        return 'bg-amber-100 text-amber-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
     }
   };
-
-  // Récupérer les statistiques formattées
-  const getTotalSent = (): number => {
-    if (stats?.subscriber_count) return stats.subscriber_count;
-    if (campaign.statistics?.subscriber_count) return campaign.statistics.subscriber_count;
-    if (campaign.delivery_info?.total) return campaign.delivery_info.total;
-    return 0;
-  };
-
-  const getOpenRate = (): number => {
-    if (stats?.uniq_open_rate) return stats.uniq_open_rate;
-    if (stats?.open_rate) return stats.open_rate;
-    if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
-    if (campaign.statistics?.open_rate) return campaign.statistics.open_rate;
-    if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
-    return 0;
-  };
-
-  const getClickRate = (): number => {
-    if (stats?.click_rate) return stats.click_rate;
-    if (campaign.statistics?.click_rate) return campaign.statistics.click_rate;
-    if (campaign.delivery_info?.click_rate) return campaign.delivery_info.click_rate;
-    return 0;
-  };
-
-  const getBounceCount = (): number => {
-    if (stats?.bounce_count) return stats.bounce_count;
-    if (campaign.statistics?.bounce_count) return campaign.statistics.bounce_count;
-    
-    if (campaign.delivery_info?.bounced) {
-      if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total) {
-        return campaign.delivery_info.bounced.total;
-      }
-      if (typeof campaign.delivery_info.bounced === 'number') {
-        return campaign.delivery_info.bounced;
-      }
-    }
-    
-    return 0;
-  };
-
-  // Valeurs à afficher
-  const totalSent = getTotalSent();
-  const openRate = getOpenRate();
-  const clickRate = getClickRate();
-  const bounceCount = getBounceCount();
-
-  // Journaliser les données de la campagne pour le débogage
-  useEffect(() => {
-    console.debug(`[TableRow] Données finales pour campagne ${campaignName}:`, {
-      id: campaignUid,
-      hasStats: !!stats,
-      statsValues: {
-        totalSent,
-        openRate,
-        clickRate,
-        bounceCount
-      },
-      rawStats: stats,
-      campaignStatistics: campaign.statistics,
-      deliveryInfo: campaign.delivery_info
-    });
-  }, [campaignName, campaignUid, totalSent, openRate, clickRate, bounceCount, stats, campaign.statistics, campaign.delivery_info]);
   
-  const handleViewCampaign = () => {
-    console.log(`[TableRow] Affichage des détails pour la campagne ${campaignUid}`, { campaign });
-    onViewCampaign(campaignUid);
+  const formatStatus = () => {
+    switch (campaign.status?.toLowerCase()) {
+      case 'sent':
+        return 'Envoyée';
+      case 'sending':
+        return 'En cours';
+      case 'ready':
+        return 'Prête';
+      case 'failed':
+        return 'Échec';
+      case 'paused':
+        return 'En pause';
+      default:
+        return campaign.status || 'Inconnu';
+    }
   };
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{campaignName}</TableCell>
-      <TableCell>{campaignSubject}</TableCell>
+      <TableCell className="font-medium">{campaign.name}</TableCell>
+      <TableCell className="max-w-[200px] truncate">{campaign.subject}</TableCell>
       <TableCell>
-        <Badge variant={getStatusBadgeVariant(campaignStatus)}>
-          {translateStatus(campaignStatus)}
-        </Badge>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClassName()}`}>
+          {formatStatus()}
+        </span>
       </TableCell>
-      <TableCell>{formatDateSafely(deliveryDate)}</TableCell>
-      <TableCell className="font-medium tabular-nums">
-        {isLoading ? "..." : totalSent.toLocaleString()}
-      </TableCell>
-      <TableCell className="tabular-nums">
-        {isLoading ? "..." : renderPercentage(openRate)}
-      </TableCell>
-      <TableCell className="tabular-nums">
-        {isLoading ? "..." : renderPercentage(clickRate)}
-      </TableCell>
-      <TableCell className="tabular-nums">
-        {isLoading ? "..." : bounceCount.toLocaleString()}
-      </TableCell>
+      <TableCell>{formattedDate}</TableCell>
+      <TableCell className="text-right">{totalRecipients.toLocaleString()}</TableCell>
+      <TableCell className="text-right">{(openRate * 100).toFixed(1)}%</TableCell>
+      <TableCell className="text-right">{(clickRate * 100).toFixed(1)}%</TableCell>
       <TableCell className="text-right">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={handleViewCampaign}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onView && onView(campaign.uid)}
           title="Voir les détails"
         >
           <Eye className="h-4 w-4" />
