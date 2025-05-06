@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
-import { forceSyncCampaigns, getAcelleCampaigns } from "@/services/acelle/api/campaigns";
+import { getAcelleCampaigns, forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -70,10 +70,8 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     try {
       if (account?.id) {
         // Utiliser notre nouvelle API pour récupérer les campagnes
-        // Avec mode démo activé pour garantir le fonctionnement
         const fetchedCampaigns = await getAcelleCampaigns(account, { 
-          refresh: true,
-          demoMode: true 
+          refresh: true
         });
         
         setCampaigns(fetchedCampaigns);

@@ -124,13 +124,43 @@ const AcelleCampaignDetails = ({
       last_error: null
     };
     
-    // Générer des statistiques
-    const { statistics } = await fetchAndProcessCampaignStats(campaignData, null!, { demoMode: true });
+    // Générer des statistiques fictives
+    const dummyStats: AcelleCampaignStatistics = {
+      subscriber_count: 1000,
+      delivered_count: 950,
+      delivered_rate: 0.95,
+      open_count: 500,
+      uniq_open_rate: 0.45,
+      click_count: 300,
+      click_rate: 0.30,
+      bounce_count: 50,
+      soft_bounce_count: 30,
+      hard_bounce_count: 20,
+      unsubscribe_count: 15,
+      abuse_complaint_count: 5,
+      open_rate: 0.55
+    };
     
     // Attribuer les statistiques à la campagne
-    campaignData.statistics = statistics;
+    campaignData.statistics = dummyStats;
+    campaignData.delivery_info = {
+      total: 1000,
+      delivered: 950,
+      opened: 500,
+      clicked: 300,
+      bounced: {
+        total: 50,
+        soft: 30,
+        hard: 20
+      },
+      delivery_rate: 0.95,
+      unique_open_rate: 0.45,
+      click_rate: 0.30,
+      unsubscribed: 15,
+      complained: 5
+    };
     
-    return { campaignData, statsData: statistics };
+    return { campaignData, statsData: dummyStats };
   };
 
   // Afficher un spinner pendant le chargement

@@ -116,3 +116,37 @@ export const callAcelleViaProxy = async (
     throw error;
   }
 };
+
+/**
+ * Réveille le proxy CORS pour s'assurer qu'il est actif
+ * 
+ * @param authToken - Token d'authentification Supabase
+ * @returns Promise<void>
+ */
+export const wakeupCorsProxy = async (authToken: string): Promise<void> => {
+  try {
+    console.log("Réveil du proxy CORS...");
+    
+    const pingUrl = `${CORS_PROXY_URL}/ping`;
+    
+    const response = await fetch(pingUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${authToken}`,
+        "X-Wake-Request": "true"
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`Le proxy CORS n'a pas répondu correctement: ${response.status}`);
+      return;
+    }
+    
+    const data = await response.json();
+    console.log("Proxy CORS réveillé avec succès:", data);
+  } catch (error) {
+    console.warn("Échec du réveil du proxy CORS:", error);
+  }
+};

@@ -10,7 +10,9 @@ import { toast } from "sonner";
  */
 export const getAcelleCampaigns = async (
   account: AcelleAccount,
-  options?: { refresh?: boolean; }
+  options?: { 
+    refresh?: boolean;
+  }
 ): Promise<AcelleCampaign[]> => {
   try {
     console.log(`Récupération des campagnes pour ${account.name}...`);
@@ -127,6 +129,66 @@ export const getAcelleCampaigns = async (
   } catch (error) {
     console.error(`Erreur lors de la récupération des campagnes pour ${account.name}:`, error);
     throw error;
+  }
+};
+
+/**
+ * Extrait les campagnes depuis le cache Supabase
+ * Cette fonction est exportée pour être utilisée par d'autres modules
+ */
+export const extractCampaignsFromCache = async (
+  accounts: AcelleAccount[],
+  page: number = 1,
+  pageSize: number = 10
+): Promise<AcelleCampaign[]> => {
+  if (!accounts || accounts.length === 0) {
+    console.log("Aucun compte fourni pour l'extraction du cache");
+    return [];
+  }
+
+  try {
+    const accountIds = accounts.map(account => account.id);
+    
+    // Calculer l'offset pour la pagination
+    const offset = (page - 1) * pageSize;
+    
+    // Récupérer les campagnes mises en cache
+    const { data, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .in('account_id', accountIds)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
+    // Transformer les données en AcelleCampaign[]
+    const campaigns = data.map(item => ({
+      uid: item.campaign_uid,
+      campaign_uid: item.campaign_uid,
+      name: item.name || '',
+      subject: item.subject || '',
+      status: item.status || '',
+      created_at: item.created_at || '',
+      updated_at: item.updated_at || '',
+      delivery_date: item.delivery_date || '',
+      run_at: item.run_at || '',
+      delivery_info: typeof item.delivery_info === 'string' 
+        ? JSON.parse(item.delivery_info) 
+        : (item.delivery_info || {}),
+      last_error: item.last_error
+    })) as AcelleCampaign[];
+    
+    return campaigns;
+  } catch (error) {
+    console.error("Erreur lors de l'extraction des campagnes du cache:", error);
+    return [];
   }
 };
 

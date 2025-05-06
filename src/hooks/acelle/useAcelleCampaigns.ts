@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { getAcelleCampaigns, extractCampaignsFromCache, getCacheStatus } from "@/services/acelle/api/campaigns";
+import { getAcelleCampaigns, getCacheStatus, extractCampaignsFromCache } from "@/services/acelle/api/campaigns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthToken } from "./useAuthToken";
 
@@ -10,7 +10,6 @@ interface UseAcelleCampaignsProps {
   paginationEnabled?: boolean;
   itemsPerPage?: number;
   autoLoad?: boolean;
-  demoMode?: boolean;
 }
 
 interface UseCampaignsReturn {
@@ -35,7 +34,6 @@ export const useAcelleCampaigns = ({
   paginationEnabled = true,
   itemsPerPage = 10,
   autoLoad = true,
-  demoMode = false,
 }: UseAcelleCampaignsProps): UseCampaignsReturn => {
   const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
   const [allCampaigns, setAllCampaigns] = useState<AcelleCampaign[]>([]);
@@ -81,8 +79,7 @@ export const useAcelleCampaigns = ({
         setError(null);
 
         const campaigns = await getAcelleCampaigns(account, {
-          refresh: forceRefresh,
-          demoMode,
+          refresh: forceRefresh
         });
 
         setAllCampaigns(campaigns);
@@ -95,7 +92,7 @@ export const useAcelleCampaigns = ({
         setIsFetching(false);
       }
     },
-    [account, demoMode]
+    [account]
   );
 
   // Récupération des données au chargement
@@ -122,7 +119,7 @@ export const useAcelleCampaigns = ({
         setIsFetching(false);
       }
     },
-    [account, demoMode]
+    [account]
   );
 
   // Navigation pagination

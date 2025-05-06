@@ -1,5 +1,5 @@
 
-import { AcelleCampaign, AcelleAccount } from "@/types/acelle.types";
+import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { fetchAndProcessCampaignStats } from "./campaignStats";
 import { createEmptyStatistics } from "./campaignStats";
 import { buildCorsProxyUrl, buildCorsProxyHeaders, wakeupCorsProxy } from "../cors-proxy";
@@ -82,28 +82,46 @@ export const enrichCampaignsWithStats = async (
         console.log(`Utilisation des statistiques en cache pour ${campaignUid}, dernière mise à jour: ${cachedStats.last_updated}`);
         
         // Appliquer les statistiques depuis le cache
-        enrichedCampaigns[i] = {
-          ...campaign,
-          statistics: cachedStats.statistics,
-          delivery_info: {
-            total: cachedStats.statistics.subscriber_count || 0,
-            delivered: cachedStats.statistics.delivered_count || 0,
-            opened: cachedStats.statistics.open_count || 0,
-            clicked: cachedStats.statistics.click_count || 0,
-            bounced: {
-              total: cachedStats.statistics.bounce_count || 0,
-              hard: cachedStats.statistics.hard_bounce_count || 0,
-              soft: cachedStats.statistics.soft_bounce_count || 0
-            },
-            delivery_rate: cachedStats.statistics.delivered_rate || 0,
-            unique_open_rate: cachedStats.statistics.uniq_open_rate || 0,
-            click_rate: cachedStats.statistics.click_rate || 0,
-            unsubscribed: cachedStats.statistics.unsubscribe_count || 0,
-            complained: cachedStats.statistics.abuse_complaint_count || 0
-          }
-        };
+        const cachedStatsData = cachedStats.statistics as any;
         
-        continue;
+        // S'assurer que les données sont valides
+        if (typeof cachedStatsData === 'object') {
+          enrichedCampaigns[i] = {
+            ...campaign,
+            statistics: {
+              subscriber_count: cachedStatsData.subscriber_count || 0,
+              delivered_count: cachedStatsData.delivered_count || 0,
+              delivered_rate: cachedStatsData.delivered_rate || 0,
+              open_count: cachedStatsData.open_count || 0,
+              uniq_open_rate: cachedStatsData.uniq_open_rate || 0,
+              click_count: cachedStatsData.click_count || 0,
+              click_rate: cachedStatsData.click_rate || 0,
+              bounce_count: cachedStatsData.bounce_count || 0,
+              soft_bounce_count: cachedStatsData.soft_bounce_count || 0,
+              hard_bounce_count: cachedStatsData.hard_bounce_count || 0,
+              unsubscribe_count: cachedStatsData.unsubscribe_count || 0,
+              abuse_complaint_count: cachedStatsData.abuse_complaint_count || 0
+            },
+            delivery_info: {
+              total: cachedStatsData.subscriber_count || 0,
+              delivered: cachedStatsData.delivered_count || 0,
+              opened: cachedStatsData.open_count || 0,
+              clicked: cachedStatsData.click_count || 0,
+              bounced: {
+                total: cachedStatsData.bounce_count || 0,
+                hard: cachedStatsData.hard_bounce_count || 0,
+                soft: cachedStatsData.soft_bounce_count || 0
+              },
+              delivery_rate: cachedStatsData.delivered_rate || 0,
+              unique_open_rate: cachedStatsData.uniq_open_rate || 0,
+              click_rate: cachedStatsData.click_rate || 0,
+              unsubscribed: cachedStatsData.unsubscribe_count || 0,
+              complained: cachedStatsData.abuse_complaint_count || 0
+            }
+          };
+          
+          continue;
+        }
       }
       
       try {
