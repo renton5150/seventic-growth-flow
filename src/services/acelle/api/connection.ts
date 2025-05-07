@@ -1,114 +1,95 @@
-
-import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
+import { AcelleAccount } from "@/types/acelle.types";
+import { buildProxyUrl } from "../acelle-service";
 
 /**
- * Vérifie la connexion à l'API Acelle
+ * Vérifie l'état de la connexion à l'API Acelle
  */
-export const checkAcelleConnectionStatus = async (
-  account: AcelleAccount,
-  accessToken?: string | null
-): Promise<AcelleConnectionDebug> => {
+export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
   try {
-    if (!account || !account.api_endpoint || !account.api_token) {
+    // Vérifier que les informations du compte sont complètes
+    if (!account || !account.api_token || !account.api_endpoint) {
       return {
         success: false,
-        timestamp: new Date().toISOString(),
-        errorMessage: "Informations de connexion insuffisantes"
+        message: "Informations de compte incomplètes",
+        details: {
+          hasAccount: !!account,
+          hasToken: account ? !!account.api_token : false,
+          hasEndpoint: account ? !!account.api_endpoint : false
+        }
       };
     }
 
-    // Récupérer le token d'authentification si non fourni
-    if (!accessToken) {
-      const { data } = await supabase.auth.getSession();
-      accessToken = data?.session?.access_token;
-      
-      if (!accessToken) {
-        return {
-          success: false,
-          timestamp: new Date().toISOString(),
-          errorMessage: "Aucun token d'authentification disponible"
-        };
-      }
+    // Récupérer le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    
+    if (!token) {
+      return {
+        success: false,
+        message: "Non authentifié",
+        details: {
+          reason: "Aucun token d'authentification disponible"
+        }
+      };
+    }
+
+    // Construire l'URL pour tester la connexion
+    const testEndpoint = "ping";
+    const testParams = { 
+      api_token: account.api_token,
+      _t: Date.now().toString()  // Anti-cache
+    };
+    
+    const testUrl = buildProxyUrl(testEndpoint, testParams);
+    
+    // Mesurer le temps de réponse
+    const startTime = Date.now();
+    
+    // Effectuer l'appel API
+    const response = await fetch(testUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      signal: AbortSignal.timeout(10000) // Timeout après 10 secondes
+    });
+    
+    const responseTime = Date.now() - startTime;
+    
+    // Analyser la réponse
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `Erreur API (${response.status})`,
+        details: {
+          status: response.status,
+          statusText: response.statusText,
+          responseTime
+        }
+      };
     }
     
-    // Essayer d'appeler l'Edge Function pour vérifier la connexion à Acelle
-    try {
-      // Construire l'URL pour la vérification
-      const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
-      url.searchParams.append("url", account.api_endpoint);
-      url.searchParams.append("token", account.api_token);
-      
-      // Effectuer la requête
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`
-        }
-      });
-      
-      if (!response.ok) {
-        return {
-          success: false,
-          timestamp: new Date().toISOString(),
-          errorMessage: `Erreur HTTP ${response.status}: ${response.statusText}`
-        };
+    const data = await response.json();
+    
+    return {
+      success: true,
+      message: "Connexion établie",
+      details: {
+        responseTime,
+        apiVersion: data.version || "Inconnue",
+        data
       }
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        return {
-          success: false,
-          timestamp: new Date().toISOString(),
-          errorMessage: result.errorMessage || "La vérification de l'API a échoué"
-        };
-      }
-      
-      return {
-        success: true,
-        timestamp: new Date().toISOString(),
-        responseTime: result.responseTime,
-        apiVersion: result.apiVersion
-      };
-    } catch (error) {
-      return {
-        success: false,
-        timestamp: new Date().toISOString(),
-        errorMessage: error instanceof Error ? error.message : String(error)
-      };
-    }
+    };
   } catch (error) {
+    console.error("Erreur lors de la vérification de la connexion:", error);
+    
     return {
       success: false,
-      timestamp: new Date().toISOString(),
-      errorMessage: error instanceof Error ? error.message : String(error)
+      message: error instanceof Error ? error.message : "Erreur inconnue",
+      details: {
+        error: String(error)
+      }
     };
   }
-};
-
-/**
- * Test la connexion à Acelle avec un compte test
- */
-export const testAcelleConnection = async (
-  api_endpoint: string,
-  api_token: string,
-  accessToken?: string | null
-): Promise<AcelleConnectionDebug> => {
-  // Créer un compte test pour la vérification
-  const testAccount: AcelleAccount = {
-    id: 'test',
-    name: 'Test Connection',
-    api_endpoint,
-    api_token,
-    status: 'inactive',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    cache_priority: 0,
-    last_sync_date: null,
-    last_sync_error: null
-  };
-  
-  return await checkAcelleConnectionStatus(testAccount, accessToken);
 };

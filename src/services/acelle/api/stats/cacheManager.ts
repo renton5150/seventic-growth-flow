@@ -28,7 +28,7 @@ export const testCacheInsertion = async (account: any) => {
     
     // Insert into cache with a test campaign ID
     const { error } = await supabase
-      .from('campaign_statistics_cache')
+      .from('campaign_stats_cache')
       .insert({
         campaign_uid: 'test-campaign-' + Date.now(),
         account_id: account.id,
@@ -54,7 +54,7 @@ export const testCacheInsertion = async (account: any) => {
  */
 export const getStatisticsFromCache = async (campaignId: string, accountId: string) => {
   const { data, error } = await supabase
-    .from('campaign_statistics_cache')
+    .from('campaign_stats_cache')
     .select('statistics, last_updated')
     .eq('campaign_uid', campaignId)
     .eq('account_id', accountId)
@@ -80,7 +80,7 @@ export const storeStatisticsInCache = async (
 ) => {
   try {
     const { error } = await supabase
-      .from('campaign_statistics_cache')
+      .from('campaign_stats_cache')
       .upsert({
         campaign_uid: campaignId,
         account_id: accountId,
@@ -107,7 +107,7 @@ export const storeStatisticsInCache = async (
  */
 export const clearCachedStatistics = async (campaignId: string, accountId: string) => {
   const { error } = await supabase
-    .from('campaign_statistics_cache')
+    .from('campaign_stats_cache')
     .delete()
     .eq('campaign_uid', campaignId)
     .eq('account_id', accountId);
@@ -125,7 +125,7 @@ export const clearCachedStatistics = async (campaignId: string, accountId: strin
  */
 export const clearAccountCache = async (accountId: string) => {
   const { error } = await supabase
-    .from('campaign_statistics_cache')
+    .from('campaign_stats_cache')
     .delete()
     .eq('account_id', accountId);
     
@@ -135,4 +135,19 @@ export const clearAccountCache = async (accountId: string) => {
   }
   
   return true;
+};
+
+/**
+ * Get cached statistics with function name matching the import in directStats.ts
+ */
+export const getCachedStatistics = async (campaignId: string, accountId: string) => {
+  const result = await getStatisticsFromCache(campaignId, accountId);
+  return result.statistics;
+};
+
+/**
+ * Save campaign statistics with function name matching the import in directStats.ts
+ */
+export const saveCampaignStatistics = async (campaignId: string, accountId: string, statistics: AcelleCampaignStatistics) => {
+  return await storeStatisticsInCache(campaignId, accountId, statistics);
 };

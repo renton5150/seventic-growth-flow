@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -6,7 +5,7 @@ import { AcelleAccount } from "@/types/acelle.types";
 import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
 import { Skeleton } from "@/components/ui/skeleton";
-import { testCacheInsertion } from "@/services/acelle/api/campaignStats";
+import { testCacheInsertion } from "@/services/acelle/api/stats/cacheManager";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
