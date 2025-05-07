@@ -317,7 +317,15 @@ export async function fetchViaProxy(
           const newToken = await forceRefreshAuthToken();
           
           if (newToken) {
-            headers.set("Authorization", `Bearer ${newToken}`);
+            // Créer de nouveaux en-têtes avec le nouveau token
+            const updatedHeaders = {
+              ...headersObj,
+              "Authorization": `Bearer ${newToken}`
+            };
+            
+            // Mettre à jour les options de fetch avec les nouveaux en-têtes
+            fetchOptions.headers = updatedHeaders;
+            
             attempts++;
             // Réveiller le proxy avec le nouveau token
             await wakeupCorsProxy(newToken);
@@ -342,7 +350,11 @@ export async function fetchViaProxy(
             console.log(`Tentative avec un chemin alternatif: ${newPath}`);
             
             const newOptions = { ...fetchOptions };
-            fetchOptions.headers.set("X-Request-ID", `req_alt_${Date.now()}`);
+            const newHeaders = { 
+              ...headersObj,
+              "X-Request-ID": `req_alt_${Date.now()}`
+            };
+            fetchOptions.headers = newHeaders;
             
             const altResponse = await fetch(newUrl, newOptions);
             if (altResponse.ok) {
