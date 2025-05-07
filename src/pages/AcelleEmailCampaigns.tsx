@@ -23,10 +23,15 @@ const AcelleEmailCampaigns = () => {
     // Mock campaigns
     setCampaigns([
       {
-        id: '1',
+        uid: '1',            // Changed from id to uid to match AcelleCampaign type
+        campaign_uid: '1',   // Added missing required field
         name: 'Demo Campaign',
+        subject: 'Demo Campaign Subject', // Added missing required field
         status: 'sent',
         created_at: '2025-05-07',
+        updated_at: '2025-05-07',        // Added missing required field
+        delivery_date: null,             // Added missing required field
+        run_at: null,                    // Added missing required field
         statistics: {
           subscriber_count: 100,
           delivered_count: 95,
@@ -58,9 +63,9 @@ const AcelleEmailCampaigns = () => {
         
         <TabsContent value="overview">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <DeliveryStatsChart campaigns={campaigns} />
-            <StatusDistributionChart campaigns={campaigns} />
-            <CampaignStatusChart campaigns={campaigns} />
+            <DeliveryStatsChart campaign={campaigns[0]} /> {/* Changed from campaigns to campaign (singular) */}
+            <StatusDistributionChart accounts={accounts} /> {/* Changed from campaigns to accounts */}
+            <CampaignStatusChart campaigns={campaigns} /> {/* This one does take campaigns as a prop */}
           </div>
           
           <Card>
