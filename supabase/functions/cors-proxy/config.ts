@@ -5,6 +5,9 @@
  */
 
 export const CONFIG = {
+  // Version du service pour le suivi
+  VERSION: "2.1.0",
+  
   // URL Supabase pour accéder aux secrets
   SUPABASE_URL: Deno.env.get("SUPABASE_URL") || "",
   

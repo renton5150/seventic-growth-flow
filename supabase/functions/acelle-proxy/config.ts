@@ -1,27 +1,26 @@
 
 /**
- * Configuration globale pour le proxy Acelle
+ * Configuration pour le proxy Acelle
+ * Contient les constantes et paramètres du service
  */
+
 export const CONFIG = {
-  // Version du proxy
-  VERSION: "2.0.0",
+  // Version du service pour le suivi
+  VERSION: "2.1.0",
   
-  // URL de l'API Supabase (récupérée depuis les variables d'environnement)
+  // URL Supabase pour accéder aux secrets
   SUPABASE_URL: Deno.env.get("SUPABASE_URL") || "",
   
-  // Clé de service Supabase (récupérée depuis les variables d'environnement)
+  // Clé de rôle service pour les opérations privilégiées
   SERVICE_ROLE_KEY: Deno.env.get("SERVICE_ROLE_KEY") || "",
   
-  // Timeout par défaut pour les requêtes HTTP (en ms) - réduit pour éviter les timeouts serveur
-  DEFAULT_TIMEOUT: 20000, // 20 secondes
+  // Intervalle de heartbeat en millisecondes (par défaut 20 secondes)
+  HEARTBEAT_INTERVAL: parseInt(Deno.env.get("HEARTBEAT_INTERVAL") || "20000"),
   
-  // Intervalle entre les heartbeats (en ms)
-  HEARTBEAT_INTERVAL: 20000, // 20 secondes (réduit pour plus de réactivité)
+  // Timeout par défaut pour les requêtes API (30 secondes)
+  DEFAULT_TIMEOUT: parseInt(Deno.env.get("DEFAULT_TIMEOUT") || "30000"),
   
-  // Niveau de logging par défaut
-  DEFAULT_LOG_LEVEL: 3, // 0 = aucun, 1 = erreur, 2 = avertissement, 3 = info, 4 = debug, 5 = verbeux
-  
-  // Headers de réponse standard
+  // En-têtes CORS standards pour toutes les réponses
   CORS_HEADERS: {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
@@ -29,8 +28,6 @@ export const CONFIG = {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
-    'Cache-Control': 'no-store, no-cache, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0'
+    'Content-Type': 'application/json',
   }
 };

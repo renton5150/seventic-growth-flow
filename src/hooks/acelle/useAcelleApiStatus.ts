@@ -1,155 +1,149 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { getAuthToken, wakeupCorsProxy, forceRefreshAuthToken, setupHeartbeatService } from '@/services/acelle/cors-proxy';
+import { useAuthToken } from './useAuthToken';
+import { wakeupCorsProxy, getAuthToken, forceRefreshAuthToken } from '@/services/acelle/cors-proxy';
 import { toast } from 'sonner';
 
 /**
- * Hook pour surveiller et gérer l'état global de l'API Acelle
- * Fournit des fonctionnalités de diagnostic et de réveil des services
+ * Hook pour surveiller et contrôler l'état des API Acelle
+ * Centralise la logique d'état de connexion pour toute l'application
  */
-export function useAcelleApiStatus() {
+export const useAcelleApiStatus = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isProxyAvailable, setIsProxyAvailable] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
-  const [refreshCount, setRefreshCount] = useState(0);
   const [authError, setAuthError] = useState<string | null>(null);
   const [proxyError, setProxyError] = useState<string | null>(null);
-
-  // Vérifie l'état d'authentification
-  const checkAuthentication = useCallback(async (): Promise<boolean> => {
-    try {
-      const token = await getAuthToken();
-      const isAuth = !!token;
-      setIsAuthenticated(isAuth);
-      
-      if (!isAuth) {
-        setAuthError("Session non authentifiée");
-      } else {
-        setAuthError(null);
-      }
-      
-      return isAuth;
-    } catch (error) {
-      console.error("Erreur lors de la vérification de l'authentification:", error);
-      setAuthError("Erreur lors de la vérification de l'authentification");
-      setIsAuthenticated(false);
-      return false;
-    }
+  const [checkCounter, setCheckCounter] = useState(0);
+  
+  // On vérifie l'état du système au démarrage et périodiquement
+  useEffect(() => {
+    // Vérification au chargement
+    checkSystem();
+    
+    // Vérification périodique
+    const intervalId = setInterval(() => {
+      checkSystem({ quietMode: true });
+    }, 5 * 60 * 1000); // Toutes les 5 minutes
+    
+    return () => clearInterval(intervalId);
   }, []);
-
-  // Vérifie la disponibilité du proxy
-  const checkProxyAvailability = useCallback(async (): Promise<boolean> => {
+  
+  /**
+   * Vérifie l'état de l'authentification et des proxies
+   */
+  const checkSystem = useCallback(async (options?: { quietMode?: boolean }) => {
+    const quietMode = options?.quietMode || false;
+    
     try {
       setIsChecking(true);
       
+      if (!quietMode) {
+        setAuthError(null);
+        setProxyError(null);
+      }
+      
+      // 1. Vérifier l'authentification
       const token = await getAuthToken();
+      setIsAuthenticated(!!token);
+      
       if (!token) {
-        setProxyError("Authentification requise");
+        setAuthError("Session expirée. Veuillez vous reconnecter.");
         setIsProxyAvailable(false);
         return false;
       }
       
-      const isAvailable = await wakeupCorsProxy(token);
-      setIsProxyAvailable(isAvailable);
-      setLastCheck(new Date());
+      // 2. Tenter de réveiller les proxies pour vérifier leur disponibilité
+      const proxyAwake = await wakeupCorsProxy(token);
+      setIsProxyAvailable(proxyAwake);
       
-      if (!isAvailable) {
-        setProxyError("Les services ne répondent pas");
-      } else {
-        setProxyError(null);
+      if (!proxyAwake) {
+        setProxyError("Les services API ne répondent pas correctement.");
       }
       
-      return isAvailable;
+      setLastCheck(new Date());
+      setCheckCounter(prev => prev + 1);
+      
+      return proxyAwake && !!token;
     } catch (error) {
-      console.error("Erreur lors de la vérification du proxy:", error);
-      setProxyError("Erreur lors de la vérification des services");
+      console.error("Erreur lors de la vérification du système:", error);
+      
+      if (!quietMode) {
+        const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+        toast.error(`Erreur de connexion: ${errorMessage}`);
+      }
+      
+      setIsAuthenticated(false);
       setIsProxyAvailable(false);
+      
       return false;
     } finally {
       setIsChecking(false);
     }
   }, []);
-
-  // Vérifie le système complet
-  const checkSystem = useCallback(async (): Promise<{
-    isAuthenticated: boolean;
-    isProxyAvailable: boolean;
-  }> => {
-    const authStatus = await checkAuthentication();
-    const proxyStatus = authStatus ? await checkProxyAvailability() : false;
-    
-    return {
-      isAuthenticated: authStatus,
-      isProxyAvailable: proxyStatus
-    };
-  }, [checkAuthentication, checkProxyAvailability]);
-
-  // Force un rafraîchissement complet du système
+  
+  /**
+   * Force la vérification et la correction de l'état du système
+   */
   const forceRefresh = useCallback(async (): Promise<boolean> => {
     try {
-      toast.loading("Rafraîchissement du système...", { id: "system-refresh" });
+      setIsChecking(true);
+      setAuthError(null);
+      setProxyError(null);
+      toast.loading("Rafraîchissement des services...", { id: "refresh-services" });
       
-      // Forcer un nouveau token
-      const token = await forceRefreshAuthToken();
-      if (!token) {
-        toast.error("Échec du rafraîchissement de la session", { id: "system-refresh" });
+      // 1. Forcer le rafraîchissement du token
+      const newToken = await forceRefreshAuthToken();
+      setIsAuthenticated(!!newToken);
+      
+      if (!newToken) {
+        setAuthError("Impossible d'obtenir un token d'authentification valide.");
+        toast.error("Erreur d'authentification", { id: "refresh-services" });
         return false;
       }
       
-      // Réveiller tous les services
-      const proxyStatus = await wakeupCorsProxy(token);
-      setRefreshCount(prev => prev + 1);
+      // 2. Forcer le réveil des services avec le nouveau token
+      const proxyAwake = await wakeupCorsProxy(newToken);
+      setIsProxyAvailable(proxyAwake);
       
-      if (proxyStatus) {
-        toast.success("Système rafraîchi avec succès", { id: "system-refresh" });
-      } else {
-        toast.error("Échec partiel du rafraîchissement", { id: "system-refresh" });
+      if (!proxyAwake) {
+        setProxyError("Impossible de réveiller les services API.");
+        toast.error("Services API indisponibles", { id: "refresh-services" });
+        return false;
       }
       
-      // Mettre à jour les états
-      setIsAuthenticated(true);
-      setIsProxyAvailable(proxyStatus);
       setLastCheck(new Date());
+      toast.success("Services connectés avec succès", { id: "refresh-services" });
       
-      return proxyStatus;
+      // Incrémenter le compteur pour forcer la mise à jour des composants
+      setCheckCounter(prev => prev + 1);
+      
+      return true;
     } catch (error) {
-      console.error("Erreur lors du rafraîchissement:", error);
-      toast.error("Erreur lors du rafraîchissement", { id: "system-refresh" });
+      console.error("Erreur lors du rafraîchissement forcé:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      toast.error(`Erreur: ${errorMessage}`, { id: "refresh-services" });
+      
+      setIsAuthenticated(false);
+      setIsProxyAvailable(false);
+      
       return false;
+    } finally {
+      setIsChecking(false);
     }
   }, []);
-
-  // Au montage, configurer la vérification automatique et le heartbeat
-  useEffect(() => {
-    // Vérification initiale
-    checkSystem();
-    
-    // Configuration du heartbeat
-    const cleanupHeartbeat = setupHeartbeatService();
-    
-    // Vérification périodique
-    const intervalId = setInterval(() => {
-      checkSystem();
-    }, 3 * 60 * 1000); // toutes les 3 minutes
-    
-    return () => {
-      clearInterval(intervalId);
-      cleanupHeartbeat();
-    };
-  }, [checkSystem]);
-
+  
   return {
     isAuthenticated,
     isProxyAvailable,
     isChecking,
     lastCheck,
-    refreshCount,
+    checkCounter,
     authError,
     proxyError,
-    checkAuthentication,
-    checkProxyAvailability,
     checkSystem,
     forceRefresh
   };
-}
+};
