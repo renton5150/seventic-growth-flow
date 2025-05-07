@@ -1,183 +1,256 @@
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { AcelleAccount } from "@/types/acelle.types";
-import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { PieChart, Pie, Sector, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useAcelleContext } from '@/contexts/AcelleContext';
+import { AcelleCampaign } from '@/types/acelle.types';
 import { calculateDeliveryStats } from "@/utils/acelle/campaignStats";
 import { Skeleton } from "@/components/ui/skeleton";
-import { testCacheInsertion } from "@/services/acelle/api/campaignStats";
+import { testCacheInsertion, checkDirectApiConnection } from "@/services/acelle/api/campaignStats";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { runAcelleDiagnostic } from "@/services/acelle/cors-proxy";
 
-interface DeliveryStatsChartProps {
-  accounts: AcelleAccount[];
-}
+type DeliveryStatsChartProps = {
+  campaign: AcelleCampaign;
+  className?: string;
+};
 
-export const DeliveryStatsChart: React.FC<DeliveryStatsChartProps> = ({ accounts }) => {
-  const [data, setData] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isTesting, setIsTesting] = useState(false);
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-  useEffect(() => {
-    const loadDeliveryStats = async () => {
-      if (!accounts || accounts.length === 0) {
-        setData([]);
-        setIsLoading(false);
-        return;
-      }
+export function DeliveryStatsChart({ campaign, className = '' }: DeliveryStatsChartProps) {
+  const { selectedAccount } = useAcelleContext();
+  const [isTestingCache, setIsTestingCache] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    success: boolean;
+    message: string;
+    details?: any;
+  } | null>(null);
 
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Récupérer toutes les campagnes de tous les comptes
-        const activeAccounts = accounts.filter(acc => acc.status === 'active');
-        if (activeAccounts.length === 0) {
-          setData([]);
-          setIsLoading(false);
-          return;
-        }
-        
-        const allCampaigns = await fetchCampaignsFromCache(activeAccounts);
-        
-        // Calculer les statistiques de livraison
-        const stats = calculateDeliveryStats(allCampaigns);
-        
-        // Transformer pour le graphique
-        const chartData = [
-          {
-            name: "Statistiques",
-            envoyés: stats.totalEmails,
-            délivrés: stats.totalDelivered,
-            ouverts: stats.totalOpened,
-            cliqués: stats.totalClicked,
-            bounces: stats.totalBounced
-          }
-        ];
-        
-        setData(chartData);
-      } catch (err) {
-        console.error("Erreur lors du chargement des statistiques de livraison:", err);
-        setError("Erreur lors du chargement des données");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadDeliveryStats();
-  }, [accounts]);
-
-  // Fonction pour tester l'insertion dans le cache
+  // Extraire les données de statistiques
+  const stats = calculateDeliveryStats(campaign);
+  
+  // Formatter les données pour le graphique
+  const data = [
+    { name: 'Ouverts', value: stats.openCount },
+    { name: 'Non ouverts', value: stats.notOpenedCount },
+    { name: 'Rebonds', value: stats.bounceCount },
+    { name: 'Désabonnés', value: stats.unsubscribeCount },
+  ].filter(item => item.value > 0); // Ne montrer que les valeurs positives
+  
+  // Format pour l'affichage des nombres
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('fr-FR').format(num);
+  };
+  
+  // Gérer le test du cache
   const handleTestCache = async () => {
-    if (!accounts || accounts.length === 0) {
-      toast.error("Aucun compte Acelle disponible pour le test");
+    if (!selectedAccount) {
+      toast.error("Aucun compte sélectionné");
       return;
     }
     
+    setIsTestingCache(true);
     try {
-      setIsTesting(true);
-      toast.loading("Test d'insertion dans le cache...", { id: "cache-test" });
-      
-      const account = accounts[0]; // Utiliser le premier compte disponible
-      const result = await testCacheInsertion(account);
+      const result = await testCacheInsertion(selectedAccount);
       
       if (result) {
-        toast.success("Test d'insertion dans le cache réussi", { id: "cache-test" });
+        toast.success("Test du cache réussi! Les données peuvent être stockées et récupérées.");
       } else {
-        toast.error("Échec du test d'insertion dans le cache", { id: "cache-test" });
+        toast.error("Échec du test du cache. Vérifiez les journaux pour plus de détails.");
       }
     } catch (error) {
-      console.error("Erreur lors du test du cache:", error);
-      toast.error("Erreur lors du test du cache", { id: "cache-test" });
+      toast.error(`Erreur lors du test: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setIsTesting(false);
+      setIsTestingCache(false);
+    }
+  };
+  
+  // Tester la connexion directe à l'API
+  const handleTestConnection = async () => {
+    if (!selectedAccount) {
+      toast.error("Aucun compte sélectionné");
+      return;
+    }
+    
+    setIsTestingConnection(true);
+    setConnectionStatus(null);
+    
+    try {
+      toast.loading("Test de la connexion à l'API...", { id: "connection-test" });
+      
+      // Test complet du système (auth et proxy)
+      const systemStatus = await runAcelleDiagnostic();
+      
+      if (!systemStatus.success) {
+        setConnectionStatus({
+          success: false,
+          message: "Échec de diagnostic du système",
+          details: systemStatus
+        });
+        toast.error("Problèmes avec les services de base", { id: "connection-test" });
+      } else {
+        // Si le système fonctionne, tester l'API directement
+        const result = await checkDirectApiConnection(selectedAccount);
+        setConnectionStatus(result);
+        
+        if (result.success) {
+          toast.success("Connexion à l'API établie avec succès", { id: "connection-test" });
+        } else {
+          toast.error(`Échec de connexion à l'API: ${result.message}`, { id: "connection-test" });
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setConnectionStatus({
+        success: false,
+        message: errorMessage,
+        details: { error: errorMessage }
+      });
+      toast.error(`Erreur: ${errorMessage}`, { id: "connection-test" });
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
-  if (isLoading) {
+  // Aucune donnée à afficher
+  if (data.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Statistiques de livraison</CardTitle>
+      <Card className={`${className} h-[320px] flex flex-col justify-center items-center`}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Statistiques de livraison</CardTitle>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center">
-          <Skeleton className="w-full h-full rounded-md" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Statistiques de livraison</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-red-500 text-center">{error}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (data.length === 0 || data[0].envoyés === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Statistiques de livraison</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[300px]">
-          <div className="flex flex-col items-center justify-center h-full">
-            <p className="text-muted-foreground mb-4">Aucune donnée disponible</p>
-            <Button 
-              variant="outline" 
-              onClick={handleTestCache}
-              disabled={isTesting}
-              size="sm"
-            >
-              Tester le cache de statistiques
-            </Button>
+        <CardContent className="flex-1 flex flex-col items-center justify-center">
+          <div className="text-center text-muted-foreground text-sm">
+            <AlertCircle className="w-8 h-8 mx-auto mb-2 text-amber-500" />
+            <p>Aucune donnée de livraison disponible</p>
           </div>
         </CardContent>
+        <CardFooter>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleTestCache} disabled={isTestingCache}>
+              {isTestingCache ? <RefreshCw className="mr-1 h-3 w-3 animate-spin" /> : null}
+              Tester le cache
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleTestConnection} disabled={isTestingConnection}>
+              {isTestingConnection ? <RefreshCw className="mr-1 h-3 w-3 animate-spin" /> : null}
+              Tester la connexion
+            </Button>
+          </div>
+        </CardFooter>
+        
+        {/* Afficher le résultat de test de connexion s'il y en a un */}
+        {connectionStatus && (
+          <div className="w-full px-4 pb-4">
+            <Alert variant={connectionStatus.success ? "default" : "destructive"} className="mt-4">
+              <div className="flex items-center">
+                {connectionStatus.success ? 
+                  <CheckCircle className="h-4 w-4 mr-2" /> : 
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                }
+                <AlertTitle>
+                  {connectionStatus.success ? "Connexion établie" : "Échec de connexion"}
+                </AlertTitle>
+              </div>
+              <AlertDescription className="font-mono text-xs mt-1 break-all">
+                {connectionStatus.message}
+                {connectionStatus.details && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer">Détails techniques</summary>
+                    <pre className="text-xs mt-2 whitespace-pre-wrap bg-slate-100 p-2 rounded">
+                      {JSON.stringify(connectionStatus.details, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
       </Card>
     );
   }
-
+  
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Statistiques de livraison</CardTitle>
+    <Card className={`${className} h-[320px]`}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">Statistiques de livraison</CardTitle>
+        <CardDescription>
+          Total des abonnés: {formatNumber(stats.totalSubscribers)}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[180px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip formatter={(value) => value.toLocaleString()} />
-              <Legend />
-              <Bar dataKey="envoyés" fill="#8884d8" name="Envoyés" />
-              <Bar dataKey="délivrés" fill="#82ca9d" name="Délivrés" />
-              <Bar dataKey="ouverts" fill="#ffc658" name="Ouverts" />
-              <Bar dataKey="cliqués" fill="#0088FE" name="Cliqués" />
-              <Bar dataKey="bounces" fill="#FF8042" name="Bounces" />
-            </BarChart>
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={70}
+                paddingAngle={1}
+                dataKey="value"
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                labelLine={false}
+              >
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => formatNumber(Number(value))} />
+            </PieChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-end mt-4">
-          <Button 
-            variant="outline" 
-            onClick={handleTestCache}
-            disabled={isTesting}
-            size="sm"
-          >
-            Tester le cache de statistiques
+      </CardContent>
+      <CardFooter className="flex justify-between pt-0">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <div>Taux d'ouverture:</div>
+          <div className="font-medium">{stats.openRate}%</div>
+          <div>Taux de rebond:</div>
+          <div className="font-medium">{stats.bounceRate}%</div>
+        </div>
+        
+        {/* Ajouter les boutons de test ici également */}
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleTestCache} disabled={isTestingCache}>
+            {isTestingCache ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Test Cache"}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleTestConnection} disabled={isTestingConnection}>
+            {isTestingConnection ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Test API"}
           </Button>
         </div>
-      </CardContent>
+      </CardFooter>
+      
+      {/* Afficher le résultat de test de connexion s'il y en a un */}
+      {connectionStatus && (
+        <div className="px-4 pb-4">
+          <Alert variant={connectionStatus.success ? "default" : "destructive"} className="mt-2">
+            <div className="flex items-center">
+              {connectionStatus.success ? 
+                <CheckCircle className="h-4 w-4 mr-2" /> : 
+                <AlertCircle className="h-4 w-4 mr-2" />
+              }
+              <AlertTitle>
+                {connectionStatus.success ? "Connexion établie" : "Échec de connexion"}
+              </AlertTitle>
+            </div>
+            <AlertDescription className="font-mono text-xs mt-1 break-all">
+              {connectionStatus.message}
+              {connectionStatus.details && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer">Détails techniques</summary>
+                  <pre className="text-xs mt-2 whitespace-pre-wrap bg-slate-100 p-2 rounded">
+                    {JSON.stringify(connectionStatus.details, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
     </Card>
   );
-};
+}

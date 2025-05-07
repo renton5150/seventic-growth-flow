@@ -146,7 +146,7 @@ export async function wakeupCorsProxy(authToken?: string | null): Promise<boolea
       proxyStatus = 'error';
       resolve(false);
     } finally {
-      // Réinitialiser la promesse
+      // Réinitialiser la promesse après un court délai
       setTimeout(() => {
         wakeupPromise = null;
       }, 500);
@@ -215,7 +215,7 @@ async function wakeupSpecificProxy(baseUrl: string, authToken: string): Promise<
         return false;
       }
       
-      // Attendre avant la prochaine tentative
+      // Attendre avant la prochaine tentative avec délai exponentiel
       const delay = Math.min(1000 * Math.pow(2, attempts), 5000);
       await new Promise(r => setTimeout(r, delay));
     }
@@ -233,209 +233,218 @@ export function buildCorsProxyUrl(path: string): string {
 }
 
 /**
- * Effectue une requête via le proxy CORS avec gestion automatique des erreurs
- * Réveille automatiquement les services si nécessaire
+ * Construit une URL pour le proxy Acelle spécifique
  */
-export async function fetchViaProxy(
-  path: string,
-  options: RequestInit,
-  acelleToken: string,
-  acelleEndpoint: string,
-  maxRetries: number = 3
-): Promise<Response> {
-  let authToken = await getAuthToken();
-  if (!authToken) {
-    toast.error("Session expirée. Veuillez vous reconnecter.");
-    throw new Error("Authentification requise");
-  }
-  
-  // Vérifier et réveiller le proxy si nécessaire
-  if (proxyStatus !== 'ready') {
-    console.log("Proxy non prêt, tentative de réveil...");
-    const isProxyReady = await wakeupCorsProxy(authToken);
-    
-    if (!isProxyReady) {
-      // Tenter une dernière fois avec un nouveau token
-      authToken = await forceRefreshAuthToken();
-      if (!authToken || !(await wakeupCorsProxy(authToken))) {
-        toast.error("Services de connexion indisponibles. Veuillez réessayer.");
-        throw new Error("Services indisponibles");
-      }
-    }
-  }
-  
-  // Standardiser l'endpoint Acelle
-  const cleanEndpoint = acelleEndpoint.endsWith('/') ? 
-    acelleEndpoint.substring(0, acelleEndpoint.length - 1) : 
-    acelleEndpoint;
-  
-  // URL du proxy
-  const url = buildCorsProxyUrl(path);
-  
-  // En-têtes standardisés
-  const headersObj = {
-    ...(options.headers || {}),
-    "Authorization": `Bearer ${authToken}`,
-    "X-Acelle-Token": acelleToken,
-    "X-Acelle-Endpoint": cleanEndpoint,
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-    "X-Request-ID": `req_${Date.now()}_${Math.random().toString(36).substring(7)}`
-  };
-  
-  // Options finales
-  const fetchOptions: RequestInit = {
-    ...options,
-    headers: headersObj,
-    cache: "no-store",
-    // Timeout pour éviter les attentes infinies
-    signal: AbortSignal.timeout(30000)
-  };
-  
-  // Système de retentative intelligent
-  let attempts = 0;
-  let lastError: Error | null = null;
-  
-  while (attempts <= maxRetries) {
-    try {
-      console.log(`Tentative ${attempts + 1}/${maxRetries + 1} - Requête vers: ${url}`);
-      
-      const response = await fetch(url, fetchOptions);
-      
-      // Vérifier si la réponse est valide
-      if (response.ok) {
-        return response;
-      }
-      
-      console.warn(`Réponse non-OK: ${response.status} - ${response.statusText}`);
-      
-      // Gérer les erreurs d'authentification
-      if (response.status === 401 || response.status === 403) {
-        if (attempts < maxRetries) {
-          console.log("Erreur d'authentification détectée, rafraîchissement du token...");
-          const newToken = await forceRefreshAuthToken();
-          
-          if (newToken) {
-            // Créer de nouveaux en-têtes avec le nouveau token
-            const updatedHeaders = {
-              ...headersObj,
-              "Authorization": `Bearer ${newToken}`
-            };
-            
-            // Mettre à jour les options de fetch avec les nouveaux en-têtes
-            fetchOptions.headers = updatedHeaders;
-            
-            attempts++;
-            // Réveiller le proxy avec le nouveau token
-            await wakeupCorsProxy(newToken);
-            continue;
-          }
-        }
-        
-        throw new Error(`Erreur d'authentification (${response.status})`);
-      }
-      
-      // Pour les erreurs serveur, tenter à nouveau
-      if (response.status >= 500 || response.status === 429 || response.status === 404) {
-        if (attempts < maxRetries) {
-          attempts++;
-          console.log(`Erreur ${response.status}, nouvelle tentative ${attempts}/${maxRetries}...`);
-          
-          // Si c'est un 404, essayer avec un chemin alternatif
-          if (response.status === 404 && attempts === 1 && path.includes('/ping')) {
-            // Essayer avec un autre endpoint
-            const newPath = path.replace('/ping', '/campaigns?page=1&per_page=1');
-            const newUrl = buildCorsProxyUrl(newPath);
-            console.log(`Tentative avec un chemin alternatif: ${newPath}`);
-            
-            const newOptions = { ...fetchOptions };
-            const newHeaders = { 
-              ...headersObj,
-              "X-Request-ID": `req_alt_${Date.now()}`
-            };
-            fetchOptions.headers = newHeaders;
-            
-            const altResponse = await fetch(newUrl, newOptions);
-            if (altResponse.ok) {
-              return altResponse;
-            }
-          }
-          
-          // Attendre un peu plus longtemps à chaque tentative
-          const delay = 1000 * Math.min(30, Math.pow(1.5, attempts));
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-      }
-      
-      // Pour les autres erreurs HTTP, retourner la réponse
-      return response;
-    } catch (error: any) {
-      lastError = error;
-      const isTimeout = error.name === 'AbortError';
-      const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
-      
-      if (isTimeout) {
-        console.warn(`Timeout de la requête après ${attempts + 1} tentative(s)`);
-      } else if (isNetworkError) {
-        console.warn(`Erreur réseau après ${attempts + 1} tentative(s)`);
-      } else {
-        console.error(`Erreur lors de la requête:`, error);
-      }
-      
-      if (attempts < maxRetries) {
-        attempts++;
-        
-        // Si erreur réseau ou timeout, tenter de réveiller le proxy
-        if (isTimeout || isNetworkError) {
-          await wakeupCorsProxy(await getAuthToken());
-        }
-        
-        // Délai exponentiel
-        const delay = 1000 * Math.min(30, Math.pow(1.5, attempts));
-        await new Promise(r => setTimeout(r, delay));
-        continue;
-      }
-      
-      // Si toutes les tentatives ont échoué
-      throw error;
-    }
-  }
-  
-  throw lastError || new Error("Échec après plusieurs tentatives");
+export function buildAcelleProxyUrl(path: string): string {
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  return `${ACELLE_PROXY_BASE_URL}/${cleanPath}`;
 }
 
 /**
- * Programme un rappel périodique pour maintenir les services actifs
- * @returns fonction de nettoyage pour arrêter les rappels
+ * Effectue une requête à travers le proxy avec retry et gestion d'erreur
+ * Unifie la logique entre les différents types de requêtes API
  */
-export function setupHeartbeatService(intervalMs: number = 5 * 60 * 1000): () => void {
-  console.log(`Configuration du heartbeat toutes les ${intervalMs/1000} secondes`);
+export async function fetchViaProxy(
+  path: string,
+  options: RequestInit = {},
+  apiToken: string,
+  apiEndpoint: string,
+  maxRetries: number = 1
+): Promise<Response> {
+  // S'assurer que les options et headers existent
+  options.headers = options.headers || {};
+  let headers = options.headers as Record<string, string>;
   
-  // Première vérification immédiate
-  const checkServices = async () => {
+  // Ajouter les en-têtes pour le proxy Acelle
+  headers["X-Acelle-Token"] = apiToken;
+  headers["X-Acelle-Endpoint"] = apiEndpoint;
+  headers["Accept"] = "application/json";
+  headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+  
+  // Ajouter un ID de requête unique pour le traçage
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  headers["X-Request-ID"] = requestId;
+  
+  // Déterminer l'URL de proxy à utiliser (cors-proxy par défaut)
+  const proxyUrl = buildCorsProxyUrl(path);
+  
+  let lastError: Error | null = null;
+  let remainingRetries = maxRetries;
+  
+  // Boucle de tentatives avec backoff exponentiel
+  while (remainingRetries >= 0) {
     try {
-      const token = await getAuthToken();
-      if (token) {
-        await wakeupCorsProxy(token);
+      const retryNum = maxRetries - remainingRetries;
+      if (retryNum > 0) {
+        console.log(`Tentative ${retryNum}/${maxRetries} pour ${path}...`);
+        // Backoff exponentiel entre les tentatives
+        const delay = Math.min(1000 * Math.pow(2, retryNum - 1), 4000);
+        await new Promise(r => setTimeout(r, delay));
       }
-    } catch (e) {
-      console.error("Erreur lors du heartbeat:", e);
+      
+      // Effectuer la requête avec abort controller pour timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(proxyUrl, {
+        ...options,
+        headers,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      // Gérer les erreurs d'authentification en relançant une exception
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(`Erreur d'authentification (${response.status}). Vérifiez le token API.`);
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Erreur de requête fetch pour ${path} (tentative ${maxRetries - remainingRetries}/${maxRetries}):`, lastError);
+      remainingRetries--;
+      
+      // Si abort (timeout) et qu'il reste des tentatives, on réessaie
+      if (lastError.name === 'AbortError' && remainingRetries >= 0) {
+        console.warn("Timeout sur la requête, nouvelle tentative...");
+        continue;
+      }
+      
+      // Si c'est la dernière tentative, on relance l'erreur
+      if (remainingRetries < 0) {
+        throw new Error(`Échec après ${maxRetries} tentative(s): ${lastError.message}`);
+      }
+    }
+  }
+  
+  // On ne devrait jamais arriver ici (mais TypeScript a besoin de ce retour)
+  throw lastError || new Error("Erreur inattendue dans fetchViaProxy");
+}
+
+// Variables pour le service de heartbeat
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Configure un service de heartbeat pour maintenir les services en vie
+ * @param interval - Intervalle en ms entre les heartbeats (défaut: 3 minutes)
+ * @returns Fonction de nettoyage pour arrêter le heartbeat
+ */
+export function setupHeartbeatService(interval: number = 3 * 60 * 1000): () => void {
+  // Ne pas démarrer un nouveau heartbeat si un est déjà actif
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  
+  // Fonction de heartbeat qui sera appelée périodiquement
+  const sendHeartbeat = async () => {
+    try {
+      console.log("Envoi d'un heartbeat pour maintenir les services en vie...");
+      const token = await getAuthToken();
+      
+      if (!token) {
+        console.warn("Pas de token disponible pour le heartbeat");
+        return;
+      }
+      
+      // Réveiller les services avec le token
+      await wakeupCorsProxy(token);
+    } catch (error) {
+      console.error("Erreur lors du heartbeat:", error);
     }
   };
   
-  // Lancer la première vérification après un court délai
-  const initialTimeout = setTimeout(() => {
-    checkServices();
-  }, 5000);
+  // Démarrer immédiatement un premier heartbeat
+  sendHeartbeat();
   
-  // Configurer l'intervalle régulier
-  const intervalId = setInterval(checkServices, intervalMs);
+  // Puis programmer les suivants à intervalle régulier
+  heartbeatInterval = setInterval(sendHeartbeat, interval);
   
-  // Fonction de nettoyage
+  // Renvoyer une fonction de nettoyage
   return () => {
-    clearTimeout(initialTimeout);
-    clearInterval(intervalId);
+    if (heartbeatInterval) {
+      console.log("Arrêt du service de heartbeat");
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
   };
+}
+
+/**
+ * Diagnostic complet de la connexion Acelle
+ * Vérifie tous les aspects de la connexion et retourne des informations détaillées
+ */
+export async function runAcelleDiagnostic(): Promise<{
+  success: boolean;
+  results: {
+    auth: {
+      success: boolean;
+      token: string | null;
+      error?: string;
+    };
+    proxy: {
+      corsProxy: boolean;
+      acelleProxy: boolean;
+      error?: string;
+    };
+  };
+  timestamp: string;
+}> {
+  try {
+    // 1. Vérifier l'authentification
+    const authResult = { success: false, token: null as string | null, error: undefined as string | undefined };
+    try {
+      // Force un nouveau token pour le diagnostic
+      const token = await forceRefreshAuthToken();
+      authResult.token = token;
+      authResult.success = !!token;
+      
+      if (!token) {
+        authResult.error = "Échec de l'obtention d'un token valide";
+      }
+    } catch (e) {
+      authResult.error = e instanceof Error ? e.message : String(e);
+    }
+    
+    // 2. Vérifier les proxies si on a un token
+    const proxyResult = { corsProxy: false, acelleProxy: false, error: undefined as string | undefined };
+    if (authResult.token) {
+      try {
+        // Vérifier chaque proxy individuellement
+        const corsAwake = await wakeupSpecificProxy(CORS_PROXY_BASE_URL, authResult.token);
+        const acelleAwake = await wakeupSpecificProxy(ACELLE_PROXY_BASE_URL, authResult.token);
+        
+        proxyResult.corsProxy = corsAwake;
+        proxyResult.acelleProxy = acelleAwake;
+        
+        if (!corsAwake || !acelleAwake) {
+          proxyResult.error = "Au moins un service proxy n'a pas pu être réveillé";
+        }
+      } catch (e) {
+        proxyResult.error = e instanceof Error ? e.message : String(e);
+      }
+    }
+    
+    // 3. Construire et retourner le résultat complet
+    return {
+      success: authResult.success && proxyResult.corsProxy && proxyResult.acelleProxy,
+      results: {
+        auth: authResult,
+        proxy: proxyResult
+      },
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    // En cas d'erreur globale
+    return {
+      success: false,
+      results: {
+        auth: { success: false, token: null, error: "Erreur générale du diagnostic" },
+        proxy: { corsProxy: false, acelleProxy: false, error: error instanceof Error ? error.message : String(error) }
+      },
+      timestamp: new Date().toISOString()
+    };
+  }
 }

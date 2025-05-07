@@ -142,7 +142,7 @@ export async function fetchCampaignStatsFromApi(
     }
     
     // Si pas en cache ou force refresh, récupérer depuis l'API
-    const apiPath = `/campaigns/${campaign.uid}/statistics`;
+    const apiPath = `campaigns/${campaign.uid}/statistics`;
     
     // Utiliser fetchViaProxy avec retry
     const response = await fetchViaProxy(
@@ -150,14 +150,27 @@ export async function fetchCampaignStatsFromApi(
       { method: 'GET' }, 
       account.api_token, 
       account.api_endpoint, 
-      1
+      2 // Augmenter le nombre de tentatives pour plus de fiabilité
     );
     
     if (!response.ok) {
+      console.error(`Erreur API ${response.status} pour les statistiques`);
       throw new Error(`Erreur API ${response.status}`);
     }
     
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      console.error("Erreur lors du parsing de la réponse JSON:", e);
+      throw new Error("Format de réponse API invalide");
+    }
+    
+    // Validation des données reçues
+    if (!data) {
+      console.error("Données API vides");
+      throw new Error("Aucune donnée reçue de l'API");
+    }
     
     // Création d'un objet statistiques correctement typé en extrayant les valeurs de data
     const statistics: AcelleCampaignStatistics = {
@@ -235,5 +248,91 @@ export async function testCacheInsertion(account: AcelleAccount): Promise<boolea
   } catch (error) {
     console.error("Exception lors du test du cache:", error);
     return false;
+  }
+}
+
+/**
+ * Vérifie la connectivité directe avec l'API Acelle (diagnostic d'API)
+ */
+export async function checkDirectApiConnection(account: AcelleAccount): Promise<{
+  success: boolean;
+  message: string;
+  details?: any;
+}> {
+  if (!account || !account.api_endpoint || !account.api_token) {
+    return { 
+      success: false, 
+      message: "Configuration du compte incomplète"
+    };
+  }
+  
+  try {
+    // Tenter une requête ping (ou toute autre méthode disponible)
+    console.log(`Test direct de l'API Acelle pour ${account.name}`);
+    
+    const apiPath = "ping";  // ou "me" selon l'API
+    
+    const response = await fetchViaProxy(
+      apiPath,
+      { method: "GET" },
+      account.api_token,
+      account.api_endpoint,
+      3  // Plus de tentatives pour le diagnostic
+    );
+    
+    // Vérifie si la réponse est ok
+    if (response.ok) {
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (e) {
+        responseData = { text: await response.text() };
+      }
+      
+      return {
+        success: true,
+        message: "Connexion à l'API Acelle établie avec succès",
+        details: {
+          status: response.status,
+          responseData
+        }
+      };
+    } else {
+      // Si ping échoue, essayer une autre route comme /campaigns
+      console.log("Ping a échoué, tentative avec /campaigns...");
+      const campaignsResponse = await fetchViaProxy(
+        "campaigns",
+        { method: "GET" },
+        account.api_token,
+        account.api_endpoint,
+        2
+      );
+      
+      if (campaignsResponse.ok) {
+        return {
+          success: true,
+          message: "Connexion à l'API Acelle établie via /campaigns",
+          details: {
+            status: campaignsResponse.status,
+            note: "La méthode ping n'est pas disponible, mais l'API est fonctionnelle"
+          }
+        };
+      } else {
+        return {
+          success: false,
+          message: `Échec de la connexion à l'API: ${response.status} ${response.statusText}`,
+          details: {
+            status: response.status,
+            campaigns_status: campaignsResponse.status
+          }
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `Erreur de connexion: ${error instanceof Error ? error.message : String(error)}`,
+      details: { error: String(error) }
+    };
   }
 }
