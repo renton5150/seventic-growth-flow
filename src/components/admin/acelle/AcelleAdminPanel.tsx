@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AcelleAccountsTable from "@/components/admin/acelle/AcelleAccountsTable";
@@ -8,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import AcelleCampaignsDashboard from "./AcelleCampaignsDashboard";
-import AcelleAccountForm from "./AcelleAccountForm";
+import { AcelleAccountForm } from "./AcelleAccountForm";
 
 interface AcelleAdminPanelProps {
   onDemoModeChange?: (isDemoMode: boolean) => void;

@@ -65,7 +65,7 @@ export const getStatisticsFromCache = async (campaignId: string, accountId: stri
   }
   
   return {
-    statistics: data.statistics as AcelleCampaignStatistics,
+    statistics: data.statistics as unknown as AcelleCampaignStatistics,
     cachedAt: data.last_updated
   };
 };
@@ -142,7 +142,7 @@ export const clearAccountCache = async (accountId: string) => {
  */
 export const getCachedStatistics = async (campaignId: string, accountId: string) => {
   const result = await getStatisticsFromCache(campaignId, accountId);
-  return result.statistics;
+  return result.statistics ? (result.statistics as AcelleCampaignStatistics) : null;
 };
 
 /**

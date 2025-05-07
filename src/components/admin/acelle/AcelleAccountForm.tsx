@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -19,7 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { checkAcelleConnectionStatus } from "@/services/acelle/api/connection";
+import { checkAcelleConnectionStatus, testAcelleConnection } from "@/services/acelle/api/connection";
 
 // Schéma de validation
 const formSchema = z.object({
@@ -319,3 +318,6 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
     </Form>
   );
 }
+
+// Add default export to fix import in AcelleAdminPanel
+export default AcelleAccountForm;
