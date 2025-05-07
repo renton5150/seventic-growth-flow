@@ -287,9 +287,3 @@ export async function forceSyncCampaigns(
     };
   }
 }
-
-// Function to add wakeupCorsProxy if needed
-export function wakeupCorsProxy() {
-  console.log("Fonction wakeupCorsProxy appelée depuis campaigns.ts");
-  // Implementation will be in cors-proxy.ts
-}
