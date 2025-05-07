@@ -159,8 +159,7 @@ export async function fetchCampaignStatsFromApi(
     
     const data = await response.json();
     
-    // Créer un objet statistiques correctement typé en extrayant les valeurs de data
-    // et en s'assurant que chaque valeur a le bon type
+    // Création d'un objet statistiques correctement typé en extrayant les valeurs de data
     const statistics: AcelleCampaignStatistics = {
       subscriber_count: Number(data?.subscriber_count ?? 0),
       delivered_count: Number(data?.delivered_count ?? 0),
@@ -186,5 +185,55 @@ export async function fetchCampaignStatsFromApi(
     
     // Retourner des statistiques vides en cas d'erreur
     return createEmptyStatistics();
+  }
+}
+
+/**
+ * Fonction pour tester l'insertion dans le cache des statistiques
+ * Cette fonction permet de vérifier que le mécanisme de cache fonctionne correctement
+ */
+export async function testCacheInsertion(account: AcelleAccount): Promise<boolean> {
+  try {
+    // Créer des statistiques de test
+    const testStats: AcelleCampaignStatistics = {
+      subscriber_count: 100,
+      delivered_count: 95,
+      delivered_rate: 95,
+      open_count: 50,
+      uniq_open_rate: 50,
+      click_count: 25,
+      click_rate: 25,
+      bounce_count: 5,
+      soft_bounce_count: 3,
+      hard_bounce_count: 2,
+      unsubscribe_count: 1,
+      abuse_complaint_count: 0,
+      open_rate: 50
+    };
+    
+    // Utiliser un ID de campagne de test
+    const testCampaignId = "test-campaign-" + Date.now();
+    
+    // Tenter d'insérer dans le cache
+    const result = await saveCampaignStatsToCache(testCampaignId, account.id, testStats);
+    
+    if (!result) {
+      console.error("Échec du test d'insertion dans le cache");
+      return false;
+    }
+    
+    // Vérifier que les données sont bien dans le cache
+    const retrievedStats = await getCampaignStatsFromCache(testCampaignId, account.id);
+    
+    if (!retrievedStats) {
+      console.error("Échec de la récupération des données de test depuis le cache");
+      return false;
+    }
+    
+    console.log("Test du cache réussi", retrievedStats);
+    return true;
+  } catch (error) {
+    console.error("Exception lors du test du cache:", error);
+    return false;
   }
 }
