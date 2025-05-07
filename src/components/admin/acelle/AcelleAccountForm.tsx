@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { testAcelleConnection } from "@/services/acelle/api/connection";
+import { checkAcelleConnectionStatus } from "@/services/acelle/api/connection";
 
 // Schéma de validation
 const formSchema = z.object({
@@ -81,14 +81,37 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         return;
       }
       
-      const result = await testAcelleConnection(api_endpoint, api_token, token);
+      // Créer un compte temporaire pour tester
+      const tempAccount: AcelleAccount = {
+        id: 'temp',
+        created_at: new Date().toISOString(),
+        name: 'Test Connection',
+        api_endpoint,
+        api_token,
+        status: 'inactive',
+        last_sync_date: null,
+        last_sync_error: null,
+        cache_priority: 0
+      };
       
-      setConnectionResult(result);
+      const result = await checkAcelleConnectionStatus(tempAccount);
       
-      if (result.success) {
+      // Adapter le résultat au format AcelleConnectionDebug
+      const debugResult: AcelleConnectionDebug = {
+        success: result.success,
+        timestamp: new Date().toISOString(),
+        errorMessage: result.success ? undefined : result.message,
+        responseTime: result.details?.responseTime,
+        apiVersion: result.details?.apiVersion,
+        responseData: result.details?.data
+      };
+      
+      setConnectionResult(debugResult);
+      
+      if (debugResult.success) {
         toast.success("Connexion réussie à l'API Acelle");
       } else {
-        toast.error(`La connexion a échoué: ${result.errorMessage}`);
+        toast.error(`La connexion a échoué: ${debugResult.errorMessage}`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -111,11 +134,11 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         ...values,
         // Propager les autres champs existants si on édite
         ...(isEditing && {
-          id: account.id,
-          created_at: account.created_at,
+          id: account!.id,
+          created_at: account!.created_at,
           updated_at: new Date().toISOString(),
-          last_sync_date: account.last_sync_date,
-          last_sync_error: account.last_sync_error
+          last_sync_date: account!.last_sync_date,
+          last_sync_error: account!.last_sync_error
         }),
       };
       
@@ -123,27 +146,27 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         // Mise à jour d'un compte existant
         const { data, error } = await supabase
           .from('acelle_accounts')
-          .update(values)
-          .eq('id', account.id)
+          .update(accountData)
+          .eq('id', account!.id)
           .select()
           .single();
           
         if (error) throw new Error(error.message);
         
         toast.success("Compte mis à jour avec succès");
-        onSuccess(data, true);
+        onSuccess(data as AcelleAccount, true);
       } else {
         // Création d'un nouveau compte
         const { data, error } = await supabase
           .from('acelle_accounts')
-          .insert([values])
+          .insert([accountData])
           .select()
           .single();
           
         if (error) throw new Error(error.message);
         
         toast.success("Compte créé avec succès");
-        onSuccess(data, false);
+        onSuccess(data as AcelleAccount, false);
       }
     } catch (error) {
       console.error("Erreur lors de la sauvegarde du compte:", error);

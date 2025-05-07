@@ -19,7 +19,11 @@ import {
   enrichCampaignsWithStats 
 } from "./api/campaignStats";
 
-import { checkAcelleConnectionStatus } from "./api/connection";
+import { 
+  checkAcelleConnectionStatus,
+  testAcelleConnection
+} from "./api/connection";
+
 import { buildProxyUrl } from "./acelle-service";
 
 export const acelleService = {
@@ -39,7 +43,8 @@ export const acelleService = {
     enrichWithStats: enrichCampaignsWithStats
   },
   connection: {
-    checkStatus: checkAcelleConnectionStatus
+    checkStatus: checkAcelleConnectionStatus,
+    test: testAcelleConnection
   },
   utils: {
     buildProxyUrl

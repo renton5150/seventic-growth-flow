@@ -1,5 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleAccount } from "@/types/acelle.types";
+import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
 
 /**
@@ -90,6 +91,63 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
       details: {
         error: String(error)
       }
+    };
+  }
+};
+
+/**
+ * Teste la connexion à l'API Acelle avec les paramètres fournis
+ */
+export const testAcelleConnection = async (
+  apiEndpoint: string, 
+  apiToken: string, 
+  authToken: string
+): Promise<AcelleConnectionDebug> => {
+  try {
+    // Construire l'URL pour tester la connexion
+    const testEndpoint = `${apiEndpoint}/ping`.replace(/\/+/g, '/').replace('://', '___').replace('/', '://').replace('___', '://');
+    
+    // Mesurer le temps de réponse
+    const startTime = Date.now();
+    
+    // Effectuer l'appel API
+    const response = await fetch(testEndpoint, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+        'X-API-TOKEN': apiToken
+      },
+      signal: AbortSignal.timeout(10000) // Timeout après 10 secondes
+    });
+    
+    const duration = Date.now() - startTime;
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        timestamp: new Date().toISOString(),
+        errorMessage: `Erreur HTTP ${response.status}: ${response.statusText}`,
+        statusCode: response.status,
+        duration
+      };
+    }
+    
+    const data = await response.json();
+    
+    return {
+      success: true,
+      timestamp: new Date().toISOString(),
+      duration,
+      statusCode: response.status,
+      apiVersion: data.version || "Inconnue",
+      responseData: data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      timestamp: new Date().toISOString(),
+      errorMessage: error instanceof Error ? error.message : String(error)
     };
   }
 };

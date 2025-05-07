@@ -142,6 +142,8 @@ export interface AcelleConnectionDebug {
   statusCode?: number;
   responseData?: any;
   duration?: number;
+  apiVersion?: string;
+  responseTime?: number;
   request?: {
     url?: string;
     headers?: Record<string, string>;
