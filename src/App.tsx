@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AcelleProvider } from './contexts/AcelleContext';
 import AcelleEmailCampaigns from './pages/AcelleEmailCampaigns';
@@ -23,24 +23,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AcelleProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/unauthorized" element={<Unauthorized />} />
-              <Route 
-                path="/" 
-                element={
-                  <ProtectedRoute>
-                    <AdminRoute>
-                      <AcelleEmailCampaigns />
-                    </AdminRoute>
-                  </ProtectedRoute>
-                } 
-              />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <AcelleEmailCampaigns />
+                  </AdminRoute>
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </AuthProvider>
       </AcelleProvider>
     </QueryClientProvider>
   );
