@@ -33,9 +33,13 @@ const formSchema = z.object({
   }),
   cache_priority: z.number().int().default(0),
   status: z.enum(["active", "inactive", "error"]).default("inactive"),
+  mission_id: z.string().optional(),
 });
 
-interface AcelleAccountFormProps {
+// Define the type for form data
+export type AcelleFormValues = z.infer<typeof formSchema>;
+
+export interface AcelleAccountFormProps {
   account?: AcelleAccount;
   onSuccess: (account: AcelleAccount, wasEditing: boolean) => void;
   onCancel: () => void;
@@ -56,6 +60,7 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
       api_token: account?.api_token || "",
       cache_priority: account?.cache_priority || 0,
       status: account?.status || "inactive",
+      mission_id: account?.mission_id || undefined,
     },
   });
 
@@ -129,28 +134,31 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
     setIsSubmitting(true);
     
     try {
-      const accountData = {
-        ...values,
-        // Propager les autres champs existants si on édite
-        ...(isEditing && {
-          id: account!.id,
-          created_at: account!.created_at,
-          updated_at: new Date().toISOString(),
-          last_sync_date: account!.last_sync_date,
-          last_sync_error: account!.last_sync_error
-        }),
-      };
-      
-      if (isEditing) {
+      if (isEditing && account) {
         // Mise à jour d'un compte existant
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('acelle_accounts')
-          .update(accountData)
-          .eq('id', account!.id)
-          .select()
-          .single();
+          .update({
+            name: values.name,
+            api_endpoint: values.api_endpoint,
+            api_token: values.api_token,
+            status: values.status,
+            mission_id: values.mission_id,
+            cache_priority: values.cache_priority || 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', account.id);
           
         if (error) throw new Error(error.message);
+        
+        // Récupérer le compte mis à jour
+        const { data, error: fetchError } = await supabase
+          .from('acelle_accounts')
+          .select('*')
+          .eq('id', account.id)
+          .single();
+        
+        if (fetchError || !data) throw new Error(fetchError?.message || "Failed to fetch updated account");
         
         toast.success("Compte mis à jour avec succès");
         onSuccess(data as AcelleAccount, true);
@@ -158,7 +166,14 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         // Création d'un nouveau compte
         const { data, error } = await supabase
           .from('acelle_accounts')
-          .insert([accountData])
+          .insert({
+            name: values.name,
+            api_endpoint: values.api_endpoint,
+            api_token: values.api_token,
+            status: values.status,
+            mission_id: values.mission_id,
+            cache_priority: values.cache_priority || 0
+          })
           .select()
           .single();
           
@@ -270,7 +285,7 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
                 <Input 
                   type="number" 
                   {...field} 
-                  onChange={(e) => field.onChange(parseInt(e.target.value))} 
+                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
                   value={field.value}
                 />
               </FormControl>

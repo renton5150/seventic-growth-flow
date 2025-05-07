@@ -1,6 +1,7 @@
 
 import { AcelleAccount } from "@/types/acelle.types";
 
+// Form values type for Acelle account form
 export interface AcelleFormValues {
   name: string;
   api_endpoint: string;
@@ -12,9 +13,9 @@ export interface AcelleFormValues {
   last_sync_date?: string | null;
 }
 
+// Props for the AcelleAccountForm component
 export interface AcelleAccountFormProps {
   account?: AcelleAccount;
-  onSubmit: (data: AcelleFormValues) => void;
+  onSuccess: (account: AcelleAccount, wasEditing: boolean) => void;
   onCancel: () => void;
-  isSubmitting?: boolean;
 }

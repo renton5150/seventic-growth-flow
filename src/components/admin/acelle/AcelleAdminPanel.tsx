@@ -73,47 +73,9 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
     setIsFormOpen(true);
   };
 
-  const handleFormSubmit = async (formData: any) => {
-    try {
-      if (editingAccount) {
-        // Mise à jour d'un compte existant
-        const { error } = await supabase
-          .from("acelle_accounts")
-          .update({
-            name: formData.name,
-            api_endpoint: formData.api_endpoint,
-            api_token: formData.api_token,
-            status: formData.status,
-            mission_id: formData.mission_id,
-            cache_priority: formData.cache_priority || 0
-          })
-          .eq("id", editingAccount.id);
-
-        if (error) throw error;
-        toast.success(`Compte ${formData.name} mis à jour avec succès`);
-      } else {
-        // Création d'un nouveau compte
-        const { error } = await supabase
-          .from("acelle_accounts")
-          .insert({
-            name: formData.name,
-            api_endpoint: formData.api_endpoint,
-            api_token: formData.api_token,
-            status: formData.status,
-            mission_id: formData.mission_id,
-            cache_priority: formData.cache_priority || 0
-          });
-
-        if (error) throw error;
-        toast.success(`Compte ${formData.name} créé avec succès`);
-      }
-
-      setIsFormOpen(false);
-      fetchAccounts();
-    } catch (err) {
-      console.error("Erreur lors de la sauvegarde du compte:", err);
-      toast.error("Erreur lors de la sauvegarde du compte");
-    }
+  const handleFormSuccess = (account: AcelleAccount, wasEditing: boolean) => {
+    setIsFormOpen(false);
+    fetchAccounts();
   };
 
   const handleFormCancel = () => {
@@ -160,7 +122,7 @@ export default function AcelleAdminPanel({ onDemoModeChange }: AcelleAdminPanelP
     return (
       <AcelleAccountForm
         account={editingAccount}
-        onSubmit={handleFormSubmit}
+        onSuccess={handleFormSuccess}
         onCancel={handleFormCancel}
       />
     );
