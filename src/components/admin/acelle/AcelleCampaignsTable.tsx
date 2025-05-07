@@ -1,15 +1,12 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
-  TableHeader,
-  TableRow,
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { acelleApiService } from "@/services/acelle";
-import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
 import { CampaignsTableHeader } from "./table/CampaignsTableHeader";
@@ -29,6 +26,7 @@ import { RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { getAcelleCampaigns, forceSyncCampaigns } from "@/services/acelle/api/campaigns";
+import { wakeupCorsProxy } from "@/services/acelle/cors-proxy";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -71,6 +69,11 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     
     try {
       if (account?.id) {
+        // Réveiller le proxy CORS avant de faire des requêtes
+        if (accessToken) {
+          await wakeupCorsProxy(accessToken);
+        }
+        
         // Utiliser notre nouvelle API pour récupérer les campagnes
         const fetchedCampaigns = await getAcelleCampaigns(account, { 
           refresh: true 
@@ -87,13 +90,15 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     } finally {
       setIsLoading(false);
     }
-  }, [account]);
+  }, [account, accessToken]);
 
   // Obtenir le token d'authentification dès le montage du composant
   useEffect(() => {
     const getAuthToken = async () => {
       try {
         console.log("Récupération du token d'authentification pour les requêtes API");
+        // Rafraîchir la session pour s'assurer que le token est à jour
+        await supabase.auth.refreshSession();
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
         
@@ -190,6 +195,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       toast.loading("Synchronisation des campagnes en cours...", { id: "sync-toast" });
       
       console.log("Forçage de la synchronisation des campagnes...");
+      // Réveiller le proxy CORS en premier
+      await wakeupCorsProxy(accessToken);
+      
       const result = await forceSyncCampaigns(account, accessToken);
       
       if (result.success) {
@@ -243,6 +251,20 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     return <EmptyState onSync={handleForceSync} isLoading={isManuallyRefreshing} />;
   }
   
+  // Filtrer les campagnes selon les critères de recherche
+  const filteredCampaigns = campaigns.filter(campaign => {
+    // Filtre de recherche textuelle
+    const matchesSearch = !searchTerm || 
+      campaign.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      campaign.subject?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Filtre de statut
+    const matchesStatus = statusFilter === 'all' || 
+      (campaign.status?.toLowerCase() === statusFilter.toLowerCase());
+    
+    return matchesSearch && matchesStatus;
+  });
+  
   // Afficher la table des campagnes
   return (
     <div className="space-y-4">
@@ -276,11 +298,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       
       <div className="border rounded-md">
         <Table>
-          <TableHeader>
-            <CampaignsTableHeader />
-          </TableHeader>
+          <CampaignsTableHeader />
           <TableBody>
-            {campaigns.map((campaign) => (
+            {filteredCampaigns.map((campaign) => (
               <AcelleTableRow 
                 key={campaign.uid} 
                 campaign={campaign}

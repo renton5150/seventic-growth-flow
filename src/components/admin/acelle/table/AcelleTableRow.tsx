@@ -4,81 +4,81 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 import { AcelleCampaign } from "@/types/acelle.types";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
+import { formatDateString } from "@/utils/dateUtils";
+import { translateStatus } from "@/utils/acelle/campaignStats";
 
 export interface AcelleTableRowProps {
   campaign: AcelleCampaign;
-  onView?: (campaignId: string) => void;
+  onView: (campaignId: string) => void;
 }
 
 export const AcelleTableRow = ({ campaign, onView }: AcelleTableRowProps) => {
-  // Format delivery date if available
-  const formattedDate = campaign.delivery_date
-    ? format(new Date(campaign.delivery_date), 'dd MMM yyyy', { locale: fr })
-    : "Non défini";
-  
-  // Get statistics
-  const totalRecipients = campaign.statistics?.subscriber_count || campaign.delivery_info?.total || 0;
-  const openRate = campaign.statistics?.uniq_open_rate || campaign.delivery_info?.unique_open_rate || 0;
-  const clickRate = campaign.statistics?.click_rate || campaign.delivery_info?.click_rate || 0;
-  
-  // Format status
-  const getStatusClassName = () => {
-    switch (campaign.status?.toLowerCase()) {
-      case 'sent':
-        return 'bg-green-100 text-green-700';
-      case 'sending':
-        return 'bg-blue-100 text-blue-700';
-      case 'ready':
-        return 'bg-cyan-100 text-cyan-700';
-      case 'failed':
-        return 'bg-red-100 text-red-700';
-      case 'paused':
-        return 'bg-amber-100 text-amber-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
+  // Extraire les statistiques (ou utiliser des valeurs par défaut)
+  const stats = campaign.statistics || {
+    subscriber_count: 0,
+    open_count: 0,
+    click_count: 0,
+    open_rate: 0,
+    click_rate: 0
   };
   
-  const formatStatus = () => {
-    switch (campaign.status?.toLowerCase()) {
+  // Déterminer la couleur du badge de statut
+  const getStatusVariant = (status: string) => {
+    switch (status?.toLowerCase()) {
       case 'sent':
-        return 'Envoyée';
+        return 'success';
       case 'sending':
-        return 'En cours';
+        return 'warning';
       case 'ready':
-        return 'Prête';
+      case 'queued':
+        return 'outline';
       case 'failed':
-        return 'Échec';
+        return 'destructive';
       case 'paused':
-        return 'En pause';
+        return 'secondary';
       default:
-        return campaign.status || 'Inconnu';
+        return 'outline';
     }
   };
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{campaign.name}</TableCell>
-      <TableCell className="max-w-[200px] truncate">{campaign.subject}</TableCell>
-      <TableCell>
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClassName()}`}>
-          {formatStatus()}
-        </span>
+      <TableCell className="font-medium">
+        {campaign.name || '(Sans nom)'}
       </TableCell>
-      <TableCell>{formattedDate}</TableCell>
-      <TableCell className="text-right">{totalRecipients.toLocaleString()}</TableCell>
-      <TableCell className="text-right">{(openRate * 100).toFixed(1)}%</TableCell>
-      <TableCell className="text-right">{(clickRate * 100).toFixed(1)}%</TableCell>
+      <TableCell>
+        {campaign.subject || '(Sans sujet)'}
+      </TableCell>
+      <TableCell>
+        <Badge variant={getStatusVariant(campaign.status)}>
+          {translateStatus(campaign.status) || 'Inconnu'}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {campaign.delivery_date ? formatDateString(campaign.delivery_date) : 'Non planifiée'}
+      </TableCell>
       <TableCell className="text-right">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onView && onView(campaign.uid)}
-          title="Voir les détails"
+        {stats.subscriber_count?.toLocaleString() || '0'}
+      </TableCell>
+      <TableCell className="text-right">
+        {typeof stats.open_rate === 'number'
+          ? `${(stats.open_rate * 100).toFixed(1)}%`
+          : '0.0%'}
+      </TableCell>
+      <TableCell className="text-right">
+        {typeof stats.click_rate === 'number'
+          ? `${(stats.click_rate * 100).toFixed(1)}%`
+          : '0.0%'}
+      </TableCell>
+      <TableCell className="text-right">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onView(campaign.uid || campaign.campaign_uid)}
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-4 w-4 mr-1" />
+          Détails
         </Button>
       </TableCell>
     </TableRow>

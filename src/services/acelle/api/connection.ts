@@ -1,6 +1,8 @@
 
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
+import { supabase } from "@/integrations/supabase/client";
+import { wakeupCorsProxy } from "./cors-proxy";
 
 /**
  * Teste la connexion à l'API Acelle
@@ -18,11 +20,30 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       };
     }
     
+    // Obtenir un token d'authentification à jour
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error("Erreur lors de la récupération de la session:", sessionError);
+      throw new Error(`Erreur de session: ${sessionError.message}`);
+    }
+    
+    const authToken = sessionData?.session?.access_token;
+    if (!authToken) {
+      console.error("Aucun token d'authentification disponible");
+      throw new Error("Vous devez être connecté pour tester la connexion à l'API");
+    }
+    
+    // Réveiller le proxy si nécessaire
+    await wakeupCorsProxy(authToken);
+    
     // Construire l'URL pour tester la connexion (endpoint /me)
     const apiPath = "me";
     const url = buildProxyUrl(apiPath);
     
-    console.log(`Test d'API avec URL: ${url}`);
+    console.log(`Test d'API avec URL: ${url}`, {
+      endpoint: account.api_endpoint,
+      hasToken: !!account.api_token
+    });
     
     const startTime = Date.now();
     
@@ -33,7 +54,10 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
         "Content-Type": "application/json",
         "Accept": "application/json",
         "X-Acelle-Token": account.api_token,
-        "X-Acelle-Endpoint": account.api_endpoint
+        "X-Acelle-Endpoint": account.api_endpoint,
+        "Authorization": `Bearer ${authToken}`,
+        "X-Request-ID": `test_${Date.now()}`,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       },
       cache: "no-store"
     });

@@ -130,23 +130,24 @@ async function getCachedCampaignStats(campaignUid: string): Promise<AcelleCampai
     
     // Convertir les statistiques JSON en objet AcelleCampaignStatistics
     try {
-      // Conversion explicite du JSON en type connu
-      const typedStats = statsData as unknown as AcelleCampaignStatistics;
-      return {
-        subscriber_count: typedStats.subscriber_count || 0,
-        delivered_count: typedStats.delivered_count || 0,
-        delivered_rate: typedStats.delivered_rate || 0,
-        open_count: typedStats.open_count || 0,
-        open_rate: typedStats.open_rate || 0,
-        uniq_open_rate: typedStats.uniq_open_rate || 0,
-        click_count: typedStats.click_count || 0,
-        click_rate: typedStats.click_rate || 0,
-        bounce_count: typedStats.bounce_count || 0,
-        soft_bounce_count: typedStats.soft_bounce_count || 0,
-        hard_bounce_count: typedStats.hard_bounce_count || 0,
-        unsubscribe_count: typedStats.unsubscribe_count || 0,
-        abuse_complaint_count: typedStats.abuse_complaint_count || 0
+      // FIX: Conversion sécurisée du JSON en type connu
+      const typedStats: AcelleCampaignStatistics = {
+        subscriber_count: Number(statsData.subscriber_count || 0),
+        delivered_count: Number(statsData.delivered_count || 0),
+        delivered_rate: Number(statsData.delivered_rate || 0),
+        open_count: Number(statsData.open_count || 0),
+        uniq_open_rate: Number(statsData.uniq_open_rate || 0),
+        click_count: Number(statsData.click_count || 0),
+        click_rate: Number(statsData.click_rate || 0),
+        bounce_count: Number(statsData.bounce_count || 0),
+        soft_bounce_count: Number(statsData.soft_bounce_count || 0),
+        hard_bounce_count: Number(statsData.hard_bounce_count || 0),
+        unsubscribe_count: Number(statsData.unsubscribe_count || 0),
+        abuse_complaint_count: Number(statsData.abuse_complaint_count || 0),
+        open_rate: Number(statsData.open_rate || 0)
       };
+      
+      return typedStats;
     } catch (e) {
       console.error("Erreur lors de l'analyse des statistiques en cache:", e);
       return null;
@@ -183,6 +184,7 @@ async function updateCampaignStatsCache(
       abuse_complaint_count: statistics.abuse_complaint_count
     };
     
+    // FIX: Ajout du account_id manquant
     await supabase
       .from('campaign_stats_cache')
       .upsert({
@@ -213,21 +215,21 @@ function parseStatisticsData(statsData: any): AcelleCampaignStatistics {
   // Essayer de remplir avec les données de l'API
   try {
     if (typeof statsData === 'object') {
-      stats.subscriber_count = statsData.subscriber_count || 0;
-      stats.delivered_count = statsData.delivered_count || 0;
-      stats.open_count = statsData.open_count || 0;
-      stats.click_count = statsData.click_count || 0;
+      stats.subscriber_count = Number(statsData.subscriber_count || 0);
+      stats.delivered_count = Number(statsData.delivered_count || 0);
+      stats.open_count = Number(statsData.open_count || 0);
+      stats.click_count = Number(statsData.click_count || 0);
       
-      stats.bounce_count = statsData.bounce_count || 0;
-      stats.hard_bounce_count = statsData.hard_bounce_count || 0;
-      stats.soft_bounce_count = statsData.soft_bounce_count || 0;
+      stats.bounce_count = Number(statsData.bounce_count || 0);
+      stats.hard_bounce_count = Number(statsData.hard_bounce_count || 0);
+      stats.soft_bounce_count = Number(statsData.soft_bounce_count || 0);
       
-      stats.delivered_rate = statsData.delivered_rate || 0;
-      stats.uniq_open_rate = statsData.uniq_open_rate || 0;
-      stats.click_rate = statsData.click_rate || 0;
-      stats.unsubscribe_count = statsData.unsubscribe_count || 0;
-      stats.abuse_complaint_count = statsData.abuse_complaint_count || 0;
-      stats.open_rate = statsData.open_rate || 0;
+      stats.delivered_rate = Number(statsData.delivered_rate || 0);
+      stats.uniq_open_rate = Number(statsData.uniq_open_rate || 0);
+      stats.click_rate = Number(statsData.click_rate || 0);
+      stats.unsubscribe_count = Number(statsData.unsubscribe_count || 0);
+      stats.abuse_complaint_count = Number(statsData.abuse_complaint_count || 0);
+      stats.open_rate = Number(statsData.open_rate || 0);
     }
   } catch (e) {
     console.error("Erreur lors de l'analyse des statistiques:", e);
