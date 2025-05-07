@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +19,6 @@ import { CampaignTechnicalInfo } from "./detail/CampaignTechnicalInfo";
 
 /**
  * Récupère et traite les statistiques d'une campagne
- * Fonction dédiée pour être utilisée dans AcelleCampaignDetails
  */
 async function fetchAndProcessCampaignStats(
   campaign: AcelleCampaign, 
@@ -157,6 +155,43 @@ const AcelleCampaignDetails = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fonction pour sauvegarder les statistiques dans le cache
+  const saveStatsToCache = async (campaignUid: string, accountId: string, stats: AcelleCampaignStatistics) => {
+    try {
+      // Convertir les statistiques en objet JSON compatible avec Supabase
+      const statsJson = {
+        subscriber_count: stats.subscriber_count,
+        delivered_count: stats.delivered_count,
+        delivered_rate: stats.delivered_rate,
+        open_count: stats.open_count,
+        uniq_open_rate: stats.uniq_open_rate,
+        click_count: stats.click_count,
+        click_rate: stats.click_rate,
+        bounce_count: stats.bounce_count,
+        soft_bounce_count: stats.soft_bounce_count,
+        hard_bounce_count: stats.hard_bounce_count,
+        unsubscribe_count: stats.unsubscribe_count,
+        abuse_complaint_count: stats.abuse_complaint_count,
+        open_rate: stats.open_rate
+      };
+      
+      await supabase
+        .from('campaign_stats_cache')
+        .upsert({
+          account_id: accountId,
+          campaign_uid: campaignUid,
+          statistics: statsJson,
+          last_updated: new Date().toISOString()
+        }, {
+          onConflict: 'campaign_uid'
+        });
+        
+      console.log("Statistiques sauvegardées dans le cache pour", campaignUid);
+    } catch (e) {
+      console.error("Erreur lors de la mise à jour du cache des statistiques:", e);
+    }
+  };
+
   // Chargement des détails de la campagne
   useEffect(() => {
     const loadCampaignDetails = async () => {
@@ -212,6 +247,11 @@ const AcelleCampaignDetails = ({
         // Mettre à jour l'état et la campagne avec les statistiques
         setStats(statsResult.statistics);
         foundCampaign.statistics = statsResult.statistics;
+        
+        // Sauvegarder les statistiques mises à jour dans le cache
+        if (foundCampaign.uid) {
+          await saveStatsToCache(foundCampaign.uid, acct.id, statsResult.statistics);
+        }
         
         // Assurez-vous que delivery_info est du bon type
         if (statsResult.delivery_info) {

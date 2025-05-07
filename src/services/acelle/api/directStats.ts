@@ -1,245 +1,8 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { buildCorsProxyUrl, buildCorsProxyHeaders } from "../cors-proxy";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Enrichit une liste de campagnes avec leurs statistiques
- * Cette version utilise des requêtes directes pour récupérer les statistiques
- * plutôt que de passer par un autre service
- */
-export async function enrichCampaignsWithStats(
-  campaigns: AcelleCampaign[],
-  account: AcelleAccount,
-  options?: {
-    forceRefresh?: boolean;
-  }
-): Promise<AcelleCampaign[]> {
-  try {
-    if (!campaigns || campaigns.length === 0) {
-      console.log("Aucune campagne à enrichir avec des statistiques");
-      return [];
-    }
-    
-    console.log(`Enrichissement de ${campaigns.length} campagnes avec des statistiques...`);
-    const enrichedCampaigns = [...campaigns];
-
-    // Récupérer les statistiques pour chaque campagne
-    for (let i = 0; i < enrichedCampaigns.length; i++) {
-      const campaign = enrichedCampaigns[i];
-      
-      // Si la campagne n'est pas envoyée ou est en cours d'envoi, pas besoin de statistiques
-      if (campaign.status === 'new' || campaign.status === 'queued' || campaign.status === 'sending') {
-        campaign.statistics = createEmptyStatistics();
-        continue;
-      }
-      
-      // Essayer de récupérer les statistiques depuis le cache d'abord
-      if (!options?.forceRefresh) {
-        const cachedStats = await getCachedCampaignStats(campaign.uid);
-        if (cachedStats) {
-          campaign.statistics = cachedStats;
-          continue;
-        }
-      }
-      
-      // Sinon récupérer depuis l'API
-      try {
-        const stats = await fetchCampaignStatsFromApi(campaign.uid, account);
-        campaign.statistics = stats;
-        
-        // Mettre à jour le cache
-        await updateCampaignStatsCache(campaign.uid, account.id, stats);
-      } catch (error) {
-        console.error(`Erreur lors de la récupération des statistiques pour la campagne ${campaign.uid}:`, error);
-        campaign.statistics = createEmptyStatistics();
-      }
-    }
-
-    return enrichedCampaigns;
-  } catch (error) {
-    console.error("Erreur lors de l'enrichissement des campagnes:", error);
-    return campaigns; // Retourner les campagnes sans statistiques en cas d'erreur
-  }
-}
-
-/**
- * Récupère les statistiques d'une campagne depuis l'API
- */
-async function fetchCampaignStatsFromApi(
-  campaignUid: string,
-  account: AcelleAccount
-): Promise<AcelleCampaignStatistics> {
-  try {
-    // Construire l'URL de l'API
-    const apiPath = `/api/v1/campaigns/${campaignUid}/statistics`;
-    const url = buildCorsProxyUrl(apiPath);
-    
-    console.log(`Récupération des statistiques depuis l'API via CORS proxy: ${url}`);
-    
-    // Obtenez le token d'authentification
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    
-    if (!token) {
-      throw new Error("Token d'authentification non disponible");
-    }
-    
-    // Construire les en-têtes pour la requête
-    const headers = buildCorsProxyHeaders(account, {
-      'Authorization': `Bearer ${token}`
-    });
-    
-    // Effectuer la requête
-    const response = await fetch(url, { headers });
-    
-    if (!response.ok) {
-      throw new Error(`Erreur lors de la récupération des statistiques: ${response.status} ${response.statusText}`);
-    }
-    
-    const statsData = await response.json();
-    
-    // Convertir les données en AcelleCampaignStatistics
-    return parseStatisticsData(statsData);
-  } catch (error) {
-    console.error("Erreur lors de la récupération des statistiques:", error);
-    throw error;
-  }
-}
-
-/**
- * Récupère les statistiques d'une campagne depuis le cache
- */
-async function getCachedCampaignStats(campaignUid: string): Promise<AcelleCampaignStatistics | null> {
-  try {
-    const { data, error } = await supabase
-      .from('campaign_stats_cache')
-      .select('statistics')
-      .eq('campaign_uid', campaignUid)
-      .single();
-    
-    if (error || !data) {
-      return null;
-    }
-    
-    // S'assurer que les statistiques sont au bon format
-    const statsData = data.statistics;
-    if (!statsData) {
-      return null;
-    }
-    
-    // Convertir les statistiques JSON en objet AcelleCampaignStatistics
-    try {
-      // FIX: Conversion sécurisée du JSON en type connu
-      const typedStats: AcelleCampaignStatistics = {
-        subscriber_count: Number(statsData.subscriber_count || 0),
-        delivered_count: Number(statsData.delivered_count || 0),
-        delivered_rate: Number(statsData.delivered_rate || 0),
-        open_count: Number(statsData.open_count || 0),
-        uniq_open_rate: Number(statsData.uniq_open_rate || 0),
-        click_count: Number(statsData.click_count || 0),
-        click_rate: Number(statsData.click_rate || 0),
-        bounce_count: Number(statsData.bounce_count || 0),
-        soft_bounce_count: Number(statsData.soft_bounce_count || 0),
-        hard_bounce_count: Number(statsData.hard_bounce_count || 0),
-        unsubscribe_count: Number(statsData.unsubscribe_count || 0),
-        abuse_complaint_count: Number(statsData.abuse_complaint_count || 0),
-        open_rate: Number(statsData.open_rate || 0)
-      };
-      
-      return typedStats;
-    } catch (e) {
-      console.error("Erreur lors de l'analyse des statistiques en cache:", e);
-      return null;
-    }
-  } catch (error) {
-    console.error("Erreur lors de la récupération des statistiques depuis le cache:", error);
-    return null;
-  }
-}
-
-/**
- * Met à jour le cache des statistiques d'une campagne
- */
-async function updateCampaignStatsCache(
-  campaignUid: string,
-  accountId: string,
-  statistics: AcelleCampaignStatistics
-): Promise<void> {
-  try {
-    // Convert AcelleCampaignStatistics to a plain object for storage
-    const statsObject = {
-      subscriber_count: statistics.subscriber_count,
-      delivered_count: statistics.delivered_count,
-      delivered_rate: statistics.delivered_rate,
-      open_count: statistics.open_count,
-      open_rate: statistics.open_rate || 0,
-      uniq_open_rate: statistics.uniq_open_rate,
-      click_count: statistics.click_count,
-      click_rate: statistics.click_rate,
-      bounce_count: statistics.bounce_count,
-      soft_bounce_count: statistics.soft_bounce_count,
-      hard_bounce_count: statistics.hard_bounce_count,
-      unsubscribe_count: statistics.unsubscribe_count,
-      abuse_complaint_count: statistics.abuse_complaint_count
-    };
-    
-    // FIX: Ajout du account_id manquant
-    await supabase
-      .from('campaign_stats_cache')
-      .upsert({
-        account_id: accountId,
-        campaign_uid: campaignUid,
-        statistics: statsObject,
-        last_updated: new Date().toISOString()
-      }, {
-        onConflict: 'campaign_uid'
-      });
-      
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour du cache des statistiques:", error);
-  }
-}
-
-/**
- * Parse les données de statistiques depuis l'API
- */
-function parseStatisticsData(statsData: any): AcelleCampaignStatistics {
-  if (!statsData) {
-    return createEmptyStatistics();
-  }
-
-  // Créer un objet de statistiques avec des valeurs par défaut
-  const stats: AcelleCampaignStatistics = createEmptyStatistics();
-  
-  // Essayer de remplir avec les données de l'API
-  try {
-    if (typeof statsData === 'object') {
-      stats.subscriber_count = Number(statsData.subscriber_count || 0);
-      stats.delivered_count = Number(statsData.delivered_count || 0);
-      stats.open_count = Number(statsData.open_count || 0);
-      stats.click_count = Number(statsData.click_count || 0);
-      
-      stats.bounce_count = Number(statsData.bounce_count || 0);
-      stats.hard_bounce_count = Number(statsData.hard_bounce_count || 0);
-      stats.soft_bounce_count = Number(statsData.soft_bounce_count || 0);
-      
-      stats.delivered_rate = Number(statsData.delivered_rate || 0);
-      stats.uniq_open_rate = Number(statsData.uniq_open_rate || 0);
-      stats.click_rate = Number(statsData.click_rate || 0);
-      stats.unsubscribe_count = Number(statsData.unsubscribe_count || 0);
-      stats.abuse_complaint_count = Number(statsData.abuse_complaint_count || 0);
-      stats.open_rate = Number(statsData.open_rate || 0);
-    }
-  } catch (e) {
-    console.error("Erreur lors de l'analyse des statistiques:", e);
-  }
-  
-  return stats;
-}
-
-/**
- * Crée un objet de statistiques vide
+ * Crée des statistiques vides pour une campagne
  */
 export function createEmptyStatistics(): AcelleCampaignStatistics {
   return {
@@ -247,7 +10,6 @@ export function createEmptyStatistics(): AcelleCampaignStatistics {
     delivered_count: 0,
     delivered_rate: 0,
     open_count: 0,
-    open_rate: 0,
     uniq_open_rate: 0,
     click_count: 0,
     click_rate: 0,
@@ -255,6 +17,58 @@ export function createEmptyStatistics(): AcelleCampaignStatistics {
     soft_bounce_count: 0,
     hard_bounce_count: 0,
     unsubscribe_count: 0,
-    abuse_complaint_count: 0
+    abuse_complaint_count: 0,
+    open_rate: 0
   };
+}
+
+/**
+ * Récupère les statistiques d'une campagne depuis le cache
+ */
+export async function getCampaignStatsFromCache(
+  campaignId: string,
+  accountId: string
+): Promise<AcelleCampaignStatistics | null> {
+  try {
+    const { data, error } = await supabase
+      .from('campaign_stats_cache')
+      .select('statistics')
+      .eq('campaign_uid', campaignId)
+      .eq('account_id', accountId)
+      .single();
+    
+    if (error) {
+      console.error("Erreur lors de la récupération des stats:", error);
+      return null;
+    }
+    
+    if (data && data.statistics) {
+      // Conversion sécurisée avec vérification du type
+      const stats = data.statistics as Record<string, any>;
+      
+      // Création d'un objet correctement typé avec valeurs par défaut si nécessaire
+      const typedStats: AcelleCampaignStatistics = {
+        subscriber_count: Number(stats.subscriber_count ?? 0),
+        delivered_count: Number(stats.delivered_count ?? 0),
+        delivered_rate: Number(stats.delivered_rate ?? 0),
+        open_count: Number(stats.open_count ?? 0),
+        uniq_open_rate: Number(stats.uniq_open_rate ?? 0),
+        click_count: Number(stats.click_count ?? 0),
+        click_rate: Number(stats.click_rate ?? 0),
+        bounce_count: Number(stats.bounce_count ?? 0),
+        soft_bounce_count: Number(stats.soft_bounce_count ?? 0),
+        hard_bounce_count: Number(stats.hard_bounce_count ?? 0),
+        unsubscribe_count: Number(stats.unsubscribe_count ?? 0),
+        abuse_complaint_count: Number(stats.abuse_complaint_count ?? 0),
+        open_rate: Number(stats.open_rate ?? 0)
+      };
+      
+      return typedStats;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Exception lors de la récupération des stats:", error);
+    return null;
+  }
 }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -298,7 +297,11 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       
       <div className="border rounded-md">
         <Table>
-          <CampaignsTableHeader />
+          <CampaignsTableHeader 
+            sortBy="created_at"
+            sortOrder="desc"
+            onSort={() => {}}
+          />
           <TableBody>
             {filteredCampaigns.map((campaign) => (
               <AcelleTableRow 

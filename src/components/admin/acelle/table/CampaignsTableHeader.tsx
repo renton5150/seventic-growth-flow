@@ -11,7 +11,6 @@ export interface TableHeaderProps {
 }
 
 export const CampaignsTableHeader = ({ 
-  columns = [], 
   sortBy = "created_at", 
   sortOrder = "desc", 
   onSort = () => {} 
