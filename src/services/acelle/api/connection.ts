@@ -254,8 +254,7 @@ async function testAcelleConnectionWithCampaigns(
         duration,
         request: {
           url,
-          method: "GET",
-          endpoint: "campaigns"
+          method: "GET"
         },
         responseData: {
           error: true,
@@ -275,8 +274,7 @@ async function testAcelleConnectionWithCampaigns(
       duration,
       request: {
         url,
-        method: "GET",
-        endpoint: "campaigns"
+        method: "GET"
       },
       responseData: Array.isArray(data) ? { count: data.length } : data
     };

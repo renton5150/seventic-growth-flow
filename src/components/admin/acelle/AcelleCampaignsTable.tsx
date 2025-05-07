@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -167,7 +166,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       setIsLoading(false);
     }
   }, [account, accessToken, currentPage, itemsPerPage]);
-
+  
   // Obtenir le token d'authentification dès le montage du composant
   useEffect(() => {
     const getAuthToken = async () => {
