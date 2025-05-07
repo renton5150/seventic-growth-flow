@@ -2,6 +2,7 @@
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { enrichCampaignsWithStats as enrichWithDirectStats } from "./directStats";
+import { testCacheInsertion } from "./cacheManager";
 
 /**
  * Récupère et traite les statistiques pour une liste de campagnes
@@ -45,6 +46,11 @@ export const fetchAndProcessCampaignStats = async (
  * Re-export enrichCampaignsWithStats for compatibility
  */
 export { enrichCampaignsWithStats } from "./directStats";
+
+/**
+ * Re-export testCacheInsertion for compatibility
+ */
+export { testCacheInsertion };
 
 /**
  * Ajoute des statistiques simulées à une seule campagne (utilisé pour le mode démo)
