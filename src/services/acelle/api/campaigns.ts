@@ -1,7 +1,7 @@
 
 import { AcelleAccount, AcelleCampaign, CachedCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { buildProxyUrl } from "../acelle-service";
+import { buildCorsProxyUrl as buildProxyUrl } from "../cors-proxy";
 import { wakeupCorsProxy, getAuthToken, fetchViaProxy } from "../cors-proxy";
 import { toast } from "sonner";
 

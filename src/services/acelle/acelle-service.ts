@@ -13,6 +13,14 @@ interface AcelleApiOptions {
 }
 
 /**
+ * Construit une URL pour le proxy CORS pour les requêtes Acelle
+ */
+export function buildProxyUrl(path: string): string {
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  return `cors-proxy/${cleanPath}`;
+}
+
+/**
  * Service pour interagir avec l'API Acelle
  * Utilise le système de proxy unifié pour contourner les limitations CORS
  */

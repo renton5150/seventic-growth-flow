@@ -1,6 +1,6 @@
 
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
-import { buildProxyUrl } from "../acelle-service";
+import { buildCorsProxyUrl as buildProxyUrl } from "../cors-proxy";
 import { supabase } from "@/integrations/supabase/client";
 
 /**

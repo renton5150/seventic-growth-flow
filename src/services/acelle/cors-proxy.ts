@@ -273,19 +273,21 @@ export async function fetchViaProxy(
   const url = buildCorsProxyUrl(path);
   
   // En-têtes standardisés
-  const headers = new Headers(options.headers || {});
-  headers.set("Authorization", `Bearer ${authToken}`);
-  headers.set("X-Acelle-Token", acelleToken);
-  headers.set("X-Acelle-Endpoint", cleanEndpoint);
-  headers.set("Content-Type", headers.get("Content-Type") || "application/json");
-  headers.set("Accept", "application/json");
-  headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
-  headers.set("X-Request-ID", `req_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+  const headersObj = {
+    ...(options.headers || {}),
+    "Authorization": `Bearer ${authToken}`,
+    "X-Acelle-Token": acelleToken,
+    "X-Acelle-Endpoint": cleanEndpoint,
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "X-Request-ID": `req_${Date.now()}_${Math.random().toString(36).substring(7)}`
+  };
   
   // Options finales
   const fetchOptions: RequestInit = {
     ...options,
-    headers,
+    headers: headersObj,
     cache: "no-store",
     // Timeout pour éviter les attentes infinies
     signal: AbortSignal.timeout(30000)
