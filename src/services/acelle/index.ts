@@ -17,7 +17,7 @@ import {
 import { 
   fetchAndProcessCampaignStats, 
   enrichCampaignsWithStats 
-} from "./api/stats/campaignStats";
+} from "./api/campaignStats";
 
 import { checkAcelleConnectionStatus } from "./api/connection";
 import { buildProxyUrl } from "./acelle-service";

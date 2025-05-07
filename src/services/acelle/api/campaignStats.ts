@@ -1,8 +1,9 @@
 
 // Fichier de compatibilité pour assurer la rétrocompatibilité avec le code existant
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { fetchAndProcessCampaignStats as fetchAndProcessStats, testCacheInsertion, ensureValidStatistics } from "./stats/campaignStats";
+import { fetchAndProcessCampaignStats as fetchAndProcessStats, testCacheInsertion } from "./stats/campaignStats";
 import { enrichCampaignsWithStats } from "./stats/directStats";
+import { ensureValidStatistics } from "./stats/validation";
 
 /**
  * Récupère et traite les statistiques d'une campagne
