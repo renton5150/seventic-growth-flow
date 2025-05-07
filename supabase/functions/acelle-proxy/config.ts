@@ -1,33 +1,20 @@
 
 /**
- * Configuration pour le proxy Acelle
- * Contient les constantes et paramètres du service
+ * Constantes de configuration pour la fonction acelle-proxy
  */
-
 export const CONFIG = {
-  // Version du service pour le suivi
-  VERSION: "2.1.0",
+  // Configuration de base
+  HEARTBEAT_INTERVAL: 30 * 1000, // 30 secondes
+  SUPABASE_URL: Deno.env.get('SUPABASE_URL') || 'https://dupguifqyjchlmzbadav.supabase.co',
+  SERVICE_ROLE_KEY: Deno.env.get('SERVICE_ROLE_KEY') || '',
+  DEFAULT_TIMEOUT: 30000, // 30 secondes timeout par défaut
   
-  // URL Supabase pour accéder aux secrets
-  SUPABASE_URL: Deno.env.get("SUPABASE_URL") || "",
+  // Version actuelle du proxy Acelle
+  VERSION: '1.6.0',
   
-  // Clé de rôle service pour les opérations privilégiées
-  SERVICE_ROLE_KEY: Deno.env.get("SERVICE_ROLE_KEY") || "",
-  
-  // Intervalle de heartbeat en millisecondes (par défaut 20 secondes)
-  HEARTBEAT_INTERVAL: parseInt(Deno.env.get("HEARTBEAT_INTERVAL") || "20000"),
-  
-  // Timeout par défaut pour les requêtes API (30 secondes)
-  DEFAULT_TIMEOUT: parseInt(Deno.env.get("DEFAULT_TIMEOUT") || "30000"),
-  
-  // En-têtes CORS standards pour toutes les réponses
-  CORS_HEADERS: {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, x-acelle-key, x-debug-level, x-auth-method, x-wake-request, x-api-key, origin, accept, pragma, x-acelle-token, x-acelle-endpoint, x-request-id',
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Max-Age': '86400',
-    'Vary': 'Origin',
-    'Content-Type': 'application/json',
+  // Entêtes par défaut
+  DEFAULT_HEADERS: {
+    'User-Agent': 'Seventic-Acelle-Proxy/1.6',
+    'Accept': 'application/json'
   }
 };

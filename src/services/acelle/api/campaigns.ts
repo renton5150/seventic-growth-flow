@@ -1,299 +1,330 @@
-import { AcelleAccount, AcelleCampaign, CachedCampaign } from "@/types/acelle.types";
+
+import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { buildProxyUrl } from "../acelle-service";
-import { wakeupCorsProxy, getAuthToken, fetchViaProxy } from "../cors-proxy";
-import { toast } from "sonner";
+import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
- * Récupère les campagnes d'un compte Acelle avec gestion améliorée des erreurs
+ * Récupère les campagnes d'un compte Acelle depuis l'API
  */
-export async function getAcelleCampaigns(
-  account: AcelleAccount,
-  options?: {
-    refresh?: boolean;
-    maxRetries?: number;
+export const getCampaigns = async (
+  account: AcelleAccount, 
+  options?: { 
+    page?: number;
+    perPage?: number;
   }
-): Promise<AcelleCampaign[]> {
-  const maxRetries = options?.maxRetries || 2;
-  
+): Promise<AcelleCampaign[]> => {
   try {
-    console.log(`Récupération des campagnes pour le compte ${account.name}`);
-    
-    // Si refresh n'est pas demandé, on essaie d'abord le cache
-    if (!options?.refresh) {
-      const cachedCampaigns = await getCampaignsFromCache(account.id);
-      
-      if (cachedCampaigns && cachedCampaigns.length > 0) {
-        console.log(`Retour de ${cachedCampaigns.length} campagnes depuis le cache pour ${account.name}`);
-        return convertCacheToAcelleCampaigns(cachedCampaigns);
-      } else {
-        console.log("Pas de données en cache ou refresh demandé, interrogation de l'API");
-      }
-    }
-    
-    // Si pas de cache ou refresh demandé, on va chercher les campagnes via l'API
-    if (!account.api_endpoint || !account.api_token) {
-      console.error(`Impossible d'appeler l'API: configuration API manquante pour ${account.name}`);
-      throw new Error("Configuration API incomplète pour ce compte");
+    if (!account || !account.api_token || !account.api_endpoint) {
+      console.error("Informations de compte incomplètes pour la récupération des campagnes");
+      return [];
     }
 
-    // Obtenir un token d'authentification à jour
-    const authToken = await getAuthToken();
-    if (!authToken) {
-      throw new Error("Token d'authentification non disponible");
+    const page = options?.page || 1;
+    const perPage = options?.perPage || 20;
+
+    // Construction des paramètres
+    const params = {
+      api_token: account.api_token,
+      page: page.toString(),
+      per_page: perPage.toString(),
+      _t: Date.now().toString() // Empêche la mise en cache
+    };
+
+    // Construction de l'URL
+    const url = buildProxyUrl("campaigns", params);
+    console.log(`Requesting campaigns from API: ${url}`);
+
+    // Récupérer le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      console.error("Aucun token d'authentification disponible");
+      return [];
+    }
+
+    // Effectuer la requête API
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`Erreur API: ${response.status} ${response.statusText}`);
+      return [];
+    }
+
+    // Traiter la réponse
+    const data = await response.json();
+    
+    // Normaliser les données des campagnes
+    if (data.data && Array.isArray(data.data)) {
+      return data.data.map((campaign: any): AcelleCampaign => ({
+        uid: campaign.uid,
+        campaign_uid: campaign.uid,
+        name: campaign.name || '',
+        subject: campaign.subject || '',
+        status: campaign.status || '',
+        created_at: campaign.created_at || '',
+        updated_at: campaign.updated_at || '',
+        delivery_date: campaign.delivery_at || campaign.run_at || '',
+        run_at: campaign.run_at || '',
+        last_error: campaign.last_error || '',
+        delivery_info: campaign.delivery_info || {},
+        statistics: campaign.statistics || createEmptyStatistics()
+      }));
     }
     
-    // Réveiller le proxy CORS
-    const proxyReady = await wakeupCorsProxy(authToken);
-    if (!proxyReady) {
-      console.error("Le proxy CORS n'a pas pu être réveillé");
-      toast.error("Impossible de communiquer avec le serveur d'API");
-      throw new Error("Le proxy CORS n'est pas disponible");
+    console.error("Format de réponse API inattendu:", data);
+    return [];
+  } catch (error) {
+    console.error("Erreur lors de la récupération des campagnes:", error);
+    return [];
+  }
+};
+
+/**
+ * Récupère une campagne spécifique par son UID
+ */
+export const getCampaign = async (
+  uid: string,
+  account: AcelleAccount
+): Promise<AcelleCampaign | null> => {
+  try {
+    if (!uid || !account || !account.api_token) {
+      return null;
+    }
+
+    // Construction des paramètres
+    const params = {
+      api_token: account.api_token,
+      _t: Date.now().toString()
+    };
+
+    // Construction de l'URL
+    const url = buildProxyUrl(`campaigns/${uid}`, params);
+
+    // Récupérer le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      console.error("Aucun token d'authentification disponible");
+      return null;
+    }
+
+    // Effectuer la requête API
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`Erreur API: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    // Traiter la réponse
+    const data = await response.json();
+
+    if (data && data.campaign) {
+      const campaign = data.campaign;
+      return {
+        uid: campaign.uid,
+        campaign_uid: campaign.uid,
+        name: campaign.name || '',
+        subject: campaign.subject || '',
+        status: campaign.status || '',
+        created_at: campaign.created_at || '',
+        updated_at: campaign.updated_at || '',
+        delivery_date: campaign.delivery_at || campaign.run_at || '',
+        run_at: campaign.run_at || '',
+        last_error: campaign.last_error || '',
+        delivery_info: campaign.delivery_info || {},
+        statistics: campaign.statistics || createEmptyStatistics()
+      };
     }
     
-    // Récupérer depuis l'API avec gestion des erreurs
-    console.log(`Récupération des campagnes depuis l'API pour ${account.name}`);
+    return null;
+  } catch (error) {
+    console.error(`Erreur lors de la récupération de la campagne ${uid}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Force la synchronisation des campagnes pour un compte
+ */
+export const forceSyncCampaigns = async (
+  account: AcelleAccount,
+  accessToken: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    if (!account?.id) {
+      return { success: false, message: "Aucun compte spécifié" };
+    }
+
+    if (!accessToken) {
+      return { success: false, message: "Token d'authentification manquant" };
+    }
+
+    console.log(`Forçage de la synchronisation des campagnes pour le compte ${account.name}`);
+
+    // Appeler la fonction Edge pour synchroniser
+    const { data, error } = await supabase.functions.invoke('sync-email-campaigns', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: { 
+        accountId: account.id
+      }
+    });
     
-    try {
-      // Utiliser fetchViaProxy qui gère les retries et l'authentification
-      // Envoi explicite d'une liste complète pour éviter les erreurs de pagination
-      const response = await fetchViaProxy(
-        "campaigns?page=1&per_page=500",
-        { method: "GET" },
-        account.api_token,
-        account.api_endpoint,
-        maxRetries
-      );
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Erreur API ${response.status}:`, errorText);
-        throw new Error(`Erreur API ${response.status}: ${response.statusText}`);
+    if (error) {
+      console.error("Erreur lors de la synchronisation:", error);
+      return { 
+        success: false, 
+        message: `Erreur: ${error.message || "Échec de la synchronisation"}` 
+      };
+    }
+
+    if (data?.success) {
+      return { 
+        success: true, 
+        message: data.message || "Synchronisation réussie" 
+      };
+    } else {
+      console.error("La synchronisation a échoué:", data);
+      return { 
+        success: false, 
+        message: data?.message || "La synchronisation a échoué pour une raison inconnue" 
+      };
+    }
+  } catch (error) {
+    console.error("Erreur lors de la synchronisation forcée:", error);
+    return { 
+      success: false, 
+      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"}` 
+    };
+  }
+};
+
+/**
+ * Extraire les campagnes du cache par le compte
+ */
+export const extractCampaignsFromCache = async (
+  accountId: string,
+  options?: {
+    page?: number;
+    perPage?: number;
+  }
+): Promise<AcelleCampaign[]> => {
+  try {
+    const page = options?.page || 1;
+    const perPage = options?.perPage || 10;
+    const start = (page - 1) * perPage;
+    const end = start + perPage - 1;
+
+    console.log(`Extraction des campagnes en cache pour le compte ${accountId}, page ${page}`);
+
+    let query = supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false });
+
+    // Appliquer la pagination
+    query = query.range(start, end);
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Erreur lors de l'extraction des campagnes du cache:", error);
+      return [];
+    }
+
+    const campaigns = data.map((item): AcelleCampaign => {
+      // Analyser delivery_info
+      let deliveryInfo = {};
+      try {
+        deliveryInfo = typeof item.delivery_info === 'string' 
+          ? JSON.parse(item.delivery_info) 
+          : item.delivery_info || {};
+      } catch (e) {
+        console.warn(`Erreur lors de l'analyse de delivery_info pour la campagne ${item.campaign_uid}:`, e);
       }
-      
-      const data = await response.json();
-      
-      if (!Array.isArray(data)) {
-        console.error(`Format de réponse API inattendu: pas un tableau`, data);
-        throw new Error(`Format de réponse API inattendu`);
-      }
-      
-      console.log(`API a retourné ${data.length} campagnes pour ${account.name}`);
-      
-      // Convertir les données en AcelleCampaign[]
-      const campaigns: AcelleCampaign[] = data.map(item => ({
-        uid: item.uid,
-        campaign_uid: item.uid,
+
+      return {
+        uid: item.campaign_uid,
+        campaign_uid: item.campaign_uid,
         name: item.name || '',
         subject: item.subject || '',
         status: item.status || '',
         created_at: item.created_at || '',
         updated_at: item.updated_at || '',
-        delivery_date: item.run_at || item.delivery_at || '',
+        delivery_date: item.delivery_date || '',
         run_at: item.run_at || '',
         last_error: item.last_error || '',
-      }));
-      
-      // Mettre à jour le cache avec les nouvelles données
-      await updateCampaignsCache(campaigns, account.id);
-      
-      return campaigns;
-    } catch (apiError) {
-      console.error(`Erreur API lors de la récupération des campagnes:`, apiError);
-      
-      // Si une erreur se produit mais qu'on a des données en cache, utiliser le cache
-      const cachedCampaigns = await getCampaignsFromCache(account.id);
-      if (cachedCampaigns && cachedCampaigns.length > 0) {
-        console.log(`Utilisation du cache après échec API (${cachedCampaigns.length} campagnes)`);
-        toast.error(`Erreur de connexion à l'API: utilisation des données en cache`);
-        return convertCacheToAcelleCampaigns(cachedCampaigns);
-      }
-      
-      // Si pas de cache, propager l'erreur
-      throw apiError;
-    }
+        delivery_info: deliveryInfo,
+        statistics: createEmptyStatistics() // Les statistiques seront enrichies plus tard
+      };
+    });
+
+    console.log(`${campaigns.length} campagnes extraites du cache`);
+    return campaigns;
   } catch (error) {
-    console.error(`Erreur lors de la récupération des campagnes:`, error);
-    throw error;
+    console.error("Erreur lors de l'extraction des campagnes du cache:", error);
+    return [];
   }
-}
+};
 
 /**
- * Récupère le statut du cache pour un compte
+ * Obtenir le statut du cache des campagnes
  */
-export async function getCacheStatus(accountId: string): Promise<{
-  count: number;
-  lastUpdated: string | null;
-}> {
+export const getCacheStatus = async (
+  accountId: string
+): Promise<{ lastUpdated: string | null; count: number }> => {
   try {
-    const { count } = await supabase
-      .from('email_campaigns_cache')
-      .select('*', { count: 'exact', head: true })
-      .eq('account_id', accountId);
-    
-    const { data } = await supabase
+    // Vérifier quand le cache a été mis à jour pour la dernière fois
+    const { data: cacheData, error: cacheError } = await supabase
       .from('email_campaigns_cache')
       .select('cache_updated_at')
       .eq('account_id', accountId)
       .order('cache_updated_at', { ascending: false })
-      .limit(1)
-      .single();
-    
-    return {
-      count: count || 0,
-      lastUpdated: data?.cache_updated_at || null
-    };
-  } catch (error) {
-    console.error(`Erreur lors de la récupération du statut du cache:`, error);
-    return {
-      count: 0,
-      lastUpdated: null
-    };
-  }
-}
+      .limit(1);
 
-/**
- * Récupère les campagnes depuis le cache
- */
-async function getCampaignsFromCache(accountId: string): Promise<CachedCampaign[]> {
-  try {
-    const { data, error } = await supabase
+    if (cacheError) {
+      console.error("Erreur lors de la récupération de l'état du cache:", cacheError);
+      return { lastUpdated: null, count: 0 };
+    }
+
+    // Compter le nombre de campagnes en cache
+    const { count, error: countError } = await supabase
       .from('email_campaigns_cache')
-      .select('*')
-      .eq('account_id', accountId)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      throw error;
-    }
-    
-    return data as CachedCampaign[];
-  } catch (error) {
-    console.error(`Erreur lors de la récupération des campagnes depuis le cache:`, error);
-    return [];
-  }
-}
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', accountId);
 
-/**
- * Convertit les données du cache en AcelleCampaign[]
- */
-function convertCacheToAcelleCampaigns(cachedCampaigns: CachedCampaign[]): AcelleCampaign[] {
-  return cachedCampaigns.map(item => {
-    // Traitement des delivery_info
-    let deliveryInfo = {};
-    
-    if (item.delivery_info) {
-      if (typeof item.delivery_info === 'string') {
-        try {
-          deliveryInfo = JSON.parse(item.delivery_info);
-        } catch (e) {
-          console.warn(`Erreur lors du parsing de delivery_info pour ${item.campaign_uid}:`, e);
-        }
-      } else {
-        deliveryInfo = item.delivery_info;
-      }
-    }
-    
-    return {
-      uid: item.campaign_uid,
-      campaign_uid: item.campaign_uid,
-      name: item.name || '',
-      subject: item.subject || '',
-      status: item.status || '',
-      created_at: item.created_at || '',
-      updated_at: item.updated_at || '',
-      delivery_date: item.delivery_date || '',
-      run_at: item.run_at || '',
-      last_error: item.last_error || '',
-      delivery_info: deliveryInfo
-    };
-  });
-}
-
-/**
- * Met à jour le cache des campagnes
- */
-async function updateCampaignsCache(campaigns: AcelleCampaign[], accountId: string): Promise<void> {
-  try {
-    if (campaigns.length === 0) {
-      return;
-    }
-    
-    console.log(`Mise à jour du cache avec ${campaigns.length} campagnes`);
-    
-    // Format de données pour l'upsert
-    const cacheData = campaigns.map(campaign => ({
-      campaign_uid: campaign.uid,
-      account_id: accountId,
-      name: campaign.name,
-      subject: campaign.subject,
-      status: campaign.status,
-      created_at: campaign.created_at,
-      updated_at: campaign.updated_at,
-      delivery_date: campaign.delivery_date,
-      run_at: campaign.run_at,
-      last_error: campaign.last_error,
-      cache_updated_at: new Date().toISOString()
-    }));
-    
-    const { error } = await supabase
-      .from('email_campaigns_cache')
-      .upsert(cacheData, {
-        onConflict: 'campaign_uid',
-        ignoreDuplicates: false
-      });
-    
-    if (error) {
-      throw error;
-    }
-    
-    console.log(`Cache mis à jour avec succès`);
-  } catch (error) {
-    console.error(`Erreur lors de la mise à jour du cache:`, error);
-  }
-}
-
-/**
- * Fonction pour forcer la synchronisation des campagnes avec gestion améliorée des erreurs
- */
-export async function forceSyncCampaigns(
-  account: AcelleAccount,
-  authToken: string
-): Promise<{
-  success: boolean;
-  message: string;
-}> {
-  try {
-    console.log(`Forçage de la synchronisation des campagnes pour ${account.name}`);
-    
-    // Réveiller le proxy CORS
-    const proxyReady = await wakeupCorsProxy(authToken);
-    if (!proxyReady) {
-      return {
-        success: false,
-        message: "Impossible de réveiller le proxy CORS. Veuillez réessayer."
+    if (countError) {
+      console.error("Erreur lors du comptage des campagnes en cache:", countError);
+      return { 
+        lastUpdated: cacheData && cacheData.length > 0 ? cacheData[0].cache_updated_at : null, 
+        count: 0 
       };
     }
-    
-    // Synchronisation directe via l'API
-    const campaigns = await getAcelleCampaigns(account, { 
-      refresh: true,
-      maxRetries: 3 // Plus de tentatives pour la synchro forcée
-    });
-    
-    console.log(`Synchronisation réussie de ${campaigns.length} campagnes`);
-    
+
     return {
-      success: true,
-      message: `${campaigns.length} campagnes synchronisées avec succès.`
+      lastUpdated: cacheData && cacheData.length > 0 ? cacheData[0].cache_updated_at : null,
+      count: count || 0
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Erreur lors de la synchronisation:`, error);
-    
-    return {
-      success: false,
-      message: `Échec de la synchronisation: ${errorMessage}`
-    };
+    console.error("Erreur lors de la récupération de l'état du cache:", error);
+    return { lastUpdated: null, count: 0 };
   }
-}
+};

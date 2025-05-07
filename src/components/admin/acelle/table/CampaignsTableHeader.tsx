@@ -1,40 +1,49 @@
 
-import React from "react";
-import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { TableHead } from "@/components/ui/table";
+import { ArrowDown, ArrowUp } from "lucide-react";
 
-export interface TableHeaderProps {
-  columns?: string[];
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  onSort?: (column: string) => void;
+interface Column {
+  key: string;
+  label: string;
 }
 
-export const CampaignsTableHeader = ({ 
-  sortBy = "created_at", 
-  sortOrder = "desc", 
-  onSort = () => {} 
-}: TableHeaderProps = {}) => {
-  // Helper pour afficher l'icône de tri appropriée
-  const getSortIcon = (column: string) => {
-    if (column === sortBy) {
-      return sortOrder === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
-    }
-    return <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100" />;
-  };
-  
+interface CampaignsTableHeaderProps {
+  columns: Column[];
+  sortBy: string;
+  sortOrder: string;
+  onSort: (columnKey: string) => void;
+}
+
+export const CampaignsTableHeader: React.FC<CampaignsTableHeaderProps> = ({
+  columns,
+  sortBy,
+  sortOrder,
+  onSort,
+}) => {
   return (
-    <TableHeader>
-      <TableRow>
-        <TableHead>Nom</TableHead>
-        <TableHead>Sujet</TableHead>
-        <TableHead>Statut</TableHead>
-        <TableHead>Date d'envoi</TableHead>
-        <TableHead className="text-right">Destinataires</TableHead>
-        <TableHead className="text-right">Taux d'ouverture</TableHead>
-        <TableHead className="text-right">Taux de clic</TableHead>
-        <TableHead className="text-right">Action</TableHead>
-      </TableRow>
-    </TableHeader>
+    <>
+      {columns.map((column) => (
+        <TableHead 
+          key={column.key}
+          className={
+            column.key ? "cursor-pointer hover:bg-muted/50" : "cursor-default"
+          }
+          onClick={() => column.key ? onSort(column.key) : null}
+        >
+          <div className="flex items-center space-x-1">
+            <span>{column.label}</span>
+            {sortBy === column.key && (
+              <span className="flex-shrink-0">
+                {sortOrder === "asc" ? (
+                  <ArrowUp className="h-3 w-3" />
+                ) : (
+                  <ArrowDown className="h-3 w-3" />
+                )}
+              </span>
+            )}
+          </div>
+        </TableHead>
+      ))}
+    </>
   );
 };

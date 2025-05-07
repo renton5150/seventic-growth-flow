@@ -1,6 +1,5 @@
 
 import { useState, useCallback } from 'react';
-import { toast } from 'sonner';
 
 /**
  * Hook pour gérer le réveil des Edge Functions
@@ -32,9 +31,6 @@ export const useEdgeFunctionWakeup = () => {
       
       setWakeupAttempts(prev => prev + 1);
       
-      // Notification pour l'utilisateur
-      toast.loading("Réveil des services...", { id: "wakeup-edge" });
-      
       // Construire l'URL complète de l'edge function
       const supabaseUrl = 'https://dupguifqyjchlmzbadav.supabase.co';
       const wakeUrl = `${supabaseUrl}/functions/v1/cors-proxy/ping`;
@@ -44,35 +40,30 @@ export const useEdgeFunctionWakeup = () => {
       // Récupération de l'origine pour les en-têtes CORS
       const origin = window.location.origin;
       
-      try {
-        // Réveiller le proxy CORS avec des en-têtes améliorés
-        const corsProxyResponse = await fetch(wakeUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Cache-Control': 'no-store, no-cache, must-revalidate',
-            'Pragma': 'no-cache',
-            'X-Wake-Request': 'true',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Origin': origin
-          },
-          mode: 'cors',
-          credentials: 'same-origin'
-        });
-        
-        if (corsProxyResponse.ok) {
-          const data = await corsProxyResponse.json();
-          console.log("Réveil du proxy CORS réussi:", data);
-        } else {
-          console.warn(`Le proxy CORS a répondu avec le code: ${corsProxyResponse.status}`);
-          try {
-            const errorText = await corsProxyResponse.text();
-            console.warn("Détails de l'erreur:", errorText);
-          } catch (e) {}
+      // Réveiller le proxy CORS avec des en-têtes améliorés
+      const corsProxyResponse = await fetch(wakeUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'X-Wake-Request': 'true',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Origin': origin
+        },
+        mode: 'cors',
+        credentials: 'same-origin'
+      });
+      
+      if (corsProxyResponse.ok) {
+        const data = await corsProxyResponse.json();
+        console.log("Réveil du proxy CORS réussi:", data);
+      } else {
+        console.warn(`Le proxy CORS a répondu avec le code: ${corsProxyResponse.status}`);
+        if (corsProxyResponse.status === 0) {
+          console.warn("Réponse avec code 0 - probablement une erreur CORS ou réseau");
         }
-      } catch (e) {
-        console.warn("Erreur lors de la requête de réveil du proxy CORS:", e);
       }
       
       // Réveiller également la fonction acelle-proxy
@@ -125,40 +116,20 @@ export const useEdgeFunctionWakeup = () => {
       }
       
       // Un petit délai pour laisser le temps aux services de se réveiller complètement
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       setWakeupStatus('success');
-      toast.success("Services prêts", { id: "wakeup-edge" });
       return true;
     } catch (e) {
       console.error("Erreur lors du réveil des Edge Functions:", e);
       setWakeupStatus('error');
-      toast.error("Erreur lors du réveil des services", { id: "wakeup-edge" });
       return false;
     }
   }, []);
 
-  // Fonction pour réveiller tous les services en une fois
-  const wakeUpAllServices = useCallback(async (authToken: string | null): Promise<boolean> => {
-    if (!authToken) {
-      console.error("Pas de token d'authentification disponible");
-      return false;
-    }
-    
-    // Réveiller les Edge Functions
-    const edgeFunctionsAwoken = await wakeUpEdgeFunctions(authToken);
-    
-    if (!edgeFunctionsAwoken) {
-      console.warn("Échec du réveil des Edge Functions");
-    }
-    
-    return edgeFunctionsAwoken;
-  }, [wakeUpEdgeFunctions]);
-
   return {
     wakeupAttempts,
     wakeupStatus,
-    wakeUpEdgeFunctions,
-    wakeUpAllServices
+    wakeUpEdgeFunctions
   };
 };

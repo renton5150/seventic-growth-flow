@@ -1,109 +1,118 @@
 
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAcelleContext } from '@/contexts/AcelleContext';
-import { DeliveryStatsChart } from '@/components/admin/acelle/charts/DeliveryStatsChart';
-import { StatusDistributionChart } from '@/components/admin/acelle/charts/StatusDistributionChart';
-import { CampaignStatusChart } from '@/components/admin/acelle/charts/CampaignStatusChart';
-import { AcelleCampaign, AcelleAccount } from '@/types/acelle.types';
+import React, { useState, useEffect } from "react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import AcelleAdminPanel from "@/components/admin/acelle/AcelleAdminPanel";
+import { Alert, AlertDescription } from "@/components/ui/alert"; 
+import { InfoIcon, AlertTriangle, RefreshCw } from "lucide-react"; 
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const AcelleEmailCampaigns = () => {
-  const { selectedAccount, demoMode } = useAcelleContext();
-  const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
-  const [accounts, setAccounts] = useState<AcelleAccount[]>([]);
+  const { isAdmin, user } = useAuth();
+  const [isAuthenticating, setIsAuthenticating] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   
-  // Mock data for demonstration purposes
+  // Vérifier l'état d'authentification au chargement et configurer le rafraîchissement automatique
   useEffect(() => {
-    // If we have a selected account, add it to the accounts array
-    if (selectedAccount) {
-      setAccounts([selectedAccount]);
-    }
-    
-    // Mock campaigns
-    setCampaigns([
-      {
-        uid: '1',            // Changed from id to uid to match AcelleCampaign type
-        campaign_uid: '1',   // Added missing required field
-        name: 'Demo Campaign',
-        subject: 'Demo Campaign Subject', // Added missing required field
-        status: 'sent',
-        created_at: '2025-05-07',
-        updated_at: '2025-05-07',        // Added missing required field
-        delivery_date: null,             // Added missing required field
-        run_at: null,                    // Added missing required field
-        statistics: {
-          subscriber_count: 100,
-          delivered_count: 95,
-          delivered_rate: 95,
-          open_count: 50,
-          uniq_open_rate: 50,
-          click_count: 30,
-          click_rate: 30,
-          bounce_count: 5,
-          soft_bounce_count: 2,
-          hard_bounce_count: 3,
-          unsubscribe_count: 2,
-          abuse_complaint_count: 0
+    // Fonction pour vérifier l'état d'authentification
+    const checkAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const isAuthenticated = !!data?.session?.access_token;
+        
+        if (!isAuthenticated && user) {
+          setAuthError("Session Supabase expirée. Veuillez vous reconnecter.");
+        } else {
+          setAuthError(null);
         }
+      } catch (error) {
+        console.error("Erreur lors de la vérification de l'authentification:", error);
+        setAuthError("Erreur lors de la vérification de l'authentification.");
+      } finally {
+        setIsAuthenticating(false);
       }
-    ]);
-  }, [selectedAccount]);
+    };
+    
+    // Vérifier immédiatement
+    checkAuth();
+    
+    // Rafraîchir automatiquement la session toutes les 10 minutes pour éviter l'expiration
+    const sessionRefreshInterval = setInterval(async () => {
+      try {
+        console.log("Rafraîchissement automatique de la session...");
+        const { data, error } = await supabase.auth.refreshSession();
+        
+        if (error) {
+          console.error("Erreur lors du rafraîchissement automatique:", error);
+          setAuthError("Erreur lors du rafraîchissement automatique de la session.");
+        } else if (data && data.session) {
+          console.log("Session rafraîchie automatiquement avec succès");
+          setAuthError(null);
+        }
+      } catch (e) {
+        console.error("Exception lors du rafraîchissement automatique:", e);
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    return () => clearInterval(sessionRefreshInterval);
+  }, [user]);
+  
+  // Force une reconnexion à Supabase
+  const handleRefreshAuth = async () => {
+    try {
+      toast.loading("Rafraîchissement de la session...", { id: "auth-refresh" });
+      await supabase.auth.refreshSession();
+      const { data } = await supabase.auth.getSession();
+      
+      if (data?.session) {
+        setAuthError(null);
+        toast.success("Session rafraîchie avec succès", { id: "auth-refresh" });
+      } else {
+        setAuthError("Impossible de rafraîchir la session. Veuillez vous reconnecter.");
+        toast.error("Échec du rafraîchissement de la session", { id: "auth-refresh" });
+      }
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement de la session:", error);
+      toast.error("Erreur lors du rafraîchissement de la session", { id: "auth-refresh" });
+    }
+  };
+  
+  if (!isAdmin) {
+    return <Navigate to="/unauthorized" replace />;
+  }
   
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Email Campaign Dashboard</h1>
-      
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList>
-          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
-          <TabsTrigger value="settings">Paramètres</TabsTrigger>
-        </TabsList>
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Campagnes emailing</h1>
+          {authError && (
+            <Button 
+              variant="outline"
+              onClick={handleRefreshAuth}
+              className="border-amber-500 text-amber-500 hover:bg-amber-50"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Rafraîchir la session
+            </Button>
+          )}
+        </div>
         
-        <TabsContent value="overview">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <DeliveryStatsChart campaign={campaigns[0]} /> {/* Changed from campaigns to campaign (singular) */}
-            <StatusDistributionChart accounts={accounts} /> {/* Changed from campaigns to accounts */}
-            <CampaignStatusChart campaigns={campaigns} /> {/* This one does take campaigns as a prop */}
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Statistiques d'envoi global</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-500">Mode de démonstration: {demoMode ? 'Activé' : 'Désactivé'}</p>
-              {selectedAccount && (
-                <p className="text-gray-500">Compte sélectionné: {selectedAccount.name}</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {authError && (
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            <AlertDescription>
+              {authError}
+            </AlertDescription>
+          </Alert>
+        )}
         
-        <TabsContent value="campaigns">
-          <Card>
-            <CardHeader>
-              <CardTitle>Liste des campagnes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>Fonctionnalité à venir</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Paramètres</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>Configuration à venir</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+        <AcelleAdminPanel />
+      </div>
+    </AppLayout>
   );
 };
 

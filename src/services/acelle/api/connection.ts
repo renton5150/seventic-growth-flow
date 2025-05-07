@@ -1,249 +1,114 @@
 
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { supabase } from '@/integrations/supabase/client';
-import { wakeupCorsProxy, getAuthToken, fetchViaProxy } from "../cors-proxy";
-import { toast } from 'sonner';
+import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Teste la connexion à l'API Acelle avec gestion améliorée des erreurs
+ * Vérifie la connexion à l'API Acelle
  */
-export const testAcelleConnection = async (account: AcelleAccount): Promise<AcelleConnectionDebug> => {
-  console.log(`Test de connexion à l'API Acelle pour ${account.name}...`);
-  
+export const checkAcelleConnectionStatus = async (
+  account: AcelleAccount,
+  accessToken?: string | null
+): Promise<AcelleConnectionDebug> => {
   try {
-    if (!account.api_endpoint || !account.api_token) {
+    if (!account || !account.api_endpoint || !account.api_token) {
       return {
         success: false,
-        errorMessage: "URL de l'API ou token manquant",
         timestamp: new Date().toISOString(),
-        accountName: account.name
+        errorMessage: "Informations de connexion insuffisantes"
       };
     }
-    
-    // Obtenir un token d'authentification à jour
-    const authToken = await getAuthToken();
-    if (!authToken) {
-      return {
-        success: false,
-        errorMessage: "Impossible de récupérer le token d'authentification",
-        timestamp: new Date().toISOString(),
-        accountName: account.name
-      };
+
+    // Récupérer le token d'authentification si non fourni
+    if (!accessToken) {
+      const { data } = await supabase.auth.getSession();
+      accessToken = data?.session?.access_token;
+      
+      if (!accessToken) {
+        return {
+          success: false,
+          timestamp: new Date().toISOString(),
+          errorMessage: "Aucun token d'authentification disponible"
+        };
+      }
     }
     
-    // Réveiller le proxy avec gestion des erreurs
-    const proxyWakeupSuccess = await wakeupCorsProxy(authToken);
-    if (!proxyWakeupSuccess) {
-      return {
-        success: false,
-        errorMessage: "Impossible de réveiller le proxy CORS",
-        timestamp: new Date().toISOString(),
-        accountName: account.name
-      };
-    }
-    
-    // Construire l'URL pour tester la connexion - commence par tester ping qui est plus fiable
-    console.log(`Test d'API pour ${account.name} avec endpoint ${account.api_endpoint}`);
-    
-    const startTime = Date.now();
-    
+    // Essayer d'appeler l'Edge Function pour vérifier la connexion à Acelle
     try {
-      // Utiliser notre nouveau système de fetch unifié pour une gestion plus robuste des erreurs
-      const response = await fetchViaProxy(
-        "ping",
-        { method: "GET" },
-        account.api_token,
-        account.api_endpoint,
-        2 // Nombre de tentatives max
-      );
+      // Construire l'URL pour la vérification
+      const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
+      url.searchParams.append("url", account.api_endpoint);
+      url.searchParams.append("token", account.api_token);
       
-      const duration = Date.now() - startTime;
-      
-      // Si la réponse n'est pas ok
-      if (!response.ok) {
-        const errorText = await response.text();
-        
-        console.error(`Erreur API: ${response.status} - ${response.statusText}`, {
-          errorText
-        });
-        
-        // Si c'est une erreur 404, c'est peut-être parce que l'endpoint /ping n'existe pas
-        // Essayons avec campaigns qui devrait toujours exister
-        if (response.status === 404) {
-          return await testAcelleConnectionWithCampaigns(account, authToken);
+      // Effectuer la requête
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`
         }
-        
+      });
+      
+      if (!response.ok) {
         return {
           success: false,
-          errorMessage: `Erreur API ${response.status}: ${response.statusText}`,
           timestamp: new Date().toISOString(),
-          accountName: account.name,
-          statusCode: response.status,
-          duration,
-          request: {
-            method: "GET"
-          },
-          responseData: {
-            error: true,
-            message: errorText
-          }
+          errorMessage: `Erreur HTTP ${response.status}: ${response.statusText}`
         };
       }
       
-      // Analyser la réponse JSON
-      const data = await response.json();
+      const result = await response.json();
       
-      if (!data) {
+      if (!result.success) {
         return {
           success: false,
-          errorMessage: "Réponse JSON invalide",
           timestamp: new Date().toISOString(),
-          accountName: account.name,
-          statusCode: response.status,
-          duration,
-          request: {
-            method: "GET"
-          },
-          responseData: null
+          errorMessage: result.errorMessage || "La vérification de l'API a échoué"
         };
       }
       
-      // Vérifier si la réponse indique une erreur
-      if (data.error || (data.status && data.status !== "success")) {
-        const errorMessage = data.error || data.message || "Erreur inconnue";
-        
-        return {
-          success: false,
-          errorMessage,
-          timestamp: new Date().toISOString(),
-          accountName: account.name,
-          statusCode: response.status,
-          duration,
-          request: {
-            method: "GET"
-          },
-          responseData: data
-        };
-      }
-      
-      // Si tout va bien
       return {
         success: true,
-        accountName: data.display_name || data.email || account.name,
-        version: data.version || "Inconnue",
         timestamp: new Date().toISOString(),
-        statusCode: response.status,
-        duration,
-        request: {
-          method: "GET",
-          headers: {
-            "X-Acelle-Token": "***", // Masquer le token pour la sécurité
-            "X-Acelle-Endpoint": account.api_endpoint,
-            "Accept": "application/json"
-          }
-        },
-        responseData: data
+        responseTime: result.responseTime,
+        apiVersion: result.apiVersion
       };
-    } catch (fetchError) {
-      console.error("Erreur lors de la requête API:", fetchError);
-      
-      // Vérifier si c'est une erreur de timeout
-      if (fetchError.name === 'AbortError') {
-        return {
-          success: false,
-          errorMessage: "Délai d'attente dépassé lors de la connexion à l'API",
-          timestamp: new Date().toISOString(),
-          accountName: account.name
-        };
-      }
-      
-      throw fetchError; // Relancer pour la gestion globale
+    } catch (error) {
+      return {
+        success: false,
+        timestamp: new Date().toISOString(),
+        errorMessage: error instanceof Error ? error.message : String(error)
+      };
     }
   } catch (error) {
-    console.error("Erreur lors du test de connexion:", error);
-    
-    // Formater le message d'erreur
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    
     return {
       success: false,
-      errorMessage,
       timestamp: new Date().toISOString(),
-      accountName: account.name
+      errorMessage: error instanceof Error ? error.message : String(error)
     };
   }
 };
 
 /**
- * Teste la connexion à l'API Acelle en utilisant l'endpoint /campaigns
- * Cette fonction est utilisée comme fallback si /ping ne fonctionne pas
+ * Test la connexion à Acelle avec un compte test
  */
-async function testAcelleConnectionWithCampaigns(
-  account: AcelleAccount, 
-  authToken: string
-): Promise<AcelleConnectionDebug> {
-  console.log(`Test de connexion avec l'endpoint /campaigns pour ${account.name}...`);
+export const testAcelleConnection = async (
+  api_endpoint: string,
+  api_token: string,
+  accessToken?: string | null
+): Promise<AcelleConnectionDebug> => {
+  // Créer un compte test pour la vérification
+  const testAccount: AcelleAccount = {
+    id: 'test',
+    name: 'Test Connection',
+    api_endpoint,
+    api_token,
+    status: 'inactive',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    cache_priority: 0,
+    last_sync_date: null,
+    last_sync_error: null
+  };
   
-  try {
-    const startTime = Date.now();
-    
-    // Utiliser notre système de fetch unifié avec l'endpoint campaigns
-    const response = await fetchViaProxy(
-      "campaigns?page=1&per_page=1",
-      { method: "GET" },
-      account.api_token,
-      account.api_endpoint,
-      2 // Nombre de tentatives max
-    );
-    
-    const duration = Date.now() - startTime;
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      
-      console.error(`Erreur API (campaigns): ${response.status} - ${response.statusText}`, {
-        errorText
-      });
-      
-      return {
-        success: false,
-        errorMessage: `Erreur API ${response.status}: ${response.statusText}`,
-        timestamp: new Date().toISOString(),
-        accountName: account.name,
-        statusCode: response.status,
-        duration,
-        request: {
-          method: "GET"
-        },
-        responseData: {
-          error: true,
-          message: errorText
-        }
-      };
-    }
-    
-    const data = await response.json();
-    
-    return {
-      success: true,
-      accountName: account.name,
-      version: "Vérifiée via /campaigns",
-      timestamp: new Date().toISOString(),
-      statusCode: response.status,
-      duration,
-      request: {
-        method: "GET"
-      },
-      responseData: Array.isArray(data) ? { count: data.length } : data
-    };
-  } catch (error) {
-    console.error("Erreur lors du test de connexion via campaigns:", error);
-    
-    return {
-      success: false,
-      errorMessage: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
-      accountName: account.name
-    };
-  }
-}
+  return await checkAcelleConnectionStatus(testAccount, accessToken);
+};

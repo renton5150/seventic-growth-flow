@@ -1,195 +1,164 @@
 
-import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
-import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
-// Get all Acelle accounts
+/**
+ * Récupère tous les comptes Acelle
+ */
 export const getAcelleAccounts = async (): Promise<AcelleAccount[]> => {
   try {
     const { data, error } = await supabase
-      .from("acelle_accounts")
-      .select(`
-        *,
-        missions (name)
-      `)
-      .order("name");
+      .from('acelle_accounts')
+      .select('*')
+      .order('cache_priority', { ascending: false });
     
-    if (error) throw error;
-
-    return data.map(account => {
-      // Create the base account object with consistent property naming
-      const accountData: AcelleAccount = {
-        id: account.id,
-        mission_id: account.mission_id,
-        name: account.name,
-        api_endpoint: account.api_endpoint,
-        api_token: account.api_token,
-        last_sync_date: account.last_sync_date,
-        status: account.status as AcelleAccount["status"],
-        created_at: account.created_at,
-        updated_at: account.updated_at,
-        cache_priority: account.cache_priority || 0,
-        last_sync_error: account.last_sync_error
-      };
-      
-      return accountData;
-    });
+    if (error) {
+      console.error("Erreur lors de la récupération des comptes Acelle:", error);
+      return [];
+    }
+    
+    return data?.map(account => ({
+      ...account,
+      status: account.status as 'active' | 'inactive' | 'error',
+      last_sync_date: account.last_sync_date || null,
+      last_sync_error: account.last_sync_error || null
+    })) || [];
   } catch (error) {
-    console.error("Error fetching Acelle accounts:", error);
+    console.error("Exception lors de la récupération des comptes Acelle:", error);
     return [];
   }
 };
 
-// Get account by ID
+/**
+ * Récupère un compte Acelle par son ID
+ */
 export const getAcelleAccountById = async (id: string): Promise<AcelleAccount | null> => {
   try {
     const { data, error } = await supabase
-      .from("acelle_accounts")
-      .select(`
-        *,
-        missions(name)
-      `)
-      .eq("id", id)
+      .from('acelle_accounts')
+      .select('*')
+      .eq('id', id)
       .single();
     
-    if (error) throw error;
+    if (error || !data) {
+      console.error("Erreur lors de la récupération du compte Acelle:", error);
+      return null;
+    }
     
-    // Create the base account object with consistent property naming
-    const accountData: AcelleAccount = {
-      id: data.id,
-      mission_id: data.mission_id,
-      name: data.name,
-      api_endpoint: data.api_endpoint,
-      api_token: data.api_token,
-      last_sync_date: data.last_sync_date,
-      status: data.status as AcelleAccount["status"],
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      cache_priority: data.cache_priority || 0,
-      last_sync_error: data.last_sync_error
+    return {
+      ...data,
+      status: data.status as 'active' | 'inactive' | 'error',
+      last_sync_date: data.last_sync_date || null,
+      last_sync_error: data.last_sync_error || null
     };
-    
-    return accountData;
   } catch (error) {
-    console.error(`Error fetching Acelle account ${id}:`, error);
+    console.error("Exception lors de la récupération du compte Acelle:", error);
     return null;
   }
 };
 
-// Create account
-export const createAcelleAccount = async (account: Omit<AcelleAccount, "id" | "created_at" | "updated_at">): Promise<AcelleAccount | null> => {
+/**
+ * Crée un nouveau compte Acelle
+ */
+export const createAcelleAccount = async (
+  accountData: Omit<AcelleAccount, 'id' | 'created_at'>
+): Promise<{ success: boolean; data?: AcelleAccount; error?: string }> => {
   try {
-    let last_sync_date = null;
-    
-    if (account.last_sync_date) {
-      last_sync_date = account.last_sync_date;
-    }
-    
     const { data, error } = await supabase
-      .from("acelle_accounts")
-      .insert({
-        mission_id: account.mission_id,
-        name: account.name,
-        api_endpoint: account.api_endpoint,
-        api_token: account.api_token,
-        status: account.status,
-        last_sync_date: last_sync_date,
-        last_sync_error: account.last_sync_error,
-        cache_priority: account.cache_priority || 0
-      })
+      .from('acelle_accounts')
+      .insert([{
+        ...accountData,
+        status: accountData.status || 'inactive',
+        cache_priority: accountData.cache_priority || 0
+      }])
       .select()
       .single();
     
-    if (error) throw error;
-
-    toast.success("Compte Acelle créé avec succès");
+    if (error) {
+      return { success: false, error: error.message };
+    }
     
-    return {
-      ...account,
-      id: data.id,
-      created_at: data.created_at,
-      updated_at: data.updated_at
+    return { 
+      success: true, 
+      data: {
+        ...data,
+        status: data.status as 'active' | 'inactive' | 'error',
+        last_sync_date: data.last_sync_date || null,
+        last_sync_error: data.last_sync_error || null
+      } 
     };
   } catch (error) {
-    console.error("Error creating Acelle account:", error);
-    toast.error("Échec de la création du compte Acelle");
-    return null;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
   }
 };
 
-// Update account
-export const updateAcelleAccount = async (account: AcelleAccount): Promise<AcelleAccount | null> => {
+/**
+ * Met à jour un compte Acelle existant
+ */
+export const updateAcelleAccount = async (
+  id: string,
+  accountData: Partial<AcelleAccount>
+): Promise<{ success: boolean; data?: AcelleAccount; error?: string }> => {
   try {
-    let last_sync_date = null;
-    
-    if (account.last_sync_date) {
-      last_sync_date = account.last_sync_date;
-    }
-      
-    const updateData: Record<string, any> = {
-      mission_id: account.mission_id,
-      name: account.name,
-      api_endpoint: account.api_endpoint,
-      api_token: account.api_token,
-      status: account.status,
-      last_sync_date: last_sync_date,
-      last_sync_error: account.last_sync_error,
-      cache_priority: account.cache_priority || 0
-    };
-
     const { data, error } = await supabase
-      .from("acelle_accounts")
-      .update(updateData)
-      .eq("id", account.id)
+      .from('acelle_accounts')
+      .update(accountData)
+      .eq('id', id)
       .select()
       .single();
     
-    if (error) throw error;
-
-    toast.success("Compte Acelle mis à jour avec succès");
+    if (error) {
+      return { success: false, error: error.message };
+    }
     
-    return {
-      ...account,
-      updated_at: data.updated_at
+    return { 
+      success: true, 
+      data: {
+        ...data,
+        status: data.status as 'active' | 'inactive' | 'error',
+        last_sync_date: data.last_sync_date || null,
+        last_sync_error: data.last_sync_error || null
+      } 
     };
   } catch (error) {
-    console.error(`Error updating Acelle account ${account.id}:`, error);
-    toast.error("Échec de la mise à jour du compte Acelle");
-    return null;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
   }
 };
 
-// Delete account
-export const deleteAcelleAccount = async (id: string): Promise<boolean> => {
+/**
+ * Supprime un compte Acelle
+ */
+export const deleteAcelleAccount = async (
+  id: string
+): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
-      .from("acelle_accounts")
+      .from('acelle_accounts')
       .delete()
-      .eq("id", id);
+      .eq('id', id);
     
-    if (error) throw error;
-
-    toast.success("Compte Acelle supprimé avec succès");
-    return true;
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true };
   } catch (error) {
-    console.error(`Error deleting Acelle account ${id}:`, error);
-    toast.error("Échec de la suppression du compte Acelle");
-    return false;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
   }
 };
 
-// Update last sync date
-export const updateLastSyncDate = async (accountId: string): Promise<void> => {
+/**
+ * Récupère le compte Acelle actif
+ */
+export const getActiveAccount = async (): Promise<AcelleAccount | null> => {
   try {
-    const now = new Date().toISOString();
-    
-    await supabase
-      .from("acelle_accounts")
-      .update({
-        last_sync_date: now
-      })
-      .eq("id", accountId);
+    const accounts = await getAcelleAccounts();
+    return accounts.find(acc => acc.status === 'active') || null;
   } catch (error) {
-    console.error(`Error updating last sync date for account ${accountId}:`, error);
+    console.error("Erreur lors de la récupération du compte actif:", error);
+    return null;
   }
 };

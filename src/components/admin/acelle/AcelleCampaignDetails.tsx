@@ -3,12 +3,10 @@ import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
-import { createEmptyStatistics, fetchCampaignStatsFromApi, saveCampaignStatsToCache } from "@/services/acelle/api/directStats";
-import { RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
+import { supabase } from "@/integrations/supabase/client";
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
@@ -20,17 +18,18 @@ interface AcelleCampaignDetailsProps {
   campaignId: string;
   account: AcelleAccount;
   onClose: () => void;
+  demoMode?: boolean;
 }
 
 const AcelleCampaignDetails = ({ 
   campaignId, 
   account, 
-  onClose
+  onClose,
+  demoMode = false
 }: AcelleCampaignDetailsProps) => {
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Chargement des détails de la campagne
@@ -40,8 +39,15 @@ const AcelleCampaignDetails = ({
       setError(null);
       
       try {
-        // Mode normal: charger depuis le cache et enrichir avec les statistiques
-        await loadCampaignWithStats(campaignId, account);
+        if (demoMode) {
+          // Mode démo: créer une campagne factice avec des statistiques
+          const { campaignData, statsData } = await loadDemoCampaign(campaignId);
+          setCampaign(campaignData);
+          setStats(statsData);
+        } else {
+          // Mode normal: charger depuis le cache et enrichir avec les statistiques
+          await loadRealCampaign(campaignId, account);
+        }
       } catch (err) {
         console.error("Erreur lors du chargement des détails de la campagne:", err);
         setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -51,11 +57,11 @@ const AcelleCampaignDetails = ({
     };
     
     loadCampaignDetails();
-  }, [campaignId, account]);
+  }, [campaignId, account, demoMode]);
 
-  // Fonction pour charger une campagne avec ses statistiques
-  const loadCampaignWithStats = async (id: string, acct: AcelleAccount) => {
-    console.log(`Chargement de la campagne ${id} et de ses statistiques`);
+  // Fonction pour charger une campagne réelle depuis le cache ou directement depuis la base de données
+  const loadRealCampaign = async (id: string, acct: AcelleAccount) => {
+    console.log(`Récupération des statistiques pour la campagne ${id}`);
     
     try {
       // 1. Essayer de trouver la campagne dans le cache en mémoire
@@ -81,37 +87,17 @@ const AcelleCampaignDetails = ({
         setCampaign(foundCampaign);
         
         // Récupérer les statistiques complètes
-        try {
-          // Utiliser notre nouvelle fonction pour récupérer les statistiques
-          const statistics = await fetchCampaignStatsFromApi(foundCampaign, acct);
+        const enrichedCampaign = await fetchAndProcessCampaignStats(foundCampaign, acct, { refresh: true }) as AcelleCampaign;
+        
+        // Mettre à jour l'état et la campagne avec les statistiques
+        if (enrichedCampaign && enrichedCampaign.statistics) {
+          setStats(enrichedCampaign.statistics);
+          foundCampaign.statistics = enrichedCampaign.statistics;
           
-          // Mettre à jour l'état et la campagne avec les statistiques
-          setStats(statistics);
-          foundCampaign.statistics = statistics;
-          
-          // Créer les delivery_info depuis les statistiques pour la compatibilité
-          const deliveryInfo: DeliveryInfo = {
-            total: statistics.subscriber_count,
-            delivered: statistics.delivered_count,
-            delivery_rate: statistics.delivered_rate,
-            opened: statistics.open_count,
-            unique_open_rate: statistics.uniq_open_rate,
-            clicked: statistics.click_count,
-            click_rate: statistics.click_rate,
-            bounced: {
-              soft: statistics.soft_bounce_count,
-              hard: statistics.hard_bounce_count,
-              total: statistics.bounce_count
-            },
-            unsubscribed: statistics.unsubscribe_count,
-            complained: statistics.abuse_complaint_count
-          };
-          
-          foundCampaign.delivery_info = deliveryInfo;
-        } catch (statsError) {
-          console.error("Erreur lors de la récupération des statistiques:", statsError);
-          // En cas d'erreur, utiliser les statistiques existantes ou des statistiques vides
-          setStats(foundCampaign.statistics || createEmptyStatistics());
+          // Assurez-vous que delivery_info est du bon type
+          if (enrichedCampaign.delivery_info) {
+            foundCampaign.delivery_info = enrichedCampaign.delivery_info as DeliveryInfo;
+          }
         }
       } else {
         setError("Campagne non trouvée");
@@ -122,56 +108,34 @@ const AcelleCampaignDetails = ({
     }
   };
 
-  // Fonction pour rafraîchir manuellement les statistiques
-  const handleRefreshStats = async () => {
-    if (!campaign || isRefreshing) return;
+  // Fonction pour générer une campagne de démonstration
+  const loadDemoCampaign = async (id: string) => {
+    const now = new Date();
     
-    try {
-      setIsRefreshing(true);
-      toast.loading("Actualisation des statistiques...", { id: "refresh-stats" });
-      
-      // Utiliser notre fonction améliorée pour récupérer les statistiques
-      const statistics = await fetchCampaignStatsFromApi(campaign, account, { forceRefresh: true });
-      
-      // Mettre à jour l'état
-      setStats(statistics);
-      
-      // Mettre à jour la campagne
-      setCampaign(prev => {
-        if (!prev) return null;
-        
-        // Créer les delivery_info depuis les statistiques pour la compatibilité
-        const deliveryInfo: DeliveryInfo = {
-          total: statistics.subscriber_count,
-          delivered: statistics.delivered_count,
-          delivery_rate: statistics.delivered_rate,
-          opened: statistics.open_count,
-          unique_open_rate: statistics.uniq_open_rate,
-          clicked: statistics.click_count,
-          click_rate: statistics.click_rate,
-          bounced: {
-            soft: statistics.soft_bounce_count,
-            hard: statistics.hard_bounce_count,
-            total: statistics.bounce_count
-          },
-          unsubscribed: statistics.unsubscribe_count,
-          complained: statistics.abuse_complaint_count
-        };
-        
-        return {
-          ...prev,
-          statistics: statistics,
-          delivery_info: deliveryInfo
-        };
-      });
-      
-      toast.success("Statistiques actualisées avec succès", { id: "refresh-stats" });
-    } catch (error) {
-      console.error("Erreur lors de l'actualisation des statistiques:", error);
-      toast.error("Erreur lors de l'actualisation des statistiques", { id: "refresh-stats" });
-    } finally {
-      setIsRefreshing(false);
-    }
+    // Créer la campagne
+    const campaignData: AcelleCampaign = {
+      uid: id,
+      campaign_uid: id,
+      name: "Campagne démo détaillée",
+      subject: "Sujet de la campagne démo détaillée",
+      status: "sent",
+      created_at: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: now.toISOString(),
+      delivery_date: now.toISOString(),
+      run_at: null,
+      last_error: null,
+      statistics: null,
+      delivery_info: {}
+    };
+    
+    // Générer des statistiques
+    const enrichedCampaign = await fetchAndProcessCampaignStats(campaignData, null!, { demoMode: true }) as AcelleCampaign;
+    
+    // Attribuer les statistiques à la campagne
+    const statistics = enrichedCampaign.statistics || null;
+    campaignData.statistics = statistics;
+    
+    return { campaignData, statsData: statistics };
   };
 
   // Afficher un spinner pendant le chargement
@@ -193,25 +157,27 @@ const AcelleCampaignDetails = ({
   }
 
   // Utiliser les statistiques de la campagne ou créer un objet vide
-  const campaignStats = stats || campaign.statistics || createEmptyStatistics();
+  const campaignStats = stats || campaign.statistics || {
+    subscriber_count: 0,
+    delivered_count: 0,
+    delivered_rate: 0,
+    open_count: 0,
+    uniq_open_count: 0,
+    uniq_open_rate: 0,
+    click_count: 0,
+    click_rate: 0,
+    bounce_count: 0,
+    soft_bounce_count: 0,
+    hard_bounce_count: 0,
+    unsubscribe_count: 0,
+    abuse_complaint_count: 0
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-          <CampaignGeneralInfo campaign={campaign} />
-          <CampaignGlobalStats statistics={campaignStats} />
-        </div>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={handleRefreshStats}
-          disabled={isRefreshing}
-          className="ml-4"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Actualiser
-        </Button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CampaignGeneralInfo campaign={campaign} />
+        <CampaignGlobalStats statistics={campaignStats} />
       </div>
 
       <Tabs defaultValue="stats" className="w-full">
@@ -236,7 +202,7 @@ const AcelleCampaignDetails = ({
         </TabsContent>
 
         <TabsContent value="technical" className="py-4">
-          <CampaignTechnicalInfo campaign={campaign} />
+          <CampaignTechnicalInfo campaign={campaign} demoMode={demoMode} />
         </TabsContent>
       </Tabs>
     </div>

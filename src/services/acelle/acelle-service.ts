@@ -1,100 +1,109 @@
 
-import { AcelleAccount } from '@/types/acelle.types';
-import { fetchViaProxy, getAuthToken } from './cors-proxy';
-
-// Interface pour les options des requêtes API Acelle
-interface AcelleApiOptions {
-  method?: string;
-  body?: any;
-  headers?: Record<string, string>;
-  timeout?: number;
-  retries?: number;
-  preferCache?: boolean;
-}
+import { supabase } from "@/integrations/supabase/client";
+import { AcelleAccount } from "@/types/acelle.types";
+import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
+import { forceSyncCampaigns, getCampaigns } from "./api/campaigns";
 
 /**
- * Construit une URL pour le proxy CORS pour les requêtes Acelle
+ * Service pour gérer les appels à l'API Acelle
  */
-export function buildProxyUrl(path: string): string {
-  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
-  return `cors-proxy/${cleanPath}`;
-}
-
-/**
- * Service pour interagir avec l'API Acelle
- * Utilise le système de proxy unifié pour contourner les limitations CORS
- */
-class AcelleApiService {
-  /**
-   * Effectue une requête à l'API Acelle avec gestion robuste des erreurs
-   */
-  async fetch(account: AcelleAccount, path: string, options: AcelleApiOptions = {}): Promise<any> {
-    if (!account || !account.api_token || !account.api_endpoint) {
-      throw new Error('Configuration du compte Acelle invalide');
-    }
-    
-    // Obtenir un token d'authentification valide
-    const authToken = await getAuthToken();
-    if (!authToken) {
-      throw new Error('Authentification requise');
-    }
-    
-    // Préparer les options de la requête
-    const fetchOptions: RequestInit = {
-      method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...options.headers
-      }
-    };
-    
-    // Ajouter le corps si présent
-    if (options.body) {
-      fetchOptions.body = JSON.stringify(options.body);
-    }
-    
-    // Utiliser notre système unifié de requête
-    try {
-      const response = await fetchViaProxy(
-        path,
-        fetchOptions,
-        account.api_token,
-        account.api_endpoint,
-        options.retries || 3
-      );
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erreur API ${response.status}: ${errorText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la requête API:', error);
-      throw error;
-    }
-  }
+export const acelleService = {
+  // Exporter les fonctions d'API
+  accounts: {
+    getAll: getAcelleAccounts,
+    getById: getAcelleAccountById,
+    create: createAcelleAccount,
+    update: updateAcelleAccount,
+    delete: deleteAcelleAccount
+  },
+  campaigns: {
+    getAll: getCampaigns,
+    forceSync: forceSyncCampaigns
+  },
   
   /**
-   * Effectue un test de ping pour vérifier la connexion API
+   * Génère des campagnes fictives pour le mode démo
+   * @param count Nombre de campagnes à générer
    */
-  async ping(account: AcelleAccount): Promise<boolean> {
-    try {
-      // Essayer d'abord l'endpoint ping
-      const response = await this.fetch(account, 'ping', { retries: 1 });
-      return !!response;
-    } catch (pingError) {
-      try {
-        // Si ping échoue, essayer l'endpoint campaigns comme alternative
-        const campaignsResponse = await this.fetch(account, 'campaigns?page=1&per_page=1', { retries: 1 });
-        return !!campaignsResponse;
-      } catch (e) {
-        console.error("Erreur lors du ping de l'API:", e);
-        return false;
-      }
-    }
+  generateMockCampaigns: (count: number = 5) => {
+    return Array.from({ length: count }).map((_, index) => {
+      const totalEmails = Math.floor(Math.random() * 1000) + 200;
+      const deliveredRate = 0.97 + Math.random() * 0.02;
+      const delivered = Math.floor(totalEmails * deliveredRate);
+      const openRate = 0.3 + Math.random() * 0.4;
+      const opened = Math.floor(delivered * openRate);
+      const clickRate = 0.1 + Math.random() * 0.3;
+      const clicked = Math.floor(opened * clickRate);
+      const bounceCount = totalEmails - delivered;
+      
+      return {
+        uid: `demo-${index}`,
+        campaign_uid: `demo-${index}`,
+        name: `Campagne démo ${index + 1}`,
+        subject: `Sujet de la campagne ${index + 1}`,
+        status: ["sent", "sending", "queued", "new", "paused", "failed"][Math.floor(Math.random() * 6)],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        delivery_date: new Date().toISOString(),
+        run_at: null,
+        last_error: null,
+        statistics: {
+          subscriber_count: totalEmails,
+          delivered_count: delivered,
+          delivered_rate: deliveredRate * 100,
+          open_count: opened,
+          uniq_open_count: opened * 0.9,
+          uniq_open_rate: openRate * 100,
+          click_count: clicked,
+          click_rate: clickRate * 100,
+          bounce_count: bounceCount,
+          soft_bounce_count: Math.floor(bounceCount * 0.7),
+          hard_bounce_count: Math.floor(bounceCount * 0.3),
+          unsubscribe_count: Math.floor(delivered * 0.02),
+          abuse_complaint_count: Math.floor(delivered * 0.005),
+        },
+        delivery_info: {
+          total: totalEmails,
+          delivered: delivered,
+          delivery_rate: deliveredRate * 100,
+          opened: opened,
+          unique_open_rate: openRate * 100,
+          clicked: clicked,
+          click_rate: clickRate * 100,
+          bounced: {
+            total: bounceCount,
+            soft: Math.floor(bounceCount * 0.7),
+            hard: Math.floor(bounceCount * 0.3)
+          },
+          unsubscribed: Math.floor(delivered * 0.02),
+          complained: Math.floor(delivered * 0.005)
+        }
+      };
+    });
   }
-}
+};
 
-export const acelleApiService = new AcelleApiService();
+/**
+ * Construit l'URL pour le proxy CORS
+ */
+export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
+  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
+  
+  const apiPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  let apiUrl = `https://emailing.plateforme-solution.net/api/v1/${apiPath}`;
+  
+  if (Object.keys(params).length > 0) {
+    const searchParams = new URLSearchParams();
+    
+    for (const [key, value] of Object.entries(params)) {
+      searchParams.append(key, value);
+    }
+    
+    apiUrl += '?' + searchParams.toString();
+  }
+  
+  const encodedApiUrl = encodeURIComponent(apiUrl);
+  
+  return `${baseProxyUrl}?url=${encodedApiUrl}`;
+};

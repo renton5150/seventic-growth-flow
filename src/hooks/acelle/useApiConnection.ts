@@ -64,14 +64,11 @@ export function useApiConnection(account?: AcelleAccount) {
     } catch (error) {
       console.error("Erreur lors de la vérification de l'API:", error);
       setLastCheckResult(false);
-      
-      const errorDebug: AcelleConnectionDebug = {
+      setDebugInfo({
         success: false,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
-      };
-      
-      setDebugInfo(errorDebug);
+        timestamp: new Date().toISOString(),
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
       return false;
     } finally {
       setIsChecking(false);
@@ -83,8 +80,8 @@ export function useApiConnection(account?: AcelleAccount) {
     if (!account || !token) {
       return {
         success: false,
-        errorMessage: "Aucun compte ou token fourni",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        errorMessage: "Aucun compte ou token fourni"
       };
     }
 
@@ -109,10 +106,10 @@ export function useApiConnection(account?: AcelleAccount) {
       return result;
     } catch (error) {
       console.error("Erreur lors de la récupération des infos de diagnostic:", error);
-      const errorInfo: AcelleConnectionDebug = {
+      const errorInfo = {
         success: false,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        errorMessage: error instanceof Error ? error.message : String(error)
       };
       setDebugInfo(errorInfo);
       return errorInfo;

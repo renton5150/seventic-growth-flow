@@ -1,46 +1,39 @@
 
-import React from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export interface CampaignsTablePaginationProps {
+interface CampaignsTablePaginationProps {
   currentPage: number;
-  totalPages: number;
-  hasNextPage: boolean;
   onPageChange: (page: number) => void;
+  hasNextPage: boolean;
+  totalPages: number;
 }
 
-export const CampaignsTablePagination = ({
+export const CampaignsTablePagination: React.FC<CampaignsTablePaginationProps> = ({
   currentPage,
-  totalPages,
+  onPageChange,
   hasNextPage,
-  onPageChange
-}: CampaignsTablePaginationProps) => {
+  totalPages,
+}) => {
   return (
-    <div className="flex items-center justify-end space-x-2 py-4">
+    <div className="flex items-center space-x-2">
       <Button
         variant="outline"
-        size="sm"
-        onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
-        disabled={currentPage <= 1}
-        className="h-8 w-8 p-0"
+        size="icon"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
       >
-        <span className="sr-only">Page précédente</span>
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <div className="flex items-center gap-1">
-        <span className="text-sm font-medium">
-          Page {currentPage} sur {totalPages}
-        </span>
-      </div>
+      <span className="text-sm">
+        Page {currentPage} sur {totalPages || 1}
+      </span>
       <Button
         variant="outline"
-        size="sm"
+        size="icon"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={!hasNextPage}
-        className="h-8 w-8 p-0"
       >
-        <span className="sr-only">Page suivante</span>
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
