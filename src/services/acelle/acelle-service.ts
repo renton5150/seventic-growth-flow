@@ -1,6 +1,6 @@
 
 import { AcelleAccount } from '@/types/acelle.types';
-import { buildCorsProxyUrl } from './cors-proxy';
+import { fetchViaProxy, getAuthToken } from './cors-proxy';
 
 // Interface pour les options des requêtes API Acelle
 interface AcelleApiOptions {
@@ -9,38 +9,34 @@ interface AcelleApiOptions {
   headers?: Record<string, string>;
   timeout?: number;
   retries?: number;
+  preferCache?: boolean;
 }
 
 /**
  * Service pour interagir avec l'API Acelle
- * Utilise le proxy CORS pour contourner les limitations CORS
+ * Utilise le système de proxy unifié pour contourner les limitations CORS
  */
 class AcelleApiService {
   /**
-   * Construit l'URL complète pour une requête API
-   */
-  buildUrl(path: string): string {
-    return buildCorsProxyUrl(path);
-  }
-  
-  /**
-   * Effectue une requête à l'API Acelle
+   * Effectue une requête à l'API Acelle avec gestion robuste des erreurs
    */
   async fetch(account: AcelleAccount, path: string, options: AcelleApiOptions = {}): Promise<any> {
     if (!account || !account.api_token || !account.api_endpoint) {
       throw new Error('Configuration du compte Acelle invalide');
     }
     
-    const url = this.buildUrl(path);
+    // Obtenir un token d'authentification valide
+    const authToken = await getAuthToken();
+    if (!authToken) {
+      throw new Error('Authentification requise');
+    }
     
-    // Construire les options de la requête
+    // Préparer les options de la requête
     const fetchOptions: RequestInit = {
       method: options.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'X-Acelle-Token': account.api_token,
-        'X-Acelle-Endpoint': account.api_endpoint,
         ...options.headers
       }
     };
@@ -50,22 +46,47 @@ class AcelleApiService {
       fetchOptions.body = JSON.stringify(options.body);
     }
     
+    // Utiliser notre système unifié de requête
     try {
-      const response = await fetch(url, fetchOptions);
+      const response = await fetchViaProxy(
+        path,
+        fetchOptions,
+        account.api_token,
+        account.api_endpoint,
+        options.retries || 3
+      );
       
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Erreur API ${response.status}: ${errorText}`);
       }
       
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (error) {
       console.error('Erreur lors de la requête API:', error);
       throw error;
     }
   }
+  
+  /**
+   * Effectue un test de ping pour vérifier la connexion API
+   */
+  async ping(account: AcelleAccount): Promise<boolean> {
+    try {
+      // Essayer d'abord l'endpoint ping
+      const response = await this.fetch(account, 'ping', { retries: 1 });
+      return !!response;
+    } catch (pingError) {
+      try {
+        // Si ping échoue, essayer l'endpoint campaigns comme alternative
+        const campaignsResponse = await this.fetch(account, 'campaigns?page=1&per_page=1', { retries: 1 });
+        return !!campaignsResponse;
+      } catch (e) {
+        console.error("Erreur lors du ping de l'API:", e);
+        return false;
+      }
+    }
+  }
 }
 
 export const acelleApiService = new AcelleApiService();
-export const buildProxyUrl = (path: string): string => buildCorsProxyUrl(path);

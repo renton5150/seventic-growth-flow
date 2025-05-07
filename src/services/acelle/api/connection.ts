@@ -1,12 +1,11 @@
 
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { buildProxyUrl } from "../acelle-service";
 import { supabase } from '@/integrations/supabase/client';
-import { wakeupCorsProxy, getAuthToken } from "../cors-proxy";
+import { wakeupCorsProxy, getAuthToken, fetchViaProxy } from "../cors-proxy";
 import { toast } from 'sonner';
 
 /**
- * Teste la connexion à l'API Acelle avec une gestion améliorée des erreurs
+ * Teste la connexion à l'API Acelle avec gestion améliorée des erreurs
  */
 export const testAcelleConnection = async (account: AcelleAccount): Promise<AcelleConnectionDebug> => {
   console.log(`Test de connexion à l'API Acelle pour ${account.name}...`);
@@ -43,48 +42,28 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       };
     }
     
-    // Construire l'URL pour tester la connexion
-    // Au lieu d'utiliser le endpoint /me, utilisons /ping qui est plus fiable
-    const apiPath = "ping";
-    const url = buildProxyUrl(apiPath);
-    
-    console.log(`Test d'API avec URL: ${url}`, {
-      endpoint: account.api_endpoint,
-      hasToken: !!account.api_token
-    });
+    // Construire l'URL pour tester la connexion - commence par tester ping qui est plus fiable
+    console.log(`Test d'API pour ${account.name} avec endpoint ${account.api_endpoint}`);
     
     const startTime = Date.now();
     
-    // Effectuer la requête avec un timeout explicite
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes max
-    
     try {
-      // Effectuer la requête
-      const response = await fetch(url, {
-        method: "GET",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "X-Acelle-Token": account.api_token,
-          "X-Acelle-Endpoint": account.api_endpoint,
-          "Authorization": `Bearer ${authToken}`,
-          "X-Request-ID": `test_${Date.now()}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate"
-        },
-        cache: "no-store"
-      });
+      // Utiliser notre nouveau système de fetch unifié pour une gestion plus robuste des erreurs
+      const response = await fetchViaProxy(
+        "ping",
+        { method: "GET" },
+        account.api_token,
+        account.api_endpoint,
+        2 // Nombre de tentatives max
+      );
       
-      clearTimeout(timeoutId);
       const duration = Date.now() - startTime;
       
-      // Si le statut n'est pas OK
+      // Si la réponse n'est pas ok
       if (!response.ok) {
         const errorText = await response.text();
         
         console.error(`Erreur API: ${response.status} - ${response.statusText}`, {
-          url,
           errorText
         });
         
@@ -102,7 +81,6 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
           statusCode: response.status,
           duration,
           request: {
-            url,
             method: "GET"
           },
           responseData: {
@@ -124,7 +102,6 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
           statusCode: response.status,
           duration,
           request: {
-            url,
             method: "GET"
           },
           responseData: null
@@ -143,7 +120,6 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
           statusCode: response.status,
           duration,
           request: {
-            url,
             method: "GET"
           },
           responseData: data
@@ -159,18 +135,17 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
         statusCode: response.status,
         duration,
         request: {
-            url,
-            method: "GET",
-            headers: {
-              "X-Acelle-Token": "***", // Masquer le token pour la sécurité
-              "X-Acelle-Endpoint": account.api_endpoint,
-              "Accept": "application/json"
-            }
+          method: "GET",
+          headers: {
+            "X-Acelle-Token": "***", // Masquer le token pour la sécurité
+            "X-Acelle-Endpoint": account.api_endpoint,
+            "Accept": "application/json"
+          }
         },
         responseData: data
       };
     } catch (fetchError) {
-      clearTimeout(timeoutId);
+      console.error("Erreur lors de la requête API:", fetchError);
       
       // Vérifier si c'est une erreur de timeout
       if (fetchError.name === 'AbortError') {
@@ -210,38 +185,23 @@ async function testAcelleConnectionWithCampaigns(
   console.log(`Test de connexion avec l'endpoint /campaigns pour ${account.name}...`);
   
   try {
-    const apiPath = "campaigns?page=1&per_page=1";
-    const url = buildProxyUrl(apiPath);
-    
     const startTime = Date.now();
     
-    // Effectuer la requête avec un timeout explicite
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes max
+    // Utiliser notre système de fetch unifié avec l'endpoint campaigns
+    const response = await fetchViaProxy(
+      "campaigns?page=1&per_page=1",
+      { method: "GET" },
+      account.api_token,
+      account.api_endpoint,
+      2 // Nombre de tentatives max
+    );
     
-    const response = await fetch(url, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-Acelle-Token": account.api_token,
-        "X-Acelle-Endpoint": account.api_endpoint,
-        "Authorization": `Bearer ${authToken}`,
-        "X-Request-ID": `test_campaigns_${Date.now()}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate"
-      },
-      cache: "no-store"
-    });
-    
-    clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     
     if (!response.ok) {
       const errorText = await response.text();
       
       console.error(`Erreur API (campaigns): ${response.status} - ${response.statusText}`, {
-        url,
         errorText
       });
       
@@ -253,7 +213,6 @@ async function testAcelleConnectionWithCampaigns(
         statusCode: response.status,
         duration,
         request: {
-          url,
           method: "GET"
         },
         responseData: {
@@ -273,7 +232,6 @@ async function testAcelleConnectionWithCampaigns(
       statusCode: response.status,
       duration,
       request: {
-        url,
         method: "GET"
       },
       responseData: Array.isArray(data) ? { count: data.length } : data

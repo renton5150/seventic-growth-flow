@@ -18,7 +18,7 @@ const heartbeatManager = new HeartbeatManager(
 
 // Point d'entrée principal de la fonction edge
 serve(async (req) => {
-  // Update last activity time
+  // Mettre à jour l'heure de dernière activité
   heartbeatManager.updateLastActivity();
 
   // Gérer les requêtes CORS preflight
@@ -28,6 +28,7 @@ serve(async (req) => {
   // Récupération et analyse de l'URL
   const url = new URL(req.url);
   const requestStartTime = Date.now();
+  const requestId = req.headers.get('x-request-id') || `req_${Date.now()}`;
   
   try {
     // Traitement spécial pour les requêtes heartbeat/ping
@@ -45,31 +46,36 @@ serve(async (req) => {
 
     // Récupération de l'endpoint Acelle à partir des en-têtes ou des paramètres
     const acelleEndpoint = req.headers.get('x-acelle-endpoint') || url.searchParams.get('endpoint');
-    const acelleToken = req.headers.get('x-acelle-token');
+    const acelleToken = req.headers.get('x-acelle-token') || url.searchParams.get('token');
     
     if (!acelleEndpoint) {
-      console.error("Missing Acelle endpoint in request headers");
-      return createCorsErrorResponse(400, 'Acelle endpoint is missing');
+      console.error(`[${requestId}] Endpoint Acelle manquant dans les en-têtes`);
+      return createCorsErrorResponse(400, 'Acelle endpoint is missing', { requestId });
     }
 
     if (!acelleToken) {
-      console.error("Missing Acelle token in request headers");
-      return createCorsErrorResponse(400, 'Acelle token is missing');
+      console.error(`[${requestId}] Token Acelle manquant dans les en-têtes`);
+      return createCorsErrorResponse(400, 'Acelle token is missing', { requestId });
     }
 
     // Extraire le chemin de l'API à partir de l'URL
     const pathParts = url.pathname.split('/');
     const apiPath = pathParts.slice(3).join('/'); // Ignorer /functions/v1/acelle-proxy/
     
-    // Construire l'URL de l'API Acelle
+    // Construire l'URL de l'API Acelle de manière robuste
     const cleanEndpoint = acelleEndpoint.endsWith('/') ? acelleEndpoint.slice(0, -1) : acelleEndpoint;
-    const apiBasePath = cleanEndpoint.includes('/public/api/v1') ? '' : 
-                       cleanEndpoint.includes('/api/v1') ? '/public' : '/public/api/v1';
+    
+    // Logique améliorée pour détecter le bon chemin d'API
+    let apiBasePath = '';
+    
+    if (!cleanEndpoint.includes('/api/v1') && !cleanEndpoint.includes('/public/api/v1')) {
+      apiBasePath = '/api/v1';
+    }
     
     // URL finale pour l'API Acelle
     const acelleApiUrl = `${cleanEndpoint}${apiBasePath}/${apiPath}${url.search}`;
     
-    console.log(`Proxying request to: ${acelleApiUrl}`);
+    console.log(`[${requestId}] Proxying request to: ${acelleApiUrl.replace(acelleToken, '***')}`);
     
     // Préparer les en-têtes pour la requête à l'API Acelle
     const headers = new Headers({
@@ -79,8 +85,9 @@ serve(async (req) => {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
     });
     
-    // Ajouter l'en-tête d'autorisation de l'API
+    // Double méthode d'authentification pour maximiser la compatibilité
     headers.set('Authorization', `Bearer ${acelleToken}`);
+    headers.set('X-Acelle-Token', acelleToken);
     
     // Copier certains en-têtes spécifiques de la requête originale
     ['Content-Type', 'X-Request-ID'].forEach(header => {
@@ -112,12 +119,15 @@ serve(async (req) => {
       
       // Log de la requête complétée
       const requestDuration = Date.now() - requestStartTime;
-      console.log(`Request completed: ${response.status} in ${requestDuration}ms`);
+      console.log(`[${requestId}] Request completed: ${response.status} in ${requestDuration}ms`);
       
       // Si la réponse indique une erreur d'authentification
-      if (response.status === 401) {
-        console.error("Authentication failed - 401 response");
-        return createCorsErrorResponse(401, "Authentication failed - invalid API token");
+      if (response.status === 401 || response.status === 403) {
+        console.error(`[${requestId}] Authentication failed - ${response.status} response`);
+        return createCorsErrorResponse(response.status, "Authentication failed - invalid API token", {
+          requestId,
+          endpoint: cleanEndpoint
+        });
       }
       
       // Lire le corps de la réponse
@@ -126,24 +136,46 @@ serve(async (req) => {
       
       // Tenter de parser le JSON si possible
       try {
-        responseBody = JSON.parse(responseText);
+        if (responseText && responseText.trim()) {
+          responseBody = JSON.parse(responseText);
+        } else {
+          responseBody = { status: "success", message: "Empty response" };
+        }
       } catch (e) {
         // Si ce n'est pas du JSON, renvoyer le texte tel quel
         responseBody = { raw_response: responseText.substring(0, 1000) };
       }
       
+      // Ajouter des informations de débogage pour les réponses d'erreur
+      if (response.status >= 400) {
+        responseBody = {
+          ...responseBody,
+          _debug: {
+            requestId,
+            duration: requestDuration,
+            apiUrl: acelleApiUrl.replace(acelleToken, '***'),
+            method: req.method
+          }
+        };
+      }
+      
       // Créer et renvoyer la réponse finale
       return new Response(JSON.stringify(responseBody), {
         status: response.status,
-        headers: corsHeaders
+        headers: {
+          ...corsHeaders,
+          'X-Request-Duration': `${requestDuration}ms`,
+          'X-Request-ID': requestId
+        }
       });
     } catch (fetchError) {
       clearTimeout(timeoutId);
       
       // Gérer les erreurs de timeout
       if (fetchError.name === 'AbortError') {
-        console.error(`Request to ${acelleApiUrl} timed out`);
+        console.error(`[${requestId}] Request to ${acelleApiUrl.replace(acelleToken, '***')} timed out`);
         return createCorsErrorResponse(504, 'Request timed out', {
+          requestId,
           endpoint: acelleEndpoint,
           timeout: CONFIG.DEFAULT_TIMEOUT
         });
@@ -152,12 +184,15 @@ serve(async (req) => {
       throw fetchError;
     }
   } catch (error) {
-    console.error("Global error in proxy:", error);
+    console.error(`[${requestId}] Global error in proxy:`, error);
     
     // Renvoyer une réponse d'erreur générique
     return createCorsErrorResponse(500, 
       error instanceof Error ? error.message : "An unknown error occurred", 
-      { stack: error instanceof Error ? error.stack : undefined }
+      { 
+        stack: error instanceof Error ? error.stack : undefined,
+        requestId
+      }
     );
   }
 });

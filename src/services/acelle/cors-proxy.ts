@@ -1,26 +1,97 @@
 
 /**
- * Utilitaires pour interagir avec le proxy CORS
+ * Système de proxy unifié avec gestion robuste de l'authentification
+ * Résout les problèmes de CORS, de tokens expirés et de reconnexion
  */
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// URL de base pour le proxy
+// URL de base pour les proxys
 const CORS_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy";
 const ACELLE_PROXY_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy";
 
-// États du proxy
+// Cache du token avec expiration
+interface TokenCache {
+  token: string;
+  expiresAt: number;
+}
+
+let tokenCache: TokenCache | null = null;
+const TOKEN_EXPIRY_BUFFER = 5 * 60 * 1000; // 5 minutes avant expiration réelle
+
+// États du système de proxy
 type ProxyStatus = 'unknown' | 'waking' | 'ready' | 'error';
 let proxyStatus: ProxyStatus = 'unknown';
 let lastWakeupAttempt: number = 0;
 let wakeupPromise: Promise<boolean> | null = null;
-const WAKEUP_COOLDOWN = 5000; // 5 secondes minimum entre les tentatives (réduit pour plus de réactivité)
+const WAKEUP_COOLDOWN = 3000; // 3 secondes minimum entre les tentatives
 
 /**
- * Réveille le proxy CORS si nécessaire et teste sa disponibilité
- * Implémente un système de cooldown pour éviter les tentatives répétées
+ * Obtient un token d'authentification valide avec gestion de cache
+ * Rafraîchit automatiquement si nécessaire
  */
-export async function wakeupCorsProxy(authToken: string | null): Promise<boolean> {
+export async function getAuthToken(force: boolean = false): Promise<string | null> {
+  const now = Date.now();
+  
+  // Utiliser le token en cache s'il est valide et si on ne force pas le rafraîchissement
+  if (!force && tokenCache && tokenCache.expiresAt > now + TOKEN_EXPIRY_BUFFER) {
+    console.log("Utilisation du token en cache (valide pour encore", Math.floor((tokenCache.expiresAt - now)/1000), "secondes)");
+    return tokenCache.token;
+  }
+  
+  try {
+    console.log(force ? "Forçage du rafraîchissement du token" : "Token expiré ou absent, obtention d'un nouveau token");
+    
+    // Tenter d'abord un rafraîchissement explicite
+    try {
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.warn("Avertissement lors du rafraîchissement de la session:", refreshError.message);
+      }
+    } catch (e) {
+      console.warn("Exception lors du rafraîchissement de la session:", e);
+      // Continuer malgré l'erreur
+    }
+    
+    // Récupérer la session après tentative de rafraîchissement
+    const { data, error } = await supabase.auth.getSession();
+    
+    if (error || !data?.session?.access_token) {
+      console.error("Erreur lors de la récupération du token:", error || "Aucun token disponible");
+      return null;
+    }
+    
+    const token = data.session.access_token;
+    const expiresAt = data.session.expires_at ? new Date(data.session.expires_at).getTime() : (now + 3600 * 1000);
+    
+    // Mettre en cache le token avec son expiration
+    tokenCache = {
+      token,
+      expiresAt
+    };
+    
+    console.log("Nouveau token obtenu, valide jusqu'à", new Date(expiresAt).toLocaleTimeString());
+    return token;
+  } catch (error) {
+    console.error("Exception lors de l'obtention du token d'authentification:", error);
+    return null;
+  }
+}
+
+/**
+ * Force un rafraîchissement explicite du token d'authentification
+ * Efface le cache et demande un nouveau token
+ */
+export async function forceRefreshAuthToken(): Promise<string | null> {
+  // Effacer le cache pour forcer un vrai rafraîchissement
+  tokenCache = null;
+  return await getAuthToken(true);
+}
+
+/**
+ * Réveille tous les proxies avec une gestion intelligente des tentatives
+ */
+export async function wakeupCorsProxy(authToken?: string | null): Promise<boolean> {
   // Si on a déjà essayé récemment, retourner l'état actuel
   const now = Date.now();
   if (now - lastWakeupAttempt < WAKEUP_COOLDOWN) {
@@ -29,71 +100,79 @@ export async function wakeupCorsProxy(authToken: string | null): Promise<boolean
   
   // Si une tentative est déjà en cours, attendre son résultat
   if (wakeupPromise) {
-    return wakeupPromise;
+    return await wakeupPromise;
   }
   
   lastWakeupAttempt = now;
   proxyStatus = 'waking';
   
+  // Si pas de token fourni, en obtenir un nouveau
+  if (!authToken) {
+    authToken = await getAuthToken();
+    if (!authToken) {
+      console.error("Impossible d'obtenir un token pour réveiller le proxy");
+      proxyStatus = 'error';
+      return false;
+    }
+  }
+  
   // Créer une nouvelle promesse pour le réveil
   wakeupPromise = new Promise<boolean>(async (resolve) => {
     try {
-      console.log("Tentative de réveil du CORS proxy...");
+      console.log("Réveil des services de proxy...");
       
-      if (!authToken) {
-        // Tenter d'obtenir un token si non fourni
-        authToken = await getAuthToken();
-        if (!authToken) {
-          console.error("Pas de session d'authentification disponible pour la requête de réveil");
-          proxyStatus = 'error';
-          resolve(false);
-          return;
-        }
+      // Réveiller les deux proxies en parallèle pour plus de rapidité
+      const [corsProxyAwake, acelleProxyAwake] = await Promise.all([
+        wakeupSpecificProxy(CORS_PROXY_BASE_URL, authToken!),
+        wakeupSpecificProxy(ACELLE_PROXY_BASE_URL, authToken!)
+      ]);
+      
+      const allAwake = corsProxyAwake && acelleProxyAwake;
+      
+      if (allAwake) {
+        console.log("Tous les proxies sont réveillés et prêts");
+        proxyStatus = 'ready';
+        
+        // Petit délai pour stabilisation
+        await new Promise(r => setTimeout(r, 500));
+        resolve(true);
+      } else {
+        console.error("Échec du réveil d'au moins un proxy");
+        proxyStatus = 'error';
+        resolve(false);
       }
-      
-      // Essayer les deux proxies pour assurer qu'ils sont réveillés
-      const corsProxyAwake = await wakeupSpecificProxy(CORS_PROXY_BASE_URL, authToken);
-      const acelleProxyAwake = await wakeupSpecificProxy(ACELLE_PROXY_BASE_URL, authToken);
-      
-      const proxyReady = corsProxyAwake && acelleProxyAwake;
-      proxyStatus = proxyReady ? 'ready' : 'error';
-      
-      // Ajouter un délai pour s'assurer que les services sont complètement réveillés
-      if (proxyReady) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      
-      console.log(`État du proxy CORS: ${proxyStatus}`);
-      resolve(proxyReady);
     } catch (error) {
-      console.error("Erreur non gérée lors du réveil du CORS proxy:", error);
+      console.error("Erreur lors du réveil des proxies:", error);
       proxyStatus = 'error';
       resolve(false);
     } finally {
       // Réinitialiser la promesse
       setTimeout(() => {
         wakeupPromise = null;
-      }, 1000);
+      }, 500);
     }
   });
   
-  return wakeupPromise;
+  return await wakeupPromise;
 }
 
 /**
- * Tente de réveiller un proxy spécifique
+ * Réveille un service de proxy spécifique avec plusieurs tentatives
  */
 async function wakeupSpecificProxy(baseUrl: string, authToken: string): Promise<boolean> {
   const maxAttempts = 3;
   let attempts = 0;
+  const proxyName = baseUrl.includes('cors-proxy') ? 'CORS Proxy' : 'Acelle Proxy';
   
   while (attempts < maxAttempts) {
     try {
       attempts++;
       const requestId = `wake_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       
-      // URL de ping
-      const pingUrl = `${baseUrl}/ping`;
+      console.log(`Tentative ${attempts}/${maxAttempts} de réveil du ${proxyName}...`);
+      
+      // URL de ping avec timestamp pour éviter le cache
+      const pingUrl = `${baseUrl}/ping?t=${Date.now()}`;
       
       const response = await fetch(pingUrl, {
         method: "GET",
@@ -111,30 +190,34 @@ async function wakeupSpecificProxy(baseUrl: string, authToken: string): Promise<
       });
       
       if (response.ok) {
+        // Essayer de lire le corps de la réponse pour vérifier que le service est vraiment prêt
         try {
           const data = await response.json();
-          console.log(`Proxy ${baseUrl} réveillé avec succès:`, data);
+          console.log(`${proxyName} réveillé avec succès:`, data);
           return true;
         } catch (e) {
-          console.warn(`Le proxy ${baseUrl} a répondu mais avec un format invalide:`, e);
+          console.warn(`Le ${proxyName} a répondu mais avec un format invalide:`, e);
+          if (attempts >= maxAttempts) return true; // Accepter quand même au dernier essai
         }
       } else {
-        console.warn(`Le proxy ${baseUrl} a répondu avec le code: ${response.status} - Tentative ${attempts}/${maxAttempts}`);
+        console.warn(`Le ${proxyName} a répondu avec le code: ${response.status} - Tentative ${attempts}/${maxAttempts}`);
       }
       
-      // Attendre avant la prochaine tentative
+      // Attendre avant la prochaine tentative avec délai exponentiel
       if (attempts < maxAttempts) {
-        await new Promise(r => setTimeout(r, 1000));
+        const delay = Math.min(1000 * Math.pow(1.5, attempts), 5000);
+        await new Promise(r => setTimeout(r, delay));
       }
     } catch (error) {
-      console.error(`Erreur lors de la tentative ${attempts}/${maxAttempts} de réveil du proxy ${baseUrl}:`, error);
+      console.error(`Erreur lors de la tentative ${attempts}/${maxAttempts} de réveil du ${proxyName}:`, error);
       
       if (attempts >= maxAttempts) {
         return false;
       }
       
       // Attendre avant la prochaine tentative
-      await new Promise(r => setTimeout(r, 1000));
+      const delay = Math.min(1000 * Math.pow(2, attempts), 5000);
+      await new Promise(r => setTimeout(r, delay));
     }
   }
   
@@ -142,101 +225,54 @@ async function wakeupSpecificProxy(baseUrl: string, authToken: string): Promise<
 }
 
 /**
- * Récupère un token d'authentification valide
- * Avec système de cache et retry
- */
-export async function getAuthToken(): Promise<string | null> {
-  try {
-    // Vérifier d'abord si nous avons une session
-    const { data, error } = await supabase.auth.getSession();
-    
-    if (error || !data?.session?.access_token) {
-      console.error("Erreur lors de la récupération du token d'authentification:", error);
-      
-      // Tenter un refresh explicite
-      try {
-        console.log("Tentative de rafraîchissement de la session...");
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          console.error("Erreur lors du rafraîchissement de la session:", refreshError);
-          return null;
-        }
-        
-        // Récupérer la nouvelle session
-        const { data: refreshedData, error: getError } = await supabase.auth.getSession();
-        if (getError || !refreshedData?.session?.access_token) {
-          console.error("Impossible de récupérer la session après rafraîchissement:", getError);
-          return null;
-        }
-        
-        console.log("Session rafraîchie avec succès");
-        return refreshedData.session.access_token;
-      } catch (refreshError) {
-        console.error("Exception lors du rafraîchissement du token:", refreshError);
-        return null;
-      }
-    }
-    
-    return data.session.access_token;
-  } catch (error) {
-    console.error("Exception lors de la récupération du token d'authentification:", error);
-    return null;
-  }
-}
-
-/**
  * Construit une URL pour le proxy CORS
  */
 export function buildCorsProxyUrl(path: string): string {
-  // Nettoyer le chemin des éventuels slashes en début
   const cleanPath = path.startsWith('/') ? path.substring(1) : path;
   return `${CORS_PROXY_BASE_URL}/${cleanPath}`;
 }
 
 /**
- * Effectue une requête via le proxy CORS avec gestion automatique du réveil
+ * Effectue une requête via le proxy CORS avec gestion automatique des erreurs
+ * Réveille automatiquement les services si nécessaire
  */
 export async function fetchViaProxy(
   path: string,
   options: RequestInit,
   acelleToken: string,
   acelleEndpoint: string,
-  maxRetries: number = 3  // Augmentation du nombre de retries par défaut
+  maxRetries: number = 3
 ): Promise<Response> {
-  // Récupérer un token d'authentification
   let authToken = await getAuthToken();
   if (!authToken) {
     toast.error("Session expirée. Veuillez vous reconnecter.");
     throw new Error("Authentification requise");
   }
   
-  // S'assurer que le proxy est réveillé
-  let isProxyReady = await wakeupCorsProxy(authToken);
-  if (!isProxyReady) {
-    console.warn("Le proxy n'a pas pu être réveillé au premier essai, nouvelle tentative...");
-    
-    // Tenter de rafraîchir le token et réessayer
-    authToken = await refreshAuthTokenExplicitly();
-    if (authToken) {
-      isProxyReady = await wakeupCorsProxy(authToken);
-    }
+  // Vérifier et réveiller le proxy si nécessaire
+  if (proxyStatus !== 'ready') {
+    console.log("Proxy non prêt, tentative de réveil...");
+    const isProxyReady = await wakeupCorsProxy(authToken);
     
     if (!isProxyReady) {
-      toast.error("Le proxy CORS n'est pas disponible. Veuillez réessayer.");
-      throw new Error("Le proxy CORS n'est pas disponible");
+      // Tenter une dernière fois avec un nouveau token
+      authToken = await forceRefreshAuthToken();
+      if (!authToken || !(await wakeupCorsProxy(authToken))) {
+        toast.error("Services de connexion indisponibles. Veuillez réessayer.");
+        throw new Error("Services indisponibles");
+      }
     }
   }
   
-  // Nettoyer l'endpoint Acelle
+  // Standardiser l'endpoint Acelle
   const cleanEndpoint = acelleEndpoint.endsWith('/') ? 
     acelleEndpoint.substring(0, acelleEndpoint.length - 1) : 
     acelleEndpoint;
   
-  // Construire l'URL complète pour le proxy
+  // URL du proxy
   const url = buildCorsProxyUrl(path);
   
-  // Ajouter les en-têtes nécessaires
+  // En-têtes standardisés
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${authToken}`);
   headers.set("X-Acelle-Token", acelleToken);
@@ -246,44 +282,43 @@ export async function fetchViaProxy(
   headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
   headers.set("X-Request-ID", `req_${Date.now()}_${Math.random().toString(36).substring(7)}`);
   
-  // Créer les options de requête finales
+  // Options finales
   const fetchOptions: RequestInit = {
     ...options,
     headers,
     cache: "no-store",
-    // Ajouter un timeout pour éviter les attentes infinies
+    // Timeout pour éviter les attentes infinies
     signal: AbortSignal.timeout(30000)
   };
   
-  // Effectuer la requête avec système de retry
+  // Système de retentative intelligent
   let attempts = 0;
-  let lastError = null;
+  let lastError: Error | null = null;
   
   while (attempts <= maxRetries) {
     try {
-      // Indiquer qu'une requête est en cours dans les logs
       console.log(`Tentative ${attempts + 1}/${maxRetries + 1} - Requête vers: ${url}`);
       
       const response = await fetch(url, fetchOptions);
       
-      // Si la requête a réussi, retourner la réponse
+      // Vérifier si la réponse est valide
       if (response.ok) {
         return response;
       }
       
       console.warn(`Réponse non-OK: ${response.status} - ${response.statusText}`);
       
-      // Gérer les cas d'erreur spécifiques
+      // Gérer les erreurs d'authentification
       if (response.status === 401 || response.status === 403) {
         if (attempts < maxRetries) {
-          console.warn("Erreur d'authentification détectée, tentative de rafraîchissement du token...");
-          const newAuthToken = await refreshAuthTokenExplicitly();
+          console.log("Erreur d'authentification détectée, rafraîchissement du token...");
+          const newToken = await forceRefreshAuthToken();
           
-          if (newAuthToken) {
-            headers.set("Authorization", `Bearer ${newAuthToken}`);
+          if (newToken) {
+            headers.set("Authorization", `Bearer ${newToken}`);
             attempts++;
-            // Tenter de réveiller le proxy avec le nouveau token
-            await wakeupCorsProxy(newAuthToken);
+            // Réveiller le proxy avec le nouveau token
+            await wakeupCorsProxy(newToken);
             continue;
           }
         }
@@ -291,29 +326,46 @@ export async function fetchViaProxy(
         throw new Error(`Erreur d'authentification (${response.status})`);
       }
       
-      // Pour les erreurs serveur, tenter de réessayer
-      if ((response.status >= 500 && response.status < 600) || response.status === 429) {
-        console.warn(`Erreur serveur (${response.status}), tentative ${attempts + 1}/${maxRetries + 1}...`);
-        
+      // Pour les erreurs serveur, tenter à nouveau
+      if (response.status >= 500 || response.status === 429 || response.status === 404) {
         if (attempts < maxRetries) {
           attempts++;
+          console.log(`Erreur ${response.status}, nouvelle tentative ${attempts}/${maxRetries}...`);
+          
+          // Si c'est un 404, essayer avec un chemin alternatif
+          if (response.status === 404 && attempts === 1 && path.includes('/ping')) {
+            // Essayer avec un autre endpoint
+            const newPath = path.replace('/ping', '/campaigns?page=1&per_page=1');
+            const newUrl = buildCorsProxyUrl(newPath);
+            console.log(`Tentative avec un chemin alternatif: ${newPath}`);
+            
+            const newOptions = { ...fetchOptions };
+            fetchOptions.headers.set("X-Request-ID", `req_alt_${Date.now()}`);
+            
+            const altResponse = await fetch(newUrl, newOptions);
+            if (altResponse.ok) {
+              return altResponse;
+            }
+          }
           
           // Attendre un peu plus longtemps à chaque tentative
-          const delay = 1000 * Math.pow(2, attempts);
+          const delay = 1000 * Math.min(30, Math.pow(1.5, attempts));
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
       }
       
-      // Pour les autres erreurs HTTP comme 404, 400, etc., retourner la réponse telle quelle
+      // Pour les autres erreurs HTTP, retourner la réponse
       return response;
-    } catch (error) {
+    } catch (error: any) {
       lastError = error;
+      const isTimeout = error.name === 'AbortError';
+      const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
       
-      if (error.name === 'AbortError') {
-        console.warn(`Timeout de la requête, tentative ${attempts + 1}/${maxRetries + 1}...`);
-      } else if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn(`Erreur réseau, tentative ${attempts + 1}/${maxRetries + 1}...`);
+      if (isTimeout) {
+        console.warn(`Timeout de la requête après ${attempts + 1} tentative(s)`);
+      } else if (isNetworkError) {
+        console.warn(`Erreur réseau après ${attempts + 1} tentative(s)`);
       } else {
         console.error(`Erreur lors de la requête:`, error);
       }
@@ -321,50 +373,55 @@ export async function fetchViaProxy(
       if (attempts < maxRetries) {
         attempts++;
         
-        // Tenter de réveiller le proxy avant de réessayer
-        await wakeupCorsProxy(authToken);
+        // Si erreur réseau ou timeout, tenter de réveiller le proxy
+        if (isTimeout || isNetworkError) {
+          await wakeupCorsProxy(await getAuthToken());
+        }
         
-        // Attendre un peu plus longtemps à chaque tentative
+        // Délai exponentiel
         const delay = 1000 * Math.min(30, Math.pow(1.5, attempts));
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
       
-      // Si toutes les tentatives ont échoué, propager l'erreur
+      // Si toutes les tentatives ont échoué
       throw error;
     }
   }
   
-  throw lastError || new Error("Échec des requêtes après plusieurs tentatives");
+  throw lastError || new Error("Échec après plusieurs tentatives");
 }
 
 /**
- * Force un rafraîchissement explicite du token d'authentification
+ * Programme un rappel périodique pour maintenir les services actifs
+ * @returns fonction de nettoyage pour arrêter les rappels
  */
-async function refreshAuthTokenExplicitly(): Promise<string | null> {
-  try {
-    console.log("Rafraîchissement explicite du token d'authentification");
-    
-    // Tenter un refresh explicite
-    const { error: refreshError } = await supabase.auth.refreshSession();
-    
-    if (refreshError) {
-      console.error("Erreur lors du rafraîchissement explicite de la session:", refreshError);
-      return null;
+export function setupHeartbeatService(intervalMs: number = 5 * 60 * 1000): () => void {
+  console.log(`Configuration du heartbeat toutes les ${intervalMs/1000} secondes`);
+  
+  // Première vérification immédiate
+  const checkServices = async () => {
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        await wakeupCorsProxy(token);
+      }
+    } catch (e) {
+      console.error("Erreur lors du heartbeat:", e);
     }
-    
-    // Récupérer la nouvelle session
-    const { data: refreshedData, error: getError } = await supabase.auth.getSession();
-    
-    if (getError || !refreshedData?.session?.access_token) {
-      console.error("Erreur après le rafraîchissement de la session:", getError);
-      return null;
-    }
-    
-    console.log("Token d'authentification rafraîchi avec succès");
-    return refreshedData.session.access_token;
-  } catch (error) {
-    console.error("Exception lors du rafraîchissement explicite du token:", error);
-    return null;
-  }
+  };
+  
+  // Lancer la première vérification après un court délai
+  const initialTimeout = setTimeout(() => {
+    checkServices();
+  }, 5000);
+  
+  // Configurer l'intervalle régulier
+  const intervalId = setInterval(checkServices, intervalMs);
+  
+  // Fonction de nettoyage
+  return () => {
+    clearTimeout(initialTimeout);
+    clearInterval(intervalId);
+  };
 }

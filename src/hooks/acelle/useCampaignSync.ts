@@ -1,12 +1,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { useApiConnection } from './useApiConnection';
 import { useCampaignCache } from './useCampaignCache';
 import { useSyncOperation } from './useSyncOperation';
 import { toast } from 'sonner';
 import { forceSyncCampaigns } from '@/services/acelle/api/campaigns';
-import { useAuthToken } from './useAuthToken';
+import { getAuthToken, wakeupCorsProxy } from '@/services/acelle/cors-proxy';
+import { useAcelleApiStatus } from './useAcelleApiStatus';
 
 interface UseCampaignSyncProps {
   account: AcelleAccount;
@@ -14,17 +14,12 @@ interface UseCampaignSyncProps {
 }
 
 /**
- * Main hook for campaign synchronization that composes specialized hooks
+ * Hook principal pour la synchronisation des campagnes 
+ * avec gestion améliorée de la connexion API
  */
 export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps) => {
-  const { authToken, isRefreshing: isRefreshingToken, getValidAuthToken } = useAuthToken();
-  
-  const { 
-    wakeUpEdgeFunctions, 
-    checkApiAvailability, 
-    getDebugInfo, 
-    debugInfo 
-  } = useApiConnection(account);
+  // Utiliser notre nouveau hook de gestion d'état API
+  const { isProxyAvailable, isAuthenticated, forceRefresh } = useAcelleApiStatus();
   
   const { 
     campaignsCount, 
@@ -42,7 +37,7 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
   const [lastManuallySyncedAt, setLastManuallySyncedAt] = useState<Date | null>(null);
   const [syncResult, setSyncResult] = useState<{success: boolean, message: string} | null>(null);
 
-  // Force manual synchronization
+  // Force une synchronisation manuelle avec notre système unifié
   const forceSyncNow = useCallback(async () => {
     if (!account?.id) return;
     
@@ -54,8 +49,19 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
         return;
       }
       
-      // Vérifier d'abord si le token est disponible, sinon le rafraîchir
-      const token = authToken || await getValidAuthToken();
+      // Vérifier l'état du système et le rafraîchir si nécessaire
+      if (!isAuthenticated || !isProxyAvailable) {
+        toast.loading("Rafraîchissement des services...", { id: "force-sync" });
+        const refreshSuccess = await forceRefresh();
+        
+        if (!refreshSuccess) {
+          toast.error("Impossible de se connecter aux services API", { id: "force-sync" });
+          return;
+        }
+      }
+      
+      // Obtenir un token d'authentification à jour
+      const token = await getAuthToken();
       
       if (!token) {
         toast.error("Authentification requise pour la synchronisation", { id: "force-sync" });
@@ -63,8 +69,9 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
       }
       
       // Réveiller les services avant la synchronisation
-      await wakeUpEdgeFunctions(token);
+      await wakeupCorsProxy(token);
       
+      // Lancer la synchronisation forcée
       const result = await forceSyncCampaigns(account, token);
       setLastManuallySyncedAt(new Date());
       setSyncResult(result);
@@ -84,48 +91,48 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
         message: `Erreur: ${errorMessage}`
       });
     }
-  }, [account, authToken, getValidAuthToken, wakeUpEdgeFunctions, isSyncing, getCachedCampaignsCount]);
+  }, [account, isAuthenticated, isProxyAvailable, forceRefresh, isSyncing, getCachedCampaignsCount]);
 
-  // Set up automatic synchronization
+  // Configurer la synchronisation automatique
   useEffect(() => {
-    if (account?.id && account?.status === 'active' && authToken) {
-      console.log(`Configuring automatic sync for account ${account.name} with interval ${syncInterval}ms`);
+    if (account?.id && account?.status === 'active' && isAuthenticated) {
+      console.log(`Configuration de la synchronisation automatique pour ${account.name}`);
       
-      // First check cached campaigns count
+      // Vérifier d'abord le cache
       getCachedCampaignsCount().then(count => {
-        // If cache is empty or forced sync interval, run sync
         if (count === 0) {
-          console.log("Cache empty, running initial sync");
+          console.log("Cache vide, synchronisation initiale");
           syncCampaignsCache();
         }
       });
 
-      // Set up the interval to run the sync periodically
+      // Configurer l'intervalle pour les synchronisations périodiques
       const intervalId = setInterval(() => {
-        console.log(`Running scheduled sync for account ${account.name}`);
-        syncCampaignsCache({ quietMode: true });
+        if (isAuthenticated && isProxyAvailable) {
+          console.log(`Exécution de la synchronisation planifiée pour ${account.name}`);
+          syncCampaignsCache({ quietMode: true });
+        } else {
+          console.log("Services non disponibles, synchronisation reportée");
+        }
       }, syncInterval);
 
-      // Clean up the interval when the component unmounts or the account changes
       return () => clearInterval(intervalId);
     }
-  }, [account, syncInterval, authToken, getCachedCampaignsCount, syncCampaignsCache]);
+  }, [account, syncInterval, isAuthenticated, isProxyAvailable, getCachedCampaignsCount, syncCampaignsCache]);
 
   return { 
     isSyncing, 
     syncError, 
     syncCampaignsCache, 
-    wakeUpEdgeFunctions: (token: string | null) => wakeUpEdgeFunctions(token), 
-    checkApiAvailability, 
-    getDebugInfo,
     lastSyncTime,
     campaignsCount,
     clearAccountCache,
-    debugInfo,
     forceSyncNow,
     lastManuallySyncedAt,
     syncResult,
-    accessToken: authToken,
-    isRefreshingToken
+    serviceStatus: {
+      isAuthenticated,
+      isProxyAvailable
+    }
   };
 };
