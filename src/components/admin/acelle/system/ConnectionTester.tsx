@@ -151,8 +151,7 @@ export function ConnectionTester({ account, className }: ConnectionTesterProps) 
           {testResults.system ? (
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="flex items-center">
-                <span className="w-3 h-3 rounded-full mr-2 
-                  bg-${testResults.system.auth ? "green" : "red"}-500"></span>
+                <span className={`w-3 h-3 rounded-full mr-2 ${testResults.system.auth ? "bg-green-500" : "bg-red-500"}`}></span>
                 Authentification
               </div>
               <div>
@@ -173,8 +172,7 @@ export function ConnectionTester({ account, className }: ConnectionTesterProps) 
               </div>
               
               <div className="flex items-center">
-                <span className="w-3 h-3 rounded-full mr-2 
-                  bg-${testResults.system.cors ? "green" : "red"}-500"></span>
+                <span className={`w-3 h-3 rounded-full mr-2 ${testResults.system.cors ? "bg-green-500" : "bg-red-500"}`}></span>
                 Services CORS
               </div>
               <div>{testResults.system.cors ? "En ligne" : "Hors ligne"}</div>
