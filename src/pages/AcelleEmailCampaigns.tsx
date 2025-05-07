@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,6 +18,7 @@ const AcelleEmailCampaigns = () => {
   const [isCheckingProxy, setIsCheckingProxy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [proxyError, setProxyError] = useState<string | null>(null);
+  const [lastProxyCheck, setLastProxyCheck] = useState<Date | null>(null);
   
   // Vérifier l'état d'authentification au chargement et configurer le rafraîchissement automatique
   useEffect(() => {
@@ -43,7 +44,7 @@ const AcelleEmailCampaigns = () => {
     // Vérifier immédiatement
     checkAuth();
     
-    // Rafraîchir automatiquement la session toutes les 10 minutes pour éviter l'expiration
+    // Rafraîchir automatiquement la session toutes les 5 minutes pour éviter l'expiration
     const sessionRefreshInterval = setInterval(async () => {
       try {
         console.log("Rafraîchissement automatique de la session...");
@@ -59,45 +60,57 @@ const AcelleEmailCampaigns = () => {
       } catch (e) {
         console.error("Exception lors du rafraîchissement automatique:", e);
       }
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 5 * 60 * 1000); // 5 minutes
     
     return () => clearInterval(sessionRefreshInterval);
   }, [user]);
   
-  // Vérifier la disponibilité du proxy CORS au chargement
-  useEffect(() => {
-    const checkProxyAvailability = async () => {
-      try {
-        setIsCheckingProxy(true);
-        
-        // Obtenir un token d'authentification
-        const authToken = await getAuthToken();
-        if (!authToken) {
-          setProxyError("Token d'authentification non disponible");
-          setIsProxyAvailable(false);
-          return;
-        }
-        
-        // Tenter de réveiller le proxy
-        const isAvailable = await wakeupCorsProxy(authToken);
-        setIsProxyAvailable(isAvailable);
-        
-        if (!isAvailable) {
-          setProxyError("Le proxy CORS ne répond pas");
-        } else {
-          setProxyError(null);
-        }
-      } catch (error) {
-        console.error("Erreur lors de la vérification du proxy:", error);
-        setProxyError("Erreur lors de la vérification du proxy CORS");
+  // Fonction pour vérifier la disponibilité du proxy CORS
+  const checkProxyAvailability = useCallback(async () => {
+    try {
+      if (isCheckingProxy) return;
+      
+      setIsCheckingProxy(true);
+      
+      // Obtenir un token d'authentification
+      const authToken = await getAuthToken();
+      if (!authToken) {
+        setProxyError("Token d'authentification non disponible");
         setIsProxyAvailable(false);
-      } finally {
-        setIsCheckingProxy(false);
+        return;
       }
-    };
-    
+      
+      // Tenter de réveiller le proxy
+      const isAvailable = await wakeupCorsProxy(authToken);
+      setIsProxyAvailable(isAvailable);
+      setLastProxyCheck(new Date());
+      
+      if (!isAvailable) {
+        setProxyError("Le proxy CORS ne répond pas");
+      } else {
+        setProxyError(null);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la vérification du proxy:", error);
+      setProxyError("Erreur lors de la vérification du proxy CORS");
+      setIsProxyAvailable(false);
+    } finally {
+      setIsCheckingProxy(false);
+    }
+  }, [isCheckingProxy]);
+  
+  // Vérifier la disponibilité du proxy CORS au chargement et toutes les 5 minutes
+  useEffect(() => {
+    // Vérifier immédiatement
     checkProxyAvailability();
-  }, []);
+    
+    // Configurer l'intervalle pour les vérifications périodiques
+    const proxyCheckInterval = setInterval(() => {
+      checkProxyAvailability();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(proxyCheckInterval);
+  }, [checkProxyAvailability]);
   
   // Force une reconnexion à Supabase
   const handleRefreshAuth = async () => {
@@ -143,6 +156,7 @@ const AcelleEmailCampaigns = () => {
         toast.error("Le proxy CORS ne répond pas", { id: "proxy-wakeup" });
       } else {
         setProxyError(null);
+        setLastProxyCheck(new Date());
         toast.success("Proxy CORS réveillé avec succès", { id: "proxy-wakeup" });
       }
     } catch (error) {
@@ -208,14 +222,17 @@ const AcelleEmailCampaigns = () => {
             <InfoIcon className="h-4 w-4 mr-2" />
             <AlertDescription>
               {proxyError}
-              {isProxyAvailable === false && (
+              {isProxyAvailable === false ? (
                 <>
                   <br />
                   <span className="font-medium">
                     Les fonctionnalités qui nécessitent une communication avec l'API peuvent ne pas fonctionner correctement.
+                    {lastProxyCheck && (
+                      <> Dernière vérification: {lastProxyCheck.toLocaleTimeString()}</>
+                    )}
                   </span>
                 </>
-              )}
+              ) : null}
             </AlertDescription>
           </Alert>
         )}

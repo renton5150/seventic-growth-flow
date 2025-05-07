@@ -43,8 +43,9 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
       };
     }
     
-    // Construire l'URL pour tester la connexion (endpoint /me)
-    const apiPath = "me";
+    // Construire l'URL pour tester la connexion
+    // Au lieu d'utiliser le endpoint /me, utilisons /ping qui est plus fiable
+    const apiPath = "ping";
     const url = buildProxyUrl(apiPath);
     
     console.log(`Test d'API avec URL: ${url}`, {
@@ -86,6 +87,12 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
           url,
           errorText
         });
+        
+        // Si c'est une erreur 404, c'est peut-être parce que l'endpoint /ping n'existe pas
+        // Essayons avec campaigns qui devrait toujours exister
+        if (response.status === 404) {
+          return await testAcelleConnectionWithCampaigns(account, authToken);
+        }
         
         return {
           success: false,
@@ -191,3 +198,96 @@ export const testAcelleConnection = async (account: AcelleAccount): Promise<Acel
     };
   }
 };
+
+/**
+ * Teste la connexion à l'API Acelle en utilisant l'endpoint /campaigns
+ * Cette fonction est utilisée comme fallback si /ping ne fonctionne pas
+ */
+async function testAcelleConnectionWithCampaigns(
+  account: AcelleAccount, 
+  authToken: string
+): Promise<AcelleConnectionDebug> {
+  console.log(`Test de connexion avec l'endpoint /campaigns pour ${account.name}...`);
+  
+  try {
+    const apiPath = "campaigns?page=1&per_page=1";
+    const url = buildProxyUrl(apiPath);
+    
+    const startTime = Date.now();
+    
+    // Effectuer la requête avec un timeout explicite
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes max
+    
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-Acelle-Token": account.api_token,
+        "X-Acelle-Endpoint": account.api_endpoint,
+        "Authorization": `Bearer ${authToken}`,
+        "X-Request-ID": `test_campaigns_${Date.now()}`,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      },
+      cache: "no-store"
+    });
+    
+    clearTimeout(timeoutId);
+    const duration = Date.now() - startTime;
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      
+      console.error(`Erreur API (campaigns): ${response.status} - ${response.statusText}`, {
+        url,
+        errorText
+      });
+      
+      return {
+        success: false,
+        errorMessage: `Erreur API ${response.status}: ${response.statusText}`,
+        timestamp: new Date().toISOString(),
+        accountName: account.name,
+        statusCode: response.status,
+        duration,
+        request: {
+          url,
+          method: "GET",
+          endpoint: "campaigns"
+        },
+        responseData: {
+          error: true,
+          message: errorText
+        }
+      };
+    }
+    
+    const data = await response.json();
+    
+    return {
+      success: true,
+      accountName: account.name,
+      version: "Vérifiée via /campaigns",
+      timestamp: new Date().toISOString(),
+      statusCode: response.status,
+      duration,
+      request: {
+        url,
+        method: "GET",
+        endpoint: "campaigns"
+      },
+      responseData: Array.isArray(data) ? { count: data.length } : data
+    };
+  } catch (error) {
+    console.error("Erreur lors du test de connexion via campaigns:", error);
+    
+    return {
+      success: false,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+      accountName: account.name
+    };
+  }
+}

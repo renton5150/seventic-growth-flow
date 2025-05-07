@@ -1,100 +1,100 @@
 
+/**
+ * Gestionnaire de heartbeat pour les fonctions edge Supabase
+ * 
+ * Cette classe permet de maintenir un état actif des fonctions edge
+ * en envoyant régulièrement des signaux de vie et en surveillant l'activité.
+ */
+import { CONFIG } from './config.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
-/**
- * Gestionnaire de heartbeat pour les fonctions Edge
- * 
- * Cette classe permet de suivre l'activité des fonctions Edge
- * et d'éviter leur mise en veille par des heartbeats réguliers.
- */
 export class HeartbeatManager {
-  private lastActivity: number;
+  private supabaseUrl: string;
+  private serviceRoleKey: string;
+  private serviceName: string;
+  private interval: number;
   private supabase: any;
-  private heartbeatInterval: number;
-  private functionName: string;
-  private intervalId: number | null = null;
+  private lastActivity: number;
+  private timer: number | null = null;
   
+  /**
+   * Initialise un gestionnaire de heartbeat
+   * 
+   * @param supabaseUrl - URL de l'instance Supabase
+   * @param serviceRoleKey - Clé de service Supabase
+   * @param serviceName - Nom du service pour l'identification
+   * @param interval - Intervalle entre les heartbeats en ms
+   */
   constructor(
-    supabaseUrl: string,
-    serviceRoleKey: string,
-    functionName: string,
-    heartbeatInterval: number = 30000 // 30 secondes par défaut
+    supabaseUrl: string, 
+    serviceRoleKey: string, 
+    serviceName: string,
+    interval: number = 30000
   ) {
+    this.supabaseUrl = supabaseUrl;
+    this.serviceRoleKey = serviceRoleKey;
+    this.serviceName = serviceName;
+    this.interval = interval;
     this.lastActivity = Date.now();
-    this.heartbeatInterval = heartbeatInterval;
-    this.functionName = functionName;
     
-    this.supabase = createClient(
-      supabaseUrl,
-      serviceRoleKey
-    );
+    // Initialiser le client Supabase
+    this.supabase = createClient(supabaseUrl, serviceRoleKey);
     
     // Démarrer le heartbeat
-    this.startHeartbeat();
+    this.start();
+  }
+  
+  /**
+   * Démarre le processus de heartbeat
+   */
+  start(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+    }
+    
+    // Enregistrer immédiatement un premier heartbeat
+    this.sendHeartbeat();
+    
+    // Configurer l'intervalle pour les heartbeats réguliers
+    this.timer = setInterval(() => this.sendHeartbeat(), this.interval);
+  }
+  
+  /**
+   * Envoie un signal de heartbeat
+   */
+  async sendHeartbeat(): Promise<void> {
+    try {
+      const timestamp = new Date().toISOString();
+      console.log(`Heartbeat at ${timestamp} - Service active`);
+      
+      // On pourrait enregistrer le heartbeat dans la base de données
+      // si nécessaire pour la surveillance externe
+    } catch (error) {
+      console.error(`Error sending heartbeat:`, error);
+    }
   }
   
   /**
    * Met à jour le timestamp de dernière activité
    */
-  public updateLastActivity(): void {
+  updateLastActivity(): void {
     this.lastActivity = Date.now();
   }
   
   /**
    * Récupère le timestamp de dernière activité
    */
-  public getLastActivity(): number {
+  getLastActivity(): number {
     return this.lastActivity;
   }
   
   /**
-   * Démarre le heartbeat périodique
+   * Arrête le processus de heartbeat
    */
-  private startHeartbeat(): void {
-    // Envoyer immédiatement un heartbeat
-    this.sendHeartbeat();
-    
-    // Configurer l'intervalle pour les heartbeats réguliers
-    this.intervalId = setInterval(() => {
-      this.sendHeartbeat();
-    }, this.heartbeatInterval);
-  }
-  
-  /**
-   * Envoie un heartbeat pour maintenir la fonction active
-   */
-  private async sendHeartbeat(): Promise<void> {
-    try {
-      const now = new Date().toISOString();
-      console.log(`Heartbeat at ${now} - Service active`);
-      
-      // Enregistrer optionnellement le heartbeat dans une table Supabase
-      try {
-        await this.supabase
-          .from('edge_function_heartbeats')
-          .upsert({
-            function_name: this.functionName,
-            last_heartbeat: now,
-            uptime_ms: Date.now() - this.lastActivity
-          }, {
-            onConflict: 'function_name'
-          });
-      } catch (dbError) {
-        // Ignorer les erreurs de base de données pour ne pas bloquer la fonction
-        // La table peut ne pas exister, et ce n'est pas critique
-      }
-    } catch (error) {
-      console.error("Error in heartbeat:", error);
-    }
-  }
-  
-  /**
-   * Arrête le heartbeat
-   */
-  public stopHeartbeat(): void {
-    if (this.intervalId !== null) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+  stop(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
     }
   }
 }

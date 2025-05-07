@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, CachedCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { buildProxyUrl } from "../acelle-service";
@@ -14,7 +15,7 @@ export async function getAcelleCampaigns(
     maxRetries?: number;
   }
 ): Promise<AcelleCampaign[]> {
-  const maxRetries = options?.maxRetries || 1;
+  const maxRetries = options?.maxRetries || 2;
   
   try {
     console.log(`Récupération des campagnes pour le compte ${account.name}`);
@@ -26,6 +27,8 @@ export async function getAcelleCampaigns(
       if (cachedCampaigns && cachedCampaigns.length > 0) {
         console.log(`Retour de ${cachedCampaigns.length} campagnes depuis le cache pour ${account.name}`);
         return convertCacheToAcelleCampaigns(cachedCampaigns);
+      } else {
+        console.log("Pas de données en cache ou refresh demandé, interrogation de l'API");
       }
     }
     
@@ -45,6 +48,7 @@ export async function getAcelleCampaigns(
     const proxyReady = await wakeupCorsProxy(authToken);
     if (!proxyReady) {
       console.error("Le proxy CORS n'a pas pu être réveillé");
+      toast.error("Impossible de communiquer avec le serveur d'API");
       throw new Error("Le proxy CORS n'est pas disponible");
     }
     
@@ -53,13 +57,20 @@ export async function getAcelleCampaigns(
     
     try {
       // Utiliser fetchViaProxy qui gère les retries et l'authentification
+      // Envoi explicite d'une liste complète pour éviter les erreurs de pagination
       const response = await fetchViaProxy(
-        "campaigns?page=1&per_page=100",
+        "campaigns?page=1&per_page=500",
         { method: "GET" },
         account.api_token,
         account.api_endpoint,
         maxRetries
       );
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Erreur API ${response.status}:`, errorText);
+        throw new Error(`Erreur API ${response.status}: ${response.statusText}`);
+      }
       
       const data = await response.json();
       
@@ -261,14 +272,14 @@ export async function forceSyncCampaigns(
     if (!proxyReady) {
       return {
         success: false,
-        message: "Impossible de réveiller le proxy CORS"
+        message: "Impossible de réveiller le proxy CORS. Veuillez réessayer."
       };
     }
     
     // Synchronisation directe via l'API
     const campaigns = await getAcelleCampaigns(account, { 
       refresh: true,
-      maxRetries: 2 // Plus de tentatives pour la synchro forcée
+      maxRetries: 3 // Plus de tentatives pour la synchro forcée
     });
     
     console.log(`Synchronisation réussie de ${campaigns.length} campagnes`);

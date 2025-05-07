@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -21,11 +22,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, AlertTriangle } from "lucide-react";
+import { RefreshCw, AlertTriangle, Database, Wifi, WifiOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { getAcelleCampaigns, forceSyncCampaigns } from "@/services/acelle/api/campaigns";
-import { wakeupCorsProxy } from "@/services/acelle/cors-proxy";
+import { wakeupCorsProxy, getAuthToken } from "@/services/acelle/cors-proxy";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -46,6 +48,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
+  const [proxyStatus, setProxyStatus] = useState<'unknown' | 'ready' | 'error'>('unknown');
+  const [isVerifyingProxy, setIsVerifyingProxy] = useState(false);
+  const [cacheOnly, setCacheOnly] = useState(false);
   
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,30 +61,102 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     campaignsCount, 
     getCachedCampaignsCount, 
     clearAccountCache,
-    isCacheBusy
+    isCacheBusy,
+    lastRefreshTimestamp
   } = useCampaignCache(account);
   
+  // Vérifier l'état du proxy CORS
+  const verifyProxyStatus = useCallback(async () => {
+    try {
+      setIsVerifyingProxy(true);
+      const token = await getAuthToken();
+      
+      if (!token) {
+        setProxyStatus('error');
+        return false;
+      }
+      
+      const isReady = await wakeupCorsProxy(token);
+      setProxyStatus(isReady ? 'ready' : 'error');
+      return isReady;
+    } catch (error) {
+      console.error("Erreur lors de la vérification du proxy:", error);
+      setProxyStatus('error');
+      return false;
+    } finally {
+      setIsVerifyingProxy(false);
+    }
+  }, []);
+  
+  // Rafraîchir le proxy
+  const handleRefreshProxy = async () => {
+    toast.loading("Réveil du proxy en cours...", { id: "proxy-wakeup" });
+    const result = await verifyProxyStatus();
+    
+    if (result) {
+      toast.success("Proxy réveillé avec succès", { id: "proxy-wakeup" });
+      // Rafraîchir les données automatiquement
+      refetch();
+    } else {
+      toast.error("Impossible de réveiller le proxy", { id: "proxy-wakeup" });
+    }
+  };
+  
   // Create a refetch function to reload the campaigns
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (options?: { cacheOnly?: boolean }) => {
     setIsLoading(true);
     setIsError(false);
     setError(null);
     setConnectionError(null);
+    setCacheOnly(!!options?.cacheOnly);
     
     try {
       if (account?.id) {
-        // Réveiller le proxy CORS avant de faire des requêtes
-        if (accessToken) {
-          await wakeupCorsProxy(accessToken);
+        let fetchedCampaigns: AcelleCampaign[] = [];
+        
+        if (options?.cacheOnly) {
+          // Utiliser uniquement le cache
+          const cachedCampaigns = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
+          fetchedCampaigns = cachedCampaigns;
+          console.log(`${cachedCampaigns.length} campagnes récupérées depuis le cache`);
+        } else {
+          // Réveiller le proxy CORS avant de faire des requêtes
+          if (accessToken) {
+            const proxyReady = await wakeupCorsProxy(accessToken);
+            setProxyStatus(proxyReady ? 'ready' : 'error');
+            
+            if (!proxyReady) {
+              console.warn("Le proxy n'est pas disponible, utilisation du cache uniquement");
+              const cachedCampaigns = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
+              fetchedCampaigns = cachedCampaigns;
+              setConnectionError("Le proxy n'est pas disponible. Données affichées depuis le cache.");
+              setCacheOnly(true);
+            } else {
+              // Utiliser notre nouvelle API pour récupérer les campagnes
+              try {
+                fetchedCampaigns = await getAcelleCampaigns(account, { refresh: true });
+                console.log(`${fetchedCampaigns.length} campagnes récupérées avec succès depuis l'API`);
+                setConnectionError(null);
+              } catch (apiError) {
+                console.error("Erreur lors de la récupération des campagnes de l'API:", apiError);
+                setConnectionError(`Erreur API: ${apiError instanceof Error ? apiError.message : String(apiError)}`);
+                
+                // Fallback sur le cache
+                const cachedCampaigns = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
+                fetchedCampaigns = cachedCampaigns;
+                setCacheOnly(true);
+              }
+            }
+          } else {
+            // Si pas de token d'auth, utiliser le cache
+            const cachedCampaigns = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
+            fetchedCampaigns = cachedCampaigns;
+            setConnectionError("Pas de token d'authentification disponible. Données affichées depuis le cache.");
+            setCacheOnly(true);
+          }
         }
         
-        // Utiliser notre nouvelle API pour récupérer les campagnes
-        const fetchedCampaigns = await getAcelleCampaigns(account, { 
-          refresh: true 
-        });
-        
         setCampaigns(fetchedCampaigns);
-        console.log(`${fetchedCampaigns.length} campagnes récupérées avec succès`);
       }
     } catch (err) {
       console.error("Error fetching campaigns:", err);
@@ -89,7 +166,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     } finally {
       setIsLoading(false);
     }
-  }, [account, accessToken]);
+  }, [account, accessToken, currentPage, itemsPerPage]);
 
   // Obtenir le token d'authentification dès le montage du composant
   useEffect(() => {
@@ -104,6 +181,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         if (token) {
           console.log("Token d'authentification récupéré avec succès");
           setAccessToken(token);
+          
+          // Vérifier l'état du proxy
+          verifyProxyStatus();
         } else {
           console.log("Aucun token d'authentification disponible");
         }
@@ -113,7 +193,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     };
     
     getAuthToken();
-  }, []);
+  }, [verifyProxyStatus]);
   
   // Charger les campagnes au montage
   useEffect(() => {
@@ -136,6 +216,11 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           await refetch();
         } else {
           setIsLoading(false);
+          
+          // Tenter de rafraîchir en arrière-plan
+          if (accessToken) {
+            refetch();
+          }
         }
       } catch (err) {
         console.error("Erreur lors du chargement des campagnes:", err);
@@ -147,7 +232,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     };
     
     loadCampaigns();
-  }, [account, currentPage, itemsPerPage, refetch]);
+  }, [account, currentPage, itemsPerPage, refetch, accessToken]);
   
   // Mettre à jour la pagination
   useEffect(() => {
@@ -195,14 +280,20 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       
       console.log("Forçage de la synchronisation des campagnes...");
       // Réveiller le proxy CORS en premier
-      await wakeupCorsProxy(accessToken);
+      const proxyReady = await wakeupCorsProxy(accessToken);
+      setProxyStatus(proxyReady ? 'ready' : 'error');
+      
+      if (!proxyReady) {
+        toast.error("Impossible de réveiller le proxy CORS", { id: "sync-toast" });
+        return;
+      }
       
       const result = await forceSyncCampaigns(account, accessToken);
       
       if (result.success) {
         toast.success(result.message, { id: "sync-toast" });
         // Attendre un moment pour laisser le temps à la synchronisation de s'effectuer
-        setTimeout(() => refetch(), 2000);
+        setTimeout(() => refetch(), 1000);
       } else {
         toast.error(result.message, { id: "sync-toast" });
       }
@@ -275,24 +366,79 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           onStatusFilterChange={setStatusFilter}
         />
         
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={handleForceSync}
-          disabled={isManuallyRefreshing}
-        >
-          <RefreshCw className={`mr-2 h-4 w-4 ${isManuallyRefreshing ? 'animate-spin' : ''}`} />
-          Synchroniser
-        </Button>
+        <div className="flex space-x-2">
+          {/* Indicateur de source de données */}
+          <Button
+            variant="outline"
+            size="sm"
+            className={cacheOnly ? "border-amber-500 text-amber-500" : "border-green-500 text-green-500"}
+            disabled={true}
+          >
+            {cacheOnly ? (
+              <>
+                <Database className="mr-1 h-4 w-4" />
+                Cache
+              </>
+            ) : (
+              <>
+                <Wifi className="mr-1 h-4 w-4" />
+                API
+              </>
+            )}
+          </Button>
+          
+          {/* Bouton de réveil du proxy */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefreshProxy}
+            disabled={isVerifyingProxy || proxyStatus === 'ready'}
+            className={`${proxyStatus === 'error' ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-blue-500 text-blue-500 hover:bg-blue-50'}`}
+          >
+            {isVerifyingProxy ? (
+              <Spinner className="mr-1 h-4 w-4" />
+            ) : (
+              <WifiOff className="mr-1 h-4 w-4" />
+            )}
+            Connecter au proxy
+          </Button>
+          
+          {/* Bouton de synchronisation */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleForceSync}
+            disabled={isManuallyRefreshing || proxyStatus !== 'ready'}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isManuallyRefreshing ? 'animate-spin' : ''}`} />
+            Synchroniser
+          </Button>
+        </div>
       </div>
       
       {connectionError && (
-        <Card className="border-amber-300 bg-amber-50">
-          <CardContent className="p-4 flex items-center">
-            <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
-            <span className="text-sm text-amber-800">{connectionError}</span>
-          </CardContent>
-        </Card>
+        <Alert variant="warning" className="bg-amber-50 border-amber-300">
+          <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
+          <AlertDescription>
+            {connectionError}
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {proxyStatus === 'error' && (
+        <Alert variant="destructive" className="bg-red-50 border-red-300">
+          <AlertTriangle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
+          <AlertDescription>
+            Le proxy CORS n'est pas disponible. Les données affichées peuvent être obsolètes. Cliquez sur "Connecter au proxy" pour réessayer.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {cacheOnly && lastRefreshTimestamp && (
+        <div className="text-xs text-gray-500 flex items-center mb-2">
+          <Database className="h-3 w-3 mr-1" /> 
+          Données en cache mises à jour le: {new Date(lastRefreshTimestamp).toLocaleString()}
+        </div>
       )}
       
       <div className="border rounded-md">
