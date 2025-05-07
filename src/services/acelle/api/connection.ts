@@ -1,7 +1,7 @@
 
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { buildProxyUrl } from "../acelle-service";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 import { wakeupCorsProxy } from "../cors-proxy"; // Correction du chemin d'importation
 
 /**

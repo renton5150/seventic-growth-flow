@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -8,7 +9,7 @@ import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCa
 import { createEmptyStatistics } from "@/services/acelle/api/directStats";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 import { wakeupCorsProxy } from "@/services/acelle/cors-proxy";
 
 // Composants réutilisables
@@ -112,12 +113,29 @@ async function fetchAndProcessCampaignStats(
     
     // Sauvegarder les statistiques dans le cache
     try {
+      // Convertir les statistiques en objet JSON compatible avec Supabase
+      const statsForDb = {
+        subscriber_count: statistics.subscriber_count,
+        delivered_count: statistics.delivered_count,
+        delivered_rate: statistics.delivered_rate,
+        open_count: statistics.open_count,
+        uniq_open_rate: statistics.uniq_open_rate,
+        click_count: statistics.click_count,
+        click_rate: statistics.click_rate,
+        bounce_count: statistics.bounce_count,
+        soft_bounce_count: statistics.soft_bounce_count,
+        hard_bounce_count: statistics.hard_bounce_count,
+        unsubscribe_count: statistics.unsubscribe_count,
+        abuse_complaint_count: statistics.abuse_complaint_count,
+        open_rate: statistics.open_rate
+      };
+      
       await supabase
         .from('campaign_stats_cache')
         .upsert({
           account_id: account.id,
           campaign_uid: campaign.uid,
-          statistics: statistics,
+          statistics: statsForDb,
           last_updated: new Date().toISOString()
         }, {
           onConflict: 'campaign_uid'
