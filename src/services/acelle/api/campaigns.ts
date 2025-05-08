@@ -1,6 +1,7 @@
+
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { buildProxyUrl } from "../acelle-service";
+import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**

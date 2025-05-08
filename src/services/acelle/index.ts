@@ -24,7 +24,7 @@ import {
   testAcelleConnection
 } from "./api/connection";
 
-import { buildProxyUrl } from "./acelle-service";
+import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
 import { hasEmptyStatistics } from "./api/stats/directStats";
 
 export const acelleService = {
