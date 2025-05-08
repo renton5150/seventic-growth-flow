@@ -1,5 +1,16 @@
 
 import { AcelleAccount } from "@/types/acelle.types";
+import { 
+  getAcelleAccounts,
+  getAcelleAccountById,
+  createAcelleAccount,
+  updateAcelleAccount,
+  deleteAcelleAccount
+} from './api/accounts';
+import {
+  getCampaigns,
+  forceSyncCampaigns
+} from './api/campaigns';
 
 /**
  * Service pour gérer les appels à l'API Acelle
