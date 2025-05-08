@@ -62,6 +62,33 @@ export type Database = {
           },
         ]
       }
+      acelle_sync_logs: {
+        Row: {
+          account_id: string | null
+          campaign_uid: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          operation: string
+        }
+        Insert: {
+          account_id?: string | null
+          campaign_uid?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          operation: string
+        }
+        Update: {
+          account_id?: string | null
+          campaign_uid?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          operation?: string
+        }
+        Relationships: []
+      }
       campaign_stats_cache: {
         Row: {
           account_id: string
@@ -508,6 +535,14 @@ export type Database = {
           user_role: string
           user_avatar: string
         }
+        Returns: Json
+      }
+      force_update_campaign_stats: {
+        Args: { account_id_param: string }
+        Returns: Json
+      }
+      update_acelle_campaign_stats: {
+        Args: { account_id_param: string }
         Returns: Json
       }
       user_has_admin_or_growth_role: {

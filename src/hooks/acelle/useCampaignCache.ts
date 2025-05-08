@@ -1,29 +1,31 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { AcelleAccount } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleAccount } from '@/types/acelle.types';
+import { toast } from "sonner";
 
 interface UseCampaignCacheProps {
-  campaignsCount: number;
-  lastRefreshTimestamp: string | null;
-  isCacheBusy: boolean;
-  getCachedCampaignsCount: () => Promise<number>;
-  clearAccountCache: () => Promise<void>;
-  checkCacheStatistics: () => Promise<{ count: number, lastUpdated: string | null }>;
+  account: AcelleAccount;
 }
 
-export const useCampaignCache = (account: AcelleAccount): UseCampaignCacheProps => {
-  const [campaignsCount, setCampaignsCount] = useState(0);
-  const [lastRefreshTimestamp, setLastRefreshTimestamp] = useState<string | null>(null);
-  const [isCacheBusy, setIsCacheBusy] = useState(false);
+export const useCampaignCache = (account: AcelleAccount) => {
+  const [campaignsCount, setCampaignsCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  // Vérifier le nombre de campagnes en cache
+  /**
+   * Obtient le nombre de campagnes en cache pour ce compte
+   */
   const getCachedCampaignsCount = useCallback(async () => {
     if (!account?.id) {
+      setCampaignsCount(0);
       return 0;
     }
 
     try {
+      setIsLoading(true);
+      
+      // Récupérer le nombre de campagnes en cache
       const { count, error } = await supabase
         .from('email_campaigns_cache')
         .select('*', { count: 'exact', head: true })
@@ -34,89 +36,104 @@ export const useCampaignCache = (account: AcelleAccount): UseCampaignCacheProps 
         return 0;
       }
       
+      console.log(`${count || 0} campagnes trouvées en cache pour le compte ${account.name}`);
       setCampaignsCount(count || 0);
-      return count || 0;
-    } catch (err) {
-      console.error("Erreur lors du comptage des campagnes:", err);
-      return 0;
-    }
-  }, [account?.id]);
-
-  // Vérifier la date de dernière mise à jour du cache
-  const checkCacheStatistics = useCallback(async () => {
-    if (!account?.id) {
-      return { count: 0, lastUpdated: null };
-    }
-    
-    try {
-      // Obtenir l'entrée la plus récente pour la date de dernière mise à jour
-      const { data, error } = await supabase
-        .from('email_campaigns_cache')
-        .select('cache_updated_at')
-        .eq('account_id', account.id)
-        .order('cache_updated_at', { ascending: false })
-        .limit(1);
+      setLastRefreshed(new Date());
       
-      if (error) {
-        console.error("Erreur lors de la vérification du cache:", error);
-        return { count: 0, lastUpdated: null };
+      // Obtenir également les statistiques agrégées
+      const { data: statsData } = await supabase
+        .from('email_campaigns_stats')
+        .select('*')
+        .eq('account_id', account.id)
+        .maybeSingle();
+      
+      if (statsData) {
+        console.log("Statistiques agrégées récupérées:", {
+          open_rate: statsData.avg_open_rate,
+          click_rate: statsData.avg_click_rate
+        });
       }
       
-      // Récupérer le nombre total d'entrées dans le cache
-      const count = await getCachedCampaignsCount();
-      
-      const lastUpdated = data && data.length > 0 ? data[0].cache_updated_at : null;
-      setLastRefreshTimestamp(lastUpdated);
-      
-      return { count, lastUpdated };
-    } catch (err) {
-      console.error("Erreur lors de la vérification du cache:", err);
-      return { count: 0, lastUpdated: null };
+      return count || 0;
+    } catch (error) {
+      console.error("Erreur lors de la récupération du nombre de campagnes:", error);
+      return 0;
+    } finally {
+      setIsLoading(false);
     }
-  }, [account?.id, getCachedCampaignsCount]);
-
-  // Vider le cache pour un compte spécifique
+  }, [account]);
+  
+  /**
+   * Vide le cache des campagnes pour ce compte
+   */
   const clearAccountCache = useCallback(async () => {
-    if (!account?.id) {
-      return;
-    }
-    
-    setIsCacheBusy(true);
+    if (!account?.id) return false;
     
     try {
-      const { error } = await supabase
+      toast.loading("Suppression du cache...", { id: "clear-cache" });
+      
+      console.log(`Suppression du cache pour le compte ${account.name}`);
+      
+      // Supprimer les campagnes en cache
+      const { error: cacheError } = await supabase
         .from('email_campaigns_cache')
         .delete()
         .eq('account_id', account.id);
       
-      if (error) {
-        console.error("Erreur lors de la suppression du cache:", error);
-        return;
+      if (cacheError) {
+        console.error("Erreur lors de la suppression du cache des campagnes:", cacheError);
+        toast.error("Erreur lors de la suppression du cache", { id: "clear-cache" });
+        return false;
       }
       
+      // Supprimer les statistiques en cache
+      const { error: statsError } = await supabase
+        .from('campaign_stats_cache')
+        .delete()
+        .eq('account_id', account.id);
+        
+      if (statsError) {
+        console.error("Erreur lors de la suppression du cache des statistiques:", statsError);
+        toast.error("Erreur lors de la suppression du cache des statistiques", { id: "clear-cache" });
+        return false;
+      }
+      
+      // Supprimer les statistiques agrégées
+      const { error: aggError } = await supabase
+        .from('email_campaigns_stats')
+        .delete()
+        .eq('account_id', account.id);
+        
+      if (aggError) {
+        console.error("Erreur lors de la suppression des statistiques agrégées:", aggError);
+        toast.error("Erreur lors de la suppression des statistiques agrégées", { id: "clear-cache" });
+        return false;
+      }
+      
+      // Rafraîchir le compteur
       setCampaignsCount(0);
-      setLastRefreshTimestamp(null);
-    } catch (err) {
-      console.error("Erreur lors de la suppression du cache:", err);
-    } finally {
-      setIsCacheBusy(false);
+      
+      toast.success("Cache supprimé avec succès", { id: "clear-cache" });
+      return true;
+    } catch (error) {
+      console.error("Exception lors de la suppression du cache:", error);
+      toast.error("Erreur lors de la suppression du cache", { id: "clear-cache" });
+      return false;
     }
-  }, [account?.id]);
+  }, [account]);
 
-  // Vérifier le statut du cache au chargement
-  useEffect(() => {
+  // Initialiser le compteur au chargement
+  useState(() => {
     if (account?.id) {
       getCachedCampaignsCount();
-      checkCacheStatistics();
     }
-  }, [account?.id, getCachedCampaignsCount, checkCacheStatistics]);
+  });
 
   return {
     campaignsCount,
-    lastRefreshTimestamp,
-    isCacheBusy,
+    isLoading,
+    lastRefreshed,
     getCachedCampaignsCount,
-    clearAccountCache,
-    checkCacheStatistics,
+    clearAccountCache
   };
 };

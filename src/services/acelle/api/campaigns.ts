@@ -1,266 +1,187 @@
 
-import { AcelleCampaign, DeliveryInfo } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
+import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
+import { toast } from 'sonner';
 
 /**
  * Récupère toutes les campagnes d'un compte Acelle
+ * Recherche d'abord dans le cache, puis interroge l'API si nécessaire
  */
-export const getCampaigns = async (): Promise<AcelleCampaign[]> => {
+export const getCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
+  if (!account) return [];
+  
   try {
+    // Recherche dans le cache
     const { data, error } = await supabase
       .from('email_campaigns_cache')
       .select('*')
+      .eq('account_id', account.id)
       .order('created_at', { ascending: false });
     
-    if (error) {
-      console.error("Erreur lors de la récupération des campagnes Acelle:", error);
-      return [];
-    }
+    if (error) throw error;
     
-    return data?.map(campaign => ({
-      uid: campaign.campaign_uid, // Ajout du champ uid requis par AcelleCampaign
-      campaign_uid: campaign.campaign_uid,
-      name: campaign.name || '',
-      subject: campaign.subject || '',
-      status: campaign.status || '',
-      created_at: campaign.created_at || '',
-      updated_at: campaign.updated_at || '',
-      delivery_date: campaign.delivery_date || null,
-      run_at: campaign.run_at || null,
-      last_error: campaign.last_error || null,
-      delivery_info: parseDeliveryInfo(campaign.delivery_info)
-    })) || [];
+    return data || [];
   } catch (error) {
-    console.error("Exception lors de la récupération des campagnes Acelle:", error);
+    console.error("Erreur lors de la récupération des campagnes:", error);
     return [];
   }
 };
 
 /**
- * Récupère une campagne Acelle par son UID
+ * Récupère une campagne spécifique par son UID
  */
-export const getCampaign = async (uid: string): Promise<AcelleCampaign | null> => {
+export const getCampaign = async (campaignUid: string, account: AcelleAccount): Promise<AcelleCampaign | null> => {
+  if (!campaignUid || !account) return null;
+  
   try {
+    // Recherche dans le cache
     const { data, error } = await supabase
       .from('email_campaigns_cache')
       .select('*')
-      .eq('campaign_uid', uid)
+      .eq('account_id', account.id)
+      .eq('campaign_uid', campaignUid)
       .single();
     
-    if (error) {
-      console.error("Erreur lors de la récupération de la campagne Acelle:", error);
-      return null;
-    }
-    
-    if (!data) {
-      return null;
-    }
-    
-    return {
-      uid: data.campaign_uid, // Ajout du champ uid requis par AcelleCampaign
-      campaign_uid: data.campaign_uid,
-      name: data.name || '',
-      subject: data.subject || '',
-      status: data.status || '',
-      created_at: data.created_at || '',
-      updated_at: data.updated_at || '',
-      delivery_date: data.delivery_date || null,
-      run_at: data.run_at || null,
-      last_error: data.last_error || null,
-      delivery_info: parseDeliveryInfo(data.delivery_info)
-    };
+    if (error) return null;
+    return data;
   } catch (error) {
-    console.error("Exception lors de la récupération de la campagne Acelle:", error);
+    console.error(`Erreur lors de la récupération de la campagne ${campaignUid}:`, error);
     return null;
   }
 };
 
 /**
- * Force la synchronisation des campagnes depuis Acelle
+ * Force la synchronisation des campagnes pour un compte Acelle
  */
-export const forceSyncCampaigns = async (account: any): Promise<{ success: boolean; message: string; error?: string }> => {
+export const forceSyncCampaigns = async (account: AcelleAccount): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> => {
+  if (!account) {
+    return {
+      success: false,
+      error: "Compte Acelle non fourni"
+    };
+  }
+  
   try {
-    console.log("Démarrage de la synchronisation forcée pour le compte:", account.id);
+    console.log(`Demande de synchronisation forcée pour le compte ${account.name}`);
     
-    if (!account?.id || !account?.api_endpoint || !account?.api_token) {
-      console.error("Informations de compte incomplètes pour la synchronisation forcée");
-      return { 
+    // Obtenir un token d'authentification pour appeler la fonction Edge
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !sessionData.session) {
+      console.error("Erreur d'authentification pour la synchronisation:", sessionError);
+      return {
         success: false, 
-        message: "Informations de compte incomplètes", 
-        error: "Identifiants API manquants" 
+        error: "Erreur d'authentification: " + (sessionError?.message || "Session non disponible")
       };
     }
     
-    // Récupérer le token d'authentification
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    const accessToken = sessionData.session.access_token;
     
-    if (!token) {
-      console.error("Aucun token d'authentification disponible");
-      return { 
-        success: false, 
-        message: "Erreur d'authentification", 
-        error: "Token d'authentification non disponible" 
-      };
+    // Diagnostic préalable pour comprendre l'état actuel des tables
+    try {
+      console.log("Diagnostic des tables avant synchronisation");
+      
+      const { data: diagData, error: diagError } = await supabase.functions.invoke('sync-email-campaigns', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Debug-Level': '4' // Niveau debug élevé pour plus de logs
+        },
+        body: {
+          accountId: account.id,
+          action: 'diagnose'
+        }
+      });
+      
+      if (diagError) {
+        console.error("Erreur lors du diagnostic:", diagError);
+      } else {
+        console.log("Résultat du diagnostic:", diagData);
+      }
+    } catch (diagErr) {
+      console.error("Exception lors du diagnostic:", diagErr);
     }
     
-    console.log("Appel de la fonction Edge pour synchroniser les campagnes");
-    
-    // Appeler la fonction edge pour synchroniser
+    // Appeler la fonction Edge pour forcer la synchronisation
     const { data, error } = await supabase.functions.invoke('sync-email-campaigns', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Acelle-Token': account.api_token,
-        'X-Acelle-Endpoint': account.api_endpoint,
-        'X-Debug-Level': '3' // Niveau DEBUG pour obtenir plus d'informations
+        'X-Debug-Level': '4' // Niveau debug élevé pour plus de logs
       },
-      body: { 
+      body: {
         accountId: account.id,
         apiToken: account.api_token,
         apiEndpoint: account.api_endpoint,
-        authMethod: 'token'
+        authMethod: 'url-param'
       }
     });
     
     if (error) {
       console.error("Erreur lors de l'appel à la fonction de synchronisation:", error);
-      return { 
-        success: false, 
-        message: `Erreur lors de l'appel à la fonction de synchronisation: ${error.message}`, 
-        error: error.message 
+      return {
+        success: false,
+        error: `Erreur serveur: ${error.message}`
       };
     }
     
-    if (data?.error) {
-      console.error("Erreur retournée par la fonction de synchronisation:", data.error);
-      return { 
-        success: false, 
-        message: `Erreur de synchronisation: ${data.error}`, 
-        error: data.error 
-      };
-    }
-    
-    console.log("Résultat de la synchronisation:", data);
-    
-    return { 
-      success: data?.success || false, 
-      message: data?.message || "Synchronisation terminée" 
-    };
-  } catch (error) {
-    console.error("Exception lors de la synchronisation forcée des campagnes:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return { success: false, message: errorMessage, error: errorMessage };
-  }
-};
-
-// Fonction utilitaire pour convertir les données JSON en type DeliveryInfo
-function parseDeliveryInfo(data: any): DeliveryInfo {
-  if (!data) return {} as DeliveryInfo;
-  
-  try {
-    // Si les données sont une chaîne, essayer de les parser
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data);
-      } catch (e) {
-        console.warn("Erreur parsing delivery_info string:", e);
-        return {} as DeliveryInfo;
+    // Force une mise à jour des statistiques agrégées
+    try {
+      console.log("Force update stats via RPC pour", account.id);
+      const { data: forceData, error: forceError } = await supabase.rpc('force_update_campaign_stats', {
+        account_id_param: account.id
+      });
+      
+      if (forceError) {
+        console.error("Erreur lors de la mise à jour forcée via RPC:", forceError);
+      } else {
+        console.log("Résultat du force_update_campaign_stats:", forceData);
       }
+    } catch (forceErr) {
+      console.error("Exception lors du forçage des stats:", forceErr);
     }
-
-    // Assurer que c'est un objet
-    if (typeof data !== 'object') {
-      return {} as DeliveryInfo;
+    
+    // Mise à jour des statistiques agrégées finale
+    try {
+      console.log("Agrégation finale via RPC pour", account.id);
+      const { error: aggError } = await supabase.rpc('update_acelle_campaign_stats', {
+        account_id_param: account.id
+      });
+      
+      if (aggError) {
+        console.error("Erreur lors de l'agrégation finale:", aggError);
+      } else {
+        console.log("Agrégation finale réussie");
+      }
+    } catch (aggErr) {
+      console.error("Exception lors de l'agrégation finale:", aggErr);
     }
-
-    // Gérer le cas où bounced est un nombre
-    if (typeof data.bounced === 'number') {
-      data = {
-        ...data,
-        bounced: {
-          total: data.bounced,
-          soft: data.soft_bounce_count || 0,
-          hard: data.hard_bounce_count || 0
-        }
+    
+    if (data && data.success) {
+      return {
+        success: true,
+        message: data.message || "Synchronisation effectuée avec succès"
+      };
+    } else {
+      return {
+        success: false,
+        error: (data && data.message) || "Erreur pendant la synchronisation"
       };
     }
-    
-    return data as DeliveryInfo;
-  } catch (e) {
-    console.error("Erreur lors du traitement de delivery_info:", e);
-    return {} as DeliveryInfo;
-  }
-}
-
-// Ajouter ces fonctions pour corriger les imports dans useAcelleCampaigns.ts
-export const extractCampaignsFromCache = async (accountId: string, options?: any) => {
-  console.log("Extracting campaigns from cache for account", accountId);
-  
-  try {
-    const { data, error } = await supabase
-      .from('email_campaigns_cache')
-      .select('*')
-      .eq('account_id', accountId)
-      .order('created_at', { ascending: false });
-      
-    if (error) {
-      console.error("Erreur lors de l'extraction des campagnes du cache:", error);
-      return [];
-    }
-    
-    return data?.map(campaign => ({
-      uid: campaign.campaign_uid,
-      campaign_uid: campaign.campaign_uid,
-      name: campaign.name || '',
-      subject: campaign.subject || '',
-      status: campaign.status || '',
-      created_at: campaign.created_at || '',
-      updated_at: campaign.updated_at || '',
-      delivery_date: campaign.delivery_date || null,
-      run_at: campaign.run_at || null,
-      last_error: campaign.last_error || null,
-      delivery_info: parseDeliveryInfo(campaign.delivery_info)
-    })) || [];
   } catch (error) {
-    console.error("Exception lors de l'extraction des campagnes du cache:", error);
-    return [];
-  }
-};
-
-// Fonction pour obtenir le statut du cache
-export const getCacheStatus = async (accountId: string) => {
-  try {
-    // Get last updated timestamp
-    const { data: lastUpdatedData, error: lastUpdatedError } = await supabase
-      .from('email_campaigns_cache')
-      .select('cache_updated_at')
-      .eq('account_id', accountId)
-      .order('cache_updated_at', { ascending: false })
-      .limit(1)
-      .single();
-      
-    // Get count
-    const { count, error: countError } = await supabase
-      .from('email_campaigns_cache')
-      .select('*', { count: 'exact', head: true })
-      .eq('account_id', accountId);
-      
-    if (lastUpdatedError && lastUpdatedError.code !== 'PGRST116') {
-      console.error("Erreur lors de la récupération du timestamp:", lastUpdatedError);
-    }
-    
-    if (countError) {
-      console.error("Erreur lors du comptage des campagnes:", countError);
-    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Exception lors de la synchronisation:", error);
     
     return {
-      lastUpdated: lastUpdatedData?.cache_updated_at || null,
-      count: count || 0
+      success: false,
+      error: errorMessage
     };
-  } catch (error) {
-    console.error("Exception lors de la récupération du statut du cache:", error);
-    return { lastUpdated: null, count: 0 };
   }
 };

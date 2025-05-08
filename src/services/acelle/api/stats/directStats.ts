@@ -50,7 +50,10 @@ export const enrichCampaignsWithStats = async (
         statistics = await getCachedStatistics(campaignUid, account.id);
         
         if (statistics) {
-          console.log(`Found cached statistics for campaign ${campaignUid}`);
+          console.log(`Found cached statistics for campaign ${campaignUid}:`, {
+            openRate: statistics.uniq_open_rate || 'Non défini',
+            clickRate: statistics.click_rate || 'Non défini',
+          });
         }
       }
       
@@ -62,6 +65,11 @@ export const enrichCampaignsWithStats = async (
           statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
           
           if (statistics) {
+            console.log(`Statistics received from API for campaign ${campaignUid}:`, {
+              openRate: statistics.uniq_open_rate || 'Non défini',
+              clickRate: statistics.click_rate || 'Non défini',
+            });
+            
             // Save to cache for future use
             console.log(`Saving new statistics to cache for campaign ${campaignUid}`);
             await saveCampaignStatistics(campaignUid, account.id, statistics);
@@ -74,9 +82,20 @@ export const enrichCampaignsWithStats = async (
       }
       
       // Add statistics to campaign
+      const enrichedStatistics = statistics ? ensureValidStatistics(statistics) : campaign.statistics || null;
+      
+      // Debug logs pour tracer les valeurs
+      if (enrichedStatistics) {
+        console.log(`Final statistics for ${campaignUid}:`, {
+          openRate: enrichedStatistics.uniq_open_rate || 'Non défini',
+          clickRate: enrichedStatistics.click_rate || 'Non défini',
+        });
+      }
+      
       enrichedCampaigns.push({
         ...campaign,
-        statistics: statistics ? ensureValidStatistics(statistics) : campaign.statistics || null
+        statistics: enrichedStatistics,
+        delivery_info: enrichedStatistics // Dupliquer les statistiques dans delivery_info pour assurer la compatibilité
       });
     } catch (error) {
       console.error(`Error enriching campaign ${campaign.uid || campaign.name} with stats:`, error);

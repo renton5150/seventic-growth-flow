@@ -42,6 +42,14 @@ export const AcelleTableRow = ({
       console.log(`[TableRow] Initialisation des statistiques pour la campagne ${campaignName}`, {
         hasDeliveryInfo: !!campaign.delivery_info,
         hasStatistics: !!campaign.statistics,
+        deliveryInfo: campaign.delivery_info ? {
+          openRate: campaign.delivery_info.uniq_open_rate || 'Non défini',
+          clickRate: campaign.delivery_info.click_rate || 'Non défini'
+        } : 'No delivery_info',
+        statistics: campaign.statistics ? {
+          openRate: campaign.statistics.uniq_open_rate || 'Non défini',
+          clickRate: campaign.statistics.click_rate || 'Non défini'
+        } : 'No statistics',
         account: account ? {
           hasToken: !!account.api_token,
           hasEndpoint: !!account.api_endpoint
@@ -61,7 +69,11 @@ export const AcelleTableRow = ({
           refresh: false // Utiliser le cache si disponible et frais
         }) as AcelleCampaign;
         
-        console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, enrichedCampaign);
+        console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, {
+          hasStatistics: !!enrichedCampaign.statistics,
+          openRate: enrichedCampaign.statistics?.uniq_open_rate || 'Non défini',
+          clickRate: enrichedCampaign.statistics?.click_rate || 'Non défini'
+        });
         
         // Mettre à jour l'état local avec les statistiques récupérées
         if (enrichedCampaign && enrichedCampaign.statistics) {
@@ -70,6 +82,8 @@ export const AcelleTableRow = ({
           // Enrichir également la campagne avec les statistiques pour qu'elles soient disponibles dans le détail
           campaign.statistics = enrichedCampaign.statistics;
           campaign.delivery_info = enrichedCampaign.delivery_info;
+        } else {
+          console.warn(`[TableRow] Pas de statistiques disponibles pour ${campaignName}`);
         }
       } catch (error) {
         console.error(`[TableRow] Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
@@ -98,6 +112,7 @@ export const AcelleTableRow = ({
     if (stats?.subscriber_count) return stats.subscriber_count;
     if (campaign.statistics?.subscriber_count) return campaign.statistics.subscriber_count;
     if (campaign.delivery_info?.total) return campaign.delivery_info.total;
+    if (campaign.delivery_info?.subscriber_count) return campaign.delivery_info.subscriber_count;
     return 0;
   };
 
@@ -105,7 +120,10 @@ export const AcelleTableRow = ({
     if (stats?.uniq_open_rate) return stats.uniq_open_rate;
     if (stats?.open_rate) return stats.open_rate;
     if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
+    if (campaign.statistics?.open_rate) return campaign.statistics.open_rate;
     if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
+    if (campaign.delivery_info?.uniq_open_rate) return campaign.delivery_info.uniq_open_rate;
+    if (campaign.delivery_info?.open_rate) return campaign.delivery_info.open_rate;
     return 0;
   };
 
@@ -129,6 +147,10 @@ export const AcelleTableRow = ({
       }
     }
     
+    if (campaign.delivery_info?.bounce_count) {
+      return campaign.delivery_info.bounce_count;
+    }
+    
     return 0;
   };
 
@@ -140,7 +162,7 @@ export const AcelleTableRow = ({
 
   // Journaliser les données de la campagne pour le débogage
   useEffect(() => {
-    console.debug(`[TableRow] Données finales pour campagne ${campaignName}:`, {
+    console.log(`[TableRow] Données finales pour campagne ${campaignName}:`, {
       id: campaignUid,
       hasStats: !!stats,
       statsValues: {
@@ -151,7 +173,7 @@ export const AcelleTableRow = ({
       },
       rawStats: stats,
       campaignStatistics: campaign.statistics,
-      deliveryInfo: campaign.delivery_info
+      campaignDeliveryInfo: campaign.delivery_info
     });
   }, [campaignName, campaignUid, totalSent, openRate, clickRate, bounceCount, stats, campaign.statistics, campaign.delivery_info]);
   
@@ -182,14 +204,14 @@ export const AcelleTableRow = ({
       <TableCell className="tabular-nums">
         {isLoading ? "..." : bounceCount.toLocaleString()}
       </TableCell>
-      <TableCell className="text-right">
-        <Button 
-          variant="ghost" 
-          size="icon"
+      <TableCell>
+        <Button
+          size="sm"
+          variant="ghost"
           onClick={handleViewCampaign}
-          title="Voir les détails"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-4 w-4 mr-2" />
+          Voir
         </Button>
       </TableCell>
     </TableRow>

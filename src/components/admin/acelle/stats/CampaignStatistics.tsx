@@ -2,6 +2,7 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface CampaignStatisticsProps {
   statistics: AcelleCampaignStatistics;
@@ -30,6 +31,16 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
     return `${(value * 100).toFixed(1)}%`;
   };
 
+  // Debug les valeurs des statistiques
+  console.log("[CampaignStatistics] Statistiques reçues:", {
+    statisticsObj: statistics,
+    keys: Object.keys(statistics || {}),
+    openRate: statistics?.uniq_open_rate || 'Non défini',
+    clickRate: statistics?.click_rate || 'Non défini',
+    delivered: statistics?.delivered_count || 'Non défini',
+    total: statistics?.subscriber_count || 'Non défini'
+  });
+
   // Récupération des valeurs importantes
   const total = statistics?.subscriber_count || 0;
   const delivered = statistics?.delivered_count || 0;
@@ -46,6 +57,34 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
   const openRate = statistics?.uniq_open_rate || statistics?.open_rate || 
     (delivered > 0 ? (opened / delivered) * 100 : 0);
   const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
+
+  // Afficher un état de chargement ou un message d'absence de données si nécessaire
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!statistics || Object.keys(statistics).length === 0) {
+    return (
+      <div className="p-8 text-center border rounded-lg bg-muted/10">
+        <p className="text-xl font-medium text-muted-foreground">Aucune statistique disponible pour cette campagne</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Les statistiques seront disponibles une fois la campagne envoyée et les données synchronisées.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -136,6 +175,16 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
           </CardContent>
         </Card>
       </div>
+
+      {/* Affichage des données brutes pour le débogage */}
+      {process.env.NODE_ENV !== 'production' && (
+        <details className="mt-8 p-4 border rounded-lg">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Données brutes (debug)</summary>
+          <pre className="mt-2 p-4 bg-muted/10 rounded text-xs overflow-auto max-h-96">
+            {JSON.stringify(statistics, null, 2)}
+          </pre>
+        </details>
+      )}
     </div>
   );
 };

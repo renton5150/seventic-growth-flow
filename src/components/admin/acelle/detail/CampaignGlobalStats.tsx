@@ -7,6 +7,14 @@ interface CampaignGlobalStatsProps {
 }
 
 export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) => {
+  // Debug des données reçues
+  console.log("[CampaignGlobalStats] Statistics received:", {
+    raw: statistics,
+    keys: Object.keys(statistics || {}),
+    openRate: statistics?.uniq_open_rate || 'Non défini',
+    clickRate: statistics?.click_rate || 'Non défini'
+  });
+
   // Formatage des nombres
   const formatNumber = (value?: number): string => {
     if (value === undefined || value === null) return "0";
@@ -16,7 +24,14 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
   // Formatage des pourcentages
   const formatPercentage = (value?: number): string => {
     if (value === undefined || value === null) return "0%";
-    return `${value.toFixed(1)}%`;
+    
+    // Si la valeur est déjà un pourcentage (0-100)
+    if (value > 1) {
+      return `${value.toFixed(1)}%`;
+    }
+    
+    // Si la valeur est une proportion (0-1)
+    return `${(value * 100).toFixed(1)}%`;
   };
 
   // Récupération des valeurs importantes
@@ -29,7 +44,7 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
 
   // Calcul des taux si nécessaire
   const deliveryRate = statistics?.delivered_rate || (total > 0 ? (delivered / total) * 100 : 0);
-  const openRate = statistics?.uniq_open_rate || (delivered > 0 ? (opened / delivered) * 100 : 0);
+  const openRate = statistics?.uniq_open_rate || statistics?.open_rate || (delivered > 0 ? (opened / delivered) * 100 : 0);
   const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
 
   return (
