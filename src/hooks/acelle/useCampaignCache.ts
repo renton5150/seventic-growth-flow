@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AcelleAccount } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -12,6 +12,8 @@ export const useCampaignCache = (account: AcelleAccount) => {
   const [campaignsCount, setCampaignsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [lastRefreshTimestamp, setLastRefreshTimestamp] = useState<string | null>(null);
+  const [isCacheBusy, setIsCacheBusy] = useState<boolean>(false);
 
   /**
    * Obtient le nombre de campagnes en cache pour ce compte
@@ -39,6 +41,7 @@ export const useCampaignCache = (account: AcelleAccount) => {
       console.log(`${count || 0} campagnes trouvées en cache pour le compte ${account.name}`);
       setCampaignsCount(count || 0);
       setLastRefreshed(new Date());
+      setLastRefreshTimestamp(new Date().toISOString());
       
       // Obtenir également les statistiques agrégées
       const { data: statsData } = await supabase
@@ -60,6 +63,36 @@ export const useCampaignCache = (account: AcelleAccount) => {
       return 0;
     } finally {
       setIsLoading(false);
+    }
+  }, [account]);
+  
+  /**
+   * Vérifie si les statistiques de campagnes sont disponibles
+   */
+  const checkCacheStatistics = useCallback(async () => {
+    if (!account?.id) return null;
+    
+    try {
+      setIsCacheBusy(true);
+      
+      // Vérifier les statistiques agrégées
+      const { data, error } = await supabase
+        .from('email_campaigns_stats')
+        .select('*')
+        .eq('account_id', account.id)
+        .maybeSingle();
+        
+      if (error) {
+        console.error("Erreur lors de la vérification des statistiques:", error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error("Exception lors de la vérification des statistiques:", error);
+      return null;
+    } finally {
+      setIsCacheBusy(false);
     }
   }, [account]);
   
@@ -123,17 +156,20 @@ export const useCampaignCache = (account: AcelleAccount) => {
   }, [account]);
 
   // Initialiser le compteur au chargement
-  useState(() => {
+  useEffect(() => {
     if (account?.id) {
       getCachedCampaignsCount();
     }
-  });
+  }, [account, getCachedCampaignsCount]);
 
   return {
     campaignsCount,
     isLoading,
     lastRefreshed,
+    lastRefreshTimestamp,
+    isCacheBusy,
     getCachedCampaignsCount,
-    clearAccountCache
+    clearAccountCache,
+    checkCacheStatistics
   };
 };

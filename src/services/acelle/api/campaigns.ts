@@ -21,10 +21,107 @@ export const getCampaigns = async (account: AcelleAccount): Promise<AcelleCampai
     
     if (error) throw error;
     
-    return data || [];
+    // Transformer les données du cache pour correspondre au type AcelleCampaign
+    return (data || []).map(item => ({
+      uid: item.campaign_uid,
+      campaign_uid: item.campaign_uid,
+      name: item.name,
+      subject: item.subject,
+      status: item.status,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      delivery_date: item.delivery_date,
+      run_at: item.run_at,
+      last_error: item.last_error,
+      delivery_info: item.delivery_info,
+      // Autres propriétés si nécessaires
+    }));
   } catch (error) {
     console.error("Erreur lors de la récupération des campagnes:", error);
     return [];
+  }
+};
+
+/**
+ * Extrait les campagnes du cache pour un compte donné
+ */
+export const extractCampaignsFromCache = async (accountId: string, page = 1, perPage = 10): Promise<AcelleCampaign[]> => {
+  try {
+    // Calcul du décalage pour la pagination
+    const from = (page - 1) * perPage;
+    const to = from + perPage - 1;
+    
+    // Récupérer les campagnes du cache avec pagination
+    const { data, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    
+    if (error) {
+      console.error("Erreur lors de l'extraction des campagnes du cache:", error);
+      return [];
+    }
+    
+    // Transformer les données du cache pour correspondre au type AcelleCampaign
+    return (data || []).map(item => ({
+      uid: item.campaign_uid,
+      campaign_uid: item.campaign_uid,
+      name: item.name,
+      subject: item.subject,
+      status: item.status,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      delivery_date: item.delivery_date,
+      run_at: item.run_at,
+      last_error: item.last_error,
+      delivery_info: item.delivery_info,
+      // Autres propriétés si nécessaires
+    }));
+  } catch (error) {
+    console.error("Erreur lors de l'extraction des campagnes du cache:", error);
+    return [];
+  }
+};
+
+/**
+ * Obtient le statut du cache pour un compte spécifique
+ */
+export const getCacheStatus = async (accountId: string): Promise<{ lastUpdated: string | null; count: number }> => {
+  try {
+    // Récupérer le nombre total de campagnes en cache
+    const { count: totalCount, error: countError } = await supabase
+      .from('email_campaigns_cache')
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', accountId);
+    
+    if (countError) {
+      throw countError;
+    }
+    
+    // Récupérer la date de dernière mise à jour du cache
+    const { data: latestUpdate, error: updateError } = await supabase
+      .from('email_campaigns_cache')
+      .select('cache_updated_at')
+      .eq('account_id', accountId)
+      .order('cache_updated_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    // Si aucune date n'est trouvée ou une erreur se produit, retourner null
+    const lastUpdated = updateError ? null : latestUpdate?.cache_updated_at;
+    
+    return {
+      lastUpdated,
+      count: totalCount || 0
+    };
+  } catch (error) {
+    console.error("Erreur lors de la récupération du statut du cache:", error);
+    return {
+      lastUpdated: null,
+      count: 0
+    };
   }
 };
 
@@ -44,7 +141,22 @@ export const getCampaign = async (campaignUid: string, account: AcelleAccount): 
       .single();
     
     if (error) return null;
-    return data;
+    
+    // Transformer les données du cache pour correspondre au type AcelleCampaign
+    return {
+      uid: data.campaign_uid,
+      campaign_uid: data.campaign_uid,
+      name: data.name,
+      subject: data.subject,
+      status: data.status,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      delivery_date: data.delivery_date,
+      run_at: data.run_at,
+      last_error: data.last_error,
+      delivery_info: data.delivery_info,
+      // Autres propriétés si nécessaires
+    };
   } catch (error) {
     console.error(`Erreur lors de la récupération de la campagne ${campaignUid}:`, error);
     return null;

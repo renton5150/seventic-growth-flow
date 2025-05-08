@@ -11,13 +11,15 @@ import {
 import { 
   getCampaigns, 
   getCampaign, 
-  forceSyncCampaigns
+  forceSyncCampaigns,
+  extractCampaignsFromCache,
+  getCacheStatus
 } from "./api/campaigns";
 
 import { 
   fetchAndProcessCampaignStats, 
   enrichCampaignsWithStats 
-} from "./api/campaignStats";
+} from "./api/stats/campaignStats";
 
 import { 
   checkAcelleConnectionStatus,
@@ -41,7 +43,9 @@ export const acelleService = {
     fetchOne: getCampaign,
     forceSync: forceSyncCampaigns,
     getStats: fetchAndProcessCampaignStats,
-    enrichWithStats: enrichCampaignsWithStats
+    enrichWithStats: enrichCampaignsWithStats,
+    extractFromCache: extractCampaignsFromCache,
+    getCacheStatus: getCacheStatus
   },
   connection: {
     checkStatus: checkAcelleConnectionStatus,
