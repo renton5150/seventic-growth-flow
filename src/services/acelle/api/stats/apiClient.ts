@@ -5,7 +5,7 @@ import { buildApiPath } from "@/utils/acelle/proxyUtils";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
- * Modifié pour utiliser la construction d'URL corrigée
+ * Modifié pour utiliser la construction d'URL corrigée et diagnostiquer les erreurs de chemin
  */
 export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
@@ -24,9 +24,22 @@ export const fetchCampaignStatisticsFromApi = async (
     console.log(`Fetching statistics from API for campaign ${campaignUid}`);
     
     // Construire l'URL pour la requête API en utilisant buildApiPath
-    const apiPath = `campaigns/${campaignUid}/statistics`;
+    // IMPORTANT: Vérifier si l'endpoint contient déjà /api/v1
+    const hasApiV1InEndpoint = account.api_endpoint.includes('/api/v1');
     
-    console.log(`Chemin API à appeler: ${apiPath}`);
+    // Si l'endpoint contient déjà /api/v1, ne l'ajoutons pas au chemin
+    let apiPath;
+    if (hasApiV1InEndpoint) {
+      // Utiliser simplement le chemin de la campagne sans ajouter /api/v1/
+      apiPath = `campaigns/${campaignUid}/statistics`;
+      console.log(`L'endpoint contient déjà /api/v1, chemin direct utilisé: ${apiPath}`);
+    } else {
+      // Endpoint standard, ajouter le préfixe normalement
+      apiPath = `campaigns/${campaignUid}/statistics`;
+      console.log(`Utilisation du chemin standard: ${apiPath}`);
+    }
+    
+    console.log(`Chemin API à appeler: ${apiPath}, endpoint: ${account.api_endpoint}`);
     
     // Obtenir le token d'authentification Supabase
     const { data: sessionData } = await supabase.auth.getSession();
@@ -39,6 +52,7 @@ export const fetchCampaignStatisticsFromApi = async (
     
     // Utiliser buildApiPath pour construire l'URL correctement
     const proxyUrl = buildApiPath(account.api_endpoint, apiPath);
+    console.log(`URL complète construite pour la requête: ${proxyUrl}`);
     
     // Préparer les en-têtes pour l'authentification correcte
     const headers = {
@@ -46,7 +60,8 @@ export const fetchCampaignStatisticsFromApi = async (
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${sessionToken}`, // Token Supabase pour l'Edge Function
       'X-Acelle-Token': account.api_token, // Token Acelle pour l'API
-      'X-Acelle-Endpoint': account.api_endpoint // Endpoint explicite
+      'X-Acelle-Endpoint': account.api_endpoint, // Endpoint explicite
+      'X-Debug-Level': '4' // Niveau de log élevé pour diagnostic
     };
     
     // Ajouter des logs détaillés pour diagnostiquer les problèmes d'authentification
@@ -56,7 +71,7 @@ export const fetchCampaignStatisticsFromApi = async (
       'X-Acelle-Token': '***MASKED***'
     });
     
-    console.log(`URL du proxy: ${proxyUrl} (les paramètres d'authentification seront ajoutés par l'Edge Function)`);
+    console.log(`URL du proxy: ${proxyUrl}`);
     
     // Effectuer la requête via le proxy
     console.log(`Envoi de la requête au proxy...`);
@@ -68,14 +83,23 @@ export const fetchCampaignStatisticsFromApi = async (
     // Amélioration de la gestion des erreurs
     if (!response.ok) {
       // Journaliser plus de détails sur l'erreur
-      const errorText = await response.text();
-      console.error(`Erreur API ${response.status}: ${errorText.substring(0, 500)}...`);
+      let errorText = '';
+      try {
+        errorText = await response.text();
+        console.error(`Erreur API ${response.status}: ${errorText.substring(0, 500)}...`);
+      } catch (e) {
+        console.error(`Impossible de lire le corps de la réponse d'erreur: ${e}`);
+      }
       
       // Gestion spécifique pour le 404 Not Found
       if (response.status === 404) {
-        console.error(`Ressource non trouvée (404): L'URL demandée n'existe pas. 
-        Vérifiez le chemin d'API et la structure de l'URL: ${proxyUrl}`);
-        throw new Error(`La ressource demandée n'existe pas (404 Not Found)`);
+        console.error(`Ressource non trouvée (404): L'URL demandée n'existe pas.
+        Vérifiez le chemin d'API et la structure de l'URL: ${proxyUrl}
+        Votre endpoint API est: ${account.api_endpoint}
+        Chemin demandé: ${apiPath}
+        L'endpoint contient-il déjà /api/v1? ${hasApiV1InEndpoint ? 'OUI' : 'NON'}`);
+        
+        throw new Error(`La ressource demandée n'existe pas (404 Not Found). Vérifiez la structure de l'URL.`);
       }
       
       // Gestion spécifique pour le 403 Forbidden

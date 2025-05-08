@@ -87,20 +87,38 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
  * @returns URL complète pour l'API
  */
 export const buildApiPath = (apiEndpoint: string, path: string, params: Record<string, string> = {}): string => {
-  // Nettoyer l'endpoint et le chemin
+  // Nettoyer l'endpoint - enlever le slash final s'il existe
   const cleanEndpoint = apiEndpoint.replace(/\/$/, '');
   
-  // CORRECTION: Vérifier si le chemin contient déjà le préfixe /api/v1/
-  const hasApiPrefix = path.startsWith('/api/v1/') || path.startsWith('api/v1/');
+  // CORRECTION MAJEURE: Vérifier si l'endpoint contient déjà "api/v1"
+  // Si l'endpoint contient déjà "/api/v1", on ne doit pas l'ajouter dans le chemin
+  const hasApiPrefixInEndpoint = cleanEndpoint.includes('/api/v1');
+  
+  // Vérifier si le chemin contient déjà le préfixe /api/v1/
+  const hasApiPrefixInPath = path.startsWith('/api/v1/') || path.startsWith('api/v1/');
   
   // Nettoyer le chemin (supprimer le slash initial si présent)
   const cleanPath = path.startsWith('/') ? path.substring(1) : path;
   
   // Déterminer le chemin final à utiliser
-  const finalPath = hasApiPrefix ? cleanPath : `api/v1/${cleanPath}`;
+  let finalPath;
   
-  // Log pour debug
-  console.log(`Construction chemin API: endpoint=${cleanEndpoint}, chemin=${path}, chemin final=${finalPath}`);
+  if (hasApiPrefixInEndpoint) {
+    // Si l'endpoint contient déjà "/api/v1", on utilise simplement le chemin nettoyé
+    finalPath = cleanPath;
+    console.log(`Endpoint contient déjà api/v1, utilisation directe du chemin: ${finalPath}`);
+  } else if (hasApiPrefixInPath) {
+    // Si le chemin contient déjà le préfixe, on l'utilise tel quel
+    finalPath = cleanPath;
+    console.log(`Chemin avec préfixe api/v1 détecté: ${finalPath}`);
+  } else {
+    // Sinon, on ajoute le préfixe au chemin
+    finalPath = `api/v1/${cleanPath}`;
+    console.log(`Ajout du préfixe api/v1 au chemin: ${finalPath}`);
+  }
+  
+  // Log pour debug - TRÈS IMPORTANT pour diagnostiquer les problèmes d'URL
+  console.log(`Construction URL complète: endpoint=${cleanEndpoint}, chemin=${path}, chemin final=${finalPath}`);
   
   // Construire l'URL avec le chemin API
   return buildProxyUrl(cleanEndpoint, {

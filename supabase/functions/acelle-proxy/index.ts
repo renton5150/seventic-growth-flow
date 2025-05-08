@@ -63,7 +63,7 @@ function logMessage(message: string, data?: any, level: number = LOG_LEVELS.INFO
 
 // Log initial pour vérifier que la fonction démarre correctement
 logMessage("===== FONCTION ACELLE-PROXY DÉMARRÉE =====", {
-  version: "1.7.0", // Version incrémentée pour suivre les changements et corrections 404
+  version: "1.8.0", // Version incrémentée pour suivre les corrections de duplication d'URL
   timestamp: new Date().toISOString()
 }, LOG_LEVELS.INFO);
 
@@ -117,19 +117,41 @@ serve(async (req) => {
     const url = new URL(req.url);
     const apiPath = url.searchParams.get('path') || req.headers.get('path') || '';
     
-    // CORRECTION: Meilleure détection et gestion des préfixes d'API pour éviter les doublons
-    const hasApiPrefix = apiPath.startsWith('/api/v1/') || apiPath.startsWith('api/v1/');
+    // CORRECTION MAJEURE: Détection correcte des préfixes pour éviter la duplication
     
-    // Construire l'URL complète de l'API en évitant la duplication du préfixe /api/v1/
+    // 1. Vérifier si l'endpoint contient déjà le préfixe /api/v1
+    const hasApiPrefixInEndpoint = acelleEndpoint.includes('/api/v1');
+    
+    // 2. Vérifier si le chemin contient le préfixe /api/v1/
+    const hasApiPrefixInPath = apiPath.startsWith('/api/v1/') || apiPath.startsWith('api/v1/');
+    
+    // 3. Nettoyer le chemin (supprimer le slash initial si présent)
+    const cleanPath = apiPath.startsWith('/') ? apiPath.substring(1) : apiPath;
+    
+    // 4. Construire l'URL complète en évitant la duplication du préfixe
     let apiUrl;
-    if (hasApiPrefix) {
-      // Si le chemin contient déjà le préfixe, l'utiliser tel quel
-      apiUrl = `${acelleEndpoint}/${apiPath.startsWith('/') ? apiPath.substring(1) : apiPath}`;
-      logMessage(`Chemin API avec préfixe détecté: ${apiPath}`, { url: apiUrl }, LOG_LEVELS.DEBUG);
+    
+    if (hasApiPrefixInEndpoint) {
+      // Si l'endpoint contient déjà "/api/v1", nous ne l'ajoutons pas au chemin
+      apiUrl = `${acelleEndpoint}/${cleanPath}`;
+      logMessage(`URL avec endpoint contenant api/v1: ${apiUrl}`, { 
+        endpoint: acelleEndpoint, 
+        cleanPath: cleanPath 
+      }, LOG_LEVELS.DEBUG);
+    } else if (hasApiPrefixInPath) {
+      // Si le chemin contient déjà le préfixe, on l'utilise tel quel
+      apiUrl = `${acelleEndpoint}/${cleanPath}`;
+      logMessage(`URL avec chemin contenant api/v1: ${apiUrl}`, { 
+        endpoint: acelleEndpoint, 
+        cleanPath: cleanPath 
+      }, LOG_LEVELS.DEBUG);
     } else {
-      // Sinon, ajouter le préfixe /api/v1/
-      apiUrl = `${acelleEndpoint}/api/v1/${apiPath.startsWith('/') ? apiPath.substring(1) : apiPath}`;
-      logMessage(`Ajout du préfixe API standard au chemin: ${apiPath}`, { url: apiUrl }, LOG_LEVELS.DEBUG);
+      // Sinon, ajouter le préfixe au chemin
+      apiUrl = `${acelleEndpoint}/api/v1/${cleanPath}`;
+      logMessage(`URL avec ajout du préfixe api/v1: ${apiUrl}`, { 
+        endpoint: acelleEndpoint, 
+        cleanPath: cleanPath 
+      }, LOG_LEVELS.DEBUG);
     }
     
     // Journaliser l'URL avant d'ajouter le token pour ne pas exposer le token dans les logs
@@ -138,7 +160,8 @@ serve(async (req) => {
       method: req.method,
       headers_count: [...req.headers.keys()].length,
       path: apiPath,
-      has_prefix: hasApiPrefix
+      has_prefix_in_endpoint: hasApiPrefixInEndpoint,
+      has_prefix_in_path: hasApiPrefixInPath
     }, LOG_LEVELS.INFO);
     
     // Ajouter le token API à l'URL
@@ -163,7 +186,7 @@ serve(async (req) => {
     const apiHeaders = new Headers();
     apiHeaders.set('Accept', 'application/json');
     apiHeaders.set('Content-Type', 'application/json');
-    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.7');
+    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.8');
     apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Ajouter aussi en header pour compatibilité
     apiHeaders.set('X-API-TOKEN', acelleToken);
     
@@ -219,7 +242,9 @@ serve(async (req) => {
         logMessage(`Ressource non trouvée (404) pour l'URL: ${urlForLogs}`, {
           url_finale: urlForLogs,
           path_original: apiPath,
-          has_prefix: hasApiPrefix
+          has_prefix_in_endpoint: hasApiPrefixInEndpoint,
+          has_prefix_in_path: hasApiPrefixInPath,
+          full_url_analyzed: finalUrlWithParams.replace(acelleToken, "API_TOKEN_MASKED")
         }, LOG_LEVELS.ERROR);
         
         // Tentative de diagnostic pour les erreurs 404
@@ -229,9 +254,15 @@ serve(async (req) => {
             message: "Ressource non trouvée (404)",
             details: {
               path: apiPath,
-              has_api_prefix: hasApiPrefix,
+              has_api_prefix_in_endpoint: hasApiPrefixInEndpoint,
+              has_api_prefix_in_path: hasApiPrefixInPath,
               endpoint_base: acelleEndpoint,
-              suggested_check: "Vérifiez que le chemin d'API est correct et que la ressource existe"
+              suggested_checks: [
+                "Vérifiez que le chemin d'API est correct",
+                "Vérifiez que la ressource existe dans votre version d'Acelle",
+                "Vérifiez que l'endpoint de base est correct et n'inclut pas déjà /api/v1",
+                "Essayez d'appeler un endpoint plus simple comme 'me' pour tester la connexion"
+              ]
             },
             timestamp: new Date().toISOString()
           }),

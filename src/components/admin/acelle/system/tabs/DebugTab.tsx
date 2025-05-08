@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Check, AlertTriangle, WifiOff, FileQuestion } from "lucide-react";
+import { Check, AlertTriangle, WifiOff, FileQuestion, RefreshCw } from "lucide-react";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { Button } from "@/components/ui/button";
 
@@ -88,10 +88,15 @@ export const DebugTab: React.FC<DebugTabProps> = ({
             disabled={isTestingConnection}
             className="w-full sm:w-auto"
           >
+            {isTestingConnection ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
             {isTestingConnection ? "Test en cours..." : "Tester la connexion API"}
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            Note: Ce test utilise désormais l'authentification par paramètre URL (api_token) et par en-têtes HTTP pour une compatibilité maximale.
+            Note: Ce test utilise l'authentification par paramètre URL (api_token) et par en-têtes HTTP pour une compatibilité maximale.
           </p>
         </div>
       )}
@@ -128,15 +133,22 @@ export const DebugTab: React.FC<DebugTabProps> = ({
             </div>
           )}
           
-          {/* Affichage spécifique pour l'erreur 404 */}
+          {/* Affichage spécifique pour l'erreur 404 - AMÉLIORÉ */}
           {debugInfo.statusCode === 404 && (
             <div className="mt-2 text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
               <strong>Ressource non trouvée (404)</strong>: L'URL demandée n'existe pas sur l'API Acelle.
-              <ul className="list-disc pl-5 mt-1 space-y-1">
-                <li>Vérifiez le chemin d'API utilisé</li>
+              <ul className="list-disc pl-5 mt-2 space-y-1.5">
+                <li>Vérifiez le chemin d'API utilisé et ses préfixes</li>
+                <li><strong>Attention aux doublons de préfixe</strong>: Si l'endpoint contient déjà "/api/v1", ne répétez pas ce préfixe dans le chemin</li>
                 <li>Confirmez que la ressource existe dans votre version d'Acelle</li>
-                <li>Examinez les logs pour voir l'URL exacte appelée</li>
+                <li>Essayez un endpoint simple comme "/me" pour vérifier l'authentification</li>
+                <li>Vérifiez l'URL exacte dans les logs de la fonction Edge</li>
+                <li>Vérifiez que la plateforme Acelle Mail est bien en ligne</li>
               </ul>
+              
+              <div className="mt-3 p-2 bg-purple-100 rounded">
+                <strong>Correction appliquée:</strong> Le système a été mis à jour pour éviter la duplication du préfixe "/api/v1/" dans les URLs d'API.
+              </div>
             </div>
           )}
           
@@ -177,6 +189,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
           <li>Vérifiez que votre session Supabase est active</li>
           <li>Essayez de "Réveiller les services" si les API sont inaccessibles</li>
           <li>Vérifiez les identifiants API dans les paramètres du compte</li>
+          <li><strong>IMPORTANT:</strong> Vérifiez si votre URL d'API contient déjà "/api/v1" pour éviter la duplication</li>
           <li>La méthode d'authentification par paramètre URL (?api_token=) est maintenant utilisée</li>
           <li>Les en-têtes <code>X-Acelle-Token</code> et <code>X-Acelle-Endpoint</code> sont également supportés</li>
           <li>Si le cache est vide, synchronisez les campagnes depuis un compte valide</li>
