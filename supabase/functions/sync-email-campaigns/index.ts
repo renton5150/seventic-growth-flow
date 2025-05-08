@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -388,7 +389,11 @@ async function fetchCampaignsForAccount(account: any, options: {
     
     debugLog(`API endpoint accessibility test for ${accountName}:`, accessTest, LOG_LEVELS.INFO);
     
-    if (!accessTest.success) {
+    // MODIFICATION: Ne pas échouer sur le code 403, certaines APIs exigent toujours une authentification
+    // Continuer même si accessTest.success est false mais que le statut est 403
+    const proceedDespiteError = accessTest.statusCode === 403;
+    
+    if (!accessTest.success && !proceedDespiteError) {
       const statusMessage = `error: API endpoint inaccessible - ${accessTest.message}`;
       await updateAccountStatus(account.id, statusMessage);
       return { 
@@ -400,6 +405,12 @@ async function fetchCampaignsForAccount(account: any, options: {
           timestamp: new Date().toISOString()
         }
       };
+    }
+    
+    // Si on a reçu un 403, on log simplement un avertissement mais on continue
+    if (proceedDespiteError) {
+      debugLog(`API endpoint returned 403 for ${accountName}, but we'll proceed with authenticated requests`, 
+        accessTest, LOG_LEVELS.WARN);
     }
     
     // Test des méthodes d'authentification disponibles
