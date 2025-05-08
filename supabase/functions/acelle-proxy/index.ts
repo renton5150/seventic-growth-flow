@@ -1,259 +1,230 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, handleCorsPreflightRequest } from './cors.ts';
-import { debugLog, LOG_LEVELS, determineLogLevel } from './logger.ts';
-import { HeartbeatManager } from './heartbeat.ts';
-import { CONFIG } from './config.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-// Initialisation du gestionnaire de heartbeat
-const heartbeatManager = new HeartbeatManager(
-  CONFIG.SUPABASE_URL, 
-  CONFIG.SERVICE_ROLE_KEY, 
-  'acelle-proxy', 
-  CONFIG.HEARTBEAT_INTERVAL
-);
+// Configuration CORS pour permettre les requêtes cross-origin
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-token, x-acelle-endpoint',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+  'Vary': 'Origin'
+};
 
-// Point d'entrée principal de la fonction edge
+// Configuration des niveaux de log
+const LOG_LEVELS = {
+  ERROR: 0,
+  WARN: 1,
+  INFO: 2,
+  DEBUG: 3,
+  TRACE: 4
+};
+
+// Niveau de log par défaut
+let currentLogLevel = LOG_LEVELS.INFO;
+
+// Logger avec niveaux
+function logMessage(message: string, data?: any, level: number = LOG_LEVELS.INFO) {
+  if (level > currentLogLevel) return;
+  
+  const timestamp = new Date().toISOString();
+  let levelName = "INFO";
+  
+  switch(level) {
+    case LOG_LEVELS.ERROR:
+      levelName = "ERROR";
+      break;
+    case LOG_LEVELS.WARN:
+      levelName = "WARN";
+      break;
+    case LOG_LEVELS.INFO:
+      levelName = "INFO";
+      break;
+    case LOG_LEVELS.DEBUG:
+      levelName = "DEBUG";
+      break;
+    case LOG_LEVELS.TRACE:
+      levelName = "TRACE";
+      break;
+  }
+  
+  const logEntry = {
+    timestamp,
+    level: levelName,
+    message,
+    data: data !== undefined ? (typeof data === 'object' ? data : { value: data }) : undefined
+  };
+  
+  if (level === LOG_LEVELS.ERROR) {
+    console.error(JSON.stringify(logEntry));
+  } else {
+    console.log(JSON.stringify(logEntry));
+  }
+}
+
+// Envoie un heartbeat aux 30 secondes pour indiquer que le service est actif
+function startHeartbeat() {
+  const interval = setInterval(() => {
+    logMessage(`Heartbeat at ${new Date().toISOString()} - Service active`, {}, LOG_LEVELS.INFO);
+  }, 30 * 1000);
+  
+  return interval;
+}
+
+// Handler principal pour toutes les requêtes
 serve(async (req) => {
-  // Update last activity time
-  heartbeatManager.updateLastActivity();
-
-  // Gérer les requêtes CORS preflight
-  const corsResponse = handleCorsPreflightRequest(req);
-  if (corsResponse) return corsResponse;
+  // Configuration du niveau de log basée sur les headers
+  const debugLevel = req.headers.get('x-debug-level');
+  if (debugLevel && !isNaN(parseInt(debugLevel))) {
+    currentLogLevel = parseInt(debugLevel);
+  }
   
-  // Récupération et analyse de l'URL
-  const url = new URL(req.url);
-  
-  // Ajuster le niveau de log en fonction des paramètres de requête
-  const currentLogLevel = determineLogLevel(url, req.headers);
-  
-  // Log les paramètres de requête importants pour le diagnostic
-  debugLog(`Requête reçue: ${req.method} ${url.pathname}`, {
-    headers: {
-      'user-agent': req.headers.get('user-agent'),
-      'content-type': req.headers.get('content-type'),
-      'authorization': req.headers.has('authorization') ? '***PRÉSENT***' : '***ABSENT***',
-      'x-acelle-token': req.headers.has('x-acelle-token') ? '***PRÉSENT***' : '***ABSENT***',
-      'x-acelle-endpoint': req.headers.get('x-acelle-endpoint')
-    },
-    query_params: Object.fromEntries(url.searchParams.entries())
-  }, LOG_LEVELS.INFO, currentLogLevel);
+  // Pour les requêtes OPTIONS (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
   
   try {
-    // Récupérer les informations d'authentification de la requête
-    const authHeader = req.headers.get('authorization') || '';
-    
-    // MÉTHODE 1: Token dans l'en-tête X-Acelle-Token
-    let acelleToken = req.headers.get('x-acelle-token');
-    // MÉTHODE 2: Token dans les paramètres URL (pour compatibilité)
-    if (!acelleToken) {
-      acelleToken = url.searchParams.get('api_token') || '';
-      if (acelleToken) {
-        debugLog(`Token récupéré depuis l'URL: ${acelleToken.substring(0, 5)}...`, {}, LOG_LEVELS.INFO, currentLogLevel);
-      }
+    // Répondre à un ping pour vérifier que le service est actif
+    if (req.url.endsWith('/ping')) {
+      return new Response(
+        JSON.stringify({ success: true, message: "Service actif", timestamp: new Date().toISOString() }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
     
-    // MÉTHODE 1: Endpoint dans l'en-tête X-Acelle-Endpoint
+    // Récupérer l'URL de l'API et le token d'API à partir des headers
+    const acelleToken = req.headers.get('x-acelle-token');
     let acelleEndpoint = req.headers.get('x-acelle-endpoint');
-    // MÉTHODE 2: Endpoint inféré depuis le referer ou une autre source
-    if (!acelleEndpoint) {
-      const referer = req.headers.get('referer');
-      if (referer) {
-        // Tenter d'extraire l'endpoint du referer (simple exemple, à adapter)
-        const refererUrl = new URL(referer);
-        if (refererUrl.searchParams.get('endpoint')) {
-          acelleEndpoint = refererUrl.searchParams.get('endpoint');
-        }
+    
+    if (!acelleToken || !acelleEndpoint) {
+      logMessage("Headers d'authentification Acelle manquants", {}, LOG_LEVELS.ERROR);
+      return new Response(
+        JSON.stringify({ success: false, message: "Headers d'authentification Acelle requis" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    // Nettoyer l'URL de l'API (enlever le slash final si présent)
+    acelleEndpoint = acelleEndpoint.replace(/\/$/, '');
+    
+    // Extraire le chemin de la requête (après acelle-proxy/)
+    const url = new URL(req.url);
+    const pathSegments = url.pathname.split('/');
+    const apiPath = pathSegments.slice(pathSegments.indexOf('acelle-proxy') + 1).join('/');
+    
+    // Construire l'URL complète de l'API
+    const apiUrl = `${acelleEndpoint}/${apiPath}`;
+    
+    // Ajouter le token API à l'URL
+    const finalUrl = apiUrl + (apiUrl.includes('?') ? '&' : '?') + `api_token=${acelleToken}`;
+    
+    // Masquer le token pour les logs
+    const urlWithoutToken = apiUrl + (apiUrl.includes('?') ? '&' : '?') + `[token_masqué]`;
+    
+    // Ajouter des paramètres URL à partir de la requête originale
+    const urlSearchParams = new URLSearchParams(url.search);
+    let finalUrlWithParams = finalUrl;
+    for (const [key, value] of urlSearchParams.entries()) {
+      if (key !== 'api_token') { // Éviter la duplication du token
+        finalUrlWithParams += `&${key}=${value}`;
       }
     }
     
-    // Validation des paramètres requis
-    if (!acelleEndpoint) {
-      return new Response(JSON.stringify({ 
-        error: 'Endpoint Acelle manquant. Veuillez fournir l\'en-tête X-Acelle-Endpoint ou le paramètre endpoint', 
-        timestamp: new Date().toISOString() 
-      }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    if (!acelleToken) {
-      return new Response(JSON.stringify({ 
-        error: 'Token Acelle manquant. Veuillez fournir l\'en-tête X-Acelle-Token ou le paramètre api_token',
-        timestamp: new Date().toISOString() 
-      }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Construire l'URL de l'API Acelle à partir du chemin de la requête
-    // Pour éviter les problèmes de chemin en double
-    const pathParts = url.pathname.split('/').filter(part => part && part !== 'acelle-proxy');
-    const apiPath = pathParts.join('/');
-    
-    // Construire l'URL complète de l'API en vérifiant les doublons de segments
-    const cleanEndpoint = acelleEndpoint.replace(/\/+$/, ''); // Supprimer les slashes à la fin
-    
-    // Vérifier si l'endpoint contient déjà le chemin public/api/v1
-    const hasApiPath = cleanEndpoint.includes('/public/api/v1') || cleanEndpoint.includes('/api/v1');
-    const apiBasePath = hasApiPath ? '' : '/public/api/v1';
-    
-    // Construire l'URL finale
-    const apiUrl = `${cleanEndpoint}${apiBasePath}/${apiPath}`;
-    
-    // Inclure les paramètres de requête originaux et ajouter le token dans l'URL
-    const queryParams = new URLSearchParams(url.search);
-    
-    // Important: Ajouter le token dans l'URL comme paramètre api_token
-    // Cette méthode est préférée par l'API Acelle selon les tests curl
-    queryParams.set('api_token', acelleToken);
-    
-    // Construire l'URL finale avec les paramètres
-    const apiUrlWithParams = `${apiUrl}?${queryParams.toString()}`;
-    
-    debugLog(`Transmission vers l'API Acelle avec authentication via paramètre URL`, {
-      url_without_token: `${apiUrl}?[token_masqué]&${queryParams.toString().replace(/api_token=[^&]+(&|$)/, '')}`,
+    logMessage(`Transmission vers l'API Acelle avec authentication via paramètre URL`, {
+      url_without_token: urlWithoutToken,
       auth_method: 'URL Parameter (api_token)',
-      headers_auth_used: true // On utilise aussi des en-têtes pour plus de compatibilité
-    }, LOG_LEVELS.INFO, currentLogLevel);
+      headers_auth_used: true
+    }, LOG_LEVELS.INFO);
     
-    // Préparer les en-têtes pour la requête à l'API Acelle
-    // On garde aussi l'authentification par en-tête pour plus de compatibilité
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'User-Agent': `Seventic-Acelle-Proxy/${CONFIG.VERSION}`,
-      // Utiliser le token Acelle dans l'en-tête aussi pour compatibilité
-      'Authorization': `Bearer ${acelleToken}`,
-      // Ajouter également comme X-API-TOKEN pour la compatibilité
-      'X-API-TOKEN': acelleToken
+    // Préparer les headers pour la requête à l'API
+    const apiHeaders = new Headers();
+    apiHeaders.set('Accept', 'application/json');
+    apiHeaders.set('Content-Type', 'application/json');
+    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.0');
+    apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Ajouter aussi en header pour compatibilité
+    apiHeaders.set('X-API-TOKEN', acelleToken);
+    
+    // Copier certains headers de la requête originale
+    ['cache-control', 'if-none-match', 'if-modified-since'].forEach(headerName => {
+      const headerValue = req.headers.get(headerName);
+      if (headerValue) {
+        apiHeaders.set(headerName, headerValue);
+      }
+    });
+    
+    // Préparer les options de la requête
+    const apiOptions: RequestInit = {
+      method: req.method,
+      headers: apiHeaders,
     };
     
-    // Transférer la requête à l'API Acelle avec le token dans l'URL ET les en-têtes
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), CONFIG.DEFAULT_TIMEOUT);
-    
-    try {
-      // Récupérer le body de la requête si nécessaire
-      let requestBodyText = '';
-      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-        requestBodyText = await req.text();
-      }
-      
-      debugLog(`Envoi de requête à l'API Acelle`, {
-        method: req.method,
-        headers_sent: Object.keys(headers),
-        has_body: requestBodyText.length > 0 ? 'Oui' : 'Non'
-      }, LOG_LEVELS.INFO, currentLogLevel);
-      
-      // Exécuter la requête à l'API Acelle
-      const response = await fetch(apiUrlWithParams, {
-        method: req.method,
-        headers,
-        body: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : requestBodyText,
-        signal: controller.signal,
-        redirect: 'follow'
-      });
-      
-      clearTimeout(timeoutId);
-      
-      // Journaliser la réponse
-      debugLog(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`, {
-        url_without_token: apiUrl,
-        status: response.status,
-        status_text: response.statusText
-      }, response.ok ? LOG_LEVELS.INFO : LOG_LEVELS.ERROR, currentLogLevel);
-      
-      // Lire et traiter la réponse
-      const responseText = await response.text();
-      let responseData: any;
-      
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (e) {
-        debugLog("Réponse non-JSON reçue:", responseText.substring(0, 1000), LOG_LEVELS.WARN, currentLogLevel);
-        
-        // Si on reçoit un code 403, vérifier si c'est une page HTML d'erreur d'authentification
-        if (response.status === 403 && responseText.includes('login') || responseText.includes('auth')) {
-          responseData = { 
-            error: "Erreur d'authentification: Le token API est invalide ou expiré",
-            auth_error: true,
-            raw_response_preview: responseText.substring(0, 200)
-          };
-        } else {
-          responseData = { 
-            raw_response: responseText.substring(0, 1000),
-            parse_error: true
-          };
-        }
-      }
-      
-      // Ajouter des informations de diagnostic
-      responseData = {
-        ...responseData,
-        _diagnostic: {
-          status: response.status,
-          timestamp: new Date().toISOString(),
-          url: apiUrl,
-          auth_method_used: "URL Parameter (api_token)",
-        }
-      };
-      
-      // Gérer spécifiquement les erreurs 403 (Forbidden)
-      if (response.status === 403) {
-        debugLog(`Erreur d'authentification 403 détectée pour l'API Acelle`, {
-          endpoint: acelleEndpoint,
-          token_length: acelleToken ? acelleToken.length : 0
-        }, LOG_LEVELS.ERROR, currentLogLevel);
-        
-        responseData = {
-          ...responseData,
-          auth_error: true,
-          error: responseData.error || "Erreur d'authentification: vérifiez votre token API",
-          auth_help: "Assurez-vous que votre token API est valide et actif dans le compte Acelle"
-        };
-      }
-      
-      // Retourner la réponse avec les en-têtes CORS
-      return new Response(JSON.stringify(responseData), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-      
-    } catch (fetchError) {
-      // Gérer les erreurs de timeout
-      if (fetchError.name === 'AbortError') {
-        debugLog(`Requête timeout: ${apiUrl}`, { timeout: CONFIG.DEFAULT_TIMEOUT }, LOG_LEVELS.ERROR, currentLogLevel);
-        return new Response(JSON.stringify({
-          error: 'Timeout de la requête',
-          endpoint: acelleEndpoint,
-          url: apiUrl,
-          timeout: CONFIG.DEFAULT_TIMEOUT,
-          timestamp: new Date().toISOString()
-        }), {
-          status: 504,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      throw fetchError; // Re-throw pour le bloc catch externe
+    // Si la requête a un body, le copier
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      apiOptions.body = await req.text();
     }
     
-  } catch (error) {
-    // Journaliser et retourner l'erreur
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    logMessage(`Envoi de requête à l'API Acelle`, {
+      method: req.method,
+      headers_sent: [...apiHeaders.keys()],
+      has_body: apiOptions.body ? "Oui" : "Non"
+    }, LOG_LEVELS.INFO);
     
-    debugLog("Erreur Edge Function:", errorMessage, LOG_LEVELS.ERROR, currentLogLevel);
+    // Faire la requête à l'API
+    const response = await fetch(finalUrlWithParams, apiOptions);
     
-    return new Response(JSON.stringify({
-      error: errorMessage,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Récupérer les headers de la réponse
+    const responseHeaders = new Headers(corsHeaders);
+    responseHeaders.set('Content-Type', response.headers.get('Content-Type') || 'application/json');
+    
+    // Copier certains headers de la réponse
+    ['etag', 'cache-control', 'last-modified'].forEach(headerName => {
+      const headerValue = response.headers.get(headerName);
+      if (headerValue) {
+        responseHeaders.set(headerName, headerValue);
+      }
     });
+    
+    if (!response.ok) {
+      logMessage(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`, {
+        url_without_token: urlWithoutToken,
+        status: response.status,
+        status_text: response.statusText
+      }, LOG_LEVELS.ERROR);
+    } else {
+      logMessage(`Réponse de l'API Acelle: ${response.status} OK`, {
+        url_without_token: urlWithoutToken,
+        status: response.status
+      }, LOG_LEVELS.DEBUG);
+    }
+    
+    // Renvoyer la réponse au client
+    const responseBody = await response.text();
+    return new Response(responseBody, {
+      status: response.status,
+      headers: responseHeaders
+    });
+    
+  } catch (error) {
+    logMessage(`Erreur lors de la transmission à l'API Acelle: ${error instanceof Error ? error.message : String(error)}`, { error }, LOG_LEVELS.ERROR);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        message: `Erreur serveur: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: new Date().toISOString()
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+    );
   }
 });
+
+// Démarrer le heartbeat
+const heartbeatInterval = startHeartbeat();
+
+// S'assurer d'arrêter le heartbeat lorsque la fonction se termine
+addEventListener("beforeunload", (event) => {
+  clearInterval(heartbeatInterval);
+});
+
+// Enregistrer un log de démarrage
+logMessage("Proxy Acelle démarré", { timestamp: new Date().toISOString() }, LOG_LEVELS.INFO);

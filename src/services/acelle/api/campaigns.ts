@@ -78,13 +78,78 @@ export const getCampaign = async (uid: string): Promise<AcelleCampaign | null> =
 /**
  * Force la synchronisation des campagnes depuis Acelle
  */
-export const forceSyncCampaigns = async (account = null): Promise<{ success: boolean; message: string; error?: string }> => {
+export const forceSyncCampaigns = async (account: any): Promise<{ success: boolean; message: string; error?: string }> => {
   try {
-    // TODO: Implémenter la logique de synchronisation forcée des campagnes
-    console.warn("La synchronisation forcée des campagnes n'est pas encore implémentée.");
-    return { success: false, message: "Not implemented", error: "Not implemented" };
+    console.log("Démarrage de la synchronisation forcée pour le compte:", account.id);
+    
+    if (!account?.id || !account?.api_endpoint || !account?.api_token) {
+      console.error("Informations de compte incomplètes pour la synchronisation forcée");
+      return { 
+        success: false, 
+        message: "Informations de compte incomplètes", 
+        error: "Identifiants API manquants" 
+      };
+    }
+    
+    // Récupérer le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    
+    if (!token) {
+      console.error("Aucun token d'authentification disponible");
+      return { 
+        success: false, 
+        message: "Erreur d'authentification", 
+        error: "Token d'authentification non disponible" 
+      };
+    }
+    
+    console.log("Appel de la fonction Edge pour synchroniser les campagnes");
+    
+    // Appeler la fonction edge pour synchroniser
+    const { data, error } = await supabase.functions.invoke('sync-email-campaigns', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Acelle-Token': account.api_token,
+        'X-Acelle-Endpoint': account.api_endpoint,
+        'X-Debug-Level': '3' // Niveau DEBUG pour obtenir plus d'informations
+      },
+      body: { 
+        accountId: account.id,
+        apiToken: account.api_token,
+        apiEndpoint: account.api_endpoint,
+        authMethod: 'token'
+      }
+    });
+    
+    if (error) {
+      console.error("Erreur lors de l'appel à la fonction de synchronisation:", error);
+      return { 
+        success: false, 
+        message: `Erreur lors de l'appel à la fonction de synchronisation: ${error.message}`, 
+        error: error.message 
+      };
+    }
+    
+    if (data?.error) {
+      console.error("Erreur retournée par la fonction de synchronisation:", data.error);
+      return { 
+        success: false, 
+        message: `Erreur de synchronisation: ${data.error}`, 
+        error: data.error 
+      };
+    }
+    
+    console.log("Résultat de la synchronisation:", data);
+    
+    return { 
+      success: data?.success || false, 
+      message: data?.message || "Synchronisation terminée" 
+    };
   } catch (error) {
-    console.error("Erreur lors de la synchronisation forcée des campagnes:", error);
+    console.error("Exception lors de la synchronisation forcée des campagnes:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, message: errorMessage, error: errorMessage };
   }
@@ -116,8 +181,8 @@ function parseDeliveryInfo(data: any): DeliveryInfo {
         ...data,
         bounced: {
           total: data.bounced,
-          soft: 0,
-          hard: 0
+          soft: data.soft_bounce_count || 0,
+          hard: data.hard_bounce_count || 0
         }
       };
     }
