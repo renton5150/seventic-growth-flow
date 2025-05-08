@@ -1,4 +1,3 @@
-
 // Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -330,7 +329,8 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         'X-Acelle-Token': '***MASKED***'
       });
       
-      const result = await forceSyncCampaigns(account, accessToken, headers);
+      // Mise à jour de l'appel pour qu'il corresponde à la signature mise à jour
+      const result = await forceSyncCampaigns(account);
       
       if (result.success) {
         toast.success(result.message, { id: "sync" });

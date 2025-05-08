@@ -1,5 +1,5 @@
 
-import { AcelleCampaign } from "@/types/acelle.types";
+import { AcelleCampaign, DeliveryInfo } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -28,7 +28,7 @@ export const getCampaigns = async (): Promise<AcelleCampaign[]> => {
       delivery_date: campaign.delivery_date || null,
       run_at: campaign.run_at || null,
       last_error: campaign.last_error || null,
-      delivery_info: campaign.delivery_info || null
+      delivery_info: parseDeliveryInfo(campaign.delivery_info)
     })) || [];
   } catch (error) {
     console.error("Exception lors de la récupération des campagnes Acelle:", error);
@@ -67,7 +67,7 @@ export const getCampaign = async (uid: string): Promise<AcelleCampaign | null> =
       delivery_date: data.delivery_date || null,
       run_at: data.run_at || null,
       last_error: data.last_error || null,
-      delivery_info: data.delivery_info || null
+      delivery_info: parseDeliveryInfo(data.delivery_info)
     };
   } catch (error) {
     console.error("Exception lors de la récupération de la campagne Acelle:", error);
@@ -78,7 +78,7 @@ export const getCampaign = async (uid: string): Promise<AcelleCampaign | null> =
 /**
  * Force la synchronisation des campagnes depuis Acelle
  */
-export const forceSyncCampaigns = async (account = null, token = null, headers = null): Promise<{ success: boolean; message: string; error?: string }> => {
+export const forceSyncCampaigns = async (account = null): Promise<{ success: boolean; message: string; error?: string }> => {
   try {
     // TODO: Implémenter la logique de synchronisation forcée des campagnes
     console.warn("La synchronisation forcée des campagnes n'est pas encore implémentée.");
@@ -89,6 +89,45 @@ export const forceSyncCampaigns = async (account = null, token = null, headers =
     return { success: false, message: errorMessage, error: errorMessage };
   }
 };
+
+// Fonction utilitaire pour convertir les données JSON en type DeliveryInfo
+function parseDeliveryInfo(data: any): DeliveryInfo {
+  if (!data) return {} as DeliveryInfo;
+  
+  try {
+    // Si les données sont une chaîne, essayer de les parser
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        console.warn("Erreur parsing delivery_info string:", e);
+        return {} as DeliveryInfo;
+      }
+    }
+
+    // Assurer que c'est un objet
+    if (typeof data !== 'object') {
+      return {} as DeliveryInfo;
+    }
+
+    // Gérer le cas où bounced est un nombre
+    if (typeof data.bounced === 'number') {
+      data = {
+        ...data,
+        bounced: {
+          total: data.bounced,
+          soft: 0,
+          hard: 0
+        }
+      };
+    }
+    
+    return data as DeliveryInfo;
+  } catch (e) {
+    console.error("Erreur lors du traitement de delivery_info:", e);
+    return {} as DeliveryInfo;
+  }
+}
 
 // Ajouter ces fonctions pour corriger les imports dans useAcelleCampaigns.ts
 export const extractCampaignsFromCache = async (accountId: string, options?: any) => {
@@ -117,7 +156,7 @@ export const extractCampaignsFromCache = async (accountId: string, options?: any
       delivery_date: campaign.delivery_date || null,
       run_at: campaign.run_at || null,
       last_error: campaign.last_error || null,
-      delivery_info: campaign.delivery_info || {}
+      delivery_info: parseDeliveryInfo(campaign.delivery_info)
     })) || [];
   } catch (error) {
     console.error("Exception lors de l'extraction des campagnes du cache:", error);
