@@ -1,4 +1,3 @@
-
 export interface AcelleAccount {
   id: string;
   created_at: string;
@@ -144,6 +143,7 @@ export interface AcelleConnectionDebug {
   duration?: number;
   apiVersion?: string;
   responseTime?: number;
+  authMethod?: string; // Added this property to fix the TypeScript error
   request?: {
     url?: string;
     headers?: Record<string, string>;
