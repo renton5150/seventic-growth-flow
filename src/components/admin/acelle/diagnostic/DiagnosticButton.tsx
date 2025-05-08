@@ -126,7 +126,16 @@ export const DiagnosticButton = ({
       }
       
       console.log("Résultat de la réparation:", data);
-      toast.success(`Réparation terminée: ${data.campaigns_updated} campagnes mises à jour`, { id: "fix" });
+      
+      // Correction de l'erreur TypeScript en vérifiant la structure de la réponse
+      let updatedCount = 0;
+      if (data && typeof data === 'object') {
+        // Vérifions si la propriété existe avant d'y accéder
+        const jsonData = data as Record<string, any>;
+        updatedCount = jsonData.campaigns_updated || 0;
+      }
+      
+      toast.success(`Réparation terminée: ${updatedCount} campagnes mises à jour`, { id: "fix" });
       
       // Rafraîchir le diagnostic
       runDiagnostic();
