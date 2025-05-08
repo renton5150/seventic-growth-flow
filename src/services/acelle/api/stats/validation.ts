@@ -29,7 +29,7 @@ export const ensureValidStatistics = (statistics: AcelleCampaignStatistics): Ace
   }
   
   // Création d'une copie des valeurs par défaut pour les statistiques validées
-  const validStats = { ...defaultStats };
+  const validStats: AcelleCampaignStatistics = { ...defaultStats };
   
   // Parcourir chaque propriété et s'assurer qu'elle est de type approprié
   for (const key of Object.keys(defaultStats)) {
