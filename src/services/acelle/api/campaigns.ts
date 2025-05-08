@@ -83,8 +83,9 @@ export const getCacheStatus = async (accountId: string): Promise<{ lastUpdated: 
 export const getCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
   try {
     // Récupérer via l'API proxy
-    const apiUrl = `/api/campaigns`;
-    const fullUrl = buildProxyUrl(account.api_endpoint, apiUrl);
+    const apiPath = `/api/campaigns`;
+    // Fix - Passer un objet vide comme second paramètre pour respecter la signature de buildProxyUrl
+    const fullUrl = buildProxyUrl(account.api_endpoint, {});
     
     const response = await fetch(fullUrl, {
       method: 'GET',
@@ -171,7 +172,8 @@ export const getCampaign = async (campaignUid: string, account: AcelleAccount): 
     
     // Si pas en cache ou erreur, récupérer via l'API
     const apiUrl = `/api/campaigns/${campaignUid}`;
-    const fullUrl = buildProxyUrl(account.api_endpoint, apiUrl);
+    // Fix - Passer un objet vide comme second paramètre pour respecter la signature de buildProxyUrl
+    const fullUrl = buildProxyUrl(account.api_endpoint, {});
     
     const response = await fetch(fullUrl, {
       method: 'GET',
