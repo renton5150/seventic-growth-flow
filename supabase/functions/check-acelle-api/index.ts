@@ -4,7 +4,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // Configuration CORS pour permettre les requêtes cross-origin
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-token, x-acelle-endpoint',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-token, x-acelle-endpoint, x-auth-method',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Max-Age': '86400',
 };
@@ -18,21 +18,70 @@ interface DiagnosticResponse {
   duration?: number;
   apiVersion?: string;
   responseData?: any;
+  authMethod?: string; // Méthode d'authentification utilisée
 }
 
-// Fonction pour tester une API
-async function testApi(
+// Fonction pour tester une API avec une méthode d'authentification spécifique
+async function testApiWithAuthMethod(
   url: string, 
-  apiToken: string, 
+  apiToken: string,
+  authMethod: string,
   timeout: number = 10000
 ): Promise<DiagnosticResponse> {
   const startTime = Date.now();
   
   try {
-    console.log(`Testing API connectivity: ${url}`);
+    console.log(`Testing API with auth method ${authMethod}: ${url}`);
     
-    // Construire l'URL avec le token API
-    const finalUrl = `${url}?api_token=${apiToken}`;
+    // Construire l'URL et les headers selon la méthode d'authentification
+    let finalUrl = url;
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'Seventic-Acelle-Check/2.0'
+    };
+    
+    // Configurer l'authentification selon la méthode
+    switch (authMethod) {
+      case 'url-param':
+        // Ajouter le token API comme paramètre d'URL
+        finalUrl = url.includes('?') 
+          ? `${url}&api_token=${apiToken}`
+          : `${url}?api_token=${apiToken}`;
+        break;
+        
+      case 'bearer':
+        // Utiliser le header Authorization: Bearer
+        headers['Authorization'] = `Bearer ${apiToken}`;
+        break;
+        
+      case 'x-api-token':
+        // Utiliser le header X-API-TOKEN
+        headers['X-API-TOKEN'] = apiToken;
+        break;
+        
+      case 'api-token':
+        // Utiliser le header API-Token
+        headers['API-Token'] = apiToken;
+        break;
+        
+      case 'mixed':
+      default:
+        // Utiliser plusieurs méthodes simultanément
+        finalUrl = url.includes('?') 
+          ? `${url}&api_token=${apiToken}`
+          : `${url}?api_token=${apiToken}`;
+        headers['Authorization'] = `Bearer ${apiToken}`;
+        headers['X-API-TOKEN'] = apiToken;
+        headers['API-Token'] = apiToken;
+        break;
+    }
+    
+    // Ajouter un timestamp anti-cache
+    const timestamp = Date.now();
+    finalUrl = finalUrl.includes('?')
+      ? `${finalUrl}&_t=${timestamp}`
+      : `${finalUrl}?_t=${timestamp}`;
     
     // Controller pour implémenter un timeout
     const controller = new AbortController();
@@ -40,11 +89,7 @@ async function testApi(
     
     // Effectuer la requête
     const response = await fetch(finalUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiToken}` // Également envoyer le token par header
-      },
+      headers,
       signal: controller.signal
     });
     
@@ -56,19 +101,43 @@ async function testApi(
     
     // Si la réponse n'est pas OK
     if (!response.ok) {
-      console.error(`API test failed: ${response.status} ${response.statusText}`);
+      console.error(`API test with method ${authMethod} failed: ${response.status} ${response.statusText}`);
+      
+      // Récupérer les détails de l'erreur si possible
+      let responseData;
+      try {
+        const contentType = response.headers.get('Content-Type') || '';
+        if (contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          responseData = await response.text();
+        }
+      } catch (e) {
+        responseData = "Could not parse response";
+      }
+      
       return {
         success: false,
         timestamp: new Date().toISOString(),
         errorMessage: `HTTP Error ${response.status}: ${response.statusText}`,
         statusCode: response.status,
-        duration
+        duration,
+        responseData,
+        authMethod
       };
     }
     
     // Analyser la réponse
-    const data = await response.json();
-    console.log(`API test successful in ${duration}ms`);
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // Si ce n'est pas du JSON valide, renvoyer le texte brut
+      const text = await response.text();
+      data = { rawText: text };
+    }
+    
+    console.log(`API test with method ${authMethod} successful in ${duration}ms`);
     
     // Extraire la version de l'API si disponible
     let apiVersion = "Unknown";
@@ -83,22 +152,42 @@ async function testApi(
       statusCode: response.status,
       duration,
       apiVersion,
-      responseData: data
+      responseData: data,
+      authMethod
     };
     
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    console.error(`API test exception: ${errorMessage}`);
+    console.error(`API test with method ${authMethod} exception: ${errorMessage}`);
     
     return {
       success: false,
       timestamp: new Date().toISOString(),
       errorMessage: errorMessage,
-      duration
+      duration,
+      authMethod
     };
   }
+}
+
+// Tester une API avec différentes méthodes d'authentification
+async function testApiWithMultipleAuthMethods(
+  url: string,
+  apiToken: string,
+  timeout: number = 10000
+): Promise<DiagnosticResponse[]> {
+  // Liste des méthodes d'authentification à tester
+  const authMethods = ['url-param', 'bearer', 'x-api-token', 'api-token', 'mixed'];
+  
+  // Exécuter tous les tests en parallèle
+  const testPromises = authMethods.map(method => 
+    testApiWithAuthMethod(url, apiToken, method, timeout)
+  );
+  
+  // Attendre que tous les tests soient terminés
+  return Promise.all(testPromises);
 }
 
 serve(async (req) => {
@@ -113,14 +202,26 @@ serve(async (req) => {
     const apiUrl = url.searchParams.get('url');
     const apiToken = url.searchParams.get('token');
     const detailed = url.searchParams.get('detailed') === 'true';
+    const testMultipleAuth = url.searchParams.get('testMultipleAuth') === 'true';
     
     // Récupérer les headers d'authentification alternatifs
     const headerToken = req.headers.get('x-acelle-token');
     const headerEndpoint = req.headers.get('x-acelle-endpoint');
+    const authMethod = req.headers.get('x-auth-method') || 'mixed';
+    
+    // Récupérer le corps de la requête pour les méthodes POST
+    let requestBody = {};
+    if (req.method === 'POST') {
+      try {
+        requestBody = await req.json();
+      } catch (e) {
+        // Si le corps n'est pas du JSON valide, l'ignorer silencieusement
+      }
+    }
     
     // Utiliser les headers si les paramètres URL sont manquants
-    const finalApiUrl = apiUrl || headerEndpoint;
-    const finalApiToken = apiToken || headerToken;
+    const finalApiUrl = apiUrl || headerEndpoint || requestBody?.apiEndpoint;
+    const finalApiToken = apiToken || headerToken || requestBody?.apiToken;
     
     console.log(`Vérification API: ${finalApiUrl}`);
     
@@ -148,8 +249,32 @@ serve(async (req) => {
       `${cleanApiUrl}/me` : // Endpoint détaillé
       `${cleanApiUrl}/ping`; // Endpoint simple
     
-    // Tester la connexion à l'API
-    const result = await testApi(testEndpoint, finalApiToken);
+    // Vérifier si nous devons tester plusieurs méthodes d'authentification
+    if (testMultipleAuth || authMethod === 'multiple' || requestBody?.testMultipleAuthMethods) {
+      console.log("Testing multiple authentication methods");
+      
+      const results = await testApiWithMultipleAuthMethods(testEndpoint, finalApiToken);
+      
+      // Trouver la première méthode qui a réussi
+      const successfulMethod = results.find(r => r.success);
+      
+      // Retourner soit la méthode qui a réussi, soit tous les résultats
+      return new Response(
+        JSON.stringify(successfulMethod || { 
+          success: false, 
+          timestamp: new Date().toISOString(),
+          errorMessage: "Aucune méthode d'authentification n'a fonctionné",
+          results: results 
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    // Tester la connexion à l'API avec la méthode spécifiée
+    const result = await testApiWithAuthMethod(testEndpoint, finalApiToken, authMethod);
     
     // Retourner le résultat
     return new Response(

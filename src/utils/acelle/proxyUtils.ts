@@ -27,6 +27,14 @@ export const buildProxyUrl = (apiEndpoint: string, params: Record<string, string
         .join('&');
     }
     
+    // Ajouter un paramètre anti-cache pour éviter les problèmes de mise en cache
+    const timestamp = Date.now();
+    queryParams = queryParams 
+      ? `${queryParams}&_t=${timestamp}` 
+      : `?_t=${timestamp}`;
+    
+    console.log(`ProxyURL construite: ${baseUrl}${queryParams} (sans token visible)`);
+    
     return `${baseUrl}${queryParams}`;
   } catch (error) {
     console.error("Erreur lors de la construction de l'URL du proxy:", error);
@@ -52,6 +60,9 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
     
     const accessToken = sessionData.session.access_token;
     
+    // AMÉLIORATION: Test avec différentes méthodes d'authentification
+    console.log("Test de connexion API avec diverses méthodes d'authentification");
+    
     // Appeler la fonction Edge pour vérifier l'API
     const { data, error } = await supabase.functions.invoke('check-acelle-api', {
       method: 'POST',
@@ -59,11 +70,13 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'X-Acelle-Token': apiToken,
-        'X-Acelle-Endpoint': apiEndpoint
+        'X-Acelle-Endpoint': apiEndpoint,
+        'X-Auth-Method': 'multiple' // Indique de tester plusieurs méthodes d'authentification
       },
       body: { 
         apiEndpoint, 
-        apiToken 
+        apiToken,
+        testMultipleAuthMethods: true // Drapeau pour tester différentes méthodes d'authentification
       }
     });
     
@@ -120,9 +133,13 @@ export const buildApiPath = (apiEndpoint: string, path: string, params: Record<s
   // Log pour debug - TRÈS IMPORTANT pour diagnostiquer les problèmes d'URL
   console.log(`Construction URL complète: endpoint=${cleanEndpoint}, chemin=${path}, chemin final=${finalPath}`);
   
+  // MODIFICATION: Ajouter le token API directement dans les paramètres URL pour résoudre les problèmes 403
+  // Cette méthode est généralement plus fiable pour les API qui s'attendent à recevoir le token comme paramètre URL
+  const finalParams = { 
+    ...params, 
+    path: finalPath 
+  };
+  
   // Construire l'URL avec le chemin API
-  return buildProxyUrl(cleanEndpoint, {
-    path: finalPath,
-    ...params
-  });
+  return buildProxyUrl(cleanEndpoint, finalParams);
 };

@@ -5,7 +5,7 @@ import { buildApiPath } from "@/utils/acelle/proxyUtils";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
- * Modifié pour utiliser la construction d'URL corrigée et diagnostiquer les erreurs de chemin
+ * Modifié pour utiliser la construction d'URL corrigée et résoudre les problèmes d'authentification
  */
 export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
@@ -51,8 +51,11 @@ export const fetchCampaignStatisticsFromApi = async (
     }
     
     // Utiliser buildApiPath pour construire l'URL correctement
-    const proxyUrl = buildApiPath(account.api_endpoint, apiPath);
-    console.log(`URL complète construite pour la requête: ${proxyUrl}`);
+    // AMÉLIORATION: Ajouter explicitement le token API dans les paramètres pour résoudre les problèmes 403
+    const proxyUrl = buildApiPath(account.api_endpoint, apiPath, {
+      api_token: account.api_token // Ajouter explicitement le token dans les paramètres URL
+    });
+    console.log(`URL complète construite pour la requête: ${proxyUrl.replace(account.api_token, "***MASQUÉ***")}`);
     
     // Préparer les en-têtes pour l'authentification correcte
     const headers = {
@@ -61,17 +64,22 @@ export const fetchCampaignStatisticsFromApi = async (
       'Authorization': `Bearer ${sessionToken}`, // Token Supabase pour l'Edge Function
       'X-Acelle-Token': account.api_token, // Token Acelle pour l'API
       'X-Acelle-Endpoint': account.api_endpoint, // Endpoint explicite
-      'X-Debug-Level': '4' // Niveau de log élevé pour diagnostic
+      'X-Debug-Level': '4', // Niveau de log élevé pour diagnostic
+      // AJOUT: Multiples méthodes d'authentification pour maximiser la compatibilité
+      'API-Token': account.api_token,
+      'X-API-TOKEN': account.api_token
     };
     
     // Ajouter des logs détaillés pour diagnostiquer les problèmes d'authentification
     console.log("En-têtes de requête API (authentification masquée):", {
       ...headers,
-      'Authorization': 'Bearer ***MASKED***',
-      'X-Acelle-Token': '***MASKED***'
+      'Authorization': 'Bearer ***MASQUÉ***',
+      'X-Acelle-Token': '***MASQUÉ***',
+      'X-API-TOKEN': '***MASQUÉ***',
+      'API-Token': '***MASQUÉ***'
     });
     
-    console.log(`URL du proxy: ${proxyUrl}`);
+    console.log(`URL du proxy: ${proxyUrl.replace(account.api_token, "***MASQUÉ***")}`);
     
     // Effectuer la requête via le proxy
     console.log(`Envoi de la requête au proxy...`);
@@ -91,22 +99,29 @@ export const fetchCampaignStatisticsFromApi = async (
         console.error(`Impossible de lire le corps de la réponse d'erreur: ${e}`);
       }
       
+      // Gestion spécifique pour le 403 Forbidden
+      if (response.status === 403) {
+        console.error(`Erreur d'authentification (403 Forbidden) lors de l'accès à l'API Acelle. 
+        Détails de réponse: ${errorText}
+        Méthodes d'authentification utilisées: 
+        - Paramètre URL api_token
+        - Header Authorization: Bearer 
+        - Header X-API-TOKEN
+        - Header API-Token
+        - Header X-Acelle-Token`);
+        
+        throw new Error(`Erreur d'authentification à l'API Acelle (403 Forbidden). Vérifiez la validité du token API.`);
+      }
+      
       // Gestion spécifique pour le 404 Not Found
       if (response.status === 404) {
         console.error(`Ressource non trouvée (404): L'URL demandée n'existe pas.
-        Vérifiez le chemin d'API et la structure de l'URL: ${proxyUrl}
+        Vérifiez le chemin d'API et la structure de l'URL: ${proxyUrl.replace(account.api_token, "***MASQUÉ***")}
         Votre endpoint API est: ${account.api_endpoint}
         Chemin demandé: ${apiPath}
         L'endpoint contient-il déjà /api/v1? ${hasApiV1InEndpoint ? 'OUI' : 'NON'}`);
         
         throw new Error(`La ressource demandée n'existe pas (404 Not Found). Vérifiez la structure de l'URL.`);
-      }
-      
-      // Gestion spécifique pour le 403 Forbidden
-      if (response.status === 403) {
-        console.error(`Erreur d'authentification (403 Forbidden) lors de l'accès à l'API Acelle. 
-        Vérifiez si le token API doit être passé dans l'URL ou dans les en-têtes.`);
-        throw new Error(`Erreur d'authentification à l'API Acelle (403 Forbidden)`);
       }
       
       return null;
@@ -115,22 +130,34 @@ export const fetchCampaignStatisticsFromApi = async (
     const data = await response.json();
     console.log(`Données reçues de l'API:`, data);
     
+    // AMÉLIORATION: Gestion unifiée des formats de réponse
+    // Certaines installations d'Acelle renvoient les statistiques directement
+    // D'autres les encapsulent dans un objet "statistics"
+    let statisticsData = data;
+    
     if (data?.statistics) {
+      // Format où les statistiques sont encapsulées dans un objet "statistics"
+      statisticsData = data.statistics;
+      console.log("Format avec statistiques encapsulées détecté");
+    }
+    
+    // S'assurer que nous avons bien des statistiques
+    if (statisticsData) {
       // Convertir les statistiques en format attendu
       return {
-        subscriber_count: Number(data.statistics.subscriber_count) || 0,
-        delivered_count: Number(data.statistics.delivered_count) || 0,
-        delivered_rate: Number(data.statistics.delivered_rate) || 0,
-        open_count: Number(data.statistics.open_count) || 0,
-        uniq_open_count: Number(data.statistics.uniq_open_count) || 0,
-        uniq_open_rate: Number(data.statistics.uniq_open_rate) || 0,
-        click_count: Number(data.statistics.click_count) || 0,
-        click_rate: Number(data.statistics.click_rate) || 0,
-        bounce_count: Number(data.statistics.bounce_count) || 0,
-        soft_bounce_count: Number(data.statistics.soft_bounce_count) || 0,
-        hard_bounce_count: Number(data.statistics.hard_bounce_count) || 0,
-        unsubscribe_count: Number(data.statistics.unsubscribe_count) || 0,
-        abuse_complaint_count: Number(data.statistics.abuse_complaint_count) || 0
+        subscriber_count: Number(statisticsData.subscriber_count) || 0,
+        delivered_count: Number(statisticsData.delivered_count) || 0,
+        delivered_rate: Number(statisticsData.delivered_rate) || 0,
+        open_count: Number(statisticsData.open_count) || 0,
+        uniq_open_count: Number(statisticsData.uniq_open_count) || 0,
+        uniq_open_rate: Number(statisticsData.uniq_open_rate) || 0,
+        click_count: Number(statisticsData.click_count) || 0,
+        click_rate: Number(statisticsData.click_rate) || 0,
+        bounce_count: Number(statisticsData.bounce_count) || 0,
+        soft_bounce_count: Number(statisticsData.soft_bounce_count) || 0,
+        hard_bounce_count: Number(statisticsData.hard_bounce_count) || 0,
+        unsubscribe_count: Number(statisticsData.unsubscribe_count) || 0,
+        abuse_complaint_count: Number(statisticsData.abuse_complaint_count) || 0
       };
     }
     

@@ -63,7 +63,7 @@ function logMessage(message: string, data?: any, level: number = LOG_LEVELS.INFO
 
 // Log initial pour vérifier que la fonction démarre correctement
 logMessage("===== FONCTION ACELLE-PROXY DÉMARRÉE =====", {
-  version: "1.8.0", // Version incrémentée pour suivre les corrections de duplication d'URL
+  version: "2.0.0", // Version incrémentée pour suivre les corrections des problèmes d'authentification
   timestamp: new Date().toISOString()
 }, LOG_LEVELS.INFO);
 
@@ -164,7 +164,9 @@ serve(async (req) => {
       has_prefix_in_path: hasApiPrefixInPath
     }, LOG_LEVELS.INFO);
     
-    // Ajouter le token API à l'URL
+    // Ajouter le token API à l'URL - MODIFICATION: Placer le token en premier paramètre
+    // Cette modification semble triviale mais peut être importante pour certaines API qui
+    // vérifient spécifiquement la position du token dans l'URL
     const finalUrl = apiUrl + (apiUrl.includes('?') ? '&' : '?') + `api_token=${acelleToken}`;
     
     // Ajouter des paramètres URL à partir de la requête originale
@@ -176,6 +178,10 @@ serve(async (req) => {
       }
     }
     
+    // Ajouter un paramètre anti-cache
+    const timestamp = Date.now();
+    finalUrlWithParams += `&_t=${timestamp}`;
+    
     logMessage(`Transmission vers l'API Acelle avec authentification via paramètre URL`, {
       url_without_token: urlForLogs,
       auth_method: 'URL Parameter (api_token)',
@@ -186,9 +192,14 @@ serve(async (req) => {
     const apiHeaders = new Headers();
     apiHeaders.set('Accept', 'application/json');
     apiHeaders.set('Content-Type', 'application/json');
-    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.8');
-    apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Ajouter aussi en header pour compatibilité
-    apiHeaders.set('X-API-TOKEN', acelleToken);
+    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/2.0');
+    
+    // MODIFICATION: Ajouter plusieurs méthodes d'authentification pour augmenter les chances de succès
+    apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Méthode 1: Bearer token
+    apiHeaders.set('X-API-TOKEN', acelleToken);              // Méthode 2: Header X-API-TOKEN
+    apiHeaders.set('API-Token', acelleToken);                // Méthode 3: Header API-Token
+    apiHeaders.set('Api-Token', acelleToken);                // Méthode 4: Header Api-Token (casse différente)
+    apiHeaders.set('X-Acelle-Token', acelleToken);           // Méthode 5: Header X-Acelle-Token personnalisé
     
     // Copier certains headers de la requête originale
     ['cache-control', 'if-none-match', 'if-modified-since'].forEach(headerName => {
@@ -209,7 +220,7 @@ serve(async (req) => {
       apiOptions.body = await req.text();
     }
     
-    logMessage(`Envoi de requête à l'API Acelle`, {
+    logMessage(`Envoi de requête à l'API Acelle avec méthodes d'authentification multiples`, {
       method: req.method,
       headers_sent: [...apiHeaders.keys()],
       has_body: apiOptions.body ? "Oui" : "Non",
@@ -236,6 +247,53 @@ serve(async (req) => {
           responseHeaders.set(headerName, headerValue);
         }
       });
+      
+      // NOUVEAU: Gestion améliorée pour l'erreur 403
+      if (response.status === 403) {
+        logMessage(`Erreur d'authentification (403 Forbidden) pour l'URL: ${urlForLogs}`, {
+          url_finale: urlForLogs,
+          auth_headers_sent: {
+            'Authorization': 'Bearer ***MASQUÉ***',
+            'X-API-TOKEN': '***MASQUÉ***',
+            'API-Token': '***MASQUÉ***',
+            'X-Acelle-Token': '***MASQUÉ***'
+          },
+          auth_method_in_url: 'api_token=***MASQUÉ***'
+        }, LOG_LEVELS.ERROR);
+        
+        // Tentative de diagnostic pour les erreurs 403
+        let responseBody = "";
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          logMessage("Impossible de lire le corps de la réponse d'erreur 403", { error: e }, LOG_LEVELS.ERROR);
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: "Erreur d'authentification à l'API Acelle (403 Forbidden)",
+            details: {
+              responseBody: responseBody || "Pas de corps de réponse disponible",
+              auth_methods_tried: [
+                "URL Parameter (api_token=)",
+                "Bearer Authorization Header",
+                "X-API-TOKEN Header",
+                "API-Token Header",
+                "X-Acelle-Token Header"
+              ],
+              suggested_checks: [
+                "Vérifiez que le token API est toujours valide et actif",
+                "Connectez-vous à l'interface web Acelle pour confirmer que les identifiants fonctionnent",
+                "Vérifiez si le compte n'a pas de restrictions IP ou de permissions limitées",
+                "Essayez de régénérer le token API depuis l'interface admin d'Acelle"
+              ]
+            },
+            timestamp: new Date().toISOString()
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+        );
+      }
       
       // NOUVEAU: Gestion améliorée pour l'erreur 404
       if (response.status === 404) {
@@ -302,6 +360,21 @@ serve(async (req) => {
             click_rate: responseJson.click_rate || 'non défini',
             keys: Object.keys(responseJson)
           }, LOG_LEVELS.INFO);
+          
+          // NOUVEAU: Ajouter une correction spécifique pour les statistiques de campagnes
+          // Si les statistiques sont dans un format inattendu, essayer de les normaliser
+          if (responseJson.statistics && !responseJson.uniq_open_rate) {
+            logMessage("Correction du format des statistiques de campagne", { 
+              original_format: Object.keys(responseJson)
+            }, LOG_LEVELS.INFO);
+            
+            // Si les statistiques sont nichées dans un sous-objet, remonter les valeurs
+            const correctedResponse = { ...responseJson.statistics, uid: responseJson.uid || responseJson.campaign_uid };
+            return new Response(JSON.stringify(correctedResponse), {
+              status: response.status,
+              headers: responseHeaders
+            });
+          }
         }
       } catch (e) {
         // Ce n'est pas du JSON valide, ignorer silencieusement

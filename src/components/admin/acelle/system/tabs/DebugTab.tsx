@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Check, AlertTriangle, WifiOff, FileQuestion, RefreshCw } from "lucide-react";
+import { Check, AlertTriangle, WifiOff, FileQuestion, RefreshCw, Key, ShieldAlert } from "lucide-react";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { Button } from "@/components/ui/button";
 
@@ -44,7 +44,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
       return { 
         color: "bg-red-50", 
         text: "Erreur d'authentification", 
-        icon: <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+        icon: <Key className="h-4 w-4 text-red-500 mr-2" />
       };
     }
     
@@ -96,7 +96,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
             {isTestingConnection ? "Test en cours..." : "Tester la connexion API"}
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            Note: Ce test utilise l'authentification par paramètre URL (api_token) et par en-têtes HTTP pour une compatibilité maximale.
+            Le test utilise désormais plusieurs méthodes d'authentification pour une compatibilité maximale: paramètres URL, en-têtes HTTP et combinaisons mixtes.
           </p>
         </div>
       )}
@@ -109,6 +109,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
               debugInfo.success ? 'text-green-700' : 
               debugInfo.statusCode === 504 || debugInfo.isTimeout ? 'text-amber-700' : 
               debugInfo.statusCode === 404 ? 'text-purple-700' :
+              debugInfo.statusCode === 403 ? 'text-red-700' :
               'text-red-700'
             }`}>
               {connectionStatus.text}: {debugInfo.errorMessage || `Statut: ${debugInfo.statusCode || 'Inconnu'}`}
@@ -133,7 +134,32 @@ export const DebugTab: React.FC<DebugTabProps> = ({
             </div>
           )}
           
-          {/* Affichage spécifique pour l'erreur 404 - AMÉLIORÉ */}
+          {/* Affichage spécifique pour l'erreur 403 - NOUVELLE SECTION */}
+          {debugInfo.statusCode === 403 && (
+            <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+              <strong>Erreur d'authentification (403 Forbidden)</strong>: Le serveur a compris votre requête mais refuse de l'autoriser.
+              <ul className="list-disc pl-5 mt-2 space-y-1.5">
+                <li>Vérifiez que votre token API est toujours valide</li>
+                <li>Connectez-vous directement à l'interface web Acelle pour confirmer vos identifiants</li>
+                <li>Le compte peut avoir des restrictions d'IP ou des permissions limitées</li>
+                <li>Essayez de régénérer le token API depuis l'interface admin d'Acelle</li>
+                <li>Vérifiez que le compte n'est pas suspendu ou désactivé</li>
+              </ul>
+              
+              <div className="mt-3 p-2 bg-red-100 rounded">
+                <strong>Correction appliquée:</strong> Le système teste désormais plusieurs méthodes d'authentification simultanément pour maximiser la compatibilité:
+                <ul className="list-disc pl-5 mt-1">
+                  <li>Paramètre URL (<code>api_token=...</code>)</li>
+                  <li>En-tête <code>Authorization: Bearer</code></li>
+                  <li>En-tête <code>X-API-TOKEN</code></li>
+                  <li>En-tête <code>API-Token</code></li>
+                  <li>Combinaison de toutes ces méthodes</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          
+          {/* Affichage spécifique pour l'erreur 404 - EXISTANT */}
           {debugInfo.statusCode === 404 && (
             <div className="mt-2 text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
               <strong>Ressource non trouvée (404)</strong>: L'URL demandée n'existe pas sur l'API Acelle.
@@ -190,12 +216,27 @@ export const DebugTab: React.FC<DebugTabProps> = ({
           <li>Essayez de "Réveiller les services" si les API sont inaccessibles</li>
           <li>Vérifiez les identifiants API dans les paramètres du compte</li>
           <li><strong>IMPORTANT:</strong> Vérifiez si votre URL d'API contient déjà "/api/v1" pour éviter la duplication</li>
-          <li>La méthode d'authentification par paramètre URL (?api_token=) est maintenant utilisée</li>
-          <li>Les en-têtes <code>X-Acelle-Token</code> et <code>X-Acelle-Endpoint</code> sont également supportés</li>
+          <li>Plusieurs méthodes d'authentification sont maintenant testées automatiquement</li>
           <li>Si le cache est vide, synchronisez les campagnes depuis un compte valide</li>
-          <li>En cas d'erreurs 403, vérifiez les permissions de votre compte Acelle</li>
+          <li>En cas d'erreurs 403, vérifiez les permissions de votre compte Acelle et la validité du token</li>
           <li>En cas d'erreur 404, vérifiez la structure correcte des URLs d'API</li>
           <li>En cas d'erreur 500, vérifiez que l'API est accessible directement depuis votre navigateur</li>
+        </ul>
+      </div>
+      
+      {/* Nouvelle section pour les problèmes d'authentification spécifiques */}
+      <div className="p-4 border rounded-md border-amber-200 bg-amber-50">
+        <h3 className="font-semibold mb-2 flex items-center">
+          <ShieldAlert className="h-4 w-4 mr-2 text-amber-600" />
+          Problèmes d'authentification courants
+        </h3>
+        <ul className="list-disc pl-5 space-y-1 text-sm">
+          <li>Les tokens API peuvent expirer ou être révoqués</li>
+          <li>Certaines installations d'Acelle ont des méthodes d'authentification différentes</li>
+          <li>Les comptes peuvent être soumis à des restrictions IP</li>
+          <li>Les autorisations peuvent être modifiées par l'administrateur</li>
+          <li>Tentez de régénérer le token depuis l'interface d'administration Acelle</li>
+          <li>Essayez une connexion manuelle à l'interface Acelle pour vérifier les identifiants</li>
         </ul>
       </div>
     </div>
