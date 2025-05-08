@@ -34,6 +34,7 @@ import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
 import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 import { DataUnavailableAlert } from './errors/DataUnavailableAlert';
+import { DiagnosticButton } from "./diagnostic/DiagnosticButton";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -470,10 +471,23 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
             Synchroniser
           </Button>
+          
+          <DiagnosticButton 
+            account={account} 
+            campaigns={campaigns}
+            onForceSyncStats={async () => {
+              try {
+                await handleRefresh();
+                return Promise.resolve();
+              } catch (error) {
+                return Promise.reject(error);
+              }
+            }}
+          />
         </div>
       </div>
       
-      {/* Affichage des erreurs d'authentification API */}
+      {/* Afficher les erreurs d'authentification API */}
       {apiErrors.hasAuthError && (
         <Card className="bg-red-50 border-red-200">
           <CardContent className="p-4 text-red-800 flex items-center gap-2">

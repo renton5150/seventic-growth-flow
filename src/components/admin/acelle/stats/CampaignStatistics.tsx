@@ -3,7 +3,12 @@ import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatNumberSafely, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
+import { 
+  formatNumberSafely, 
+  renderPercentage, 
+  extractOpenRate,
+  extractClickRate
+} from "@/utils/acelle/campaignStatusUtils";
 
 interface CampaignStatisticsProps {
   statistics: AcelleCampaignStatistics;
@@ -32,34 +37,16 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
   const unsubscribed = parseFloat(String(statistics?.unsubscribe_count || 0));
   const complained = parseFloat(String(statistics?.abuse_complaint_count || 0));
 
-  // Calcul des taux si nécessaire
-  let deliveryRate, openRate, clickRate;
+  // Utiliser nos fonctions d'extraction robustes
+  const openRate = extractOpenRate(statistics);
+  const clickRate = extractClickRate(statistics);
   
-  // Récupérer les taux depuis les données ou les calculer si nécessaires
+  // Calcul du taux de livraison
+  let deliveryRate = 0;
   if (statistics?.delivered_rate !== undefined) {
     deliveryRate = parseFloat(String(statistics.delivered_rate));
   } else if (total > 0) {
     deliveryRate = (delivered / total) * 100;
-  } else {
-    deliveryRate = 0;
-  }
-  
-  if (statistics?.uniq_open_rate !== undefined) {
-    openRate = parseFloat(String(statistics.uniq_open_rate));
-  } else if (statistics?.open_rate !== undefined) {
-    openRate = parseFloat(String(statistics.open_rate));
-  } else if (delivered > 0) {
-    openRate = (opened / delivered) * 100;
-  } else {
-    openRate = 0;
-  }
-  
-  if (statistics?.click_rate !== undefined) {
-    clickRate = parseFloat(String(statistics.click_rate));
-  } else if (delivered > 0) {
-    clickRate = (clicked / delivered) * 100;
-  } else {
-    clickRate = 0;
   }
 
   // Afficher un état de chargement ou un message d'absence de données si nécessaire
