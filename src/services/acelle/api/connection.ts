@@ -36,7 +36,8 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
     }
 
     // Construire l'URL pour tester la connexion
-    const testEndpoint = "ping";
+    // Utilisation de /campaigns au lieu de /ping qui n'est pas un endpoint valide dans l'API Acelle
+    const testEndpoint = "campaigns";
     const testParams = { 
       api_token: account.api_token,
       _t: Date.now().toString()  // Anti-cache
@@ -105,7 +106,8 @@ export const testAcelleConnection = async (
 ): Promise<AcelleConnectionDebug> => {
   try {
     // Construire l'URL pour tester la connexion
-    const testEndpoint = `${apiEndpoint}/ping`.replace(/\/+/g, '/').replace('://', '___').replace('/', '://').replace('___', '://');
+    // Utilisation de /campaigns au lieu de /ping qui n'est pas un endpoint valide dans l'API Acelle
+    const testEndpoint = `${apiEndpoint}/campaigns`.replace(/\/+/g, '/').replace('://', '___').replace('/', '://').replace('___', '://');
     
     // Mesurer le temps de réponse
     const startTime = Date.now();
@@ -151,3 +153,4 @@ export const testAcelleConnection = async (
     };
   }
 };
+
