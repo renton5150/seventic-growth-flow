@@ -53,7 +53,8 @@ const parseNumber = (value: any, isRate = false): number => {
   // Traiter les chaînes de caractères
   if (typeof value === 'string') {
     // Nettoyer la chaîne (supprimer %, etc.)
-    const cleanValue = value.replace(/[^0-9.-,]/g, '').replace(',', '.');
+    // Fixed the regex character class to ensure proper range order
+    const cleanValue = value.replace(/[^0-9.,\-]/g, '').replace(',', '.');
     const num = parseFloat(cleanValue);
     return isNaN(num) ? 0 : num;
   }
