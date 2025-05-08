@@ -5,6 +5,20 @@ import { fetchCampaignStatisticsFromApi } from "./apiClient";
 import { getCachedStatistics, saveCampaignStatistics } from "./cacheManager";
 
 /**
+ * Vérifie si les statistiques sont vides ou non initialisées
+ * Une campagne est considérée comme ayant des statistiques vides si le nombre
+ * de destinataires (subscriber_count) est à zéro
+ */
+export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null): boolean => {
+  if (!statistics) return true;
+  
+  // Vérifier si les valeurs principales sont à zéro
+  return statistics.subscriber_count === 0 || 
+         statistics.subscriber_count === undefined || 
+         statistics.subscriber_count === null;
+};
+
+/**
  * Enrichit les campagnes avec des statistiques en utilisant l'API directe ou le cache
  */
 export const enrichCampaignsWithStats = async (
@@ -40,17 +54,22 @@ export const enrichCampaignsWithStats = async (
         }
       }
       
-      // If not found in cache or forcing refresh, fetch from API
-      if (!statistics && account.api_endpoint && account.api_token) {
-        console.log(`Fetching fresh statistics from API for campaign ${campaignUid} (force: ${forceRefresh})`);
-        statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
-        
-        if (statistics) {
-          // Save to cache for future use
-          console.log(`Saving new statistics to cache for campaign ${campaignUid}`);
-          await saveCampaignStatistics(campaignUid, account.id, statistics);
+      // Si les stats sont vides ou non trouvées en cache, ou si on force le rafraîchissement,
+      // alors récupérer depuis l'API
+      if (!statistics || hasEmptyStatistics(statistics) || forceRefresh) {
+        if (account.api_endpoint && account.api_token) {
+          console.log(`Fetching fresh statistics from API for campaign ${campaignUid} (force: ${forceRefresh}, emptyStats: ${statistics ? hasEmptyStatistics(statistics) : true})`);
+          statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
+          
+          if (statistics) {
+            // Save to cache for future use
+            console.log(`Saving new statistics to cache for campaign ${campaignUid}`);
+            await saveCampaignStatistics(campaignUid, account.id, statistics);
+          } else {
+            console.log(`No statistics returned from API for campaign ${campaignUid}`);
+          }
         } else {
-          console.log(`No statistics returned from API for campaign ${campaignUid}`);
+          console.warn(`Cannot fetch API statistics for ${campaignUid}: missing API credentials`);
         }
       }
       

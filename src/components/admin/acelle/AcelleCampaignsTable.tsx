@@ -33,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
+import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -89,21 +90,53 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           setCampaigns(fetchedCampaigns);
           setIsLoading(false);
           
-          // Ensuite, lancer un rafraîchissement des stats en arrière-plan si demandé
-          if (shouldForceRefresh) {
+          // Vérifier quelles campagnes ont des statistiques vides et nécessitent un rafraîchissement
+          const campaignsNeedingRefresh = fetchedCampaigns.filter(campaign => 
+            !campaign.statistics || hasEmptyStatistics(campaign.statistics)
+          );
+          
+          // Si certaines campagnes ont besoin d'un rafraîchissement ou si un rafraîchissement complet est demandé
+          if (campaignsNeedingRefresh.length > 0 || shouldForceRefresh) {
             setBackgroundRefreshInProgress(true);
-            console.log("Starting background refresh of campaign statistics");
+            
+            if (campaignsNeedingRefresh.length > 0) {
+              console.log(`Starting background refresh for ${campaignsNeedingRefresh.length} campaigns with empty statistics`);
+            } else {
+              console.log("Starting background refresh of all campaign statistics");
+            }
             
             // Ceci s'exécutera en arrière-plan sans bloquer l'interface
             setTimeout(async () => {
               try {
-                const enrichedCampaigns = await enrichCampaignsWithStats(
-                  fetchedCampaigns, 
-                  account, 
-                  { forceRefresh: true }
-                );
-                setCampaigns(enrichedCampaigns);
-                console.log("Background refresh completed successfully");
+                // Si nous avons des campagnes spécifiques à rafraîchir et qu'un rafraîchissement complet n'est pas demandé
+                if (campaignsNeedingRefresh.length > 0 && !shouldForceRefresh) {
+                  // Rafraîchir uniquement les campagnes avec des statistiques vides
+                  const refreshedCampaigns = await enrichCampaignsWithStats(
+                    campaignsNeedingRefresh, 
+                    account, 
+                    { forceRefresh: true }
+                  );
+                  
+                  // Mettre à jour uniquement les campagnes qui ont été rafraîchies
+                  const updatedCampaigns = fetchedCampaigns.map(campaign => {
+                    const refreshed = refreshedCampaigns.find(c => 
+                      c.uid === campaign.uid || c.campaign_uid === campaign.campaign_uid
+                    );
+                    return refreshed || campaign;
+                  });
+                  
+                  setCampaigns(updatedCampaigns);
+                  console.log(`Updated ${refreshedCampaigns.length} campaigns with fresh statistics`);
+                } else {
+                  // Rafraîchir toutes les campagnes si demandé
+                  const enrichedCampaigns = await enrichCampaignsWithStats(
+                    fetchedCampaigns, 
+                    account, 
+                    { forceRefresh: true }
+                  );
+                  setCampaigns(enrichedCampaigns);
+                  console.log("Background refresh of all campaigns completed successfully");
+                }
               } catch (err) {
                 console.error("Error during background refresh:", err);
               } finally {
