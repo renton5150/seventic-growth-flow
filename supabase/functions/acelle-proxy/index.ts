@@ -4,7 +4,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // Configuration CORS pour permettre les requêtes cross-origin
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-token, x-acelle-endpoint',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-token, x-acelle-endpoint, x-debug-level, x-auth-method, path',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Max-Age': '86400',
   'Vary': 'Origin'
@@ -113,31 +113,39 @@ serve(async (req) => {
     // Nettoyer l'URL de l'API (enlever le slash final si présent)
     acelleEndpoint = acelleEndpoint.replace(/\/$/, '');
     
-    // Extraire le chemin de la requête (après acelle-proxy/)
+    // Récupérer le chemin spécifique API depuis les paramètres d'URL ou le header
     const url = new URL(req.url);
-    const pathSegments = url.pathname.split('/');
-    const apiPath = pathSegments.slice(pathSegments.indexOf('acelle-proxy') + 1).join('/');
+    const apiPath = url.searchParams.get('path') || req.headers.get('path') || '';
     
     // Construire l'URL complète de l'API
-    const apiUrl = `${acelleEndpoint}/api/v1/${apiPath}`;
+    let apiUrl = `${acelleEndpoint}/${apiPath}`;
+    
+    // Si le chemin ne contient pas déjà /api/v1/, l'ajouter
+    if (!apiPath.includes('/api/v1/')) {
+      apiUrl = `${acelleEndpoint}/api/v1/${apiPath}`;
+    }
+    
+    // Journaliser l'URL avant d'ajouter le token pour ne pas exposer le token dans les logs
+    const urlForLogs = apiUrl;
+    logMessage(`Requête API vers: ${urlForLogs}`, {
+      method: req.method,
+      headers_count: [...req.headers.keys()].length
+    }, LOG_LEVELS.INFO);
     
     // Ajouter le token API à l'URL
     const finalUrl = apiUrl + (apiUrl.includes('?') ? '&' : '?') + `api_token=${acelleToken}`;
-    
-    // Masquer le token pour les logs
-    const urlWithoutToken = apiUrl + (apiUrl.includes('?') ? '&' : '?') + `[token_masqué]`;
     
     // Ajouter des paramètres URL à partir de la requête originale
     const urlSearchParams = new URLSearchParams(url.search);
     let finalUrlWithParams = finalUrl;
     for (const [key, value] of urlSearchParams.entries()) {
-      if (key !== 'api_token') { // Éviter la duplication du token
+      if (key !== 'api_token' && key !== 'path') { // Éviter la duplication du token et du path
         finalUrlWithParams += `&${key}=${value}`;
       }
     }
     
-    logMessage(`Transmission vers l'API Acelle avec authentication via paramètre URL`, {
-      url_without_token: urlWithoutToken,
+    logMessage(`Transmission vers l'API Acelle avec authentification via paramètre URL`, {
+      url_without_token: urlForLogs,
       auth_method: 'URL Parameter (api_token)',
       headers_auth_used: true
     }, LOG_LEVELS.INFO);
@@ -146,7 +154,7 @@ serve(async (req) => {
     const apiHeaders = new Headers();
     apiHeaders.set('Accept', 'application/json');
     apiHeaders.set('Content-Type', 'application/json');
-    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.6');
+    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.7');
     apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Ajouter aussi en header pour compatibilité
     apiHeaders.set('X-API-TOKEN', acelleToken);
     
@@ -192,13 +200,13 @@ serve(async (req) => {
     
     if (!response.ok) {
       logMessage(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`, {
-        url_without_token: urlWithoutToken,
+        url_without_token: urlForLogs,
         status: response.status,
         status_text: response.statusText
       }, LOG_LEVELS.ERROR);
     } else {
       logMessage(`Réponse de l'API Acelle: ${response.status} OK`, {
-        url_without_token: urlWithoutToken,
+        url_without_token: urlForLogs,
         status: response.status
       }, LOG_LEVELS.DEBUG);
     }

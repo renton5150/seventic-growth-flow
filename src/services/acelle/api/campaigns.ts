@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
+import { buildProxyUrl, buildApiPath } from "@/utils/acelle/proxyUtils";
 
 /**
  * Extrait les campagnes du cache pour un compte spécifique
@@ -82,15 +82,17 @@ export const getCacheStatus = async (accountId: string): Promise<{ lastUpdated: 
  */
 export const getCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
   try {
-    // Récupérer via l'API proxy
-    const apiPath = `/api/campaigns`;
-    // Fix - Passer un objet vide comme second paramètre pour respecter la signature de buildProxyUrl
-    const fullUrl = buildProxyUrl(account.api_endpoint, {});
+    // Utiliser le nouveau helper pour construire l'URL d'API
+    const fullUrl = buildApiPath(account.api_endpoint, 'campaigns', {
+      include_stats: 'true',
+      per_page: '100'
+    });
     
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${account.api_token}`,
+        'X-Acelle-Token': account.api_token,
+        'X-Acelle-Endpoint': account.api_endpoint,
         'Content-Type': 'application/json',
       },
     });
@@ -165,20 +167,20 @@ export const getCampaign = async (campaignUid: string, account: AcelleAccount): 
         delivery_date: cachedData.delivery_date,
         run_at: cachedData.run_at,
         last_error: cachedData.last_error,
-        // Attention au typage ici pour corriger l'erreur
         delivery_info: cachedData.delivery_info as any,
       };
     }
     
     // Si pas en cache ou erreur, récupérer via l'API
-    const apiUrl = `/api/campaigns/${campaignUid}`;
-    // Fix - Passer un objet vide comme second paramètre pour respecter la signature de buildProxyUrl
-    const fullUrl = buildProxyUrl(account.api_endpoint, {});
+    const fullUrl = buildApiPath(account.api_endpoint, `campaigns/${campaignUid}`, {
+      include_stats: 'true'
+    });
     
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${account.api_token}`,
+        'X-Acelle-Token': account.api_token,
+        'X-Acelle-Endpoint': account.api_endpoint,
         'Content-Type': 'application/json',
       },
     });

@@ -57,7 +57,9 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Acelle-Token': apiToken,
+        'X-Acelle-Endpoint': apiEndpoint
       },
       body: { 
         apiEndpoint, 
@@ -75,4 +77,23 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
     console.error("Exception lors de la vérification de l'API:", error);
     return false;
   }
+};
+
+/**
+ * Construit le chemin complet d'une API spécifique pour Acelle
+ * @param apiEndpoint Point d'entrée de base de l'API
+ * @param path Chemin spécifique de l'API (sans le préfixe /api/v1/)
+ * @param params Paramètres supplémentaires
+ * @returns URL complète pour l'API
+ */
+export const buildApiPath = (apiEndpoint: string, path: string, params: Record<string, string> = {}): string => {
+  // Nettoyer l'endpoint et le chemin
+  const cleanEndpoint = apiEndpoint.replace(/\/$/, '');
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  // Construire l'URL avec le chemin API
+  return buildProxyUrl(cleanEndpoint, {
+    path: `api/v1/${cleanPath}`,
+    ...params
+  });
 };
