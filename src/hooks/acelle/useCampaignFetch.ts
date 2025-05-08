@@ -3,6 +3,53 @@ import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 
 /**
+ * Récupère une campagne spécifique par son ID
+ */
+export const fetchCampaignById = async (
+  campaignUid: string,
+  accountId: string
+): Promise<AcelleCampaign | null> => {
+  try {
+    // Rechercher dans la table email_campaigns_cache
+    const { data, error } = await supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .eq('campaign_uid', campaignUid)
+      .eq('account_id', accountId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Erreur lors de la récupération de la campagne:", error);
+      return null;
+    }
+    
+    if (!data) {
+      return null;
+    }
+    
+    // Transformer les données pour correspondre au type AcelleCampaign
+    return {
+      uid: data.campaign_uid,
+      campaign_uid: data.campaign_uid,
+      name: data.name,
+      subject: data.subject,
+      status: data.status,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      delivery_date: data.delivery_date,
+      run_at: data.run_at,
+      last_error: data.last_error,
+      // Important: transformer delivery_info pour respecter le type DeliveryInfo
+      delivery_info: data.delivery_info as any,
+      // Autres propriétés nécessaires
+    };
+  } catch (error) {
+    console.error("Exception lors de la récupération de la campagne:", error);
+    return null;
+  }
+};
+
+/**
  * Récupère les campagnes du cache pour une liste de comptes
  * avec support de pagination
  */
@@ -46,7 +93,8 @@ export const fetchCampaignsFromCache = async (
       delivery_date: item.delivery_date,
       run_at: item.run_at,
       last_error: item.last_error,
-      delivery_info: item.delivery_info,
+      // Important: transformer delivery_info pour respecter le type DeliveryInfo
+      delivery_info: item.delivery_info as any,
       // Autres propriétés si nécessaires
     }));
   } catch (error) {
