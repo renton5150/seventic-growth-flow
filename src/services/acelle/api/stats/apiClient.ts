@@ -1,10 +1,11 @@
 
 import { AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
+import { buildApiPath } from "@/utils/acelle/proxyUtils";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
- * Modifié pour utiliser l'authentification par paramètre URL (api_token)
+ * Modifié pour utiliser la construction d'URL corrigée
  */
 export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
@@ -22,9 +23,8 @@ export const fetchCampaignStatisticsFromApi = async (
     
     console.log(`Fetching statistics from API for campaign ${campaignUid}`);
     
-    // Construire l'URL pour la requête API - utiliser directement l'endpoint complet
-    const apiEndpoint = account.api_endpoint.replace(/\/$/, '');
-    const apiPath = `/campaigns/${campaignUid}/statistics`;
+    // Construire l'URL pour la requête API en utilisant buildApiPath
+    const apiPath = `campaigns/${campaignUid}/statistics`;
     
     console.log(`Chemin API à appeler: ${apiPath}`);
     
@@ -37,13 +37,16 @@ export const fetchCampaignStatisticsFromApi = async (
       return null;
     }
     
+    // Utiliser buildApiPath pour construire l'URL correctement
+    const proxyUrl = buildApiPath(account.api_endpoint, apiPath);
+    
     // Préparer les en-têtes pour l'authentification correcte
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${sessionToken}`, // Token Supabase pour l'Edge Function
       'X-Acelle-Token': account.api_token, // Token Acelle pour l'API
-      'X-Acelle-Endpoint': apiEndpoint // Endpoint explicite
+      'X-Acelle-Endpoint': account.api_endpoint // Endpoint explicite
     };
     
     // Ajouter des logs détaillés pour diagnostiquer les problèmes d'authentification
@@ -52,10 +55,6 @@ export const fetchCampaignStatisticsFromApi = async (
       'Authorization': 'Bearer ***MASKED***',
       'X-Acelle-Token': '***MASKED***'
     });
-    
-    // Construire l'URL pour le proxy CORS de Supabase
-    // IMPORTANT: On n'inclut pas directement le token dans l'URL ici car le proxy Edge Function le fera
-    const proxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/campaigns/${campaignUid}/statistics`;
     
     console.log(`URL du proxy: ${proxyUrl} (les paramètres d'authentification seront ajoutés par l'Edge Function)`);
     
@@ -66,10 +65,18 @@ export const fetchCampaignStatisticsFromApi = async (
     // Logger le statut de la réponse pour diagnostiquer
     console.log(`Statut de réponse API: ${response.status} ${response.statusText}`);
     
+    // Amélioration de la gestion des erreurs
     if (!response.ok) {
       // Journaliser plus de détails sur l'erreur
       const errorText = await response.text();
       console.error(`Erreur API ${response.status}: ${errorText.substring(0, 500)}...`);
+      
+      // Gestion spécifique pour le 404 Not Found
+      if (response.status === 404) {
+        console.error(`Ressource non trouvée (404): L'URL demandée n'existe pas. 
+        Vérifiez le chemin d'API et la structure de l'URL: ${proxyUrl}`);
+        throw new Error(`La ressource demandée n'existe pas (404 Not Found)`);
+      }
       
       // Gestion spécifique pour le 403 Forbidden
       if (response.status === 403) {

@@ -82,18 +82,29 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
 /**
  * Construit le chemin complet d'une API spécifique pour Acelle
  * @param apiEndpoint Point d'entrée de base de l'API
- * @param path Chemin spécifique de l'API (sans le préfixe /api/v1/)
+ * @param path Chemin spécifique de l'API (avec ou sans le préfixe /api/v1/)
  * @param params Paramètres supplémentaires
  * @returns URL complète pour l'API
  */
 export const buildApiPath = (apiEndpoint: string, path: string, params: Record<string, string> = {}): string => {
   // Nettoyer l'endpoint et le chemin
   const cleanEndpoint = apiEndpoint.replace(/\/$/, '');
+  
+  // CORRECTION: Vérifier si le chemin contient déjà le préfixe /api/v1/
+  const hasApiPrefix = path.startsWith('/api/v1/') || path.startsWith('api/v1/');
+  
+  // Nettoyer le chemin (supprimer le slash initial si présent)
   const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  // Déterminer le chemin final à utiliser
+  const finalPath = hasApiPrefix ? cleanPath : `api/v1/${cleanPath}`;
+  
+  // Log pour debug
+  console.log(`Construction chemin API: endpoint=${cleanEndpoint}, chemin=${path}, chemin final=${finalPath}`);
   
   // Construire l'URL avec le chemin API
   return buildProxyUrl(cleanEndpoint, {
-    path: `api/v1/${cleanPath}`,
+    path: finalPath,
     ...params
   });
 };

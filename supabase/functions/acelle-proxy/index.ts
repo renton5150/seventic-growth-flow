@@ -63,7 +63,7 @@ function logMessage(message: string, data?: any, level: number = LOG_LEVELS.INFO
 
 // Log initial pour vérifier que la fonction démarre correctement
 logMessage("===== FONCTION ACELLE-PROXY DÉMARRÉE =====", {
-  version: "1.6.1", // Version incrémentée pour suivre les changements
+  version: "1.7.0", // Version incrémentée pour suivre les changements et corrections 404
   timestamp: new Date().toISOString()
 }, LOG_LEVELS.INFO);
 
@@ -117,19 +117,28 @@ serve(async (req) => {
     const url = new URL(req.url);
     const apiPath = url.searchParams.get('path') || req.headers.get('path') || '';
     
-    // Construire l'URL complète de l'API
-    let apiUrl = `${acelleEndpoint}/${apiPath}`;
+    // CORRECTION: Meilleure détection et gestion des préfixes d'API pour éviter les doublons
+    const hasApiPrefix = apiPath.startsWith('/api/v1/') || apiPath.startsWith('api/v1/');
     
-    // Si le chemin ne contient pas déjà /api/v1/, l'ajouter
-    if (!apiPath.includes('/api/v1/')) {
-      apiUrl = `${acelleEndpoint}/api/v1/${apiPath}`;
+    // Construire l'URL complète de l'API en évitant la duplication du préfixe /api/v1/
+    let apiUrl;
+    if (hasApiPrefix) {
+      // Si le chemin contient déjà le préfixe, l'utiliser tel quel
+      apiUrl = `${acelleEndpoint}/${apiPath.startsWith('/') ? apiPath.substring(1) : apiPath}`;
+      logMessage(`Chemin API avec préfixe détecté: ${apiPath}`, { url: apiUrl }, LOG_LEVELS.DEBUG);
+    } else {
+      // Sinon, ajouter le préfixe /api/v1/
+      apiUrl = `${acelleEndpoint}/api/v1/${apiPath.startsWith('/') ? apiPath.substring(1) : apiPath}`;
+      logMessage(`Ajout du préfixe API standard au chemin: ${apiPath}`, { url: apiUrl }, LOG_LEVELS.DEBUG);
     }
     
     // Journaliser l'URL avant d'ajouter le token pour ne pas exposer le token dans les logs
     const urlForLogs = apiUrl;
     logMessage(`Requête API vers: ${urlForLogs}`, {
       method: req.method,
-      headers_count: [...req.headers.keys()].length
+      headers_count: [...req.headers.keys()].length,
+      path: apiPath,
+      has_prefix: hasApiPrefix
     }, LOG_LEVELS.INFO);
     
     // Ajouter le token API à l'URL
@@ -180,7 +189,8 @@ serve(async (req) => {
     logMessage(`Envoi de requête à l'API Acelle`, {
       method: req.method,
       headers_sent: [...apiHeaders.keys()],
-      has_body: apiOptions.body ? "Oui" : "Non"
+      has_body: apiOptions.body ? "Oui" : "Non",
+      final_url: urlForLogs // Log de l'URL sans le token
     }, LOG_LEVELS.INFO);
     
     // Faire la requête à l'API avec un timeout
@@ -196,15 +206,38 @@ serve(async (req) => {
       const responseHeaders = new Headers(corsHeaders);
       responseHeaders.set('Content-Type', response.headers.get('Content-Type') || 'application/json');
       
-      // CORRECTION: Inversion des paramètres dans la boucle ci-dessous
       // Copier certains headers de la réponse
       ['etag', 'cache-control', 'last-modified'].forEach(headerName => {
         const headerValue = response.headers.get(headerName);
         if (headerValue) {
-          // CORRECTION: Ordre correct des paramètres headerName, headerValue (pas l'inverse)
           responseHeaders.set(headerName, headerValue);
         }
       });
+      
+      // NOUVEAU: Gestion améliorée pour l'erreur 404
+      if (response.status === 404) {
+        logMessage(`Ressource non trouvée (404) pour l'URL: ${urlForLogs}`, {
+          url_finale: urlForLogs,
+          path_original: apiPath,
+          has_prefix: hasApiPrefix
+        }, LOG_LEVELS.ERROR);
+        
+        // Tentative de diagnostic pour les erreurs 404
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: "Ressource non trouvée (404)",
+            details: {
+              path: apiPath,
+              has_api_prefix: hasApiPrefix,
+              endpoint_base: acelleEndpoint,
+              suggested_check: "Vérifiez que le chemin d'API est correct et que la ressource existe"
+            },
+            timestamp: new Date().toISOString()
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
       
       if (!response.ok) {
         logMessage(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`, {

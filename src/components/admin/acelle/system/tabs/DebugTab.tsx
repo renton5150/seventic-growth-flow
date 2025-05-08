@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Check, AlertTriangle, WifiOff } from "lucide-react";
+import { Check, AlertTriangle, WifiOff, FileQuestion } from "lucide-react";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { Button } from "@/components/ui/button";
 
@@ -17,31 +17,59 @@ export const DebugTab: React.FC<DebugTabProps> = ({
 }) => {
   // Fonction pour déterminer le type d'erreur et son affichage
   const getConnectionStatus = () => {
-    if (!debugInfo) return { color: "bg-gray-50", text: "Aucun test effectué" };
+    if (!debugInfo) return { color: "bg-gray-50", text: "Aucun test effectué", icon: null };
     
     if (debugInfo.success) {
-      return { color: "bg-green-50", text: "Connexion établie" };
+      return { color: "bg-green-50", text: "Connexion établie", icon: <Check className="h-4 w-4 text-green-500 mr-2" /> };
     }
     
     // Détection de types d'erreurs spécifiques
-    if (debugInfo.statusCode === 504 || debugInfo.errorMessage?.includes("timeout")) {
-      return { color: "bg-amber-50", text: "Timeout de connexion" };
+    if (debugInfo.statusCode === 504 || debugInfo.isTimeout || debugInfo.errorMessage?.includes("timeout")) {
+      return { 
+        color: "bg-amber-50", 
+        text: "Timeout de connexion", 
+        icon: <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+      };
+    }
+    
+    if (debugInfo.statusCode === 404) {
+      return { 
+        color: "bg-purple-50", 
+        text: "Ressource non trouvée", 
+        icon: <FileQuestion className="h-4 w-4 text-purple-500 mr-2" />
+      };
     }
     
     if (debugInfo.statusCode === 403) {
-      return { color: "bg-red-50", text: "Erreur d'authentification" };
+      return { 
+        color: "bg-red-50", 
+        text: "Erreur d'authentification", 
+        icon: <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+      };
     }
     
     if (debugInfo.statusCode === 500) {
-      return { color: "bg-red-50", text: "Erreur serveur API" };
+      return { 
+        color: "bg-red-50", 
+        text: "Erreur serveur API", 
+        icon: <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+      };
     }
     
     if (debugInfo.statusCode === 502 || debugInfo.statusCode === 503) {
-      return { color: "bg-red-50", text: "API indisponible" };
+      return { 
+        color: "bg-red-50", 
+        text: "API indisponible", 
+        icon: <WifiOff className="h-4 w-4 text-red-500 mr-2" />
+      };
     }
     
     // Erreur générique
-    return { color: "bg-red-50", text: "Erreur de connexion" };
+    return { 
+      color: "bg-red-50", 
+      text: "Erreur de connexion", 
+      icon: <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+    };
   };
   
   const connectionStatus = getConnectionStatus();
@@ -71,16 +99,12 @@ export const DebugTab: React.FC<DebugTabProps> = ({
       {debugInfo && (
         <div className={`mt-4 p-4 rounded-md ${connectionStatus.color}`}>
           <div className="flex items-center">
-            {debugInfo.success ? (
-              <Check className="h-4 w-4 text-green-500 mr-2" />
-            ) : debugInfo.statusCode === 504 ? (
-              <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
-            ) : (
-              <WifiOff className="h-4 w-4 text-red-500 mr-2" />
-            )}
+            {connectionStatus.icon}
             <span className={`text-sm font-medium ${
               debugInfo.success ? 'text-green-700' : 
-              debugInfo.statusCode === 504 ? 'text-amber-700' : 'text-red-700'
+              debugInfo.statusCode === 504 || debugInfo.isTimeout ? 'text-amber-700' : 
+              debugInfo.statusCode === 404 ? 'text-purple-700' :
+              'text-red-700'
             }`}>
               {connectionStatus.text}: {debugInfo.errorMessage || `Statut: ${debugInfo.statusCode || 'Inconnu'}`}
             </span>
@@ -101,6 +125,18 @@ export const DebugTab: React.FC<DebugTabProps> = ({
           {debugInfo.authMethod && (
             <div className="mt-1 text-xs text-muted-foreground">
               Méthode d'authentification utilisée: {debugInfo.authMethod}
+            </div>
+          )}
+          
+          {/* Affichage spécifique pour l'erreur 404 */}
+          {debugInfo.statusCode === 404 && (
+            <div className="mt-2 text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
+              <strong>Ressource non trouvée (404)</strong>: L'URL demandée n'existe pas sur l'API Acelle.
+              <ul className="list-disc pl-5 mt-1 space-y-1">
+                <li>Vérifiez le chemin d'API utilisé</li>
+                <li>Confirmez que la ressource existe dans votre version d'Acelle</li>
+                <li>Examinez les logs pour voir l'URL exacte appelée</li>
+              </ul>
             </div>
           )}
           
@@ -145,6 +181,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
           <li>Les en-têtes <code>X-Acelle-Token</code> et <code>X-Acelle-Endpoint</code> sont également supportés</li>
           <li>Si le cache est vide, synchronisez les campagnes depuis un compte valide</li>
           <li>En cas d'erreurs 403, vérifiez les permissions de votre compte Acelle</li>
+          <li>En cas d'erreur 404, vérifiez la structure correcte des URLs d'API</li>
           <li>En cas d'erreur 500, vérifiez que l'API est accessible directement depuis votre navigateur</li>
         </ul>
       </div>
