@@ -105,7 +105,7 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         success: result.success,
         timestamp: new Date().toISOString(),
         errorMessage: result.success ? undefined : result.message,
-        responseTime: result.details?.responseTime,
+        duration: result.details?.responseTime, // Utiliser responseTime du résultat mais l'affecter à duration
         apiVersion: result.details?.apiVersion,
         responseData: result.details?.data
       };
@@ -313,8 +313,8 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
               {connectionResult.success && connectionResult.apiVersion && (
                 <p className="mt-1 text-sm text-green-600">Version API: {connectionResult.apiVersion}</p>
               )}
-              {connectionResult.success && connectionResult.responseTime && (
-                <p className="mt-1 text-sm text-green-600">Temps de réponse: {connectionResult.responseTime} ms</p>
+              {connectionResult.success && connectionResult.duration && (
+                <p className="mt-1 text-sm text-green-600">Temps de réponse: {connectionResult.duration} ms</p>
               )}
             </CardContent>
           </Card>
