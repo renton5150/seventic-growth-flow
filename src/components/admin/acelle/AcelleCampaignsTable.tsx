@@ -1,3 +1,4 @@
+
 // Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
