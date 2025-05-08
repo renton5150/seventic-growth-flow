@@ -1,7 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { buildProxyUrl } from "../acelle-service";
+import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
 
 /**
  * Vérifie l'état de la connexion à l'API Acelle
@@ -153,4 +152,3 @@ export const testAcelleConnection = async (
     };
   }
 };
-
