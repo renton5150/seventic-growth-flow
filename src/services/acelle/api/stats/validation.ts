@@ -29,8 +29,7 @@ export const ensureValidStatistics = (statistics: AcelleCampaignStatistics): Ace
   }
   
   // Création d'une copie des valeurs par défaut pour les statistiques validées
-  // Explicitly type this to AcelleCampaignStatistics to avoid type inference issues
-  const validStats: AcelleCampaignStatistics = { ...defaultStats };
+  const validStats = { ...defaultStats };
   
   // Parcourir chaque propriété et s'assurer qu'elle est de type approprié
   for (const key of Object.keys(defaultStats)) {
@@ -40,7 +39,6 @@ export const ensureValidStatistics = (statistics: AcelleCampaignStatistics): Ace
     // Convertir les valeurs en nombre si nécessaire
     if (value !== undefined) {
       if (typeof value === 'string') {
-        // Use type assertion to tell TypeScript that this assignment is valid
         validStats[typedKey] = Number(value) || 0;
       } else if (typeof value === 'number') {
         validStats[typedKey] = value;
