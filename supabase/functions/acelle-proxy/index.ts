@@ -61,6 +61,12 @@ function logMessage(message: string, data?: any, level: number = LOG_LEVELS.INFO
   }
 }
 
+// Log initial pour vérifier que la fonction démarre correctement
+logMessage("===== FONCTION ACELLE-PROXY DÉMARRÉE =====", {
+  version: "1.6.0",
+  timestamp: new Date().toISOString()
+}, LOG_LEVELS.INFO);
+
 // Envoie un heartbeat aux 30 secondes pour indiquer que le service est actif
 function startHeartbeat() {
   const interval = setInterval(() => {
@@ -113,7 +119,7 @@ serve(async (req) => {
     const apiPath = pathSegments.slice(pathSegments.indexOf('acelle-proxy') + 1).join('/');
     
     // Construire l'URL complète de l'API
-    const apiUrl = `${acelleEndpoint}/${apiPath}`;
+    const apiUrl = `${acelleEndpoint}/api/v1/${apiPath}`;
     
     // Ajouter le token API à l'URL
     const finalUrl = apiUrl + (apiUrl.includes('?') ? '&' : '?') + `api_token=${acelleToken}`;
@@ -140,7 +146,7 @@ serve(async (req) => {
     const apiHeaders = new Headers();
     apiHeaders.set('Accept', 'application/json');
     apiHeaders.set('Content-Type', 'application/json');
-    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.0');
+    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/1.6');
     apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Ajouter aussi en header pour compatibilité
     apiHeaders.set('X-API-TOKEN', acelleToken);
     
@@ -180,7 +186,7 @@ serve(async (req) => {
     ['etag', 'cache-control', 'last-modified'].forEach(headerName => {
       const headerValue = response.headers.get(headerName);
       if (headerValue) {
-        responseHeaders.set(headerName, headerValue);
+        responseHeaders.set(headerValue, headerName);
       }
     });
     
@@ -197,9 +203,32 @@ serve(async (req) => {
       }, LOG_LEVELS.DEBUG);
     }
     
+    // Récupérer la réponse sous forme de texte pour inspection et modification si nécessaire
+    const responseText = await response.text();
+    
+    // Essayer de parser le JSON pour déboguer
+    try {
+      const responseJson = JSON.parse(responseText);
+      logMessage("Réponse JSON reçue", {
+        apiPath,
+        status: response.status,
+        dataKeys: Object.keys(responseJson)
+      }, LOG_LEVELS.DEBUG);
+      
+      // Si c'est une campagne avec statistiques, loguer les statistiques
+      if (apiPath.includes('/campaigns/') && apiPath.includes('/statistics')) {
+        logMessage("Statistiques de campagne reçues", {
+          uniq_open_rate: responseJson.uniq_open_rate || 'non défini',
+          click_rate: responseJson.click_rate || 'non défini',
+          keys: Object.keys(responseJson)
+        }, LOG_LEVELS.INFO);
+      }
+    } catch (e) {
+      // Ce n'est pas du JSON valide, ignorer silencieusement
+    }
+    
     // Renvoyer la réponse au client
-    const responseBody = await response.text();
-    return new Response(responseBody, {
+    return new Response(responseText, {
       status: response.status,
       headers: responseHeaders
     });
@@ -224,7 +253,5 @@ const heartbeatInterval = startHeartbeat();
 // S'assurer d'arrêter le heartbeat lorsque la fonction se termine
 addEventListener("beforeunload", (event) => {
   clearInterval(heartbeatInterval);
+  logMessage("Fonction acelle-proxy terminée", { reason: event.type }, LOG_LEVELS.INFO);
 });
-
-// Enregistrer un log de démarrage
-logMessage("Proxy Acelle démarré", { timestamp: new Date().toISOString() }, LOG_LEVELS.INFO);

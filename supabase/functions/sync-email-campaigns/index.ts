@@ -99,6 +99,12 @@ function debugLog(message: string, data?: any, level: number = LOG_LEVELS.INFO) 
   }
 }
 
+// Log initial pour vérifier que la fonction démarre correctement
+debugLog("===== FONCTION SYNC-EMAIL-CAMPAIGNS DÉMARRÉE =====", {
+  version: "1.6.0",
+  timestamp: new Date().toISOString()
+}, LOG_LEVELS.INFO);
+
 // Helper function pour tester l'accessibilité d'une URL avec diagnostic extensif
 async function testEndpointAccess(url: string, options: { 
   timeout?: number, 
@@ -124,7 +130,7 @@ async function testEndpointAccess(url: string, options: {
     
     const headers = {
       'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Sync/1.5',
+      'User-Agent': 'Seventic-Acelle-Sync/1.6',
       ...(options.headers || {})
     };
     
@@ -145,7 +151,7 @@ async function testEndpointAccess(url: string, options: {
       finalUrl = `${url}${separator}api_token=${options.authToken}`;
     }
     
-    debugLog(`Making API request to: ${finalUrl}`, { headers }, LOG_LEVELS.VERBOSE);
+    debugLog(`Making API request to: ${finalUrl.replace(options.authToken || '', '[TOKEN_HIDDEN]')}`, { headers }, LOG_LEVELS.VERBOSE);
     
     const response = await fetch(finalUrl, {
       method: 'GET',
@@ -171,7 +177,7 @@ async function testEndpointAccess(url: string, options: {
     }
     
     if (response.ok) {
-      debugLog(`URL accessible: ${finalUrl}, status: ${response.status}, time: ${responseTime}ms`, 
+      debugLog(`URL accessible: ${finalUrl.replace(options.authToken || '', '[TOKEN_HIDDEN]')}, status: ${response.status}, time: ${responseTime}ms`, 
         { headers: responseHeaders, responseText: responseText.substring(0, 200) }, 
         LOG_LEVELS.DEBUG);
         
@@ -184,7 +190,7 @@ async function testEndpointAccess(url: string, options: {
         responseText: responseText.substring(0, 1000) // Limit response text size
       };
     } else {
-      debugLog(`URL inaccessible: ${finalUrl}, status: ${response.status}, statusText: ${response.statusText}, time: ${responseTime}ms`,
+      debugLog(`URL inaccessible: ${finalUrl.replace(options.authToken || '', '[TOKEN_HIDDEN]')}, status: ${response.status}, statusText: ${response.statusText}, time: ${responseTime}ms`,
         { headers: responseHeaders, responseText }, 
         LOG_LEVELS.WARN);
         
@@ -231,6 +237,7 @@ async function recordHeartbeat() {
 // Interface pour le format des campagnes Acelle
 interface AcelleCampaign {
   uid: string;
+  campaign_uid?: string; // Ajout du champ supplémentaire pour la compatibilité
   name: string;
   subject: string;
   status: string;
@@ -283,29 +290,83 @@ interface DeliveryInfo {
   [key: string]: any;
 }
 
+// Extraire l'ID de campagne normalisé, peu importe le format
+function normalizeCampaignId(campaign: AcelleCampaign): string {
+  // Valider et extraire l'identifiant unique
+  const campaignId = campaign.uid || campaign.campaign_uid || '';
+  
+  if (!campaignId) {
+    debugLog(`[ERREUR ID] Impossible d'extraire un ID de campagne valide`, { campaign }, LOG_LEVELS.ERROR);
+    throw new Error("Identifiant de campagne manquant ou invalide");
+  }
+  
+  return campaignId;
+}
+
 // Récupère la liste des campagnes depuis l'API Acelle
 async function fetchCampaigns(apiEndpoint: string, apiToken: string): Promise<AcelleCampaign[]> {
   try {
-    const url = `${apiEndpoint}/campaigns?api_token=${apiToken}&page=1&per_page=100&sort_order=desc`;
+    // Construire l'URL avec des paramètres explicites pour maximiser les informations
+    const url = `${apiEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=1&per_page=100&sort_order=desc&include_stats=true`;
     
-    debugLog(`Récupération des campagnes depuis l'API Acelle: ${url.replace(apiToken, 'API_TOKEN_HIDDEN')}`, {}, LOG_LEVELS.INFO);
+    debugLog(`[FETCH CAMPAIGNS] Récupération des campagnes depuis l'API Acelle`, {
+      endpoint: apiEndpoint,
+      hasToken: !!apiToken,
+      tokenLength: apiToken ? apiToken.length : 0,
+      url: url.replace(apiToken, 'API_TOKEN_HIDDEN')
+    }, LOG_LEVELS.INFO);
     
     const response = await fetch(url);
     
     if (!response.ok) {
       const errorText = await response.text();
-      debugLog(`Erreur API lors de la récupération des campagnes: ${response.status} ${response.statusText}`, { error: errorText }, LOG_LEVELS.ERROR);
+      debugLog(`[ERROR FETCH] Erreur API lors de la récupération des campagnes: ${response.status} ${response.statusText}`, 
+        { error: errorText }, 
+        LOG_LEVELS.ERROR);
       throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      debugLog(`[ERROR FETCH] Format de réponse API invalide`, { response: data }, LOG_LEVELS.ERROR);
+      throw new Error("Format de réponse API invalide");
+    }
+    
     const campaigns = data.data || [];
     
-    debugLog(`${campaigns.length} campagnes récupérées depuis l'API`, {}, LOG_LEVELS.INFO);
+    debugLog(`[SUCCESS FETCH] ${campaigns.length} campagnes récupérées depuis l'API`, {
+      firstCampaign: campaigns.length > 0 ? {
+        uid: campaigns[0].uid,
+        campaign_uid: campaigns[0].campaign_uid,
+        hasStatistics: !!campaigns[0].statistics
+      } : 'No campaigns'
+    }, LOG_LEVELS.INFO);
+    
+    // Vérifier si l'ID est correctement exposé
+    if (campaigns.length > 0) {
+      const firstCampaign = campaigns[0];
+      debugLog(`[ID CHECK] Format de l'ID de campagne`, {
+        uid: firstCampaign.uid,
+        campaign_uid: firstCampaign.campaign_uid,
+        uid_type: typeof firstCampaign.uid,
+        campaign_uid_type: typeof firstCampaign.campaign_uid
+      }, LOG_LEVELS.DEBUG);
+      
+      // Si uid est absent mais campaign_uid est présent, copier la valeur
+      campaigns.forEach(campaign => {
+        if (!campaign.uid && campaign.campaign_uid) {
+          campaign.uid = campaign.campaign_uid;
+        } else if (campaign.uid && !campaign.campaign_uid) {
+          campaign.campaign_uid = campaign.uid;
+        }
+      });
+    }
+    
     return campaigns;
     
   } catch (error) {
-    debugLog(`Erreur lors de la récupération des campagnes`, { error }, LOG_LEVELS.ERROR);
+    debugLog(`[CRITICAL ERROR] Erreur lors de la récupération des campagnes`, { error }, LOG_LEVELS.ERROR);
     throw error;
   }
 }
@@ -313,29 +374,92 @@ async function fetchCampaigns(apiEndpoint: string, apiToken: string): Promise<Ac
 // Récupère les détails d'une campagne spécifique, incluant les statistiques
 async function fetchCampaignDetails(apiEndpoint: string, apiToken: string, campaignUid: string): Promise<AcelleCampaign> {
   try {
-    const url = `${apiEndpoint}/campaigns/${campaignUid}?api_token=${apiToken}`;
+    // Utiliser spécifiquement l'endpoint pour les statistiques détaillées
+    const url = `${apiEndpoint}/api/v1/campaigns/${campaignUid}/statistics?api_token=${apiToken}`;
     
-    debugLog(`[DÉTAIL CAMPAGNE] Récupération des détails de la campagne ${campaignUid} depuis l'API Acelle: ${url.replace(apiToken, 'API_TOKEN_HIDDEN')}`, {}, LOG_LEVELS.INFO);
+    debugLog(`[FETCH DETAILS] Récupération des stats pour la campagne ${campaignUid}`, {
+      endpoint: apiEndpoint,
+      hasToken: !!apiToken,
+      tokenLength: apiToken ? apiToken.length : 0,
+      url: url.replace(apiToken, 'API_TOKEN_HIDDEN')
+    }, LOG_LEVELS.INFO);
     
     const response = await fetch(url);
     
+    // Si les statistiques ne sont pas trouvées, essayer de récupérer les détails généraux de la campagne
+    if (response.status === 404) {
+      debugLog(`[WARN DETAILS] Statistiques non trouvées pour ${campaignUid}, essai avec l'endpoint général`, {}, LOG_LEVELS.WARN);
+      
+      const campaignUrl = `${apiEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${apiToken}`;
+      const campaignResponse = await fetch(campaignUrl);
+      
+      if (!campaignResponse.ok) {
+        debugLog(`[ERROR DETAILS] Échec de récupération des détails de campagne: ${campaignResponse.status}`, {}, LOG_LEVELS.ERROR);
+        throw new Error(`Erreur API: ${campaignResponse.status} ${campaignResponse.statusText}`);
+      }
+      
+      const campaign = await campaignResponse.json();
+      debugLog(`[SUCCESS DETAILS] Détails basiques récupérés pour ${campaignUid}`, {
+        name: campaign.name,
+        subject: campaign.subject,
+        hasStatsProperty: !!campaign.statistics
+      }, LOG_LEVELS.INFO);
+      
+      return campaign;
+    }
+    
     if (!response.ok) {
       const errorText = await response.text();
-      debugLog(`[ERREUR DÉTAIL] Erreur API lors de la récupération des détails de campagne: ${response.status} ${response.statusText}`, { error: errorText }, LOG_LEVELS.ERROR);
+      debugLog(`[ERROR DETAILS] Erreur API lors de la récupération des statistiques: ${response.status}`, 
+        { error: errorText }, 
+        LOG_LEVELS.ERROR);
       throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
     }
     
-    const campaign = await response.json();
-    debugLog(`[SUCCÈS DÉTAIL] Détails récupérés pour la campagne ${campaignUid}`, { 
-      hasStatistics: !!campaign.statistics,
-      statisticsKeys: campaign.statistics ? Object.keys(campaign.statistics) : [],
-      openRate: campaign.statistics?.uniq_open_rate || 'non défini',
-      clickRate: campaign.statistics?.click_rate || 'non défini'
+    // Pour l'endpoint de statistiques, la réponse est directement les statistiques
+    const statistics = await response.json();
+    
+    debugLog(`[SUCCESS STATS] Statistiques récupérées pour ${campaignUid}`, {
+      statsKeys: Object.keys(statistics || {}),
+      uniq_open_rate: statistics?.uniq_open_rate || 'non défini',
+      click_rate: statistics?.click_rate || 'non défini'
+    }, LOG_LEVELS.INFO);
+    
+    // Récupérer les détails de la campagne si nous n'avons que les statistiques
+    const campaignUrl = `${apiEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${apiToken}`;
+    const campaignResponse = await fetch(campaignUrl);
+    
+    if (!campaignResponse.ok) {
+      debugLog(`[ERROR CAMPAIGN] Échec de récupération des détails de campagne après stats: ${campaignResponse.status}`, {}, LOG_LEVELS.ERROR);
+      
+      // Créer un objet minimal avec uniquement les statistiques
+      return {
+        uid: campaignUid,
+        campaign_uid: campaignUid,
+        name: "Campagne inconnue",
+        subject: "Sujet inconnu",
+        status: "unknown",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        statistics: statistics
+      };
+    }
+    
+    const campaign = await campaignResponse.json();
+    
+    // Enrichir la campagne avec les statistiques
+    campaign.statistics = statistics;
+    
+    debugLog(`[SUCCESS COMBINED] Données complètes récupérées pour ${campaignUid}`, {
+      name: campaign.name,
+      subject: campaign.subject,
+      hasStats: !!campaign.statistics,
+      statsKeys: campaign.statistics ? Object.keys(campaign.statistics) : []
     }, LOG_LEVELS.INFO);
     
     return campaign;
   } catch (error) {
-    debugLog(`[ERREUR CRITIQUE] Erreur lors de la récupération des détails de campagne ${campaignUid}`, { error }, LOG_LEVELS.ERROR);
+    debugLog(`[CRITICAL ERROR] Erreur lors de la récupération des détails de campagne ${campaignUid}`, { error }, LOG_LEVELS.ERROR);
     throw error;
   }
 }
@@ -343,47 +467,65 @@ async function fetchCampaignDetails(apiEndpoint: string, apiToken: string, campa
 // Stocke les données de campagne dans le cache Supabase
 async function storeCampaignsInCache(accountId: string, campaigns: AcelleCampaign[]) {
   try {
-    debugLog(`Préparation de ${campaigns.length} campagnes pour stockage en cache`, {}, LOG_LEVELS.INFO);
+    debugLog(`[CACHE] Préparation de ${campaigns.length} campagnes pour stockage`, {
+      firstCampaignId: campaigns.length > 0 ? normalizeCampaignId(campaigns[0]) : 'No campaigns'
+    }, LOG_LEVELS.INFO);
     
-    const cacheEntries = campaigns.map(campaign => ({
-      account_id: accountId,
-      campaign_uid: campaign.uid,
-      name: campaign.name,
-      subject: campaign.subject,
-      status: campaign.status,
-      created_at: campaign.created_at,
-      updated_at: campaign.updated_at,
-      delivery_date: campaign.delivery_date || null,
-      run_at: campaign.run_at || null,
-      last_error: campaign.last_error || null,
-      delivery_info: campaign.delivery_info || campaign.statistics || {},  // Stocke les statistiques dans delivery_info si disponibles
-      cache_updated_at: new Date().toISOString()
-    }));
+    const cacheEntries = campaigns.map(campaign => {
+      const campaignId = normalizeCampaignId(campaign);
+      
+      return {
+        account_id: accountId,
+        campaign_uid: campaignId,
+        name: campaign.name,
+        subject: campaign.subject,
+        status: campaign.status,
+        created_at: campaign.created_at,
+        updated_at: campaign.updated_at,
+        delivery_date: campaign.delivery_date || null,
+        run_at: campaign.run_at || null,
+        last_error: campaign.last_error || null,
+        delivery_info: campaign.delivery_info || campaign.statistics || {},
+        cache_updated_at: new Date().toISOString()
+      };
+    });
     
-    debugLog(`Insertion/mise à jour des données de campagne dans le cache`, {
-      firstCampaign: cacheEntries.length > 0 ? {
+    debugLog(`[CACHE] Insertion/mise à jour de ${cacheEntries.length} entrées dans le cache`, {
+      firstEntry: cacheEntries.length > 0 ? {
         uid: cacheEntries[0].campaign_uid,
         hasDeliveryInfo: !!cacheEntries[0].delivery_info,
         deliveryInfoKeys: Object.keys(cacheEntries[0].delivery_info || {})
-      } : 'Pas de campagnes'
+      } : 'Pas de données'
     }, LOG_LEVELS.INFO);
     
-    const { error } = await supabase
-      .from('email_campaigns_cache')
-      .upsert(cacheEntries, {
-        onConflict: 'account_id,campaign_uid'
-      });
+    // Utiliser des batchs pour éviter les timeouts
+    const batchSize = 25;
+    for (let i = 0; i < cacheEntries.length; i += batchSize) {
+      const batch = cacheEntries.slice(i, i + batchSize);
       
-    if (error) {
-      debugLog(`Erreur lors de la mise à jour du cache des campagnes`, { error }, LOG_LEVELS.ERROR);
-      throw error;
+      debugLog(`[CACHE] Traitement du batch ${i/batchSize + 1}/${Math.ceil(cacheEntries.length/batchSize)}`, {
+        batchSize: batch.length
+      }, LOG_LEVELS.DEBUG);
+      
+      const { error } = await supabase
+        .from('email_campaigns_cache')
+        .upsert(batch, {
+          onConflict: 'account_id,campaign_uid'
+        });
+        
+      if (error) {
+        debugLog(`[ERROR CACHE] Erreur lors de la mise à jour du cache (batch ${i/batchSize + 1})`, { error }, LOG_LEVELS.ERROR);
+        // Continue with other batches despite error
+      } else {
+        debugLog(`[SUCCESS CACHE] Batch ${i/batchSize + 1} mis à jour avec succès`, {}, LOG_LEVELS.DEBUG);
+      }
     }
     
-    debugLog(`Cache des campagnes mis à jour avec succès`, {}, LOG_LEVELS.INFO);
+    debugLog(`[SUCCESS CACHE] Cache des campagnes mis à jour avec succès`, {}, LOG_LEVELS.INFO);
     return cacheEntries.length;
     
   } catch (error) {
-    debugLog(`Erreur lors du stockage des campagnes en cache`, { error }, LOG_LEVELS.ERROR);
+    debugLog(`[CRITICAL ERROR] Erreur lors du stockage des campagnes en cache`, { error }, LOG_LEVELS.ERROR);
     throw error;
   }
 }
@@ -409,11 +551,11 @@ async function storeCampaignStatistics(accountId: string, campaignUid: string, s
       });
       
     if (error) {
-      debugLog(`[ERREUR STATS] Erreur lors du stockage des statistiques de campagne`, { error }, LOG_LEVELS.ERROR);
+      debugLog(`[ERROR STATS] Erreur lors du stockage des statistiques`, { error }, LOG_LEVELS.ERROR);
       throw error;
     }
     
-    debugLog(`[SUCCÈS STATS] Statistiques de campagne stockées avec succès`, {}, LOG_LEVELS.INFO);
+    debugLog(`[SUCCESS STATS] Statistiques stockées avec succès pour ${campaignUid}`, {}, LOG_LEVELS.INFO);
     
     // Vérifier que le trigger a bien mis à jour email_campaigns_cache
     const { data: updatedCache, error: cacheError } = await supabase
@@ -426,18 +568,42 @@ async function storeCampaignStatistics(accountId: string, campaignUid: string, s
     if (cacheError) {
       debugLog(`[VÉRIF CACHE] Impossible de vérifier la mise à jour du cache`, { error: cacheError }, LOG_LEVELS.WARN);
     } else {
+      const hasStats = updatedCache && updatedCache.delivery_info && 
+        (updatedCache.delivery_info.uniq_open_rate !== undefined || updatedCache.delivery_info.click_rate !== undefined);
+      
       debugLog(`[VÉRIF CACHE] Cache vérifié après mise à jour des stats`, { 
-        hasDeliveryInfo: !!updatedCache.delivery_info,
-        updatedAt: updatedCache.cache_updated_at,
-        openRate: updatedCache.delivery_info?.uniq_open_rate || 'non défini',
-        clickRate: updatedCache.delivery_info?.click_rate || 'non défini'
+        hasDeliveryInfo: !!updatedCache?.delivery_info,
+        updatedAt: updatedCache?.cache_updated_at,
+        openRate: updatedCache?.delivery_info?.uniq_open_rate || 'non défini',
+        clickRate: updatedCache?.delivery_info?.click_rate || 'non défini',
+        triggerSeemsWorking: hasStats
       }, LOG_LEVELS.INFO);
+      
+      // Si le trigger ne semble pas fonctionner, forcer la mise à jour manuellement
+      if (!hasStats) {
+        debugLog(`[TRIGGER FIX] Le trigger semble ne pas fonctionner, mise à jour manuelle`, {}, LOG_LEVELS.WARN);
+        
+        const { error: updateError } = await supabase
+          .from('email_campaigns_cache')
+          .update({ 
+            delivery_info: statistics,
+            cache_updated_at: new Date().toISOString()
+          })
+          .eq('account_id', accountId)
+          .eq('campaign_uid', campaignUid);
+          
+        if (updateError) {
+          debugLog(`[ERROR UPDATE] Échec de la mise à jour manuelle`, { error: updateError }, LOG_LEVELS.ERROR);
+        } else {
+          debugLog(`[SUCCESS UPDATE] Mise à jour manuelle réussie pour ${campaignUid}`, {}, LOG_LEVELS.INFO);
+        }
+      }
     }
     
     return true;
     
   } catch (error) {
-    debugLog(`Erreur lors du stockage des statistiques de campagne`, { error }, LOG_LEVELS.ERROR);
+    debugLog(`[CRITICAL ERROR] Erreur lors du stockage des statistiques`, { error }, LOG_LEVELS.ERROR);
     throw error;
   }
 }
@@ -485,6 +651,7 @@ function transformStatisticsToDeliveryInfo(statistics: AcelleCampaignStatistics)
     delivered_rate: numericStats.delivered_rate || 0,
     open_count: numericStats.open_count || 0,
     open_rate: numericStats.open_rate || 0,
+    uniq_open_count: numericStats.uniq_open_count || 0,
     uniq_open_rate: numericStats.uniq_open_rate || 0
   };
   
@@ -508,7 +675,7 @@ async function updateAggregatedStats(accountId: string) {
     });
     
     if (error) {
-      debugLog(`[ERREUR AGRÉGATION] Erreur lors de la mise à jour des statistiques agrégées`, { error }, LOG_LEVELS.ERROR);
+      debugLog(`[ERROR AGRÉGATION] Erreur lors de la mise à jour des statistiques agrégées`, { error }, LOG_LEVELS.ERROR);
       throw error;
     }
     
@@ -520,20 +687,116 @@ async function updateAggregatedStats(accountId: string) {
       });
       
       if (forceError) {
-        debugLog(`[ERREUR FORCE UPDATE] Fonction force_update_campaign_stats indisponible ou erreur`, { error: forceError }, LOG_LEVELS.WARN);
+        debugLog(`[ERROR FORCE UPDATE] Fonction force_update_campaign_stats indisponible ou erreur`, { error: forceError }, LOG_LEVELS.WARN);
       } else {
-        debugLog(`[SUCCÈS FORCE UPDATE] Mise à jour forcée réussie`, { result: forceData }, LOG_LEVELS.INFO);
+        debugLog(`[SUCCESS FORCE UPDATE] Mise à jour forcée réussie`, { result: forceData }, LOG_LEVELS.INFO);
       }
     } catch (forceError) {
       debugLog(`[EXCEPTION FORCE UPDATE] Erreur lors de la mise à jour forcée`, { error: forceError }, LOG_LEVELS.WARN);
     }
     
-    debugLog(`[SUCCÈS AGRÉGATION] Statistiques agrégées mises à jour avec succès`, { result: data }, LOG_LEVELS.INFO);
+    debugLog(`[SUCCESS AGRÉGATION] Statistiques agrégées mises à jour avec succès`, { result: data }, LOG_LEVELS.INFO);
     return true;
     
   } catch (error) {
-    debugLog(`[ERREUR AGRÉGATION] Erreur lors de la mise à jour des statistiques agrégées`, { error }, LOG_LEVELS.ERROR);
+    debugLog(`[ERROR AGRÉGATION] Erreur lors de la mise à jour des statistiques agrégées`, { error }, LOG_LEVELS.ERROR);
     return false;
+  }
+}
+
+// Vérification des correspondances d'UIDs entre les tables
+async function verifyUIDMapping(accountId: string) {
+  try {
+    debugLog(`[VÉRIFICATION] Vérification des correspondances d'UIDs pour le compte ${accountId}`, {}, LOG_LEVELS.INFO);
+    
+    // Chercher les campagnes dans campaign_stats_cache mais pas dans email_campaigns_cache
+    const { data: missingInCache, error: missingError } = await supabase
+      .from('campaign_stats_cache')
+      .select('campaign_uid')
+      .eq('account_id', accountId)
+      .not('campaign_uid', 'in', supabase
+        .from('email_campaigns_cache')
+        .select('campaign_uid')
+        .eq('account_id', accountId)
+      );
+      
+    if (missingError) {
+      debugLog(`[ERROR VÉRIF] Erreur lors de la vérification des UIDs manquants dans le cache`, { error: missingError }, LOG_LEVELS.ERROR);
+    } else if (missingInCache && missingInCache.length > 0) {
+      debugLog(`[SYNC GAP] ${missingInCache.length} campagnes avec statistiques mais sans entrées dans email_campaigns_cache`, { 
+        missingUids: missingInCache.map(c => c.campaign_uid)
+      }, LOG_LEVELS.WARN);
+    } else {
+      debugLog(`[SYNC OK] Toutes les campagnes avec statistiques ont des entrées correspondantes dans email_campaigns_cache`, {}, LOG_LEVELS.INFO);
+    }
+    
+    // Vérifier les entrées où delivery_info est null dans email_campaigns_cache mais statistiques disponibles
+    const { data: statsAvailable, error: statsError } = await supabase
+      .from('email_campaigns_cache')
+      .select('campaign_uid, name')
+      .eq('account_id', accountId)
+      .is('delivery_info', null)
+      .in('campaign_uid', supabase
+        .from('campaign_stats_cache')
+        .select('campaign_uid')
+        .eq('account_id', accountId)
+      );
+      
+    if (statsError) {
+      debugLog(`[ERROR VÉRIF] Erreur lors de la vérification des statistiques non synchronisées`, { error: statsError }, LOG_LEVELS.ERROR);
+    } else if (statsAvailable && statsAvailable.length > 0) {
+      debugLog(`[STATS GAP] ${statsAvailable.length} campagnes avec statistiques disponibles mais non synchronisées dans email_campaigns_cache`, { 
+        campaigns: statsAvailable
+      }, LOG_LEVELS.WARN);
+      
+      // Forcer la mise à jour pour ces campagnes
+      for (const campaign of statsAvailable) {
+        debugLog(`[FORCE SYNC] Forçage de la synchronisation pour ${campaign.campaign_uid} (${campaign.name})`, {}, LOG_LEVELS.INFO);
+        
+        // Récupérer les statistiques de campaign_stats_cache
+        const { data: statsData, error: getStatsError } = await supabase
+          .from('campaign_stats_cache')
+          .select('statistics')
+          .eq('account_id', accountId)
+          .eq('campaign_uid', campaign.campaign_uid)
+          .single();
+          
+        if (getStatsError || !statsData) {
+          debugLog(`[ERROR FORCE] Impossible de récupérer les statistiques pour le forçage`, { error: getStatsError }, LOG_LEVELS.ERROR);
+          continue;
+        }
+        
+        // Mettre à jour email_campaigns_cache avec les statistiques
+        const { error: updateError } = await supabase
+          .from('email_campaigns_cache')
+          .update({ 
+            delivery_info: statsData.statistics,
+            cache_updated_at: new Date().toISOString()
+          })
+          .eq('account_id', accountId)
+          .eq('campaign_uid', campaign.campaign_uid);
+          
+        if (updateError) {
+          debugLog(`[ERROR FORCE] Échec de la mise à jour forcée pour ${campaign.campaign_uid}`, { error: updateError }, LOG_LEVELS.ERROR);
+        } else {
+          debugLog(`[SUCCESS FORCE] Mise à jour forcée réussie pour ${campaign.campaign_uid}`, {}, LOG_LEVELS.INFO);
+        }
+      }
+    } else {
+      debugLog(`[STATS OK] Pas de campagnes avec statistiques disponibles non synchronisées`, {}, LOG_LEVELS.INFO);
+    }
+    
+    return {
+      success: true,
+      missingInCache: missingInCache || [],
+      statsAvailable: statsAvailable || []
+    };
+  } catch (error) {
+    debugLog(`[ERROR VÉRIF] Erreur lors de la vérification des correspondances d'UIDs`, { error }, LOG_LEVELS.ERROR);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
   }
 }
 
@@ -564,13 +827,24 @@ async function synchronizeCampaigns(accountId: string, apiEndpoint: string, apiT
     const enrichedCampaigns = [];
     for (const campaign of campaigns) {
       try {
-        debugLog(`[DÉTAILS] Récupération des détails pour la campagne ${campaign.uid}`, {
+        const campaignId = normalizeCampaignId(campaign);
+        
+        debugLog(`[DÉTAILS] Récupération des détails pour la campagne ${campaignId}`, {
           name: campaign.name,
           subject: campaign.subject
         }, LOG_LEVELS.DEBUG);
         
         // Récupérer les détails complets de la campagne (incluant les statistiques)
-        const campaignDetails = await fetchCampaignDetails(apiEndpoint, apiToken, campaign.uid);
+        const campaignDetails = await fetchCampaignDetails(apiEndpoint, apiToken, campaignId);
+        
+        // Vérifier que les IDs sont cohérents
+        if (!campaignDetails.uid) {
+          campaignDetails.uid = campaignId;
+        }
+        
+        if (!campaignDetails.campaign_uid) {
+          campaignDetails.campaign_uid = campaignId;
+        }
         
         // Extraire les statistiques et les transformer en format DeliveryInfo
         const statistics = campaignDetails.statistics || {};
@@ -579,6 +853,7 @@ async function synchronizeCampaigns(accountId: string, apiEndpoint: string, apiT
         // Enrichir la campagne avec les statistiques et le delivery_info
         const enrichedCampaign = {
           ...campaign,
+          ...campaignDetails,  // Fusionner avec les détails pour avoir toutes les informations
           statistics: statistics,
           delivery_info: deliveryInfo
         };
@@ -588,13 +863,14 @@ async function synchronizeCampaigns(accountId: string, apiEndpoint: string, apiT
         
         // Stocker les statistiques dans la table campaign_stats_cache
         if (statistics && Object.keys(statistics).length > 0) {
-          await storeCampaignStatistics(accountId, campaign.uid, statistics);
+          await storeCampaignStatistics(accountId, campaignId, statistics);
         } else {
-          debugLog(`[STATS VIDES] Pas de statistiques disponibles pour la campagne ${campaign.uid}`, {}, LOG_LEVELS.WARN);
+          debugLog(`[STATS VIDES] Pas de statistiques disponibles pour la campagne ${campaignId}`, {}, LOG_LEVELS.WARN);
         }
         
       } catch (error) {
-        debugLog(`[ERREUR ENRICHISSEMENT] Erreur lors de l'enrichissement de la campagne ${campaign.uid}`, { error }, LOG_LEVELS.ERROR);
+        const campaignId = normalizeCampaignId(campaign);
+        debugLog(`[ERROR ENRICHISSEMENT] Erreur lors de l'enrichissement de la campagne ${campaignId}`, { error }, LOG_LEVELS.ERROR);
         
         // Ajouter la campagne sans enrichissement en cas d'erreur
         enrichedCampaigns.push(campaign);
@@ -605,20 +881,24 @@ async function synchronizeCampaigns(accountId: string, apiEndpoint: string, apiT
     const storedCount = await storeCampaignsInCache(accountId, enrichedCampaigns);
     debugLog(`[STOCKAGE] ${storedCount} campagnes ont été stockées dans le cache`, {}, LOG_LEVELS.INFO);
     
-    // 4. Mettre à jour les statistiques agrégées
+    // 4. Vérifier les correspondances d'UIDs entre les tables
+    await verifyUIDMapping(accountId);
+    
+    // 5. Mettre à jour les statistiques agrégées
     await updateAggregatedStats(accountId);
     
-    // 5. Mettre à jour le compte Acelle avec la date de la dernière synchronisation
+    // 6. Mettre à jour le compte Acelle avec la date de la dernière synchronisation
     const { error } = await supabase
       .from('acelle_accounts')
       .update({ 
         last_sync_date: new Date().toISOString(),
-        last_sync_error: null
+        last_sync_error: null,
+        cache_last_updated: new Date().toISOString()
       })
       .eq('id', accountId);
       
     if (error) {
-      debugLog(`[ERREUR UPDATE COMPTE] Erreur lors de la mise à jour du compte Acelle`, { error }, LOG_LEVELS.ERROR);
+      debugLog(`[ERROR UPDATE COMPTE] Erreur lors de la mise à jour du compte Acelle`, { error }, LOG_LEVELS.ERROR);
     }
     
     // Mettre à jour les logs de synchronisation
@@ -643,7 +923,7 @@ async function synchronizeCampaigns(accountId: string, apiEndpoint: string, apiT
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    debugLog(`[ERREUR SYNC] Échec de la synchronisation des campagnes: ${errorMessage}`, { error }, LOG_LEVELS.ERROR);
+    debugLog(`[ERROR SYNC] Échec de la synchronisation des campagnes: ${errorMessage}`, { error }, LOG_LEVELS.ERROR);
     
     // Mettre à jour le compte Acelle avec l'erreur
     try {
@@ -655,7 +935,7 @@ async function synchronizeCampaigns(accountId: string, apiEndpoint: string, apiT
         })
         .eq('id', accountId);
     } catch (updateError) {
-      debugLog(`[ERREUR META] Erreur lors de la mise à jour du statut d'erreur`, { error: updateError }, LOG_LEVELS.ERROR);
+      debugLog(`[ERROR META] Erreur lors de la mise à jour du statut d'erreur`, { error: updateError }, LOG_LEVELS.ERROR);
     }
     
     return {
@@ -784,6 +1064,11 @@ serve(async (req) => {
   }
   
   try {
+    debugLog("Traitement de la requête entrante", {
+      method: req.method,
+      url: req.url
+    }, LOG_LEVELS.INFO);
+    
     // Authentification et validation
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -798,6 +1083,7 @@ serve(async (req) => {
     let body;
     try {
       body = await req.json();
+      debugLog("Corps de requête reçu", { body }, LOG_LEVELS.DEBUG);
     } catch (error) {
       debugLog('Erreur lors du parsing du JSON', { error }, LOG_LEVELS.ERROR);
       return new Response(
@@ -860,6 +1146,27 @@ serve(async (req) => {
     
     // Nettoyer l'URL de l'API (enlever le slash final si présent)
     finalApiEndpoint = finalApiEndpoint.replace(/\/$/, '');
+    
+    // Vérifier l'accessibilité de l'API avant d'exécuter la synchronisation
+    debugLog(`Test de l'accessibilité de l'API avant synchronisation`, {}, LOG_LEVELS.INFO);
+    const testUrl = `${finalApiEndpoint}/api/v1/ping`;
+    const testResult = await testEndpointAccess(testUrl, {
+      authToken: finalApiToken,
+      authMethod: 'token'
+    });
+    
+    if (!testResult.success) {
+      debugLog(`Échec du test d'accessibilité de l'API`, { testResult }, LOG_LEVELS.ERROR);
+      return new Response(
+        JSON.stringify({ 
+          error: `L'API Acelle n'est pas accessible: ${testResult.message}`,
+          details: testResult
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    debugLog(`API accessible, démarrage de la synchronisation`, {}, LOG_LEVELS.INFO);
     
     // Exécuter la synchronisation
     const result = await synchronizeCampaigns(accountId, finalApiEndpoint, finalApiToken);
