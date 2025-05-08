@@ -1,3 +1,4 @@
+
 export interface AcelleAccount {
   id: string;
   created_at: string;
@@ -147,6 +148,7 @@ export interface AcelleConnectionDebug {
     headers?: Record<string, string>;
   };
   authMethod?: string;
+  isTimeout?: boolean; // Adding the missing property
 }
 
 // Type spécifique pour le cache des campagnes

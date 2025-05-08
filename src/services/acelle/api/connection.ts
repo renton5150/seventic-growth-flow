@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
@@ -261,7 +260,7 @@ export const testAcelleConnection = async (
         success: false,
         timestamp: new Date().toISOString(),
         errorMessage: errorMsg,
-        isTimeout,
+        isTimeout, // This is now properly typed
         authMethod: "Double (URL + Headers)"
       };
     }
