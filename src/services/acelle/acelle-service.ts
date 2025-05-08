@@ -1,16 +1,5 @@
 
 import { AcelleAccount } from "@/types/acelle.types";
-import { 
-  getAcelleAccounts,
-  getAcelleAccountById,
-  createAcelleAccount,
-  updateAcelleAccount,
-  deleteAcelleAccount
-} from './api/accounts';
-import {
-  getCampaigns,
-  forceSyncCampaigns
-} from './api/campaigns';
 
 /**
  * Construit l'URL pour le proxy CORS
@@ -24,9 +13,6 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
   
   // Construire l'URL de base
   let proxyUrl = `${baseProxyUrl}/${apiPath}`;
-  
-  // Récupérer l'API token pour l'ajouter dans les paramètres d'URL
-  const apiToken = params.api_token || '';
   
   // On combine tous les paramètres, y compris l'api_token désormais
   // On ne filtre plus le token, car il doit être dans l'URL
@@ -42,6 +28,20 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
   
   return proxyUrl;
 };
+
+// On importe les fonctions après avoir défini buildProxyUrl pour éviter les références circulaires
+import { 
+  getAcelleAccounts,
+  getAcelleAccountById,
+  createAcelleAccount,
+  updateAcelleAccount,
+  deleteAcelleAccount
+} from './api/accounts';
+
+import {
+  getCampaigns,
+  forceSyncCampaigns
+} from './api/campaigns';
 
 /**
  * Service pour gérer les appels à l'API Acelle
