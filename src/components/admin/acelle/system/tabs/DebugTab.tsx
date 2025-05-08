@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Check, AlertTriangle } from "lucide-react";
+import { Check, AlertTriangle, WifiOff } from "lucide-react";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +15,37 @@ export const DebugTab: React.FC<DebugTabProps> = ({
   onTestConnection, 
   isTestingConnection = false 
 }) => {
+  // Fonction pour déterminer le type d'erreur et son affichage
+  const getConnectionStatus = () => {
+    if (!debugInfo) return { color: "bg-gray-50", text: "Aucun test effectué" };
+    
+    if (debugInfo.success) {
+      return { color: "bg-green-50", text: "Connexion établie" };
+    }
+    
+    // Détection de types d'erreurs spécifiques
+    if (debugInfo.statusCode === 504 || debugInfo.errorMessage?.includes("timeout")) {
+      return { color: "bg-amber-50", text: "Timeout de connexion" };
+    }
+    
+    if (debugInfo.statusCode === 403) {
+      return { color: "bg-red-50", text: "Erreur d'authentification" };
+    }
+    
+    if (debugInfo.statusCode === 500) {
+      return { color: "bg-red-50", text: "Erreur serveur API" };
+    }
+    
+    if (debugInfo.statusCode === 502 || debugInfo.statusCode === 503) {
+      return { color: "bg-red-50", text: "API indisponible" };
+    }
+    
+    // Erreur générique
+    return { color: "bg-red-50", text: "Erreur de connexion" };
+  };
+  
+  const connectionStatus = getConnectionStatus();
+  
   return (
     <div className="space-y-4">
       {onTestConnection && (
@@ -38,15 +69,20 @@ export const DebugTab: React.FC<DebugTabProps> = ({
       )}
       
       {debugInfo && (
-        <div className={`mt-4 p-4 rounded-md ${debugInfo.success ? 'bg-green-50' : 'bg-red-50'}`}>
+        <div className={`mt-4 p-4 rounded-md ${connectionStatus.color}`}>
           <div className="flex items-center">
             {debugInfo.success ? (
               <Check className="h-4 w-4 text-green-500 mr-2" />
+            ) : debugInfo.statusCode === 504 ? (
+              <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
             ) : (
-              <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+              <WifiOff className="h-4 w-4 text-red-500 mr-2" />
             )}
-            <span className={`text-sm ${debugInfo.success ? 'text-green-700' : 'text-red-700'}`}>
-              {debugInfo.errorMessage || `Statut: ${debugInfo.statusCode || 'Inconnu'}`}
+            <span className={`text-sm font-medium ${
+              debugInfo.success ? 'text-green-700' : 
+              debugInfo.statusCode === 504 ? 'text-amber-700' : 'text-red-700'
+            }`}>
+              {connectionStatus.text}: {debugInfo.errorMessage || `Statut: ${debugInfo.statusCode || 'Inconnu'}`}
             </span>
           </div>
           
@@ -109,6 +145,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
           <li>Les en-têtes <code>X-Acelle-Token</code> et <code>X-Acelle-Endpoint</code> sont également supportés</li>
           <li>Si le cache est vide, synchronisez les campagnes depuis un compte valide</li>
           <li>En cas d'erreurs 403, vérifiez les permissions de votre compte Acelle</li>
+          <li>En cas d'erreur 500, vérifiez que l'API est accessible directement depuis votre navigateur</li>
         </ul>
       </div>
     </div>

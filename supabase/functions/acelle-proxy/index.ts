@@ -63,7 +63,7 @@ function logMessage(message: string, data?: any, level: number = LOG_LEVELS.INFO
 
 // Log initial pour vérifier que la fonction démarre correctement
 logMessage("===== FONCTION ACELLE-PROXY DÉMARRÉE =====", {
-  version: "1.6.0",
+  version: "1.6.1", // Version incrémentée pour suivre les changements
   timestamp: new Date().toISOString()
 }, LOG_LEVELS.INFO);
 
@@ -183,64 +183,100 @@ serve(async (req) => {
       has_body: apiOptions.body ? "Oui" : "Non"
     }, LOG_LEVELS.INFO);
     
-    // Faire la requête à l'API
-    const response = await fetch(finalUrlWithParams, apiOptions);
+    // Faire la requête à l'API avec un timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 secondes de timeout
+    apiOptions.signal = controller.signal;
     
-    // Récupérer les headers de la réponse
-    const responseHeaders = new Headers(corsHeaders);
-    responseHeaders.set('Content-Type', response.headers.get('Content-Type') || 'application/json');
-    
-    // Copier certains headers de la réponse
-    ['etag', 'cache-control', 'last-modified'].forEach(headerName => {
-      const headerValue = response.headers.get(headerName);
-      if (headerValue) {
-        responseHeaders.set(headerValue, headerName);
-      }
-    });
-    
-    if (!response.ok) {
-      logMessage(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`, {
-        url_without_token: urlForLogs,
-        status: response.status,
-        status_text: response.statusText
-      }, LOG_LEVELS.ERROR);
-    } else {
-      logMessage(`Réponse de l'API Acelle: ${response.status} OK`, {
-        url_without_token: urlForLogs,
-        status: response.status
-      }, LOG_LEVELS.DEBUG);
-    }
-    
-    // Récupérer la réponse sous forme de texte pour inspection et modification si nécessaire
-    const responseText = await response.text();
-    
-    // Essayer de parser le JSON pour déboguer
     try {
-      const responseJson = JSON.parse(responseText);
-      logMessage("Réponse JSON reçue", {
-        apiPath,
-        status: response.status,
-        dataKeys: Object.keys(responseJson)
-      }, LOG_LEVELS.DEBUG);
+      const response = await fetch(finalUrlWithParams, apiOptions);
+      clearTimeout(timeoutId); // Annuler le timeout si la requête a réussi
       
-      // Si c'est une campagne avec statistiques, loguer les statistiques
-      if (apiPath.includes('/campaigns/') && apiPath.includes('/statistics')) {
-        logMessage("Statistiques de campagne reçues", {
-          uniq_open_rate: responseJson.uniq_open_rate || 'non défini',
-          click_rate: responseJson.click_rate || 'non défini',
-          keys: Object.keys(responseJson)
-        }, LOG_LEVELS.INFO);
+      // Récupérer les headers de la réponse
+      const responseHeaders = new Headers(corsHeaders);
+      responseHeaders.set('Content-Type', response.headers.get('Content-Type') || 'application/json');
+      
+      // CORRECTION: Inversion des paramètres dans la boucle ci-dessous
+      // Copier certains headers de la réponse
+      ['etag', 'cache-control', 'last-modified'].forEach(headerName => {
+        const headerValue = response.headers.get(headerName);
+        if (headerValue) {
+          // CORRECTION: Ordre correct des paramètres headerName, headerValue (pas l'inverse)
+          responseHeaders.set(headerName, headerValue);
+        }
+      });
+      
+      if (!response.ok) {
+        logMessage(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`, {
+          url_without_token: urlForLogs,
+          status: response.status,
+          status_text: response.statusText
+        }, LOG_LEVELS.ERROR);
+      } else {
+        logMessage(`Réponse de l'API Acelle: ${response.status} OK`, {
+          url_without_token: urlForLogs,
+          status: response.status
+        }, LOG_LEVELS.DEBUG);
       }
-    } catch (e) {
-      // Ce n'est pas du JSON valide, ignorer silencieusement
+      
+      // Récupérer la réponse sous forme de texte pour inspection et modification si nécessaire
+      const responseText = await response.text();
+      
+      // Essayer de parser le JSON pour déboguer
+      try {
+        const responseJson = JSON.parse(responseText);
+        logMessage("Réponse JSON reçue", {
+          apiPath,
+          status: response.status,
+          dataKeys: Object.keys(responseJson)
+        }, LOG_LEVELS.DEBUG);
+        
+        // Si c'est une campagne avec statistiques, loguer les statistiques
+        if (apiPath.includes('/campaigns/') && apiPath.includes('/statistics')) {
+          logMessage("Statistiques de campagne reçues", {
+            uniq_open_rate: responseJson.uniq_open_rate || 'non défini',
+            click_rate: responseJson.click_rate || 'non défini',
+            keys: Object.keys(responseJson)
+          }, LOG_LEVELS.INFO);
+        }
+      } catch (e) {
+        // Ce n'est pas du JSON valide, ignorer silencieusement
+      }
+      
+      // Renvoyer la réponse au client
+      return new Response(responseText, {
+        status: response.status,
+        headers: responseHeaders
+      });
+    } catch (fetchError) {
+      // Gérer les erreurs de fetch spécifiquement
+      clearTimeout(timeoutId);
+      
+      // Déterminer si c'est une erreur de timeout
+      const isTimeout = fetchError.name === 'AbortError';
+      const errorMessage = isTimeout 
+        ? "Timeout: La requête vers l'API Acelle a pris trop de temps" 
+        : `Erreur de connexion: ${fetchError.message}`;
+      
+      logMessage(errorMessage, { 
+        error: String(fetchError),
+        isTimeout,
+        url: urlForLogs 
+      }, LOG_LEVELS.ERROR);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: errorMessage,
+          isTimeout,
+          timestamp: new Date().toISOString()
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+          status: isTimeout ? 504 : 502 // 504 Gateway Timeout ou 502 Bad Gateway
+        }
+      );
     }
-    
-    // Renvoyer la réponse au client
-    return new Response(responseText, {
-      status: response.status,
-      headers: responseHeaders
-    });
-    
   } catch (error) {
     logMessage(`Erreur lors de la transmission à l'API Acelle: ${error instanceof Error ? error.message : String(error)}`, { error }, LOG_LEVELS.ERROR);
     
