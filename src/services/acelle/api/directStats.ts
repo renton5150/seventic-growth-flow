@@ -72,3 +72,17 @@ export const enrichCampaignsWithStats = async (
   
   return enrichedCampaigns;
 };
+
+/**
+ * Vérifie si les statistiques d'une campagne sont vides ou nulles
+ */
+export const hasEmptyStatistics = (statistics: any): boolean => {
+  if (!statistics) return true;
+  
+  // Vérifier les champs clés pour déterminer si les stats sont vides
+  const hasSubscribers = statistics.subscriber_count && statistics.subscriber_count > 0;
+  const hasOpenRate = statistics.uniq_open_rate && statistics.uniq_open_rate > 0;
+  const hasClickRate = statistics.click_rate && statistics.click_rate > 0;
+  
+  return !hasSubscribers && !hasOpenRate && !hasClickRate;
+};
