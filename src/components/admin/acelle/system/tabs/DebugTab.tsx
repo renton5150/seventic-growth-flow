@@ -32,7 +32,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
             {isTestingConnection ? "Test en cours..." : "Tester la connexion API"}
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            Note: Ce test utilise désormais l'authentification par paramètre URL (api_token) au lieu des en-têtes HTTP.
+            Note: Ce test utilise désormais l'authentification par paramètre URL (api_token) et par en-têtes HTTP pour une compatibilité maximale.
           </p>
         </div>
       )}
@@ -106,6 +106,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({
           <li>Essayez de "Réveiller les services" si les API sont inaccessibles</li>
           <li>Vérifiez les identifiants API dans les paramètres du compte</li>
           <li>La méthode d'authentification par paramètre URL (?api_token=) est maintenant utilisée</li>
+          <li>Les en-têtes <code>X-Acelle-Token</code> et <code>X-Acelle-Endpoint</code> sont également supportés</li>
           <li>Si le cache est vide, synchronisez les campagnes depuis un compte valide</li>
           <li>En cas d'erreurs 403, vérifiez les permissions de votre compte Acelle</li>
         </ul>

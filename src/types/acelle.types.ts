@@ -139,21 +139,14 @@ export interface AcelleConnectionDebug {
   timestamp: string;
   errorMessage?: string;
   statusCode?: number;
-  responseData?: any;
   duration?: number;
   apiVersion?: string;
-  responseTime?: number;
-  authMethod?: string; // Added this property to fix the TypeScript error
+  responseData?: any;
   request?: {
     url?: string;
     headers?: Record<string, string>;
-    method?: string;
-    body?: any;
   };
-  response?: {
-    statusCode?: number;
-    body?: any;
-  };
+  authMethod?: string;
 }
 
 // Type spécifique pour le cache des campagnes

@@ -43,13 +43,35 @@ serve(async (req) => {
   try {
     // Récupérer les informations d'authentification de la requête
     const authHeader = req.headers.get('authorization') || '';
-    const acelleToken = req.headers.get('x-acelle-token') || '';
-    const acelleEndpoint = req.headers.get('x-acelle-endpoint');
     
-    // Validation de base des paramètres requis
+    // MÉTHODE 1: Token dans l'en-tête X-Acelle-Token
+    let acelleToken = req.headers.get('x-acelle-token');
+    // MÉTHODE 2: Token dans les paramètres URL (pour compatibilité)
+    if (!acelleToken) {
+      acelleToken = url.searchParams.get('api_token') || '';
+      if (acelleToken) {
+        debugLog(`Token récupéré depuis l'URL: ${acelleToken.substring(0, 5)}...`, {}, LOG_LEVELS.INFO, currentLogLevel);
+      }
+    }
+    
+    // MÉTHODE 1: Endpoint dans l'en-tête X-Acelle-Endpoint
+    let acelleEndpoint = req.headers.get('x-acelle-endpoint');
+    // MÉTHODE 2: Endpoint inféré depuis le referer ou une autre source
+    if (!acelleEndpoint) {
+      const referer = req.headers.get('referer');
+      if (referer) {
+        // Tenter d'extraire l'endpoint du referer (simple exemple, à adapter)
+        const refererUrl = new URL(referer);
+        if (refererUrl.searchParams.get('endpoint')) {
+          acelleEndpoint = refererUrl.searchParams.get('endpoint');
+        }
+      }
+    }
+    
+    // Validation des paramètres requis
     if (!acelleEndpoint) {
       return new Response(JSON.stringify({ 
-        error: 'Endpoint Acelle manquant. Veuillez fournir l\'en-tête X-Acelle-Endpoint', 
+        error: 'Endpoint Acelle manquant. Veuillez fournir l\'en-tête X-Acelle-Endpoint ou le paramètre endpoint', 
         timestamp: new Date().toISOString() 
       }), { 
         status: 400, 
@@ -59,7 +81,7 @@ serve(async (req) => {
     
     if (!acelleToken) {
       return new Response(JSON.stringify({ 
-        error: 'Token Acelle manquant. Veuillez fournir l\'en-tête X-Acelle-Token',
+        error: 'Token Acelle manquant. Veuillez fournir l\'en-tête X-Acelle-Token ou le paramètre api_token',
         timestamp: new Date().toISOString() 
       }), { 
         status: 400, 
