@@ -67,14 +67,17 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
       
       const result = await forceSyncCampaigns(account, token);
       setLastManuallySyncedAt(new Date());
-      setSyncResult(result);
+      setSyncResult({
+        success: result.success,
+        message: result.message || result.error || "Opération terminée"
+      });
       
       if (result.success) {
-        toast.success(result.message, { id: "force-sync" });
+        toast.success(result.message || "Synchronisation réussie", { id: "force-sync" });
         // Actualiser le compte de campagnes en cache
         await getCachedCampaignsCount();
       } else {
-        toast.error(result.message, { id: "force-sync" });
+        toast.error(result.message || result.error || "Erreur lors de la synchronisation", { id: "force-sync" });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

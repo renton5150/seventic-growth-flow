@@ -33,7 +33,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
 
       if (options?.useCache) {
         // Fetch campaigns from cache
-        const campaignsFromCache = await extractCampaignsFromCache(account.id, options);
+        const campaignsFromCache = await extractCampaignsFromCache(account.id);
         fetchedCampaigns = campaignsFromCache;
 
         // Fetch cache status
@@ -42,7 +42,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
         setTotalCount(status.count);
       } else {
         // Fetch campaigns from API
-        const campaignsFromApi = await getCampaigns(account, options);
+        const campaignsFromApi = await getCampaigns();
         fetchedCampaigns = campaignsFromApi;
         setTotalCount(campaignsFromApi.length);
       }

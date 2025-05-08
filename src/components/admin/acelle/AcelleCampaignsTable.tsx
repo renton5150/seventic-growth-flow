@@ -337,15 +337,18 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         await refetch({ forceRefresh: false });
       } else {
         // Détection améliorée des erreurs d'authentification
-        if (result.message.includes("403") || result.message.includes("Forbidden") || 
-            result.message.includes("authentification") || result.message.includes("authentication")) {
+        if (result.message && (
+            result.message.includes("403") || 
+            result.message.includes("Forbidden") || 
+            result.message.includes("authentification") || 
+            result.message.includes("authentication"))) {
           toast.error("Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte.", { id: "sync" });
           setApiErrors({
             hasAuthError: true,
             message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte."
           });
         } else {
-          toast.error(result.message, { id: "sync" });
+          toast.error(result.message || "Erreur inconnue", { id: "sync" });
         }
       }
     } catch (err) {
