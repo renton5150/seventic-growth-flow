@@ -1,8 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
-import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
-import { forceSyncCampaigns, getCampaigns } from "./api/campaigns";
 
 /**
  * Service pour gérer les appels à l'API Acelle
@@ -85,25 +82,34 @@ export const acelleService = {
 
 /**
  * Construit l'URL pour le proxy CORS
+ * Modifié pour éviter les problèmes de chemins en double et améliorer l'authentification
  */
 export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
-  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
+  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy';
   
+  // Nettoyer le chemin pour éviter les doubles slashes
   const apiPath = path.startsWith('/') ? path.substring(1) : path;
   
-  let apiUrl = `https://emailing.plateforme-solution.net/api/v1/${apiPath}`;
-  
-  if (Object.keys(params).length > 0) {
-    const searchParams = new URLSearchParams();
-    
-    for (const [key, value] of Object.entries(params)) {
-      searchParams.append(key, value);
+  // Construire l'URL du proxy sans inclure l'API token dans l'URL (on l'enverra dans les en-têtes)
+  // Seuls les paramètres non sensibles seront inclus dans l'URL
+  const nonSensitiveParams: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== 'api_token') {
+      nonSensitiveParams[key] = value;
     }
-    
-    apiUrl += '?' + searchParams.toString();
   }
   
-  const encodedApiUrl = encodeURIComponent(apiUrl);
+  // Construire la requête avec les paramètres non sensibles
+  let proxyUrl = `${baseProxyUrl}/${apiPath}`;
   
-  return `${baseProxyUrl}?url=${encodedApiUrl}`;
+  // Ajouter les paramètres non sensibles s'il y en a
+  if (Object.keys(nonSensitiveParams).length > 0) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(nonSensitiveParams)) {
+      searchParams.append(key, value);
+    }
+    proxyUrl += '?' + searchParams.toString();
+  }
+  
+  return proxyUrl;
 };

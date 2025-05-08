@@ -45,11 +45,14 @@ export const useSyncOperation = ({ account }: UseSyncOperationProps) => {
       }
       
       // Appeler la fonction Edge pour synchroniser
-      const { error: functionError } = await supabase.functions.invoke('sync-email-campaigns', {
+      const { data, error: functionError } = await supabase.functions.invoke('sync-email-campaigns', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // Ajouter les informations d'authentification Acelle
+          'X-Acelle-Token': account.api_token,
+          'X-Acelle-Endpoint': account.api_endpoint
         },
         body: { 
           accountId: account.id
@@ -57,14 +60,26 @@ export const useSyncOperation = ({ account }: UseSyncOperationProps) => {
       });
       
       if (functionError) {
-        throw new Error(`Erreur de la fonction Edge: ${functionError.message}`);
+        // Amélioration de la gestion des erreurs pour plus de clarté
+        let errorMessage = functionError.message;
+        
+        // Gérer spécifiquement les erreurs d'authentification
+        if (functionError.message.includes("403") || functionError.message.includes("Forbidden")) {
+          errorMessage = `Erreur d'authentification à l'API Acelle (403 Forbidden). Vérifiez les identifiants API.`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      if (data?.error) {
+        throw new Error(`Erreur API: ${data.error}`);
       }
       
       // Mettre à jour le temps de synchronisation
       setLastSyncTime(new Date());
       
       if (!options?.quietMode) {
-        toast.success("Synchronisation terminée", { id: "sync-toast" });
+        toast.success("Synchronisation terminée avec succès", { id: "sync-toast" });
       }
       
       return true;
@@ -73,9 +88,19 @@ export const useSyncOperation = ({ account }: UseSyncOperationProps) => {
       const errorMessage = error instanceof Error ? error.message : String(error);
       setSyncError(errorMessage);
       
-      if (!options?.quietMode) {
-        toast.error(`Erreur: ${errorMessage}`, { id: "sync-toast" });
+      // Afficher un message d'erreur plus explicite pour les problèmes d'authentification
+      if (errorMessage.includes("403") || errorMessage.includes("Forbidden") || errorMessage.includes("authentification")) {
+        if (!options?.quietMode) {
+          toast.error(`Erreur d'authentification à l'API Acelle. Vérifiez les identifiants API dans les paramètres du compte.`, { id: "sync-toast" });
+        }
+      } else {
+        if (!options?.quietMode) {
+          toast.error(`Erreur lors de la synchronisation: ${errorMessage}`, { id: "sync-toast" });
+        }
       }
+      
+      // Journaliser l'erreur dans la base de données
+      await logSyncError(errorMessage);
       
       return false;
     } finally {

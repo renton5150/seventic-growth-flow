@@ -1,7 +1,6 @@
 
 import { AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { buildProxyUrl } from "../../acelle-service";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
@@ -22,38 +21,64 @@ export const fetchCampaignStatisticsFromApi = async (
     
     console.log(`Fetching statistics from API for campaign ${campaignUid}`);
     
-    // Construire l'URL pour la requête API
-    const params = {
-      api_token: account.api_token,
-      _t: Date.now().toString() // Empêcher la mise en cache
-    };
+    // Construire l'URL pour la requête API - utiliser directement l'endpoint complet
+    const apiEndpoint = account.api_endpoint.replace(/\/$/, '');
+    const url = `${apiEndpoint}/public/api/v1/campaigns/${campaignUid}/statistics`;
     
-    // Utiliser le proxy pour éviter les problèmes CORS
-    const url = buildProxyUrl(`campaigns/${campaignUid}/statistics`, params);
+    console.log(`URL de requête API complète: ${url}`);
     
-    // Obtenir le token d'authentification
+    // Obtenir le token d'authentification Supabase
     const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    const sessionToken = sessionData?.session?.access_token;
     
-    if (!token) {
-      console.error("Aucun token d'authentification disponible pour l'API");
+    if (!sessionToken) {
+      console.error("Aucun token d'authentification Supabase disponible pour l'API");
       return null;
     }
     
-    // Effectuer la requête
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    // Préparer les en-têtes pour l'authentification correcte
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`, // Token Supabase pour l'Edge Function
+      'X-Acelle-Token': account.api_token, // Token Acelle pour l'API
+      'X-Acelle-Endpoint': apiEndpoint // Endpoint explicite
+    };
+    
+    // Ajouter des logs détaillés pour diagnostiquer les problèmes d'authentification
+    console.log("En-têtes de requête API (authentification masquée):", {
+      ...headers,
+      'Authorization': 'Bearer ***MASKED***',
+      'X-Acelle-Token': '***MASKED***'
     });
     
+    // Construire l'URL pour le proxy CORS de Supabase
+    const proxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/campaigns/${campaignUid}/statistics`;
+    
+    console.log(`URL du proxy: ${proxyUrl}`);
+    
+    // Effectuer la requête via le proxy
+    const response = await fetch(proxyUrl, { headers });
+    
+    // Logger le statut de la réponse pour diagnostiquer
+    console.log(`Statut de réponse API: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
-      console.error(`Erreur API: ${response.status} ${response.statusText}`);
+      // Journaliser plus de détails sur l'erreur
+      const errorText = await response.text();
+      console.error(`Erreur API ${response.status}: ${errorText.substring(0, 500)}...`);
+      
+      // Gestion spécifique pour le 403 Forbidden
+      if (response.status === 403) {
+        console.error(`Erreur d'authentification (403 Forbidden) lors de l'accès à l'API Acelle`);
+        throw new Error(`Erreur d'authentification à l'API Acelle (403 Forbidden)`);
+      }
+      
       return null;
     }
     
     const data = await response.json();
+    console.log(`Données reçues de l'API:`, data);
     
     if (data?.statistics) {
       // Convertir les statistiques en format attendu
