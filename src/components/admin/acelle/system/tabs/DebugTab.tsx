@@ -2,14 +2,41 @@
 import React from "react";
 import { Check, AlertTriangle } from "lucide-react";
 import { AcelleConnectionDebug } from "@/types/acelle.types";
+import { Button } from "@/components/ui/button";
 
 interface DebugTabProps {
   debugInfo: AcelleConnectionDebug | null;
+  onTestConnection?: () => void;
+  isTestingConnection?: boolean;
 }
 
-export const DebugTab: React.FC<DebugTabProps> = ({ debugInfo }) => {
+export const DebugTab: React.FC<DebugTabProps> = ({ 
+  debugInfo, 
+  onTestConnection, 
+  isTestingConnection = false 
+}) => {
   return (
     <div className="space-y-4">
+      {onTestConnection && (
+        <div className="mb-4 flex flex-col gap-2 p-4 border rounded-md">
+          <h3 className="font-semibold">Diagnostic d'authentification API</h3>
+          <p className="text-sm text-muted-foreground mb-2">
+            Ce test vérifie si vos identifiants API Acelle sont correctement configurés et si la méthode d'authentification fonctionne.
+          </p>
+          <Button 
+            variant="outline" 
+            onClick={onTestConnection} 
+            disabled={isTestingConnection}
+            className="w-full sm:w-auto"
+          >
+            {isTestingConnection ? "Test en cours..." : "Tester la connexion API"}
+          </Button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Note: Ce test utilise désormais l'authentification par paramètre URL (api_token) au lieu des en-têtes HTTP.
+          </p>
+        </div>
+      )}
+      
       {debugInfo && (
         <div className={`mt-4 p-4 rounded-md ${debugInfo.success ? 'bg-green-50' : 'bg-red-50'}`}>
           <div className="flex items-center">
@@ -32,6 +59,12 @@ export const DebugTab: React.FC<DebugTabProps> = ({ debugInfo }) => {
           {debugInfo.duration && (
             <div className="mt-1 text-xs text-muted-foreground">
               Temps de réponse: {debugInfo.duration}ms
+            </div>
+          )}
+          
+          {debugInfo.authMethod && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              Méthode d'authentification utilisée: {debugInfo.authMethod}
             </div>
           )}
           
@@ -72,6 +105,7 @@ export const DebugTab: React.FC<DebugTabProps> = ({ debugInfo }) => {
           <li>Vérifiez que votre session Supabase est active</li>
           <li>Essayez de "Réveiller les services" si les API sont inaccessibles</li>
           <li>Vérifiez les identifiants API dans les paramètres du compte</li>
+          <li>La méthode d'authentification par paramètre URL (?api_token=) est maintenant utilisée</li>
           <li>Si le cache est vide, synchronisez les campagnes depuis un compte valide</li>
           <li>En cas d'erreurs 403, vérifiez les permissions de votre compte Acelle</li>
         </ul>

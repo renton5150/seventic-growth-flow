@@ -36,7 +36,8 @@ serve(async (req) => {
       'authorization': req.headers.has('authorization') ? '***PRÉSENT***' : '***ABSENT***',
       'x-acelle-token': req.headers.has('x-acelle-token') ? '***PRÉSENT***' : '***ABSENT***',
       'x-acelle-endpoint': req.headers.get('x-acelle-endpoint')
-    }
+    },
+    query_params: Object.fromEntries(url.searchParams.entries())
   }, LOG_LEVELS.INFO, currentLogLevel);
   
   try {
@@ -81,24 +82,35 @@ serve(async (req) => {
     // Construire l'URL finale
     const apiUrl = `${cleanEndpoint}${apiBasePath}/${apiPath}`;
     
-    // Inclure les paramètres de requête originaux
+    // Inclure les paramètres de requête originaux et ajouter le token dans l'URL
     const queryParams = new URLSearchParams(url.search);
-    const apiUrlWithParams = `${apiUrl}${url.search ? url.search : ''}`;
     
-    debugLog(`Transmission vers l'API Acelle: ${apiUrlWithParams}`, {}, LOG_LEVELS.INFO, currentLogLevel);
+    // Important: Ajouter le token dans l'URL comme paramètre api_token
+    // Cette méthode est préférée par l'API Acelle selon les tests curl
+    queryParams.set('api_token', acelleToken);
+    
+    // Construire l'URL finale avec les paramètres
+    const apiUrlWithParams = `${apiUrl}?${queryParams.toString()}`;
+    
+    debugLog(`Transmission vers l'API Acelle avec authentication via paramètre URL`, {
+      url_without_token: `${apiUrl}?[token_masqué]&${queryParams.toString().replace(/api_token=[^&]+(&|$)/, '')}`,
+      auth_method: 'URL Parameter (api_token)',
+      headers_auth_used: true // On utilise aussi des en-têtes pour plus de compatibilité
+    }, LOG_LEVELS.INFO, currentLogLevel);
     
     // Préparer les en-têtes pour la requête à l'API Acelle
+    // On garde aussi l'authentification par en-tête pour plus de compatibilité
     const headers: Record<string, string> = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'User-Agent': `Seventic-Acelle-Proxy/${CONFIG.VERSION}`,
-      // Utiliser le token Acelle dans l'en-tête plutôt que comme paramètre d'URL
+      // Utiliser le token Acelle dans l'en-tête aussi pour compatibilité
       'Authorization': `Bearer ${acelleToken}`,
       // Ajouter également comme X-API-TOKEN pour la compatibilité
       'X-API-TOKEN': acelleToken
     };
     
-    // Transférer la requête à l'API Acelle avec le bon en-tête d'authentification
+    // Transférer la requête à l'API Acelle avec le token dans l'URL ET les en-têtes
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.DEFAULT_TIMEOUT);
     
@@ -108,6 +120,12 @@ serve(async (req) => {
       if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         requestBodyText = await req.text();
       }
+      
+      debugLog(`Envoi de requête à l'API Acelle`, {
+        method: req.method,
+        headers_sent: Object.keys(headers),
+        has_body: requestBodyText.length > 0 ? 'Oui' : 'Non'
+      }, LOG_LEVELS.INFO, currentLogLevel);
       
       // Exécuter la requête à l'API Acelle
       const response = await fetch(apiUrlWithParams, {
@@ -122,7 +140,9 @@ serve(async (req) => {
       
       // Journaliser la réponse
       debugLog(`Réponse de l'API Acelle: ${response.status} ${response.statusText}`, {
-        url: apiUrlWithParams,
+        url_without_token: apiUrl,
+        status: response.status,
+        status_text: response.statusText
       }, response.ok ? LOG_LEVELS.INFO : LOG_LEVELS.ERROR, currentLogLevel);
       
       // Lire et traiter la réponse
@@ -133,10 +153,20 @@ serve(async (req) => {
         responseData = JSON.parse(responseText);
       } catch (e) {
         debugLog("Réponse non-JSON reçue:", responseText.substring(0, 1000), LOG_LEVELS.WARN, currentLogLevel);
-        responseData = { 
-          raw_response: responseText.substring(0, 1000),
-          parse_error: true
-        };
+        
+        // Si on reçoit un code 403, vérifier si c'est une page HTML d'erreur d'authentification
+        if (response.status === 403 && responseText.includes('login') || responseText.includes('auth')) {
+          responseData = { 
+            error: "Erreur d'authentification: Le token API est invalide ou expiré",
+            auth_error: true,
+            raw_response_preview: responseText.substring(0, 200)
+          };
+        } else {
+          responseData = { 
+            raw_response: responseText.substring(0, 1000),
+            parse_error: true
+          };
+        }
       }
       
       // Ajouter des informations de diagnostic
@@ -145,9 +175,25 @@ serve(async (req) => {
         _diagnostic: {
           status: response.status,
           timestamp: new Date().toISOString(),
-          url: apiUrl
+          url: apiUrl,
+          auth_method_used: "URL Parameter (api_token)",
         }
       };
+      
+      // Gérer spécifiquement les erreurs 403 (Forbidden)
+      if (response.status === 403) {
+        debugLog(`Erreur d'authentification 403 détectée pour l'API Acelle`, {
+          endpoint: acelleEndpoint,
+          token_length: acelleToken ? acelleToken.length : 0
+        }, LOG_LEVELS.ERROR, currentLogLevel);
+        
+        responseData = {
+          ...responseData,
+          auth_error: true,
+          error: responseData.error || "Erreur d'authentification: vérifiez votre token API",
+          auth_help: "Assurez-vous que votre token API est valide et actif dans le compte Acelle"
+        };
+      }
       
       // Retourner la réponse avec les en-têtes CORS
       return new Response(JSON.stringify(responseData), {

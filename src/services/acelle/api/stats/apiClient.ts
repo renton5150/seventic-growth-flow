@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
+ * Modifié pour utiliser l'authentification par paramètre URL (api_token)
  */
 export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
@@ -23,9 +24,9 @@ export const fetchCampaignStatisticsFromApi = async (
     
     // Construire l'URL pour la requête API - utiliser directement l'endpoint complet
     const apiEndpoint = account.api_endpoint.replace(/\/$/, '');
-    const url = `${apiEndpoint}/public/api/v1/campaigns/${campaignUid}/statistics`;
+    const apiPath = `/campaigns/${campaignUid}/statistics`;
     
-    console.log(`URL de requête API complète: ${url}`);
+    console.log(`Chemin API à appeler: ${apiPath}`);
     
     // Obtenir le token d'authentification Supabase
     const { data: sessionData } = await supabase.auth.getSession();
@@ -53,11 +54,13 @@ export const fetchCampaignStatisticsFromApi = async (
     });
     
     // Construire l'URL pour le proxy CORS de Supabase
+    // IMPORTANT: On n'inclut pas directement le token dans l'URL ici car le proxy Edge Function le fera
     const proxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/campaigns/${campaignUid}/statistics`;
     
-    console.log(`URL du proxy: ${proxyUrl}`);
+    console.log(`URL du proxy: ${proxyUrl} (les paramètres d'authentification seront ajoutés par l'Edge Function)`);
     
     // Effectuer la requête via le proxy
+    console.log(`Envoi de la requête au proxy...`);
     const response = await fetch(proxyUrl, { headers });
     
     // Logger le statut de la réponse pour diagnostiquer
@@ -70,7 +73,8 @@ export const fetchCampaignStatisticsFromApi = async (
       
       // Gestion spécifique pour le 403 Forbidden
       if (response.status === 403) {
-        console.error(`Erreur d'authentification (403 Forbidden) lors de l'accès à l'API Acelle`);
+        console.error(`Erreur d'authentification (403 Forbidden) lors de l'accès à l'API Acelle. 
+        Vérifiez si le token API doit être passé dans l'URL ou dans les en-têtes.`);
         throw new Error(`Erreur d'authentification à l'API Acelle (403 Forbidden)`);
       }
       

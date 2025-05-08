@@ -1,4 +1,3 @@
-
 import { AcelleAccount } from "@/types/acelle.types";
 import { 
   getAcelleAccounts,
@@ -93,7 +92,7 @@ export const acelleService = {
 
 /**
  * Construit l'URL pour le proxy CORS
- * Modifié pour éviter les problèmes de chemins en double et améliorer l'authentification
+ * Modifié pour utiliser le paramètre api_token dans l'URL comme exigé par l'API Acelle
  */
 export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
   const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy';
@@ -101,24 +100,21 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
   // Nettoyer le chemin pour éviter les doubles slashes
   const apiPath = path.startsWith('/') ? path.substring(1) : path;
   
-  // Construire l'URL du proxy sans inclure l'API token dans l'URL (on l'enverra dans les en-têtes)
-  // Seuls les paramètres non sensibles seront inclus dans l'URL
-  const nonSensitiveParams: Record<string, string> = {};
-  for (const [key, value] of Object.entries(params)) {
-    if (key !== 'api_token') {
-      nonSensitiveParams[key] = value;
-    }
-  }
-  
-  // Construire la requête avec les paramètres non sensibles
+  // Construire l'URL de base
   let proxyUrl = `${baseProxyUrl}/${apiPath}`;
   
-  // Ajouter les paramètres non sensibles s'il y en a
-  if (Object.keys(nonSensitiveParams).length > 0) {
-    const searchParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(nonSensitiveParams)) {
-      searchParams.append(key, value);
-    }
+  // Récupérer l'API token pour l'ajouter dans les paramètres d'URL
+  const apiToken = params.api_token || '';
+  
+  // On combine tous les paramètres, y compris l'api_token désormais
+  // On ne filtre plus le token, car il doit être dans l'URL
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    searchParams.append(key, value);
+  }
+  
+  // Ajouter les paramètres à l'URL
+  if (searchParams.toString()) {
     proxyUrl += '?' + searchParams.toString();
   }
   

@@ -44,7 +44,15 @@ export const useSyncOperation = ({ account }: UseSyncOperationProps) => {
         throw new Error("Token d'authentification non disponible");
       }
       
+      console.log("Synchronisation avec les paramètres:", {
+        hasToken: !!accessToken,
+        accountId: account.id,
+        tokenLength: account.api_token.length,
+        endpoint: account.api_endpoint
+      });
+      
       // Appeler la fonction Edge pour synchroniser
+      // Avec la nouvelle méthode d'authentification (API token dans l'URL)
       const { data, error: functionError } = await supabase.functions.invoke('sync-email-campaigns', {
         method: 'POST',
         headers: {
@@ -52,10 +60,14 @@ export const useSyncOperation = ({ account }: UseSyncOperationProps) => {
           'Content-Type': 'application/json',
           // Ajouter les informations d'authentification Acelle
           'X-Acelle-Token': account.api_token,
-          'X-Acelle-Endpoint': account.api_endpoint
+          'X-Acelle-Endpoint': account.api_endpoint,
+          // Ajouter des informations supplémentaires pour le diagnostic
+          'X-Auth-Method': 'url-param' // Indique au backend qu'il faut utiliser la méthode d'authentification par URL
         },
         body: { 
-          accountId: account.id
+          accountId: account.id,
+          apiToken: account.api_token, // On ajoute aussi le token dans le body pour plus de sécurité
+          authMethod: 'url-param' // Indique de privilégier l'authentification par paramètre URL
         }
       });
       
@@ -65,7 +77,7 @@ export const useSyncOperation = ({ account }: UseSyncOperationProps) => {
         
         // Gérer spécifiquement les erreurs d'authentification
         if (functionError.message.includes("403") || functionError.message.includes("Forbidden")) {
-          errorMessage = `Erreur d'authentification à l'API Acelle (403 Forbidden). Vérifiez les identifiants API.`;
+          errorMessage = `Erreur d'authentification à l'API Acelle (403 Forbidden). Vérifiez les identifiants API et la méthode d'authentification.`;
         }
         
         throw new Error(errorMessage);
@@ -91,7 +103,7 @@ export const useSyncOperation = ({ account }: UseSyncOperationProps) => {
       // Afficher un message d'erreur plus explicite pour les problèmes d'authentification
       if (errorMessage.includes("403") || errorMessage.includes("Forbidden") || errorMessage.includes("authentification")) {
         if (!options?.quietMode) {
-          toast.error(`Erreur d'authentification à l'API Acelle. Vérifiez les identifiants API dans les paramètres du compte.`, { id: "sync-toast" });
+          toast.error(`Erreur d'authentification à l'API Acelle. La méthode d'authentification par URL est maintenant utilisée, veuillez vérifier les identifiants API.`, { id: "sync-toast" });
         }
       } else {
         if (!options?.quietMode) {
