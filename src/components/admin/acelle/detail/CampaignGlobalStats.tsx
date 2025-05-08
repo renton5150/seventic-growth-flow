@@ -1,6 +1,7 @@
 
 import React from "react";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
+import { formatNumberSafely, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 
 interface CampaignGlobalStatsProps {
   statistics: AcelleCampaignStatistics;
@@ -15,37 +16,42 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
     clickRate: statistics?.click_rate || 'Non défini'
   });
 
-  // Formatage des nombres
-  const formatNumber = (value?: number): string => {
-    if (value === undefined || value === null) return "0";
-    return value.toLocaleString();
-  };
-
-  // Formatage des pourcentages
-  const formatPercentage = (value?: number): string => {
-    if (value === undefined || value === null) return "0%";
-    
-    // Si la valeur est déjà un pourcentage (0-100)
-    if (value > 1) {
-      return `${value.toFixed(1)}%`;
-    }
-    
-    // Si la valeur est une proportion (0-1)
-    return `${(value * 100).toFixed(1)}%`;
-  };
-
   // Récupération des valeurs importantes
-  const total = statistics?.subscriber_count || 0;
-  const delivered = statistics?.delivered_count || 0;
-  const opened = statistics?.open_count || 0;
-  const clicked = statistics?.click_count || 0;
-  const bounces = statistics?.bounce_count || 0;
-  const unsubscribed = statistics?.unsubscribe_count || 0;
+  const total = parseFloat(String(statistics?.subscriber_count || 0));
+  const delivered = parseFloat(String(statistics?.delivered_count || 0));
+  const opened = parseFloat(String(statistics?.open_count || 0));
+  const clicked = parseFloat(String(statistics?.click_count || 0));
+  const bounces = parseFloat(String(statistics?.bounce_count || 0));
+  const unsubscribed = parseFloat(String(statistics?.unsubscribe_count || 0));
 
   // Calcul des taux si nécessaire
-  const deliveryRate = statistics?.delivered_rate || (total > 0 ? (delivered / total) * 100 : 0);
-  const openRate = statistics?.uniq_open_rate || statistics?.open_rate || (delivered > 0 ? (opened / delivered) * 100 : 0);
-  const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
+  let deliveryRate, openRate, clickRate;
+  
+  if (statistics?.delivered_rate !== undefined) {
+    deliveryRate = parseFloat(String(statistics.delivered_rate));
+  } else if (total > 0) {
+    deliveryRate = (delivered / total) * 100;
+  } else {
+    deliveryRate = 0;
+  }
+  
+  if (statistics?.uniq_open_rate !== undefined) {
+    openRate = parseFloat(String(statistics.uniq_open_rate));
+  } else if (statistics?.open_rate !== undefined) {
+    openRate = parseFloat(String(statistics.open_rate));
+  } else if (delivered > 0) {
+    openRate = (opened / delivered) * 100;
+  } else {
+    openRate = 0;
+  }
+  
+  if (statistics?.click_rate !== undefined) {
+    clickRate = parseFloat(String(statistics.click_rate));
+  } else if (delivered > 0) {
+    clickRate = (clicked / delivered) * 100;
+  } else {
+    clickRate = 0;
+  }
 
   return (
     <div>
@@ -53,27 +59,27 @@ export const CampaignGlobalStats = ({ statistics }: CampaignGlobalStatsProps) =>
       <div className="space-y-2">
         <div className="flex justify-between">
           <span className="text-gray-600">Destinataires:</span>
-          <span className="font-medium">{formatNumber(total)}</span>
+          <span className="font-medium">{formatNumberSafely(total)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-600">Délivrés:</span>
-          <span>{formatNumber(delivered)} ({formatPercentage(deliveryRate)})</span>
+          <span>{formatNumberSafely(delivered)} ({renderPercentage(deliveryRate)})</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-600">Ouvertures:</span>
-          <span>{formatNumber(opened)} ({formatPercentage(openRate)})</span>
+          <span>{formatNumberSafely(opened)} ({renderPercentage(openRate)})</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-600">Clics:</span>
-          <span>{formatNumber(clicked)} ({formatPercentage(clickRate)})</span>
+          <span>{formatNumberSafely(clicked)} ({renderPercentage(clickRate)})</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-600">Bounces:</span>
-          <span>{formatNumber(bounces)}</span>
+          <span>{formatNumberSafely(bounces)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-600">Désabonnements:</span>
-          <span>{formatNumber(unsubscribed)}</span>
+          <span>{formatNumberSafely(unsubscribed)}</span>
         </div>
       </div>
     </div>

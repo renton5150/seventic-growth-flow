@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
+import { translateStatus, getStatusBadgeVariant, renderPercentage, formatNumberSafely } from "@/utils/acelle/campaignStatusUtils";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
 
 interface AcelleTableRowProps {
@@ -43,11 +43,11 @@ export const AcelleTableRow = ({
         hasDeliveryInfo: !!campaign.delivery_info,
         hasStatistics: !!campaign.statistics,
         deliveryInfo: campaign.delivery_info ? {
-          openRate: campaign.delivery_info.uniq_open_rate || 'Non défini',
+          openRate: campaign.delivery_info.uniq_open_rate || campaign.delivery_info.open_rate || 'Non défini',
           clickRate: campaign.delivery_info.click_rate || 'Non défini'
         } : 'No delivery_info',
         statistics: campaign.statistics ? {
-          openRate: campaign.statistics.uniq_open_rate || 'Non défini',
+          openRate: campaign.statistics.uniq_open_rate || campaign.statistics.open_rate || 'Non défini',
           clickRate: campaign.statistics.click_rate || 'Non défini'
         } : 'No statistics',
         account: account ? {
@@ -55,6 +55,17 @@ export const AcelleTableRow = ({
           hasEndpoint: !!account.api_endpoint
         } : 'No account'
       });
+      
+      // Si nous avons déjà toutes les statistiques nécessaires, pas besoin de recharger
+      if (campaign.delivery_info && 
+          (campaign.delivery_info.uniq_open_rate > 0 || 
+           campaign.delivery_info.open_rate > 0 ||
+           campaign.delivery_info.unique_open_rate > 0) && 
+          campaign.delivery_info.click_rate > 0) {
+        console.log(`[TableRow] Statistiques déjà disponibles pour ${campaignName}, aucun chargement supplémentaire nécessaire`);
+        setStats(campaign.delivery_info as AcelleCampaignStatistics);
+        return;
+      }
       
       if (!account) {
         console.warn(`[TableRow] Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
@@ -71,8 +82,11 @@ export const AcelleTableRow = ({
         
         console.log(`[TableRow] Statistiques récupérées pour ${campaignName}:`, {
           hasStatistics: !!enrichedCampaign.statistics,
-          openRate: enrichedCampaign.statistics?.uniq_open_rate || 'Non défini',
-          clickRate: enrichedCampaign.statistics?.click_rate || 'Non défini'
+          openRate: enrichedCampaign.statistics?.uniq_open_rate || 
+                    enrichedCampaign.statistics?.open_rate || 
+                    'Non défini',
+          clickRate: enrichedCampaign.statistics?.click_rate || 'Non défini',
+          rawStats: enrichedCampaign.statistics
         });
         
         // Mettre à jour l'état local avec les statistiques récupérées
@@ -107,51 +121,97 @@ export const AcelleTableRow = ({
     }
   };
 
-  // Récupérer les statistiques formattées
+  // GETTERS AMÉLIORÉS pour extraire les statistiques de façon plus robuste
   const getTotalSent = (): number => {
-    if (stats?.subscriber_count) return stats.subscriber_count;
-    if (campaign.statistics?.subscriber_count) return campaign.statistics.subscriber_count;
-    if (campaign.delivery_info?.total) return campaign.delivery_info.total;
-    if (campaign.delivery_info?.subscriber_count) return campaign.delivery_info.subscriber_count;
-    return 0;
+    let value = 0;
+    
+    // Essayer plusieurs chemins possibles pour obtenir cette valeur
+    if (stats?.subscriber_count) {
+      value = parseFloat(String(stats.subscriber_count));
+    } else if (campaign.statistics?.subscriber_count) {
+      value = parseFloat(String(campaign.statistics.subscriber_count));
+    } else if (campaign.delivery_info?.total) {
+      value = parseFloat(String(campaign.delivery_info.total));
+    } else if (campaign.delivery_info?.subscriber_count) {
+      value = parseFloat(String(campaign.delivery_info.subscriber_count));
+    }
+    
+    return isNaN(value) ? 0 : value;
   };
 
   const getOpenRate = (): number => {
-    if (stats?.uniq_open_rate) return stats.uniq_open_rate;
-    if (stats?.open_rate) return stats.open_rate;
-    if (campaign.statistics?.uniq_open_rate) return campaign.statistics.uniq_open_rate;
-    if (campaign.statistics?.open_rate) return campaign.statistics.open_rate;
-    if (campaign.delivery_info?.unique_open_rate) return campaign.delivery_info.unique_open_rate;
-    if (campaign.delivery_info?.uniq_open_rate) return campaign.delivery_info.uniq_open_rate;
-    if (campaign.delivery_info?.open_rate) return campaign.delivery_info.open_rate;
-    return 0;
+    let value = 0;
+    
+    // Essayer plusieurs chemins possibles pour obtenir le taux d'ouverture
+    if (stats?.uniq_open_rate !== undefined) {
+      value = parseFloat(String(stats.uniq_open_rate));
+    } else if (stats?.open_rate !== undefined) {
+      value = parseFloat(String(stats.open_rate));
+    } else if (campaign.statistics?.uniq_open_rate !== undefined) {
+      value = parseFloat(String(campaign.statistics.uniq_open_rate));
+    } else if (campaign.statistics?.open_rate !== undefined) {
+      value = parseFloat(String(campaign.statistics.open_rate));
+    } else if (campaign.delivery_info?.unique_open_rate !== undefined) {
+      value = parseFloat(String(campaign.delivery_info.unique_open_rate));
+    } else if (campaign.delivery_info?.uniq_open_rate !== undefined) {
+      value = parseFloat(String(campaign.delivery_info.uniq_open_rate));
+    } else if (campaign.delivery_info?.open_rate !== undefined) {
+      value = parseFloat(String(campaign.delivery_info.open_rate));
+    }
+    
+    // Déboguer les valeurs
+    console.log(`[TableRow] Taux d'ouverture pour ${campaignName}:`, {
+      value,
+      statsValue: stats?.uniq_open_rate,
+      campaignValue: campaign.statistics?.uniq_open_rate,
+      deliveryInfoValue: campaign.delivery_info?.uniq_open_rate
+    });
+    
+    return isNaN(value) ? 0 : value;
   };
 
   const getClickRate = (): number => {
-    if (stats?.click_rate) return stats.click_rate;
-    if (campaign.statistics?.click_rate) return campaign.statistics.click_rate;
-    if (campaign.delivery_info?.click_rate) return campaign.delivery_info.click_rate;
-    return 0;
+    let value = 0;
+    
+    // Essayer plusieurs chemins possibles
+    if (stats?.click_rate !== undefined) {
+      value = parseFloat(String(stats.click_rate));
+    } else if (campaign.statistics?.click_rate !== undefined) {
+      value = parseFloat(String(campaign.statistics.click_rate));
+    } else if (campaign.delivery_info?.click_rate !== undefined) {
+      value = parseFloat(String(campaign.delivery_info.click_rate));
+    }
+    
+    // Déboguer les valeurs
+    console.log(`[TableRow] Taux de clic pour ${campaignName}:`, {
+      value,
+      statsValue: stats?.click_rate,
+      campaignValue: campaign.statistics?.click_rate,
+      deliveryInfoValue: campaign.delivery_info?.click_rate
+    });
+    
+    return isNaN(value) ? 0 : value;
   };
 
   const getBounceCount = (): number => {
-    if (stats?.bounce_count) return stats.bounce_count;
-    if (campaign.statistics?.bounce_count) return campaign.statistics.bounce_count;
+    let value = 0;
     
-    if (campaign.delivery_info?.bounced) {
+    // Essayer plusieurs chemins possibles
+    if (stats?.bounce_count !== undefined) {
+      value = parseFloat(String(stats.bounce_count));
+    } else if (campaign.statistics?.bounce_count !== undefined) {
+      value = parseFloat(String(campaign.statistics.bounce_count));
+    } else if (campaign.delivery_info?.bounced) {
       if (typeof campaign.delivery_info.bounced === 'object' && campaign.delivery_info.bounced.total) {
-        return campaign.delivery_info.bounced.total;
+        value = parseFloat(String(campaign.delivery_info.bounced.total));
+      } else if (typeof campaign.delivery_info.bounced === 'number' || typeof campaign.delivery_info.bounced === 'string') {
+        value = parseFloat(String(campaign.delivery_info.bounced));
       }
-      if (typeof campaign.delivery_info.bounced === 'number') {
-        return campaign.delivery_info.bounced;
-      }
+    } else if (campaign.delivery_info?.bounce_count !== undefined) {
+      value = parseFloat(String(campaign.delivery_info.bounce_count));
     }
     
-    if (campaign.delivery_info?.bounce_count) {
-      return campaign.delivery_info.bounce_count;
-    }
-    
-    return 0;
+    return isNaN(value) ? 0 : value;
   };
 
   // Valeurs à afficher
@@ -193,7 +253,7 @@ export const AcelleTableRow = ({
       </TableCell>
       <TableCell>{formatDateSafely(deliveryDate)}</TableCell>
       <TableCell className="font-medium tabular-nums">
-        {isLoading ? "..." : totalSent.toLocaleString()}
+        {isLoading ? "..." : formatNumberSafely(totalSent)}
       </TableCell>
       <TableCell className="tabular-nums">
         {isLoading ? "..." : renderPercentage(openRate)}
@@ -202,7 +262,7 @@ export const AcelleTableRow = ({
         {isLoading ? "..." : renderPercentage(clickRate)}
       </TableCell>
       <TableCell className="tabular-nums">
-        {isLoading ? "..." : bounceCount.toLocaleString()}
+        {isLoading ? "..." : formatNumberSafely(bounceCount)}
       </TableCell>
       <TableCell>
         <Button

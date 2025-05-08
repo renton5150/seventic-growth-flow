@@ -39,15 +39,65 @@ export const getStatusBadgeVariant = (status: string): BadgeProps["variant"] => 
 
 /**
  * Formatte un pourcentage pour l'affichage
+ * Gère correctement différents types d'entrées (nombre, chaîne, etc.)
  */
-export const renderPercentage = (value: number): string => {
-  if (typeof value !== 'number' || isNaN(value)) return '0,0%';
+export const renderPercentage = (value: any): string => {
+  // Cas particulier pour les valeurs nulles ou undefined
+  if (value === null || value === undefined) {
+    return '0,0%';
+  }
+  
+  // Convertir les chaînes en nombres
+  let numValue: number;
+  
+  if (typeof value === 'string') {
+    // Enlever les caractères non numériques sauf le point et la virgule
+    const cleanedValue = value.replace(/[^0-9.,-]/g, '').replace(',', '.');
+    numValue = parseFloat(cleanedValue);
+  } else {
+    numValue = parseFloat(String(value));
+  }
+  
+  // Vérifier si la conversion a échoué
+  if (isNaN(numValue)) {
+    return '0,0%';
+  }
   
   // Si la valeur est déjà un pourcentage (0-100)
-  if (value > 1) {
-    return `${value.toFixed(1).replace('.', ',')}%`;
+  if (numValue > 1) {
+    return `${numValue.toFixed(1).replace('.', ',')}%`;
   }
   
   // Si la valeur est une proportion (0-1)
-  return `${(value * 100).toFixed(1).replace('.', ',')}%`;
+  return `${(numValue * 100).toFixed(1).replace('.', ',')}%`;
+};
+
+/**
+ * Formate un nombre pour l'affichage
+ * S'assure que la valeur est toujours un nombre valide
+ */
+export const formatNumberSafely = (value: any): string => {
+  // Si la valeur est null ou undefined
+  if (value === null || value === undefined) {
+    return '0';
+  }
+  
+  // Convertir en nombre
+  let numValue: number;
+  
+  if (typeof value === 'string') {
+    // Nettoyer la chaîne
+    const cleanedValue = value.replace(/[^0-9.,-]/g, '').replace(',', '.');
+    numValue = parseFloat(cleanedValue);
+  } else {
+    numValue = parseFloat(String(value));
+  }
+  
+  // Vérifier si la conversion a échoué
+  if (isNaN(numValue)) {
+    return '0';
+  }
+  
+  // Retourner le nombre formaté avec séparateur de milliers
+  return numValue.toLocaleString();
 };

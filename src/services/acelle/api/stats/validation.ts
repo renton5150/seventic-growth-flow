@@ -28,8 +28,16 @@ export const ensureValidStatistics = (data: any): AcelleCampaignStatistics => {
   };
 
   console.log("Statistiques validées:", {
-    original: data,
-    validated: validStats
+    original: {
+      openRate: data.uniq_open_rate || data.unique_open_rate || data.open_rate,
+      clickRate: data.click_rate,
+      subscriberCount: data.subscriber_count
+    },
+    validated: {
+      openRate: validStats.uniq_open_rate,
+      clickRate: validStats.click_rate,
+      subscriberCount: validStats.subscriber_count
+    }
   });
 
   return validStats;
@@ -37,6 +45,7 @@ export const ensureValidStatistics = (data: any): AcelleCampaignStatistics => {
 
 /**
  * Parse une valeur en nombre, retourne 0 si invalide
+ * Gère plusieurs formats d'entrée
  */
 const parseNumber = (value: any, isRate = false): number => {
   if (value === undefined || value === null) return 0;
@@ -44,7 +53,7 @@ const parseNumber = (value: any, isRate = false): number => {
   // Traiter les chaînes de caractères
   if (typeof value === 'string') {
     // Nettoyer la chaîne (supprimer %, etc.)
-    const cleanValue = value.replace(/[^0-9.-]/g, '');
+    const cleanValue = value.replace(/[^0-9.-,]/g, '').replace(',', '.');
     const num = parseFloat(cleanValue);
     return isNaN(num) ? 0 : num;
   }
@@ -63,8 +72,8 @@ const getBounceCount = (data: any): number => {
   }
   
   // Cas 2: bounced est un nombre
-  if (typeof data.bounced === 'number') {
-    return data.bounced;
+  if (typeof data.bounced === 'number' || typeof data.bounced === 'string') {
+    return parseNumber(data.bounced);
   }
   
   // Cas 3: bounced est un objet avec total
