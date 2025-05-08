@@ -5,7 +5,9 @@ import { AcelleCampaignStatistics } from "@/types/acelle.types";
  * Assure que les statistiques ont toutes les valeurs requises
  * et sont de type approprié
  */
-export const ensureValidStatistics = (statistics: AcelleCampaignStatistics): AcelleCampaignStatistics => {
+export const ensureValidStatistics = (
+  statistics?: AcelleCampaignStatistics | null | undefined
+): AcelleCampaignStatistics => {
   // Valeurs par défaut pour les statistiques manquantes
   const defaultStats: AcelleCampaignStatistics = {
     subscriber_count: 0,
@@ -25,31 +27,36 @@ export const ensureValidStatistics = (statistics: AcelleCampaignStatistics): Ace
   
   // Si aucune statistique n'est fournie, retourner les valeurs par défaut
   if (!statistics) {
-    return defaultStats;
+    return { ...defaultStats };
   }
   
-  // Création d'une copie des valeurs par défaut pour les statistiques validées
-  // Définir explicitement le type pour éviter les problèmes d'inférence de type
-  const validStats: AcelleCampaignStatistics = { ...defaultStats };
-  
-  // Parcourir chaque propriété et s'assurer qu'elle est de type approprié
-  for (const key of Object.keys(defaultStats)) {
-    const typedKey = key as keyof AcelleCampaignStatistics;
-    const value = statistics[typedKey];
-    
-    // Convertir les valeurs en nombre si nécessaire
-    if (value !== undefined) {
-      if (typeof value === 'string') {
-        // Utiliser une assertion de type pour indiquer que cette affectation est valide
-        validStats[typedKey] = Number(value) || 0;
-      } else if (typeof value === 'number') {
-        validStats[typedKey] = value;
-      }
-      // Ignorer les autres types de valeurs
+  // Fonction pour normaliser une valeur en nombre
+  const normalizeToNumber = (value: any): number => {
+    if (typeof value === 'string') {
+      return Number(value) || 0;
+    } else if (typeof value === 'number' && !isNaN(value)) {
+      return value;
     }
-  }
+    return 0;
+  };
   
-  return validStats;
+  // Construction de l'objet de statistiques validées en utilisant la propagation
+  // et en normalisant explicitement chaque valeur
+  return {
+    subscriber_count: normalizeToNumber(statistics.subscriber_count),
+    delivered_count: normalizeToNumber(statistics.delivered_count),
+    delivered_rate: normalizeToNumber(statistics.delivered_rate),
+    open_count: normalizeToNumber(statistics.open_count),
+    uniq_open_count: normalizeToNumber(statistics.uniq_open_count),
+    uniq_open_rate: normalizeToNumber(statistics.uniq_open_rate),
+    click_count: normalizeToNumber(statistics.click_count),
+    click_rate: normalizeToNumber(statistics.click_rate),
+    bounce_count: normalizeToNumber(statistics.bounce_count),
+    soft_bounce_count: normalizeToNumber(statistics.soft_bounce_count),
+    hard_bounce_count: normalizeToNumber(statistics.hard_bounce_count),
+    unsubscribe_count: normalizeToNumber(statistics.unsubscribe_count),
+    abuse_complaint_count: normalizeToNumber(statistics.abuse_complaint_count)
+  };
 };
 
 /**
