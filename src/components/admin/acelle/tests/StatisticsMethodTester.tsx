@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import { AcelleAccount, AcelleCampaignStatistics, DeliveryInfo } from "@/types/a
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
 import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
 import { buildDirectApiUrl } from "@/services/acelle/acelle-service";
-import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
+import { createEmptyStatistics, extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
 
 interface StatisticsMethodTesterProps {
   account: AcelleAccount;
@@ -103,7 +102,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       // Méthode 3: API directe avec fetch personnalisé
       await testMethod3();
       
-      // Méthode 4: Récupération depuis la base de données locale
+      // Méthode 4: Récupération depuis la base de données locale (email_campaigns_cache)
       await testMethod4();
       
       // Méthode 5: table de cache des statistiques
@@ -258,8 +257,14 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       const deliveryInfo = data.delivery_info;
       
-      // Convertir delivery_info en AcelleCampaignStatistics
-      const stats = extractStatisticsFromAnyFormat(deliveryInfo, true);
+      // Convertir delivery_info en AcelleCampaignStatistics en s'assurant que c'est un objet
+      let stats: AcelleCampaignStatistics | null = null;
+      if (deliveryInfo && typeof deliveryInfo === 'object' && !Array.isArray(deliveryInfo)) {
+        stats = extractStatisticsFromAnyFormat(deliveryInfo);
+      } else {
+        console.warn('Format de delivery_info invalide:', deliveryInfo);
+        stats = createEmptyStatistics();
+      }
       
       const endTime = performance.now();
       
@@ -347,8 +352,14 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       const data = await response.json();
       
-      // Essayer d'extraire les statistiques
-      const extractedStats = extractStatisticsFromAnyFormat(data, true);
+      // Essayer d'extraire les statistiques en s'assurant que data est un objet
+      let extractedStats: AcelleCampaignStatistics | null = null;
+      if (data && typeof data === 'object') {
+        extractedStats = extractStatisticsFromAnyFormat(data);
+      } else {
+        console.warn('Format de données invalide pour extractStatisticsFromAnyFormat:', data);
+        extractedStats = createEmptyStatistics();
+      }
       
       const endTime = performance.now();
       
@@ -431,7 +442,6 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
-      // Créer un objet AcelleCampaignStatistics avec les données extraites
       // MODIFICATION: Remplacer l'utilisation de extractStatisticsFromAnyFormat par une création directe de l'objet
       let stats: AcelleCampaignStatistics = createEmptyStatistics();
       
