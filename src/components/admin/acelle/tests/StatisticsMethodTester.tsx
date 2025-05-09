@@ -430,10 +430,20 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
-      // Utiliser d'abord as unknown puis convertir en Partial<AcelleCampaignStatistics>
-      // Ceci évite l'erreur de casting direct entre deux types incompatibles
-      const typedDeliveryInfo = deliveryInfo as unknown;
-      const stats = extractStatisticsFromAnyFormat(typedDeliveryInfo as Partial<AcelleCampaignStatistics>);
+      // Version plus sécurisée avec double casting:
+      // 1. D'abord cast vers unknown pour "effacer" le type actuel
+      // 2. Ensuite cast vers le type cible
+      const stats = extractStatisticsFromAnyFormat({
+        ...deliveryInfo,
+        // Ajouter explicitement les propriétés requises par AcelleCampaignStatistics
+        subscriber_count: deliveryInfo.total,
+        delivered_count: deliveryInfo.delivered,
+        delivered_rate: deliveryInfo.delivery_rate,
+        open_count: deliveryInfo.opened,
+        uniq_open_rate: deliveryInfo.unique_open_rate,
+        click_count: deliveryInfo.clicked,
+        click_rate: deliveryInfo.click_rate
+      });
       
       setResults(prev => [...prev, {
         method: "method-7",
