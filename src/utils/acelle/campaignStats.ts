@@ -23,6 +23,51 @@ export const createEmptyStatistics = (): AcelleCampaignStatistics => {
 };
 
 /**
+ * Calcule des statistiques agrégées à partir d'une liste de campagnes
+ */
+export const calculateDeliveryStats = (campaigns = []) => {
+  const stats = {
+    totalEmails: 0,
+    totalDelivered: 0,
+    totalOpened: 0,
+    totalClicked: 0,
+    totalBounced: 0,
+    averageOpenRate: 0,
+    averageClickRate: 0
+  };
+
+  if (!campaigns.length) return stats;
+
+  campaigns.forEach(campaign => {
+    // Utiliser statistics ou delivery_info selon ce qui est disponible
+    const data = campaign.statistics || {};
+    const deliveryInfo = campaign.delivery_info || {};
+
+    // Agréger les données
+    stats.totalEmails += data.subscriber_count || deliveryInfo.total || 0;
+    stats.totalDelivered += data.delivered_count || deliveryInfo.delivered || 0;
+    stats.totalOpened += data.open_count || deliveryInfo.opened || 0;
+    stats.totalClicked += data.click_count || deliveryInfo.clicked || 0;
+    
+    // Gestion pour le bounced qui peut être un nombre ou un objet
+    const bounced = data.bounce_count || deliveryInfo.bounced;
+    if (typeof bounced === 'object' && bounced !== null) {
+      stats.totalBounced += bounced.total || 0;
+    } else {
+      stats.totalBounced += bounced || 0;
+    }
+  });
+
+  // Calculer les taux moyens
+  if (stats.totalDelivered > 0) {
+    stats.averageOpenRate = (stats.totalOpened / stats.totalDelivered) * 100;
+    stats.averageClickRate = (stats.totalClicked / stats.totalDelivered) * 100;
+  }
+
+  return stats;
+};
+
+/**
  * Extraction universelle de statistiques depuis n'importe quel format de données Acelle
  * Cette fonction tente d'extraire les statistiques depuis divers formats de réponse API
  */

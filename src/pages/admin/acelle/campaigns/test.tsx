@@ -1,11 +1,11 @@
 
-import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, WarningCircle } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatisticsMethodTester } from "@/components/admin/acelle/tests/StatisticsMethodTester";
@@ -13,8 +13,11 @@ import { AcelleAccount } from "@/types/acelle.types";
 import { acelleService } from "@/services/acelle";
 
 export default function CampaignStatisticsTestPage() {
-  const router = useRouter();
-  const { id, campaignId } = router.query;
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const id = searchParams.get('id');
+  const campaignId = searchParams.get('campaignId');
+  
   const [account, setAccount] = useState<AcelleAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +34,7 @@ export default function CampaignStatisticsTestPage() {
         }
 
         // Récupérer le compte Acelle
-        const accountData = await acelleService.accounts.getById(id as string);
+        const accountData = await acelleService.accounts.getById(id);
         
         if (!accountData) {
           setError("Compte Acelle non trouvé");
@@ -53,7 +56,7 @@ export default function CampaignStatisticsTestPage() {
 
   // Retour à la page précédente
   const handleBack = () => {
-    router.back();
+    navigate(-1);
   };
 
   // Affichage pendant le chargement
@@ -75,7 +78,7 @@ export default function CampaignStatisticsTestPage() {
         <div className="container mx-auto py-6">
           <PageHeader title="Test des méthodes de statistiques" />
           <Alert variant="destructive" className="mt-4">
-            <WarningCircle className="h-5 w-5" />
+            <AlertTriangle className="h-5 w-5" />
             <AlertDescription>{error || "Erreur: données manquantes"}</AlertDescription>
           </Alert>
           <div className="mt-4">

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -9,7 +10,7 @@ import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 import { fetchDirectStatistics, hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 import { toast } from "sonner";
-import { useRouter } from "next/router";
+import { useNavigate } from "react-router-dom";
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -22,7 +23,7 @@ export const AcelleTableRow = ({
   account, 
   onViewCampaign
 }: AcelleTableRowProps) => {
-  const router = useRouter();
+  const navigate = useNavigate();
   // État local pour les statistiques
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(campaign?.statistics || null);
   const [isLoading, setIsLoading] = useState(false);
@@ -157,7 +158,7 @@ export const AcelleTableRow = ({
       return;
     }
     
-    router.push(`/admin/acelle/campaigns/test?id=${account.id}&campaignId=${campaignUid}`);
+    navigate(`/admin/acelle/campaigns/test?id=${account.id}&campaignId=${campaignUid}`);
   };
 
   // Formatage sécurisé des dates

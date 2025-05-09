@@ -5,8 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { InfoCircle, WarningCircle } from "lucide-react";
-import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
+import { AlertTriangle, Info } from "lucide-react";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
@@ -23,6 +23,12 @@ type TestMethod = {
 interface StatisticsMethodTesterProps {
   account: AcelleAccount;
   campaignUid: string;
+}
+
+interface CacheData {
+  statistics?: AcelleCampaignStatistics;
+  delivery_info?: DeliveryInfo;
+  [key: string]: any;
 }
 
 export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMethodTesterProps) => {
@@ -218,8 +224,10 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-6": cacheData }));
         
-        if (cacheData && cacheData.statistics) {
-          return cacheData.statistics;
+        const typedCacheData = cacheData as CacheData | null;
+        
+        if (typedCacheData && typedCacheData.statistics) {
+          return typedCacheData.statistics;
         }
         
         return null;
@@ -245,9 +253,11 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-7": campaignData }));
         
-        if (campaignData && campaignData.delivery_info) {
+        const typedCampaignData = campaignData as CacheData | null;
+        
+        if (typedCampaignData && typedCampaignData.delivery_info) {
           // Convertir le format delivery_info en format statistics
-          const deliveryInfo = campaignData.delivery_info;
+          const deliveryInfo = typedCampaignData.delivery_info as DeliveryInfo;
           
           return {
             subscriber_count: deliveryInfo.total || 0,
@@ -257,11 +267,11 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
             uniq_open_rate: deliveryInfo.unique_open_rate || 0,
             click_count: deliveryInfo.clicked || 0,
             click_rate: deliveryInfo.click_rate || 0,
-            bounce_count: deliveryInfo.bounced ? 
-              (typeof deliveryInfo.bounced === 'object' ? deliveryInfo.bounced.total : deliveryInfo.bounced) : 0,
-            soft_bounce_count: deliveryInfo.bounced && typeof deliveryInfo.bounced === 'object' ? 
+            bounce_count: typeof deliveryInfo.bounced === 'object' ? 
+              deliveryInfo.bounced.total : (deliveryInfo.bounced || 0),
+            soft_bounce_count: typeof deliveryInfo.bounced === 'object' ? 
               deliveryInfo.bounced.soft : 0,
-            hard_bounce_count: deliveryInfo.bounced && typeof deliveryInfo.bounced === 'object' ? 
+            hard_bounce_count: typeof deliveryInfo.bounced === 'object' ? 
               deliveryInfo.bounced.hard : 0,
             unsubscribe_count: deliveryInfo.unsubscribed || 0,
             abuse_complaint_count: deliveryInfo.complained || 0
@@ -311,8 +321,8 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         };
         
         setCampaign(campaignData);
-      } catch (error) {
-        console.error('Erreur lors de la récupération des informations de la campagne:', error);
+      } catch (err) {
+        console.error('Erreur lors de la récupération des informations de la campagne:', err);
         setError('Impossible de récupérer les informations de la campagne');
       } finally {
         setLoading(false);
@@ -396,7 +406,7 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
   if (error || !campaign) {
     return (
       <Alert variant="destructive" className="my-4">
-        <WarningCircle className="h-5 w-5" />
+        <AlertTriangle className="h-5 w-5" />
         <AlertDescription>
           {error || "Campagne non trouvée"}
         </AlertDescription>
@@ -517,7 +527,7 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
                       </div>
                     ) : (
                       <Alert variant="destructive">
-                        <WarningCircle className="h-4 w-4" />
+                        <AlertTriangle className="h-4 w-4" />
                         <AlertDescription className="text-sm">
                           {results[method.id].error || "Aucune donnée récupérée"}
                         </AlertDescription>
