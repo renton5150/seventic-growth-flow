@@ -307,29 +307,33 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-6": cacheData }));
         
-        // Correct explicit type conversion
+        // Safe type conversion
         const typedCacheData = cacheData as unknown as CacheData | null;
         
         if (typedCacheData && typedCacheData.statistics) {
-          // Convert the JSON to AcelleCampaignStatistics
+          // Extract statistics safely
           const statsJson = typedCacheData.statistics;
-          const stats: AcelleCampaignStatistics = {
-            subscriber_count: safeExtract(statsJson, 'subscriber_count'),
-            delivered_count: safeExtract(statsJson, 'delivered_count'),
-            delivered_rate: safeExtract(statsJson, 'delivered_rate'),
-            open_count: safeExtract(statsJson, 'open_count'),
-            uniq_open_count: safeExtract(statsJson, 'uniq_open_count'),
-            uniq_open_rate: safeExtract(statsJson, 'uniq_open_rate'),
-            click_count: safeExtract(statsJson, 'click_count'),
-            click_rate: safeExtract(statsJson, 'click_rate'),
-            bounce_count: safeExtract(statsJson, 'bounce_count'),
-            soft_bounce_count: safeExtract(statsJson, 'soft_bounce_count'),
-            hard_bounce_count: safeExtract(statsJson, 'hard_bounce_count'),
-            unsubscribe_count: safeExtract(statsJson, 'unsubscribe_count'),
-            abuse_complaint_count: safeExtract(statsJson, 'abuse_complaint_count')
-          };
           
-          return stats;
+          // Convert to proper statistics type - this handles the type safety
+          if (typeof statsJson === 'object' && statsJson !== null && !Array.isArray(statsJson)) {
+            const stats: AcelleCampaignStatistics = {
+              subscriber_count: safeExtract(statsJson, 'subscriber_count'),
+              delivered_count: safeExtract(statsJson, 'delivered_count'),
+              delivered_rate: safeExtract(statsJson, 'delivered_rate'),
+              open_count: safeExtract(statsJson, 'open_count'),
+              uniq_open_count: safeExtract(statsJson, 'uniq_open_count'),
+              uniq_open_rate: safeExtract(statsJson, 'uniq_open_rate'),
+              click_count: safeExtract(statsJson, 'click_count'),
+              click_rate: safeExtract(statsJson, 'click_rate'),
+              bounce_count: safeExtract(statsJson, 'bounce_count'),
+              soft_bounce_count: safeExtract(statsJson, 'soft_bounce_count'),
+              hard_bounce_count: safeExtract(statsJson, 'hard_bounce_count'),
+              unsubscribe_count: safeExtract(statsJson, 'unsubscribe_count'),
+              abuse_complaint_count: safeExtract(statsJson, 'abuse_complaint_count')
+            };
+            
+            return stats;
+          }
         }
         
         return null;
@@ -355,33 +359,53 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-7": campaignData }));
         
-        // Explicit type conversion
+        // Safe type conversion
         const typedCampaignData = campaignData as unknown as CacheData | null;
         
         if (typedCampaignData && typedCampaignData.delivery_info) {
-          // Convertir le format delivery_info en format statistics
+          // Safely handle the delivery_info data
           const deliveryInfoJson = typedCampaignData.delivery_info;
           
-          // Handle the bounced property safely
-          const bounced = extractBouncedValue({ bounced: deliveryInfoJson?.bounced });
-          
-          const stats: AcelleCampaignStatistics = {
-            subscriber_count: safeExtract(deliveryInfoJson, 'total') || safeExtract(deliveryInfoJson, 'subscriber_count'),
-            delivered_count: safeExtract(deliveryInfoJson, 'delivered') || safeExtract(deliveryInfoJson, 'delivered_count'),
-            delivered_rate: safeExtract(deliveryInfoJson, 'delivery_rate') || safeExtract(deliveryInfoJson, 'delivered_rate'),
-            open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'open_count'),
-            uniq_open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'uniq_open_count'),
-            uniq_open_rate: safeExtract(deliveryInfoJson, 'unique_open_rate') || safeExtract(deliveryInfoJson, 'uniq_open_rate') || safeExtract(deliveryInfoJson, 'open_rate'),
-            click_count: safeExtract(deliveryInfoJson, 'clicked') || safeExtract(deliveryInfoJson, 'click_count'),
-            click_rate: safeExtract(deliveryInfoJson, 'click_rate'),
-            bounce_count: bounced.total,
-            soft_bounce_count: bounced.soft,
-            hard_bounce_count: bounced.hard,
-            unsubscribe_count: safeExtract(deliveryInfoJson, 'unsubscribed') || safeExtract(deliveryInfoJson, 'unsubscribe_count'),
-            abuse_complaint_count: safeExtract(deliveryInfoJson, 'complained') || safeExtract(deliveryInfoJson, 'abuse_complaint_count')
-          };
-          
-          return stats;
+          // Only proceed if we have an object
+          if (typeof deliveryInfoJson === 'object' && deliveryInfoJson !== null && !Array.isArray(deliveryInfoJson)) {
+            // Extract bounced data safely
+            const bouncedData = deliveryInfoJson.bounced;
+            let bouncedSoft = 0;
+            let bouncedHard = 0;
+            let bouncedTotal = 0;
+            
+            if (bouncedData) {
+              if (typeof bouncedData === 'object' && bouncedData !== null) {
+                bouncedSoft = safeExtract(bouncedData, 'soft');
+                bouncedHard = safeExtract(bouncedData, 'hard');
+                bouncedTotal = safeExtract(bouncedData, 'total');
+              } else {
+                bouncedTotal = toNumber(bouncedData);
+                // Estimate distribution if only total is available
+                bouncedSoft = Math.round(bouncedTotal * 0.7);
+                bouncedHard = bouncedTotal - bouncedSoft;
+              }
+            }
+            
+            // Create the statistics object with safe extraction
+            const stats: AcelleCampaignStatistics = {
+              subscriber_count: safeExtract(deliveryInfoJson, 'total') || safeExtract(deliveryInfoJson, 'subscriber_count'),
+              delivered_count: safeExtract(deliveryInfoJson, 'delivered') || safeExtract(deliveryInfoJson, 'delivered_count'),
+              delivered_rate: safeExtract(deliveryInfoJson, 'delivery_rate') || safeExtract(deliveryInfoJson, 'delivered_rate'),
+              open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'open_count'),
+              uniq_open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'uniq_open_count'),
+              uniq_open_rate: safeExtract(deliveryInfoJson, 'unique_open_rate') || safeExtract(deliveryInfoJson, 'uniq_open_rate') || safeExtract(deliveryInfoJson, 'open_rate'),
+              click_count: safeExtract(deliveryInfoJson, 'clicked') || safeExtract(deliveryInfoJson, 'click_count'),
+              click_rate: safeExtract(deliveryInfoJson, 'click_rate'),
+              bounce_count: bouncedTotal,
+              soft_bounce_count: bouncedSoft,
+              hard_bounce_count: bouncedHard,
+              unsubscribe_count: safeExtract(deliveryInfoJson, 'unsubscribed') || safeExtract(deliveryInfoJson, 'unsubscribe_count'),
+              abuse_complaint_count: safeExtract(deliveryInfoJson, 'complained') || safeExtract(deliveryInfoJson, 'abuse_complaint_count')
+            };
+            
+            return stats;
+          }
         }
         
         return null;
