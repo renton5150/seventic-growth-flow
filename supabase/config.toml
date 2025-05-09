@@ -8,44 +8,26 @@ schemas = ["public", "storage", "graphql_public"]
 
 [db]
 port = 54322
-shadow_port = 54320
-major_version = 15
 
 [studio]
-enabled = true
 port = 54323
-api_url = "http://localhost"
 
 [inbucket]
-enabled = true
 port = 54324
+smtp_port = 54325
+pop3_port = 54326
 
 [storage]
 enabled = true
-file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
-additional_redirect_urls = ["https://localhost:5173"]
-jwt_expiry = 3600
-enable_refresh_token_rotation = true
+
+[realtime]
+enabled = true
 
 [analytics]
 enabled = true
 
-[experimental]
-pre_runtime_extensions = true
-
-[[functions]]
-name = "cors-proxy"
-verify_jwt = false
-
-[[functions]]
-name = "sync-email-campaigns"
-verify_jwt = false
-
-[[functions]]
-name = "acelle-proxy"
-verify_jwt = false
-
+[functions.acelle-stats]
+verify_jwt = true

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -430,20 +431,24 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
-      // Version plus sécurisée avec double casting:
-      // 1. D'abord cast vers unknown pour "effacer" le type actuel
-      // 2. Ensuite cast vers le type cible
-      const stats = extractStatisticsFromAnyFormat({
-        ...deliveryInfo,
-        // Ajouter explicitement les propriétés requises par AcelleCampaignStatistics
+      // Créer un objet AcelleCampaignStatistics avec les données extraites
+      const formattedStats: Partial<AcelleCampaignStatistics> = {
         subscriber_count: deliveryInfo.total,
         delivered_count: deliveryInfo.delivered,
         delivered_rate: deliveryInfo.delivery_rate,
         open_count: deliveryInfo.opened,
         uniq_open_rate: deliveryInfo.unique_open_rate,
         click_count: deliveryInfo.clicked,
-        click_rate: deliveryInfo.click_rate
-      });
+        click_rate: deliveryInfo.click_rate,
+        bounce_count: typeof deliveryInfo.bounced === 'object' ? deliveryInfo.bounced.total : deliveryInfo.bounced,
+        soft_bounce_count: typeof deliveryInfo.bounced === 'object' ? deliveryInfo.bounced.soft : undefined,
+        hard_bounce_count: typeof deliveryInfo.bounced === 'object' ? deliveryInfo.bounced.hard : undefined,
+        unsubscribe_count: deliveryInfo.unsubscribed,
+        abuse_complaint_count: deliveryInfo.complained
+      };
+      
+      // Utiliser extractStatisticsFromAnyFormat avec le bon type
+      const stats = extractStatisticsFromAnyFormat(formattedStats);
       
       setResults(prev => [...prev, {
         method: "method-7",
