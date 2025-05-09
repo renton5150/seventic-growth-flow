@@ -23,28 +23,29 @@ export const fetchCampaignStatisticsFromApi = async (
     
     console.log(`Récupération directe des informations pour la campagne ${campaignUid}`);
     
-    // Utiliser l'URL directe qui fonctionne, comme spécifié dans les retours
+    // Construire l'URL avec l'endpoint et le token
     const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}`;
     const url = new URL(endpoint);
-    
-    // Ajouter le token API comme paramètre d'URL (méthode préférée d'Acelle)
     url.searchParams.append('api_token', account.api_token);
-    
-    // Ajouter un paramètre pour éviter la mise en cache
-    url.searchParams.append('_t', Date.now().toString());
+    url.searchParams.append('_t', Date.now().toString()); // Éviter la mise en cache
     
     // Obtenir le token d'authentification pour le proxy CORS
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
     
-    // Utiliser le proxy CORS pour éviter les problèmes CORS
+    if (!token) {
+      console.error("Token d'authentification non disponible pour le proxy CORS");
+      return null;
+    }
+    
+    // Construire l'URL pour le proxy CORS
     const proxyUrl = encodeURIComponent(url.toString());
     const corsProxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=${proxyUrl}`;
     
-    // Effectuer la requête avec les en-têtes appropriés
     console.log(`Appel API à ${corsProxyUrl}`);
     console.time(`API_Call_${campaignUid}`);
     
+    // Effectuer la requête avec les en-têtes appropriés
     const response = await fetch(corsProxyUrl, {
       headers: {
         'Accept': 'application/json',
@@ -61,80 +62,67 @@ export const fetchCampaignStatisticsFromApi = async (
       console.error(`Erreur API: ${response.status} ${response.statusText}`);
       const errorText = await response.text();
       console.error(`Détails de l'erreur: ${errorText}`);
+      
+      // Si erreur 401, essayer une autre méthode d'authentification
+      if (response.status === 401) {
+        console.log("Tentative avec en-têtes alternatifs après erreur 401");
+        return await fetchWithAlternativeHeaders(campaignUid, account, token);
+      }
       return null;
     }
     
     const responseData = await response.json();
     console.log(`Données brutes reçues pour ${campaignUid}:`, responseData);
     
-    // Extraction des données selon la structure de réponse
-    const data = responseData.data || responseData;
+    // Extraction des statistiques
+    return extractStatistics(responseData);
     
-    // Structure probable: data.campaign.statistics ou directement data.campaign
-    let campaignData = data;
-    if (data.campaign) {
-      campaignData = data.campaign;
-    }
-    
-    // Extraction des statistiques selon diverses structures possibles
-    if (campaignData?.statistics) {
-      console.log(`Statistiques récupérées avec succès pour la campagne ${campaignUid}`, campaignData.statistics);
-      
-      // Convertir les statistiques en format attendu
-      const stats = campaignData.statistics;
-      return {
-        subscriber_count: Number(stats.subscriber_count) || 0,
-        delivered_count: Number(stats.delivered_count) || 0,
-        delivered_rate: Number(stats.delivered_rate) || 0,
-        open_count: Number(stats.open_count) || 0,
-        uniq_open_count: Number(stats.uniq_open_count) || 0,
-        uniq_open_rate: Number(stats.uniq_open_rate) || 0,
-        click_count: Number(stats.click_count) || 0,
-        click_rate: Number(stats.click_rate) || 0,
-        bounce_count: Number(stats.bounce_count) || 0,
-        soft_bounce_count: Number(stats.soft_bounce_count) || 0,
-        hard_bounce_count: Number(stats.hard_bounce_count) || 0,
-        unsubscribe_count: Number(stats.unsubscribe_count) || 0,
-        abuse_complaint_count: Number(stats.abuse_complaint_count) || 0
-      };
-    } else if (campaignData?.delivery_info || campaignData?.delivery_stats) {
-      // Fallback: utiliser les infos de livraison si statistiques non disponibles
-      const deliveryInfo = campaignData.delivery_info || campaignData.delivery_stats;
-      console.log(`Statistiques non trouvées, utilisation des infos de livraison pour ${campaignUid}`, deliveryInfo);
-      
-      return {
-        subscriber_count: Number(deliveryInfo.total || deliveryInfo.subscriber_count) || 0,
-        delivered_count: Number(deliveryInfo.delivered || deliveryInfo.delivered_count) || 0,
-        delivered_rate: Number(deliveryInfo.delivery_rate || deliveryInfo.delivered_rate) || 0,
-        open_count: Number(deliveryInfo.opened || deliveryInfo.open_count) || 0,
-        uniq_open_count: Number(deliveryInfo.unique_opened || deliveryInfo.uniq_open_count) || 0,
-        uniq_open_rate: Number(deliveryInfo.unique_open_rate || deliveryInfo.open_rate) || 0,
-        click_count: Number(deliveryInfo.clicked || deliveryInfo.click_count) || 0,
-        click_rate: Number(deliveryInfo.click_rate) || 0,
-        bounce_count: Number(
-          typeof deliveryInfo.bounced === 'object'
-            ? deliveryInfo.bounced.total
-            : deliveryInfo.bounced || deliveryInfo.bounce_count
-        ) || 0,
-        soft_bounce_count: Number(
-          typeof deliveryInfo.bounced === 'object'
-            ? deliveryInfo.bounced.soft
-            : deliveryInfo.soft_bounce_count
-        ) || 0,
-        hard_bounce_count: Number(
-          typeof deliveryInfo.bounced === 'object'
-            ? deliveryInfo.bounced.hard
-            : deliveryInfo.hard_bounce_count
-        ) || 0,
-        unsubscribe_count: Number(deliveryInfo.unsubscribed || deliveryInfo.unsubscribe_count) || 0,
-        abuse_complaint_count: Number(deliveryInfo.complained || deliveryInfo.abuse_complaint_count) || 0
-      };
-    } 
-    
-    console.warn("Aucune statistique trouvée dans la réponse de l'API pour la campagne", campaignUid);
-    return null;
   } catch (error) {
     console.error(`Erreur lors de la récupération des statistiques pour la campagne ${campaignUid}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Tente une requête avec des en-têtes d'authentification alternatifs
+ */
+const fetchWithAlternativeHeaders = async (
+  campaignUid: string,
+  account: AcelleAccount,
+  token: string
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}`;
+    const url = new URL(endpoint);
+    url.searchParams.append('api_token', account.api_token);
+    url.searchParams.append('_t', Date.now().toString());
+    
+    const proxyUrl = encodeURIComponent(url.toString());
+    const corsProxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=${proxyUrl}`;
+    
+    console.log(`Tentative alternative pour la campagne ${campaignUid}`);
+    
+    // Utiliser un ensemble différent d'en-têtes
+    const response = await fetch(corsProxyUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'api-token': account.api_token
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`Échec de la tentative alternative: ${response.status}`);
+      return null;
+    }
+    
+    const responseData = await response.json();
+    console.log(`Données alternatives reçues pour ${campaignUid}:`, responseData);
+    
+    return extractStatistics(responseData);
+    
+  } catch (error) {
+    console.error(`Erreur lors de la tentative alternative pour ${campaignUid}:`, error);
     return null;
   }
 };
@@ -152,18 +140,25 @@ export const fetchCampaignStatisticsLegacy = async (
       return null;
     }
     
-    console.log(`Tentative de récupération via méthode alternative pour la campagne ${campaignUid}`);
+    console.log(`Tentative de récupération via méthode legacy pour la campagne ${campaignUid}`);
     
-    // Utiliser l'URL directe comme mentionné dans votre exemple
-    const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}`;
+    // Construire l'URL directe pour l'API legacy
+    const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/track`;
     const url = new URL(endpoint);
     url.searchParams.append('api_token', account.api_token);
-    url.searchParams.append('_t', Date.now().toString()); // Éviter la mise en cache
+    url.searchParams.append('_t', Date.now().toString());
     
-    const directUrl = url.toString();
+    // Obtenir le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
     
-    // Utiliser le proxy CORS pour éviter les problèmes CORS
-    const proxyUrl = encodeURIComponent(directUrl);
+    if (!token) {
+      console.error("Token d'authentification non disponible pour l'API legacy");
+      return null;
+    }
+    
+    // Construire l'URL pour le proxy CORS
+    const proxyUrl = encodeURIComponent(url.toString());
     const corsProxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=${proxyUrl}`;
     
     console.log(`Appel API Legacy à ${corsProxyUrl}`);
@@ -172,7 +167,10 @@ export const fetchCampaignStatisticsLegacy = async (
     const response = await fetch(corsProxyUrl, {
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'x-acelle-token': account.api_token,
+        'x-acelle-endpoint': account.api_endpoint,
+        'Authorization': `Bearer ${token}`
       }
     });
     
@@ -180,101 +178,202 @@ export const fetchCampaignStatisticsLegacy = async (
       console.error(`Erreur API Legacy: ${response.status} ${response.statusText}`);
       const errorText = await response.text();
       console.error(`Détails de l'erreur Legacy: ${errorText}`);
+      
+      // Si erreur 401, essayer une autre méthode d'authentification
+      if (response.status === 401) {
+        return await fetchLegacyWithAlternativeHeaders(campaignUid, account, token);
+      }
       return null;
     }
     
     const responseData = await response.json();
     console.log(`Données legacy reçues pour ${campaignUid}:`, responseData);
     
-    // Extraction des données réelles (peuvent être encapsulées dans data)
-    const data = responseData.data ? responseData.data : responseData;
+    return extractStatistics(responseData);
     
-    // Traitement similaire à la méthode principale
-    if (data && (data.campaign || data.statistics || data.delivery_info)) {
-      // Structure possible : data.campaign.statistics
-      if (data.campaign?.statistics) {
-        const stats = data.campaign.statistics;
-        return {
-          subscriber_count: Number(stats.subscriber_count) || 0,
-          delivered_count: Number(stats.delivered_count) || 0,
-          delivered_rate: Number(stats.delivered_rate) || 0,
-          open_count: Number(stats.open_count) || 0,
-          uniq_open_count: Number(stats.uniq_open_count) || 0,
-          uniq_open_rate: Number(stats.uniq_open_rate) || 0,
-          click_count: Number(stats.click_count) || 0,
-          click_rate: Number(stats.click_rate) || 0,
-          bounce_count: Number(stats.bounce_count) || 0,
-          soft_bounce_count: Number(stats.soft_bounce_count) || 0,
-          hard_bounce_count: Number(stats.hard_bounce_count) || 0,
-          unsubscribe_count: Number(stats.unsubscribe_count) || 0,
-          abuse_complaint_count: Number(stats.abuse_complaint_count) || 0
-        };
-      }
-      
-      // Ou directement data.statistics
-      if (data.statistics) {
-        const stats = data.statistics;
-        return {
-          subscriber_count: Number(stats.subscriber_count) || 0,
-          delivered_count: Number(stats.delivered_count) || 0,
-          delivered_rate: Number(stats.delivered_rate) || 0,
-          open_count: Number(stats.open_count) || 0,
-          uniq_open_count: Number(stats.uniq_open_count) || 0,
-          uniq_open_rate: Number(stats.uniq_open_rate) || 0,
-          click_count: Number(stats.click_count) || 0,
-          click_rate: Number(stats.click_rate) || 0,
-          bounce_count: Number(stats.bounce_count) || 0,
-          soft_bounce_count: Number(stats.soft_bounce_count) || 0,
-          hard_bounce_count: Number(stats.hard_bounce_count) || 0,
-          unsubscribe_count: Number(stats.unsubscribe_count) || 0,
-          abuse_complaint_count: Number(stats.abuse_complaint_count) || 0
-        };
-      }
-      
-      // Ou data.delivery_info
-      if (data.delivery_info) {
-        const delivery = data.delivery_info;
-        return {
-          subscriber_count: Number(delivery.total) || 0,
-          delivered_count: Number(delivery.delivered) || 0,
-          delivered_rate: Number(delivery.delivery_rate) || 0,
-          open_count: Number(delivery.opened) || 0,
-          uniq_open_count: Number(delivery.unique_opened || delivery.opened) || 0,
-          uniq_open_rate: Number(delivery.unique_open_rate) || 0,
-          click_count: Number(delivery.clicked) || 0,
-          click_rate: Number(delivery.click_rate) || 0,
-          bounce_count: typeof delivery.bounced === 'object' ? Number(delivery.bounced.total) : Number(delivery.bounced) || 0,
-          soft_bounce_count: typeof delivery.bounced === 'object' ? Number(delivery.bounced.soft) : 0,
-          hard_bounce_count: typeof delivery.bounced === 'object' ? Number(delivery.bounced.hard) : 0,
-          unsubscribe_count: Number(delivery.unsubscribed) || 0,
-          abuse_complaint_count: Number(delivery.complained) || 0
-        };
-      }
-    }
-    
-    // Essayer de récupérer directement des données de base de la campagne
-    if (data && (data.subscriber_count || data.open_rate)) {
-      return {
-        subscriber_count: Number(data.subscriber_count) || 0,
-        delivered_count: Number(data.delivered_count) || 0,
-        delivered_rate: Number(data.delivered_rate) || 0,
-        open_count: Number(data.open_count) || 0,
-        uniq_open_count: Number(data.uniq_open_count) || 0,
-        uniq_open_rate: Number(data.uniq_open_rate || data.open_rate) || 0,
-        click_count: Number(data.click_count) || 0,
-        click_rate: Number(data.click_rate) || 0,
-        bounce_count: Number(data.bounce_count) || 0,
-        soft_bounce_count: Number(data.soft_bounce_count) || 0,
-        hard_bounce_count: Number(data.hard_bounce_count) || 0,
-        unsubscribe_count: Number(data.unsubscribe_count) || 0,
-        abuse_complaint_count: Number(data.abuse_complaint_count) || 0
-      };
-    }
-    
-    console.warn("Aucune statistique trouvée dans la réponse Legacy API pour", campaignUid);
-    return null;
   } catch (error) {
-    console.error(`Erreur lors de la récupération via méthode alternative pour ${campaignUid}:`, error);
+    console.error(`Erreur lors de la récupération via méthode legacy pour ${campaignUid}:`, error);
     return null;
   }
+};
+
+/**
+ * Tente une requête legacy avec des en-têtes d'authentification alternatifs
+ */
+const fetchLegacyWithAlternativeHeaders = async (
+  campaignUid: string,
+  account: AcelleAccount,
+  token: string
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    // Essayer avec un endpoint alternatif pour les statistiques
+    const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/report`;
+    const url = new URL(endpoint);
+    url.searchParams.append('api_token', account.api_token);
+    url.searchParams.append('_t', Date.now().toString());
+    
+    const proxyUrl = encodeURIComponent(url.toString());
+    const corsProxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=${proxyUrl}`;
+    
+    console.log(`Tentative legacy alternative pour la campagne ${campaignUid}`);
+    
+    const response = await fetch(corsProxyUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`Échec de la tentative legacy alternative: ${response.status}`);
+      return null;
+    }
+    
+    const responseData = await response.json();
+    console.log(`Données legacy alternatives reçues pour ${campaignUid}:`, responseData);
+    
+    return extractStatistics(responseData);
+    
+  } catch (error) {
+    console.error(`Erreur lors de la tentative legacy alternative pour ${campaignUid}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Extrait les statistiques de la réponse de l'API, quelle que soit sa structure
+ */
+const extractStatistics = (responseData: any): AcelleCampaignStatistics | null => {
+  // Extraction des données selon diverses structures possibles
+  // Vérifier d'abord si les données sont encapsulées dans data
+  const data = responseData.data || responseData;
+  
+  // Structure possible : data.campaign.statistics
+  if (data?.campaign?.statistics) {
+    console.log("Statistiques trouvées dans data.campaign.statistics");
+    return mapToStandardFormat(data.campaign.statistics);
+  }
+  
+  // Structure possible : data.statistics
+  if (data?.statistics) {
+    console.log("Statistiques trouvées dans data.statistics");
+    return mapToStandardFormat(data.statistics);
+  }
+  
+  // Structure possible : data.delivery_info ou data.delivery_stats
+  if (data?.delivery_info || data?.delivery_stats) {
+    console.log("Statistiques trouvées dans delivery_info/delivery_stats");
+    const deliveryInfo = data.delivery_info || data.delivery_stats;
+    return mapDeliveryInfoToStats(deliveryInfo);
+  }
+  
+  // Structure possible : data est directement l'objet de statistiques
+  if (data?.subscriber_count !== undefined || data?.open_rate !== undefined) {
+    console.log("Statistiques trouvées directement dans data");
+    return mapToStandardFormat(data);
+  }
+  
+  // Structure possible : campaign.delivery_info
+  if (data?.campaign?.delivery_info) {
+    console.log("Statistiques trouvées dans campaign.delivery_info");
+    return mapDeliveryInfoToStats(data.campaign.delivery_info);
+  }
+  
+  // Structure possible : campaign directement
+  if (data?.campaign?.subscriber_count !== undefined || data?.campaign?.open_rate !== undefined) {
+    console.log("Statistiques trouvées dans campaign");
+    return mapToStandardFormat(data.campaign);
+  }
+  
+  // Structure possible : track.data
+  if (data?.track?.data) {
+    console.log("Statistiques trouvées dans track.data");
+    return mapToStandardFormat(data.track.data);
+  }
+  
+  console.warn("Aucune statistique trouvée dans la réponse");
+  return null;
+};
+
+/**
+ * Transforme un objet de statistiques en format standard AcelleCampaignStatistics
+ */
+const mapToStandardFormat = (stats: any): AcelleCampaignStatistics => {
+  return {
+    subscriber_count: parseNumber(stats.subscriber_count) || parseNumber(stats.total) || 0,
+    delivered_count: parseNumber(stats.delivered_count) || parseNumber(stats.delivered) || 0,
+    delivered_rate: parseNumber(stats.delivered_rate) || parseNumber(stats.delivery_rate) || 0,
+    open_count: parseNumber(stats.open_count) || parseNumber(stats.opened) || 0,
+    uniq_open_count: parseNumber(stats.uniq_open_count) || parseNumber(stats.unique_opened) || parseNumber(stats.unique_open_count) || 0,
+    uniq_open_rate: parseNumber(stats.uniq_open_rate) || parseNumber(stats.unique_open_rate) || parseNumber(stats.open_rate) || 0,
+    click_count: parseNumber(stats.click_count) || parseNumber(stats.clicked) || 0,
+    click_rate: parseNumber(stats.click_rate) || 0,
+    bounce_count: getBounceCount(stats),
+    soft_bounce_count: getSoftBounceCount(stats),
+    hard_bounce_count: getHardBounceCount(stats),
+    unsubscribe_count: parseNumber(stats.unsubscribe_count) || parseNumber(stats.unsubscribed) || 0,
+    abuse_complaint_count: parseNumber(stats.abuse_complaint_count) || parseNumber(stats.complained) || 0
+  };
+};
+
+/**
+ * Transforme un objet delivery_info en format AcelleCampaignStatistics
+ */
+const mapDeliveryInfoToStats = (delivery: any): AcelleCampaignStatistics => {
+  return {
+    subscriber_count: parseNumber(delivery.total) || parseNumber(delivery.subscriber_count) || 0,
+    delivered_count: parseNumber(delivery.delivered) || parseNumber(delivery.delivered_count) || 0,
+    delivered_rate: parseNumber(delivery.delivery_rate) || parseNumber(delivery.delivered_rate) || 0,
+    open_count: parseNumber(delivery.opened) || parseNumber(delivery.open_count) || 0,
+    uniq_open_count: parseNumber(delivery.unique_opened) || parseNumber(delivery.uniq_open_count) || parseNumber(delivery.opened) || 0,
+    uniq_open_rate: parseNumber(delivery.unique_open_rate) || parseNumber(delivery.uniq_open_rate) || parseNumber(delivery.open_rate) || 0,
+    click_count: parseNumber(delivery.clicked) || parseNumber(delivery.click_count) || 0,
+    click_rate: parseNumber(delivery.click_rate) || 0,
+    bounce_count: getBounceCount(delivery),
+    soft_bounce_count: getSoftBounceCount(delivery),
+    hard_bounce_count: getHardBounceCount(delivery),
+    unsubscribe_count: parseNumber(delivery.unsubscribed) || parseNumber(delivery.unsubscribe_count) || 0,
+    abuse_complaint_count: parseNumber(delivery.complained) || parseNumber(delivery.abuse_complaint_count) || 0
+  };
+};
+
+/**
+ * Fonctions utilitaires pour extraire les valeurs de bounces avec différentes structures possibles
+ */
+const getBounceCount = (data: any): number => {
+  if (typeof data.bounced === 'object' && data.bounced?.total !== undefined) {
+    return parseNumber(data.bounced.total);
+  }
+  return parseNumber(data.bounced) || parseNumber(data.bounce_count) || 0;
+};
+
+const getSoftBounceCount = (data: any): number => {
+  if (typeof data.bounced === 'object' && data.bounced?.soft !== undefined) {
+    return parseNumber(data.bounced.soft);
+  }
+  return parseNumber(data.soft_bounce_count) || 0;
+};
+
+const getHardBounceCount = (data: any): number => {
+  if (typeof data.bounced === 'object' && data.bounced?.hard !== undefined) {
+    return parseNumber(data.bounced.hard);
+  }
+  return parseNumber(data.hard_bounce_count) || 0;
+};
+
+/**
+ * Convertit une valeur en nombre de manière sécurisée
+ */
+const parseNumber = (value: any): number => {
+  if (value === undefined || value === null) return 0;
+  
+  // Si c'est une chaîne contenant un pourcentage
+  if (typeof value === 'string' && value.includes('%')) {
+    const numValue = parseFloat(value.replace('%', ''));
+    return !isNaN(numValue) ? numValue : 0;
+  }
+  
+  // Pour les autres types de valeurs
+  const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+  return !isNaN(numValue) ? numValue : 0;
 };

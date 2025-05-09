@@ -68,11 +68,22 @@ export const AcelleTableRow = ({
         if (freshStats) {
           console.log(`[TableRow] Statistiques récupérées pour ${campaignName}`, freshStats);
           setStats(freshStats);
+          
+          // Pour le débogage
+          console.log(`[TableRow] Stats subscriber_count: ${freshStats.subscriber_count}`);
+          console.log(`[TableRow] Stats uniq_open_rate: ${freshStats.uniq_open_rate}`);
         } else {
           console.log(`[TableRow] Aucune statistique disponible pour ${campaignName}`);
           // Utiliser les statistiques existantes si disponibles
-          if (campaign.statistics) {
+          if (campaign.statistics && campaign.statistics.subscriber_count > 0) {
             setStats(campaign.statistics);
+          } else {
+            // Simuler des statistiques pour le développement
+            if (process.env.NODE_ENV === 'development') {
+              const demoStats = createDemoStatistics();
+              console.log(`[TableRow] Utilisation de statistiques simulées pour ${campaignName}`, demoStats);
+              setStats(demoStats);
+            }
           }
         }
       } catch (error) {
@@ -98,11 +109,17 @@ export const AcelleTableRow = ({
       
       const freshStats = await fetchDirectStatistics(campaignUid, account);
       
-      if (freshStats) {
+      if (freshStats && freshStats.subscriber_count > 0) {
         setStats(freshStats);
         toast.success(`Statistiques mises à jour pour ${campaignName}`);
       } else {
         toast.error(`Échec de la mise à jour des statistiques pour ${campaignName}`);
+        // Créer des statistiques de démonstration en mode dev
+        if (process.env.NODE_ENV === 'development') {
+          const demoStats = createDemoStatistics();
+          setStats(demoStats);
+          toast.success(`Mode dev: statistiques simulées générées pour ${campaignName}`);
+        }
       }
     } catch (error) {
       console.error(`Erreur lors du rafraîchissement des statistiques:`, error);
@@ -182,6 +199,36 @@ export const AcelleTableRow = ({
           : campaign.delivery_info?.bounced
       ]
     );
+  };
+
+  // Créer des statistiques simulées pour le développement
+  const createDemoStatistics = (): AcelleCampaignStatistics => {
+    const totalEmails = Math.floor(Math.random() * 1000) + 200;
+    const deliveredRate = 0.97 + Math.random() * 0.02;
+    const delivered = Math.floor(totalEmails * deliveredRate);
+    const openRate = 0.30 + Math.random() * 0.40;
+    const opened = Math.floor(delivered * openRate);
+    const uniqueOpenRate = openRate * 0.9;
+    const uniqueOpens = Math.floor(opened * 0.9);
+    const clickRate = 0.10 + Math.random() * 0.30;
+    const clicked = Math.floor(opened * clickRate);
+    const bounceCount = totalEmails - delivered;
+    
+    return {
+      subscriber_count: totalEmails,
+      delivered_count: delivered,
+      delivered_rate: deliveredRate * 100,
+      open_count: opened,
+      uniq_open_count: uniqueOpens,
+      uniq_open_rate: uniqueOpenRate * 100,
+      click_count: clicked,
+      click_rate: clickRate * 100,
+      bounce_count: bounceCount,
+      soft_bounce_count: Math.floor(bounceCount * 0.7),
+      hard_bounce_count: Math.floor(bounceCount * 0.3),
+      unsubscribe_count: Math.floor(delivered * 0.02),
+      abuse_complaint_count: Math.floor(delivered * 0.005)
+    };
   };
 
   // Valeurs à afficher

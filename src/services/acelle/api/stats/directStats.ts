@@ -56,27 +56,37 @@ export const enrichCampaignsWithStats = async (
       let statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
       
       // Si échec avec la nouvelle méthode, essayer la méthode legacy
-      if (!statistics) {
+      if (!statistics || hasEmptyStatistics(statistics)) {
         console.log(`Tentative de récupération via méthode legacy pour la campagne ${campaignUid}`);
         statistics = await fetchCampaignStatisticsLegacy(campaignUid, account);
+      }
+      
+      // Valider et normaliser les statistiques récupérées
+      const validatedStats = statistics ? ensureValidStatistics(statistics) : null;
+      
+      // Vérifier si les statistiques ont été récupérées avec succès
+      if (validatedStats && !hasEmptyStatistics(validatedStats)) {
+        console.log(`Statistiques récupérées avec succès pour la campagne ${campaignUid}:`, validatedStats);
+      } else {
+        console.warn(`Aucune statistique valide récupérée pour la campagne ${campaignUid}`);
       }
       
       // Ajouter les statistiques à la campagne
       const enrichedCampaign = {
         ...campaign,
-        statistics: statistics ? ensureValidStatistics(statistics) : campaign.statistics
+        statistics: validatedStats || campaign.statistics || null
       };
       
-      // Ajouter des informations sur la source de données à la meta si disponible
+      // Ajouter des informations sur la source de données à la meta
       if (enrichedCampaign.meta) {
         enrichedCampaign.meta = {
           ...enrichedCampaign.meta,
-          data_source: statistics ? 'api_direct' : 'cache',
+          data_source: validatedStats ? 'api_direct' : 'cache',
           last_refresh: new Date().toISOString()
         };
       } else {
         enrichedCampaign.meta = {
-          data_source: statistics ? 'api_direct' : 'cache',
+          data_source: validatedStats ? 'api_direct' : 'cache',
           last_refresh: new Date().toISOString()
         };
       }
@@ -111,15 +121,54 @@ export const fetchDirectStatistics = async (
       stats = await fetchCampaignStatisticsLegacy(campaignUid, account);
     }
     
+    // S'assurer que les statistiques sont valides et normalisées
     if (stats && !hasEmptyStatistics(stats)) {
-      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`, stats);
-      return ensureValidStatistics(stats);
+      const validatedStats = ensureValidStatistics(stats);
+      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`, validatedStats);
+      return validatedStats;
     } else {
       console.error(`Aucune statistique valide n'a pu être récupérée pour ${campaignUid}`);
+      // Créer des statistiques simulées pour le débogage en mode dev
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Génération de statistiques simulées pour le mode développement");
+        return createDemoStatistics();
+      }
       return null;
     }
   } catch (error) {
     console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
     return null;
   }
+};
+
+/**
+ * Crée des statistiques de démonstration pour le mode développement
+ */
+const createDemoStatistics = (): AcelleCampaignStatistics => {
+  const totalEmails = Math.floor(Math.random() * 1000) + 200;
+  const deliveredRate = 0.97 + Math.random() * 0.02;
+  const delivered = Math.floor(totalEmails * deliveredRate);
+  const openRate = 0.30 + Math.random() * 0.40;
+  const opened = Math.floor(delivered * openRate);
+  const uniqueOpenRate = openRate * 0.9;
+  const uniqueOpens = Math.floor(opened * 0.9);
+  const clickRate = 0.10 + Math.random() * 0.30;
+  const clicked = Math.floor(opened * clickRate);
+  const bounceCount = totalEmails - delivered;
+  
+  return {
+    subscriber_count: totalEmails,
+    delivered_count: delivered,
+    delivered_rate: deliveredRate * 100,
+    open_count: opened,
+    uniq_open_count: uniqueOpens,
+    uniq_open_rate: uniqueOpenRate * 100,
+    click_count: clicked,
+    click_rate: clickRate * 100,
+    bounce_count: bounceCount,
+    soft_bounce_count: Math.floor(bounceCount * 0.7),
+    hard_bounce_count: Math.floor(bounceCount * 0.3),
+    unsubscribe_count: Math.floor(delivered * 0.02),
+    abuse_complaint_count: Math.floor(delivered * 0.005)
+  };
 };
