@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -8,6 +7,7 @@ import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCa
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
 import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
 import { toast } from "sonner";
+import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
