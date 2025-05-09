@@ -140,15 +140,20 @@ export interface AcelleConnectionDebug {
   timestamp: string;
   errorMessage?: string;
   statusCode?: number;
+  responseData?: any;
   duration?: number;
   apiVersion?: string;
-  responseData?: any;
+  responseTime?: number;
   request?: {
     url?: string;
     headers?: Record<string, string>;
+    method?: string;
+    body?: any;
   };
-  authMethod?: string;
-  isTimeout?: boolean; // Adding the missing property
+  response?: {
+    statusCode?: number;
+    body?: any;
+  };
 }
 
 // Type spécifique pour le cache des campagnes

@@ -1,188 +1,206 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 
 /**
- * Récupère une campagne spécifique par son ID
+ * Fetch campaigns from cache for given accounts
+ */
+export const fetchCampaignsFromCache = async (
+  accounts: AcelleAccount[],
+  page: number = 1,
+  perPage: number = 5,
+  skipPagination: boolean = false
+): Promise<AcelleCampaign[]> => {
+  try {
+    if (!accounts || accounts.length === 0) {
+      console.log('No accounts provided to fetch campaigns from cache');
+      return [];
+    }
+    
+    console.log(`Fetching cached campaigns for ${accounts.length} accounts (page ${page}, perPage ${perPage})`);
+    
+    // Get account IDs
+    const accountIds = accounts.map(account => account.id);
+    
+    let query = supabase
+      .from('email_campaigns_cache')
+      .select('*')
+      .in('account_id', accountIds)
+      .order('created_at', { ascending: false });
+    
+    // Apply pagination only if not skipped
+    if (!skipPagination) {
+      // Calculate pagination
+      const startIndex = (page - 1) * perPage;
+      const endIndex = startIndex + perPage - 1;
+      query = query.range(startIndex, endIndex);
+    }
+    
+    // Execute the query
+    const { data: cachedCampaigns, error } = await query;
+      
+    if (error) {
+      console.error('Error fetching campaigns from cache:', error);
+      return [];
+    }
+    
+    if (!cachedCampaigns || cachedCampaigns.length === 0) {
+      console.log('No cached campaigns found');
+      return [];
+    }
+    
+    console.log(`Found ${cachedCampaigns.length} cached campaigns`);
+    
+    // Convert cache format to AcelleCampaign format
+    return cachedCampaigns.map(campaign => {
+      // Handle delivery_info parsing with improved error handling
+      let deliveryInfo: Record<string, any> = {};
+      
+      if (campaign.delivery_info) {
+        // Convert string to object if needed
+        if (typeof campaign.delivery_info === 'string') {
+          try {
+            deliveryInfo = JSON.parse(campaign.delivery_info);
+          } catch (e) {
+            console.warn('Error parsing delivery_info JSON:', e);
+            deliveryInfo = {};
+          }
+        } else if (typeof campaign.delivery_info === 'object') {
+          // It's already an object
+          deliveryInfo = campaign.delivery_info as Record<string, any>;
+        }
+      }
+      
+      // Ensure bounced object exists with proper type safety
+      const bouncedInfo = (
+        deliveryInfo && 
+        typeof deliveryInfo === 'object' && 
+        deliveryInfo.bounced && 
+        typeof deliveryInfo.bounced === 'object'
+      ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+      
+      // Create statistics from delivery_info with safe type access and ensure all required properties exist
+      const statistics: AcelleCampaignStatistics = {
+        subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
+        delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
+        delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
+        open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+        uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
+        click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
+        click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
+        bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
+        soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
+        hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
+        unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
+        abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+      };
+      
+      // Return consistent AcelleCampaign format
+      return {
+        uid: campaign.campaign_uid,
+        campaign_uid: campaign.campaign_uid,
+        name: campaign.name || '',
+        subject: campaign.subject || '',
+        status: campaign.status || '',
+        created_at: campaign.created_at || '',
+        updated_at: campaign.updated_at || '',
+        delivery_date: campaign.delivery_date || '',
+        run_at: campaign.run_at || '',
+        last_error: campaign.last_error || '',
+        delivery_info: deliveryInfo,
+        statistics
+      } as AcelleCampaign;
+    });
+  } catch (error) {
+    console.error('Error in fetchCampaignsFromCache:', error);
+    return [];
+  }
+};
+
+/**
+ * Fetch a single campaign by its UID
  */
 export const fetchCampaignById = async (
   campaignUid: string,
   accountId: string
 ): Promise<AcelleCampaign | null> => {
   try {
-    // Rechercher dans la table email_campaigns_cache
+    console.log(`Fetching campaign ${campaignUid} for account ${accountId}`);
+    
+    // Execute the query
     const { data, error } = await supabase
       .from('email_campaigns_cache')
       .select('*')
       .eq('campaign_uid', campaignUid)
       .eq('account_id', accountId)
-      .maybeSingle();
-    
+      .single();
+      
     if (error) {
-      console.error("Erreur lors de la récupération de la campagne:", error);
+      console.error('Error fetching campaign by ID:', error);
       return null;
     }
     
     if (!data) {
+      console.log('No campaign found with the given ID');
       return null;
     }
     
-    // Normaliser les données delivery_info pour assurer leur format correct
-    let deliveryInfo = data.delivery_info;
+    console.log(`Found campaign: ${data.name}`);
     
-    // S'assurer que delivery_info est un objet et normaliser ses valeurs numériques
-    if (deliveryInfo) {
-      // Convertir explicitement les valeurs importantes en nombres
-      deliveryInfo = normalizeDeliveryInfo(deliveryInfo);
-      
-      console.log("DeliveryInfo normalisé:", deliveryInfo);
+    // Convert database record to AcelleCampaign format (same logic as in fetchCampaignsFromCache)
+    let deliveryInfo: Record<string, any> = {};
+    
+    if (data.delivery_info) {
+      if (typeof data.delivery_info === 'string') {
+        try {
+          deliveryInfo = JSON.parse(data.delivery_info);
+        } catch (e) {
+          console.warn('Error parsing delivery_info JSON:', e);
+          deliveryInfo = {};
+        }
+      } else if (typeof data.delivery_info === 'object') {
+        deliveryInfo = data.delivery_info as Record<string, any>;
+      }
     }
     
-    // Transformer les données pour correspondre au type AcelleCampaign
+    const bouncedInfo = (
+      deliveryInfo && 
+      typeof deliveryInfo === 'object' && 
+      deliveryInfo.bounced && 
+      typeof deliveryInfo.bounced === 'object'
+    ) ? deliveryInfo.bounced : { soft: 0, hard: 0, total: 0 };
+    
+    const statistics: AcelleCampaignStatistics = {
+      subscriber_count: typeof deliveryInfo.total === 'number' ? deliveryInfo.total : 0,
+      delivered_count: typeof deliveryInfo.delivered === 'number' ? deliveryInfo.delivered : 0,
+      delivered_rate: typeof deliveryInfo.delivery_rate === 'number' ? deliveryInfo.delivery_rate : 0,
+      open_count: typeof deliveryInfo.opened === 'number' ? deliveryInfo.opened : 0,
+      uniq_open_rate: typeof deliveryInfo.unique_open_rate === 'number' ? deliveryInfo.unique_open_rate : 0,
+      click_count: typeof deliveryInfo.clicked === 'number' ? deliveryInfo.clicked : 0,
+      click_rate: typeof deliveryInfo.click_rate === 'number' ? deliveryInfo.click_rate : 0,
+      bounce_count: typeof bouncedInfo.total === 'number' ? bouncedInfo.total : 0,
+      soft_bounce_count: typeof bouncedInfo.soft === 'number' ? bouncedInfo.soft : 0,
+      hard_bounce_count: typeof bouncedInfo.hard === 'number' ? bouncedInfo.hard : 0,
+      unsubscribe_count: typeof deliveryInfo.unsubscribed === 'number' ? deliveryInfo.unsubscribed : 0,
+      abuse_complaint_count: typeof deliveryInfo.complained === 'number' ? deliveryInfo.complained : 0
+    };
+    
     return {
       uid: data.campaign_uid,
       campaign_uid: data.campaign_uid,
-      name: data.name,
-      subject: data.subject,
-      status: data.status,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      delivery_date: data.delivery_date,
-      run_at: data.run_at,
-      last_error: data.last_error,
-      // Important: utiliser les données normalisées
-      delivery_info: deliveryInfo as any,
-      // Dupliquer les statistiques pour s'assurer qu'elles sont accessibles via les deux chemins
-      statistics: deliveryInfo as any
-    };
+      name: data.name || '',
+      subject: data.subject || '',
+      status: data.status || '',
+      created_at: data.created_at || '',
+      updated_at: data.updated_at || '',
+      delivery_date: data.delivery_date || '',
+      run_at: data.run_at || '',
+      last_error: data.last_error || '',
+      delivery_info: deliveryInfo,
+      statistics
+    } as AcelleCampaign;
   } catch (error) {
-    console.error("Exception lors de la récupération de la campagne:", error);
+    console.error('Error in fetchCampaignById:', error);
     return null;
   }
-};
-
-/**
- * Récupère les campagnes du cache pour une liste de comptes
- * avec support de pagination
- */
-export const fetchCampaignsFromCache = async (
-  accounts: AcelleAccount[],
-  page = 1,
-  itemsPerPage = 10
-): Promise<AcelleCampaign[]> => {
-  try {
-    if (!accounts.length) return [];
-    
-    // Extraire les IDs des comptes
-    const accountIds = accounts.map(account => account.id);
-    
-    // Calcul du décalage pour la pagination
-    const from = (page - 1) * itemsPerPage;
-    const to = from + itemsPerPage - 1;
-    
-    // Récupérer les campagnes pour tous les comptes spécifiés avec pagination
-    const { data, error } = await supabase
-      .from('email_campaigns_cache')
-      .select('*')
-      .in('account_id', accountIds)
-      .order('created_at', { ascending: false })
-      .range(from, to);
-    
-    if (error) {
-      console.error("Erreur lors de la récupération des campagnes du cache:", error);
-      return [];
-    }
-    
-    // Transformer les données pour correspondre au type AcelleCampaign
-    return (data || []).map(item => {
-      // Normaliser les données delivery_info pour assurer leur format correct
-      const normalizedDeliveryInfo = normalizeDeliveryInfo(item.delivery_info);
-      
-      return {
-        uid: item.campaign_uid,
-        campaign_uid: item.campaign_uid,
-        name: item.name,
-        subject: item.subject,
-        status: item.status,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        delivery_date: item.delivery_date,
-        run_at: item.run_at,
-        last_error: item.last_error,
-        // Utiliser les données normalisées
-        delivery_info: normalizedDeliveryInfo as any,
-        // Dupliquer les données normalisées pour garantir la cohérence
-        statistics: normalizedDeliveryInfo as any
-      };
-    });
-  } catch (error) {
-    console.error("Exception lors de la récupération des campagnes du cache:", error);
-    return [];
-  }
-};
-
-/**
- * Normalise les données delivery_info pour garantir le bon format des valeurs numériques
- */
-const normalizeDeliveryInfo = (deliveryInfo: any): any => {
-  if (!deliveryInfo) return {};
-  
-  // Copier l'objet pour éviter de modifier l'original
-  const normalized = { ...deliveryInfo };
-  
-  // Convertir les champs numériques importants en nombres
-  const numericFields = [
-    'subscriber_count', 'delivered_count', 'open_count', 'uniq_open_count', 
-    'click_count', 'bounce_count', 'soft_bounce_count', 'hard_bounce_count',
-    'unsubscribe_count', 'abuse_complaint_count', 'total'
-  ];
-  
-  numericFields.forEach(field => {
-    if (normalized[field] !== undefined) {
-      normalized[field] = parseFloat(normalized[field]) || 0;
-    }
-  });
-  
-  // Convertir les taux en nombres (pourcentages)
-  const rateFields = [
-    'uniq_open_rate', 'open_rate', 'unique_open_rate', 'click_rate', 
-    'delivered_rate', 'bounce_rate', 'unsubscribe_rate'
-  ];
-  
-  rateFields.forEach(field => {
-    if (normalized[field] !== undefined) {
-      // Si c'est une chaîne, la nettoyer avant conversion
-      if (typeof normalized[field] === 'string') {
-        normalized[field] = parseFloat(normalized[field].replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
-      } else {
-        normalized[field] = parseFloat(normalized[field]) || 0;
-      }
-    }
-  });
-  
-  // Gérer le cas spécial pour "bounced" qui peut être un objet ou un nombre
-  if (normalized.bounced !== undefined) {
-    if (typeof normalized.bounced === 'object' && normalized.bounced !== null) {
-      // Si c'est un objet, normaliser ses propriétés
-      if (normalized.bounced.soft !== undefined) {
-        normalized.bounced.soft = parseFloat(normalized.bounced.soft) || 0;
-      }
-      if (normalized.bounced.hard !== undefined) {
-        normalized.bounced.hard = parseFloat(normalized.bounced.hard) || 0;
-      }
-      if (normalized.bounced.total !== undefined) {
-        normalized.bounced.total = parseFloat(normalized.bounced.total) || 0;
-      }
-    } else {
-      // Si c'est une valeur directe
-      normalized.bounced = parseFloat(normalized.bounced) || 0;
-    }
-  }
-  
-  console.log("Normalisation appliquée:", {
-    before: deliveryInfo,
-    after: normalized
-  });
-  
-  return normalized;
 };

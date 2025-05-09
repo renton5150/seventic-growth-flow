@@ -65,23 +65,16 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
       // Réveiller les services avant la synchronisation
       await wakeUpEdgeFunctions(token);
       
-      const result = await forceSyncCampaigns(account);
+      const result = await forceSyncCampaigns(account, token);
       setLastManuallySyncedAt(new Date());
-      
-      // Adapter le résultat pour qu'il corresponde au format attendu par setSyncResult
-      const adaptedResult = {
-        success: result.success,
-        message: result.message || result.error || "Opération terminée"
-      };
-      
-      setSyncResult(adaptedResult);
+      setSyncResult(result);
       
       if (result.success) {
-        toast.success(result.message || "Synchronisation réussie", { id: "force-sync" });
+        toast.success(result.message, { id: "force-sync" });
         // Actualiser le compte de campagnes en cache
         await getCachedCampaignsCount();
       } else {
-        toast.error(result.message || result.error || "Erreur lors de la synchronisation", { id: "force-sync" });
+        toast.error(result.message, { id: "force-sync" });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

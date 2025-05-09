@@ -11,23 +11,22 @@ import {
 import { 
   getCampaigns, 
   getCampaign, 
-  forceSyncCampaigns,
-  extractCampaignsFromCache,
-  getCacheStatus
+  forceSyncCampaigns
 } from "./api/campaigns";
 
 import { 
   fetchAndProcessCampaignStats, 
   enrichCampaignsWithStats 
-} from "./api/stats/campaignStats";
+} from "./api/campaignStats";
 
 import { 
   checkAcelleConnectionStatus,
   testAcelleConnection
 } from "./api/connection";
 
-import { buildProxyUrl, buildApiPath } from "@/utils/acelle/proxyUtils";
+import { buildProxyUrl } from "./acelle-service";
 import { hasEmptyStatistics } from "./api/stats/directStats";
+import { fetchCampaignStatisticsFromApi } from "./api/stats/apiClient";
 
 export const acelleService = {
   accounts: {
@@ -43,9 +42,7 @@ export const acelleService = {
     fetchOne: getCampaign,
     forceSync: forceSyncCampaigns,
     getStats: fetchAndProcessCampaignStats,
-    enrichWithStats: enrichCampaignsWithStats,
-    extractFromCache: extractCampaignsFromCache,
-    getCacheStatus: getCacheStatus
+    enrichWithStats: enrichCampaignsWithStats
   },
   connection: {
     checkStatus: checkAcelleConnectionStatus,
@@ -53,7 +50,9 @@ export const acelleService = {
   },
   utils: {
     buildProxyUrl,
-    buildApiPath,
     hasEmptyStatistics
+  },
+  directAPI: {
+    fetchCampaignStatistics: fetchCampaignStatisticsFromApi
   }
 };
