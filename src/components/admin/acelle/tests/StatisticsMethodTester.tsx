@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -447,8 +446,10 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         abuse_complaint_count: deliveryInfo.complained
       };
       
-      // Utiliser extractStatisticsFromAnyFormat avec le bon type
-      const stats = extractStatisticsFromAnyFormat(formattedStats);
+      // FIX: Utiliser extractStatisticsFromAnyFormat avec le bon type
+      // Avant: const stats = extractStatisticsFromAnyFormat(formattedStats);
+      // Après: nous nous assurons que nous passons un objet et non une chaîne JSON
+      const stats = extractStatisticsFromAnyFormat(formattedStats as Partial<AcelleCampaignStatistics>);
       
       setResults(prev => [...prev, {
         method: "method-7",
