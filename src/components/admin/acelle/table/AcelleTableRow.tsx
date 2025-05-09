@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Eye, RefreshCw, AlertTriangle } from "lucide-react";
+import { Eye, RefreshCw, AlertTriangle, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +9,7 @@ import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 import { fetchDirectStatistics, hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 import { toast } from "sonner";
+import { useRouter } from "next/router";
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -22,6 +22,7 @@ export const AcelleTableRow = ({
   account, 
   onViewCampaign
 }: AcelleTableRowProps) => {
+  const router = useRouter();
   // État local pour les statistiques
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(campaign?.statistics || null);
   const [isLoading, setIsLoading] = useState(false);
@@ -145,6 +146,18 @@ export const AcelleTableRow = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Naviguer vers la page de test des statistiques
+  const handleTestStatistics = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Éviter de déclencher l'événement sur la ligne
+    
+    if (!account) {
+      toast.error("Compte Acelle non disponible");
+      return;
+    }
+    
+    router.push(`/admin/acelle/campaigns/test?id=${account.id}&campaignId=${campaignUid}`);
   };
 
   // Formatage sécurisé des dates
@@ -295,6 +308,14 @@ export const AcelleTableRow = ({
           ) : (
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           )}
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={handleTestStatistics}
+          title="Tester les méthodes de statistiques"
+        >
+          <BarChart2 className="h-4 w-4" />
         </Button>
         <Button 
           variant="ghost" 
