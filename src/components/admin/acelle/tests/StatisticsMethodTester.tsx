@@ -1,674 +1,586 @@
+
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Info } from "lucide-react";
-import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Spinner } from "@/components/ui/spinner";
+import { RefreshCw, AlertTriangle, Check, Info } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Separator } from "@/components/ui/separator";
+import { AcelleAccount, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
-import { buildDirectApiUrl } from "@/services/acelle/acelle-service";
 import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
-
-// Define a utility type compatible with Supabase JSON data
-type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
-
-type TestMethod = {
-  id: string;
-  name: string;
-  description: string;
-  execute: (campaign: AcelleCampaign, account: AcelleAccount) => Promise<any>;
-};
+import { buildDirectApiUrl } from "@/services/acelle/acelle-service";
+import { extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
 
 interface StatisticsMethodTesterProps {
   account: AcelleAccount;
   campaignUid: string;
 }
 
-interface CacheData {
-  statistics?: JsonValue;
-  delivery_info?: JsonValue;
-  [key: string]: any;
+interface TestResult {
+  method: string;
+  label: string;
+  data: any;
+  success: boolean;
+  error?: string;
+  timing?: number;
+  formatted?: AcelleCampaignStatistics;
 }
 
-export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMethodTesterProps) => {
-  const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("method-1");
-  const [results, setResults] = useState<Record<string, any>>({});
-  const [rawResponses, setRawResponses] = useState<Record<string, any>>({});
-  const [isExecuting, setIsExecuting] = useState<Record<string, boolean>>({});
+export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
+  account,
+  campaignUid
+}) => {
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("all");
 
-  // Convertir une valeur en nombre avec gestion sécurisée
-  const toNumber = (value: any): number => {
-    if (value === undefined || value === null) return 0;
-    
-    // Si la valeur est déjà un nombre
-    if (typeof value === 'number' && !isNaN(value)) return value;
-    
-    // Si la valeur est une chaîne avec pourcentage
-    if (typeof value === 'string') {
-      // Enlever le symbole % si présent
-      const cleanValue = value.includes('%') 
-        ? value.replace('%', '').trim()
-        : value.trim();
-      
-      // Convertir en nombre
-      const numValue = parseFloat(cleanValue);
-      return !isNaN(numValue) ? numValue : 0;
+  // Lancer tous les tests automatiquement au chargement
+  useEffect(() => {
+    if (account && campaignUid) {
+      runAllTests();
     }
-    
-    // Pour tout autre cas, tenter une conversion forcée
-    const numValue = Number(value);
-    return !isNaN(numValue) ? numValue : 0;
+  }, [account, campaignUid]);
+
+  // Formatte un nombre en millisecondes
+  const formatTiming = (ms?: number): string => {
+    if (!ms) return "N/A";
+    return `${ms.toFixed(0)}ms`;
   };
-  
-  // Extraire des valeurs numériques depuis JSON de façon sécurisée
-  const safeExtract = (data: any, path: string): number => {
-    if (!data) return 0;
-    
+
+  // Convertit un objet statistique en chaîne lisible
+  const formatStatsString = (stats: AcelleCampaignStatistics | null): string => {
+    if (!stats) return "Aucune statistique";
+    return `
+      Total: ${stats.subscriber_count || 0}
+      Délivrés: ${stats.delivered_count || 0} (${stats.delivered_rate?.toFixed(1) || 0}%)
+      Ouvertures: ${stats.open_count || 0} (${stats.uniq_open_rate?.toFixed(1) || 0}%)
+      Clics: ${stats.click_count || 0} (${stats.click_rate?.toFixed(1) || 0}%)
+      Bounces: ${stats.bounce_count || 0}
+    `;
+  };
+
+  // Extraction sécurisée des valeurs numériques
+  const extractNumericValue = (obj: any, path: string): number => {
     try {
-      // Gestion pour des chemins simples comme "total" ou des chemins composés comme "bounced.total"
       const parts = path.split('.');
-      let value = data;
+      let current = obj;
       
       for (const part of parts) {
-        if (!value || typeof value !== 'object') return 0;
-        value = value[part];
+        if (current === null || current === undefined) return 0;
+        current = current[part];
       }
       
-      return toNumber(value);
+      if (typeof current === 'number') return current;
+      if (typeof current === 'string') {
+        const parsed = parseFloat(current);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      
+      return 0;
     } catch (e) {
-      console.warn(`Error extracting ${path}:`, e);
+      console.error(`Erreur lors de l'extraction de ${path}:`, e);
       return 0;
     }
   };
-  
-  // Fonction pour gérer l'objet bounced qui peut avoir plusieurs formats
-  const extractBouncedValue = (data: any): { total: number, soft: number, hard: number } => {
-    const result = { total: 0, soft: 0, hard: 0 };
+
+  // Fonction pour lancer tous les tests
+  const runAllTests = async () => {
+    setIsLoading(true);
+    setResults([]);
+    toast.loading("Exécution des tests de méthodes de récupération de statistiques...");
     
-    if (!data || !data.bounced) {
-      return result;
-    }
-    
-    // Si bounced est directement un nombre
-    if (typeof data.bounced === 'number' || typeof data.bounced === 'string') {
-      result.total = toNumber(data.bounced);
-      // Estimer une répartition typique
-      result.soft = Math.round(result.total * 0.7);
-      result.hard = result.total - result.soft;
-    }
-    // Si bounced est un objet
-    else if (typeof data.bounced === 'object') {
-      result.total = safeExtract(data.bounced, 'total');
-      result.soft = safeExtract(data.bounced, 'soft');
-      result.hard = safeExtract(data.bounced, 'hard');
+    try {
+      // Méthode 1: Service directStats
+      await testMethod1();
       
-      // Si total n'est pas défini mais soft et hard le sont
-      if (result.total === 0 && (result.soft > 0 || result.hard > 0)) {
-        result.total = result.soft + result.hard;
-      }
+      // Méthode 2: API directe avec buildDirectApiUrl
+      await testMethod2();
+      
+      // Méthode 3: API directe avec fetch personnalisé
+      await testMethod3();
+      
+      // Méthode 4: Récupération depuis la base de données locale
+      await testMethod4();
+      
+      // Méthode 5: table de cache des statistiques
+      await testMethod5();
+      
+      // Méthode 6: API route stats legacy
+      await testMethod6();
+      
+      // Méthode 7: API route stats v2
+      await testMethod7();
+      
+      toast.success("Tests terminés avec succès");
+    } catch (error) {
+      console.error("Erreur lors de l'exécution des tests:", error);
+      toast.error("Erreur lors de l'exécution des tests");
+    } finally {
+      setIsLoading(false);
     }
-    
-    return result;
   };
 
-  const testMethods: TestMethod[] = [
-    {
-      id: "method-1",
-      name: "Méthode directe API",
-      description: "Appel direct à l'API Acelle pour récupérer les statistiques",
-      execute: async (campaign, account) => {
-        // Utiliser la méthode fetchDirectStatistics existante
-        return await fetchDirectStatistics(campaign.uid || campaign.campaign_uid || "", account);
-      }
-    },
-    {
-      id: "method-2",
-      name: "Méthode enrichissement",
-      description: "Enrichir la campagne avec toutes les statistiques",
-      execute: async (campaign, account) => {
-        // Utiliser enrichCampaignsWithStats avec forceRefresh
-        const enriched = await enrichCampaignsWithStats([campaign], account, { forceRefresh: true });
-        return enriched[0]?.statistics || null;
-      }
-    },
-    {
-      id: "method-3",
-      name: "API Campaign Get",
-      description: "Récupération via API /api/campaigns/{uid}",
-      execute: async (campaign, account) => {
-        const campaignUrl = buildDirectApiUrl(`campaigns/${campaign.uid || campaign.campaign_uid}`, account.api_endpoint, { 
-          api_token: account.api_token 
-        });
-        
-        const response = await fetch(campaignUrl, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        setRawResponses(prev => ({ ...prev, "method-3": data }));
-        
-        // Extraire les statistiques du résultat
-        if (data && data.campaign) {
-          return {
-            subscriber_count: safeExtract(data.campaign, 'subscriber_count') || safeExtract(data.campaign, 'total'),
-            delivered_count: safeExtract(data.campaign, 'delivered_count') || safeExtract(data.campaign, 'delivered'),
-            open_count: safeExtract(data.campaign, 'open_count') || safeExtract(data.campaign, 'opened'),
-            click_count: safeExtract(data.campaign, 'click_count') || safeExtract(data.campaign, 'clicked'),
-            bounce_count: safeExtract(data.campaign, 'bounce_count') || 
-              (data.campaign.bounced ? 
-                (typeof data.campaign.bounced === 'object' ? safeExtract(data.campaign.bounced, 'total') : toNumber(data.campaign.bounced))
-                : 0),
-            uniq_open_rate: safeExtract(data.campaign, 'unique_open_rate') || safeExtract(data.campaign, 'open_rate'),
-            click_rate: safeExtract(data.campaign, 'click_rate'),
-            delivered_rate: safeExtract(data.campaign, 'delivery_rate')
-          };
-        }
-        
-        return null;
-      }
-    },
-    {
-      id: "method-4",
-      name: "API Reports",
-      description: "Récupération via API /api/reports/campaign/{uid}",
-      execute: async (campaign, account) => {
-        const reportsUrl = buildDirectApiUrl(`reports/campaign/${campaign.uid || campaign.campaign_uid}`, account.api_endpoint, { 
-          api_token: account.api_token 
-        });
-        
-        try {
-          const response = await fetch(reportsUrl, {
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`API error: ${response.status} ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          setRawResponses(prev => ({ ...prev, "method-4": data }));
-          
-          // Extraire les statistiques des rapports
-          if (data) {
-            const bounced = extractBouncedValue(data);
-            
-            return {
-              subscriber_count: safeExtract(data, 'total'),
-              delivered_count: safeExtract(data, 'delivered'),
-              open_count: safeExtract(data, 'opened'),
-              click_count: safeExtract(data, 'clicked'),
-              bounce_count: bounced.total,
-              soft_bounce_count: bounced.soft,
-              hard_bounce_count: bounced.hard,
-              uniq_open_rate: safeExtract(data, 'open_rate') || safeExtract(data, 'unique_open_rate'),
-              click_rate: safeExtract(data, 'click_rate'),
-              delivered_rate: safeExtract(data, 'delivery_rate')
-            };
-          }
-        } catch (error) {
-          console.error("Erreur API Reports:", error);
-          throw error;
-        }
-        
-        return null;
-      }
-    },
-    {
-      id: "method-5",
-      name: "API TrackingLog",
-      description: "Récupération via API /api/campaigns/{uid}/tracking_log",
-      execute: async (campaign, account) => {
-        // Récupérer les statistiques directement depuis le champ tracking_log
-        const { data: campaignData, error: campaignError } = await supabase
-          .from('email_campaigns_cache')
-          .select('tracking_log')
-          .eq('campaign_uid', campaign.uid || campaign.campaign_uid)
-          .eq('account_id', account.id)
-          .single();
-          
-        if (campaignError) {
-          console.error("Error fetching from campaigns cache:", campaignError);
-          throw campaignError;
-        }
-        
-        setRawResponses(prev => ({ ...prev, "method-5": campaignData }));
-        
-        // Safely handle the data with proper type checking
-        if (campaignData && campaignData.tracking_log) {
-          const logs = campaignData.tracking_log;
-          const stats = {
-            subscriber_count: logs.length,
-            delivered_count: logs.filter((log: any) => log.status === 'delivered').length,
-            open_count: logs.filter((log: any) => log.open_log).length,
-            click_count: logs.filter((log: any) => log.click_log).length,
-            bounce_count: logs.filter((log: any) => log.status === 'bounced').length,
-            uniq_open_rate: 0,
-            click_rate: 0,
-            delivered_rate: 0
-          };
-          
-          // Calculer les taux
-          if (stats.subscriber_count > 0) {
-            stats.delivered_rate = (stats.delivered_count / stats.subscriber_count) * 100;
-            if (stats.delivered_count > 0) {
-              stats.uniq_open_rate = (stats.open_count / stats.delivered_count) * 100;
-              stats.click_rate = (stats.click_count / stats.delivered_count) * 100;
-            }
-          }
-          
-          return stats;
-        }
-        
-        return null;
-      }
-    },
-    {
-      id: "method-6",
-      name: "Direct Cache DB",
-      description: "Récupération directe depuis la table de cache en DB",
-      execute: async (campaign, account) => {
-        // Récupérer les statistiques directement depuis la table campaign_stats_cache
-        const { data: cacheData, error: cacheError } = await supabase
-          .from('campaign_stats_cache')
-          .select('statistics')
-          .eq('campaign_uid', campaign.uid || campaign.campaign_uid)
-          .eq('account_id', account.id)
-          .single();
-          
-        if (cacheError) {
-          console.error("Error fetching from cache:", cacheError);
-          throw cacheError;
-        }
-        
-        setRawResponses(prev => ({ ...prev, "method-6": cacheData }));
-        
-        // Safe type conversion - Fix the type issue here
-        const typedCacheData = cacheData as unknown as CacheData | null;
-        
-        if (typedCacheData && typedCacheData.statistics) {
-          // Extract statistics safely
-          const statsJson = typedCacheData.statistics;
-          
-          // Convert to proper statistics type - this handles the type safety
-          if (typeof statsJson === 'object' && statsJson !== null && !Array.isArray(statsJson)) {
-            const stats: AcelleCampaignStatistics = {
-              subscriber_count: safeExtract(statsJson, 'subscriber_count'),
-              delivered_count: safeExtract(statsJson, 'delivered_count'),
-              delivered_rate: safeExtract(statsJson, 'delivered_rate'),
-              open_count: safeExtract(statsJson, 'open_count'),
-              uniq_open_count: safeExtract(statsJson, 'uniq_open_count'),
-              uniq_open_rate: safeExtract(statsJson, 'uniq_open_rate'),
-              click_count: safeExtract(statsJson, 'click_count'),
-              click_rate: safeExtract(statsJson, 'click_rate'),
-              bounce_count: safeExtract(statsJson, 'bounce_count'),
-              soft_bounce_count: safeExtract(statsJson, 'soft_bounce_count'),
-              hard_bounce_count: safeExtract(statsJson, 'hard_bounce_count'),
-              unsubscribe_count: safeExtract(statsJson, 'unsubscribe_count'),
-              abuse_complaint_count: safeExtract(statsJson, 'abuse_complaint_count')
-            };
-            
-            return stats;
-          }
-        }
-        
-        return null;
-      }
-    },
-    {
-      id: "method-7",
-      name: "DeliveryInfo DB",
-      description: "Récupération depuis delivery_info dans email_campaigns_cache",
-      execute: async (campaign, account) => {
-        // Récupérer les statistiques directement depuis le champ delivery_info
-        const { data: campaignData, error: campaignError } = await supabase
-          .from('email_campaigns_cache')
-          .select('delivery_info')
-          .eq('campaign_uid', campaign.uid || campaign.campaign_uid)
-          .eq('account_id', account.id)
-          .single();
-          
-        if (campaignError) {
-          console.error("Error fetching from campaigns cache:", campaignError);
-          throw campaignError;
-        }
-        
-        setRawResponses(prev => ({ ...prev, "method-7": campaignData }));
-        
-        // Safely handle the data with proper type checking
-        if (campaignData && campaignData.delivery_info) {
-          const deliveryInfoJson = campaignData.delivery_info;
-          
-          // Only proceed if we have an object
-          if (typeof deliveryInfoJson === 'object' && deliveryInfoJson !== null && !Array.isArray(deliveryInfoJson)) {
-            // Type-safe extraction of bounced data
-            let bouncedSoft = 0;
-            let bouncedHard = 0;
-            let bouncedTotal = 0;
-            
-            // Access the bounced field safely
-            if ('bounced' in deliveryInfoJson) {
-              const bouncedData = (deliveryInfoJson as any).bounced;
-              
-              if (bouncedData) {
-                if (typeof bouncedData === 'object' && bouncedData !== null) {
-                  bouncedSoft = safeExtract(bouncedData, 'soft');
-                  bouncedHard = safeExtract(bouncedData, 'hard');
-                  bouncedTotal = safeExtract(bouncedData, 'total');
-                } else {
-                  bouncedTotal = toNumber(bouncedData);
-                  // Estimate distribution if only total is available
-                  bouncedSoft = Math.round(bouncedTotal * 0.7);
-                  bouncedHard = bouncedTotal - bouncedSoft;
-                }
-              }
-            }
-            
-            // Create a properly typed statistics object
-            const stats: AcelleCampaignStatistics = {
-              subscriber_count: safeExtract(deliveryInfoJson, 'total') || safeExtract(deliveryInfoJson, 'subscriber_count'),
-              delivered_count: safeExtract(deliveryInfoJson, 'delivered') || safeExtract(deliveryInfoJson, 'delivered_count'),
-              delivered_rate: safeExtract(deliveryInfoJson, 'delivery_rate') || safeExtract(deliveryInfoJson, 'delivered_rate'),
-              open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'open_count'),
-              uniq_open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'uniq_open_count'),
-              uniq_open_rate: safeExtract(deliveryInfoJson, 'unique_open_rate') || safeExtract(deliveryInfoJson, 'uniq_open_rate') || safeExtract(deliveryInfoJson, 'open_rate'),
-              click_count: safeExtract(deliveryInfoJson, 'clicked') || safeExtract(deliveryInfoJson, 'click_count'),
-              click_rate: safeExtract(deliveryInfoJson, 'click_rate'),
-              bounce_count: bouncedTotal,
-              soft_bounce_count: bouncedSoft,
-              hard_bounce_count: bouncedHard,
-              unsubscribe_count: safeExtract(deliveryInfoJson, 'unsubscribed') || safeExtract(deliveryInfoJson, 'unsubscribe_count'),
-              abuse_complaint_count: safeExtract(deliveryInfoJson, 'complained') || safeExtract(deliveryInfoJson, 'abuse_complaint_count')
-            };
-            
-            return stats;
-          }
-        }
-        
-        return null;
-      }
-    }
-  ];
-
-  // Récupérer les informations de base de la campagne
-  useEffect(() => {
-    const fetchCampaignInfo = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Récupérer la campagne depuis email_campaigns_cache
-        const { data, error } = await supabase
-          .from('email_campaigns_cache')
-          .select('*')
-          .eq('campaign_uid', campaignUid)
-          .eq('account_id', account.id)
-          .single();
-          
-        if (error) {
-          throw error;
-        }
-        
-        if (!data) {
-          throw new Error('Campagne non trouvée');
-        }
-        
-        const campaignData: AcelleCampaign = {
-          uid: data.campaign_uid,
-          campaign_uid: data.campaign_uid,
-          name: data.name || '',
-          subject: data.subject || '',
-          status: data.status || '',
-          created_at: data.created_at || '',
-          updated_at: data.updated_at || '',
-          delivery_date: data.delivery_date || null,
-          run_at: data.run_at || null,
-          last_error: data.last_error || '',
-          delivery_info: data.delivery_info || {}
-        };
-        
-        setCampaign(campaignData);
-      } catch (err) {
-        console.error('Erreur lors de la récupération des informations de la campagne:', err);
-        setError('Impossible de récupérer les informations de la campagne');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchCampaignInfo();
-  }, [account, campaignUid]);
-
-  // Exécuter une méthode de test
-  const runTestMethod = async (methodId: string) => {
+  // Méthode 1: Utiliser fetchDirectStatistics depuis directStats
+  const testMethod1 = async () => {
     try {
-      if (!campaign) return;
-      
-      setIsExecuting(prev => ({ ...prev, [methodId]: true }));
-      
-      const method = testMethods.find(m => m.id === methodId);
-      if (!method) return;
-      
       const startTime = performance.now();
-      const result = await method.execute(campaign, account);
+      
+      // Utiliser le service directStats
+      const stats = await fetchDirectStatistics(campaignUid, account);
+      
       const endTime = performance.now();
       
-      // Valider et normaliser les statistiques si elles existent
-      const validatedStats = result ? ensureValidStatistics(result) : null;
-      
-      setResults(prev => ({
-        ...prev,
-        [methodId]: {
-          stats: validatedStats,
-          executionTime: Math.round(endTime - startTime),
-          success: !!validatedStats,
-          timestamp: new Date().toISOString()
-        }
-      }));
-      
-      console.log(`Résultat méthode ${method.name}:`, validatedStats);
+      setResults(prev => [...prev, {
+        method: "method-1",
+        label: "Service directStats",
+        data: stats,
+        success: !!stats && typeof stats === 'object',
+        timing: endTime - startTime,
+        formatted: stats || undefined
+      }]);
     } catch (error) {
-      console.error(`Erreur lors de l'exécution de la méthode ${methodId}:`, error);
-      
-      setResults(prev => ({
-        ...prev,
-        [methodId]: {
-          stats: null,
-          executionTime: 0,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString()
-        }
-      }));
-    } finally {
-      setIsExecuting(prev => ({ ...prev, [methodId]: false }));
+      console.error("Erreur avec la méthode 1:", error);
+      setResults(prev => [...prev, {
+        method: "method-1",
+        label: "Service directStats",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
     }
   };
 
-  // Formatter un nombre
-  const formatNumber = (value?: number | null): string => {
-    if (value === undefined || value === null) return "0";
-    return value.toLocaleString();
+  // Méthode 2: API directe avec buildDirectApiUrl
+  const testMethod2 = async () => {
+    try {
+      const startTime = performance.now();
+      
+      const url = buildDirectApiUrl(
+        `campaigns/${campaignUid}/statistics`, 
+        account.api_endpoint,
+        { api_token: account.api_token }
+      );
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const stats = ensureValidStatistics(data);
+      
+      const endTime = performance.now();
+      
+      setResults(prev => [...prev, {
+        method: "method-2",
+        label: "API directe (buildDirectApiUrl)",
+        data: data,
+        success: !!stats && typeof stats === 'object',
+        timing: endTime - startTime,
+        formatted: stats
+      }]);
+    } catch (error) {
+      console.error("Erreur avec la méthode 2:", error);
+      setResults(prev => [...prev, {
+        method: "method-2",
+        label: "API directe (buildDirectApiUrl)",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
+    }
   };
 
-  // Formatter un pourcentage
-  const formatPercentage = (value?: number | null): string => {
-    if (value === undefined || value === null) return "0%";
-    return `${value.toFixed(1)}%`;
+  // Méthode 3: API directe avec fetch personnalisé
+  const testMethod3 = async () => {
+    try {
+      const startTime = performance.now();
+      
+      const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/statistics?api_token=${account.api_token}`;
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const stats = ensureValidStatistics(data);
+      
+      const endTime = performance.now();
+      
+      setResults(prev => [...prev, {
+        method: "method-3",
+        label: "API directe (fetch personnalisé)",
+        data: data,
+        success: !!stats && typeof stats === 'object',
+        timing: endTime - startTime,
+        formatted: stats
+      }]);
+    } catch (error) {
+      console.error("Erreur avec la méthode 3:", error);
+      setResults(prev => [...prev, {
+        method: "method-3",
+        label: "API directe (fetch personnalisé)",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
+    }
   };
 
-  // Si chargement en cours
-  if (loading) {
-    return (
-      <Card className="my-4">
-        <CardContent className="py-8 flex items-center justify-center">
-          <Spinner className="h-8 w-8 mr-2" />
-          <p>Chargement des informations de la campagne...</p>
+  // Méthode 4: Récupération depuis la base de données locale (email_campaigns_cache)
+  const testMethod4 = async () => {
+    try {
+      const startTime = performance.now();
+      
+      const { data, error } = await supabase
+        .from('email_campaigns_cache')
+        .select('delivery_info, cache_updated_at')
+        .eq('campaign_uid', campaignUid)
+        .eq('account_id', account.id)
+        .single();
+      
+      if (error) throw error;
+      
+      const deliveryInfo = data.delivery_info;
+      
+      // Convertir delivery_info en AcelleCampaignStatistics
+      const stats = extractStatisticsFromAnyFormat(deliveryInfo, true);
+      
+      const endTime = performance.now();
+      
+      setResults(prev => [...prev, {
+        method: "method-4",
+        label: "Base de données locale (email_campaigns_cache)",
+        data: {
+          delivery_info: deliveryInfo,
+          last_updated: data.cache_updated_at
+        },
+        success: !!stats,
+        timing: endTime - startTime,
+        formatted: stats
+      }]);
+    } catch (error) {
+      console.error("Erreur avec la méthode 4:", error);
+      setResults(prev => [...prev, {
+        method: "method-4",
+        label: "Base de données locale (email_campaigns_cache)",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
+    }
+  };
+
+  // Méthode 5: Récupération depuis la table de cache des statistiques
+  const testMethod5 = async () => {
+    try {
+      const startTime = performance.now();
+      
+      const { data, error } = await supabase
+        .from('campaign_stats_cache')
+        .select('statistics, last_updated')
+        .eq('campaign_uid', campaignUid)
+        .eq('account_id', account.id)
+        .single();
+      
+      if (error) throw error;
+      
+      const statistics = data.statistics;
+      const stats = ensureValidStatistics(statistics);
+      
+      const endTime = performance.now();
+      
+      setResults(prev => [...prev, {
+        method: "method-5",
+        label: "Table de cache des statistiques",
+        data: {
+          statistics,
+          last_updated: data.last_updated
+        },
+        success: !!stats,
+        timing: endTime - startTime,
+        formatted: stats
+      }]);
+    } catch (error) {
+      console.error("Erreur avec la méthode 5:", error);
+      setResults(prev => [...prev, {
+        method: "method-5",
+        label: "Table de cache des statistiques",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
+    }
+  };
+
+  // Méthode 6: API route stats legacy
+  const testMethod6 = async () => {
+    try {
+      const startTime = performance.now();
+      
+      const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/tracking-log?api_token=${account.api_token}`;
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Essayer d'extraire les statistiques
+      const extractedStats = extractStatisticsFromAnyFormat(data, true);
+      
+      const endTime = performance.now();
+      
+      setResults(prev => [...prev, {
+        method: "method-6",
+        label: "API route tracking-log (legacy)",
+        data: data,
+        success: !!extractedStats,
+        timing: endTime - startTime,
+        formatted: extractedStats
+      }]);
+    } catch (error) {
+      console.error("Erreur avec la méthode 6:", error);
+      setResults(prev => [...prev, {
+        method: "method-6",
+        label: "API route tracking-log (legacy)",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
+    }
+  };
+
+  // Méthode 7: API route stats v2
+  const testMethod7 = async () => {
+    try {
+      const startTime = performance.now();
+      
+      const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/stats?api_token=${account.api_token}`;
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      const endTime = performance.now();
+      
+      // Création sécurisée d'un objet DeliveryInfo
+      const deliveryInfoJson = data.stats || data.data;
+      
+      let deliveryInfo: DeliveryInfo = {};
+      
+      // Vérifier que deliveryInfoJson est un objet et pas une primitive
+      if (deliveryInfoJson && typeof deliveryInfoJson === 'object' && !Array.isArray(deliveryInfoJson)) {
+        // Créer un objet DeliveryInfo sécurisé
+        deliveryInfo = {
+          total: extractNumericValue(deliveryInfoJson, 'total'),
+          delivered: extractNumericValue(deliveryInfoJson, 'delivered'),
+          delivery_rate: extractNumericValue(deliveryInfoJson, 'delivery_rate'),
+          opened: extractNumericValue(deliveryInfoJson, 'opened'),
+          unique_open_rate: extractNumericValue(deliveryInfoJson, 'unique_open_rate') || extractNumericValue(deliveryInfoJson, 'open_rate'),
+          clicked: extractNumericValue(deliveryInfoJson, 'clicked'),
+          click_rate: extractNumericValue(deliveryInfoJson, 'click_rate'),
+          bounced: {}
+        };
+        
+        // Gérer le cas spécial pour "bounced" qui peut être un nombre ou un objet
+        if ('bounced' in deliveryInfoJson) {
+          const bouncedValue = deliveryInfoJson.bounced;
+          
+          if (typeof bouncedValue === 'number') {
+            deliveryInfo.bounced = bouncedValue;
+          } else if (typeof bouncedValue === 'object' && bouncedValue !== null) {
+            deliveryInfo.bounced = {
+              soft: extractNumericValue(bouncedValue, 'soft'),
+              hard: extractNumericValue(bouncedValue, 'hard'),
+              total: extractNumericValue(bouncedValue, 'total')
+            };
+          }
+        }
+        
+        // Ajouter d'autres propriétés
+        deliveryInfo.unsubscribed = extractNumericValue(deliveryInfoJson, 'unsubscribed');
+        deliveryInfo.complained = extractNumericValue(deliveryInfoJson, 'complained');
+      }
+      
+      // Convertir en statistiques validées
+      const stats = extractStatisticsFromAnyFormat(deliveryInfo);
+      
+      setResults(prev => [...prev, {
+        method: "method-7",
+        label: "API route stats v2",
+        data: data,
+        success: !!stats,
+        timing: endTime - startTime,
+        formatted: stats
+      }]);
+    } catch (error) {
+      console.error("Erreur avec la méthode 7:", error);
+      setResults(prev => [...prev, {
+        method: "method-7",
+        label: "API route stats v2",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
+    }
+  };
+
+  // Filtrer les résultats en fonction de l'onglet actif
+  const filteredResults = activeTab === "all" 
+    ? results 
+    : activeTab === "success"
+      ? results.filter(r => r.success)
+      : results.filter(r => !r.success);
+
+  return (
+    <div className="space-y-6">
+      {/* En-tête */}
+      <Card className="bg-muted/30">
+        <CardContent className="p-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium text-lg">Test des méthodes de statistiques</h3>
+              <p className="text-muted-foreground text-sm">
+                Campagne: <span className="font-mono bg-background py-0.5 px-1 rounded">{campaignUid}</span>
+              </p>
+              <p className="text-muted-foreground text-sm mt-1">
+                Compte: {account.name} ({account.id})
+              </p>
+            </div>
+            <Button 
+              onClick={runAllTests} 
+              disabled={isLoading}
+              size="sm"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? 'Test en cours...' : 'Relancer tous les tests'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
-    );
-  }
 
-  // Si erreur
-  if (error || !campaign) {
-    return (
-      <Alert variant="destructive" className="my-4">
-        <AlertTriangle className="h-5 w-5" />
-        <AlertDescription>
-          {error || "Campagne non trouvée"}
-        </AlertDescription>
-      </Alert>
-    );
-  }
+      {/* Filtres */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="all">
+            Toutes ({results.length})
+          </TabsTrigger>
+          <TabsTrigger value="success">
+            Succès ({results.filter(r => r.success).length})
+          </TabsTrigger>
+          <TabsTrigger value="error">
+            Erreurs ({results.filter(r => !r.success).length})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-  // Afficher l'interface de test
-  return (
-    <Card className="my-4">
-      <CardHeader>
-        <CardTitle>Test des méthodes de récupération de statistiques</CardTitle>
-        <p className="text-muted-foreground">
-          Campagne: {campaign.name} (UID: {campaign.campaign_uid || campaign.uid})
-        </p>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-4">
-            {testMethods.slice(0, 4).map(method => (
-              <TabsTrigger key={method.id} value={method.id}>
-                {method.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsList className="grid grid-cols-2 md:grid-cols-3 mb-4">
-            {testMethods.slice(4).map(method => (
-              <TabsTrigger key={method.id} value={method.id}>
-                {method.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          
-          {testMethods.map(method => (
-            <TabsContent key={method.id} value={method.id}>
-              <div className="space-y-4">
-                <div className="bg-muted p-3 rounded-md">
-                  <p className="font-medium">{method.name}</p>
-                  <p className="text-sm text-muted-foreground">{method.description}</p>
-                </div>
-                
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={() => runTestMethod(method.id)} 
-                    disabled={isExecuting[method.id]}
-                  >
-                    {isExecuting[method.id] ? (
-                      <>
-                        <Spinner className="h-4 w-4 mr-2" />
-                        Exécution...
-                      </>
+      {/* Résultats */}
+      {isLoading && results.length === 0 ? (
+        <div className="flex items-center justify-center py-10">
+          <Spinner className="h-8 w-8 mr-2" />
+          <p>Exécution des tests...</p>
+        </div>
+      ) : filteredResults.length === 0 ? (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            {results.length === 0 
+              ? "Aucun test n'a encore été exécuté" 
+              : "Aucun résultat ne correspond au filtre appliqué"}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <div className="space-y-6">
+          {filteredResults.map((result, index) => (
+            <Card key={result.method} className={result.success ? "border-green-200" : "border-red-200"}>
+              <CardHeader className={`pb-2 ${result.success ? "bg-green-50" : "bg-red-50"}`}>
+                <CardTitle className="flex justify-between items-center text-base">
+                  <div className="flex items-center">
+                    {result.success ? (
+                      <Check className="h-4 w-4 text-green-600 mr-2" />
                     ) : (
-                      'Tester cette méthode'
+                      <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />
                     )}
-                  </Button>
-                </div>
-                
-                {results[method.id] && (
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-semibold">
-                        {results[method.id].success ? 'Résultats obtenus' : 'Échec de la récupération'}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {results[method.id].executionTime}ms
-                      </p>
+                    <span>
+                      {index + 1}. {result.label}
+                    </span>
+                  </div>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {formatTiming(result.timing)}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 pb-4">
+                {result.success ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Statistiques formatées</h4>
+                        <pre className="bg-muted p-2 rounded text-xs overflow-auto whitespace-pre-wrap">
+                          {formatStatsString(result.formatted || null)}
+                        </pre>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Données brutes</h4>
+                        <pre className="bg-muted p-2 rounded text-xs overflow-auto max-h-48 whitespace-pre-wrap">
+                          {JSON.stringify(result.data, null, 2)}
+                        </pre>
+                      </div>
                     </div>
-                    
-                    {results[method.id].success ? (
-                      <div className="rounded-md border p-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm font-medium">Destinataires</p>
-                            <p className="text-xl font-semibold">
-                              {formatNumber(results[method.id].stats?.subscriber_count)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Délivrés</p>
-                            <p className="text-xl font-semibold">
-                              {formatNumber(results[method.id].stats?.delivered_count)}
-                              <span className="text-xs ml-1 text-muted-foreground">
-                                ({formatPercentage(results[method.id].stats?.delivered_rate)})
-                              </span>
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Ouvertures</p>
-                            <p className="text-xl font-semibold">
-                              {formatNumber(results[method.id].stats?.open_count)}
-                              <span className="text-xs ml-1 text-muted-foreground">
-                                ({formatPercentage(results[method.id].stats?.uniq_open_rate)})
-                              </span>
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Clics</p>
-                            <p className="text-xl font-semibold">
-                              {formatNumber(results[method.id].stats?.click_count)}
-                              <span className="text-xs ml-1 text-muted-foreground">
-                                ({formatPercentage(results[method.id].stats?.click_rate)})
-                              </span>
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Bounces</p>
-                            <p className="text-xl font-semibold">
-                              {formatNumber(results[method.id].stats?.bounce_count)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Désabonnements</p>
-                            <p className="text-xl font-semibold">
-                              {formatNumber(results[method.id].stats?.unsubscribe_count)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          {results[method.id].error || "Aucune donnée récupérée"}
-                        </AlertDescription>
-                      </Alert>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Alert variant="destructive" className="bg-red-50 border-red-200">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        {result.error || "Erreur inconnue"}
+                      </AlertDescription>
+                    </Alert>
+                    {result.data && (
+                      <>
+                        <h4 className="font-medium text-sm mt-3">Données brutes</h4>
+                        <pre className="bg-muted p-2 rounded text-xs overflow-auto max-h-48 whitespace-pre-wrap">
+                          {JSON.stringify(result.data, null, 2)}
+                        </pre>
+                      </>
                     )}
-                    
-                    <details className="mt-4">
-                      <summary className="cursor-pointer text-sm text-muted-foreground">
-                        Afficher les données brutes
-                      </summary>
-                      <div className="mt-2 p-2 bg-muted rounded overflow-auto max-h-[300px] text-xs">
-                        <pre>{JSON.stringify(rawResponses[method.id] || results[method.id], null, 2)}</pre>
-                      </div>
-                    </details>
                   </div>
                 )}
-              </div>
-            </TabsContent>
+              </CardContent>
+            </Card>
           ))}
-        </Tabs>
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 };

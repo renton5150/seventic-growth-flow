@@ -2,6 +2,7 @@
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { fetchCampaignStatisticsFromApi, fetchCampaignStatisticsLegacy } from "./apiClient";
+import { createEmptyStatistics, extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
 
 /**
  * Vérifie si les statistiques sont vides ou non initialisées
@@ -80,7 +81,7 @@ export const enrichCampaignsWithStats = async (
       // Ajouter les statistiques à la campagne
       const enrichedCampaign = {
         ...campaign,
-        statistics: validatedStats || campaign.statistics || null
+        statistics: validatedStats || campaign.statistics || createEmptyStatistics()
       };
       
       // Ajouter des informations sur la source de données à la meta
@@ -127,6 +128,26 @@ export const fetchDirectStatistics = async (
       stats = await fetchCampaignStatisticsLegacy(campaignUid, account);
     }
     
+    // Essai de la méthode stats v2 si les deux premières ont échoué
+    if (!stats || hasEmptyStatistics(stats)) {
+      console.log(`Méthodes principales échouées, tentative via API stats pour ${campaignUid}`);
+      try {
+        const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/stats?api_token=${account.api_token}`;
+        const response = await fetch(apiUrl, {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const statsData = data.stats || data.data || data;
+          if (statsData) {
+            stats = extractStatisticsFromAnyFormat(statsData);
+          }
+        }
+      } catch (e) {
+        console.error("Erreur lors de la récupération des statistiques via API stats:", e);
+      }
+    }
+    
     // S'assurer que les statistiques sont valides et normalisées
     if (stats) {
       const validatedStats = ensureValidStatistics(stats);
@@ -134,10 +155,10 @@ export const fetchDirectStatistics = async (
       return validatedStats;
     } else {
       console.error(`Aucune statistique valide n'a pu être récupérée pour ${campaignUid}`);
-      return null;
+      return createEmptyStatistics();
     }
   } catch (error) {
     console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
-    return null;
+    return createEmptyStatistics();
   }
 };

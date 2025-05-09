@@ -48,43 +48,113 @@ interface CampaignSummaryStatsProps {
 }
 
 export const CampaignSummaryStats: React.FC<CampaignSummaryStatsProps> = ({ campaigns }) => {
-  // Calculate aggregated statistics
-  const totalRecipients = campaigns.reduce(
-    (sum, campaign) => sum + (campaign.statistics?.subscriber_count || 0), 
-    0
-  );
+  // Fonction pour extraire une valeur numérique sécurisée
+  const getNumericValue = (value: any): number => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
   
-  const totalDelivered = campaigns.reduce(
-    (sum, campaign) => sum + (campaign.statistics?.delivered_count || 0),
-    0
-  );
-  
-  const totalOpens = campaigns.reduce(
-    (sum, campaign) => sum + (campaign.statistics?.open_count || 0),
-    0
-  );
-  
-  const totalClicks = campaigns.reduce(
-    (sum, campaign) => sum + (campaign.statistics?.click_count || 0),
-    0
-  );
-  
-  const totalBounces = campaigns.reduce(
-    (sum, campaign) => sum + (campaign.statistics?.bounce_count || 0),
-    0
-  );
-
-  const avgOpenRate = totalDelivered > 0 
-    ? Math.round((totalOpens / totalDelivered) * 100) 
-    : 0;
-
-  const avgClickRate = totalOpens > 0 
-    ? Math.round((totalClicks / totalOpens) * 100) 
-    : 0;
+  // Calcul des statistiques agrégées avec log des valeurs pour déboguer
+  const calculateStats = () => {
+    let totalRecipients = 0;
+    let totalDelivered = 0;
+    let totalOpens = 0;
+    let totalClicks = 0;
+    let totalBounces = 0;
     
-  const bounceRate = totalRecipients > 0
-    ? Math.round((totalBounces / totalRecipients) * 100) 
-    : 0;
+    campaigns.forEach((campaign, index) => {
+      console.log(`[CampaignSummaryStats] Stats for campaign ${index} (${campaign.name}):`, {
+        statistics: campaign.statistics,
+        delivery_info: campaign.delivery_info
+      });
+      
+      // Essayer d'obtenir les valeurs depuis les statistiques d'abord, puis depuis delivery_info
+      const stats = campaign.statistics || {};
+      const deliveryInfo = campaign.delivery_info || {};
+      
+      // Nombre total de destinataires
+      const recipients = getNumericValue(stats.subscriber_count) || getNumericValue(deliveryInfo.total) || 0;
+      totalRecipients += recipients;
+      
+      // Nombre d'emails délivrés
+      const delivered = getNumericValue(stats.delivered_count) || getNumericValue(deliveryInfo.delivered) || 0;
+      totalDelivered += delivered;
+      
+      // Nombre d'ouvertures
+      const opens = getNumericValue(stats.open_count) || getNumericValue(deliveryInfo.opened) || 0;
+      totalOpens += opens;
+      
+      // Nombre de clics
+      const clicks = getNumericValue(stats.click_count) || getNumericValue(deliveryInfo.clicked) || 0;
+      totalClicks += clicks;
+      
+      // Nombre de rebonds
+      let bounces = 0;
+      
+      // Traitement spécial pour les rebonds qui peuvent être un objet ou un nombre
+      if (stats.bounce_count !== undefined) {
+        bounces = getNumericValue(stats.bounce_count);
+      } else if (deliveryInfo.bounced !== undefined) {
+        if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
+          bounces = getNumericValue(deliveryInfo.bounced.total);
+        } else {
+          bounces = getNumericValue(deliveryInfo.bounced);
+        }
+      }
+      
+      totalBounces += bounces;
+      
+      console.log(`[CampaignSummaryStats] Extracted values for campaign ${index}:`, { 
+        recipients, delivered, opens, clicks, bounces 
+      });
+    });
+    
+    // Calculer les taux
+    const avgOpenRate = totalDelivered > 0 
+      ? Math.round((totalOpens / totalDelivered) * 100) 
+      : 0;
+
+    const avgClickRate = totalOpens > 0 
+      ? Math.round((totalClicks / totalOpens) * 100) 
+      : 0;
+      
+    const bounceRate = totalRecipients > 0
+      ? Math.round((totalBounces / totalRecipients) * 100) 
+      : 0;
+    
+    console.log('[CampaignSummaryStats] Final aggregated stats:', { 
+      totalRecipients, totalDelivered, totalOpens, totalClicks, totalBounces,
+      avgOpenRate, avgClickRate, bounceRate
+    });
+    
+    return {
+      totalRecipients,
+      totalDelivered,
+      totalOpens,
+      totalClicks,
+      totalBounces,
+      avgOpenRate,
+      avgClickRate,
+      bounceRate
+    };
+  };
+  
+  // Calculer les statistiques
+  const {
+    totalRecipients,
+    totalDelivered,
+    totalOpens,
+    totalClicks,
+    totalBounces,
+    avgOpenRate,
+    avgClickRate,
+    bounceRate
+  } = calculateStats();
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
