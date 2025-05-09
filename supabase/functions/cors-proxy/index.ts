@@ -132,10 +132,12 @@ serve(async (req: Request) => {
     acelleHeaders.forEach(headerName => {
       const headerValue = req.headers.get(headerName);
       if (headerValue) {
-        // Si c'est le token Acelle, l'ajouter comme en-tête Authorization pour l'API Acelle
+        // Si c'est le token Acelle, l'ajouter comme paramètre d'URL
         if (headerName.toLowerCase() === 'x-acelle-token') {
-          console.log(`[CORS Proxy] Utilisation du token Acelle pour l'authentification`);
-          (requestInit.headers as Headers).set('Authorization', `Bearer ${headerValue}`);
+          console.log(`[CORS Proxy] Ajout du token API Acelle comme paramètre d'URL`);
+          const separator = targetUrl.includes('?') ? '&' : '?';
+          targetUrl = `${targetUrl}${separator}api_token=${headerValue}`;
+          // Ne pas modifier les headers Authorization
         }
         // Conserver les autres en-têtes spécifiques à Acelle
         else {
