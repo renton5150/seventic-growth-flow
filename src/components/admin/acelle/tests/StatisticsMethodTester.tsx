@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { AcelleAccount, AcelleCampaignStatistics, DeliveryInfo } from "@/types/a
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
 import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
 import { buildDirectApiUrl } from "@/services/acelle/acelle-service";
-import { createEmptyStatistics, extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
+import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 interface StatisticsMethodTesterProps {
   account: AcelleAccount;
@@ -133,6 +134,8 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       const endTime = performance.now();
       
+      console.log("[Method 1] Statistiques récupérées:", stats);
+      
       setResults(prev => [...prev, {
         method: "method-1",
         label: "Service directStats",
@@ -175,7 +178,10 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       }
       
       const data = await response.json();
+      console.log("[Method 2] Données brutes de l'API:", data);
+      
       const stats = ensureValidStatistics(data);
+      console.log("[Method 2] Statistiques après traitement:", stats);
       
       const endTime = performance.now();
       
@@ -217,7 +223,10 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       }
       
       const data = await response.json();
+      console.log("[Method 3] Données brutes de l'API:", data);
+      
       const stats = ensureValidStatistics(data);
+      console.log("[Method 3] Statistiques après traitement:", stats);
       
       const endTime = performance.now();
       
@@ -257,13 +266,49 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       const deliveryInfo = data.delivery_info;
       
-      // Convertir delivery_info en AcelleCampaignStatistics en s'assurant que c'est un objet
-      let stats: AcelleCampaignStatistics | null = null;
+      console.log("[Method 4] Données brutes de la base:", deliveryInfo);
+      
+      // Extraction manuelle des statistiques sans utiliser extractStatisticsFromAnyFormat
+      let stats: AcelleCampaignStatistics = createEmptyStatistics();
+      
+      // Vérifier que deliveryInfo est un objet valide
       if (deliveryInfo && typeof deliveryInfo === 'object' && !Array.isArray(deliveryInfo)) {
-        stats = extractStatisticsFromAnyFormat(deliveryInfo);
+        const di = deliveryInfo as Record<string, any>;
+        
+        // Log pour debug
+        console.log("[Method 4] DeliveryInfo valide:", di);
+        
+        // Extraire directement les valeurs en utilisant les chemins appropriés
+        stats.subscriber_count = Number(di.total || di.subscriber_count || 0);
+        stats.delivered_count = Number(di.delivered || di.delivered_count || 0);
+        stats.delivered_rate = Number(di.delivery_rate || di.delivered_rate || 0);
+        stats.open_count = Number(di.opened || di.open_count || 0);
+        stats.uniq_open_count = Number(di.opened || di.unique_open_count || di.uniq_open_count || 0);
+        stats.uniq_open_rate = Number(di.unique_open_rate || di.uniq_open_rate || di.open_rate || 0);
+        stats.click_count = Number(di.clicked || di.click_count || 0);
+        stats.click_rate = Number(di.click_rate || 0);
+        
+        // Gérer bounced qui peut être un objet ou un nombre
+        if (di.bounced !== undefined) {
+          if (typeof di.bounced === 'object' && di.bounced !== null) {
+            stats.bounce_count = Number(di.bounced.total || 0);
+            stats.soft_bounce_count = Number(di.bounced.soft || 0);
+            stats.hard_bounce_count = Number(di.bounced.hard || 0);
+          } else {
+            stats.bounce_count = Number(di.bounced || 0);
+          }
+        } else {
+          stats.bounce_count = Number(di.bounce_count || 0);
+          stats.soft_bounce_count = Number(di.soft_bounce_count || 0);
+          stats.hard_bounce_count = Number(di.hard_bounce_count || 0);
+        }
+        
+        stats.unsubscribe_count = Number(di.unsubscribed || di.unsubscribe_count || 0);
+        stats.abuse_complaint_count = Number(di.complained || di.abuse_complaint_count || 0);
+        
+        console.log("[Method 4] Statistiques extraites:", stats);
       } else {
-        console.warn('Format de delivery_info invalide:', deliveryInfo);
-        stats = createEmptyStatistics();
+        console.warn("[Method 4] Format de delivery_info invalide:", deliveryInfo);
       }
       
       const endTime = performance.now();
@@ -306,7 +351,50 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       if (error) throw error;
       
       const statistics = data.statistics;
-      const stats = ensureValidStatistics(statistics);
+      
+      console.log("[Method 5] Données brutes de la base:", statistics);
+      
+      // Extraction manuelle des statistiques
+      let stats: AcelleCampaignStatistics = createEmptyStatistics();
+      
+      if (statistics && typeof statistics === 'object' && !Array.isArray(statistics)) {
+        const statsData = statistics as Record<string, any>;
+        
+        // Log pour debug
+        console.log("[Method 5] Statistics valide:", statsData);
+        
+        // Extraire directement les valeurs en utilisant les chemins appropriés
+        stats.subscriber_count = Number(statsData.total || statsData.subscriber_count || 0);
+        stats.delivered_count = Number(statsData.delivered || statsData.delivered_count || 0);
+        stats.delivered_rate = Number(statsData.delivery_rate || statsData.delivered_rate || 0);
+        stats.open_count = Number(statsData.opened || statsData.open_count || 0);
+        stats.uniq_open_count = Number(statsData.opened || statsData.unique_open_count || statsData.uniq_open_count || 0);
+        stats.uniq_open_rate = Number(statsData.unique_open_rate || statsData.uniq_open_rate || statsData.open_rate || 0);
+        stats.click_count = Number(statsData.clicked || statsData.click_count || 0);
+        stats.click_rate = Number(statsData.click_rate || 0);
+        
+        // Gérer bounced qui peut être un objet ou un nombre
+        if (statsData.bounced !== undefined) {
+          if (typeof statsData.bounced === 'object' && statsData.bounced !== null) {
+            stats.bounce_count = Number(statsData.bounced.total || 0);
+            stats.soft_bounce_count = Number(statsData.bounced.soft || 0);
+            stats.hard_bounce_count = Number(statsData.bounced.hard || 0);
+          } else {
+            stats.bounce_count = Number(statsData.bounced || 0);
+          }
+        } else {
+          stats.bounce_count = Number(statsData.bounce_count || 0);
+          stats.soft_bounce_count = Number(statsData.soft_bounce_count || 0);
+          stats.hard_bounce_count = Number(statsData.hard_bounce_count || 0);
+        }
+        
+        stats.unsubscribe_count = Number(statsData.unsubscribed || statsData.unsubscribe_count || 0);
+        stats.abuse_complaint_count = Number(statsData.complained || statsData.abuse_complaint_count || 0);
+        
+        console.log("[Method 5] Statistiques extraites:", stats);
+      } else {
+        console.warn("[Method 5] Format de statistics invalide:", statistics);
+      }
       
       const endTime = performance.now();
       
@@ -351,14 +439,48 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       }
       
       const data = await response.json();
+      console.log("[Method 6] Données brutes de l'API:", data);
       
-      // Essayer d'extraire les statistiques en s'assurant que data est un objet
-      let extractedStats: AcelleCampaignStatistics | null = null;
-      if (data && typeof data === 'object') {
-        extractedStats = extractStatisticsFromAnyFormat(data);
+      // Extraction manuelle des statistiques
+      let stats: AcelleCampaignStatistics = createEmptyStatistics();
+      
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiData = data as Record<string, any>;
+        
+        // Log pour debug
+        console.log("[Method 6] API data valide:", apiData);
+        
+        // Extraire directement les valeurs
+        stats.subscriber_count = Number(apiData.total || apiData.subscriber_count || 0);
+        stats.delivered_count = Number(apiData.delivered || apiData.delivered_count || 0);
+        stats.delivered_rate = Number(apiData.delivery_rate || apiData.delivered_rate || 0);
+        stats.open_count = Number(apiData.opened || apiData.open_count || 0);
+        stats.uniq_open_count = Number(apiData.opened || apiData.unique_open_count || apiData.uniq_open_count || 0);
+        stats.uniq_open_rate = Number(apiData.unique_open_rate || apiData.uniq_open_rate || apiData.open_rate || 0);
+        stats.click_count = Number(apiData.clicked || apiData.click_count || 0);
+        stats.click_rate = Number(apiData.click_rate || 0);
+        
+        // Gérer bounced qui peut être un objet ou un nombre
+        if (apiData.bounced !== undefined) {
+          if (typeof apiData.bounced === 'object' && apiData.bounced !== null) {
+            stats.bounce_count = Number(apiData.bounced.total || 0);
+            stats.soft_bounce_count = Number(apiData.bounced.soft || 0);
+            stats.hard_bounce_count = Number(apiData.bounced.hard || 0);
+          } else {
+            stats.bounce_count = Number(apiData.bounced || 0);
+          }
+        } else {
+          stats.bounce_count = Number(apiData.bounce_count || 0);
+          stats.soft_bounce_count = Number(apiData.soft_bounce_count || 0);
+          stats.hard_bounce_count = Number(apiData.hard_bounce_count || 0);
+        }
+        
+        stats.unsubscribe_count = Number(apiData.unsubscribed || apiData.unsubscribe_count || 0);
+        stats.abuse_complaint_count = Number(apiData.complained || apiData.abuse_complaint_count || 0);
+        
+        console.log("[Method 6] Statistiques extraites:", stats);
       } else {
-        console.warn('Format de données invalide pour extractStatisticsFromAnyFormat:', data);
-        extractedStats = createEmptyStatistics();
+        console.warn("[Method 6] Format de données invalide:", data);
       }
       
       const endTime = performance.now();
@@ -367,9 +489,9 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         method: "method-6",
         label: "API route tracking-log (legacy)",
         data: data,
-        success: !!extractedStats,
+        success: !!stats,
         timing: endTime - startTime,
-        formatted: extractedStats
+        formatted: stats
       }]);
     } catch (error) {
       console.error("Erreur avec la méthode 6:", error);
@@ -401,6 +523,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       }
       
       const data = await response.json();
+      console.log("[Method 7] Données brutes de l'API:", data);
       
       const endTime = performance.now();
       
@@ -411,6 +534,8 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       if (!statsData || typeof statsData !== 'object' || Array.isArray(statsData)) {
         throw new Error('Format de données invalide: les statistiques doivent être un objet');
       }
+      
+      console.log("[Method 7] Données de statistiques:", statsData);
       
       // Créer un objet DeliveryInfo correctement typé
       const deliveryInfo: DeliveryInfo = {
@@ -442,7 +567,9 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
-      // MODIFICATION: Remplacer l'utilisation de extractStatisticsFromAnyFormat par une création directe de l'objet
+      console.log("[Method 7] DeliveryInfo créé:", deliveryInfo);
+      
+      // Créer manuellement l'objet des statistiques
       let stats: AcelleCampaignStatistics = createEmptyStatistics();
       
       // Remplir manuellement l'objet stats
@@ -467,6 +594,8 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         stats.unsubscribe_count = deliveryInfo.unsubscribed || 0;
         stats.abuse_complaint_count = deliveryInfo.complained || 0;
       }
+      
+      console.log("[Method 7] Statistiques finales:", stats);
       
       setResults(prev => [...prev, {
         method: "method-7",
