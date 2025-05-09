@@ -28,13 +28,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCampaignsFromCache } from "@/hooks/acelle/useCampaignFetch";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, AlertTriangle, ShieldAlert } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
 import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
-import { DataUnavailableAlert } from './errors/DataUnavailableAlert';
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -67,15 +66,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isCacheBusy
   } = useCampaignCache(account);
   
-  // États spécifiques à la gestion des erreurs d'API
-  const [apiErrors, setApiErrors] = useState<{
-    hasAuthError: boolean;
-    message: string | null;
-  }>({
-    hasAuthError: false,
-    message: null
-  });
-  
   // Create a refetch function to reload the campaigns
   const refetch = useCallback(async (options?: { forceRefresh?: boolean }) => {
     const shouldForceRefresh = options?.forceRefresh === true;
@@ -83,7 +73,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setIsLoading(true);
     setIsError(false);
     setError(null);
-    setApiErrors({ hasAuthError: false, message: null });
     
     try {
       if (account?.id) {
@@ -150,16 +139,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
                 }
               } catch (err) {
                 console.error("Error during background refresh:", err);
-                
-                // Vérifier si l'erreur est liée à l'authentification
-                const errorMessage = err instanceof Error ? err.message : String(err);
-                if (errorMessage.includes("403") || errorMessage.includes("Forbidden") || 
-                    errorMessage.includes("authentification") || errorMessage.includes("authentication")) {
-                  setApiErrors({
-                    hasAuthError: true,
-                    message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte."
-                  });
-                }
               } finally {
                 setBackgroundRefreshInProgress(false);
               }
@@ -169,32 +148,14 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           // Si le cache est vide, nous devons attendre l'enrichissement
           console.log("No campaigns in cache, waiting for enrichment...");
           
-          try {
-            // Même dans ce cas, on ne force pas le refresh pour le premier affichage
-            const enrichedCampaigns = await enrichCampaignsWithStats(
-              fetchedCampaigns, 
-              account, 
-              { forceRefresh: false }
-            );
-            setCampaigns(enrichedCampaigns);
-          } catch (err) {
-            console.error("Error enriching campaigns:", err);
-            
-            // Vérifier si l'erreur est liée à l'authentification
-            const errorMessage = err instanceof Error ? err.message : String(err);
-            if (errorMessage.includes("403") || errorMessage.includes("Forbidden") || 
-                errorMessage.includes("authentification") || errorMessage.includes("authentication")) {
-              setApiErrors({
-                hasAuthError: true,
-                message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte."
-              });
-            }
-            
-            // Malgré l'erreur, afficher les campagnes que nous avons (même sans statistiques)
-            setCampaigns(fetchedCampaigns);
-          } finally {
-            setIsLoading(false);
-          }
+          // Même dans ce cas, on ne force pas le refresh pour le premier affichage
+          const enrichedCampaigns = await enrichCampaignsWithStats(
+            fetchedCampaigns, 
+            account, 
+            { forceRefresh: false }
+          );
+          setCampaigns(enrichedCampaigns);
+          setIsLoading(false);
         }
       }
     } catch (err) {
@@ -269,41 +230,25 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     calculateTotalPages();
   }, [account?.id, campaignsCount, currentPage, itemsPerPage]);
 
-  // Rafraîchir manuellement les campagnes avec gestion d'erreur améliorée
+  // Rafraîchir manuellement les campagnes
   const handleRefresh = useCallback(async () => {
     setIsManuallyRefreshing(true);
     setConnectionError(null);
-    setApiErrors({ hasAuthError: false, message: null });
     
     try {
-      toast.loading("Actualisation des données...", { id: "refresh" });
-      
       // Forcer le rafraîchissement des données
       await refetch({ forceRefresh: true });
-      toast.success("Les données ont été actualisées", { id: "refresh" });
+      toast.success("Les données ont été rafraîchies", { id: "refresh" });
     } catch (err) {
-      console.error("Erreur lors de l'actualisation:", err);
-      
-      // Détection améliorée des erreurs d'authentification
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      
-      if (errorMessage.includes("403") || errorMessage.includes("Forbidden") || 
-          errorMessage.includes("authentification") || errorMessage.includes("authentication")) {
-        toast.error("Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte.", { id: "refresh" });
-        setApiErrors({
-          hasAuthError: true,
-          message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte."
-        });
-      } else {
-        toast.error(`Erreur lors de l'actualisation des données: ${errorMessage}`, { id: "refresh" });
-        setConnectionError(errorMessage);
-      }
+      console.error("Erreur lors du rafraîchissement:", err);
+      toast.error("Erreur lors du rafraîchissement des données", { id: "refresh" });
+      setConnectionError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
       setIsManuallyRefreshing(false);
     }
   }, [refetch]);
 
-  // Synchroniser manuellement les campagnes avec gestion d'erreur améliorée
+  // Synchroniser manuellement les campagnes
   const handleSync = useCallback(async () => {
     if (!accessToken || !account) {
       toast.error("Impossible de synchroniser: token ou compte manquant", { id: "sync" });
@@ -311,59 +256,20 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     }
     
     setIsSyncing(true);
-    setApiErrors({ hasAuthError: false, message: null });
     
     try {
       toast.loading("Synchronisation des campagnes...", { id: "sync" });
-      
-      // Ajouter les headers d'authentification Acelle explicites
-      const headers = {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Acelle-Token': account.api_token,
-        'X-Acelle-Endpoint': account.api_endpoint
-      };
-      
-      console.log("Headers de synchronisation (auth masquée):", {
-        ...headers,
-        'Authorization': '***MASKED***',
-        'X-Acelle-Token': '***MASKED***'
-      });
-      
-      const result = await forceSyncCampaigns(account, accessToken, headers);
+      const result = await forceSyncCampaigns(account, accessToken);
       
       if (result.success) {
         toast.success(result.message, { id: "sync" });
         await refetch({ forceRefresh: false });
       } else {
-        // Détection améliorée des erreurs d'authentification
-        if (result.message.includes("403") || result.message.includes("Forbidden") || 
-            result.message.includes("authentification") || result.message.includes("authentication")) {
-          toast.error("Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte.", { id: "sync" });
-          setApiErrors({
-            hasAuthError: true,
-            message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte."
-          });
-        } else {
-          toast.error(result.message, { id: "sync" });
-        }
+        toast.error(result.message, { id: "sync" });
       }
     } catch (err) {
       console.error("Erreur lors de la synchronisation:", err);
-      
-      // Détection améliorée des erreurs d'authentification
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      
-      if (errorMessage.includes("403") || errorMessage.includes("Forbidden") || 
-          errorMessage.includes("authentification") || errorMessage.includes("authentication")) {
-        toast.error("Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte.", { id: "sync" });
-        setApiErrors({
-          hasAuthError: true,
-          message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte."
-        });
-      } else {
-        toast.error(`Erreur lors de la synchronisation: ${errorMessage}`, { id: "sync" });
-      }
+      toast.error("Erreur lors de la synchronisation des campagnes", { id: "sync" });
     } finally {
       setIsSyncing(false);
     }
@@ -470,21 +376,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         </div>
       </div>
       
-      {/* Affichage des erreurs d'authentification API */}
-      {apiErrors.hasAuthError && (
-        <Card className="bg-red-50 border-red-200">
-          <CardContent className="p-4 text-red-800 flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-red-500" />
-            <div>
-              <p className="font-semibold">Erreur d'authentification à l'API Acelle</p>
-              <p className="text-sm">Vérifiez les identifiants API et le statut du serveur Acelle Mail. 
-              Les statistiques ne peuvent pas être récupérées.</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      {connectionError && !apiErrors.hasAuthError && (
+      {connectionError && (
         <Card className="bg-amber-50 border-amber-200">
           <CardContent className="p-4 text-amber-800 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -529,20 +421,14 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCampaigns.length > 0 ? filteredCampaigns.map((campaign) => (
+            {filteredCampaigns.map((campaign) => (
               <AcelleTableRow 
                 key={campaign.uid || campaign.campaign_uid} 
                 campaign={campaign} 
                 account={account}
                 onViewCampaign={handleViewCampaign}
               />
-            )) : (
-              <TableRow>
-                <td colSpan={9} className="py-6 text-center">
-                  Aucune campagne ne correspond aux critères de filtrage
-                </td>
-              </TableRow>
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>

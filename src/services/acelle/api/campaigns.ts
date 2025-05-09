@@ -1,7 +1,7 @@
 
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
+import { buildProxyUrl } from "../acelle-service";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
@@ -159,12 +159,10 @@ export const getCampaign = async (
 
 /**
  * Force la synchronisation des campagnes pour un compte
- * Amélioré avec des en-têtes d'authentification explicites
  */
 export const forceSyncCampaigns = async (
   account: AcelleAccount,
-  accessToken: string,
-  additionalHeaders?: Record<string, string>
+  accessToken: string
 ): Promise<{ success: boolean; message: string }> => {
   try {
     if (!account?.id) {
@@ -174,106 +172,46 @@ export const forceSyncCampaigns = async (
     if (!accessToken) {
       return { success: false, message: "Token d'authentification manquant" };
     }
-    
-    if (!account.api_token || !account.api_endpoint) {
-      return { 
-        success: false, 
-        message: "Informations d'API incomplètes. Vérifiez les paramètres du compte." 
-      };
-    }
 
     console.log(`Forçage de la synchronisation des campagnes pour le compte ${account.name}`);
-
-    // En-têtes de base
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    };
-    
-    // Ajouter les en-têtes d'authentification Acelle si fournis
-    if (additionalHeaders) {
-      Object.keys(additionalHeaders).forEach(key => {
-        headers[key] = additionalHeaders[key];
-      });
-    } else {
-      // Sinon, utiliser les valeurs du compte
-      headers['X-Acelle-Token'] = account.api_token;
-      headers['X-Acelle-Endpoint'] = account.api_endpoint;
-    }
 
     // Appeler la fonction Edge pour synchroniser
     const { data, error } = await supabase.functions.invoke('sync-email-campaigns', {
       method: 'POST',
-      headers,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
       body: { 
         accountId: account.id
       }
     });
     
-    console.log("Réponse de synchronisation:", { data, error });
-    
     if (error) {
-      // Amélioration de la gestion d'erreur
-      let errorMessage = error.message;
-      
-      // Détecter spécifiquement les erreurs d'authentification
-      if (error.message.includes("403") || error.message.includes("Forbidden")) {
-        errorMessage = "Erreur d'authentification à l'API Acelle (403 Forbidden). Vérifiez les identifiants API.";
-      }
-      
-      console.error("Erreur lors de la synchronisation:", errorMessage);
+      console.error("Erreur lors de la synchronisation:", error);
       return { 
         success: false, 
-        message: errorMessage
+        message: `Erreur: ${error.message || "Échec de la synchronisation"}` 
       };
     }
 
-    // Traiter la réponse
     if (data?.success) {
       return { 
         success: true, 
         message: data.message || "Synchronisation réussie" 
       };
-    } else if (data?.error) {
-      // Amélioration de la gestion des erreurs renvoyées par l'API
-      let errorMessage = data.error;
-      
-      // Détecter spécifiquement les erreurs d'authentification
-      if (data.statusCode === 403 || 
-          (typeof data.error === 'string' && (
-           data.error.includes("403") || 
-           data.error.includes("Forbidden") || 
-           data.error.includes("authentification") || 
-           data.error.includes("authentication")))) {
-        errorMessage = "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants API.";
-      }
-      
-      return { 
-        success: false, 
-        message: errorMessage
-      };
     } else {
+      console.error("La synchronisation a échoué:", data);
       return { 
         success: false, 
-        message: "La synchronisation a échoué pour une raison inconnue" 
+        message: data?.message || "La synchronisation a échoué pour une raison inconnue" 
       };
     }
   } catch (error) {
     console.error("Erreur lors de la synchronisation forcée:", error);
-    
-    // Amélioration de la détection des erreurs d'authentification
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes("403") || errorMessage.includes("Forbidden") || 
-        errorMessage.includes("authentification") || errorMessage.includes("authentication")) {
-      return { 
-        success: false, 
-        message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants API."
-      };
-    }
-    
     return { 
       success: false, 
-      message: `Erreur: ${errorMessage}` 
+      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"}` 
     };
   }
 };

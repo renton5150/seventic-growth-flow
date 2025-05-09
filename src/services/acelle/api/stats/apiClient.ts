@@ -1,10 +1,10 @@
 
 import { AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
+import { buildProxyUrl } from "../../acelle-service";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
- * Modifié pour utiliser l'authentification par paramètre URL (api_token)
  */
 export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
@@ -22,67 +22,38 @@ export const fetchCampaignStatisticsFromApi = async (
     
     console.log(`Fetching statistics from API for campaign ${campaignUid}`);
     
-    // Construire l'URL pour la requête API - utiliser directement l'endpoint complet
-    const apiEndpoint = account.api_endpoint.replace(/\/$/, '');
-    const apiPath = `/campaigns/${campaignUid}/statistics`;
+    // Construire l'URL pour la requête API
+    const params = {
+      api_token: account.api_token,
+      _t: Date.now().toString() // Empêcher la mise en cache
+    };
     
-    console.log(`Chemin API à appeler: ${apiPath}`);
+    // Utiliser le proxy pour éviter les problèmes CORS
+    const url = buildProxyUrl(`campaigns/${campaignUid}/statistics`, params);
     
-    // Obtenir le token d'authentification Supabase
+    // Obtenir le token d'authentification
     const { data: sessionData } = await supabase.auth.getSession();
-    const sessionToken = sessionData?.session?.access_token;
+    const token = sessionData?.session?.access_token;
     
-    if (!sessionToken) {
-      console.error("Aucun token d'authentification Supabase disponible pour l'API");
+    if (!token) {
+      console.error("Aucun token d'authentification disponible pour l'API");
       return null;
     }
     
-    // Préparer les en-têtes pour l'authentification correcte
-    const headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${sessionToken}`, // Token Supabase pour l'Edge Function
-      'X-Acelle-Token': account.api_token, // Token Acelle pour l'API
-      'X-Acelle-Endpoint': apiEndpoint // Endpoint explicite
-    };
-    
-    // Ajouter des logs détaillés pour diagnostiquer les problèmes d'authentification
-    console.log("En-têtes de requête API (authentification masquée):", {
-      ...headers,
-      'Authorization': 'Bearer ***MASKED***',
-      'X-Acelle-Token': '***MASKED***'
+    // Effectuer la requête
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
     });
     
-    // Construire l'URL pour le proxy CORS de Supabase
-    // IMPORTANT: On n'inclut pas directement le token dans l'URL ici car le proxy Edge Function le fera
-    const proxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/campaigns/${campaignUid}/statistics`;
-    
-    console.log(`URL du proxy: ${proxyUrl} (les paramètres d'authentification seront ajoutés par l'Edge Function)`);
-    
-    // Effectuer la requête via le proxy
-    console.log(`Envoi de la requête au proxy...`);
-    const response = await fetch(proxyUrl, { headers });
-    
-    // Logger le statut de la réponse pour diagnostiquer
-    console.log(`Statut de réponse API: ${response.status} ${response.statusText}`);
-    
     if (!response.ok) {
-      // Journaliser plus de détails sur l'erreur
-      const errorText = await response.text();
-      console.error(`Erreur API ${response.status}: ${errorText.substring(0, 500)}...`);
-      
-      // Gestion spécifique pour le 403 Forbidden
-      if (response.status === 403) {
-        console.error(`Erreur d'authentification (403 Forbidden) lors de l'accès à l'API Acelle. 
-        Vérifiez si le token API doit être passé dans l'URL ou dans les en-têtes.`);
-        throw new Error(`Erreur d'authentification à l'API Acelle (403 Forbidden)`);
-      }
-      
+      console.error(`Erreur API: ${response.status} ${response.statusText}`);
       return null;
     }
     
     const data = await response.json();
-    console.log(`Données reçues de l'API:`, data);
     
     if (data?.statistics) {
       // Convertir les statistiques en format attendu

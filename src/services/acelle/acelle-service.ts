@@ -1,19 +1,8 @@
+
+import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
-import { buildProxyUrl } from "@/utils/acelle/proxyUtils";
-
-// On importe les fonctions après avoir défini buildProxyUrl pour éviter les références circulaires
-import { 
-  getAcelleAccounts,
-  getAcelleAccountById,
-  createAcelleAccount,
-  updateAcelleAccount,
-  deleteAcelleAccount
-} from './api/accounts';
-
-import {
-  getCampaigns,
-  forceSyncCampaigns
-} from './api/campaigns';
+import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
+import { forceSyncCampaigns, getCampaigns } from "./api/campaigns";
 
 /**
  * Service pour gérer les appels à l'API Acelle
@@ -92,4 +81,29 @@ export const acelleService = {
       };
     });
   }
+};
+
+/**
+ * Construit l'URL pour le proxy CORS
+ */
+export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
+  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
+  
+  const apiPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  let apiUrl = `https://emailing.plateforme-solution.net/api/v1/${apiPath}`;
+  
+  if (Object.keys(params).length > 0) {
+    const searchParams = new URLSearchParams();
+    
+    for (const [key, value] of Object.entries(params)) {
+      searchParams.append(key, value);
+    }
+    
+    apiUrl += '?' + searchParams.toString();
+  }
+  
+  const encodedApiUrl = encodeURIComponent(apiUrl);
+  
+  return `${baseProxyUrl}?url=${encodedApiUrl}`;
 };
