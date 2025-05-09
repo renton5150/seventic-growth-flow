@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -86,7 +85,7 @@ export const AcelleTableRow = ({
               delivered_count: campaign.delivery_info.delivered || 0,
               delivered_rate: campaign.delivery_info.delivery_rate || 0,
               open_count: campaign.delivery_info.opened || 0,
-              uniq_open_count: campaign.delivery_info.unique_opened || 0,
+              uniq_open_count: campaign.delivery_info.uniq_open_count || 0,
               uniq_open_rate: campaign.delivery_info.unique_open_rate || 0,
               click_count: campaign.delivery_info.clicked || 0,
               click_rate: campaign.delivery_info.click_rate || 0,
