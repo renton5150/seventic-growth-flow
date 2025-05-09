@@ -1,4 +1,5 @@
 
+
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
@@ -85,6 +86,8 @@ export const acelleService = {
 
 /**
  * Construit l'URL pour le proxy CORS
+ * Version simplifiée pour appeler directement l'API Acelle via acelle-proxy
+ * @deprecated Utiliser buildDirectApiUrl pour les nouveaux appels API
  */
 export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
   const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
@@ -107,3 +110,33 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
   
   return `${baseProxyUrl}?url=${encodedApiUrl}`;
 };
+
+/**
+ * Construit l'URL pour appeler directement l'API Acelle via acelle-proxy
+ * Cette méthode est recommandée pour garantir une communication fiable
+ */
+export const buildDirectApiUrl = (
+  path: string, 
+  acelleEndpoint: string = 'https://emailing.plateforme-solution.net',
+  params: Record<string, string> = {}
+): string => {
+  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy';
+  
+  // Nettoyer le chemin d'API
+  const apiPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  // Construire les paramètres de requête
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined) {
+      searchParams.append(key, value);
+    }
+  }
+  
+  // Ajouter endpoint et timestamp pour éviter la mise en cache
+  searchParams.append('endpoint', acelleEndpoint);
+  searchParams.append('_t', Date.now().toString());
+  
+  return `${baseProxyUrl}/${apiPath}?${searchParams.toString()}`;
+};
+

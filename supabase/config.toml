@@ -39,8 +39,12 @@ pre_runtime_extensions = true
 
 [[functions]]
 name = "cors-proxy"
-verify_jwt = true
+verify_jwt = false
 
 [[functions]]
 name = "sync-email-campaigns"
-verify_jwt = true
+verify_jwt = false
+
+[[functions]]
+name = "acelle-proxy"
+verify_jwt = false

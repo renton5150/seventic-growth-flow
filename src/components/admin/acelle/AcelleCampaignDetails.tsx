@@ -1,13 +1,17 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle, Info } from "lucide-react";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
 import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
 import { toast } from "sonner";
 import { fetchAndProcessCampaignStats } from "@/services/acelle/api/campaignStats";
+import { buildDirectApiUrl } from "@/services/acelle/acelle-service";
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
@@ -34,6 +38,7 @@ const AcelleCampaignDetails = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'cache' | 'api' | 'demo' | null>(null);
 
   // Chargement des détails de la campagne
   useEffect(() => {
@@ -48,8 +53,9 @@ const AcelleCampaignDetails = ({
           setCampaign(campaignData);
           setStats(statsData);
           setLastUpdated(new Date().toISOString());
+          setDataSource('demo');
         } else {
-          // Mode normal: charger depuis le cache et enrichir avec les statistiques
+          // Mode normal: essayer de charger depuis le cache puis directement depuis l'API si nécessaire
           await loadRealCampaign(campaignId, account);
         }
       } catch (err) {
@@ -63,7 +69,7 @@ const AcelleCampaignDetails = ({
     loadCampaignDetails();
   }, [campaignId, account, demoMode]);
 
-  // Fonction pour charger une campagne réelle
+  // Fonction pour charger une campagne réelle avec tentatives multiples
   const loadRealCampaign = async (id: string, acct: AcelleAccount) => {
     console.log(`Récupération des informations pour la campagne ${id}`);
     
@@ -90,14 +96,77 @@ const AcelleCampaignDetails = ({
         console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
         setCampaign(foundCampaign);
         
-        // Récupérer les statistiques directement depuis l'API
-        await refreshStatistics(foundCampaign.uid || foundCampaign.campaign_uid || id, acct);
+        // Si la campagne a déjà des statistiques valides dans le cache, les utiliser
+        if (foundCampaign.statistics && foundCampaign.statistics.subscriber_count > 0) {
+          console.log("Utilisation des statistiques du cache");
+          setStats(foundCampaign.statistics);
+          setDataSource('cache');
+          setLastUpdated(foundCampaign.updated_at || new Date().toISOString());
+        } else {
+          // Sinon, récupérer les statistiques directement depuis l'API
+          console.log("Statistiques manquantes ou incomplètes, récupération depuis l'API...");
+          await refreshStatistics(foundCampaign.uid || foundCampaign.campaign_uid || id, acct);
+        }
       } else {
         setError("Campagne non trouvée");
       }
     } catch (err) {
       console.error("Erreur lors du chargement de la campagne:", err);
-      setError(err instanceof Error ? err.message : "Erreur lors du chargement de la campagne");
+      
+      // Essai de récupération directe des informations de campagne depuis l'API
+      try {
+        console.log("Tentative de récupération directe depuis l'API Acelle");
+        toast.loading("Tentative de récupération directe depuis l'API...");
+        
+        // Construire l'URL pour obtenir les détails de la campagne directement
+        const campaignUrl = buildDirectApiUrl(`campaigns/${id}`, account.api_endpoint, { api_token: account.api_token });
+        
+        // Récupérer les informations de base de la campagne
+        const response = await fetch(campaignUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'x-acelle-token': account.api_token,
+            'x-acelle-endpoint': account.api_endpoint
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
+        }
+        
+        const campaignData = await response.json();
+        if (campaignData) {
+          console.log("Informations de campagne récupérées directement depuis l'API", campaignData);
+          
+          // Créer un objet de campagne à partir des données API
+          const apiCampaign: AcelleCampaign = {
+            uid: campaignData.uid || id,
+            campaign_uid: campaignData.uid || id,
+            name: campaignData.name || "Sans nom",
+            subject: campaignData.subject || "",
+            status: campaignData.status || "unknown",
+            created_at: campaignData.created_at || new Date().toISOString(),
+            updated_at: campaignData.updated_at || new Date().toISOString(),
+            delivery_date: campaignData.run_at || null,
+            run_at: campaignData.run_at || null,
+            last_error: null,
+            statistics: null,
+            delivery_info: {}
+          };
+          
+          setCampaign(apiCampaign);
+          toast.success("Campagne récupérée directement depuis l'API");
+          
+          // Récupérer les statistiques
+          await refreshStatistics(id, acct);
+        } else {
+          throw new Error("Aucune donnée retournée par l'API");
+        }
+      } catch (apiErr) {
+        console.error("Échec de la récupération directe:", apiErr);
+        setError(apiErr instanceof Error ? apiErr.message : "Erreur lors du chargement de la campagne");
+        toast.error("Échec de la récupération directe");
+      }
     }
   };
 
@@ -111,7 +180,7 @@ const AcelleCampaignDetails = ({
     setIsRefreshing(true);
     
     try {
-      toast.loading("Récupération des statistiques...");
+      toast.loading("Récupération des statistiques...", { id: "stats-refresh" });
       console.log(`Récupération des statistiques fraîches pour la campagne ${campaignUid}`);
       
       // Récupérer les statistiques directement depuis l'API
@@ -121,6 +190,7 @@ const AcelleCampaignDetails = ({
         // Normaliser les statistiques
         const validStats = ensureValidStatistics(freshStats);
         setStats(validStats);
+        setDataSource('api');
         
         // Mettre à jour la campagne
         if (campaign) {
@@ -133,13 +203,13 @@ const AcelleCampaignDetails = ({
         // Enregistrer l'heure de mise à jour
         setLastUpdated(new Date().toISOString());
         
-        toast.success("Statistiques mises à jour avec succès");
+        toast.success("Statistiques mises à jour avec succès", { id: "stats-refresh" });
       } else {
-        toast.error("Impossible de récupérer les statistiques");
+        toast.error("Impossible de récupérer les statistiques", { id: "stats-refresh" });
         console.error("Aucune statistique retournée par l'API");
       }
     } catch (error) {
-      toast.error("Erreur lors de la récupération des statistiques");
+      toast.error("Erreur lors de la récupération des statistiques", { id: "stats-refresh" });
       console.error("Erreur lors du rafraîchissement des statistiques:", error);
     } finally {
       setIsRefreshing(false);
@@ -188,8 +258,13 @@ const AcelleCampaignDetails = ({
   // Afficher une erreur si nécessaire
   if (error || !campaign) {
     return (
-      <div className="text-center p-8 text-red-500">
-        <p>Erreur: {error || "Campagne non trouvée"}</p>
+      <div className="text-center p-8">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-5 w-5" />
+          <AlertDescription className="mt-2">
+            {error || "Campagne non trouvée"}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -218,6 +293,25 @@ const AcelleCampaignDetails = ({
 
   return (
     <div className="space-y-6">
+      {dataSource && (
+        <Alert variant={dataSource === 'api' ? "default" : "warning"} className={
+          dataSource === 'api' 
+            ? "bg-green-50 border-green-200" 
+            : dataSource === 'cache' 
+              ? "bg-amber-50 border-amber-200" 
+              : "bg-blue-50 border-blue-200"
+        }>
+          <Info className="h-5 w-5" />
+          <AlertDescription className="ml-2">
+            {dataSource === 'api' 
+              ? "Données récupérées directement depuis l'API Acelle" 
+              : dataSource === 'cache' 
+                ? "Données récupérées depuis le cache local (peuvent ne pas être à jour)"
+                : "Données de démonstration (non réelles)"}
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <CampaignGeneralInfo campaign={campaign} />
         <CampaignGlobalStats statistics={campaignStats} />
@@ -250,7 +344,11 @@ const AcelleCampaignDetails = ({
         </TabsContent>
 
         <TabsContent value="technical" className="py-4">
-          <CampaignTechnicalInfo campaign={campaign} demoMode={demoMode} />
+          <CampaignTechnicalInfo 
+            campaign={campaign} 
+            demoMode={demoMode} 
+            dataSource={dataSource}
+          />
         </TabsContent>
       </Tabs>
     </div>

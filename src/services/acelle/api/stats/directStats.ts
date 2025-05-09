@@ -1,7 +1,7 @@
 
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
-import { fetchCampaignStatisticsFromApi } from "./apiClient";
+import { fetchCampaignStatisticsFromApi, fetchCampaignStatisticsLegacy } from "./apiClient";
 
 /**
  * Vérifie si les statistiques sont vides ou non initialisées
@@ -19,7 +19,7 @@ export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null)
 
 /**
  * Enrichit les campagnes avec des statistiques en utilisant uniquement l'API directe
- * Version simplifiée sans cache pour corriger les problèmes de récupération
+ * Version simplifiée et robuste qui tente d'abord la méthode directe puis la méthode legacy
  */
 export const enrichCampaignsWithStats = async (
   campaigns: AcelleCampaign[],
@@ -43,13 +43,20 @@ export const enrichCampaignsWithStats = async (
       
       console.log(`Récupération des statistiques depuis l'API pour la campagne ${campaignUid}`);
       
-      // Récupérer les statistiques directement depuis l'API, sans passer par le cache
+      // Tenter d'abord la nouvelle méthode directe
       let statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
+      
+      // Si échec avec la nouvelle méthode, essayer la méthode legacy
+      if (!statistics) {
+        console.log(`Tentative de récupération via méthode legacy pour la campagne ${campaignUid}`);
+        statistics = await fetchCampaignStatisticsLegacy(campaignUid, account);
+      }
       
       // Ajouter les statistiques à la campagne
       enrichedCampaigns.push({
         ...campaign,
-        statistics: statistics ? ensureValidStatistics(statistics) : null
+        statistics: statistics ? ensureValidStatistics(statistics) : null,
+        data_source: statistics ? 'api_direct' : 'cache'
       });
       
     } catch (error) {
@@ -62,15 +69,34 @@ export const enrichCampaignsWithStats = async (
   return enrichedCampaigns;
 };
 
-// Fonction simple pour récupérer les statistiques directement, sans cache
+/**
+ * Récupère les statistiques directement, en essayant d'abord la méthode directe puis la méthode legacy
+ */
 export const fetchDirectStatistics = async (
   campaignUid: string,
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> => {
   try {
-    return await fetchCampaignStatisticsFromApi(campaignUid, account);
+    console.log(`Tentative de récupération directe des statistiques pour ${campaignUid}`);
+    
+    // Tenter d'abord la méthode directe
+    let stats = await fetchCampaignStatisticsFromApi(campaignUid, account);
+    
+    if (!stats) {
+      console.log(`Échec de la méthode directe, tentative via legacy pour ${campaignUid}`);
+      stats = await fetchCampaignStatisticsLegacy(campaignUid, account);
+    }
+    
+    if (stats) {
+      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`);
+    } else {
+      console.error(`Aucune statistique n'a pu être récupérée pour ${campaignUid}`);
+    }
+    
+    return stats;
   } catch (error) {
     console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
     return null;
   }
 };
+
