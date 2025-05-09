@@ -195,35 +195,39 @@ serve(async (req: Request) => {
         console.error(`[CORS Proxy] Corps de la réponse (premiers 1000 caractères): ${responseBodyText.substring(0, 1000)}`);
       }
       
-      // Transformation de la réponse si c'est du JSON
-      if (responseHeaders.get('Content-Type')?.includes('application/json') && responseBodyText) {
+      // Déterminer si nous avons une réponse JSON à transformer
+      const responseType = responseHeaders.get('Content-Type')?.includes('application/json') ? 'json' : 'text';
+      
+      // Transformation des réponses JSON si nécessaire
+      if (responseType === 'json' && responseBodyText) {
         try {
+          // Parser la réponse JSON
           const responseJson = JSON.parse(responseBodyText);
           
-          // Vérification si la réponse contient déjà une propriété "data"
-          if (responseJson.data) {
-            console.log(`[CORS Proxy] Données déjà dans la propriété 'data', pas de transformation nécessaire`);
-            // Pas de transformation nécessaire
+          // Vérifier si on a déjà une propriété data ou si on a un tableau à la racine
+          if (!responseJson.data && (Array.isArray(responseJson) || Object.keys(responseJson).length > 0)) {
+            console.log(`[CORS Proxy] Transformation de la réponse JSON pour compatibilité`);
             
-            // Logs des éléments dans la réponse
-            console.log(`[CORS Proxy] Données trouvées, nombre d'éléments: ${Array.isArray(responseJson.data) ? responseJson.data.length : 'N/A'}`);
-          } else {
-            console.log(`[CORS Proxy] Aucune donnée trouvée dans la propriété 'data'`);
-            
-            // Logs supplémentaires avant transformation
-            console.log(`[CORS Proxy] Structure avant transformation: ${JSON.stringify(responseJson).substring(0, 200)}`);
-            
-            // Transformation de la réponse pour compatibilité
+            // Transformer pour wrapper dans data
             const transformedJson = {
               data: responseJson
             };
             
-            // Logs supplémentaires après transformation
+            // Log de la structure avant et après transformation (limité à 200 caractères)
+            console.log(`[CORS Proxy] Structure avant transformation: ${JSON.stringify(responseJson).substring(0, 200)}`);
             console.log(`[CORS Proxy] Structure après transformation: ${JSON.stringify(transformedJson).substring(0, 200)}`);
             
-            // Remplacer la réponse pour compatibilité
+            // Remplacer le corps de la réponse
             responseBodyText = JSON.stringify(transformedJson);
-            console.log(`[CORS Proxy] Réponse transformée pour compatibilité`);
+            console.log(`[CORS Proxy] Réponse transformée avec succès`);
+          } else if (responseJson.data) {
+            // La réponse a déjà une propriété 'data'
+            console.log(`[CORS Proxy] La réponse contient déjà une propriété 'data', pas de transformation nécessaire`);
+            if (Array.isArray(responseJson.data)) {
+              console.log(`[CORS Proxy] Données trouvées, nombre d'éléments: ${responseJson.data.length}`);
+            } else {
+              console.log(`[CORS Proxy] Données trouvées (non-array)`);
+            }
           }
           
           // Log des clés disponibles dans la réponse pour le débogage
@@ -232,9 +236,9 @@ serve(async (req: Request) => {
             console.log(`[CORS Proxy] Clés disponibles dans la réponse: ${topLevelKeys.join(', ')}`);
           }
           
-          // Log de la réponse JSON pour le débogage
-          console.log(`[CORS Proxy] Réponse JSON: ${responseBodyText.substring(0, 1000)}`);
-        } catch (e) {
+        } catch (error) {
+          // En cas d'erreur de parsing, ne pas bloquer mais logger l'erreur
+          console.log(`[CORS Proxy] Erreur lors de la transformation: ${error.message}`);
           console.log(`[CORS Proxy] Réponse non-JSON: ${responseBodyText.substring(0, 1000)}`);
         }
       }
