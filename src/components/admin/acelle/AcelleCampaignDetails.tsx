@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
@@ -294,7 +293,7 @@ const AcelleCampaignDetails = ({
   return (
     <div className="space-y-6">
       {dataSource && (
-        <Alert variant={dataSource === 'api' ? "default" : "warning"} className={
+        <Alert variant={dataSource === 'api' ? "default" : "destructive"} className={
           dataSource === 'api' 
             ? "bg-green-50 border-green-200" 
             : dataSource === 'cache' 

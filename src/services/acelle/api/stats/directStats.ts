@@ -53,11 +53,20 @@ export const enrichCampaignsWithStats = async (
       }
       
       // Ajouter les statistiques à la campagne
-      enrichedCampaigns.push({
+      const enrichedCampaign = {
         ...campaign,
-        statistics: statistics ? ensureValidStatistics(statistics) : null,
-        data_source: statistics ? 'api_direct' : 'cache'
-      });
+        statistics: statistics ? ensureValidStatistics(statistics) : null
+      };
+      
+      // Ajouter des informations sur la source de données à la meta si disponible
+      if (campaign.meta) {
+        enrichedCampaign.meta = {
+          ...campaign.meta,
+          data_source: statistics ? 'api_direct' : 'cache'
+        };
+      }
+      
+      enrichedCampaigns.push(enrichedCampaign);
       
     } catch (error) {
       console.error(`Error enriching campaign ${campaign.uid || campaign.name} with stats:`, error);
@@ -99,4 +108,3 @@ export const fetchDirectStatistics = async (
     return null;
   }
 };
-
