@@ -202,6 +202,10 @@ serve(async (req: Request) => {
           
           // Vérification si la réponse contient déjà une propriété "data"
           if (responseJson.data) {
+            console.log(`[CORS Proxy] Données déjà dans la propriété 'data', pas de transformation nécessaire`);
+            // Pas de transformation nécessaire
+            
+            // Logs des éléments dans la réponse
             console.log(`[CORS Proxy] Données trouvées, nombre d'éléments: ${Array.isArray(responseJson.data) ? responseJson.data.length : 'N/A'}`);
           } else {
             console.log(`[CORS Proxy] Aucune donnée trouvée dans la propriété 'data'`);
