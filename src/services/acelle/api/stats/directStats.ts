@@ -64,6 +64,10 @@ export const enrichCampaignsWithStats = async (
           ...campaign.meta,
           data_source: statistics ? 'api_direct' : 'cache'
         };
+      } else {
+        enrichedCampaign.meta = {
+          data_source: statistics ? 'api_direct' : 'cache'
+        };
       }
       
       enrichedCampaigns.push(enrichedCampaign);

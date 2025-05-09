@@ -35,7 +35,7 @@ serve(async (req) => {
   
   // Support des différentes méthodes d'authentification
   const authHeader = req.headers.get('authorization');
-  const acelleToken = req.headers.get('x-acelle-token');
+  const acelleToken = req.headers.get('x-acelle-token') || url.searchParams.get('api_token');
   
   // Log les informations d'autorisation pour débogage
   if (authHeader) {
@@ -75,12 +75,12 @@ serve(async (req) => {
     }, LOG_LEVELS.DEBUG, currentLogLevel);
 
     // Construire l'URL de l'API Acelle
-    const acelleApiUrl = buildAcelleApiUrl(url, acelleEndpoint);
+    const acelleApiUrl = buildAcelleApiUrl(url, acelleEndpoint, acelleToken);
     
     debugLog(`Proxying request to Acelle API: ${acelleApiUrl}`, {}, LOG_LEVELS.DEBUG, currentLogLevel);
 
     // Préparer les en-têtes pour la requête à l'API Acelle
-    const headers = buildRequestHeaders(req);
+    const headers = buildRequestHeaders(req, acelleToken);
 
     // Transférer la requête à l'API Acelle avec un timeout
     try {
@@ -178,16 +178,22 @@ async function handlePingRequest(req: Request, url: URL, currentLogLevel: number
 /**
  * Construit l'URL de l'API Acelle à partir de l'URL de la requête et de l'endpoint
  */
-function buildAcelleApiUrl(url: URL, acelleEndpoint: string): string {
+function buildAcelleApiUrl(url: URL, acelleEndpoint: string, acelleToken?: string | null): string {
   // Parse the URL path
-  const parts = url.pathname.split('/');
   const resource = getResourceFromUrl(url);
   const resourceId = getResourceIdFromUrl(url);
 
   // Extract query parameters from the original URL
   const queryParams = new URLSearchParams();
+  
+  // Ajout du token API si fourni
+  if (acelleToken) {
+    queryParams.append('api_token', acelleToken);
+  }
+  
+  // Copier les autres paramètres de requête
   for (const [key, value] of url.searchParams.entries()) {
-    if (key !== 'endpoint') { // Skip our internal 'endpoint' parameter
+    if (!['endpoint', 'api_token'].includes(key)) {
       queryParams.append(key, value);
     }
   }
@@ -226,7 +232,7 @@ function getResourceIdFromUrl(url: URL): string | null {
 /**
  * Construit les en-têtes pour la requête à l'API Acelle
  */
-function buildRequestHeaders(req: Request): HeadersInit {
+function buildRequestHeaders(req: Request, acelleToken?: string | null): HeadersInit {
   // Set token auth as default per Acelle Mail documentation recommendation
   const authMethod = req.headers.get('x-auth-method') || 'token';
   const headers: HeadersInit = {
@@ -238,7 +244,6 @@ function buildRequestHeaders(req: Request): HeadersInit {
   };
 
   // Support explicite du token Acelle
-  const acelleToken = req.headers.get('x-acelle-token');
   if (acelleToken) {
     headers['Authorization'] = `Bearer ${acelleToken}`;
     debugLog("Using Acelle token for authentication", {}, LOG_LEVELS.DEBUG, 5);
