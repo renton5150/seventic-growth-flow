@@ -1,4 +1,3 @@
-
 export interface AcelleAccount {
   id: string;
   created_at: string;
@@ -196,3 +195,4 @@ export interface CampaignStatsCache {
   statistics: any;
   delivery_info: any; // Ajout du champ delivery_info manquant
 }
+
