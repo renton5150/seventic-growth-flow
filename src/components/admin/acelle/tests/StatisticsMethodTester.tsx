@@ -392,28 +392,28 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       const endTime = performance.now();
       
-      // Création sécurisée d'un objet DeliveryInfo
-      const deliveryInfoJson = data.stats || data.data;
+      // Récupération sécurisée des données de statistiques
+      const statsData = data.stats || data.data || data;
       
-      // Vérifier que deliveryInfoJson est un objet et pas une primitive
-      if (!deliveryInfoJson || typeof deliveryInfoJson !== 'object' || Array.isArray(deliveryInfoJson)) {
+      // Vérifier que statsData est un objet valide avant de continuer
+      if (!statsData || typeof statsData !== 'object' || Array.isArray(statsData)) {
         throw new Error('Format de données invalide: les statistiques doivent être un objet');
       }
       
-      // Créer un objet DeliveryInfo sécurisé
+      // Créer un objet DeliveryInfo correctement typé
       const deliveryInfo: DeliveryInfo = {
-        total: extractNumericValue(deliveryInfoJson, 'total'),
-        delivered: extractNumericValue(deliveryInfoJson, 'delivered'),
-        delivery_rate: extractNumericValue(deliveryInfoJson, 'delivery_rate'),
-        opened: extractNumericValue(deliveryInfoJson, 'opened'),
-        unique_open_rate: extractNumericValue(deliveryInfoJson, 'unique_open_rate') || extractNumericValue(deliveryInfoJson, 'open_rate'),
-        clicked: extractNumericValue(deliveryInfoJson, 'clicked'),
-        click_rate: extractNumericValue(deliveryInfoJson, 'click_rate')
+        total: extractNumericValue(statsData, 'total'),
+        delivered: extractNumericValue(statsData, 'delivered'),
+        delivery_rate: extractNumericValue(statsData, 'delivery_rate'),
+        opened: extractNumericValue(statsData, 'opened'),
+        unique_open_rate: extractNumericValue(statsData, 'unique_open_rate') || extractNumericValue(statsData, 'open_rate'),
+        clicked: extractNumericValue(statsData, 'clicked'),
+        click_rate: extractNumericValue(statsData, 'click_rate')
       };
       
       // Gérer le cas spécial pour "bounced" qui peut être un nombre ou un objet
-      if ('bounced' in deliveryInfoJson) {
-        const bouncedValue = deliveryInfoJson.bounced;
+      if ('bounced' in statsData) {
+        const bouncedValue = statsData.bounced;
         
         if (typeof bouncedValue === 'number') {
           deliveryInfo.bounced = bouncedValue;
@@ -427,11 +427,10 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       }
       
       // Ajouter d'autres propriétés
-      deliveryInfo.unsubscribed = extractNumericValue(deliveryInfoJson, 'unsubscribed');
-      deliveryInfo.complained = extractNumericValue(deliveryInfoJson, 'complained');
+      deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
+      deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
-      // Convertir en statistiques validées en utilisant DeliveryInfo comme source
-      // On utilise maintenant l'objet deliveryInfo correctement typé
+      // Convertir le DeliveryInfo typé en statistiques de campagne
       const stats = extractStatisticsFromAnyFormat(deliveryInfo);
       
       setResults(prev => [...prev, {
