@@ -186,7 +186,7 @@ serve(async (req: Request) => {
       console.log(`[CORS Proxy] Réponse cible: ${fetchResponse.status} ${fetchResponse.statusText} pour ${targetUrl}`);
       
       // Lecture du corps de la réponse
-      const responseBodyText = await fetchResponse.text();
+      let responseBodyText = await fetchResponse.text();
       
       // Journalisation détaillée des réponses 404 pour le débogage
       if (fetchResponse.status === 404) {
@@ -194,6 +194,43 @@ serve(async (req: Request) => {
         console.error(`[CORS Proxy] En-têtes de réponse:`, Object.fromEntries([...fetchResponse.headers]));
         console.error(`[CORS Proxy] Corps de la réponse (premiers 1000 caractères): ${responseBodyText.substring(0, 1000)}`);
       }
+      
+      // Transformation de la réponse si c'est du JSON
+      if (responseHeaders.get('Content-Type')?.includes('application/json') && responseBodyText) {
+        try {
+          const responseJson = JSON.parse(responseBodyText);
+          
+          // Vérification si la réponse contient déjà une propriété "data"
+          if (responseJson.data) {
+            console.log(`[CORS Proxy] Données trouvées, nombre d'éléments: ${Array.isArray(responseJson.data) ? responseJson.data.length : 'N/A'}`);
+          } else {
+            console.log(`[CORS Proxy] Aucune donnée trouvée dans la propriété 'data'`);
+            
+            // Transformation de la réponse pour compatibilité
+            const transformedJson = {
+              data: responseJson
+            };
+            
+            // Remplacer la réponse pour compatibilité
+            responseBodyText = JSON.stringify(transformedJson);
+            console.log(`[CORS Proxy] Réponse transformée pour compatibilité`);
+          }
+          
+          // Log des clés disponibles dans la réponse pour le débogage
+          const topLevelKeys = Object.keys(responseJson);
+          if (topLevelKeys.length > 0) {
+            console.log(`[CORS Proxy] Clés disponibles dans la réponse: ${topLevelKeys.join(', ')}`);
+          }
+          
+          // Log de la réponse JSON pour le débogage
+          console.log(`[CORS Proxy] Réponse JSON: ${responseBodyText.substring(0, 1000)}`);
+        } catch (e) {
+          console.log(`[CORS Proxy] Réponse non-JSON: ${responseBodyText.substring(0, 1000)}`);
+        }
+      }
+      
+      // Log de l'URL détaillée pour le débogage
+      console.log(`[CORS Proxy] URL détaillée: ${targetUrl}`);
       
       // Calcul et journalisation de la durée totale de la requête
       const requestDuration = Date.now() - requestStartTime;
