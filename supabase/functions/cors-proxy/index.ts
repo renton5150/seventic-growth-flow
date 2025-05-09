@@ -5,7 +5,7 @@
  * Cette fonction sert de proxy CORS pour les requêtes vers des API tierces, permettant
  * de contourner les restrictions de Same-Origin Policy dans les navigateurs.
  * 
- * @version 1.4.0
+ * @version 1.3.2
  * @author Seventic Team
  */
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -22,7 +22,7 @@ const corsHeaders = {
 };
 
 // Version actuelle du proxy CORS
-const CORS_PROXY_VERSION = "1.4.0";
+const CORS_PROXY_VERSION = "1.3.2";
 const DEFAULT_TIMEOUT = 30000; // 30 secondes de timeout par défaut
 
 console.log("CORS Proxy v" + CORS_PROXY_VERSION + " démarré");
@@ -132,12 +132,10 @@ serve(async (req: Request) => {
     acelleHeaders.forEach(headerName => {
       const headerValue = req.headers.get(headerName);
       if (headerValue) {
-        // Si c'est le token Acelle, l'ajouter comme paramètre d'URL
+        // Si c'est le token Acelle, l'ajouter comme en-tête Authorization pour l'API Acelle
         if (headerName.toLowerCase() === 'x-acelle-token') {
           console.log(`[CORS Proxy] Utilisation du token Acelle pour l'authentification`);
-          // Ajouter le token Acelle comme paramètre de l'URL
-          const separator = targetUrl.includes('?') ? '&' : '?';
-          targetUrl = `${targetUrl}${separator}api_token=${headerValue}`;
+          (requestInit.headers as Headers).set('Authorization', `Bearer ${headerValue}`);
         }
         // Conserver les autres en-têtes spécifiques à Acelle
         else {
@@ -147,7 +145,7 @@ serve(async (req: Request) => {
     });
     
     // Ajout d'en-têtes d'identification pour notre proxy
-    (requestInit.headers as Headers).set('User-Agent', `Seventic-CORS-Proxy/${CORS_PROXY_VERSION}`);
+    (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.3');
     (requestInit.headers as Headers).set('Referer', 'https://emailing.plateforme-solution.net/');
     
     // Copie du corps s'il est présent et si la méthode HTTP l'autorise

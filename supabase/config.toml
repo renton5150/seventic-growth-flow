@@ -48,3 +48,4 @@ verify_jwt = false
 [[functions]]
 name = "acelle-proxy"
 verify_jwt = false
+

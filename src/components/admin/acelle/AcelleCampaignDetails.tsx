@@ -118,12 +118,14 @@ const AcelleCampaignDetails = ({
         toast.loading("Tentative de récupération directe depuis l'API...");
         
         // Construire l'URL pour obtenir les détails de la campagne directement
-        const campaignUrl = `${account.api_endpoint}/public/api/v1/campaigns/${id}?api_token=${account.api_token}`;
+        const campaignUrl = buildDirectApiUrl(`campaigns/${id}`, account.api_endpoint, { api_token: account.api_token });
         
         // Récupérer les informations de base de la campagne
         const response = await fetch(campaignUrl, {
           headers: {
             'Accept': 'application/json',
+            'x-acelle-token': account.api_token,
+            'x-acelle-endpoint': account.api_endpoint
           }
         });
         
@@ -291,7 +293,13 @@ const AcelleCampaignDetails = ({
   return (
     <div className="space-y-6">
       {dataSource && (
-        <Alert variant={dataSource === 'api' ? "default" : "destructive"}>
+        <Alert variant={dataSource === 'api' ? "default" : "destructive"} className={
+          dataSource === 'api' 
+            ? "bg-green-50 border-green-200" 
+            : dataSource === 'cache' 
+              ? "bg-amber-50 border-amber-200" 
+              : "bg-blue-50 border-blue-200"
+        }>
           <Info className="h-5 w-5" />
           <AlertDescription className="ml-2">
             {dataSource === 'api' 
