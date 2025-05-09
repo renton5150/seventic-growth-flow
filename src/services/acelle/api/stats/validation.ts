@@ -46,12 +46,16 @@ export const ensureValidStatistics = (statistics: Partial<AcelleCampaignStatisti
         // Convertir la chaîne en nombre en enlevant le %
         const numValue = parseFloat(value.replace('%', ''));
         // Assigner la valeur correctement typée ou utiliser la valeur par défaut
-        validatedStats[typedKey] = !isNaN(numValue) ? numValue : defaultStats[typedKey];
+        if (!isNaN(numValue)) {
+          validatedStats[typedKey] = numValue as any;
+        }
       }
       // Si c'est un nombre ou une chaîne numérique, la convertir directement
       else if (value !== null && value !== undefined) {
         const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
-        validatedStats[typedKey] = !isNaN(numValue) ? numValue : defaultStats[typedKey];
+        if (!isNaN(numValue)) {
+          validatedStats[typedKey] = numValue as any;
+        }
       }
     }
   }
