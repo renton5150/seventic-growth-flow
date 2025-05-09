@@ -5,8 +5,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics, DeliveryInfo } from "@/types/acelle.types";
 import { fetchCampaignsFromCache, fetchCampaignById } from "@/hooks/acelle/useCampaignFetch";
-import { fetchAndProcessCampaignStats } from "@/services/acelle/api/stats/campaignStats";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
+import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
+import { toast } from "sonner";
 
 // Composants réutilisables
 import { CampaignStatistics } from "./stats/CampaignStatistics";
@@ -30,7 +31,9 @@ const AcelleCampaignDetails = ({
   const [campaign, setCampaign] = useState<AcelleCampaign | null>(null);
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   // Chargement des détails de la campagne
   useEffect(() => {
@@ -44,6 +47,7 @@ const AcelleCampaignDetails = ({
           const { campaignData, statsData } = await loadDemoCampaign(campaignId);
           setCampaign(campaignData);
           setStats(statsData);
+          setLastUpdated(new Date().toISOString());
         } else {
           // Mode normal: charger depuis le cache et enrichir avec les statistiques
           await loadRealCampaign(campaignId, account);
@@ -59,9 +63,9 @@ const AcelleCampaignDetails = ({
     loadCampaignDetails();
   }, [campaignId, account, demoMode]);
 
-  // Fonction pour charger une campagne réelle depuis le cache ou directement depuis la base de données
+  // Fonction pour charger une campagne réelle
   const loadRealCampaign = async (id: string, acct: AcelleAccount) => {
-    console.log(`Récupération des statistiques pour la campagne ${id}`);
+    console.log(`Récupération des informations pour la campagne ${id}`);
     
     try {
       // 1. Essayer de trouver la campagne dans le cache en mémoire
@@ -86,25 +90,59 @@ const AcelleCampaignDetails = ({
         console.log(`Campagne trouvée: ${foundCampaign.name}`, foundCampaign);
         setCampaign(foundCampaign);
         
-        // Récupérer les statistiques complètes
-        const enrichedCampaign = await fetchAndProcessCampaignStats(foundCampaign, acct, { refresh: true }) as AcelleCampaign;
-        
-        // Mettre à jour l'état et la campagne avec les statistiques
-        if (enrichedCampaign && enrichedCampaign.statistics) {
-          setStats(enrichedCampaign.statistics);
-          foundCampaign.statistics = enrichedCampaign.statistics;
-          
-          // Assurez-vous que delivery_info est du bon type
-          if (enrichedCampaign.delivery_info) {
-            foundCampaign.delivery_info = enrichedCampaign.delivery_info as DeliveryInfo;
-          }
-        }
+        // Récupérer les statistiques directement depuis l'API
+        await refreshStatistics(foundCampaign.uid || foundCampaign.campaign_uid || id, acct);
       } else {
         setError("Campagne non trouvée");
       }
     } catch (err) {
       console.error("Erreur lors du chargement de la campagne:", err);
       setError(err instanceof Error ? err.message : "Erreur lors du chargement de la campagne");
+    }
+  };
+
+  // Fonction pour rafraîchir les statistiques
+  const refreshStatistics = async (campaignUid: string, acct: AcelleAccount) => {
+    if (!campaignUid) {
+      toast.error("Identifiant de campagne manquant");
+      return;
+    }
+    
+    setIsRefreshing(true);
+    
+    try {
+      toast.loading("Récupération des statistiques...");
+      console.log(`Récupération des statistiques fraîches pour la campagne ${campaignUid}`);
+      
+      // Récupérer les statistiques directement depuis l'API
+      const freshStats = await fetchDirectStatistics(campaignUid, acct);
+      
+      if (freshStats) {
+        // Normaliser les statistiques
+        const validStats = ensureValidStatistics(freshStats);
+        setStats(validStats);
+        
+        // Mettre à jour la campagne
+        if (campaign) {
+          setCampaign({
+            ...campaign,
+            statistics: validStats
+          });
+        }
+        
+        // Enregistrer l'heure de mise à jour
+        setLastUpdated(new Date().toISOString());
+        
+        toast.success("Statistiques mises à jour avec succès");
+      } else {
+        toast.error("Impossible de récupérer les statistiques");
+        console.error("Aucune statistique retournée par l'API");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la récupération des statistiques");
+      console.error("Erreur lors du rafraîchissement des statistiques:", error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -172,6 +210,11 @@ const AcelleCampaignDetails = ({
     unsubscribe_count: 0,
     abuse_complaint_count: 0
   };
+  
+  // Fonction pour gérer le rafraîchissement manuel des statistiques
+  const handleRefresh = () => {
+    refreshStatistics(campaign.uid || campaign.campaign_uid || campaignId, account);
+  };
 
   return (
     <div className="space-y-6">
@@ -188,7 +231,12 @@ const AcelleCampaignDetails = ({
         </TabsList>
 
         <TabsContent value="stats" className="space-y-4 py-4">
-          <CampaignStatistics statistics={campaignStats} />
+          <CampaignStatistics 
+            statistics={campaignStats} 
+            loading={isRefreshing} 
+            onRefresh={handleRefresh}
+            lastUpdated={lastUpdated}
+          />
         </TabsContent>
 
         <TabsContent value="links" className="py-4">

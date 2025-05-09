@@ -2,7 +2,6 @@
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { fetchCampaignStatisticsFromApi } from "./apiClient";
-import { getCachedStatistics, saveCampaignStatistics } from "./cacheManager";
 
 /**
  * Vérifie si les statistiques sont vides ou non initialisées
@@ -19,7 +18,8 @@ export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null)
 };
 
 /**
- * Enrichit les campagnes avec des statistiques en utilisant l'API directe ou le cache
+ * Enrichit les campagnes avec des statistiques en utilisant uniquement l'API directe
+ * Version simplifiée sans cache pour corriger les problèmes de récupération
  */
 export const enrichCampaignsWithStats = async (
   campaigns: AcelleCampaign[],
@@ -30,7 +30,6 @@ export const enrichCampaignsWithStats = async (
 ): Promise<AcelleCampaign[]> => {
   if (!campaigns.length) return campaigns;
   
-  const forceRefresh = options?.forceRefresh || false;
   const enrichedCampaigns: AcelleCampaign[] = [];
   
   for (const campaign of campaigns) {
@@ -42,45 +41,20 @@ export const enrichCampaignsWithStats = async (
         continue;
       }
       
-      let statistics: AcelleCampaignStatistics | null = null;
+      console.log(`Récupération des statistiques depuis l'API pour la campagne ${campaignUid}`);
       
-      if (!forceRefresh) {
-        // Try to get from cache first if not forcing refresh
-        console.log(`Looking for cached statistics for campaign ${campaignUid}`);
-        statistics = await getCachedStatistics(campaignUid, account.id);
-        
-        if (statistics) {
-          console.log(`Found cached statistics for campaign ${campaignUid}`);
-        }
-      }
+      // Récupérer les statistiques directement depuis l'API, sans passer par le cache
+      let statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
       
-      // Si les stats sont vides ou non trouvées en cache, ou si on force le rafraîchissement,
-      // alors récupérer depuis l'API
-      if (!statistics || hasEmptyStatistics(statistics) || forceRefresh) {
-        if (account.api_endpoint && account.api_token) {
-          console.log(`Fetching fresh statistics from API for campaign ${campaignUid} (force: ${forceRefresh}, emptyStats: ${statistics ? hasEmptyStatistics(statistics) : true})`);
-          statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
-          
-          if (statistics) {
-            // Save to cache for future use
-            console.log(`Saving new statistics to cache for campaign ${campaignUid}`);
-            await saveCampaignStatistics(campaignUid, account.id, statistics);
-          } else {
-            console.log(`No statistics returned from API for campaign ${campaignUid}`);
-          }
-        } else {
-          console.warn(`Cannot fetch API statistics for ${campaignUid}: missing API credentials`);
-        }
-      }
-      
-      // Add statistics to campaign
+      // Ajouter les statistiques à la campagne
       enrichedCampaigns.push({
         ...campaign,
-        statistics: statistics ? ensureValidStatistics(statistics) : campaign.statistics || null
+        statistics: statistics ? ensureValidStatistics(statistics) : null
       });
+      
     } catch (error) {
       console.error(`Error enriching campaign ${campaign.uid || campaign.name} with stats:`, error);
-      // Still include the campaign without statistics
+      // Inclure quand même la campagne sans statistiques
       enrichedCampaigns.push(campaign);
     }
   }
@@ -88,7 +62,7 @@ export const enrichCampaignsWithStats = async (
   return enrichedCampaigns;
 };
 
-// Other exports for compatibility with other modules
+// Fonction simple pour récupérer les statistiques directement, sans cache
 export const fetchDirectStatistics = async (
   campaignUid: string,
   account: AcelleAccount

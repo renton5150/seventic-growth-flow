@@ -26,6 +26,7 @@ import {
 
 import { buildProxyUrl } from "./acelle-service";
 import { hasEmptyStatistics } from "./api/stats/directStats";
+import { fetchCampaignStatisticsFromApi } from "./api/stats/apiClient";
 
 export const acelleService = {
   accounts: {
@@ -50,5 +51,8 @@ export const acelleService = {
   utils: {
     buildProxyUrl,
     hasEmptyStatistics
+  },
+  directAPI: {
+    fetchCampaignStatistics: fetchCampaignStatisticsFromApi
   }
 };

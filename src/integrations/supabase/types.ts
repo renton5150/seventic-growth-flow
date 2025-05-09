@@ -62,6 +62,33 @@ export type Database = {
           },
         ]
       }
+      acelle_sync_logs: {
+        Row: {
+          account_id: string | null
+          campaign_uid: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          operation: string
+        }
+        Insert: {
+          account_id?: string | null
+          campaign_uid?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          operation: string
+        }
+        Update: {
+          account_id?: string | null
+          campaign_uid?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          operation?: string
+        }
+        Relationships: []
+      }
       campaign_stats_cache: {
         Row: {
           account_id: string
@@ -185,6 +212,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_campaigns_stats_table: {
+        Row: {
+          account_id: string
+          avg_click_rate: number | null
+          avg_open_rate: number | null
+          campaign_count: number | null
+          id: string
+          total_bounced: number | null
+          total_clicked: number | null
+          total_emails: number | null
+          total_opened: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          avg_click_rate?: number | null
+          avg_open_rate?: number | null
+          campaign_count?: number | null
+          id?: string
+          total_bounced?: number | null
+          total_clicked?: number | null
+          total_emails?: number | null
+          total_opened?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          avg_click_rate?: number | null
+          avg_open_rate?: number | null
+          campaign_count?: number | null
+          id?: string
+          total_bounced?: number | null
+          total_clicked?: number | null
+          total_emails?: number | null
+          total_opened?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       missions: {
         Row: {
@@ -508,6 +574,42 @@ export type Database = {
           user_role: string
           user_avatar: string
         }
+        Returns: Json
+      }
+      diagnose_campaign_statistics: {
+        Args: { account_id_param: string }
+        Returns: {
+          data_source: string
+          campaign_uid: string
+          subscriber_count: string
+          delivered_count: string
+          open_count: string
+          open_rate: string
+          click_rate: string
+          last_updated: string
+        }[]
+      }
+      find_missing_campaign_references: {
+        Args: { account_id_param: string }
+        Returns: {
+          campaign_uid: string
+          table_name: string
+        }[]
+      }
+      fix_campaign_statistics: {
+        Args: { account_id_param: string; campaign_uid_param: string }
+        Returns: Json
+      }
+      force_update_campaign_stats: {
+        Args: { account_id_param: string }
+        Returns: Json
+      }
+      sync_campaign_statistics_manually: {
+        Args: { account_id_param: string }
+        Returns: Json
+      }
+      update_acelle_campaign_stats: {
+        Args: { account_id_param: string }
         Returns: Json
       }
       user_has_admin_or_growth_role: {

@@ -2,22 +2,31 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 interface CampaignStatisticsProps {
-  statistics: AcelleCampaignStatistics;
+  statistics: AcelleCampaignStatistics | null | undefined;
   loading?: boolean;
+  onRefresh?: () => void;
+  lastUpdated?: string | null;
 }
 
-export const CampaignStatistics = ({ statistics, loading = false }: CampaignStatisticsProps) => {
+export const CampaignStatistics = ({ 
+  statistics, 
+  loading = false,
+  onRefresh,
+  lastUpdated
+}: CampaignStatisticsProps) => {
   // Formatage des nombres
-  const formatNumber = (value?: number): string => {
+  const formatNumber = (value?: number | null): string => {
     if (loading) return "...";
     if (value === undefined || value === null) return "0";
     return value.toLocaleString();
   };
 
   // Formatage des pourcentages
-  const formatPercentage = (value?: number): string => {
+  const formatPercentage = (value?: number | null): string => {
     if (loading) return "...";
     if (value === undefined || value === null) return "0%";
     
@@ -30,7 +39,7 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
     return `${(value * 100).toFixed(1)}%`;
   };
 
-  // Récupération des valeurs importantes
+  // Récupération des valeurs importantes avec fallbacks robustes
   const total = statistics?.subscriber_count || 0;
   const delivered = statistics?.delivered_count || 0;
   const opened = statistics?.open_count || statistics?.uniq_open_count || 0;
@@ -46,9 +55,43 @@ export const CampaignStatistics = ({ statistics, loading = false }: CampaignStat
   const openRate = statistics?.uniq_open_rate || statistics?.open_rate || 
     (delivered > 0 ? (opened / delivered) * 100 : 0);
   const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
+  
+  // Formatage de la date de dernière mise à jour
+  const formatLastUpdated = () => {
+    if (!lastUpdated) return null;
+    try {
+      const date = new Date(lastUpdated);
+      return `Mise à jour le ${date.toLocaleDateString()} à ${date.toLocaleTimeString()}`;
+    } catch (e) {
+      return null;
+    }
+  };
+  
+  const lastUpdatedText = formatLastUpdated();
 
   return (
     <div className="space-y-6">
+      {/* En-tête avec bouton de rafraîchissement */}
+      {onRefresh && (
+        <div className="flex justify-between items-center">
+          <div>
+            {lastUpdatedText && (
+              <p className="text-xs text-muted-foreground">{lastUpdatedText}</p>
+            )}
+          </div>
+          <Button 
+            onClick={onRefresh} 
+            size="sm" 
+            variant="outline" 
+            className="gap-2"
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Rafraîchir les statistiques
+          </Button>
+        </div>
+      )}
+      
       {/* Cartes des métriques principales */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

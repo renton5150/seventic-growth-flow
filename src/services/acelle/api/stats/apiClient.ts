@@ -5,6 +5,7 @@ import { buildProxyUrl } from "../../acelle-service";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
+ * Version simplifiée sans cache pour corriger les problèmes de récupération
  */
 export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
@@ -20,9 +21,10 @@ export const fetchCampaignStatisticsFromApi = async (
       return null;
     }
     
-    console.log(`Fetching statistics from API for campaign ${campaignUid}`);
+    console.log(`Fetching statistics directly from API for campaign ${campaignUid}`);
     
     // Construire l'URL pour la requête API
+    // Utiliser uniquement la méthode d'authentification par paramètre URL (celle qui fonctionne)
     const params = {
       api_token: account.api_token,
       _t: Date.now().toString() // Empêcher la mise en cache
@@ -56,6 +58,8 @@ export const fetchCampaignStatisticsFromApi = async (
     const data = await response.json();
     
     if (data?.statistics) {
+      console.log(`Statistiques récupérées avec succès pour la campagne ${campaignUid}`, data.statistics);
+      
       // Convertir les statistiques en format attendu
       return {
         subscriber_count: Number(data.statistics.subscriber_count) || 0,
