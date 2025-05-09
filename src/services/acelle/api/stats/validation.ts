@@ -33,81 +33,93 @@ export const ensureValidStatistics = (statistics: Partial<AcelleCampaignStatisti
   }
   
   // Créer un nouvel objet avec les valeurs par défaut
-  const validatedStats = { ...defaultStats };
+  const validatedStats: AcelleCampaignStatistics = { ...defaultStats };
   
-  // Fonction pour traiter en toute sécurité les valeurs numériques
-  const processNumericValue = (key: keyof AcelleCampaignStatistics, value: any): number => {
+  // Fonction stricte pour traiter les valeurs numériques
+  const processNumericValue = (value: any): number => {
+    // Si la valeur est null ou undefined, renvoyer 0
     if (value === null || value === undefined) {
-      return defaultStats[key];
+      return 0;
     }
     
     // Si la valeur est une chaîne avec pourcentage, convertir en nombre
-    if (typeof value === 'string' && value.includes('%')) {
-      const numValue = parseFloat(value.replace('%', ''));
-      return !isNaN(numValue) ? numValue : defaultStats[key];
+    if (typeof value === 'string') {
+      // Enlever le symbole % si présent
+      const cleanValue = value.includes('%') 
+        ? value.replace('%', '').trim()
+        : value.trim();
+        
+      // Convertir en nombre
+      const numValue = parseFloat(cleanValue);
+      return !isNaN(numValue) ? numValue : 0;
     }
     
-    // Pour les autres types de valeurs
-    const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
-    return !isNaN(numValue) ? numValue : defaultStats[key];
+    // Si c'est déjà un nombre, le retourner directement
+    if (typeof value === 'number' && !isNaN(value)) {
+      return value;
+    }
+    
+    // Pour tout autre cas, tenter une conversion forcée
+    const numValue = Number(value);
+    return !isNaN(numValue) ? numValue : 0;
   };
   
-  // Traiter chaque propriété connue individuellement pour éviter les erreurs de typage
+  // Appliquer les valeurs fournies avec validation stricte
   if (statistics.subscriber_count !== undefined) {
-    validatedStats.subscriber_count = processNumericValue('subscriber_count', statistics.subscriber_count);
+    validatedStats.subscriber_count = processNumericValue(statistics.subscriber_count);
   }
   
   if (statistics.delivered_count !== undefined) {
-    validatedStats.delivered_count = processNumericValue('delivered_count', statistics.delivered_count);
+    validatedStats.delivered_count = processNumericValue(statistics.delivered_count);
   }
   
   if (statistics.delivered_rate !== undefined) {
-    validatedStats.delivered_rate = processNumericValue('delivered_rate', statistics.delivered_rate);
+    validatedStats.delivered_rate = processNumericValue(statistics.delivered_rate);
   }
   
   if (statistics.open_count !== undefined) {
-    validatedStats.open_count = processNumericValue('open_count', statistics.open_count);
+    validatedStats.open_count = processNumericValue(statistics.open_count);
   }
   
   if (statistics.uniq_open_count !== undefined) {
-    validatedStats.uniq_open_count = processNumericValue('uniq_open_count', statistics.uniq_open_count);
+    validatedStats.uniq_open_count = processNumericValue(statistics.uniq_open_count);
   }
   
   if (statistics.uniq_open_rate !== undefined) {
-    validatedStats.uniq_open_rate = processNumericValue('uniq_open_rate', statistics.uniq_open_rate);
+    validatedStats.uniq_open_rate = processNumericValue(statistics.uniq_open_rate);
   }
   
   // Utiliser unique_open_rate comme fallback pour uniq_open_rate si disponible
-  if (statistics.unique_open_rate !== undefined && validatedStats.uniq_open_rate === 0) {
-    validatedStats.uniq_open_rate = processNumericValue('uniq_open_rate', statistics.unique_open_rate);
+  if ((statistics as any).unique_open_rate !== undefined && validatedStats.uniq_open_rate === 0) {
+    validatedStats.uniq_open_rate = processNumericValue((statistics as any).unique_open_rate);
   }
   
   if (statistics.click_count !== undefined) {
-    validatedStats.click_count = processNumericValue('click_count', statistics.click_count);
+    validatedStats.click_count = processNumericValue(statistics.click_count);
   }
   
   if (statistics.click_rate !== undefined) {
-    validatedStats.click_rate = processNumericValue('click_rate', statistics.click_rate);
+    validatedStats.click_rate = processNumericValue(statistics.click_rate);
   }
   
   if (statistics.bounce_count !== undefined) {
-    validatedStats.bounce_count = processNumericValue('bounce_count', statistics.bounce_count);
+    validatedStats.bounce_count = processNumericValue(statistics.bounce_count);
   }
   
   if (statistics.soft_bounce_count !== undefined) {
-    validatedStats.soft_bounce_count = processNumericValue('soft_bounce_count', statistics.soft_bounce_count);
+    validatedStats.soft_bounce_count = processNumericValue(statistics.soft_bounce_count);
   }
   
   if (statistics.hard_bounce_count !== undefined) {
-    validatedStats.hard_bounce_count = processNumericValue('hard_bounce_count', statistics.hard_bounce_count);
+    validatedStats.hard_bounce_count = processNumericValue(statistics.hard_bounce_count);
   }
   
   if (statistics.unsubscribe_count !== undefined) {
-    validatedStats.unsubscribe_count = processNumericValue('unsubscribe_count', statistics.unsubscribe_count);
+    validatedStats.unsubscribe_count = processNumericValue(statistics.unsubscribe_count);
   }
   
   if (statistics.abuse_complaint_count !== undefined) {
-    validatedStats.abuse_complaint_count = processNumericValue('abuse_complaint_count', statistics.abuse_complaint_count);
+    validatedStats.abuse_complaint_count = processNumericValue(statistics.abuse_complaint_count);
   }
   
   // Petite vérification de cohérence: si certaines valeurs sont manquantes mais peuvent être calculées

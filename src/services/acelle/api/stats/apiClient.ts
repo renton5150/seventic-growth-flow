@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { buildProxyUrl, buildDirectApiUrl } from "../../acelle-service";
@@ -73,6 +72,9 @@ export const fetchCampaignStatisticsFromApi = async (
     
     const responseData = await response.json();
     console.log(`Données brutes reçues pour ${campaignUid}:`, responseData);
+    
+    // Extraction des statistiques avec affichage complet pour debug
+    console.log("RÉPONSE API COMPLÈTE:", JSON.stringify(responseData, null, 2));
     
     // Extraction des statistiques
     return extractStatistics(responseData);
@@ -244,54 +246,74 @@ const fetchLegacyWithAlternativeHeaders = async (
  * Extrait les statistiques de la réponse de l'API, quelle que soit sa structure
  */
 const extractStatistics = (responseData: any): AcelleCampaignStatistics | null => {
+  // Affichons la structure complète pour le debug
+  console.log("STRUCTURE DE LA RÉPONSE:", Object.keys(responseData));
+  
   // Extraction des données selon diverses structures possibles
   // Vérifier d'abord si les données sont encapsulées dans data
   const data = responseData.data || responseData;
   
-  // Structure possible : data.campaign.statistics
-  if (data?.campaign?.statistics) {
-    console.log("Statistiques trouvées dans data.campaign.statistics");
+  if (!data) {
+    console.error("Aucune donnée dans la réponse");
+    return null;
+  }
+  
+  // Afficher toute la structure pour mieux comprendre où sont les statistiques
+  console.log("STRUCTURE DATA:", Object.keys(data));
+  
+  // Afficher les structures pertinentes si elles existent
+  if (data.campaign) console.log("STRUCTURE CAMPAIGN:", Object.keys(data.campaign));
+  if (data.statistics) console.log("STRUCTURE STATISTICS:", Object.keys(data.statistics));
+  if (data.delivery_info) console.log("STRUCTURE DELIVERY_INFO:", Object.keys(data.delivery_info));
+  
+  // Structure possible : campaign -> statistics
+  if (data.campaign?.statistics) {
+    console.log("Statistiques trouvées dans data.campaign.statistics:", data.campaign.statistics);
     return mapToStandardFormat(data.campaign.statistics);
   }
   
-  // Structure possible : data.statistics
-  if (data?.statistics) {
-    console.log("Statistiques trouvées dans data.statistics");
+  // Structure possible : data -> statistics
+  if (data.statistics) {
+    console.log("Statistiques trouvées dans data.statistics:", data.statistics);
     return mapToStandardFormat(data.statistics);
   }
   
-  // Structure possible : data.delivery_info ou data.delivery_stats
-  if (data?.delivery_info || data?.delivery_stats) {
-    console.log("Statistiques trouvées dans delivery_info/delivery_stats");
-    const deliveryInfo = data.delivery_info || data.delivery_stats;
-    return mapDeliveryInfoToStats(deliveryInfo);
-  }
-  
-  // Structure possible : data est directement l'objet de statistiques
-  if (data?.subscriber_count !== undefined || data?.open_rate !== undefined) {
-    console.log("Statistiques trouvées directement dans data");
-    return mapToStandardFormat(data);
-  }
-  
-  // Structure possible : campaign.delivery_info
-  if (data?.campaign?.delivery_info) {
-    console.log("Statistiques trouvées dans campaign.delivery_info");
+  // Structure possible : campaign -> delivery_info
+  if (data.campaign?.delivery_info) {
+    console.log("Statistiques trouvées dans campaign.delivery_info:", data.campaign.delivery_info);
     return mapDeliveryInfoToStats(data.campaign.delivery_info);
   }
   
-  // Structure possible : campaign directement
-  if (data?.campaign?.subscriber_count !== undefined || data?.campaign?.open_rate !== undefined) {
-    console.log("Statistiques trouvées dans campaign");
-    return mapToStandardFormat(data.campaign);
+  // Structure possible : data -> delivery_info
+  if (data.delivery_info) {
+    console.log("Statistiques trouvées dans data.delivery_info:", data.delivery_info);
+    return mapDeliveryInfoToStats(data.delivery_info);
   }
   
-  // Structure possible : track.data
-  if (data?.track?.data) {
-    console.log("Statistiques trouvées dans track.data");
+  // Structure possible : data -> track -> data
+  if (data.track?.data) {
+    console.log("Statistiques trouvées dans track.data:", data.track.data);
     return mapToStandardFormat(data.track.data);
   }
   
-  console.warn("Aucune statistique trouvée dans la réponse");
+  // Structure possible : campaign contient directement les stats
+  if (data.campaign && (
+      typeof data.campaign.subscriber_count !== 'undefined' ||
+      typeof data.campaign.total !== 'undefined'
+  )) {
+    console.log("Statistiques trouvées directement dans campaign:", data.campaign);
+    return mapToStandardFormat(data.campaign);
+  }
+  
+  // Dernier recours : data contient directement les stats
+  if (typeof data.subscriber_count !== 'undefined' || 
+      typeof data.total !== 'undefined' || 
+      typeof data.delivered_count !== 'undefined') {
+    console.log("Statistiques trouvées directement dans data:", data);
+    return mapToStandardFormat(data);
+  }
+
+  console.warn("Aucune statistique trouvée dans la réponse après analyse complète");
   return null;
 };
 
@@ -299,9 +321,12 @@ const extractStatistics = (responseData: any): AcelleCampaignStatistics | null =
  * Transforme un objet de statistiques en format standard AcelleCampaignStatistics
  */
 const mapToStandardFormat = (stats: any): AcelleCampaignStatistics => {
+  // Afficher l'entrée complète pour le debug
+  console.log("Données à mapper:", stats);
+  
   return {
     subscriber_count: parseNumber(stats.subscriber_count) || parseNumber(stats.total) || 0,
-    delivered_count: parseNumber(stats.delivered_count) || parseNumber(stats.delivered) || 0,
+    delivered_count: parseNumber(stats.delivered_count) || parseNumber(stats.delivered) || parseNumber(stats.sent) || 0,
     delivered_rate: parseNumber(stats.delivered_rate) || parseNumber(stats.delivery_rate) || 0,
     open_count: parseNumber(stats.open_count) || parseNumber(stats.opened) || 0,
     uniq_open_count: parseNumber(stats.uniq_open_count) || parseNumber(stats.unique_opened) || parseNumber(stats.unique_open_count) || 0,
@@ -362,18 +387,38 @@ const getHardBounceCount = (data: any): number => {
 };
 
 /**
- * Convertit une valeur en nombre de manière sécurisée
+ * Convertit une valeur en nombre de manière sécurisée et détaillée
  */
 const parseNumber = (value: any): number => {
-  if (value === undefined || value === null) return 0;
+  // Affichage pour debug
+  console.log(`Parsing value: ${value} (type: ${typeof value})`);
+  
+  if (value === undefined || value === null) {
+    console.log("  → null/undefined → 0");
+    return 0;
+  }
   
   // Si c'est une chaîne contenant un pourcentage
-  if (typeof value === 'string' && value.includes('%')) {
-    const numValue = parseFloat(value.replace('%', ''));
+  if (typeof value === 'string') {
+    let numValue;
+    if (value.includes('%')) {
+      numValue = parseFloat(value.replace('%', ''));
+      console.log(`  → string with % → ${numValue}`);
+    } else {
+      numValue = parseFloat(value);
+      console.log(`  → string → ${numValue}`);
+    }
     return !isNaN(numValue) ? numValue : 0;
   }
   
   // Pour les autres types de valeurs
-  const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+  if (typeof value === 'number') {
+    console.log(`  → number → ${value}`);
+    return !isNaN(value) ? value : 0;
+  }
+  
+  // Conversion forcée
+  const numValue = Number(value);
+  console.log(`  → forced conversion → ${numValue}`);
   return !isNaN(numValue) ? numValue : 0;
 };

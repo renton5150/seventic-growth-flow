@@ -2,13 +2,13 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Eye, RefreshCw } from "lucide-react";
+import { Eye, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
-import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
+import { fetchDirectStatistics, hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 import { toast } from "sonner";
 
 interface AcelleTableRowProps {
@@ -25,6 +25,7 @@ export const AcelleTableRow = ({
   // État local pour les statistiques
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(campaign?.statistics || null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
   // Garantir la présence d'un UID valide
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
@@ -40,8 +41,11 @@ export const AcelleTableRow = ({
   // Récupérer les statistiques de la campagne directement depuis l'API
   useEffect(() => {
     const loadCampaignStats = async () => {
+      // Réinitialiser l'état d'erreur
+      setLoadError(null);
+      
       // Si les statistiques sont déjà présentes avec des valeurs non-nulles, ne pas recharger
-      if (campaign.statistics?.subscriber_count > 0 && !campaign.meta?.force_refresh) {
+      if (campaign.statistics && !hasEmptyStatistics(campaign.statistics) && !campaign.meta?.force_refresh) {
         console.log(`[TableRow] Statistiques déjà présentes pour la campagne ${campaignName}`, campaign.statistics);
         setStats(campaign.statistics);
         return;
@@ -51,11 +55,13 @@ export const AcelleTableRow = ({
       
       if (!account) {
         console.warn(`[TableRow] Pas de compte disponible pour récupérer les statistiques de ${campaignName}`);
+        setLoadError("Compte non disponible");
         return;
       }
       
       if (!campaignUid) {
         console.warn(`[TableRow] Pas d'UID pour la campagne ${campaignName}`);
+        setLoadError("UID de campagne manquant");
         return;
       }
       
@@ -65,7 +71,7 @@ export const AcelleTableRow = ({
         // Récupérer les statistiques directement depuis l'API
         const freshStats = await fetchDirectStatistics(campaignUid, account);
         
-        if (freshStats) {
+        if (freshStats && !hasEmptyStatistics(freshStats)) {
           console.log(`[TableRow] Statistiques récupérées pour ${campaignName}`, freshStats);
           setStats(freshStats);
           
@@ -73,22 +79,17 @@ export const AcelleTableRow = ({
           console.log(`[TableRow] Stats subscriber_count: ${freshStats.subscriber_count}`);
           console.log(`[TableRow] Stats uniq_open_rate: ${freshStats.uniq_open_rate}`);
         } else {
-          console.log(`[TableRow] Aucune statistique disponible pour ${campaignName}`);
+          console.log(`[TableRow] Pas de statistiques disponibles pour ${campaignName}`);
           // Utiliser les statistiques existantes si disponibles
-          if (campaign.statistics && campaign.statistics.subscriber_count > 0) {
+          if (campaign.statistics && !hasEmptyStatistics(campaign.statistics)) {
             setStats(campaign.statistics);
           } else {
-            // Simuler des statistiques pour le développement
-            if (process.env.NODE_ENV === 'development') {
-              const demoStats = createDemoStatistics();
-              console.log(`[TableRow] Utilisation de statistiques simulées pour ${campaignName}`, demoStats);
-              setStats(demoStats);
-            }
+            setLoadError("Aucune statistique disponible");
           }
         }
       } catch (error) {
         console.error(`[TableRow] Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
-        toast.error(`Erreur de récupération des statistiques pour ${campaignName}`);
+        setLoadError("Erreur de récupération");
       } finally {
         setIsLoading(false);
       }
@@ -105,25 +106,22 @@ export const AcelleTableRow = ({
     
     try {
       setIsLoading(true);
+      setLoadError(null);
       toast.loading(`Rafraîchissement des statistiques pour ${campaignName}...`);
       
       const freshStats = await fetchDirectStatistics(campaignUid, account);
       
-      if (freshStats && freshStats.subscriber_count > 0) {
+      if (freshStats && !hasEmptyStatistics(freshStats)) {
         setStats(freshStats);
         toast.success(`Statistiques mises à jour pour ${campaignName}`);
       } else {
         toast.error(`Échec de la mise à jour des statistiques pour ${campaignName}`);
-        // Créer des statistiques de démonstration en mode dev
-        if (process.env.NODE_ENV === 'development') {
-          const demoStats = createDemoStatistics();
-          setStats(demoStats);
-          toast.success(`Mode dev: statistiques simulées générées pour ${campaignName}`);
-        }
+        setLoadError("Échec du rafraîchissement");
       }
     } catch (error) {
       console.error(`Erreur lors du rafraîchissement des statistiques:`, error);
       toast.error(`Erreur lors du rafraîchissement des statistiques`);
+      setLoadError("Erreur de rafraîchissement");
     } finally {
       setIsLoading(false);
     }
@@ -201,36 +199,6 @@ export const AcelleTableRow = ({
     );
   };
 
-  // Créer des statistiques simulées pour le développement
-  const createDemoStatistics = (): AcelleCampaignStatistics => {
-    const totalEmails = Math.floor(Math.random() * 1000) + 200;
-    const deliveredRate = 0.97 + Math.random() * 0.02;
-    const delivered = Math.floor(totalEmails * deliveredRate);
-    const openRate = 0.30 + Math.random() * 0.40;
-    const opened = Math.floor(delivered * openRate);
-    const uniqueOpenRate = openRate * 0.9;
-    const uniqueOpens = Math.floor(opened * 0.9);
-    const clickRate = 0.10 + Math.random() * 0.30;
-    const clicked = Math.floor(opened * clickRate);
-    const bounceCount = totalEmails - delivered;
-    
-    return {
-      subscriber_count: totalEmails,
-      delivered_count: delivered,
-      delivered_rate: deliveredRate * 100,
-      open_count: opened,
-      uniq_open_count: uniqueOpens,
-      uniq_open_rate: uniqueOpenRate * 100,
-      click_count: clicked,
-      click_rate: clickRate * 100,
-      bounce_count: bounceCount,
-      soft_bounce_count: Math.floor(bounceCount * 0.7),
-      hard_bounce_count: Math.floor(bounceCount * 0.3),
-      unsubscribe_count: Math.floor(delivered * 0.02),
-      abuse_complaint_count: Math.floor(delivered * 0.005)
-    };
-  };
-
   // Valeurs à afficher
   const totalSent = getTotalSent();
   const openRate = getOpenRate();
@@ -266,13 +234,17 @@ export const AcelleTableRow = ({
       </TableCell>
       <TableCell className="text-right flex gap-1">
         <Button 
-          variant="ghost" 
+          variant={loadError ? "destructive" : "ghost"}
           size="icon"
           onClick={handleRefreshStats}
           disabled={isLoading}
-          title="Rafraîchir les statistiques"
+          title={loadError || "Rafraîchir les statistiques"}
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          {loadError ? (
+            <AlertTriangle className="h-4 w-4" />
+          ) : (
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          )}
         </Button>
         <Button 
           variant="ghost" 

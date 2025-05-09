@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { fetchCampaignStatisticsFromApi, fetchCampaignStatisticsLegacy } from "./apiClient";
@@ -12,9 +11,15 @@ export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null)
   if (!statistics) return true;
   
   // Vérifier si les valeurs principales sont à zéro
-  return statistics.subscriber_count === 0 || 
-         statistics.subscriber_count === undefined || 
-         statistics.subscriber_count === null;
+  const isEmpty = 
+    (statistics.subscriber_count === 0 || 
+     statistics.subscriber_count === undefined || 
+     statistics.subscriber_count === null) &&
+    (statistics.delivered_count === 0 || 
+     statistics.delivered_count === undefined || 
+     statistics.delivered_count === null);
+  
+  return isEmpty;
 };
 
 /**
@@ -44,7 +49,7 @@ export const enrichCampaignsWithStats = async (
       // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement, on saute
       if (!options?.forceRefresh && 
           campaign.statistics && 
-          campaign.statistics.subscriber_count > 0) {
+          !hasEmptyStatistics(campaign.statistics)) {
         console.log(`Statistiques déjà disponibles pour la campagne ${campaign.name}, aucun enrichissement nécessaire`);
         enrichedCampaigns.push(campaign);
         continue;
@@ -128,47 +133,12 @@ export const fetchDirectStatistics = async (
       return validatedStats;
     } else {
       console.error(`Aucune statistique valide n'a pu être récupérée pour ${campaignUid}`);
-      // Créer des statistiques simulées pour le débogage en mode dev
-      if (process.env.NODE_ENV === 'development') {
-        console.log("Génération de statistiques simulées pour le mode développement");
-        return createDemoStatistics();
-      }
+      
+      // PAS de statistiques simulées - on retourne null pour être transparent
       return null;
     }
   } catch (error) {
     console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
     return null;
   }
-};
-
-/**
- * Crée des statistiques de démonstration pour le mode développement
- */
-const createDemoStatistics = (): AcelleCampaignStatistics => {
-  const totalEmails = Math.floor(Math.random() * 1000) + 200;
-  const deliveredRate = 0.97 + Math.random() * 0.02;
-  const delivered = Math.floor(totalEmails * deliveredRate);
-  const openRate = 0.30 + Math.random() * 0.40;
-  const opened = Math.floor(delivered * openRate);
-  const uniqueOpenRate = openRate * 0.9;
-  const uniqueOpens = Math.floor(opened * 0.9);
-  const clickRate = 0.10 + Math.random() * 0.30;
-  const clicked = Math.floor(opened * clickRate);
-  const bounceCount = totalEmails - delivered;
-  
-  return {
-    subscriber_count: totalEmails,
-    delivered_count: delivered,
-    delivered_rate: deliveredRate * 100,
-    open_count: opened,
-    uniq_open_count: uniqueOpens,
-    uniq_open_rate: uniqueOpenRate * 100,
-    click_count: clicked,
-    click_rate: clickRate * 100,
-    bounce_count: bounceCount,
-    soft_bounce_count: Math.floor(bounceCount * 0.7),
-    hard_bounce_count: Math.floor(bounceCount * 0.3),
-    unsubscribe_count: Math.floor(delivered * 0.02),
-    abuse_complaint_count: Math.floor(delivered * 0.005)
-  };
 };
