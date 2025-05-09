@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { AcelleAccount, AcelleCampaignStatistics, DeliveryInfo } from "@/types/a
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
 import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
 import { buildDirectApiUrl } from "@/services/acelle/acelle-service";
-import { extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
+import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 interface StatisticsMethodTesterProps {
   account: AcelleAccount;
@@ -431,25 +432,31 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
       // Créer un objet AcelleCampaignStatistics avec les données extraites
-      const formattedStats: Partial<AcelleCampaignStatistics> = {
-        subscriber_count: deliveryInfo.total,
-        delivered_count: deliveryInfo.delivered,
-        delivered_rate: deliveryInfo.delivery_rate,
-        open_count: deliveryInfo.opened,
-        uniq_open_rate: deliveryInfo.unique_open_rate,
-        click_count: deliveryInfo.clicked,
-        click_rate: deliveryInfo.click_rate,
-        bounce_count: typeof deliveryInfo.bounced === 'object' ? deliveryInfo.bounced.total : deliveryInfo.bounced,
-        soft_bounce_count: typeof deliveryInfo.bounced === 'object' ? deliveryInfo.bounced.soft : undefined,
-        hard_bounce_count: typeof deliveryInfo.bounced === 'object' ? deliveryInfo.bounced.hard : undefined,
-        unsubscribe_count: deliveryInfo.unsubscribed,
-        abuse_complaint_count: deliveryInfo.complained
-      };
+      // MODIFICATION: Remplacer l'utilisation de extractStatisticsFromAnyFormat par une création directe de l'objet
+      let stats: AcelleCampaignStatistics = createEmptyStatistics();
       
-      // FIX: Utiliser extractStatisticsFromAnyFormat avec le bon type
-      // Avant: const stats = extractStatisticsFromAnyFormat(formattedStats);
-      // Après: nous nous assurons que nous passons un objet et non une chaîne JSON
-      const stats = extractStatisticsFromAnyFormat(formattedStats as Partial<AcelleCampaignStatistics>);
+      // Remplir manuellement l'objet stats
+      if (deliveryInfo && typeof deliveryInfo === 'object') {
+        stats.subscriber_count = deliveryInfo.total || 0;
+        stats.delivered_count = deliveryInfo.delivered || 0;
+        stats.delivered_rate = deliveryInfo.delivery_rate || 0;
+        stats.open_count = deliveryInfo.opened || 0;
+        stats.uniq_open_rate = deliveryInfo.unique_open_rate || 0;
+        stats.click_count = deliveryInfo.clicked || 0;
+        stats.click_rate = deliveryInfo.click_rate || 0;
+        
+        // Gérer le cas où bounced est un objet ou un nombre
+        if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
+          stats.bounce_count = deliveryInfo.bounced.total || 0;
+          stats.soft_bounce_count = deliveryInfo.bounced.soft || 0;
+          stats.hard_bounce_count = deliveryInfo.bounced.hard || 0;
+        } else {
+          stats.bounce_count = typeof deliveryInfo.bounced === 'number' ? deliveryInfo.bounced : 0;
+        }
+        
+        stats.unsubscribe_count = deliveryInfo.unsubscribed || 0;
+        stats.abuse_complaint_count = deliveryInfo.complained || 0;
+      }
       
       setResults(prev => [...prev, {
         method: "method-7",
