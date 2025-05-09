@@ -232,54 +232,45 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
       name: "API TrackingLog",
       description: "Récupération via API /api/campaigns/{uid}/tracking_log",
       execute: async (campaign, account) => {
-        const trackingUrl = buildDirectApiUrl(
-          `campaigns/${campaign.uid || campaign.campaign_uid}/tracking_log`, 
-          account.api_endpoint, 
-          { api_token: account.api_token }
-        );
+        // Récupérer les statistiques directement depuis le champ tracking_log
+        const { data: campaignData, error: campaignError } = await supabase
+          .from('email_campaigns_cache')
+          .select('tracking_log')
+          .eq('campaign_uid', campaign.uid || campaign.campaign_uid)
+          .eq('account_id', account.id)
+          .single();
+          
+        if (campaignError) {
+          console.error("Error fetching from campaigns cache:", campaignError);
+          throw campaignError;
+        }
         
-        try {
-          const response = await fetch(trackingUrl, {
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
+        setRawResponses(prev => ({ ...prev, "method-5": campaignData }));
+        
+        // Safely handle the data with proper type checking
+        if (campaignData && campaignData.tracking_log) {
+          const logs = campaignData.tracking_log;
+          const stats = {
+            subscriber_count: logs.length,
+            delivered_count: logs.filter((log: any) => log.status === 'delivered').length,
+            open_count: logs.filter((log: any) => log.open_log).length,
+            click_count: logs.filter((log: any) => log.click_log).length,
+            bounce_count: logs.filter((log: any) => log.status === 'bounced').length,
+            uniq_open_rate: 0,
+            click_rate: 0,
+            delivered_rate: 0
+          };
           
-          if (!response.ok) {
-            throw new Error(`API error: ${response.status} ${response.statusText}`);
+          // Calculer les taux
+          if (stats.subscriber_count > 0) {
+            stats.delivered_rate = (stats.delivered_count / stats.subscriber_count) * 100;
+            if (stats.delivered_count > 0) {
+              stats.uniq_open_rate = (stats.open_count / stats.delivered_count) * 100;
+              stats.click_rate = (stats.click_count / stats.delivered_count) * 100;
+            }
           }
           
-          const data = await response.json();
-          setRawResponses(prev => ({ ...prev, "method-5": data }));
-          
-          // Calculer les statistiques à partir des logs
-          if (data && data.tracking_logs) {
-            const logs = data.tracking_logs;
-            const stats = {
-              subscriber_count: logs.length,
-              delivered_count: logs.filter((log: any) => log.status === 'delivered').length,
-              open_count: logs.filter((log: any) => log.open_log).length,
-              click_count: logs.filter((log: any) => log.click_log).length,
-              bounce_count: logs.filter((log: any) => log.status === 'bounced').length,
-              uniq_open_rate: 0,
-              click_rate: 0,
-              delivered_rate: 0
-            };
-            
-            // Calculer les taux
-            if (stats.subscriber_count > 0) {
-              stats.delivered_rate = (stats.delivered_count / stats.subscriber_count) * 100;
-              if (stats.delivered_count > 0) {
-                stats.uniq_open_rate = (stats.open_count / stats.delivered_count) * 100;
-                stats.click_rate = (stats.click_count / stats.delivered_count) * 100;
-              }
-            }
-            
-            return stats;
-          }
-        } catch (error) {
-          console.error("Erreur API TrackingLog:", error);
-          throw error;
+          return stats;
         }
         
         return null;
@@ -357,22 +348,19 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-7": campaignData }));
         
-        // Safe type conversion
-        const typedCampaignData = campaignData as unknown as CacheData | null;
-        
-        if (typedCampaignData && typedCampaignData.delivery_info) {
-          // Fix the type issue here by using a safer approach to handle the delivery_info
-          const deliveryInfoJson = typedCampaignData.delivery_info;
+        // Safely handle the data with proper type checking
+        if (campaignData && campaignData.delivery_info) {
+          const deliveryInfoJson = campaignData.delivery_info;
           
           // Only proceed if we have an object
           if (typeof deliveryInfoJson === 'object' && deliveryInfoJson !== null && !Array.isArray(deliveryInfoJson)) {
-            // Extract bounced data safely using guard clauses
+            // Type-safe extraction of bounced data
             let bouncedSoft = 0;
             let bouncedHard = 0;
             let bouncedTotal = 0;
             
-            // Access the bounced field safely by checking if it exists on the object
-            if (deliveryInfoJson && 'bounced' in deliveryInfoJson) {
+            // Access the bounced field safely
+            if ('bounced' in deliveryInfoJson) {
               const bouncedData = (deliveryInfoJson as any).bounced;
               
               if (bouncedData) {
@@ -389,7 +377,7 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
               }
             }
             
-            // Create the statistics object with safe extraction
+            // Create a properly typed statistics object
             const stats: AcelleCampaignStatistics = {
               subscriber_count: safeExtract(deliveryInfoJson, 'total') || safeExtract(deliveryInfoJson, 'subscriber_count'),
               delivered_count: safeExtract(deliveryInfoJson, 'delivered') || safeExtract(deliveryInfoJson, 'delivered_count'),
