@@ -80,7 +80,30 @@ function debugLog(message: string, data?: any, level: number = LOG_LEVELS.INFO) 
   };
   
   logMethod(JSON.stringify(logEntry));
+  
+  // Enregistrer le log dans la base de données si possible
+  try {
+    supabase.from('acelle_sync_logs').insert({
+      operation: 'edge_function_log',
+      details: {
+        level: levelName,
+        message: message,
+        data: data,
+        timestamp: timestamp
+      }
+    }).then(() => {}, (err) => {
+      console.error("Erreur lors de l'enregistrement du log dans la base de données:", err);
+    });
+  } catch (e) {
+    // Ignorer les erreurs lors de l'enregistrement du log
+  }
 }
+
+// Log initial pour vérifier que la fonction démarre correctement
+debugLog("===== FONCTION SYNC-EMAIL-CAMPAIGNS DÉMARRÉE =====", {
+  version: "1.6.0",
+  timestamp: new Date().toISOString()
+}, LOG_LEVELS.INFO);
 
 // Helper function pour tester l'accessibilité d'une URL avec diagnostic extensif
 async function testEndpointAccess(url: string, options: { 
@@ -107,7 +130,7 @@ async function testEndpointAccess(url: string, options: {
     
     const headers = {
       'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Sync/1.5',
+      'User-Agent': 'Seventic-Acelle-Sync/1.6',
       ...(options.headers || {})
     };
     
@@ -128,7 +151,7 @@ async function testEndpointAccess(url: string, options: {
       finalUrl = `${url}${separator}api_token=${options.authToken}`;
     }
     
-    debugLog(`Making API request to: ${finalUrl}`, { headers }, LOG_LEVELS.VERBOSE);
+    debugLog(`Making API request to: ${finalUrl.replace(options.authToken || '', '[TOKEN_HIDDEN]')}`, { headers }, LOG_LEVELS.VERBOSE);
     
     const response = await fetch(finalUrl, {
       method: 'GET',
@@ -154,7 +177,7 @@ async function testEndpointAccess(url: string, options: {
     }
     
     if (response.ok) {
-      debugLog(`URL accessible: ${finalUrl}, status: ${response.status}, time: ${responseTime}ms`, 
+      debugLog(`URL accessible: ${finalUrl.replace(options.authToken || '', '[TOKEN_HIDDEN]')}, status: ${response.status}, time: ${responseTime}ms`, 
         { headers: responseHeaders, responseText: responseText.substring(0, 200) }, 
         LOG_LEVELS.DEBUG);
         
@@ -167,7 +190,7 @@ async function testEndpointAccess(url: string, options: {
         responseText: responseText.substring(0, 1000) // Limit response text size
       };
     } else {
-      debugLog(`URL inaccessible: ${finalUrl}, status: ${response.status}, statusText: ${response.statusText}, time: ${responseTime}ms`,
+      debugLog(`URL inaccessible: ${finalUrl.replace(options.authToken || '', '[TOKEN_HIDDEN]')}, status: ${response.status}, statusText: ${response.statusText}, time: ${responseTime}ms`,
         { headers: responseHeaders, responseText }, 
         LOG_LEVELS.WARN);
         
@@ -196,659 +219,973 @@ async function testEndpointAccess(url: string, options: {
   }
 }
 
-// Fonction pour tester différentes méthodes d'authentification
-async function testAuthMethods(baseUrl: string, endpoint: string, apiToken: string, options: { 
-  timeout?: number,
-  authMethods?: string[]
-} = {}): Promise<{
-  success: boolean,
-  method?: string,
-  statusCode?: number,
-  message: string,
-  responseText?: string,
-  responseTime?: number,
-  authDetails?: any
-}> {
-  const timeout = options.timeout || DEFAULT_TIMEOUT;
-  const methods = options.authMethods || ["token", "basic", "header"]; // Default methods to try
-  
-  // Résultats pour chaque méthode
-  const results: Record<string, any> = {};
-  
-  debugLog(`Testing authentication methods for ${baseUrl + endpoint}`, { methods }, LOG_LEVELS.INFO);
-  
-  // Méthode 1: Auth par token dans l'URL
-  if (methods.includes("token")) {
-    const tokenResult = await testEndpointAccess(`${baseUrl}${endpoint}`, {
-      timeout,
-      authToken: apiToken,
-      authMethod: 'token',
-      headers: {
-        'X-Auth-Method': 'token'
-      }
-    });
-    
-    results.token = tokenResult;
-    
-    // Si réussi, retourner immédiatement
-    if (tokenResult.success) {
-      debugLog(`Token auth successful for ${baseUrl + endpoint}`, { statusCode: tokenResult.statusCode }, LOG_LEVELS.INFO);
-      return {
-        success: true,
-        method: 'token',
-        statusCode: tokenResult.statusCode,
-        message: `Authentication successful using token method`,
-        responseText: tokenResult.responseText,
-        responseTime: tokenResult.responseTime,
-        authDetails: { url: `${baseUrl}${endpoint}?api_token=${apiToken}` }
-      };
-    }
-  }
-  
-  // Méthode 2: Basic Auth
-  if (methods.includes("basic")) {
-    const basicResult = await testEndpointAccess(`${baseUrl}${endpoint}`, {
-      timeout,
-      authToken: apiToken,
-      authMethod: 'basic',
-      headers: {
-        'X-Auth-Method': 'basic'
-      }
-    });
-    
-    results.basic = basicResult;
-    
-    // Si réussi, retourner immédiatement
-    if (basicResult.success) {
-      debugLog(`Basic auth successful for ${baseUrl + endpoint}`, { statusCode: basicResult.statusCode }, LOG_LEVELS.INFO);
-      return {
-        success: true,
-        method: 'basic',
-        statusCode: basicResult.statusCode,
-        message: `Authentication successful using Basic Auth method`,
-        responseText: basicResult.responseText,
-        responseTime: basicResult.responseTime,
-        authDetails: { headers: { 'Authorization': `Basic ${btoa(`${apiToken}:`)}` } }
-      };
-    }
-  }
-  
-  // Méthode 3: X-API-Key header
-  if (methods.includes("header")) {
-    const headerResult = await testEndpointAccess(`${baseUrl}${endpoint}`, {
-      timeout,
-      authToken: apiToken,
-      authMethod: 'header',
-      headers: {
-        'X-Auth-Method': 'header'
-      }
-    });
-    
-    results.header = headerResult;
-    
-    // Si réussi, retourner immédiatement
-    if (headerResult.success) {
-      debugLog(`Header auth successful for ${baseUrl + endpoint}`, { statusCode: headerResult.statusCode }, LOG_LEVELS.INFO);
-      return {
-        success: true,
-        method: 'header',
-        statusCode: headerResult.statusCode,
-        message: `Authentication successful using X-API-Key header method`,
-        responseText: headerResult.responseText,
-        responseTime: headerResult.responseTime,
-        authDetails: { headers: { 'X-API-Key': apiToken } }
-      };
-    }
-  }
-  
-  // Si aucune méthode n'a réussi, retourner échec avec détails
-  debugLog(`All authentication methods failed for ${baseUrl + endpoint}`, results, LOG_LEVELS.WARN);
-  return {
-    success: false,
-    message: `Toutes les méthodes d'authentification ont échoué pour ${baseUrl}${endpoint}`,
-    authDetails: results
-  };
-}
-
 // Heartbeat recording function
 async function recordHeartbeat() {
   try {
-    await supabase.from('edge_function_stats').upsert({
-      function_name: 'sync-email-campaigns',
-      last_heartbeat: new Date().toISOString(),
-      status: 'active'
-    }, { onConflict: 'function_name' });
+    await supabase.from('acelle_sync_logs').insert({
+      operation: 'heartbeat',
+      details: { timestamp: new Date().toISOString() }
+    });
     
-    debugLog("Heartbeat recorded for sync-email-campaigns", {}, LOG_LEVELS.DEBUG);
+    debugLog("Heartbeat recorded", {}, LOG_LEVELS.DEBUG);
     lastActivity = Date.now();
   } catch (error) {
     debugLog("Failed to record heartbeat:", error, LOG_LEVELS.ERROR);
   }
 }
 
-// Start heartbeat interval
-setInterval(async () => {
-  // Only log if the function has been idle for a while
-  if (Date.now() - lastActivity > HEARTBEAT_INTERVAL) {
-    debugLog(`Heartbeat at ${new Date().toISOString()} - Service active`, {}, LOG_LEVELS.INFO);
-    await recordHeartbeat();
-  }
-}, HEARTBEAT_INTERVAL);
+// Interface pour le format des campagnes Acelle
+interface AcelleCampaign {
+  uid: string;
+  campaign_uid?: string; // Ajout du champ supplémentaire pour la compatibilité
+  name: string;
+  subject: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  delivery_date?: string | null;
+  run_at?: string | null;
+  last_error?: string | null;
+  statistics?: any;
+  delivery_info?: any;
+}
 
-async function fetchCampaignsForAccount(account: any, options: {
-  authMethods?: string[],
-  timeout?: number,
-  debug?: boolean
-} = {}) {
-  const startTime = Date.now();
+// Interface pour les statistiques des campagnes
+interface AcelleCampaignStatistics {
+  subscriber_count: number;
+  delivered_count: number;
+  delivered_rate: number;
+  open_count: number;
+  uniq_open_count?: number;
+  uniq_open_rate: number;
+  click_count: number;
+  click_rate: number;
+  bounce_count: number;
+  soft_bounce_count: number;
+  hard_bounce_count: number;
+  unsubscribe_count: number;
+  abuse_complaint_count: number;
+  [key: string]: any;
+}
+
+// Structure pour les informations de livraison
+interface DeliveryInfo {
+  total?: number;
+  delivery_rate?: number;
+  unique_open_rate?: number;
+  click_rate?: number;
+  bounce_rate?: number;
+  unsubscribe_rate?: number;
+  delivered?: number;
+  opened?: number;
+  clicked?: number;
+  bounced?: {
+    soft?: number;
+    hard?: number;
+    total?: number;
+  } | number;
+  unsubscribed?: number;
+  complained?: number;
+  bounce_count?: number;
+  [key: string]: any;
+}
+
+// Extraire l'ID de campagne normalisé, peu importe le format
+function normalizeCampaignId(campaign: AcelleCampaign): string {
+  // Valider et extraire l'identifiant unique
+  const campaignId = campaign.uid || campaign.campaign_uid || '';
   
+  if (!campaignId) {
+    debugLog(`[ERREUR ID] Impossible d'extraire un ID de campagne valide`, { campaign }, LOG_LEVELS.ERROR);
+    throw new Error("Identifiant de campagne manquant ou invalide");
+  }
+  
+  return campaignId;
+}
+
+// Récupère la liste des campagnes depuis l'API Acelle
+async function fetchCampaigns(apiEndpoint: string, apiToken: string): Promise<AcelleCampaign[]> {
   try {
-    // Update debug level if requested
-    if (options.debug) {
-      currentLogLevel = LOG_LEVELS.DEBUG;
-    }
+    // Construire l'URL avec des paramètres explicites pour maximiser les informations
+    const url = `${apiEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=1&per_page=100&sort_order=desc&include_stats=true`;
     
-    // Ensure endpoint is formatted correctly (remove trailing slash if present)
-    const apiEndpoint = account.api_endpoint?.endsWith('/') 
-      ? account.api_endpoint.slice(0, -1) 
-      : account.api_endpoint;
-      
-    const apiToken = account.api_token;
-    const accountName = account.name || `Account ID ${account.id}`;
-    
-    debugLog(`Processing account: ${accountName}, API endpoint: ${apiEndpoint}`, {
-      id: account.id,
-      options
+    debugLog(`[FETCH CAMPAIGNS] Récupération des campagnes depuis l'API Acelle`, {
+      endpoint: apiEndpoint,
+      hasToken: !!apiToken,
+      tokenLength: apiToken ? apiToken.length : 0,
+      url: url.replace(apiToken, 'API_TOKEN_HIDDEN')
     }, LOG_LEVELS.INFO);
     
-    // Vérification des paramètres d'API
-    if (!apiToken || !apiEndpoint) {
-      const errorMessage = `Invalid API configuration for account ${accountName}: missing API token or endpoint`;
-      debugLog(errorMessage, { account: { id: account.id, name: accountName } }, LOG_LEVELS.ERROR);
-      await updateAccountStatus(account.id, 'error: invalid API configuration');
-      return { 
-        success: false, 
-        error: 'Invalid API configuration',
-        diagnostic: {
-          apiEndpoint: Boolean(apiEndpoint),
-          apiToken: Boolean(apiToken),
-          timestamp: new Date().toISOString()
-        }
-      };
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      debugLog(`[ERROR FETCH] Erreur API lors de la récupération des campagnes: ${response.status} ${response.statusText}`, 
+        { error: errorText }, 
+        LOG_LEVELS.ERROR);
+      throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
     }
     
-    // Test d'accessibilité de l'endpoint avant de procéder
-    // Use token authentication as recommended by Acelle Mail API docs
-    const accessTest = await testEndpointAccess(apiEndpoint, { 
-      timeout: options.timeout || DEFAULT_TIMEOUT,
-      headers: {
-        'User-Agent': 'Seventic-Acelle-Sync/1.5 (Diagnostic)',
-        'X-Debug-Marker': 'true'
-      }
-    });
+    const data = await response.json();
     
-    debugLog(`API endpoint accessibility test for ${accountName}:`, accessTest, LOG_LEVELS.INFO);
-    
-    // MODIFICATION: Ne pas échouer sur le code 403, certaines APIs exigent toujours une authentification
-    // Continuer même si accessTest.success est false mais que le statut est 403
-    const proceedDespiteError = accessTest.statusCode === 403;
-    
-    if (!accessTest.success && !proceedDespiteError) {
-      const statusMessage = `error: API endpoint inaccessible - ${accessTest.message}`;
-      await updateAccountStatus(account.id, statusMessage);
-      return { 
-        success: false, 
-        error: 'API endpoint inaccessible', 
-        details: accessTest.message,
-        diagnostic: {
-          accessTest,
-          timestamp: new Date().toISOString()
-        }
-      };
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      debugLog(`[ERROR FETCH] Format de réponse API invalide`, { response: data }, LOG_LEVELS.ERROR);
+      throw new Error("Format de réponse API invalide");
     }
     
-    // Si on a reçu un 403, on log simplement un avertissement mais on continue
-    if (proceedDespiteError) {
-      debugLog(`API endpoint returned 403 for ${accountName}, but we'll proceed with authenticated requests`, 
-        accessTest, LOG_LEVELS.WARN);
-    }
+    const campaigns = data.data || [];
     
-    // Test des méthodes d'authentification disponibles
-    const authMethods = options.authMethods || ['token'];
-    const authTest = await testAuthMethods(apiEndpoint, '/me', apiToken, {
-      timeout: options.timeout || DEFAULT_TIMEOUT,
-      authMethods
-    });
+    debugLog(`[SUCCESS FETCH] ${campaigns.length} campagnes récupérées depuis l'API`, {
+      firstCampaign: campaigns.length > 0 ? {
+        uid: campaigns[0].uid,
+        campaign_uid: campaigns[0].campaign_uid,
+        hasStatistics: !!campaigns[0].statistics
+      } : 'No campaigns'
+    }, LOG_LEVELS.INFO);
     
-    debugLog(`Authentication test for ${accountName}:`, authTest, LOG_LEVELS.DEBUG);
-    
-    if (!authTest.success) {
-      const statusMessage = `error: API authentication failed - ${authTest.message}`;
-      await updateAccountStatus(account.id, statusMessage);
-      return { 
-        success: false, 
-        error: 'API authentication failed', 
-        details: authTest.message,
-        diagnostic: {
-          authTest,
-          timestamp: new Date().toISOString()
-        }
-      };
-    }
-    
-    // FIXED: Avoid duplicate api/v1 in the URL path
-    // Check if the API endpoint already includes /api/v1
-    const apiPath = apiEndpoint.includes('/api/v1') ? '' : '/api/v1';
-    
-    // Use token auth as recommended by Acelle Mail API
-    // https://api.acellemail.com/ recommends adding api_token as parameter
-    // Make sure to include include_stats=true to get full statistics
-    const url = `${apiEndpoint}${apiPath}/campaigns?api_token=${apiToken}&include_stats=true`;
-    
-    let headers: Record<string, string> = {
-      'Accept': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Sync/1.5',
-      'Connection': 'keep-alive',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'X-Auth-Method': 'token'
-    };
-    
-    debugLog(`Making request to: ${url} with headers:`, headers, LOG_LEVELS.DEBUG);
-    
-    // Set up timeout for the request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT);
-    
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      // Log basic response info
-      debugLog(`Response from API for ${accountName}: ${response.status} ${response.statusText}`, {
-        timeTaken: `${Date.now() - startTime}ms`
+    // Vérifier si l'ID est correctement exposé
+    if (campaigns.length > 0) {
+      const firstCampaign = campaigns[0];
+      debugLog(`[ID CHECK] Format de l'ID de campagne`, {
+        uid: firstCampaign.uid,
+        campaign_uid: firstCampaign.campaign_uid,
+        uid_type: typeof firstCampaign.uid,
+        campaign_uid_type: typeof firstCampaign.campaign_uid
       }, LOG_LEVELS.DEBUG);
-
-      // Log response headers for debugging
-      const responseHeadersObj: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        responseHeadersObj[key] = value;
+      
+      // Si uid est absent mais campaign_uid est présent, copier la valeur
+      campaigns.forEach(campaign => {
+        if (!campaign.uid && campaign.campaign_uid) {
+          campaign.uid = campaign.campaign_uid;
+        } else if (campaign.uid && !campaign.campaign_uid) {
+          campaign.campaign_uid = campaign.uid;
+        }
       });
-      debugLog(`Response headers for ${accountName}:`, responseHeadersObj, LOG_LEVELS.DEBUG);
+    }
+    
+    return campaigns;
+    
+  } catch (error) {
+    debugLog(`[CRITICAL ERROR] Erreur lors de la récupération des campagnes`, { error }, LOG_LEVELS.ERROR);
+    throw error;
+  }
+}
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        debugLog(`Error fetching campaigns for ${accountName}: Status ${response.status}, Response: ${errorText}`, {}, LOG_LEVELS.ERROR);
-        await updateAccountStatus(account.id, `error: API returned ${response.status}`);
-        return { 
-          success: false, 
-          error: `API Error: ${response.status}`, 
-          details: errorText,
-          endpoint: apiEndpoint,
-          diagnostic: {
-            status: response.status,
-            responseHeaders: responseHeadersObj,
-            errorText: errorText.substring(0, 1000),
-            url,
-            timestamp: new Date().toISOString()
-          }
-        };
-      }
-
-      const campaignsData = await response.json();
+// Récupère les détails d'une campagne spécifique, incluant les statistiques
+async function fetchCampaignDetails(apiEndpoint: string, apiToken: string, campaignUid: string): Promise<AcelleCampaign> {
+  try {
+    // Utiliser spécifiquement l'endpoint pour les statistiques détaillées
+    const url = `${apiEndpoint}/api/v1/campaigns/${campaignUid}/statistics?api_token=${apiToken}`;
+    
+    debugLog(`[FETCH DETAILS] Récupération des stats pour la campagne ${campaignUid}`, {
+      endpoint: apiEndpoint,
+      hasToken: !!apiToken,
+      tokenLength: apiToken ? apiToken.length : 0,
+      url: url.replace(apiToken, 'API_TOKEN_HIDDEN')
+    }, LOG_LEVELS.INFO);
+    
+    const response = await fetch(url);
+    
+    // Si les statistiques ne sont pas trouvées, essayer de récupérer les détails généraux de la campagne
+    if (response.status === 404) {
+      debugLog(`[WARN DETAILS] Statistiques non trouvées pour ${campaignUid}, essai avec l'endpoint général`, {}, LOG_LEVELS.WARN);
       
-      if (!Array.isArray(campaignsData)) {
-        debugLog(`API returned non-array data for ${accountName}:`, campaignsData, LOG_LEVELS.ERROR);
-        await updateAccountStatus(account.id, `error: API returned invalid data format`);
-        return { 
-          success: false, 
-          error: `API returned invalid data format`, 
-          details: typeof campaignsData,
-          endpoint: apiEndpoint,
-          diagnostic: {
-            dataType: typeof campaignsData,
-            sample: JSON.stringify(campaignsData).substring(0, 200),
-            timestamp: new Date().toISOString()
-          }
-        };
+      const campaignUrl = `${apiEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${apiToken}`;
+      const campaignResponse = await fetch(campaignUrl);
+      
+      if (!campaignResponse.ok) {
+        debugLog(`[ERROR DETAILS] Échec de récupération des détails de campagne: ${campaignResponse.status}`, {}, LOG_LEVELS.ERROR);
+        throw new Error(`Erreur API: ${campaignResponse.status} ${campaignResponse.statusText}`);
       }
       
-      debugLog(`Retrieved ${campaignsData.length} campaigns for account ${accountName}`, {
-        timeTaken: `${Date.now() - startTime}ms`
+      const campaign = await campaignResponse.json();
+      debugLog(`[SUCCESS DETAILS] Détails basiques récupérés pour ${campaignUid}`, {
+        name: campaign.name,
+        subject: campaign.subject,
+        hasStatsProperty: !!campaign.statistics
       }, LOG_LEVELS.INFO);
       
-      // Debug sample data
-      if (campaignsData.length > 0) {
-        debugLog(`Sample campaign data for ${accountName}:`, campaignsData[0], LOG_LEVELS.DEBUG);
-      }
+      return campaign;
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      debugLog(`[ERROR DETAILS] Erreur API lors de la récupération des statistiques: ${response.status}`, 
+        { error: errorText }, 
+        LOG_LEVELS.ERROR);
+      throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
+    }
+    
+    // Pour l'endpoint de statistiques, la réponse est directement les statistiques
+    const statistics = await response.json();
+    
+    debugLog(`[SUCCESS STATS] Statistiques récupérées pour ${campaignUid}`, {
+      statsKeys: Object.keys(statistics || {}),
+      uniq_open_rate: statistics?.uniq_open_rate || 'non défini',
+      click_rate: statistics?.click_rate || 'non défini'
+    }, LOG_LEVELS.INFO);
+    
+    // Récupérer les détails de la campagne si nous n'avons que les statistiques
+    const campaignUrl = `${apiEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${apiToken}`;
+    const campaignResponse = await fetch(campaignUrl);
+    
+    if (!campaignResponse.ok) {
+      debugLog(`[ERROR CAMPAIGN] Échec de récupération des détails de campagne après stats: ${campaignResponse.status}`, {}, LOG_LEVELS.ERROR);
       
-      // Update cache for each campaign with improved statistics handling
-      for (const campaign of campaignsData) {
-        // Ensure the delivery_info is properly structured as a JSON object
-        // with all required fields for client-side display
-        const deliveryInfo = {
-          total: parseInt(campaign.statistics?.subscriber_count) || 0,
-          delivered: parseInt(campaign.statistics?.delivered_count) || 0,
-          delivery_rate: parseFloat(campaign.statistics?.delivered_rate) || 0,
-          opened: parseInt(campaign.statistics?.open_count) || 0,
-          unique_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || 0,
-          clicked: parseInt(campaign.statistics?.click_count) || 0,
-          click_rate: parseFloat(campaign.statistics?.click_rate) || 0,
-          bounced: {
-            soft: parseInt(campaign.statistics?.soft_bounce_count) || 0,
-            hard: parseInt(campaign.statistics?.hard_bounce_count) || 0,
-            total: parseInt(campaign.statistics?.bounce_count) || 0
-          },
-          unsubscribed: parseInt(campaign.statistics?.unsubscribe_count) || 0,
-          complained: parseInt(campaign.statistics?.abuse_complaint_count) || 0,
-          unsubscribe_rate: parseFloat(campaign.statistics?.unsubscribe_rate) || 0,
-          bounce_rate: parseFloat(campaign.statistics?.bounce_rate) || 0
-        };
-        
-        // Log the delivery_info for debugging
-        debugLog(`Storing delivery info for campaign ${campaign.name}:`, deliveryInfo, LOG_LEVELS.DEBUG);
-
-        await supabase.from('email_campaigns_cache').upsert({
-          campaign_uid: campaign.uid,
-          account_id: account.id,
-          name: campaign.name,
-          subject: campaign.subject,
-          status: campaign.status,
-          created_at: campaign.created_at,
-          updated_at: campaign.updated_at,
-          delivery_date: campaign.delivery_at || campaign.run_at,
-          run_at: campaign.run_at,
-          last_error: campaign.last_error,
-          delivery_info: deliveryInfo,
-          cache_updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'campaign_uid'
-        });
-      }
-
-      // Update last sync time for account
-      await updateAccountStatus(account.id);
-
-      return { 
-        success: true, 
-        count: campaignsData.length,
-        diagnostic: {
-          timeTaken: Date.now() - startTime,
-          url,
-          timestamp: new Date().toISOString()
-        }
-      };
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      if (fetchError.name === 'AbortError') {
-        debugLog(`Request to ${apiEndpoint} timed out`, {timeout: options.timeout || DEFAULT_TIMEOUT}, LOG_LEVELS.ERROR);
-        await updateAccountStatus(account.id, 'error: API request timed out');
-        return { 
-          success: false, 
-          error: 'Request timed out', 
-          endpoint: apiEndpoint,
-          diagnostic: {
-            timeout: options.timeout || DEFAULT_TIMEOUT,
-            url,
-            timestamp: new Date().toISOString()
-          }
-        };
-      }
-      
-      debugLog(`Fetch error for ${accountName}:`, fetchError, LOG_LEVELS.ERROR);
-      await updateAccountStatus(account.id, `error: ${fetchError.message}`);
-      return { 
-        success: false, 
-        error: fetchError.message || 'Unknown fetch error',
-        endpoint: apiEndpoint,
-        diagnostic: {
-          errorName: fetchError.name,
-          errorMessage: fetchError.message,
-          url,
-          timestamp: new Date().toISOString()
-        }
+      // Créer un objet minimal avec uniquement les statistiques
+      return {
+        uid: campaignUid,
+        campaign_uid: campaignUid,
+        name: "Campagne inconnue",
+        subject: "Sujet inconnu",
+        status: "unknown",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        statistics: statistics
       };
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
     
-    debugLog(`Error syncing account ${account.name}:`, { errorMessage, errorStack }, LOG_LEVELS.ERROR);
-    await updateAccountStatus(account.id, `error: ${errorMessage}`);
-    return { 
-      success: false, 
-      error: errorMessage,
-      account: account.name,
-      endpoint: account.api_endpoint,
-      diagnostic: {
-        errorStack,
-        timestamp: new Date().toISOString(),
-        timeTaken: Date.now() - startTime
+    const campaign = await campaignResponse.json();
+    
+    // Enrichir la campagne avec les statistiques
+    campaign.statistics = statistics;
+    
+    debugLog(`[SUCCESS COMBINED] Données complètes récupérées pour ${campaignUid}`, {
+      name: campaign.name,
+      subject: campaign.subject,
+      hasStats: !!campaign.statistics,
+      statsKeys: campaign.statistics ? Object.keys(campaign.statistics) : []
+    }, LOG_LEVELS.INFO);
+    
+    return campaign;
+  } catch (error) {
+    debugLog(`[CRITICAL ERROR] Erreur lors de la récupération des détails de campagne ${campaignUid}`, { error }, LOG_LEVELS.ERROR);
+    throw error;
+  }
+}
+
+// Stocke les données de campagne dans le cache Supabase
+async function storeCampaignsInCache(accountId: string, campaigns: AcelleCampaign[]) {
+  try {
+    debugLog(`[CACHE] Préparation de ${campaigns.length} campagnes pour stockage`, {
+      firstCampaignId: campaigns.length > 0 ? normalizeCampaignId(campaigns[0]) : 'No campaigns'
+    }, LOG_LEVELS.INFO);
+    
+    const cacheEntries = campaigns.map(campaign => {
+      const campaignId = normalizeCampaignId(campaign);
+      
+      return {
+        account_id: accountId,
+        campaign_uid: campaignId,
+        name: campaign.name,
+        subject: campaign.subject,
+        status: campaign.status,
+        created_at: campaign.created_at,
+        updated_at: campaign.updated_at,
+        delivery_date: campaign.delivery_date || null,
+        run_at: campaign.run_at || null,
+        last_error: campaign.last_error || null,
+        delivery_info: campaign.delivery_info || campaign.statistics || {},
+        cache_updated_at: new Date().toISOString()
+      };
+    });
+    
+    debugLog(`[CACHE] Insertion/mise à jour de ${cacheEntries.length} entrées dans le cache`, {
+      firstEntry: cacheEntries.length > 0 ? {
+        uid: cacheEntries[0].campaign_uid,
+        hasDeliveryInfo: !!cacheEntries[0].delivery_info,
+        deliveryInfoKeys: Object.keys(cacheEntries[0].delivery_info || {})
+      } : 'Pas de données'
+    }, LOG_LEVELS.INFO);
+    
+    // Utiliser des batchs pour éviter les timeouts
+    const batchSize = 25;
+    for (let i = 0; i < cacheEntries.length; i += batchSize) {
+      const batch = cacheEntries.slice(i, i + batchSize);
+      
+      debugLog(`[CACHE] Traitement du batch ${i/batchSize + 1}/${Math.ceil(cacheEntries.length/batchSize)}`, {
+        batchSize: batch.length
+      }, LOG_LEVELS.DEBUG);
+      
+      const { error } = await supabase
+        .from('email_campaigns_cache')
+        .upsert(batch, {
+          onConflict: 'account_id,campaign_uid'
+        });
+        
+      if (error) {
+        debugLog(`[ERROR CACHE] Erreur lors de la mise à jour du cache (batch ${i/batchSize + 1})`, { error }, LOG_LEVELS.ERROR);
+        // Continue with other batches despite error
+      } else {
+        debugLog(`[SUCCESS CACHE] Batch ${i/batchSize + 1} mis à jour avec succès`, {}, LOG_LEVELS.DEBUG);
       }
+    }
+    
+    debugLog(`[SUCCESS CACHE] Cache des campagnes mis à jour avec succès`, {}, LOG_LEVELS.INFO);
+    return cacheEntries.length;
+    
+  } catch (error) {
+    debugLog(`[CRITICAL ERROR] Erreur lors du stockage des campagnes en cache`, { error }, LOG_LEVELS.ERROR);
+    throw error;
+  }
+}
+
+// Stocke les statistiques d'une campagne dans la table campaign_stats_cache
+async function storeCampaignStatistics(accountId: string, campaignUid: string, statistics: AcelleCampaignStatistics) {
+  try {
+    debugLog(`[STATS CACHE] Stockage des statistiques pour la campagne ${campaignUid}`, {
+      statisticsKeys: Object.keys(statistics || {}),
+      openRate: statistics?.uniq_open_rate || 'non défini',
+      clickRate: statistics?.click_rate || 'non défini'
+    }, LOG_LEVELS.INFO);
+    
+    const { error } = await supabase
+      .from('campaign_stats_cache')
+      .upsert({
+        account_id: accountId,
+        campaign_uid: campaignUid,
+        statistics: statistics,
+        last_updated: new Date().toISOString()
+      }, {
+        onConflict: 'account_id,campaign_uid'
+      });
+      
+    if (error) {
+      debugLog(`[ERROR STATS] Erreur lors du stockage des statistiques`, { error }, LOG_LEVELS.ERROR);
+      throw error;
+    }
+    
+    debugLog(`[SUCCESS STATS] Statistiques stockées avec succès pour ${campaignUid}`, {}, LOG_LEVELS.INFO);
+    
+    // Vérifier que le trigger a bien mis à jour email_campaigns_cache
+    const { data: updatedCache, error: cacheError } = await supabase
+      .from('email_campaigns_cache')
+      .select('delivery_info, cache_updated_at')
+      .eq('account_id', accountId)
+      .eq('campaign_uid', campaignUid)
+      .single();
+      
+    if (cacheError) {
+      debugLog(`[VÉRIF CACHE] Impossible de vérifier la mise à jour du cache`, { error: cacheError }, LOG_LEVELS.WARN);
+    } else {
+      const hasStats = updatedCache && updatedCache.delivery_info && 
+        (updatedCache.delivery_info.uniq_open_rate !== undefined || updatedCache.delivery_info.click_rate !== undefined);
+      
+      debugLog(`[VÉRIF CACHE] Cache vérifié après mise à jour des stats`, { 
+        hasDeliveryInfo: !!updatedCache?.delivery_info,
+        updatedAt: updatedCache?.cache_updated_at,
+        openRate: updatedCache?.delivery_info?.uniq_open_rate || 'non défini',
+        clickRate: updatedCache?.delivery_info?.click_rate || 'non défini',
+        triggerSeemsWorking: hasStats
+      }, LOG_LEVELS.INFO);
+      
+      // Si le trigger ne semble pas fonctionner, forcer la mise à jour manuellement
+      if (!hasStats) {
+        debugLog(`[TRIGGER FIX] Le trigger semble ne pas fonctionner, mise à jour manuelle`, {}, LOG_LEVELS.WARN);
+        
+        const { error: updateError } = await supabase
+          .from('email_campaigns_cache')
+          .update({ 
+            delivery_info: statistics,
+            cache_updated_at: new Date().toISOString()
+          })
+          .eq('account_id', accountId)
+          .eq('campaign_uid', campaignUid);
+          
+        if (updateError) {
+          debugLog(`[ERROR UPDATE] Échec de la mise à jour manuelle`, { error: updateError }, LOG_LEVELS.ERROR);
+        } else {
+          debugLog(`[SUCCESS UPDATE] Mise à jour manuelle réussie pour ${campaignUid}`, {}, LOG_LEVELS.INFO);
+        }
+      }
+    }
+    
+    return true;
+    
+  } catch (error) {
+    debugLog(`[CRITICAL ERROR] Erreur lors du stockage des statistiques`, { error }, LOG_LEVELS.ERROR);
+    throw error;
+  }
+}
+
+// Transforme les statistiques brutes en format DeliveryInfo pour la compatibilité
+function transformStatisticsToDeliveryInfo(statistics: AcelleCampaignStatistics): DeliveryInfo {
+  if (!statistics) return {};
+  
+  debugLog(`[TRANSFORM] Transformation des statistiques en format DeliveryInfo`, { 
+    keysAvant: Object.keys(statistics || {}),
+    openRate: statistics?.uniq_open_rate || 'non défini',
+    clickRate: statistics?.click_rate || 'non défini'
+  }, LOG_LEVELS.DEBUG);
+  
+  // Convertir les valeurs numériques en nombre si elles sont des chaînes
+  const numericStats = Object.entries(statistics).reduce((acc, [key, value]) => {
+    acc[key] = typeof value === 'string' ? parseFloat(value) : value;
+    return acc;
+  }, {} as Record<string, any>);
+  
+  // Format cohérent pour delivery_info
+  const deliveryInfo = {
+    total: numericStats.subscriber_count || 0,
+    delivery_rate: numericStats.delivered_rate || 0,
+    unique_open_rate: numericStats.uniq_open_rate || 0,
+    click_rate: numericStats.click_rate || 0,
+    bounce_rate: (numericStats.bounce_count && numericStats.subscriber_count) ? 
+      (numericStats.bounce_count / numericStats.subscriber_count * 100) : 0,
+    unsubscribe_rate: (numericStats.unsubscribe_count && numericStats.subscriber_count) ?
+      (numericStats.unsubscribe_count / numericStats.subscriber_count * 100) : 0,
+    delivered: numericStats.delivered_count || 0,
+    opened: numericStats.open_count || 0,
+    clicked: numericStats.click_count || 0,
+    bounced: {
+      soft: numericStats.soft_bounce_count || 0,
+      hard: numericStats.hard_bounce_count || 0,
+      total: numericStats.bounce_count || 0
+    },
+    unsubscribed: numericStats.unsubscribe_count || 0,
+    complained: numericStats.abuse_complaint_count || 0,
+    
+    // Copier les autres statistiques importantes
+    subscriber_count: numericStats.subscriber_count || 0,
+    delivered_count: numericStats.delivered_count || 0,
+    delivered_rate: numericStats.delivered_rate || 0,
+    open_count: numericStats.open_count || 0,
+    open_rate: numericStats.open_rate || 0,
+    uniq_open_count: numericStats.uniq_open_count || 0,
+    uniq_open_rate: numericStats.uniq_open_rate || 0
+  };
+  
+  debugLog(`[TRANSFORM] DeliveryInfo généré`, { 
+    keysApres: Object.keys(deliveryInfo),
+    openRate: deliveryInfo.uniq_open_rate || 'non défini',
+    clickRate: deliveryInfo.click_rate || 'non défini'
+  }, LOG_LEVELS.DEBUG);
+  
+  return deliveryInfo;
+}
+
+// Met à jour les statistiques agrégées dans email_campaigns_stats
+async function updateAggregatedStats(accountId: string) {
+  try {
+    debugLog(`[AGRÉGATION] Mise à jour des statistiques agrégées pour le compte ${accountId}`, {}, LOG_LEVELS.INFO);
+    
+    // Construction de la requête SQL pour agréger les statistiques
+    const { data, error } = await supabase.rpc('update_acelle_campaign_stats', {
+      account_id_param: accountId
+    });
+    
+    if (error) {
+      debugLog(`[ERROR AGRÉGATION] Erreur lors de la mise à jour des statistiques agrégées`, { error }, LOG_LEVELS.ERROR);
+      throw error;
+    }
+    
+    // Vérifier si force_update_campaign_stats existe et l'utiliser si c'est le cas
+    try {
+      debugLog(`[FORCE UPDATE] Tentative d'appel à force_update_campaign_stats`, {}, LOG_LEVELS.INFO);
+      const { data: forceData, error: forceError } = await supabase.rpc('force_update_campaign_stats', {
+        account_id_param: accountId
+      });
+      
+      if (forceError) {
+        debugLog(`[ERROR FORCE UPDATE] Fonction force_update_campaign_stats indisponible ou erreur`, { error: forceError }, LOG_LEVELS.WARN);
+      } else {
+        debugLog(`[SUCCESS FORCE UPDATE] Mise à jour forcée réussie`, { result: forceData }, LOG_LEVELS.INFO);
+      }
+    } catch (forceError) {
+      debugLog(`[EXCEPTION FORCE UPDATE] Erreur lors de la mise à jour forcée`, { error: forceError }, LOG_LEVELS.WARN);
+    }
+    
+    debugLog(`[SUCCESS AGRÉGATION] Statistiques agrégées mises à jour avec succès`, { result: data }, LOG_LEVELS.INFO);
+    return true;
+    
+  } catch (error) {
+    debugLog(`[ERROR AGRÉGATION] Erreur lors de la mise à jour des statistiques agrégées`, { error }, LOG_LEVELS.ERROR);
+    return false;
+  }
+}
+
+// Vérification des correspondances d'UIDs entre les tables
+async function verifyUIDMapping(accountId: string) {
+  try {
+    debugLog(`[VÉRIFICATION] Vérification des correspondances d'UIDs pour le compte ${accountId}`, {}, LOG_LEVELS.INFO);
+    
+    // Chercher les campagnes dans campaign_stats_cache mais pas dans email_campaigns_cache
+    const { data: missingInCache, error: missingError } = await supabase
+      .from('campaign_stats_cache')
+      .select('campaign_uid')
+      .eq('account_id', accountId)
+      .not('campaign_uid', 'in', supabase
+        .from('email_campaigns_cache')
+        .select('campaign_uid')
+        .eq('account_id', accountId)
+      );
+      
+    if (missingError) {
+      debugLog(`[ERROR VÉRIF] Erreur lors de la vérification des UIDs manquants dans le cache`, { error: missingError }, LOG_LEVELS.ERROR);
+    } else if (missingInCache && missingInCache.length > 0) {
+      debugLog(`[SYNC GAP] ${missingInCache.length} campagnes avec statistiques mais sans entrées dans email_campaigns_cache`, { 
+        missingUids: missingInCache.map(c => c.campaign_uid)
+      }, LOG_LEVELS.WARN);
+    } else {
+      debugLog(`[SYNC OK] Toutes les campagnes avec statistiques ont des entrées correspondantes dans email_campaigns_cache`, {}, LOG_LEVELS.INFO);
+    }
+    
+    // Vérifier les entrées où delivery_info est null dans email_campaigns_cache mais statistiques disponibles
+    const { data: statsAvailable, error: statsError } = await supabase
+      .from('email_campaigns_cache')
+      .select('campaign_uid, name')
+      .eq('account_id', accountId)
+      .is('delivery_info', null)
+      .in('campaign_uid', supabase
+        .from('campaign_stats_cache')
+        .select('campaign_uid')
+        .eq('account_id', accountId)
+      );
+      
+    if (statsError) {
+      debugLog(`[ERROR VÉRIF] Erreur lors de la vérification des statistiques non synchronisées`, { error: statsError }, LOG_LEVELS.ERROR);
+    } else if (statsAvailable && statsAvailable.length > 0) {
+      debugLog(`[STATS GAP] ${statsAvailable.length} campagnes avec statistiques disponibles mais non synchronisées dans email_campaigns_cache`, { 
+        campaigns: statsAvailable
+      }, LOG_LEVELS.WARN);
+      
+      // Forcer la mise à jour pour ces campagnes
+      for (const campaign of statsAvailable) {
+        debugLog(`[FORCE SYNC] Forçage de la synchronisation pour ${campaign.campaign_uid} (${campaign.name})`, {}, LOG_LEVELS.INFO);
+        
+        // Récupérer les statistiques de campaign_stats_cache
+        const { data: statsData, error: getStatsError } = await supabase
+          .from('campaign_stats_cache')
+          .select('statistics')
+          .eq('account_id', accountId)
+          .eq('campaign_uid', campaign.campaign_uid)
+          .single();
+          
+        if (getStatsError || !statsData) {
+          debugLog(`[ERROR FORCE] Impossible de récupérer les statistiques pour le forçage`, { error: getStatsError }, LOG_LEVELS.ERROR);
+          continue;
+        }
+        
+        // Mettre à jour email_campaigns_cache avec les statistiques
+        const { error: updateError } = await supabase
+          .from('email_campaigns_cache')
+          .update({ 
+            delivery_info: statsData.statistics,
+            cache_updated_at: new Date().toISOString()
+          })
+          .eq('account_id', accountId)
+          .eq('campaign_uid', campaign.campaign_uid);
+          
+        if (updateError) {
+          debugLog(`[ERROR FORCE] Échec de la mise à jour forcée pour ${campaign.campaign_uid}`, { error: updateError }, LOG_LEVELS.ERROR);
+        } else {
+          debugLog(`[SUCCESS FORCE] Mise à jour forcée réussie pour ${campaign.campaign_uid}`, {}, LOG_LEVELS.INFO);
+        }
+      }
+    } else {
+      debugLog(`[STATS OK] Pas de campagnes avec statistiques disponibles non synchronisées`, {}, LOG_LEVELS.INFO);
+    }
+    
+    return {
+      success: true,
+      missingInCache: missingInCache || [],
+      statsAvailable: statsAvailable || []
+    };
+  } catch (error) {
+    debugLog(`[ERROR VÉRIF] Erreur lors de la vérification des correspondances d'UIDs`, { error }, LOG_LEVELS.ERROR);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
     };
   }
 }
 
-// Helper function to update account status
-async function updateAccountStatus(accountId: string, errorMessage?: string) {
+// Fonction principale de synchronisation
+async function synchronizeCampaigns(accountId: string, apiEndpoint: string, apiToken: string) {
   try {
-    const updateData: Record<string, any> = { 
-      last_sync_date: new Date().toISOString() 
-    };
+    debugLog(`[DÉBUT SYNC] Début de synchronisation des campagnes pour le compte ${accountId}`, {
+      endpoint: apiEndpoint
+    }, LOG_LEVELS.INFO);
     
-    if (errorMessage) {
-      debugLog(`Setting error status for account ${accountId}: ${errorMessage}`, {}, LOG_LEVELS.WARN);
-      updateData.last_sync_error = errorMessage;
-    } else {
-      updateData.last_sync_error = null;
+    // Enregistrer le début de la synchronisation
+    const syncStartLog = await supabase.from('acelle_sync_logs').insert({
+      operation: 'sync_campaigns',
+      account_id: accountId,
+      details: { 
+        started_at: new Date().toISOString(),
+        endpoint: apiEndpoint.replace(/\/$/, '') // sans slash final
+      }
+    }).select('id').single();
+    
+    const syncLogId = syncStartLog.data?.id;
+    
+    // 1. Récupérer la liste des campagnes
+    const campaigns = await fetchCampaigns(apiEndpoint, apiToken);
+    debugLog(`[LISTE CAMPAGNES] ${campaigns.length} campagnes récupérées`, {}, LOG_LEVELS.INFO);
+    
+    // 2. Pour chaque campagne, récupérer les détails détaillés incluant les statistiques
+    const enrichedCampaigns = [];
+    for (const campaign of campaigns) {
+      try {
+        const campaignId = normalizeCampaignId(campaign);
+        
+        debugLog(`[DÉTAILS] Récupération des détails pour la campagne ${campaignId}`, {
+          name: campaign.name,
+          subject: campaign.subject
+        }, LOG_LEVELS.DEBUG);
+        
+        // Récupérer les détails complets de la campagne (incluant les statistiques)
+        const campaignDetails = await fetchCampaignDetails(apiEndpoint, apiToken, campaignId);
+        
+        // Vérifier que les IDs sont cohérents
+        if (!campaignDetails.uid) {
+          campaignDetails.uid = campaignId;
+        }
+        
+        if (!campaignDetails.campaign_uid) {
+          campaignDetails.campaign_uid = campaignId;
+        }
+        
+        // Extraire les statistiques et les transformer en format DeliveryInfo
+        const statistics = campaignDetails.statistics || {};
+        const deliveryInfo = transformStatisticsToDeliveryInfo(statistics);
+        
+        // Enrichir la campagne avec les statistiques et le delivery_info
+        const enrichedCampaign = {
+          ...campaign,
+          ...campaignDetails,  // Fusionner avec les détails pour avoir toutes les informations
+          statistics: statistics,
+          delivery_info: deliveryInfo
+        };
+        
+        // Ajouter à la liste des campagnes enrichies
+        enrichedCampaigns.push(enrichedCampaign);
+        
+        // Stocker les statistiques dans la table campaign_stats_cache
+        if (statistics && Object.keys(statistics).length > 0) {
+          await storeCampaignStatistics(accountId, campaignId, statistics);
+        } else {
+          debugLog(`[STATS VIDES] Pas de statistiques disponibles pour la campagne ${campaignId}`, {}, LOG_LEVELS.WARN);
+        }
+        
+      } catch (error) {
+        const campaignId = normalizeCampaignId(campaign);
+        debugLog(`[ERROR ENRICHISSEMENT] Erreur lors de l'enrichissement de la campagne ${campaignId}`, { error }, LOG_LEVELS.ERROR);
+        
+        // Ajouter la campagne sans enrichissement en cas d'erreur
+        enrichedCampaigns.push(campaign);
+      }
     }
     
+    // 3. Stocker toutes les campagnes enrichies dans le cache
+    const storedCount = await storeCampaignsInCache(accountId, enrichedCampaigns);
+    debugLog(`[STOCKAGE] ${storedCount} campagnes ont été stockées dans le cache`, {}, LOG_LEVELS.INFO);
+    
+    // 4. Vérifier les correspondances d'UIDs entre les tables
+    await verifyUIDMapping(accountId);
+    
+    // 5. Mettre à jour les statistiques agrégées
+    await updateAggregatedStats(accountId);
+    
+    // 6. Mettre à jour le compte Acelle avec la date de la dernière synchronisation
     const { error } = await supabase
       .from('acelle_accounts')
-      .update(updateData)
+      .update({ 
+        last_sync_date: new Date().toISOString(),
+        last_sync_error: null,
+        cache_last_updated: new Date().toISOString()
+      })
       .eq('id', accountId);
       
     if (error) {
-      debugLog(`Failed to update status for account ${accountId}:`, error, LOG_LEVELS.ERROR);
-    }
-  } catch (err) {
-    debugLog(`Failed to update status for account ${accountId}:`, err, LOG_LEVELS.ERROR);
-  }
-}
-
-serve(async (req: Request) => {
-  // Record activity and update heartbeat
-  lastActivity = Date.now();
-  await recordHeartbeat();
-  
-  // Capture l'origine pour le debug
-  const origin = req.headers.get('origin');
-  console.log(`Request from origin: ${origin || 'unknown'}`);
-  
-  // Ajuster le niveau de log en fonction des paramètres de requête
-  if (req.method === 'POST') {
-    try {
-      const body = await req.json();
-      if (body.debug) {
-        currentLogLevel = body.debug_level === 'verbose' ? LOG_LEVELS.VERBOSE : LOG_LEVELS.DEBUG;
-      }
-    } catch (e) {
-      // Silently ignore JSON parse errors
-    }
-  }
-  
-  // Log the authorization header to help debug authentication issues
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) {
-    debugLog("Authorization header provided:", authHeader.substring(0, 15) + "...", LOG_LEVELS.DEBUG);
-  } else {
-    debugLog("No authorization header provided", {}, LOG_LEVELS.WARN);
-  }
-  
-  // Enhanced CORS handling for preflight requests
-  if (req.method === 'OPTIONS') {
-    debugLog("Handling OPTIONS preflight request for sync-email-campaigns with complete CORS headers", {}, LOG_LEVELS.DEBUG);
-    
-    // Préparez les en-têtes CORS dynamiques
-    const responseHeaders = new Headers(corsHeaders);
-    
-    // Mirror the requesting origin if available
-    if (origin) {
-      responseHeaders.set('Access-Control-Allow-Origin', origin);
+      debugLog(`[ERROR UPDATE COMPTE] Erreur lors de la mise à jour du compte Acelle`, { error }, LOG_LEVELS.ERROR);
     }
     
-    return new Response(null, { 
-      status: 204, // Standard status for successful OPTIONS requests
-      headers: responseHeaders
-    });
-  }
-
-  try {
-    debugLog("Starting sync-email-campaigns function", {}, LOG_LEVELS.INFO);
-    
-    // Parse request body
-    let startServices = false;
-    let forceSync = false;
-    let requestOptions: {
-      authMethods?: string[];
-      timeout?: number;
-      debug?: boolean;
-    } = {};
-    
-    if (req.method === 'POST') {
-      try {
-        const body = await req.json();
-        startServices = !!body.startServices;
-        forceSync = !!body.forceSync;
-        
-        // Extract advanced options
-        requestOptions = {
-          authMethods: body.authMethods || ['token'],
-          timeout: body.timeout || DEFAULT_TIMEOUT,
-          debug: !!body.debug
-        };
-        
-        // Set debug level based on request
-        if (body.debug) {
-          currentLogLevel = body.debug_level === 'verbose' ? LOG_LEVELS.VERBOSE : 
-                           (body.debug_level === 'trace' ? LOG_LEVELS.TRACE : LOG_LEVELS.DEBUG);
+    // Mettre à jour les logs de synchronisation
+    if (syncLogId) {
+      await supabase.from('acelle_sync_logs').update({
+        details: {
+          completed_at: new Date().toISOString(),
+          campaigns_count: campaigns.length,
+          success: true
         }
-        
-        debugLog("Request options:", { startServices, forceSync, ...requestOptions }, LOG_LEVELS.DEBUG);
-      } catch (e) {
-        debugLog("Could not parse request body", e, LOG_LEVELS.WARN);
-      }
+      }).eq('id', syncLogId);
     }
     
-    // Fetch active accounts
-    const { data: accounts, error } = await supabase
-      .from('acelle_accounts')
-      .select('*')
-      .eq('status', 'active')
-      .order('cache_priority', { ascending: false });
-
-    if (error) {
-      debugLog("Error fetching accounts:", error, LOG_LEVELS.ERROR);
-      throw error;
-    }
-
-    debugLog(`Found ${accounts?.length || 0} active Acelle accounts to sync`, {}, LOG_LEVELS.INFO);
-    if (!accounts || accounts.length === 0) {
-      return new Response(JSON.stringify({ 
-        message: 'No active accounts to sync',
-        timestamp: new Date().toISOString(),
-        diagnostic: {
-          requestTime: new Date().toISOString()
-        }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const results = [];
-    const diagnostics = [];
+    debugLog(`[SYNC TERMINÉE] Synchronisation des campagnes terminée avec succès`, {}, LOG_LEVELS.INFO);
     
-    for (const account of accounts) {
-      debugLog(`Processing account: ${account.name}, API endpoint: ${account.api_endpoint}`, {
-        id: account.id,
-        options: requestOptions
-      }, LOG_LEVELS.INFO);
-      
-      const result = await fetchCampaignsForAccount(account, requestOptions);
-      
-      // Store diagnostic info separately to avoid cluttering the main response
-      if (result.diagnostic) {
-        diagnostics.push({
-          accountId: account.id,
-          accountName: account.name,
-          ...result.diagnostic
-        });
-        
-        // Remove diagnostic from main result
-        delete result.diagnostic;
-      }
-      
-      results.push({ 
-        account: account.name, 
-        accountId: account.id,
-        endpoint: account.api_endpoint,
-        ...result 
-      });
-    }
-
-    // Update edge function stats
-    await supabase.from('edge_function_stats').upsert({
-      function_name: 'sync-email-campaigns',
-      last_heartbeat: new Date().toISOString(),
-      last_run_success: true,
-      last_run_time: new Date().toISOString(),
-      status: 'active'
-    }, { onConflict: 'function_name' });
-
-    // Lors de la construction de la réponse finale, utiliser des en-têtes CORS dynamiques
-    const responseHeaders = new Headers(corsHeaders);
+    return {
+      success: true,
+      message: `${storedCount} campagnes synchronisées avec succès`,
+      timestamp: new Date().toISOString()
+    };
     
-    // Mirror the requesting origin if available
-    if (origin) {
-      responseHeaders.set('Access-Control-Allow-Origin', origin);
-    }
-    
-    responseHeaders.set('Content-Type', 'application/json');
-    
-    return new Response(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      results,
-      diagnostics: requestOptions.debug ? diagnostics : undefined,
-      nextScheduledSync: new Date(Date.now() + 30 * 60 * 1000).toISOString() // estimate next sync
-    }), {
-      headers: responseHeaders
-    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    debugLog("Error in sync-email-campaigns:", errorMessage, LOG_LEVELS.ERROR);
+    debugLog(`[ERROR SYNC] Échec de la synchronisation des campagnes: ${errorMessage}`, { error }, LOG_LEVELS.ERROR);
     
-    // Préparez les en-têtes CORS dynamiques pour la réponse d'erreur
-    const responseHeaders = new Headers(corsHeaders);
-    
-    // Mirror the requesting origin if available
-    if (origin) {
-      responseHeaders.set('Access-Control-Allow-Origin', origin);
+    // Mettre à jour le compte Acelle avec l'erreur
+    try {
+      await supabase
+        .from('acelle_accounts')
+        .update({ 
+          last_sync_date: new Date().toISOString(),
+          last_sync_error: errorMessage
+        })
+        .eq('id', accountId);
+    } catch (updateError) {
+      debugLog(`[ERROR META] Erreur lors de la mise à jour du statut d'erreur`, { error: updateError }, LOG_LEVELS.ERROR);
     }
     
-    responseHeaders.set('Content-Type', 'application/json');
-    
-    return new Response(JSON.stringify({
-      error: errorMessage,
+    return {
+      success: false,
+      message: `Échec de la synchronisation: ${errorMessage}`,
       timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: responseHeaders
+    };
+  }
+}
+
+// Diagnostiquer les problèmes avec les statistiques de campagnes
+async function diagnoseCampaignStats(accountId: string) {
+  try {
+    debugLog(`[DIAGNOSTIC] Début du diagnostic des statistiques pour le compte ${accountId}`, {}, LOG_LEVELS.INFO);
+    
+    // 1. Vérifier que les statistiques existent dans campaign_stats_cache
+    const { data: statsCache, error: statsError } = await supabase
+      .from('campaign_stats_cache')
+      .select('campaign_uid, statistics')
+      .eq('account_id', accountId);
+      
+    if (statsError) {
+      debugLog(`[DIAG ERROR] Impossible de lire campaign_stats_cache`, { error: statsError }, LOG_LEVELS.ERROR);
+      return { success: false, error: 'Erreur lecture stats cache' };
+    }
+    
+    const statCount = statsCache?.length || 0;
+    debugLog(`[DIAG STATS] ${statCount} entrées trouvées dans campaign_stats_cache`, {}, LOG_LEVELS.INFO);
+    
+    // 2. Vérifier que ces mêmes campagnes ont leurs statistiques dans email_campaigns_cache
+    const { data: campaignsCache, error: campaignsError } = await supabase
+      .from('email_campaigns_cache')
+      .select('campaign_uid, delivery_info')
+      .eq('account_id', accountId);
+      
+    if (campaignsError) {
+      debugLog(`[DIAG ERROR] Impossible de lire email_campaigns_cache`, { error: campaignsError }, LOG_LEVELS.ERROR);
+      return { success: false, error: 'Erreur lecture campaigns cache' };
+    }
+    
+    const campaignCount = campaignsCache?.length || 0;
+    debugLog(`[DIAG CAMPAIGNS] ${campaignCount} entrées trouvées dans email_campaigns_cache`, {}, LOG_LEVELS.INFO);
+    
+    // 3. Comparer les statistiques entre les deux tables
+    const campaignMap = new Map();
+    campaignsCache?.forEach(campaign => {
+      campaignMap.set(campaign.campaign_uid, campaign.delivery_info);
     });
+    
+    const missingStats = [];
+    const mismatchedStats = [];
+    
+    statsCache?.forEach(stat => {
+      const campaignInfo = campaignMap.get(stat.campaign_uid);
+      
+      if (!campaignInfo) {
+        missingStats.push(stat.campaign_uid);
+      } else {
+        // Vérifier si les statistiques sont synchronisées
+        const statOpenRate = stat.statistics?.uniq_open_rate;
+        const campaignOpenRate = campaignInfo?.uniq_open_rate;
+        
+        if (statOpenRate !== campaignOpenRate) {
+          mismatchedStats.push({
+            campaign_uid: stat.campaign_uid,
+            stats_open_rate: statOpenRate,
+            campaign_open_rate: campaignOpenRate
+          });
+        }
+      }
+    });
+    
+    debugLog(`[DIAG RÉSULTAT] Campagnes avec statistiques manquantes: ${missingStats.length}, incohérentes: ${mismatchedStats.length}`, {
+      missing: missingStats,
+      mismatched: mismatchedStats
+    }, LOG_LEVELS.INFO);
+    
+    // 4. Forcer la mise à jour si nécessaire
+    if (missingStats.length > 0 || mismatchedStats.length > 0) {
+      debugLog(`[DIAG ACTION] Forçage de la mise à jour des statistiques`, {}, LOG_LEVELS.INFO);
+      
+      try {
+        const { data: forceData, error: forceError } = await supabase.rpc('force_update_campaign_stats', {
+          account_id_param: accountId
+        });
+        
+        if (forceError) {
+          debugLog(`[DIAG ERROR] Échec du forçage de la mise à jour`, { error: forceError }, LOG_LEVELS.ERROR);
+        } else {
+          debugLog(`[DIAG SUCCESS] Mise à jour forcée réussie`, { result: forceData }, LOG_LEVELS.INFO);
+        }
+      } catch (error) {
+        debugLog(`[DIAG ERROR] Exception lors du forçage de la mise à jour`, { error }, LOG_LEVELS.ERROR);
+      }
+    }
+    
+    return {
+      success: true,
+      statCount,
+      campaignCount,
+      missingStats,
+      mismatchedStats
+    };
+    
+  } catch (error) {
+    debugLog(`[DIAG CRITICAL] Erreur lors du diagnostic`, { error }, LOG_LEVELS.ERROR);
+    return { success: false, error: String(error) };
+  }
+}
+
+// Gestionnaire principal des requêtes
+serve(async (req) => {
+  // Configuration du niveau de log basée sur les headers
+  const debugLevel = req.headers.get('x-debug-level');
+  if (debugLevel && !isNaN(parseInt(debugLevel))) {
+    currentLogLevel = parseInt(debugLevel);
+    debugLog(`Niveau de debug défini à ${currentLogLevel}`, {}, LOG_LEVELS.INFO);
+  }
+
+  // Enregistrer le heartbeat pour le monitoring
+  await recordHeartbeat();
+  
+  // Options request (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+  
+  try {
+    debugLog("Traitement de la requête entrante", {
+      method: req.method,
+      url: req.url
+    }, LOG_LEVELS.INFO);
+    
+    // Authentification et validation
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      debugLog('Échec d\'authentification: Token manquant ou invalide', {}, LOG_LEVELS.ERROR);
+      return new Response(
+        JSON.stringify({ error: 'Authentification requise' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Extraire les données de la requête
+    let body;
+    try {
+      body = await req.json();
+      debugLog("Corps de requête reçu", { body }, LOG_LEVELS.DEBUG);
+    } catch (error) {
+      debugLog('Erreur lors du parsing du JSON', { error }, LOG_LEVELS.ERROR);
+      return new Response(
+        JSON.stringify({ error: 'Format JSON invalide' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { accountId, apiToken, apiEndpoint, authMethod, action } = body;
+    
+    // Vérifier l'action demandée (diagnostic ou synchronisation)
+    if (action === 'diagnose' && accountId) {
+      debugLog(`Action diagnostique demandée pour le compte ${accountId}`, {}, LOG_LEVELS.INFO);
+      const result = await diagnoseCampaignStats(accountId);
+      
+      return new Response(
+        JSON.stringify(result),
+        { 
+          status: result.success ? 200 : 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
+    // Vérifier les paramètres requis pour la synchronisation
+    if (!accountId) {
+      debugLog('Requête invalide: accountId manquant', {}, LOG_LEVELS.ERROR);
+      return new Response(
+        JSON.stringify({ error: 'Paramètre accountId requis' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    debugLog(`Synchronisation demandée pour le compte Acelle ${accountId}`, { authMethod }, LOG_LEVELS.INFO);
+    
+    // Si apiToken ou apiEndpoint ne sont pas fournis, les récupérer de la base de données
+    let finalApiToken = apiToken;
+    let finalApiEndpoint = apiEndpoint;
+    
+    if (!finalApiToken || !finalApiEndpoint) {
+      debugLog('Récupération des détails du compte depuis Supabase', {}, LOG_LEVELS.INFO);
+      
+      const { data: account, error } = await supabase
+        .from('acelle_accounts')
+        .select('api_token, api_endpoint')
+        .eq('id', accountId)
+        .single();
+        
+      if (error || !account) {
+        debugLog(`Compte Acelle non trouvé: ${accountId}`, { error }, LOG_LEVELS.ERROR);
+        return new Response(
+          JSON.stringify({ error: 'Compte Acelle non trouvé' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      finalApiToken = account.api_token;
+      finalApiEndpoint = account.api_endpoint;
+    }
+    
+    // Nettoyer l'URL de l'API (enlever le slash final si présent)
+    finalApiEndpoint = finalApiEndpoint.replace(/\/$/, '');
+    
+    // Vérifier l'accessibilité de l'API avant d'exécuter la synchronisation
+    debugLog(`Test de l'accessibilité de l'API avant synchronisation`, {}, LOG_LEVELS.INFO);
+    const testUrl = `${finalApiEndpoint}/api/v1/ping`;
+    const testResult = await testEndpointAccess(testUrl, {
+      authToken: finalApiToken,
+      authMethod: 'token'
+    });
+    
+    if (!testResult.success) {
+      debugLog(`Échec du test d'accessibilité de l'API`, { testResult }, LOG_LEVELS.ERROR);
+      return new Response(
+        JSON.stringify({ 
+          error: `L'API Acelle n'est pas accessible: ${testResult.message}`,
+          details: testResult
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    debugLog(`API accessible, démarrage de la synchronisation`, {}, LOG_LEVELS.INFO);
+    
+    // Exécuter la synchronisation
+    const result = await synchronizeCampaigns(accountId, finalApiEndpoint, finalApiToken);
+    
+    return new Response(
+      JSON.stringify(result),
+      { 
+        status: result.success ? 200 : 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    debugLog(`Erreur non gérée dans le gestionnaire principal: ${errorMessage}`, { error }, LOG_LEVELS.ERROR);
+    
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

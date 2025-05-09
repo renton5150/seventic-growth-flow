@@ -2,96 +2,83 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
-import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { 
+  formatNumberSafely, 
+  renderPercentage, 
+  extractOpenRate,
+  extractClickRate
+} from "@/utils/acelle/campaignStatusUtils";
 
 interface CampaignStatisticsProps {
-  statistics: AcelleCampaignStatistics | null | undefined;
+  statistics: AcelleCampaignStatistics;
   loading?: boolean;
-  onRefresh?: () => void;
-  lastUpdated?: string | null;
 }
 
-export const CampaignStatistics = ({ 
-  statistics, 
-  loading = false,
-  onRefresh,
-  lastUpdated
-}: CampaignStatisticsProps) => {
-  // Formatage des nombres
-  const formatNumber = (value?: number | null): string => {
-    if (loading) return "...";
-    if (value === undefined || value === null) return "0";
-    return value.toLocaleString();
-  };
+export const CampaignStatistics = ({ statistics, loading = false }: CampaignStatisticsProps) => {
+  // Debug les valeurs des statistiques
+  console.log("[CampaignStatistics] Statistiques reçues:", {
+    statisticsObj: statistics,
+    keys: Object.keys(statistics || {}),
+    openRate: statistics?.uniq_open_rate || 'Non défini',
+    clickRate: statistics?.click_rate || 'Non défini',
+    delivered: statistics?.delivered_count || 'Non défini',
+    total: statistics?.subscriber_count || 'Non défini'
+  });
 
-  // Formatage des pourcentages
-  const formatPercentage = (value?: number | null): string => {
-    if (loading) return "...";
-    if (value === undefined || value === null) return "0%";
-    
-    // Si la valeur est déjà un pourcentage (0-100)
-    if (value > 1) {
-      return `${value.toFixed(1)}%`;
-    }
-    
-    // Si la valeur est une proportion (0-1)
-    return `${(value * 100).toFixed(1)}%`;
-  };
+  // Récupération des valeurs importantes et conversion en nombres
+  const total = parseFloat(String(statistics?.subscriber_count || 0));
+  const delivered = parseFloat(String(statistics?.delivered_count || 0));
+  const opened = parseFloat(String(statistics?.open_count || statistics?.uniq_open_count || 0));
+  const clicked = parseFloat(String(statistics?.click_count || 0));
+  const bounces = parseFloat(String(statistics?.bounce_count || 0));
+  const softBounces = parseFloat(String(statistics?.soft_bounce_count || 0));
+  const hardBounces = parseFloat(String(statistics?.hard_bounce_count || 0));
+  const unsubscribed = parseFloat(String(statistics?.unsubscribe_count || 0));
+  const complained = parseFloat(String(statistics?.abuse_complaint_count || 0));
 
-  // Récupération des valeurs importantes avec fallbacks robustes
-  const total = statistics?.subscriber_count || 0;
-  const delivered = statistics?.delivered_count || 0;
-  const opened = statistics?.open_count || statistics?.uniq_open_count || 0;
-  const clicked = statistics?.click_count || 0;
-  const bounces = statistics?.bounce_count || 0;
-  const softBounces = statistics?.soft_bounce_count || 0;
-  const hardBounces = statistics?.hard_bounce_count || 0;
-  const unsubscribed = statistics?.unsubscribe_count || 0;
-  const complained = statistics?.abuse_complaint_count || 0;
-
-  // Calcul des taux si nécessaire
-  const deliveryRate = statistics?.delivered_rate || (total > 0 ? (delivered / total) * 100 : 0);
-  const openRate = statistics?.uniq_open_rate || statistics?.open_rate || 
-    (delivered > 0 ? (opened / delivered) * 100 : 0);
-  const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
+  // Utiliser nos fonctions d'extraction robustes
+  const openRate = extractOpenRate(statistics);
+  const clickRate = extractClickRate(statistics);
   
-  // Formatage de la date de dernière mise à jour
-  const formatLastUpdated = () => {
-    if (!lastUpdated) return null;
-    try {
-      const date = new Date(lastUpdated);
-      return `Mise à jour le ${date.toLocaleDateString()} à ${date.toLocaleTimeString()}`;
-    } catch (e) {
-      return null;
-    }
-  };
-  
-  const lastUpdatedText = formatLastUpdated();
+  // Calcul du taux de livraison
+  let deliveryRate = 0;
+  if (statistics?.delivered_rate !== undefined) {
+    deliveryRate = parseFloat(String(statistics.delivered_rate));
+  } else if (total > 0) {
+    deliveryRate = (delivered / total) * 100;
+  }
+
+  // Afficher un état de chargement ou un message d'absence de données si nécessaire
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!statistics || Object.keys(statistics).length === 0) {
+    return (
+      <div className="p-8 text-center border rounded-lg bg-muted/10">
+        <p className="text-xl font-medium text-muted-foreground">Aucune statistique disponible pour cette campagne</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Les statistiques seront disponibles une fois la campagne envoyée et les données synchronisées.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* En-tête avec bouton de rafraîchissement */}
-      {onRefresh && (
-        <div className="flex justify-between items-center">
-          <div>
-            {lastUpdatedText && (
-              <p className="text-xs text-muted-foreground">{lastUpdatedText}</p>
-            )}
-          </div>
-          <Button 
-            onClick={onRefresh} 
-            size="sm" 
-            variant="outline" 
-            className="gap-2"
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Rafraîchir les statistiques
-          </Button>
-        </div>
-      )}
-      
       {/* Cartes des métriques principales */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -100,10 +87,10 @@ export const CampaignStatistics = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatPercentage(deliveryRate)}
+              {renderPercentage(deliveryRate)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {formatNumber(delivered)} sur {formatNumber(total)} emails délivrés
+              {formatNumberSafely(delivered)} sur {formatNumberSafely(total)} emails délivrés
             </p>
           </CardContent>
         </Card>
@@ -114,10 +101,10 @@ export const CampaignStatistics = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatPercentage(openRate)}
+              {renderPercentage(openRate)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {formatNumber(opened)} emails ouverts
+              {formatNumberSafely(opened)} emails ouverts
             </p>
           </CardContent>
         </Card>
@@ -128,10 +115,10 @@ export const CampaignStatistics = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatPercentage(clickRate)}
+              {renderPercentage(clickRate)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {formatNumber(clicked)} clics enregistrés
+              {formatNumberSafely(clicked)} clics enregistrés
             </p>
           </CardContent>
         </Card>
@@ -147,15 +134,15 @@ export const CampaignStatistics = ({
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Bounces totaux:</span>
-                <span className="font-medium">{formatNumber(bounces)}</span>
+                <span className="font-medium">{formatNumberSafely(bounces)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Soft bounces:</span>
-                <span>{formatNumber(softBounces)}</span>
+                <span>{formatNumberSafely(softBounces)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Hard bounces:</span>
-                <span>{formatNumber(hardBounces)}</span>
+                <span>{formatNumberSafely(hardBounces)}</span>
               </div>
             </div>
           </CardContent>
@@ -169,16 +156,26 @@ export const CampaignStatistics = ({
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Désabonnements:</span>
-                <span className="font-medium">{formatNumber(unsubscribed)}</span>
+                <span className="font-medium">{formatNumberSafely(unsubscribed)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Plaintes:</span>
-                <span>{formatNumber(complained)}</span>
+                <span>{formatNumberSafely(complained)}</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Affichage des données brutes pour le débogage */}
+      {process.env.NODE_ENV !== 'production' && (
+        <details className="mt-8 p-4 border rounded-lg">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Données brutes (debug)</summary>
+          <pre className="mt-2 p-4 bg-muted/10 rounded text-xs overflow-auto max-h-96">
+            {JSON.stringify(statistics, null, 2)}
+          </pre>
+        </details>
+      )}
     </div>
   );
 };

@@ -4,10 +4,10 @@ import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types
 import { fetchAndProcessCampaignStats as fetchAndProcessStats } from "./stats/campaignStats";
 import { enrichCampaignsWithStats } from "./stats/directStats";
 import { ensureValidStatistics } from "./stats/validation";
+import { testCacheInsertion } from "./stats/cacheManager";
 
 /**
  * Récupère et traite les statistiques d'une campagne
- * Version simplifiée pour éviter les problèmes de cache
  */
 export const fetchAndProcessCampaignStats = async (
   campaign: AcelleCampaign,
@@ -39,4 +39,4 @@ export const fetchAndProcessCampaignStats = async (
 };
 
 // Re-exporter les fonctions utilitaires
-export { ensureValidStatistics, enrichCampaignsWithStats };
+export { testCacheInsertion, ensureValidStatistics, enrichCampaignsWithStats };

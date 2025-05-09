@@ -2,11 +2,10 @@
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { enrichCampaignsWithStats as enrichWithDirectStats } from "./directStats";
-import { fetchCampaignStatisticsFromApi } from "./apiClient";
+import { testCacheInsertion } from "./cacheManager";
 
 /**
  * Récupère et traite les statistiques pour une liste de campagnes
- * Version simplifiée qui va toujours directement à l'API
  */
 export const fetchAndProcessCampaignStats = async (
   campaigns: AcelleCampaign | AcelleCampaign[],
@@ -24,26 +23,17 @@ export const fetchAndProcessCampaignStats = async (
         : addMockStatisticsSingle(campaigns);
     }
     
-    // Forcer l'utilisation de l'API directe, sans cache
+    // Handle single campaign case
     if (!Array.isArray(campaigns)) {
-      // Cas d'une seule campagne
-      const campaignUid = campaigns.uid || campaigns.campaign_uid;
-      if (campaignUid && account) {
-        console.log(`Récupération directe des statistiques pour la campagne ${campaignUid}`);
-        const stats = await fetchCampaignStatisticsFromApi(campaignUid, account);
-        if (stats) {
-          return {
-            ...campaigns,
-            statistics: stats
-          };
-        }
-      }
-      return campaigns;
+      const campaignsArray = await enrichWithDirectStats([campaigns], account, {
+        forceRefresh: options?.refresh
+      });
+      return campaignsArray[0];
     }
     
-    // Cas de plusieurs campagnes
+    // Handle multiple campaigns case
     return enrichWithDirectStats(campaigns, account, {
-      forceRefresh: true // Toujours forcer le rafraîchissement
+      forceRefresh: options?.refresh
     });
   } catch (error) {
     console.error("Erreur lors de la récupération des statistiques:", error);
@@ -56,6 +46,11 @@ export const fetchAndProcessCampaignStats = async (
  * Re-export enrichCampaignsWithStats for compatibility
  */
 export { enrichCampaignsWithStats } from "./directStats";
+
+/**
+ * Re-export testCacheInsertion for compatibility
+ */
+export { testCacheInsertion };
 
 /**
  * Ajoute des statistiques simulées à une seule campagne (utilisé pour le mode démo)

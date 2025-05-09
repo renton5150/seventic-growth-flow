@@ -46,13 +46,16 @@ export function useApiConnection(account?: AcelleAccount) {
       // Construire l'URL pour la vérification
       const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
       url.searchParams.append("url", account.api_endpoint);
+      url.searchParams.append("token", account.api_token); // Transmettre aussi le token dans l'URL
       
-      // Effectuer la requête
+      // Effectuer la requête avec double authentification (URL + headers)
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "X-Acelle-Token": account.api_token,
+          "X-Acelle-Endpoint": account.api_endpoint
         }
       });
       
@@ -92,12 +95,14 @@ export function useApiConnection(account?: AcelleAccount) {
       url.searchParams.append("token", account.api_token);
       url.searchParams.append("detailed", "true");
       
-      // Effectuer la requête
+      // Effectuer la requête avec double authentification (URL + headers)
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "X-Acelle-Token": account.api_token,
+          "X-Acelle-Endpoint": account.api_endpoint
         }
       });
       

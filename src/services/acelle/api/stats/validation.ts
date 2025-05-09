@@ -2,14 +2,102 @@
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 
 /**
- * Assure que les statistiques ont toutes les valeurs requises
- * et sont de type approprié
+ * Valide et garantit que l'objet de statistiques contient toutes les propriétés nécessaires
  */
-export const ensureValidStatistics = (
-  statistics?: AcelleCampaignStatistics | null | undefined
-): AcelleCampaignStatistics => {
-  // Valeurs par défaut pour les statistiques manquantes
-  const defaultStats: AcelleCampaignStatistics = {
+export const ensureValidStatistics = (data: any): AcelleCampaignStatistics => {
+  // Si c'est null, créer un objet vide de statistiques
+  if (!data) {
+    return createEmptyStatistics();
+  }
+
+  // Créer un nouvel objet avec les propriétés validées
+  const validStats: AcelleCampaignStatistics = {
+    subscriber_count: parseNumber(data.subscriber_count),
+    delivered_count: parseNumber(data.delivered_count) || parseNumber(data.delivered),
+    delivered_rate: parseNumber(data.delivered_rate, true),
+    open_count: parseNumber(data.open_count) || parseNumber(data.opened),
+    uniq_open_count: parseNumber(data.uniq_open_count) || parseNumber(data.unique_opened),
+    uniq_open_rate: parseNumber(data.uniq_open_rate, true) || parseNumber(data.unique_open_rate, true),
+    click_count: parseNumber(data.click_count) || parseNumber(data.clicked),
+    click_rate: parseNumber(data.click_rate, true),
+    bounce_count: parseNumber(data.bounce_count) || getBounceCount(data),
+    soft_bounce_count: parseNumber(data.soft_bounce_count),
+    hard_bounce_count: parseNumber(data.hard_bounce_count),
+    unsubscribe_count: parseNumber(data.unsubscribe_count),
+    abuse_complaint_count: parseNumber(data.abuse_complaint_count),
+  };
+
+  console.log("Statistiques validées:", {
+    original: {
+      openRate: data.uniq_open_rate || data.unique_open_rate || data.open_rate,
+      clickRate: data.click_rate,
+      subscriberCount: data.subscriber_count
+    },
+    validated: {
+      openRate: validStats.uniq_open_rate,
+      clickRate: validStats.click_rate,
+      subscriberCount: validStats.subscriber_count
+    }
+  });
+
+  return validStats;
+};
+
+/**
+ * Parse une valeur en nombre, retourne 0 si invalide
+ * Gère plusieurs formats d'entrée
+ */
+const parseNumber = (value: any, isRate = false): number => {
+  if (value === undefined || value === null) return 0;
+  
+  // Traiter les chaînes de caractères
+  if (typeof value === 'string') {
+    // Nettoyer la chaîne (supprimer %, etc.)
+    // Fixed the regex character class to ensure proper range order
+    const cleanValue = value.replace(/[^0-9.,\-]/g, '').replace(',', '.');
+    const num = parseFloat(cleanValue);
+    return isNaN(num) ? 0 : num;
+  }
+  
+  // Traiter les nombres directement
+  return typeof value === 'number' ? value : 0;
+};
+
+/**
+ * Extrait le compte de bounces à partir de différentes structures possibles
+ */
+const getBounceCount = (data: any): number => {
+  // Cas 1: bounce_count existe directement
+  if (data.bounce_count !== undefined) {
+    return parseNumber(data.bounce_count);
+  }
+  
+  // Cas 2: bounced est un nombre
+  if (typeof data.bounced === 'number' || typeof data.bounced === 'string') {
+    return parseNumber(data.bounced);
+  }
+  
+  // Cas 3: bounced est un objet avec total
+  if (data.bounced && typeof data.bounced === 'object' && data.bounced.total !== undefined) {
+    return parseNumber(data.bounced.total);
+  }
+  
+  // Cas 4: bounced est un objet avec hard et soft
+  if (data.bounced && typeof data.bounced === 'object') {
+    const hard = parseNumber(data.bounced.hard);
+    const soft = parseNumber(data.bounced.soft);
+    return hard + soft;
+  }
+  
+  // Par défaut
+  return 0;
+};
+
+/**
+ * Crée un objet de statistiques vide
+ */
+export const createEmptyStatistics = (): AcelleCampaignStatistics => {
+  return {
     subscriber_count: 0,
     delivered_count: 0,
     delivered_rate: 0,
@@ -24,55 +112,4 @@ export const ensureValidStatistics = (
     unsubscribe_count: 0,
     abuse_complaint_count: 0
   };
-  
-  // Si aucune statistique n'est fournie, retourner les valeurs par défaut
-  if (!statistics) {
-    return { ...defaultStats };
-  }
-  
-  // Fonction pour normaliser une valeur en nombre
-  const normalizeToNumber = (value: any): number => {
-    if (typeof value === 'string') {
-      return Number(value) || 0;
-    } else if (typeof value === 'number' && !isNaN(value)) {
-      return value;
-    }
-    return 0;
-  };
-  
-  // Construction de l'objet de statistiques validées en utilisant la propagation
-  // et en normalisant explicitement chaque valeur
-  return {
-    subscriber_count: normalizeToNumber(statistics.subscriber_count),
-    delivered_count: normalizeToNumber(statistics.delivered_count),
-    delivered_rate: normalizeToNumber(statistics.delivered_rate),
-    open_count: normalizeToNumber(statistics.open_count),
-    uniq_open_count: normalizeToNumber(statistics.uniq_open_count),
-    uniq_open_rate: normalizeToNumber(statistics.uniq_open_rate),
-    click_count: normalizeToNumber(statistics.click_count),
-    click_rate: normalizeToNumber(statistics.click_rate),
-    bounce_count: normalizeToNumber(statistics.bounce_count),
-    soft_bounce_count: normalizeToNumber(statistics.soft_bounce_count),
-    hard_bounce_count: normalizeToNumber(statistics.hard_bounce_count),
-    unsubscribe_count: normalizeToNumber(statistics.unsubscribe_count),
-    abuse_complaint_count: normalizeToNumber(statistics.abuse_complaint_count)
-  };
-};
-
-/**
- * Vérifie si les statistiques sont considérées comme périmées
- * en fonction d'un seuil de temps
- */
-export const areStatisticsStale = (lastUpdated: string, staleThresholdMinutes: number = 60): boolean => {
-  try {
-    const lastUpdateTime = new Date(lastUpdated).getTime();
-    const currentTime = Date.now();
-    const thresholdMs = staleThresholdMinutes * 60 * 1000;
-    
-    return currentTime - lastUpdateTime > thresholdMs;
-  } catch (error) {
-    // En cas d'erreur, considérer les statistiques comme périmées
-    console.error("Error checking staleness:", error);
-    return true;
-  }
 };
