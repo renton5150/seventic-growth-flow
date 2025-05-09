@@ -128,21 +128,28 @@ serve(async (req: Request) => {
       }
     }
     
-    // Gestion spéciale des en-têtes Acelle
+    // Gestion spéciale des en-têtes Acelle et ajout des en-têtes d'autorisation
+    const acelleToken = req.headers.get('x-acelle-token') || requestUrl.searchParams.get('api_token');
+    if (acelleToken) {
+      console.log(`[CORS Proxy] Token API Acelle détecté: ${acelleToken.substring(0, 10)}...`);
+      
+      // Ajouter comme paramètre d'URL pour les API qui attendent le token dans l'URL
+      if (!targetUrl.includes('api_token=')) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}api_token=${acelleToken}`;
+        console.log(`[CORS Proxy] Token API ajouté comme paramètre d'URL`);
+      }
+      
+      // Ajouter comme en-tête d'autorisation pour les API qui attendent le token dans l'en-tête
+      (requestInit.headers as Headers).set('Authorization', `Bearer ${acelleToken}`);
+      console.log(`[CORS Proxy] En-tête d'autorisation ajouté avec le token API`);
+    }
+    
+    // Copie des autres en-têtes spécifiques à Acelle
     acelleHeaders.forEach(headerName => {
       const headerValue = req.headers.get(headerName);
       if (headerValue) {
-        // Si c'est le token Acelle, l'ajouter comme paramètre d'URL
-        if (headerName.toLowerCase() === 'x-acelle-token') {
-          console.log(`[CORS Proxy] Ajout du token API Acelle comme paramètre d'URL`);
-          const separator = targetUrl.includes('?') ? '&' : '?';
-          targetUrl = `${targetUrl}${separator}api_token=${headerValue}`;
-          // Ne pas modifier les headers Authorization
-        }
-        // Conserver les autres en-têtes spécifiques à Acelle
-        else {
-          (requestInit.headers as Headers).set(headerName, headerValue);
-        }
+        (requestInit.headers as Headers).set(headerName, headerValue);
       }
     });
     
@@ -167,6 +174,7 @@ serve(async (req: Request) => {
     
     try {
       // Exécution de la requête vers l'URL cible
+      console.log(`[CORS Proxy] En-têtes de la requête:`, Object.fromEntries([...(requestInit.headers as Headers).entries()]));
       const fetchResponse = await fetch(targetUrl, requestInit);
       clearTimeout(timeoutId);
       
