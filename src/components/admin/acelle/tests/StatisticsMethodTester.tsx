@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -268,17 +267,30 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       console.log("[Method 4] Données brutes de la base:", deliveryInfo);
       
-      // Extraction manuelle des statistiques sans utiliser extractStatisticsFromAnyFormat
-      let stats: AcelleCampaignStatistics = createEmptyStatistics();
+      // Création directe d'un objet AcelleCampaignStatistics sûr
+      const stats: AcelleCampaignStatistics = {
+        subscriber_count: 0,
+        delivered_count: 0,
+        delivered_rate: 0,
+        open_count: 0,
+        uniq_open_count: 0,
+        uniq_open_rate: 0,
+        click_count: 0,
+        click_rate: 0,
+        bounce_count: 0,
+        soft_bounce_count: 0,
+        hard_bounce_count: 0,
+        unsubscribe_count: 0,
+        abuse_complaint_count: 0
+      };
       
-      // Vérifier que deliveryInfo est un objet valide
+      // Si deliveryInfo est un objet valide
       if (deliveryInfo && typeof deliveryInfo === 'object' && !Array.isArray(deliveryInfo)) {
+        console.log("[Method 4] Extracting from:", deliveryInfo);
+        
         const di = deliveryInfo as Record<string, any>;
         
-        // Log pour debug
-        console.log("[Method 4] DeliveryInfo valide:", di);
-        
-        // Extraire directement les valeurs en utilisant les chemins appropriés
+        // Extraction manuelle des valeurs avec des logs
         stats.subscriber_count = Number(di.total || di.subscriber_count || 0);
         stats.delivered_count = Number(di.delivered || di.delivered_count || 0);
         stats.delivered_rate = Number(di.delivery_rate || di.delivered_rate || 0);
@@ -306,7 +318,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         stats.unsubscribe_count = Number(di.unsubscribed || di.unsubscribe_count || 0);
         stats.abuse_complaint_count = Number(di.complained || di.abuse_complaint_count || 0);
         
-        console.log("[Method 4] Statistiques extraites:", stats);
+        console.log("[Method 4] Extracted stats:", stats);
       } else {
         console.warn("[Method 4] Format de delivery_info invalide:", deliveryInfo);
       }
@@ -354,16 +366,29 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       console.log("[Method 5] Données brutes de la base:", statistics);
       
-      // Extraction manuelle des statistiques
-      let stats: AcelleCampaignStatistics = createEmptyStatistics();
+      // Création directe d'un objet AcelleCampaignStatistics sûr
+      const stats: AcelleCampaignStatistics = {
+        subscriber_count: 0,
+        delivered_count: 0,
+        delivered_rate: 0,
+        open_count: 0,
+        uniq_open_count: 0,
+        uniq_open_rate: 0,
+        click_count: 0,
+        click_rate: 0,
+        bounce_count: 0,
+        soft_bounce_count: 0,
+        hard_bounce_count: 0,
+        unsubscribe_count: 0,
+        abuse_complaint_count: 0
+      };
       
       if (statistics && typeof statistics === 'object' && !Array.isArray(statistics)) {
+        console.log("[Method 5] Statistics valide:", statistics);
+        
         const statsData = statistics as Record<string, any>;
         
-        // Log pour debug
-        console.log("[Method 5] Statistics valide:", statsData);
-        
-        // Extraire directement les valeurs en utilisant les chemins appropriés
+        // Extraire directement les valeurs
         stats.subscriber_count = Number(statsData.total || statsData.subscriber_count || 0);
         stats.delivered_count = Number(statsData.delivered || statsData.delivered_count || 0);
         stats.delivered_rate = Number(statsData.delivery_rate || statsData.delivered_rate || 0);
@@ -746,3 +771,5 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
     </div>
   );
 };
+
+export default StatisticsMethodTester;

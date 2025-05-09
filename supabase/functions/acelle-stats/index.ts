@@ -111,11 +111,14 @@ serve(async (req: Request) => {
     
     // Récupérer les données
     const rawData = await response.json();
+    console.log(`[Acelle Stats] Raw API response: ${JSON.stringify(rawData, null, 2).substring(0, 500)}...`);
     
     // Transformer les données
     const transformedData = campaignId ? 
       { data: transformCampaignData(rawData) } : 
       transformCampaignsList(rawData);
+    
+    console.log(`[Acelle Stats] Transformed data: ${JSON.stringify(transformedData, null, 2).substring(0, 500)}...`);
     
     // Ajouter des informations complémentaires
     const result = {
@@ -159,6 +162,9 @@ serve(async (req: Request) => {
  * Transforme la liste des campagnes au format attendu
  */
 function transformCampaignsList(data: any): { data: any[], meta?: any } {
+  // Ajouter un log pour inspecter les données brutes
+  console.log("[Acelle Stats] Raw campaigns list:", JSON.stringify(data && data.data ? data.data.slice(0, 2) : data, null, 2));
+  
   // Si data est déjà un objet avec une propriété 'data', extraire le tableau
   if (data && data.data && Array.isArray(data.data)) {
     return {
@@ -187,6 +193,7 @@ function transformCampaignsList(data: any): { data: any[], meta?: any } {
 
 /**
  * Transforme les données d'une campagne au format attendu
+ * Avec gestion améliorée des nombres et pourcentages
  */
 function transformCampaignData(campaign: any): any {
   if (!campaign || !campaign.uid) {
@@ -194,32 +201,56 @@ function transformCampaignData(campaign: any): any {
     return {};
   }
   
-  return {
+  // Ajouter un log pour inspecter les données brutes
+  console.log("[Acelle Stats] Raw campaign data:", JSON.stringify(campaign, null, 2));
+  
+  // Fonction utilitaire pour extraire un nombre
+  const extractNumber = (value: any) => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      // Retirer le % si présent et convertir en nombre
+      return parseFloat(value.replace('%', ''));
+    }
+    return 0;
+  };
+  
+  // Transformer proprement les pourcentages en nombres décimaux
+  const percentToDecimal = (value: any) => {
+    const num = extractNumber(value);
+    return (typeof value === 'string' && value.includes('%')) ? num / 100 : num;
+  };
+  
+  const result = {
     id: campaign.uid,
     campaignId: campaign.uid,
     name: campaign.name || "",
     subject: campaign.subject || "",
     status: campaign.status || "unknown",
-    subscriberCount: parseInt(campaign.subscriber_count || "0"),
-    deliveryRate: parseFloat((campaign.delivery_rate || "0").replace("%", "")) / 100,
-    deliveredCount: parseInt(campaign.delivered_count || "0"),
-    uniqueOpenCount: parseInt(campaign.unique_open_count || "0"),
-    openRate: parseFloat((campaign.open_rate || "0").replace("%", "")) / 100,
-    deliveredRate: parseFloat((campaign.delivered_rate || "0").replace("%", "")) / 100,
-    clickCount: parseInt(campaign.click_count || "0"),
-    clickRate: parseFloat((campaign.click_rate || "0").replace("%", "")) / 100,
-    bounceCount: parseInt(campaign.bounce_count || "0"),
-    bounceRate: parseFloat((campaign.bounce_rate || "0").replace("%", "")) / 100,
-    unsubscribeCount: parseInt(campaign.unsubscribe_count || "0"),
-    unsubscribeRate: parseFloat((campaign.unsubscribe_rate || "0").replace("%", "")) / 100,
-    spamCount: parseInt(campaign.spam_count || "0"),
-    spamRate: parseFloat((campaign.spam_rate || "0").replace("%", "")) / 100,
+    subscriberCount: extractNumber(campaign.subscriber_count),
+    deliveryRate: percentToDecimal(campaign.delivery_rate),
+    deliveredCount: extractNumber(campaign.delivered_count),
+    uniqueOpenCount: extractNumber(campaign.unique_open_count),
+    openRate: percentToDecimal(campaign.open_rate),
+    deliveredRate: percentToDecimal(campaign.delivered_rate),
+    clickCount: extractNumber(campaign.click_count),
+    clickRate: percentToDecimal(campaign.click_rate),
+    bounceCount: extractNumber(campaign.bounce_count),
+    bounceRate: percentToDecimal(campaign.bounce_rate),
+    unsubscribeCount: extractNumber(campaign.unsubscribe_count),
+    unsubscribeRate: percentToDecimal(campaign.unsubscribe_rate),
+    spamCount: extractNumber(campaign.spam_count),
+    spamRate: percentToDecimal(campaign.spam_rate),
     created_at: campaign.created_at,
     updated_at: campaign.updated_at,
     scheduled_at: campaign.run_at,
-    // Ajout de champs calculés utiles
-    formattedOpenRate: `${Math.round(parseFloat((campaign.open_rate || "0").replace("%", "")))}%`,
-    formattedClickRate: `${Math.round(parseFloat((campaign.click_rate || "0").replace("%", "")))}%`,
-    formattedDeliveryRate: `${Math.round(parseFloat((campaign.delivered_rate || "0").replace("%", "")))}%`
+    // Champs calculés
+    formattedOpenRate: `${Math.round(percentToDecimal(campaign.open_rate) * 100)}%`,
+    formattedClickRate: `${Math.round(percentToDecimal(campaign.click_rate) * 100)}%`,
+    formattedDeliveryRate: `${Math.round(percentToDecimal(campaign.delivered_rate) * 100)}%`
   };
+  
+  console.log("[Acelle Stats] Transformed campaign data:", JSON.stringify(result, null, 2));
+  
+  return result;
 }
