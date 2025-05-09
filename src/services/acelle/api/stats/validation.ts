@@ -38,16 +38,19 @@ export const ensureValidStatistics = (statistics: Partial<AcelleCampaignStatisti
   // Normaliser chaque champ pour s'assurer qu'il est un nombre valide
   for (const [key, value] of Object.entries(statistics)) {
     if (key in defaultStats) {
+      // TypeScript ne peut pas inférer automatiquement que key est une clé valide de AcelleCampaignStatistics
+      const typedKey = key as keyof AcelleCampaignStatistics;
+      
       // Si la valeur est une chaîne qui contient %, la convertir en nombre
       if (typeof value === 'string' && value.includes('%')) {
-        validatedStats[key as keyof AcelleCampaignStatistics] = 
-          parseFloat(value.replace('%', '')) || defaultStats[key as keyof AcelleCampaignStatistics];
+        validatedStats[typedKey] = 
+          parseFloat(value.replace('%', '')) || defaultStats[typedKey];
       }
       // Si c'est un nombre ou une chaîne numérique, la convertir directement
       else if (value !== null && value !== undefined) {
         const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
-        validatedStats[key as keyof AcelleCampaignStatistics] = 
-          !isNaN(numValue) ? numValue : defaultStats[key as keyof AcelleCampaignStatistics];
+        validatedStats[typedKey] = 
+          !isNaN(numValue) ? numValue : defaultStats[typedKey];
       }
     }
   }
