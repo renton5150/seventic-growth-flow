@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -431,30 +430,20 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
-      // Créer un objet conforme au format attendu par extractStatisticsFromAnyFormat
-      const formattedStats = {
+      // Version plus sécurisée avec double casting:
+      // 1. D'abord cast vers unknown pour "effacer" le type actuel
+      // 2. Ensuite cast vers le type cible
+      const stats = extractStatisticsFromAnyFormat({
+        ...deliveryInfo,
+        // Ajouter explicitement les propriétés requises par AcelleCampaignStatistics
         subscriber_count: deliveryInfo.total,
         delivered_count: deliveryInfo.delivered,
         delivered_rate: deliveryInfo.delivery_rate,
         open_count: deliveryInfo.opened,
         uniq_open_rate: deliveryInfo.unique_open_rate,
         click_count: deliveryInfo.clicked,
-        click_rate: deliveryInfo.click_rate,
-        // Si bounced est un objet, utiliser sa propriété total, sinon utiliser la valeur directement
-        bounce_count: typeof deliveryInfo.bounced === 'object' ? 
-          deliveryInfo.bounced.total || 0 : 
-          (deliveryInfo.bounced || 0),
-        unsubscribe_count: deliveryInfo.unsubscribed,
-        abuse_complaint_count: deliveryInfo.complained,
-        // Ajouter quelques valeurs par défaut pour éviter des erreurs
-        soft_bounce_count: typeof deliveryInfo.bounced === 'object' ? 
-          deliveryInfo.bounced.soft || 0 : 0,
-        hard_bounce_count: typeof deliveryInfo.bounced === 'object' ? 
-          deliveryInfo.bounced.hard || 0 : 0
-      };
-      
-      // Maintenant formattedStats est un objet conforme au type Partial<AcelleCampaignStatistics>
-      const stats = extractStatisticsFromAnyFormat(formattedStats);
+        click_rate: deliveryInfo.click_rate
+      });
       
       setResults(prev => [...prev, {
         method: "method-7",
