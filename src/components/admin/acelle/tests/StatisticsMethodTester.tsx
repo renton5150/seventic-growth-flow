@@ -307,7 +307,7 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-6": cacheData }));
         
-        // Safe type conversion
+        // Safe type conversion - Fix the type issue here
         const typedCacheData = cacheData as unknown as CacheData | null;
         
         if (typedCacheData && typedCacheData.statistics) {
@@ -363,27 +363,31 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         const typedCampaignData = campaignData as unknown as CacheData | null;
         
         if (typedCampaignData && typedCampaignData.delivery_info) {
-          // Safely handle the delivery_info data
+          // Fix the type issue here by using a safer approach to handle the delivery_info
           const deliveryInfoJson = typedCampaignData.delivery_info;
           
           // Only proceed if we have an object
           if (typeof deliveryInfoJson === 'object' && deliveryInfoJson !== null && !Array.isArray(deliveryInfoJson)) {
-            // Extract bounced data safely
-            const bouncedData = deliveryInfoJson.bounced;
+            // Extract bounced data safely using guard clauses
             let bouncedSoft = 0;
             let bouncedHard = 0;
             let bouncedTotal = 0;
             
-            if (bouncedData) {
-              if (typeof bouncedData === 'object' && bouncedData !== null) {
-                bouncedSoft = safeExtract(bouncedData, 'soft');
-                bouncedHard = safeExtract(bouncedData, 'hard');
-                bouncedTotal = safeExtract(bouncedData, 'total');
-              } else {
-                bouncedTotal = toNumber(bouncedData);
-                // Estimate distribution if only total is available
-                bouncedSoft = Math.round(bouncedTotal * 0.7);
-                bouncedHard = bouncedTotal - bouncedSoft;
+            // Access the bounced field safely by checking if it exists on the object
+            if (deliveryInfoJson && 'bounced' in deliveryInfoJson) {
+              const bouncedData = (deliveryInfoJson as any).bounced;
+              
+              if (bouncedData) {
+                if (typeof bouncedData === 'object' && bouncedData !== null) {
+                  bouncedSoft = safeExtract(bouncedData, 'soft');
+                  bouncedHard = safeExtract(bouncedData, 'hard');
+                  bouncedTotal = safeExtract(bouncedData, 'total');
+                } else {
+                  bouncedTotal = toNumber(bouncedData);
+                  // Estimate distribution if only total is available
+                  bouncedSoft = Math.round(bouncedTotal * 0.7);
+                  bouncedHard = bouncedTotal - bouncedSoft;
+                }
               }
             }
             
