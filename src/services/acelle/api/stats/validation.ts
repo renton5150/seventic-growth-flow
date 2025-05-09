@@ -43,14 +43,14 @@ export const ensureValidStatistics = (statistics: Partial<AcelleCampaignStatisti
       
       // Si la valeur est une chaîne qui contient %, la convertir en nombre
       if (typeof value === 'string' && value.includes('%')) {
-        validatedStats[typedKey] = 
-          parseFloat(value.replace('%', '')) || defaultStats[typedKey];
+        // Forcer le type correct pour chaque propriété
+        const numValue = parseFloat(value.replace('%', '')) || defaultStats[typedKey];
+        validatedStats[typedKey] = numValue;
       }
       // Si c'est un nombre ou une chaîne numérique, la convertir directement
       else if (value !== null && value !== undefined) {
         const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
-        validatedStats[typedKey] = 
-          !isNaN(numValue) ? numValue : defaultStats[typedKey];
+        validatedStats[typedKey] = !isNaN(numValue) ? numValue : defaultStats[typedKey];
       }
     }
   }

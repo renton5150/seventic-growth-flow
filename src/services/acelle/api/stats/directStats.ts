@@ -41,6 +41,15 @@ export const enrichCampaignsWithStats = async (
         continue;
       }
       
+      // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement, on saute
+      if (!options?.forceRefresh && 
+          campaign.statistics && 
+          campaign.statistics.subscriber_count > 0) {
+        console.log(`Statistiques déjà disponibles pour la campagne ${campaign.name}, aucun enrichissement nécessaire`);
+        enrichedCampaigns.push(campaign);
+        continue;
+      }
+      
       console.log(`Récupération des statistiques depuis l'API pour la campagne ${campaignUid}`);
       
       // Tenter d'abord la nouvelle méthode directe
@@ -55,18 +64,20 @@ export const enrichCampaignsWithStats = async (
       // Ajouter les statistiques à la campagne
       const enrichedCampaign = {
         ...campaign,
-        statistics: statistics ? ensureValidStatistics(statistics) : null
+        statistics: statistics ? ensureValidStatistics(statistics) : campaign.statistics
       };
       
       // Ajouter des informations sur la source de données à la meta si disponible
-      if (campaign.meta) {
+      if (enrichedCampaign.meta) {
         enrichedCampaign.meta = {
-          ...campaign.meta,
-          data_source: statistics ? 'api_direct' : 'cache'
+          ...enrichedCampaign.meta,
+          data_source: statistics ? 'api_direct' : 'cache',
+          last_refresh: new Date().toISOString()
         };
       } else {
         enrichedCampaign.meta = {
-          data_source: statistics ? 'api_direct' : 'cache'
+          data_source: statistics ? 'api_direct' : 'cache',
+          last_refresh: new Date().toISOString()
         };
       }
       
@@ -95,18 +106,18 @@ export const fetchDirectStatistics = async (
     // Tenter d'abord la méthode directe
     let stats = await fetchCampaignStatisticsFromApi(campaignUid, account);
     
-    if (!stats) {
-      console.log(`Échec de la méthode directe, tentative via legacy pour ${campaignUid}`);
+    if (!stats || hasEmptyStatistics(stats)) {
+      console.log(`Échec ou statistiques vides avec la méthode directe, tentative via legacy pour ${campaignUid}`);
       stats = await fetchCampaignStatisticsLegacy(campaignUid, account);
     }
     
-    if (stats) {
-      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`);
+    if (stats && !hasEmptyStatistics(stats)) {
+      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`, stats);
+      return ensureValidStatistics(stats);
     } else {
-      console.error(`Aucune statistique n'a pu être récupérée pour ${campaignUid}`);
+      console.error(`Aucune statistique valide n'a pu être récupérée pour ${campaignUid}`);
+      return null;
     }
-    
-    return stats;
   } catch (error) {
     console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
     return null;

@@ -2,13 +2,14 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Eye } from "lucide-react";
+import { Eye, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { translateStatus, getStatusBadgeVariant, renderPercentage } from "@/utils/acelle/campaignStatusUtils";
 import { fetchDirectStatistics } from "@/services/acelle/api/stats/directStats";
+import { toast } from "sonner";
 
 interface AcelleTableRowProps {
   campaign: AcelleCampaign;
@@ -22,7 +23,7 @@ export const AcelleTableRow = ({
   onViewCampaign
 }: AcelleTableRowProps) => {
   // État local pour les statistiques
-  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(null);
+  const [stats, setStats] = useState<AcelleCampaignStatistics | null>(campaign?.statistics || null);
   const [isLoading, setIsLoading] = useState(false);
   
   // Garantir la présence d'un UID valide
@@ -39,6 +40,13 @@ export const AcelleTableRow = ({
   // Récupérer les statistiques de la campagne directement depuis l'API
   useEffect(() => {
     const loadCampaignStats = async () => {
+      // Si les statistiques sont déjà présentes avec des valeurs non-nulles, ne pas recharger
+      if (campaign.statistics?.subscriber_count > 0 && !campaign.meta?.force_refresh) {
+        console.log(`[TableRow] Statistiques déjà présentes pour la campagne ${campaignName}`, campaign.statistics);
+        setStats(campaign.statistics);
+        return;
+      }
+      
       console.log(`[TableRow] Récupération des statistiques pour la campagne ${campaignName}`);
       
       if (!account) {
@@ -69,6 +77,7 @@ export const AcelleTableRow = ({
         }
       } catch (error) {
         console.error(`[TableRow] Erreur lors de la récupération des statistiques pour ${campaignName}:`, error);
+        toast.error(`Erreur de récupération des statistiques pour ${campaignName}`);
       } finally {
         setIsLoading(false);
       }
@@ -76,6 +85,32 @@ export const AcelleTableRow = ({
     
     loadCampaignStats();
   }, [campaign, account, campaignName, campaignUid]);
+
+  // Fonction pour forcer le rafraîchissement des statistiques
+  const handleRefreshStats = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Éviter de déclencher l'événement sur la ligne
+    
+    if (!account || isLoading) return;
+    
+    try {
+      setIsLoading(true);
+      toast.loading(`Rafraîchissement des statistiques pour ${campaignName}...`);
+      
+      const freshStats = await fetchDirectStatistics(campaignUid, account);
+      
+      if (freshStats) {
+        setStats(freshStats);
+        toast.success(`Statistiques mises à jour pour ${campaignName}`);
+      } else {
+        toast.error(`Échec de la mise à jour des statistiques pour ${campaignName}`);
+      }
+    } catch (error) {
+      console.error(`Erreur lors du rafraîchissement des statistiques:`, error);
+      toast.error(`Erreur lors du rafraîchissement des statistiques`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Formatage sécurisé des dates
   const formatDateSafely = (dateString: string | null | undefined) => {
@@ -182,7 +217,16 @@ export const AcelleTableRow = ({
       <TableCell className="tabular-nums">
         {isLoading ? "..." : bounceCount.toLocaleString()}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right flex gap-1">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={handleRefreshStats}
+          disabled={isLoading}
+          title="Rafraîchir les statistiques"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        </Button>
         <Button 
           variant="ghost" 
           size="icon"
