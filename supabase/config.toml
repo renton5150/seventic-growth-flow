@@ -1,4 +1,5 @@
 
+# Project ID - Always keep at the top
 project_id = "dupguifqyjchlmzbadav"
 
 [api]
@@ -12,22 +13,27 @@ port = 54322
 [studio]
 port = 54323
 
+# Email testing server (Inbucket)
 [inbucket]
+enabled = true
 port = 54324
 smtp_port = 54325
 pop3_port = 54326
 
 [storage]
 enabled = true
+file_size_limit = "50MiB"
 
 [auth]
 enabled = true
+site_url = "http://localhost:3000"
 
 [realtime]
 enabled = true
 
-[analytics]
+# Edge Functions configuration
+[functions]
 enabled = true
-
-[functions.acelle-stats]
-verify_jwt = true
+port = 54328
+[functions.acelle-stats-test]
+verify_jwt = false

@@ -478,10 +478,27 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       console.log("[Method 4] Données brutes de la base:", deliveryInfoJson);
       
-      // Création directe d'un objet AcelleCampaignStatistics sûr
-      const stats: AcelleCampaignStatistics = createEmptyStatistics();
-      
-      // Si deliveryInfoJson est un objet valide
+      // Définition d'objet stats avec valeurs par défaut
+      const stats: AcelleCampaignStatistics = {
+        subscriber_count: 0,
+        delivered_count: 0,
+        delivered_rate: 0,
+        open_count: 0,
+        uniq_open_count: 0,
+        uniq_open_rate: 0,
+        click_count: 0,
+        click_rate: 0,
+        bounce_count: 0,
+        soft_bounce_count: 0,
+        hard_bounce_count: 0,
+        unsubscribe_count: 0,
+        abuse_complaint_count: 0
+      };
+
+      // Afficher les données brutes pour debug
+      console.log("deliveryInfoJson brut:", JSON.stringify(deliveryInfoJson));
+
+      // Traitement manuel sans fonction externe
       if (deliveryInfoJson && typeof deliveryInfoJson === 'object' && !Array.isArray(deliveryInfoJson)) {
         console.log("[Method 4] Extracting from:", deliveryInfoJson);
         
