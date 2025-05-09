@@ -1,3 +1,4 @@
+
 // Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -34,7 +35,6 @@ import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
 import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 import { DataUnavailableAlert } from './errors/DataUnavailableAlert';
-import { DiagnosticButton } from "./diagnostic/DiagnosticButton";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -330,26 +330,22 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         'X-Acelle-Token': '***MASKED***'
       });
       
-      // Mise à jour de l'appel pour qu'il corresponde à la signature mise à jour
-      const result = await forceSyncCampaigns(account);
+      const result = await forceSyncCampaigns(account, accessToken, headers);
       
       if (result.success) {
         toast.success(result.message, { id: "sync" });
         await refetch({ forceRefresh: false });
       } else {
         // Détection améliorée des erreurs d'authentification
-        if (result.message && (
-            result.message.includes("403") || 
-            result.message.includes("Forbidden") || 
-            result.message.includes("authentification") || 
-            result.message.includes("authentication"))) {
+        if (result.message.includes("403") || result.message.includes("Forbidden") || 
+            result.message.includes("authentification") || result.message.includes("authentication")) {
           toast.error("Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte.", { id: "sync" });
           setApiErrors({
             hasAuthError: true,
             message: "Erreur d'authentification à l'API Acelle. Vérifiez les identifiants du compte."
           });
         } else {
-          toast.error(result.message || "Erreur inconnue", { id: "sync" });
+          toast.error(result.message, { id: "sync" });
         }
       }
     } catch (err) {
@@ -471,23 +467,10 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
             Synchroniser
           </Button>
-          
-          <DiagnosticButton 
-            account={account} 
-            campaigns={campaigns}
-            onForceSyncStats={async () => {
-              try {
-                await handleRefresh();
-                return Promise.resolve();
-              } catch (error) {
-                return Promise.reject(error);
-              }
-            }}
-          />
         </div>
       </div>
       
-      {/* Afficher les erreurs d'authentification API */}
+      {/* Affichage des erreurs d'authentification API */}
       {apiErrors.hasAuthError && (
         <Card className="bg-red-50 border-red-200">
           <CardContent className="p-4 text-red-800 flex items-center gap-2">

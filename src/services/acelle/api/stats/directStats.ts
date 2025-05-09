@@ -1,153 +1,102 @@
 
-import { AcelleCampaign, AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
-import { supabase } from "@/integrations/supabase/client";
-import { buildApiPath } from "@/utils/acelle/proxyUtils";
+import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
+import { fetchCampaignStatisticsFromApi } from "./apiClient";
 import { getCachedStatistics, saveCampaignStatistics } from "./cacheManager";
 
 /**
- * Enrichit les campagnes avec des statistiques directement depuis l'API Acelle
+ * Vérifie si les statistiques sont vides ou non initialisées
+ * Une campagne est considérée comme ayant des statistiques vides si le nombre
+ * de destinataires (subscriber_count) est à zéro
+ */
+export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null): boolean => {
+  if (!statistics) return true;
+  
+  // Vérifier si les valeurs principales sont à zéro
+  return statistics.subscriber_count === 0 || 
+         statistics.subscriber_count === undefined || 
+         statistics.subscriber_count === null;
+};
+
+/**
+ * Enrichit les campagnes avec des statistiques en utilisant l'API directe ou le cache
  */
 export const enrichCampaignsWithStats = async (
-  campaigns: AcelleCampaign[], 
+  campaigns: AcelleCampaign[],
   account: AcelleAccount,
-  options?: { 
+  options?: {
     forceRefresh?: boolean;
-    bypassCache?: boolean;
   }
 ): Promise<AcelleCampaign[]> => {
-  console.log(`Enrichissement de ${campaigns.length} campagnes avec des statistiques...`, {
-    forceRefresh: options?.forceRefresh,
-    bypassCache: options?.bypassCache
-  });
+  if (!campaigns.length) return campaigns;
   
-  // Vérification des informations du compte
-  if (!account || !account.api_token || !account.api_endpoint) {
-    console.error("Impossible d'enrichir les campagnes: informations de compte incomplètes");
-    return campaigns;
-  }
+  const forceRefresh = options?.forceRefresh || false;
+  const enrichedCampaigns: AcelleCampaign[] = [];
   
-  const enrichedCampaigns = [...campaigns];
-  const shouldUseCache = !options?.bypassCache;
-  
-  // Vérifie si la synchronisation manuelle est nécessaire
-  try {
-    // Appeler la fonction de synchronisation manuelle seulement si on force le rafraîchissement
-    if (options?.forceRefresh) {
-      console.log("Forçage de la synchronisation manuelle des statistiques...");
-      
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      
-      if (accessToken) {
-        const { data, error } = await supabase.rpc('sync_campaign_statistics_manually', {
-          account_id_param: account.id
-        });
-        
-        if (error) {
-          console.error("Erreur lors de la synchronisation manuelle:", error);
-        } else {
-          console.log("Résultat de la synchronisation manuelle:", data);
-        }
-      }
-    }
-  } catch (syncError) {
-    console.error("Erreur lors de l'appel à sync_campaign_statistics_manually:", syncError);
-  }
-  
-  // Pour chaque campagne, récupérer les statistiques
-  for (let i = 0; i < enrichedCampaigns.length; i++) {
+  for (const campaign of campaigns) {
     try {
-      const campaign = enrichedCampaigns[i];
-      const campaignId = campaign.uid || campaign.campaign_uid;
-      
-      if (!campaignId) {
-        console.error("Impossible d'enrichir: identifiant de campagne manquant");
+      const campaignUid = campaign.uid || campaign.campaign_uid || '';
+      if (!campaignUid) {
+        console.error("Campaign is missing UID:", campaign);
+        enrichedCampaigns.push(campaign);
         continue;
       }
       
-      // Tenter d'abord de récupérer depuis le cache, sauf si bypassCache est demandé
       let statistics: AcelleCampaignStatistics | null = null;
       
-      if (shouldUseCache && !options?.forceRefresh) {
-        statistics = await getCachedStatistics(campaignId, account.id);
+      if (!forceRefresh) {
+        // Try to get from cache first if not forcing refresh
+        console.log(`Looking for cached statistics for campaign ${campaignUid}`);
+        statistics = await getCachedStatistics(campaignUid, account.id);
         
-        if (statistics && !hasEmptyStatistics(statistics)) {
-          console.log(`Statistiques récupérées depuis le cache pour ${campaignId}`);
-          enrichedCampaigns[i] = {
-            ...campaign,
-            statistics,
-            delivery_info: statistics // Mise à jour également de delivery_info
-          };
-          continue; // Passer à la campagne suivante
+        if (statistics) {
+          console.log(`Found cached statistics for campaign ${campaignUid}`);
         }
       }
       
-      // Si pas dans le cache ou le cache est contourné, récupérer depuis l'API
-      const apiUrl = buildApiPath(
-        account.api_endpoint,
-        `campaigns/${campaignId}/statistics`
-      );
-      
-      console.log(`Récupération des statistiques depuis l'API pour ${campaignId}`);
-      
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      
-      if (!accessToken) {
-        console.error("Token d'authentification non disponible pour l'appel API");
-        continue;
-      }
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'X-Acelle-Token': account.api_token,
-          'X-Acelle-Endpoint': account.api_endpoint
+      // Si les stats sont vides ou non trouvées en cache, ou si on force le rafraîchissement,
+      // alors récupérer depuis l'API
+      if (!statistics || hasEmptyStatistics(statistics) || forceRefresh) {
+        if (account.api_endpoint && account.api_token) {
+          console.log(`Fetching fresh statistics from API for campaign ${campaignUid} (force: ${forceRefresh}, emptyStats: ${statistics ? hasEmptyStatistics(statistics) : true})`);
+          statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
+          
+          if (statistics) {
+            // Save to cache for future use
+            console.log(`Saving new statistics to cache for campaign ${campaignUid}`);
+            await saveCampaignStatistics(campaignUid, account.id, statistics);
+          } else {
+            console.log(`No statistics returned from API for campaign ${campaignUid}`);
+          }
+        } else {
+          console.warn(`Cannot fetch API statistics for ${campaignUid}: missing API credentials`);
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Échec de la récupération des statistiques: ${response.status} ${response.statusText}`);
       }
       
-      const statsData = await response.json();
-      statistics = ensureValidStatistics(statsData);
-      
-      // Stocke dans le cache pour utilisation future
-      await saveCampaignStatistics(campaignId, account.id, statistics);
-      
-      // Met à jour la campagne avec les statistiques récupérées
-      enrichedCampaigns[i] = {
+      // Add statistics to campaign
+      enrichedCampaigns.push({
         ...campaign,
-        statistics,
-        delivery_info: statistics // Mise à jour également de delivery_info
-      };
-      
-      console.log(`Statistiques appliquées pour la campagne ${campaignId}:`, {
-        uniq_open_rate: statistics.uniq_open_rate,
-        click_rate: statistics.click_rate
+        statistics: statistics ? ensureValidStatistics(statistics) : campaign.statistics || null
       });
     } catch (error) {
-      console.error(`Erreur lors de l'enrichissement de la campagne ${enrichedCampaigns[i].name}:`, error);
+      console.error(`Error enriching campaign ${campaign.uid || campaign.name} with stats:`, error);
+      // Still include the campaign without statistics
+      enrichedCampaigns.push(campaign);
     }
   }
   
   return enrichedCampaigns;
 };
 
-/**
- * Vérifie si les statistiques sont vides ou nulles
- */
-export const hasEmptyStatistics = (statistics: any): boolean => {
-  if (!statistics) return true;
-  
-  // Vérifier les champs clés pour déterminer si les stats sont vides
-  const hasSubscribers = statistics.subscriber_count && statistics.subscriber_count > 0;
-  const hasOpenRate = statistics.uniq_open_rate && statistics.uniq_open_rate > 0;
-  const hasClickRate = statistics.click_rate && statistics.click_rate > 0;
-  
-  return !hasSubscribers && !hasOpenRate && !hasClickRate;
+// Other exports for compatibility with other modules
+export const fetchDirectStatistics = async (
+  campaignUid: string,
+  account: AcelleAccount
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    return await fetchCampaignStatisticsFromApi(campaignUid, account);
+  } catch (error) {
+    console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
+    return null;
+  }
 };

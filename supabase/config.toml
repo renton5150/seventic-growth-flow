@@ -4,9 +4,7 @@ project_id = "dupguifqyjchlmzbadav"
 [api]
 enabled = true
 port = 54321
-schemas = []
-extra_search_path = ["extensions"]
-max_rows = 1000
+schemas = ["public", "storage", "graphql_public"]
 
 [db]
 port = 54322
@@ -28,44 +26,21 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://localhost:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
 
 [analytics]
-enabled = false
-port = 54327
-vector_port = 54328
+enabled = true
 
 [experimental]
-preserves_server_stubs = true
+pre_runtime_extensions = true
 
-# Configuration des nouvelles fonctions
-[functions.acelle-proxy-simple]
+[[functions]]
+name = "cors-proxy"
 verify_jwt = true
 
-[functions.test-acelle-auth]
-verify_jwt = true
-
-# Configuration des fonctions existantes
-[functions.acelle-proxy]
-verify_jwt = true
-
-[functions.check-acelle-api]
-verify_jwt = true
-
-[functions.anthropic-ai]
-verify_jwt = true
-
-[functions.cors-proxy]
-verify_jwt = true
-
-[functions.delete-mission]
-verify_jwt = true
-
-[functions.delete-user]
-verify_jwt = true
-
-[functions.resend-invitation]
-verify_jwt = true
-
-[functions.sync-email-campaigns]
+[[functions]]
+name = "sync-email-campaigns"
 verify_jwt = true
