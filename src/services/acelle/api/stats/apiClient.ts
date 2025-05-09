@@ -23,24 +23,14 @@ export const fetchCampaignStatisticsFromApi = async (
     
     console.log(`Récupération directe des informations pour la campagne ${campaignUid}`);
     
-    // Utiliser directement l'endpoint principal de la campagne (pas /statistics)
-    const url = buildDirectApiUrl(
-      `campaigns/${campaignUid}`,
-      account.api_endpoint,
-      { api_token: account.api_token }
-    );
+    // Utiliser directement l'endpoint principal de la campagne
+    const url = `${account.api_endpoint}/public/api/v1/campaigns/${campaignUid}?api_token=${account.api_token}`;
     
-    // Obtenir le token d'authentification
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    
-    // Effectuer la requête avec les en-têtes appropriés
+    // Effectuer la requête directe à l'API Acelle
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-acelle-token': account.api_token,
-        'x-acelle-endpoint': account.api_endpoint
+        'Content-Type': 'application/json'
       }
     });
     
@@ -84,8 +74,7 @@ export const fetchCampaignStatisticsFromApi = async (
 };
 
 /**
- * Méthode de secours pour la compatibilité - utilise cors-proxy
- * @deprecated À utiliser uniquement si acelle-proxy ne fonctionne pas
+ * Méthode de secours pour la compatibilité - appel direct à l'API
  */
 export const fetchCampaignStatisticsLegacy = async (
   campaignUid: string,
@@ -97,20 +86,10 @@ export const fetchCampaignStatisticsLegacy = async (
       return null;
     }
     
-    console.log(`Récupération des informations via le proxy legacy pour la campagne ${campaignUid}`);
+    console.log(`Récupération des informations via méthode legacy pour la campagne ${campaignUid}`);
     
-    // Utiliser la méthode legacy avec cors-proxy, mais cibler l'endpoint principal
-    const params = {
-      api_token: account.api_token,
-      _t: Date.now().toString() // Empêcher la mise en cache
-    };
-    
-    // Cibler l'endpoint principal campaigns/{uid}
-    const url = buildProxyUrl(`campaigns/${campaignUid}`, params);
-    
-    // Obtenir le token d'authentification
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    // Utiliser directement l'API sans passer par le proxy
+    const url = `${account.api_endpoint}/public/api/v1/campaigns/${campaignUid}?api_token=${account.api_token}`;
     
     // Effectuer la requête
     const response = await fetch(url, {

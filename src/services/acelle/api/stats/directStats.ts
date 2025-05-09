@@ -58,10 +58,10 @@ export const enrichCampaignsWithStats = async (
         statistics: statistics ? ensureValidStatistics(statistics) : null
       };
       
-      // Ajouter des informations sur la source de données à la meta si disponible
-      if (campaign.meta) {
+      // Ajouter des informations sur la source de données aux métadonnées
+      if (enrichedCampaign.meta) {
         enrichedCampaign.meta = {
-          ...campaign.meta,
+          ...enrichedCampaign.meta,
           data_source: statistics ? 'api_direct' : 'cache'
         };
       } else {

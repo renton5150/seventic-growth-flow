@@ -96,6 +96,7 @@ export interface AcelleCampaign {
   
   statistics?: AcelleCampaignStatistics;
   
+  // Explicitly define meta field as required by TypeScript
   meta?: Record<string, any>;
   
   // Propriétés nécessaires pour la compatibilité avec le code existant
