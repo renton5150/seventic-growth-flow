@@ -206,10 +206,16 @@ serve(async (req: Request) => {
           } else {
             console.log(`[CORS Proxy] Aucune donnée trouvée dans la propriété 'data'`);
             
+            // Logs supplémentaires avant transformation
+            console.log(`[CORS Proxy] Structure avant transformation: ${JSON.stringify(responseJson).substring(0, 200)}`);
+            
             // Transformation de la réponse pour compatibilité
             const transformedJson = {
               data: responseJson
             };
+            
+            // Logs supplémentaires après transformation
+            console.log(`[CORS Proxy] Structure après transformation: ${JSON.stringify(transformedJson).substring(0, 200)}`);
             
             // Remplacer la réponse pour compatibilité
             responseBodyText = JSON.stringify(transformedJson);
