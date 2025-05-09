@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -431,7 +432,8 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
       // Convertir le DeliveryInfo typé en statistiques de campagne
-      const stats = extractStatisticsFromAnyFormat(deliveryInfo);
+      // Utiliser as unknown comme intermédiaire pour éviter l'erreur de type
+      const stats = extractStatisticsFromAnyFormat(deliveryInfo as unknown as Partial<AcelleCampaignStatistics>);
       
       setResults(prev => [...prev, {
         method: "method-7",
