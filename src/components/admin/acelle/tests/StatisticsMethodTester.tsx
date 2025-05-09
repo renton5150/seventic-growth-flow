@@ -13,6 +13,9 @@ import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStat
 import { buildDirectApiUrl } from "@/services/acelle/acelle-service";
 import { ensureValidStatistics } from "@/services/acelle/api/stats/validation";
 
+// Define a utility type compatible with Supabase JSON data
+type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
+
 type TestMethod = {
   id: string;
   name: string;
@@ -26,8 +29,8 @@ interface StatisticsMethodTesterProps {
 }
 
 interface CacheData {
-  statistics?: AcelleCampaignStatistics;
-  delivery_info?: DeliveryInfo;
+  statistics?: JsonValue;
+  delivery_info?: JsonValue;
   [key: string]: any;
 }
 
@@ -39,6 +42,81 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
   const [results, setResults] = useState<Record<string, any>>({});
   const [rawResponses, setRawResponses] = useState<Record<string, any>>({});
   const [isExecuting, setIsExecuting] = useState<Record<string, boolean>>({});
+
+  // Convertir une valeur en nombre avec gestion sécurisée
+  const toNumber = (value: any): number => {
+    if (value === undefined || value === null) return 0;
+    
+    // Si la valeur est déjà un nombre
+    if (typeof value === 'number' && !isNaN(value)) return value;
+    
+    // Si la valeur est une chaîne avec pourcentage
+    if (typeof value === 'string') {
+      // Enlever le symbole % si présent
+      const cleanValue = value.includes('%') 
+        ? value.replace('%', '').trim()
+        : value.trim();
+      
+      // Convertir en nombre
+      const numValue = parseFloat(cleanValue);
+      return !isNaN(numValue) ? numValue : 0;
+    }
+    
+    // Pour tout autre cas, tenter une conversion forcée
+    const numValue = Number(value);
+    return !isNaN(numValue) ? numValue : 0;
+  };
+  
+  // Extraire des valeurs numériques depuis JSON de façon sécurisée
+  const safeExtract = (data: any, path: string): number => {
+    if (!data) return 0;
+    
+    try {
+      // Gestion pour des chemins simples comme "total" ou des chemins composés comme "bounced.total"
+      const parts = path.split('.');
+      let value = data;
+      
+      for (const part of parts) {
+        if (!value || typeof value !== 'object') return 0;
+        value = value[part];
+      }
+      
+      return toNumber(value);
+    } catch (e) {
+      console.warn(`Error extracting ${path}:`, e);
+      return 0;
+    }
+  };
+  
+  // Fonction pour gérer l'objet bounced qui peut avoir plusieurs formats
+  const extractBouncedValue = (data: any): { total: number, soft: number, hard: number } => {
+    const result = { total: 0, soft: 0, hard: 0 };
+    
+    if (!data || !data.bounced) {
+      return result;
+    }
+    
+    // Si bounced est directement un nombre
+    if (typeof data.bounced === 'number' || typeof data.bounced === 'string') {
+      result.total = toNumber(data.bounced);
+      // Estimer une répartition typique
+      result.soft = Math.round(result.total * 0.7);
+      result.hard = result.total - result.soft;
+    }
+    // Si bounced est un objet
+    else if (typeof data.bounced === 'object') {
+      result.total = safeExtract(data.bounced, 'total');
+      result.soft = safeExtract(data.bounced, 'soft');
+      result.hard = safeExtract(data.bounced, 'hard');
+      
+      // Si total n'est pas défini mais soft et hard le sont
+      if (result.total === 0 && (result.soft > 0 || result.hard > 0)) {
+        result.total = result.soft + result.hard;
+      }
+    }
+    
+    return result;
+  };
 
   // Définition des différentes méthodes de test
   const testMethods: TestMethod[] = [
@@ -86,15 +164,17 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         // Extraire les statistiques du résultat
         if (data && data.campaign) {
           return {
-            subscriber_count: data.campaign.subscriber_count || data.campaign.total || 0,
-            delivered_count: data.campaign.delivered_count || data.campaign.delivered || 0,
-            open_count: data.campaign.open_count || data.campaign.opened || 0,
-            click_count: data.campaign.click_count || data.campaign.clicked || 0,
-            bounce_count: data.campaign.bounce_count || (data.campaign.bounced ? 
-              (typeof data.campaign.bounced === 'object' ? data.campaign.bounced.total : data.campaign.bounced) : 0),
-            uniq_open_rate: data.campaign.unique_open_rate || data.campaign.open_rate || 0,
-            click_rate: data.campaign.click_rate || 0,
-            delivered_rate: data.campaign.delivery_rate || 0
+            subscriber_count: safeExtract(data.campaign, 'subscriber_count') || safeExtract(data.campaign, 'total'),
+            delivered_count: safeExtract(data.campaign, 'delivered_count') || safeExtract(data.campaign, 'delivered'),
+            open_count: safeExtract(data.campaign, 'open_count') || safeExtract(data.campaign, 'opened'),
+            click_count: safeExtract(data.campaign, 'click_count') || safeExtract(data.campaign, 'clicked'),
+            bounce_count: safeExtract(data.campaign, 'bounce_count') || 
+              (data.campaign.bounced ? 
+                (typeof data.campaign.bounced === 'object' ? safeExtract(data.campaign.bounced, 'total') : toNumber(data.campaign.bounced))
+                : 0),
+            uniq_open_rate: safeExtract(data.campaign, 'unique_open_rate') || safeExtract(data.campaign, 'open_rate'),
+            click_rate: safeExtract(data.campaign, 'click_rate'),
+            delivered_rate: safeExtract(data.campaign, 'delivery_rate')
           };
         }
         
@@ -126,16 +206,19 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
           
           // Extraire les statistiques des rapports
           if (data) {
+            const bounced = extractBouncedValue(data);
+            
             return {
-              subscriber_count: data.total || 0,
-              delivered_count: data.delivered || 0,
-              open_count: data.opened || 0,
-              click_count: data.clicked || 0,
-              bounce_count: data.bounced ? 
-                (typeof data.bounced === 'object' ? data.bounced.total : data.bounced) : 0,
-              uniq_open_rate: data.open_rate || data.unique_open_rate || 0,
-              click_rate: data.click_rate || 0,
-              delivered_rate: data.delivery_rate || 0
+              subscriber_count: safeExtract(data, 'total'),
+              delivered_count: safeExtract(data, 'delivered'),
+              open_count: safeExtract(data, 'opened'),
+              click_count: safeExtract(data, 'clicked'),
+              bounce_count: bounced.total,
+              soft_bounce_count: bounced.soft,
+              hard_bounce_count: bounced.hard,
+              uniq_open_rate: safeExtract(data, 'open_rate') || safeExtract(data, 'unique_open_rate'),
+              click_rate: safeExtract(data, 'click_rate'),
+              delivered_rate: safeExtract(data, 'delivery_rate')
             };
           }
         } catch (error) {
@@ -176,10 +259,10 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
             const logs = data.tracking_logs;
             const stats = {
               subscriber_count: logs.length,
-              delivered_count: logs.filter(log => log.status === 'delivered').length,
-              open_count: logs.filter(log => log.open_log).length,
-              click_count: logs.filter(log => log.click_log).length,
-              bounce_count: logs.filter(log => log.status === 'bounced').length,
+              delivered_count: logs.filter((log: any) => log.status === 'delivered').length,
+              open_count: logs.filter((log: any) => log.open_log).length,
+              click_count: logs.filter((log: any) => log.click_log).length,
+              bounce_count: logs.filter((log: any) => log.status === 'bounced').length,
               uniq_open_rate: 0,
               click_rate: 0,
               delivered_rate: 0
@@ -224,10 +307,29 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-6": cacheData }));
         
-        const typedCacheData = cacheData as CacheData | null;
+        // Correct explicit type conversion
+        const typedCacheData = cacheData as unknown as CacheData | null;
         
         if (typedCacheData && typedCacheData.statistics) {
-          return typedCacheData.statistics;
+          // Convert the JSON to AcelleCampaignStatistics
+          const statsJson = typedCacheData.statistics;
+          const stats: AcelleCampaignStatistics = {
+            subscriber_count: safeExtract(statsJson, 'subscriber_count'),
+            delivered_count: safeExtract(statsJson, 'delivered_count'),
+            delivered_rate: safeExtract(statsJson, 'delivered_rate'),
+            open_count: safeExtract(statsJson, 'open_count'),
+            uniq_open_count: safeExtract(statsJson, 'uniq_open_count'),
+            uniq_open_rate: safeExtract(statsJson, 'uniq_open_rate'),
+            click_count: safeExtract(statsJson, 'click_count'),
+            click_rate: safeExtract(statsJson, 'click_rate'),
+            bounce_count: safeExtract(statsJson, 'bounce_count'),
+            soft_bounce_count: safeExtract(statsJson, 'soft_bounce_count'),
+            hard_bounce_count: safeExtract(statsJson, 'hard_bounce_count'),
+            unsubscribe_count: safeExtract(statsJson, 'unsubscribe_count'),
+            abuse_complaint_count: safeExtract(statsJson, 'abuse_complaint_count')
+          };
+          
+          return stats;
         }
         
         return null;
@@ -253,29 +355,33 @@ export const StatisticsMethodTester = ({ account, campaignUid }: StatisticsMetho
         
         setRawResponses(prev => ({ ...prev, "method-7": campaignData }));
         
-        const typedCampaignData = campaignData as CacheData | null;
+        // Explicit type conversion
+        const typedCampaignData = campaignData as unknown as CacheData | null;
         
         if (typedCampaignData && typedCampaignData.delivery_info) {
           // Convertir le format delivery_info en format statistics
-          const deliveryInfo = typedCampaignData.delivery_info as DeliveryInfo;
+          const deliveryInfoJson = typedCampaignData.delivery_info;
           
-          return {
-            subscriber_count: deliveryInfo.total || 0,
-            delivered_count: deliveryInfo.delivered || 0,
-            delivered_rate: deliveryInfo.delivery_rate || 0,
-            open_count: deliveryInfo.opened || 0,
-            uniq_open_rate: deliveryInfo.unique_open_rate || 0,
-            click_count: deliveryInfo.clicked || 0,
-            click_rate: deliveryInfo.click_rate || 0,
-            bounce_count: typeof deliveryInfo.bounced === 'object' ? 
-              deliveryInfo.bounced.total : (deliveryInfo.bounced || 0),
-            soft_bounce_count: typeof deliveryInfo.bounced === 'object' ? 
-              deliveryInfo.bounced.soft : 0,
-            hard_bounce_count: typeof deliveryInfo.bounced === 'object' ? 
-              deliveryInfo.bounced.hard : 0,
-            unsubscribe_count: deliveryInfo.unsubscribed || 0,
-            abuse_complaint_count: deliveryInfo.complained || 0
+          // Handle the bounced property safely
+          const bounced = extractBouncedValue({ bounced: deliveryInfoJson?.bounced });
+          
+          const stats: AcelleCampaignStatistics = {
+            subscriber_count: safeExtract(deliveryInfoJson, 'total') || safeExtract(deliveryInfoJson, 'subscriber_count'),
+            delivered_count: safeExtract(deliveryInfoJson, 'delivered') || safeExtract(deliveryInfoJson, 'delivered_count'),
+            delivered_rate: safeExtract(deliveryInfoJson, 'delivery_rate') || safeExtract(deliveryInfoJson, 'delivered_rate'),
+            open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'open_count'),
+            uniq_open_count: safeExtract(deliveryInfoJson, 'opened') || safeExtract(deliveryInfoJson, 'uniq_open_count'),
+            uniq_open_rate: safeExtract(deliveryInfoJson, 'unique_open_rate') || safeExtract(deliveryInfoJson, 'uniq_open_rate') || safeExtract(deliveryInfoJson, 'open_rate'),
+            click_count: safeExtract(deliveryInfoJson, 'clicked') || safeExtract(deliveryInfoJson, 'click_count'),
+            click_rate: safeExtract(deliveryInfoJson, 'click_rate'),
+            bounce_count: bounced.total,
+            soft_bounce_count: bounced.soft,
+            hard_bounce_count: bounced.hard,
+            unsubscribe_count: safeExtract(deliveryInfoJson, 'unsubscribed') || safeExtract(deliveryInfoJson, 'unsubscribe_count'),
+            abuse_complaint_count: safeExtract(deliveryInfoJson, 'complained') || safeExtract(deliveryInfoJson, 'abuse_complaint_count')
           };
+          
+          return stats;
         }
         
         return null;
