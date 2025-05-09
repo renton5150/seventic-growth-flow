@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { AcelleCampaign } from "@/types/acelle.types";
+import { AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { 
   Users, Send, EyeIcon, MousePointerClick, AlertTriangle
 } from "lucide-react";
@@ -77,33 +77,41 @@ export const CampaignSummaryStats: React.FC<CampaignSummaryStatsProps> = ({ camp
       const stats = campaign.statistics || {};
       const deliveryInfo = campaign.delivery_info || {};
       
+      // Utiliser des variables temporaires typées pour éviter les erreurs TypeScript
+      const statsTyped = stats as Partial<AcelleCampaignStatistics>;
+      const deliveryInfoTyped = deliveryInfo as Record<string, any>;
+      
       // Nombre total de destinataires
-      const recipients = getNumericValue(stats.subscriber_count) || getNumericValue(deliveryInfo.total) || 0;
+      const recipients = getNumericValue(statsTyped.subscriber_count) || 
+                        getNumericValue(deliveryInfoTyped.total) || 0;
       totalRecipients += recipients;
       
       // Nombre d'emails délivrés
-      const delivered = getNumericValue(stats.delivered_count) || getNumericValue(deliveryInfo.delivered) || 0;
+      const delivered = getNumericValue(statsTyped.delivered_count) || 
+                       getNumericValue(deliveryInfoTyped.delivered) || 0;
       totalDelivered += delivered;
       
       // Nombre d'ouvertures
-      const opens = getNumericValue(stats.open_count) || getNumericValue(deliveryInfo.opened) || 0;
+      const opens = getNumericValue(statsTyped.open_count) || 
+                   getNumericValue(deliveryInfoTyped.opened) || 0;
       totalOpens += opens;
       
       // Nombre de clics
-      const clicks = getNumericValue(stats.click_count) || getNumericValue(deliveryInfo.clicked) || 0;
+      const clicks = getNumericValue(statsTyped.click_count) || 
+                    getNumericValue(deliveryInfoTyped.clicked) || 0;
       totalClicks += clicks;
       
       // Nombre de rebonds
       let bounces = 0;
       
       // Traitement spécial pour les rebonds qui peuvent être un objet ou un nombre
-      if (stats.bounce_count !== undefined) {
-        bounces = getNumericValue(stats.bounce_count);
-      } else if (deliveryInfo.bounced !== undefined) {
-        if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
-          bounces = getNumericValue(deliveryInfo.bounced.total);
+      if (statsTyped.bounce_count !== undefined) {
+        bounces = getNumericValue(statsTyped.bounce_count);
+      } else if (deliveryInfoTyped.bounced !== undefined) {
+        if (typeof deliveryInfoTyped.bounced === 'object' && deliveryInfoTyped.bounced !== null) {
+          bounces = getNumericValue((deliveryInfoTyped.bounced as any).total);
         } else {
-          bounces = getNumericValue(deliveryInfo.bounced);
+          bounces = getNumericValue(deliveryInfoTyped.bounced);
         }
       }
       

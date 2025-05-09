@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -432,7 +431,8 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         deliveryInfo.complained = extractNumericValue(deliveryInfoJson, 'complained');
       }
       
-      // Convertir en statistiques validées
+      // Convertir en statistiques validées en utilisant DeliveryInfo comme source
+      // Maintenant nous passons l'objet DeliveryInfo typé au lieu de la valeur JSON directe
       const stats = extractStatisticsFromAnyFormat(deliveryInfo);
       
       setResults(prev => [...prev, {
