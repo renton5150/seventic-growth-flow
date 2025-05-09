@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -431,9 +430,10 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
       deliveryInfo.complained = extractNumericValue(statsData, 'complained');
       
-      // Convertir le DeliveryInfo typé en statistiques de campagne
-      // Utiliser as unknown comme intermédiaire pour éviter l'erreur de type
-      const stats = extractStatisticsFromAnyFormat(deliveryInfo as unknown as Partial<AcelleCampaignStatistics>);
+      // Utiliser d'abord as unknown puis convertir en Partial<AcelleCampaignStatistics>
+      // Ceci évite l'erreur de casting direct entre deux types incompatibles
+      const typedDeliveryInfo = deliveryInfo as unknown;
+      const stats = extractStatisticsFromAnyFormat(typedDeliveryInfo as Partial<AcelleCampaignStatistics>);
       
       setResults(prev => [...prev, {
         method: "method-7",
