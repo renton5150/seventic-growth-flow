@@ -395,44 +395,43 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       // Création sécurisée d'un objet DeliveryInfo
       const deliveryInfoJson = data.stats || data.data;
       
-      let deliveryInfo: DeliveryInfo = {};
-      
       // Vérifier que deliveryInfoJson est un objet et pas une primitive
-      if (deliveryInfoJson && typeof deliveryInfoJson === 'object' && !Array.isArray(deliveryInfoJson)) {
-        // Créer un objet DeliveryInfo sécurisé
-        deliveryInfo = {
-          total: extractNumericValue(deliveryInfoJson, 'total'),
-          delivered: extractNumericValue(deliveryInfoJson, 'delivered'),
-          delivery_rate: extractNumericValue(deliveryInfoJson, 'delivery_rate'),
-          opened: extractNumericValue(deliveryInfoJson, 'opened'),
-          unique_open_rate: extractNumericValue(deliveryInfoJson, 'unique_open_rate') || extractNumericValue(deliveryInfoJson, 'open_rate'),
-          clicked: extractNumericValue(deliveryInfoJson, 'clicked'),
-          click_rate: extractNumericValue(deliveryInfoJson, 'click_rate'),
-          bounced: {}
-        };
-        
-        // Gérer le cas spécial pour "bounced" qui peut être un nombre ou un objet
-        if ('bounced' in deliveryInfoJson) {
-          const bouncedValue = deliveryInfoJson.bounced;
-          
-          if (typeof bouncedValue === 'number') {
-            deliveryInfo.bounced = bouncedValue;
-          } else if (typeof bouncedValue === 'object' && bouncedValue !== null) {
-            deliveryInfo.bounced = {
-              soft: extractNumericValue(bouncedValue, 'soft'),
-              hard: extractNumericValue(bouncedValue, 'hard'),
-              total: extractNumericValue(bouncedValue, 'total')
-            };
-          }
-        }
-        
-        // Ajouter d'autres propriétés
-        deliveryInfo.unsubscribed = extractNumericValue(deliveryInfoJson, 'unsubscribed');
-        deliveryInfo.complained = extractNumericValue(deliveryInfoJson, 'complained');
+      if (!deliveryInfoJson || typeof deliveryInfoJson !== 'object' || Array.isArray(deliveryInfoJson)) {
+        throw new Error('Format de données invalide: les statistiques doivent être un objet');
       }
       
+      // Créer un objet DeliveryInfo sécurisé
+      const deliveryInfo: DeliveryInfo = {
+        total: extractNumericValue(deliveryInfoJson, 'total'),
+        delivered: extractNumericValue(deliveryInfoJson, 'delivered'),
+        delivery_rate: extractNumericValue(deliveryInfoJson, 'delivery_rate'),
+        opened: extractNumericValue(deliveryInfoJson, 'opened'),
+        unique_open_rate: extractNumericValue(deliveryInfoJson, 'unique_open_rate') || extractNumericValue(deliveryInfoJson, 'open_rate'),
+        clicked: extractNumericValue(deliveryInfoJson, 'clicked'),
+        click_rate: extractNumericValue(deliveryInfoJson, 'click_rate')
+      };
+      
+      // Gérer le cas spécial pour "bounced" qui peut être un nombre ou un objet
+      if ('bounced' in deliveryInfoJson) {
+        const bouncedValue = deliveryInfoJson.bounced;
+        
+        if (typeof bouncedValue === 'number') {
+          deliveryInfo.bounced = bouncedValue;
+        } else if (typeof bouncedValue === 'object' && bouncedValue !== null) {
+          deliveryInfo.bounced = {
+            soft: extractNumericValue(bouncedValue, 'soft'),
+            hard: extractNumericValue(bouncedValue, 'hard'),
+            total: extractNumericValue(bouncedValue, 'total')
+          };
+        }
+      }
+      
+      // Ajouter d'autres propriétés
+      deliveryInfo.unsubscribed = extractNumericValue(deliveryInfoJson, 'unsubscribed');
+      deliveryInfo.complained = extractNumericValue(deliveryInfoJson, 'complained');
+      
       // Convertir en statistiques validées en utilisant DeliveryInfo comme source
-      // Maintenant nous passons l'objet DeliveryInfo typé au lieu de la valeur JSON directe
+      // On utilise maintenant l'objet deliveryInfo correctement typé
       const stats = extractStatisticsFromAnyFormat(deliveryInfo);
       
       setResults(prev => [...prev, {
