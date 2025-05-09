@@ -16,8 +16,8 @@ export const buildProxyUrl = (apiEndpoint: string, params: Record<string, string
     // Nettoyer l'endpoint (retirer le slash final s'il est présent)
     const cleanEndpoint = apiEndpoint.replace(/\/$/, '');
     
-    // Construire l'URL de base pour la fonction Edge acelle-proxy
-    const baseUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy';
+    // Construire l'URL de base pour la fonction Edge proxy simplifiée
+    const baseUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy-simple';
     
     // Ajouter les paramètres à l'URL si fournis
     let queryParams = '';
@@ -60,22 +60,16 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
     
     const accessToken = sessionData.session.access_token;
     
-    console.log("Test de connexion API avec paramètre URL (méthode confirmée par tests cURL)");
+    console.log("Test de connexion à l'API Acelle avec nouveau proxy simplifié");
     
-    // Appeler la fonction Edge pour vérifier l'API
-    const { data, error } = await supabase.functions.invoke('check-acelle-api', {
+    // Utiliser notre nouvelle fonction test-acelle-auth pour tester l'authentification
+    const { data, error } = await supabase.functions.invoke('test-acelle-auth', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Acelle-Token': apiToken,
-        'X-Acelle-Endpoint': apiEndpoint,
-        'X-Auth-Method': 'url_param' // Utiliser la méthode par paramètre URL validée par cURL
-      },
-      body: { 
-        apiEndpoint, 
-        apiToken,
-        testMultipleAuthMethods: false // Ne tester que la méthode URL param qui fonctionne
+        'x-acelle-token': apiToken,
+        'x-acelle-endpoint': apiEndpoint
       }
     });
     
@@ -102,8 +96,7 @@ export const buildApiPath = (apiEndpoint: string, path: string, params: Record<s
   // Nettoyer l'endpoint - enlever le slash final s'il existe
   const cleanEndpoint = apiEndpoint.replace(/\/$/, '');
   
-  // CORRECTION MAJEURE: Vérifier si l'endpoint contient déjà "api/v1"
-  // Si l'endpoint contient déjà "/api/v1", on ne doit pas l'ajouter dans le chemin
+  // CORRECTION: Vérifier si l'endpoint contient déjà "api/v1"
   const hasApiPrefixInEndpoint = cleanEndpoint.includes('/api/v1');
   
   // Vérifier si le chemin contient déjà le préfixe /api/v1/
@@ -129,14 +122,11 @@ export const buildApiPath = (apiEndpoint: string, path: string, params: Record<s
     console.log(`Ajout du préfixe api/v1 au chemin: ${finalPath}`);
   }
   
-  // Log pour debug - TRÈS IMPORTANT pour diagnostiquer les problèmes d'URL
-  console.log(`Construction URL complète: endpoint=${cleanEndpoint}, chemin=${path}, chemin final=${finalPath}`);
+  // Log pour debug
+  console.log(`Construction URL API: endpoint=${cleanEndpoint}, chemin=${path}, chemin final=${finalPath}`);
   
-  // MODIFICATION MAJEURE: Toujours ajouter le token API dans les paramètres URL (méthode validée par cURL)
-  const finalParams = { 
-    ...params, 
-    path: finalPath 
-  };
+  // Construire l'URL avec la nouvelle approche simplifiée
+  const finalParams = { ...params, path: finalPath };
   
   // Construire l'URL avec le chemin API
   return buildProxyUrl(cleanEndpoint, finalParams);

@@ -44,8 +44,7 @@ serve(async (req) => {
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'User-Agent': 'Seventic-Test-Auth/1.0',
-      'Authorization': `Bearer ${token}` // Méthode d'authentification secondaire
+      'User-Agent': 'Acelle-API-Client/1.0',
     };
     
     console.log("Envoi de la requête de test...");
