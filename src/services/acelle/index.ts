@@ -25,6 +25,7 @@ import {
 } from "./api/connection";
 
 import { buildProxyUrl } from "./acelle-service";
+import { hasEmptyStatistics } from "./api/stats/directStats";
 
 export const acelleService = {
   accounts: {
@@ -47,6 +48,7 @@ export const acelleService = {
     test: testAcelleConnection
   },
   utils: {
-    buildProxyUrl
+    buildProxyUrl,
+    hasEmptyStatistics
   }
 };

@@ -1,94 +1,83 @@
 
+import { AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { AcelleCampaignStatistics, AcelleAccount } from "@/types/acelle.types";
 import { buildProxyUrl } from "../../acelle-service";
-import { ensureValidStatistics } from "./validation";
 
 /**
- * Fetch statistics for a campaign from the Acelle API
+ * Récupère les statistiques d'une campagne depuis l'API Acelle
  */
-export async function fetchCampaignStatisticsFromApi(
+export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
   account: AcelleAccount
-): Promise<AcelleCampaignStatistics | null> {
-  console.log(`[Stats] Appel API pour campagne ${campaignUid}`);
-  
-  // Vérification des informations du compte
-  if (!account || !account.api_token || !account.api_endpoint) {
-    console.error('[Stats] Informations de compte incomplètes pour la récupération des stats');
-    return null;
-  }
-  
-  // Récupérer les statistiques depuis l'API
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  
-  if (!token) {
-    console.error("[Stats] Aucun token d'authentification disponible");
-    return null;
-  }
-  
-  // IMPORTANT : Utiliser l'endpoint /campaigns/{uid} comme recommandé
-  const apiEndpoint = `campaigns/${campaignUid}`;
-  
-  // Construire l'URL pour les statistiques
-  const statsParams = { 
-    api_token: account.api_token,
-    _t: Date.now().toString()  // Anti-cache
-  };
-  
-  // Créer l'URL pour les statistiques
-  const statsUrl = buildProxyUrl(apiEndpoint, statsParams);
-  
-  console.log(`[Stats] Requête API statistiques: ${statsUrl}`);
-  
-  // Effectuer l'appel API
-  const statsResponse = await fetch(statsUrl, {
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${token}`
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    if (!campaignUid || !account?.api_token || !account?.api_endpoint) {
+      console.error("Informations manquantes pour récupérer les statistiques:", {
+        hasCampaignUid: !!campaignUid,
+        hasApiToken: !!account?.api_token,
+        hasApiEndpoint: !!account?.api_endpoint
+      });
+      return null;
     }
-  });
-  
-  console.log(`[Stats] Réponse API: Status ${statsResponse.status}`);
-  
-  if (!statsResponse.ok) {
-    console.error(`[Stats] Erreur API (${statsResponse.status}): ${statsResponse.statusText}`);
+    
+    console.log(`Fetching statistics from API for campaign ${campaignUid}`);
+    
+    // Construire l'URL pour la requête API
+    const params = {
+      api_token: account.api_token,
+      _t: Date.now().toString() // Empêcher la mise en cache
+    };
+    
+    // Utiliser le proxy pour éviter les problèmes CORS
+    const url = buildProxyUrl(`campaigns/${campaignUid}/statistics`, params);
+    
+    // Obtenir le token d'authentification
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    
+    if (!token) {
+      console.error("Aucun token d'authentification disponible pour l'API");
+      return null;
+    }
+    
+    // Effectuer la requête
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`Erreur API: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data?.statistics) {
+      // Convertir les statistiques en format attendu
+      return {
+        subscriber_count: Number(data.statistics.subscriber_count) || 0,
+        delivered_count: Number(data.statistics.delivered_count) || 0,
+        delivered_rate: Number(data.statistics.delivered_rate) || 0,
+        open_count: Number(data.statistics.open_count) || 0,
+        uniq_open_count: Number(data.statistics.uniq_open_count) || 0,
+        uniq_open_rate: Number(data.statistics.uniq_open_rate) || 0,
+        click_count: Number(data.statistics.click_count) || 0,
+        click_rate: Number(data.statistics.click_rate) || 0,
+        bounce_count: Number(data.statistics.bounce_count) || 0,
+        soft_bounce_count: Number(data.statistics.soft_bounce_count) || 0,
+        hard_bounce_count: Number(data.statistics.hard_bounce_count) || 0,
+        unsubscribe_count: Number(data.statistics.unsubscribe_count) || 0,
+        abuse_complaint_count: Number(data.statistics.abuse_complaint_count) || 0
+      };
+    }
+    
+    console.log("Aucune statistique trouvée dans la réponse de l'API");
+    return null;
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des statistiques pour la campagne ${campaignUid}:`, error);
     return null;
   }
-  
-  // Analyser la réponse
-  const responseData = await statsResponse.json();
-  
-  if (!responseData) {
-    console.error('[Stats] Format de réponse API inattendu:', responseData);
-    return null;
-  }
-  
-  console.log(`[Stats] Données reçues pour ${campaignUid}:`, responseData);
-  
-  // Structure de réponse attendue : { campaign: {...}, statistics: {...} }
-  const apiStats = responseData.statistics || responseData.data || {};
-  
-  if (!apiStats || Object.keys(apiStats).length === 0) {
-    console.error('[Stats] Aucune statistique trouvée dans la réponse API:', responseData);
-    return null;
-  }
-  
-  // Convertir et normaliser les statistiques
-  return ensureValidStatistics({
-    subscriber_count: apiStats.subscriber_count || 0,
-    delivered_count: apiStats.delivered_count || 0,
-    delivered_rate: apiStats.delivered_rate || 0,
-    open_count: apiStats.open_count || apiStats.uniq_open_count || 0,
-    uniq_open_count: apiStats.uniq_open_count || apiStats.open_count || 0,
-    uniq_open_rate: apiStats.uniq_open_rate || apiStats.unique_open_rate || 0,
-    click_count: apiStats.click_count || 0,
-    click_rate: apiStats.click_rate || 0,
-    bounce_count: apiStats.bounce_count || 0,
-    soft_bounce_count: apiStats.soft_bounce_count || 0,
-    hard_bounce_count: apiStats.hard_bounce_count || 0,
-    unsubscribe_count: apiStats.unsubscribe_count || 0,
-    abuse_complaint_count: apiStats.abuse_complaint_count || 0,
-  });
-}
+};

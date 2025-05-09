@@ -1,3 +1,4 @@
+
 // Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -32,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
+import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -52,6 +54,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [campaigns, setCampaigns] = useState<AcelleCampaign[]>([]);
+  const [backgroundRefreshInProgress, setBackgroundRefreshInProgress] = useState(false);
   
   // Utiliser notre hook useCampaignCache pour les opérations de cache
   const { 
@@ -64,7 +67,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   } = useCampaignCache(account);
   
   // Create a refetch function to reload the campaigns
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (options?: { forceRefresh?: boolean }) => {
+    const shouldForceRefresh = options?.forceRefresh === true;
+    
     setIsLoading(true);
     setIsError(false);
     setError(null);
@@ -72,31 +77,91 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     try {
       if (account?.id) {
         // Fetch campaigns from cache
+        console.log(`Fetching campaigns from cache for page ${currentPage}, forcing refresh: ${shouldForceRefresh}`);
         const fetchedCampaigns = await fetchCampaignsFromCache(
           [account], 
           currentPage, 
           itemsPerPage
         );
         
-        // À ce stade, les campagnes n'ont pas encore de statistiques enrichies
-        // Nous devons enrichir les campagnes avec des statistiques réelles
+        // Si nous avons des campagnes en cache, les afficher immédiatement
         if (fetchedCampaigns.length > 0) {
-          console.log(`Enrichissement de ${fetchedCampaigns.length} campagnes avec des statistiques...`);
+          console.log(`Displaying ${fetchedCampaigns.length} cached campaigns immediately`);
+          setCampaigns(fetchedCampaigns);
+          setIsLoading(false);
+          
+          // Vérifier quelles campagnes ont des statistiques vides et nécessitent un rafraîchissement
+          const campaignsNeedingRefresh = fetchedCampaigns.filter(campaign => 
+            !campaign.statistics || hasEmptyStatistics(campaign.statistics)
+          );
+          
+          // Si certaines campagnes ont besoin d'un rafraîchissement ou si un rafraîchissement complet est demandé
+          if (campaignsNeedingRefresh.length > 0 || shouldForceRefresh) {
+            setBackgroundRefreshInProgress(true);
+            
+            if (campaignsNeedingRefresh.length > 0) {
+              console.log(`Starting background refresh for ${campaignsNeedingRefresh.length} campaigns with empty statistics`);
+            } else {
+              console.log("Starting background refresh of all campaign statistics");
+            }
+            
+            // Ceci s'exécutera en arrière-plan sans bloquer l'interface
+            setTimeout(async () => {
+              try {
+                // Si nous avons des campagnes spécifiques à rafraîchir et qu'un rafraîchissement complet n'est pas demandé
+                if (campaignsNeedingRefresh.length > 0 && !shouldForceRefresh) {
+                  // Rafraîchir uniquement les campagnes avec des statistiques vides
+                  const refreshedCampaigns = await enrichCampaignsWithStats(
+                    campaignsNeedingRefresh, 
+                    account, 
+                    { forceRefresh: true }
+                  );
+                  
+                  // Mettre à jour uniquement les campagnes qui ont été rafraîchies
+                  const updatedCampaigns = fetchedCampaigns.map(campaign => {
+                    const refreshed = refreshedCampaigns.find(c => 
+                      c.uid === campaign.uid || c.campaign_uid === campaign.campaign_uid
+                    );
+                    return refreshed || campaign;
+                  });
+                  
+                  setCampaigns(updatedCampaigns);
+                  console.log(`Updated ${refreshedCampaigns.length} campaigns with fresh statistics`);
+                } else {
+                  // Rafraîchir toutes les campagnes si demandé
+                  const enrichedCampaigns = await enrichCampaignsWithStats(
+                    fetchedCampaigns, 
+                    account, 
+                    { forceRefresh: true }
+                  );
+                  setCampaigns(enrichedCampaigns);
+                  console.log("Background refresh of all campaigns completed successfully");
+                }
+              } catch (err) {
+                console.error("Error during background refresh:", err);
+              } finally {
+                setBackgroundRefreshInProgress(false);
+              }
+            }, 100);
+          }
+        } else {
+          // Si le cache est vide, nous devons attendre l'enrichissement
+          console.log("No campaigns in cache, waiting for enrichment...");
+          
+          // Même dans ce cas, on ne force pas le refresh pour le premier affichage
           const enrichedCampaigns = await enrichCampaignsWithStats(
             fetchedCampaigns, 
             account, 
-            { forceRefresh: true }
+            { forceRefresh: false }
           );
           setCampaigns(enrichedCampaigns);
-        } else {
-          setCampaigns(fetchedCampaigns);
+          setIsLoading(false);
         }
       }
     } catch (err) {
       console.error("Error fetching campaigns:", err);
       setIsError(true);
       setError(err instanceof Error ? err : new Error("Failed to fetch campaigns"));
-    } finally {
       setIsLoading(false);
     }
   }, [account, currentPage, itemsPerPage]);
@@ -127,39 +192,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   
   // Fetch campaigns when page changes or account changes
   useEffect(() => {
-    refetch();
+    // Au chargement initial et aux changements de page, charger depuis le cache sans forcer le refresh
+    refetch({ forceRefresh: false });
   }, [refetch, currentPage, account]);
-
-  // Ensure campaigns have statistics when loaded
-  useEffect(() => {
-    const enrichCampaignsStats = async () => {
-      if (!campaigns.length || !account) return;
-      
-      console.log("Enriching campaigns with statistics from API...", {
-        campaignsCount: campaigns.length,
-        accountInfo: {
-          id: account.id,
-          name: account.name,
-          hasApiEndpoint: !!account.api_endpoint,
-          hasApiToken: !!account.api_token
-        }
-      });
-      
-      try {
-        // Force refresh for all campaigns to ensure we have the latest statistics
-        const enrichedCampaigns = await enrichCampaignsWithStats(campaigns, account, {
-          forceRefresh: true
-        });
-        
-        console.log(`Successfully enriched ${enrichedCampaigns.length} campaigns with statistics`);
-        setCampaigns(enrichedCampaigns);
-      } catch (err) {
-        console.error("Error enriching campaigns with statistics:", err);
-      }
-    };
-    
-    enrichCampaignsStats();
-  }, [campaigns.length, account]);
 
   // Calcul du nombre total de pages en fonction du nombre total de campagnes
   useEffect(() => {
@@ -201,7 +236,8 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setConnectionError(null);
     
     try {
-      await refetch();
+      // Forcer le rafraîchissement des données
+      await refetch({ forceRefresh: true });
       toast.success("Les données ont été rafraîchies", { id: "refresh" });
     } catch (err) {
       console.error("Erreur lors du rafraîchissement:", err);
@@ -227,7 +263,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       
       if (result.success) {
         toast.success(result.message, { id: "sync" });
-        await refetch();
+        await refetch({ forceRefresh: false });
       } else {
         toast.error(result.message, { id: "sync" });
       }
@@ -288,7 +324,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         error={error instanceof Error ? error.message : "Une erreur est survenue"} 
         onRetry={() => {
           setRetryCount((prev) => prev + 1);
-          refetch();
+          refetch({ forceRefresh: false });
         }}
         retryCount={retryCount}
       />
@@ -311,11 +347,18 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         />
         
         <div className="flex flex-wrap gap-2 items-center">
+          {backgroundRefreshInProgress && (
+            <div className="text-sm text-muted-foreground flex items-center">
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+              Actualisation en cours...
+            </div>
+          )}
+          
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={isManuallyRefreshing}
+            disabled={isManuallyRefreshing || backgroundRefreshInProgress}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
             Actualiser
@@ -325,7 +368,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             variant="outline"
             size="sm"
             onClick={handleSync}
-            disabled={isSyncing || !accessToken}
+            disabled={isSyncing || !accessToken || backgroundRefreshInProgress}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
             Synchroniser
@@ -340,6 +383,12 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             <p>{connectionError}</p>
           </CardContent>
         </Card>
+      )}
+      
+      {lastRefreshTimestamp && (
+        <div className="text-xs text-muted-foreground mb-2">
+          Dernière synchronisation: {new Date(lastRefreshTimestamp).toLocaleString()}
+        </div>
       )}
       
       <div className="rounded-md border">

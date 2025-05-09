@@ -2,12 +2,14 @@
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 
 /**
- * S'assure qu'un objet de statistiques respecte l'interface AcelleCampaignStatistics
- * en fournissant des valeurs par défaut pour les propriétés manquantes
+ * Assure que les statistiques ont toutes les valeurs requises
+ * et sont de type approprié
  */
-export function ensureValidStatistics(data: any): AcelleCampaignStatistics {
-  // Créer une structure de base avec des valeurs par défaut
-  const validStats: AcelleCampaignStatistics = {
+export const ensureValidStatistics = (
+  statistics?: AcelleCampaignStatistics | null | undefined
+): AcelleCampaignStatistics => {
+  // Valeurs par défaut pour les statistiques manquantes
+  const defaultStats: AcelleCampaignStatistics = {
     subscriber_count: 0,
     delivered_count: 0,
     delivered_rate: 0,
@@ -23,26 +25,54 @@ export function ensureValidStatistics(data: any): AcelleCampaignStatistics {
     abuse_complaint_count: 0
   };
   
-  // Si les données d'entrée sont nulles ou non-objets, retourner les valeurs par défaut
-  if (!data || typeof data !== 'object') {
-    return validStats;
+  // Si aucune statistique n'est fournie, retourner les valeurs par défaut
+  if (!statistics) {
+    return { ...defaultStats };
   }
   
-  // Fusionner les données d'entrée avec la structure de base
-  // en ne conservant que les propriétés valides
-  return {
-    subscriber_count: typeof data.subscriber_count === 'number' ? data.subscriber_count : validStats.subscriber_count,
-    delivered_count: typeof data.delivered_count === 'number' ? data.delivered_count : validStats.delivered_count,
-    delivered_rate: typeof data.delivered_rate === 'number' ? data.delivered_rate : validStats.delivered_rate,
-    open_count: typeof data.open_count === 'number' ? data.open_count : validStats.open_count,
-    uniq_open_count: typeof data.uniq_open_count === 'number' ? data.uniq_open_count : validStats.uniq_open_count,
-    uniq_open_rate: typeof data.uniq_open_rate === 'number' ? data.uniq_open_rate : validStats.uniq_open_rate,
-    click_count: typeof data.click_count === 'number' ? data.click_count : validStats.click_count,
-    click_rate: typeof data.click_rate === 'number' ? data.click_rate : validStats.click_rate,
-    bounce_count: typeof data.bounce_count === 'number' ? data.bounce_count : validStats.bounce_count,
-    soft_bounce_count: typeof data.soft_bounce_count === 'number' ? data.soft_bounce_count : validStats.soft_bounce_count,
-    hard_bounce_count: typeof data.hard_bounce_count === 'number' ? data.hard_bounce_count : validStats.hard_bounce_count,
-    unsubscribe_count: typeof data.unsubscribe_count === 'number' ? data.unsubscribe_count : validStats.unsubscribe_count,
-    abuse_complaint_count: typeof data.abuse_complaint_count === 'number' ? data.abuse_complaint_count : validStats.abuse_complaint_count
+  // Fonction pour normaliser une valeur en nombre
+  const normalizeToNumber = (value: any): number => {
+    if (typeof value === 'string') {
+      return Number(value) || 0;
+    } else if (typeof value === 'number' && !isNaN(value)) {
+      return value;
+    }
+    return 0;
   };
-}
+  
+  // Construction de l'objet de statistiques validées en utilisant la propagation
+  // et en normalisant explicitement chaque valeur
+  return {
+    subscriber_count: normalizeToNumber(statistics.subscriber_count),
+    delivered_count: normalizeToNumber(statistics.delivered_count),
+    delivered_rate: normalizeToNumber(statistics.delivered_rate),
+    open_count: normalizeToNumber(statistics.open_count),
+    uniq_open_count: normalizeToNumber(statistics.uniq_open_count),
+    uniq_open_rate: normalizeToNumber(statistics.uniq_open_rate),
+    click_count: normalizeToNumber(statistics.click_count),
+    click_rate: normalizeToNumber(statistics.click_rate),
+    bounce_count: normalizeToNumber(statistics.bounce_count),
+    soft_bounce_count: normalizeToNumber(statistics.soft_bounce_count),
+    hard_bounce_count: normalizeToNumber(statistics.hard_bounce_count),
+    unsubscribe_count: normalizeToNumber(statistics.unsubscribe_count),
+    abuse_complaint_count: normalizeToNumber(statistics.abuse_complaint_count)
+  };
+};
+
+/**
+ * Vérifie si les statistiques sont considérées comme périmées
+ * en fonction d'un seuil de temps
+ */
+export const areStatisticsStale = (lastUpdated: string, staleThresholdMinutes: number = 60): boolean => {
+  try {
+    const lastUpdateTime = new Date(lastUpdated).getTime();
+    const currentTime = Date.now();
+    const thresholdMs = staleThresholdMinutes * 60 * 1000;
+    
+    return currentTime - lastUpdateTime > thresholdMs;
+  } catch (error) {
+    // En cas d'erreur, considérer les statistiques comme périmées
+    console.error("Error checking staleness:", error);
+    return true;
+  }
+};
