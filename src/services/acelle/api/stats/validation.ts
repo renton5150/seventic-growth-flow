@@ -91,6 +91,11 @@ export const ensureValidStatistics = (statistics: Partial<AcelleCampaignStatisti
     validatedStats.uniq_open_rate = processNumericValue((statistics as any).unique_open_rate);
   }
   
+  // Utiliser opened comme fallback pour uniq_open_count si disponible
+  if ((statistics as any).opened !== undefined && validatedStats.uniq_open_count === 0) {
+    validatedStats.uniq_open_count = processNumericValue((statistics as any).opened);
+  }
+  
   // Petite vérification de cohérence: si certaines valeurs sont manquantes mais peuvent être calculées
   if (validatedStats.subscriber_count > 0) {
     // Si delivered_rate est défini mais pas delivered_count

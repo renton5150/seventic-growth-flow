@@ -70,7 +70,7 @@ export interface DeliveryInfo {
   } | number;
   unsubscribed?: number;
   complained?: number;
-  bounce_count?: number; // Ajouté pour la compatibilité avec certaines API
+  bounce_count?: number;
   
   // Ajout de propriétés supplémentaires pour une compatibilité maximale
   subscriber_count?: number;

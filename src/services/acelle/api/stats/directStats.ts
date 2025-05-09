@@ -6,21 +6,21 @@ import { fetchCampaignStatisticsFromApi, fetchCampaignStatisticsLegacy } from ".
 /**
  * Vérifie si les statistiques sont vides ou non initialisées
  * Une campagne est considérée comme ayant des statistiques vides si le nombre
- * de destinataires (subscriber_count) est à zéro
+ * de destinataires (subscriber_count) est à zéro et qu'aucun autre champ n'a de valeur
  */
 export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null): boolean => {
   if (!statistics) return true;
   
-  // Vérifier si les valeurs principales sont à zéro
-  // Note: On ne considère plus automatiquement qu'une statistique à zéro est vide
-  // car certaines campagnes peuvent réellement avoir zéro envoi/ouverture
-  const isEmpty = 
-    (statistics.subscriber_count === undefined || 
-     statistics.subscriber_count === null) &&
-    (statistics.delivered_count === undefined || 
-     statistics.delivered_count === null);
+  // Vérifier si toutes les valeurs principales sont nulles ou zéro
+  const hasNonZeroValue = 
+    statistics.subscriber_count > 0 || 
+    statistics.delivered_count > 0 ||
+    statistics.open_count > 0 ||
+    statistics.click_count > 0 ||
+    statistics.bounce_count > 0;
   
-  return isEmpty;
+  // Si au moins une valeur est non-nulle, les statistiques ne sont pas vides
+  return !hasNonZeroValue;
 };
 
 /**

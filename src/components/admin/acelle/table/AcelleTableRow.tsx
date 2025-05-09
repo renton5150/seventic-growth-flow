@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -85,7 +86,7 @@ export const AcelleTableRow = ({
               delivered_count: campaign.delivery_info.delivered || 0,
               delivered_rate: campaign.delivery_info.delivery_rate || 0,
               open_count: campaign.delivery_info.opened || 0,
-              uniq_open_count: campaign.delivery_info.opened || 0,
+              uniq_open_count: campaign.delivery_info.opened || 0, // Utiliser "opened" comme fallback
               uniq_open_rate: campaign.delivery_info.unique_open_rate || 0,
               click_count: campaign.delivery_info.clicked || 0,
               click_rate: campaign.delivery_info.click_rate || 0,
@@ -158,24 +159,35 @@ export const AcelleTableRow = ({
     }
   };
 
-  // Récupérer les valeurs prioritaires
+  // Récupérer les valeurs prioritaires avec plus de logs pour déboguer
   const getValueWithFallbacks = (
     mainValue?: number | null, 
     fallbacks: Array<number | undefined | null> = []
   ): number => {
-    if (mainValue !== undefined && mainValue !== null) return mainValue;
+    if (mainValue !== undefined && mainValue !== null) {
+      console.log(`[TableRow] Utilisation de la valeur principale: ${mainValue}`);
+      return mainValue;
+    }
     
-    for (const fallback of fallbacks) {
+    for (const [index, fallback] of fallbacks.entries()) {
       if (fallback !== undefined && fallback !== null) {
+        console.log(`[TableRow] Utilisation de la valeur de fallback ${index}: ${fallback}`);
         return fallback;
       }
     }
     
+    console.log(`[TableRow] Aucune valeur trouvée, utilisation de 0 par défaut`);
     return 0;
   };
 
-  // Récupérer les statistiques avec priorités
+  // Récupérer les statistiques avec priorités et logging pour déboguer
   const getTotalSent = (): number => {
+    console.log(`[TableRow:${campaignName}] Données pour total envois:`, {
+      stats_subscriber_count: stats?.subscriber_count,
+      campaign_stats_subscriber_count: campaign.statistics?.subscriber_count,
+      delivery_info_total: campaign.delivery_info?.total
+    });
+    
     return getValueWithFallbacks(
       stats?.subscriber_count,
       [
@@ -186,6 +198,13 @@ export const AcelleTableRow = ({
   };
 
   const getOpenRate = (): number => {
+    console.log(`[TableRow:${campaignName}] Données pour taux d'ouverture:`, {
+      stats_uniq_open_rate: stats?.uniq_open_rate,
+      stats_open_rate: stats?.open_rate,
+      campaign_stats_uniq_open_rate: campaign.statistics?.uniq_open_rate,
+      delivery_info_unique_open_rate: campaign.delivery_info?.unique_open_rate
+    });
+    
     return getValueWithFallbacks(
       stats?.uniq_open_rate,
       [
@@ -197,6 +216,12 @@ export const AcelleTableRow = ({
   };
 
   const getClickRate = (): number => {
+    console.log(`[TableRow:${campaignName}] Données pour taux de clic:`, {
+      stats_click_rate: stats?.click_rate,
+      campaign_stats_click_rate: campaign.statistics?.click_rate,
+      delivery_info_click_rate: campaign.delivery_info?.click_rate
+    });
+    
     return getValueWithFallbacks(
       stats?.click_rate,
       [
@@ -207,6 +232,12 @@ export const AcelleTableRow = ({
   };
 
   const getBounceCount = (): number => {
+    console.log(`[TableRow:${campaignName}] Données pour bounces:`, {
+      stats_bounce_count: stats?.bounce_count,
+      campaign_stats_bounce_count: campaign.statistics?.bounce_count,
+      delivery_info_bounced: campaign.delivery_info?.bounced
+    });
+    
     return getValueWithFallbacks(
       stats?.bounce_count,
       [
