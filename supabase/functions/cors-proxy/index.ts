@@ -5,7 +5,7 @@
  * Cette fonction sert de proxy CORS pour les requêtes vers des API tierces, permettant
  * de contourner les restrictions de Same-Origin Policy dans les navigateurs.
  * 
- * @version 1.3.2
+ * @version 1.4.0
  * @author Seventic Team
  */
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -22,7 +22,7 @@ const corsHeaders = {
 };
 
 // Version actuelle du proxy CORS
-const CORS_PROXY_VERSION = "1.3.2";
+const CORS_PROXY_VERSION = "1.4.0";
 const DEFAULT_TIMEOUT = 30000; // 30 secondes de timeout par défaut
 
 console.log("CORS Proxy v" + CORS_PROXY_VERSION + " démarré");
@@ -154,8 +154,9 @@ serve(async (req: Request) => {
     });
     
     // Ajout d'en-têtes d'identification pour notre proxy
-    (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.3');
+    (requestInit.headers as Headers).set('User-Agent', 'Seventic-CORS-Proxy/1.4');
     (requestInit.headers as Headers).set('Referer', 'https://emailing.plateforme-solution.net/');
+    (requestInit.headers as Headers).set('Accept', 'application/json');
     
     // Copie du corps s'il est présent et si la méthode HTTP l'autorise
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.body) {
@@ -173,8 +174,10 @@ serve(async (req: Request) => {
     requestInit.signal = controller.signal;
     
     try {
-      // Exécution de la requête vers l'URL cible
+      // Affichage des en-têtes pour le débogage
       console.log(`[CORS Proxy] En-têtes de la requête:`, Object.fromEntries([...(requestInit.headers as Headers).entries()]));
+      
+      // Exécution de la requête vers l'URL cible
       const fetchResponse = await fetch(targetUrl, requestInit);
       clearTimeout(timeoutId);
       
@@ -212,6 +215,12 @@ serve(async (req: Request) => {
           // Parser la réponse JSON
           const responseJson = JSON.parse(responseBodyText);
           
+          // Log des clés disponibles dans la réponse pour le débogage
+          const topLevelKeys = Object.keys(responseJson);
+          if (topLevelKeys.length > 0) {
+            console.log(`[CORS Proxy] Clés disponibles dans la réponse: ${topLevelKeys.join(', ')}`);
+          }
+          
           // Vérifier si on a déjà une propriété data ou si on a un tableau à la racine
           if (!responseJson.data && (Array.isArray(responseJson) || Object.keys(responseJson).length > 0)) {
             console.log(`[CORS Proxy] Transformation de la réponse JSON pour compatibilité`);
@@ -236,12 +245,6 @@ serve(async (req: Request) => {
             } else {
               console.log(`[CORS Proxy] Données trouvées (non-array)`);
             }
-          }
-          
-          // Log des clés disponibles dans la réponse pour le débogage
-          const topLevelKeys = Object.keys(responseJson);
-          if (topLevelKeys.length > 0) {
-            console.log(`[CORS Proxy] Clés disponibles dans la réponse: ${topLevelKeys.join(', ')}`);
           }
           
         } catch (error) {

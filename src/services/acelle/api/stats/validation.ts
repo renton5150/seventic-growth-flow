@@ -2,12 +2,13 @@
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 
 /**
- * Assure que les statistiques ont toutes les valeurs requises
- * et sont de type approprié
+ * Assure que l'objet de statistiques contient toutes les propriétés requises
+ * avec des valeurs valides (non-undefined, non-null).
+ * 
+ * @param statistics Les statistiques à valider/normaliser
+ * @returns Statistiques complètes avec valeurs par défaut pour les champs manquants
  */
-export const ensureValidStatistics = (
-  statistics?: AcelleCampaignStatistics | null | undefined
-): AcelleCampaignStatistics => {
+export const ensureValidStatistics = (statistics: Partial<AcelleCampaignStatistics>): AcelleCampaignStatistics => {
   // Valeurs par défaut pour les statistiques manquantes
   const defaultStats: AcelleCampaignStatistics = {
     subscriber_count: 0,
@@ -27,52 +28,58 @@ export const ensureValidStatistics = (
   
   // Si aucune statistique n'est fournie, retourner les valeurs par défaut
   if (!statistics) {
+    console.warn("[Validation] Statistiques nulles/undefined - utilisation des valeurs par défaut");
     return { ...defaultStats };
   }
   
-  // Fonction pour normaliser une valeur en nombre
-  const normalizeToNumber = (value: any): number => {
-    if (typeof value === 'string') {
-      return Number(value) || 0;
-    } else if (typeof value === 'number' && !isNaN(value)) {
-      return value;
-    }
-    return 0;
-  };
+  // Fusionner les statistiques fournies avec les valeurs par défaut
+  const validatedStats: AcelleCampaignStatistics = { ...defaultStats };
   
-  // Construction de l'objet de statistiques validées en utilisant la propagation
-  // et en normalisant explicitement chaque valeur
-  return {
-    subscriber_count: normalizeToNumber(statistics.subscriber_count),
-    delivered_count: normalizeToNumber(statistics.delivered_count),
-    delivered_rate: normalizeToNumber(statistics.delivered_rate),
-    open_count: normalizeToNumber(statistics.open_count),
-    uniq_open_count: normalizeToNumber(statistics.uniq_open_count),
-    uniq_open_rate: normalizeToNumber(statistics.uniq_open_rate),
-    click_count: normalizeToNumber(statistics.click_count),
-    click_rate: normalizeToNumber(statistics.click_rate),
-    bounce_count: normalizeToNumber(statistics.bounce_count),
-    soft_bounce_count: normalizeToNumber(statistics.soft_bounce_count),
-    hard_bounce_count: normalizeToNumber(statistics.hard_bounce_count),
-    unsubscribe_count: normalizeToNumber(statistics.unsubscribe_count),
-    abuse_complaint_count: normalizeToNumber(statistics.abuse_complaint_count)
-  };
-};
-
-/**
- * Vérifie si les statistiques sont considérées comme périmées
- * en fonction d'un seuil de temps
- */
-export const areStatisticsStale = (lastUpdated: string, staleThresholdMinutes: number = 60): boolean => {
-  try {
-    const lastUpdateTime = new Date(lastUpdated).getTime();
-    const currentTime = Date.now();
-    const thresholdMs = staleThresholdMinutes * 60 * 1000;
-    
-    return currentTime - lastUpdateTime > thresholdMs;
-  } catch (error) {
-    // En cas d'erreur, considérer les statistiques comme périmées
-    console.error("Error checking staleness:", error);
-    return true;
+  // Normaliser chaque champ pour s'assurer qu'il est un nombre valide
+  for (const [key, value] of Object.entries(statistics)) {
+    if (key in defaultStats) {
+      // Si la valeur est une chaîne qui contient %, la convertir en nombre
+      if (typeof value === 'string' && value.includes('%')) {
+        validatedStats[key as keyof AcelleCampaignStatistics] = 
+          parseFloat(value.replace('%', '')) || defaultStats[key as keyof AcelleCampaignStatistics];
+      }
+      // Si c'est un nombre ou une chaîne numérique, la convertir directement
+      else if (value !== null && value !== undefined) {
+        const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+        validatedStats[key as keyof AcelleCampaignStatistics] = 
+          !isNaN(numValue) ? numValue : defaultStats[key as keyof AcelleCampaignStatistics];
+      }
+    }
   }
+  
+  // Petite vérification de cohérence: si certaines valeurs sont manquantes mais peuvent être calculées
+  if (validatedStats.subscriber_count > 0) {
+    // Si delivered_rate est défini mais pas delivered_count
+    if (validatedStats.delivered_rate > 0 && validatedStats.delivered_count === 0) {
+      validatedStats.delivered_count = Math.round(validatedStats.subscriber_count * (validatedStats.delivered_rate / 100));
+    }
+    // Si delivered_count est défini mais pas delivered_rate
+    else if (validatedStats.delivered_count > 0 && validatedStats.delivered_rate === 0) {
+      validatedStats.delivered_rate = (validatedStats.delivered_count / validatedStats.subscriber_count) * 100;
+    }
+  }
+  
+  if (validatedStats.delivered_count > 0) {
+    // Si uniq_open_rate est défini mais pas open_count/uniq_open_count
+    if (validatedStats.uniq_open_rate > 0 && validatedStats.uniq_open_count === 0) {
+      validatedStats.uniq_open_count = Math.round(validatedStats.delivered_count * (validatedStats.uniq_open_rate / 100));
+      
+      // Si open_count est également manquant, estimer avec un ratio typique
+      if (validatedStats.open_count === 0) {
+        validatedStats.open_count = Math.round(validatedStats.uniq_open_count * 1.5); // Estimation: 1,5 ouvertures par utilisateur unique
+      }
+    }
+    
+    // Si click_rate est défini mais pas click_count
+    if (validatedStats.click_rate > 0 && validatedStats.click_count === 0) {
+      validatedStats.click_count = Math.round(validatedStats.delivered_count * (validatedStats.click_rate / 100));
+    }
+  }
+  
+  return validatedStats;
 };

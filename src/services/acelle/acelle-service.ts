@@ -1,5 +1,4 @@
 
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount } from "@/types/acelle.types";
 import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAcelleAccount, deleteAcelleAccount } from "./api/accounts";
@@ -120,23 +119,39 @@ export const buildDirectApiUrl = (
   acelleEndpoint: string = 'https://emailing.plateforme-solution.net',
   params: Record<string, string> = {}
 ): string => {
-  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy';
+  // Utiliser le proxy CORS directement pour une meilleure compatibilité
+  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
   
   // Nettoyer le chemin d'API
   const apiPath = path.startsWith('/') ? path.substring(1) : path;
   
-  // Construire les paramètres de requête
-  const searchParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== null && value !== undefined) {
-      searchParams.append(key, value);
+  // Construire l'URL complète de l'API Acelle
+  const apiBase = acelleEndpoint.endsWith('/api/v1') 
+    ? acelleEndpoint 
+    : `${acelleEndpoint}/api/v1`;
+    
+  let apiUrl = `${apiBase}/${apiPath}`;
+  
+  // Construire les paramètres de requête pour l'API
+  if (Object.keys(params).length > 0) {
+    const searchParams = new URLSearchParams();
+    
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== null && value !== undefined) {
+        searchParams.append(key, value);
+      }
     }
+    
+    apiUrl += '?' + searchParams.toString();
   }
   
-  // Ajouter endpoint et timestamp pour éviter la mise en cache
-  searchParams.append('endpoint', acelleEndpoint);
-  searchParams.append('_t', Date.now().toString());
+  // Ajouter un paramètre de timestamp pour éviter la mise en cache
+  const timestamp = Date.now().toString();
+  apiUrl += (apiUrl.includes('?') ? '&' : '?') + `_t=${timestamp}`;
   
-  return `${baseProxyUrl}/${apiPath}?${searchParams.toString()}`;
+  // Encoder l'URL de l'API pour la passer au proxy CORS
+  const encodedApiUrl = encodeURIComponent(apiUrl);
+  
+  // Construire l'URL finale pour le proxy CORS
+  return `${baseProxyUrl}?url=${encodedApiUrl}`;
 };
-
