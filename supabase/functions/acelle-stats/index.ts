@@ -7,7 +7,7 @@ serve(async (req: Request) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey, cache-control",
     "Content-Type": "application/json"
   };
 
@@ -62,12 +62,38 @@ serve(async (req: Request) => {
       throw new Error("API token not found for this account");
     }
     
+    console.log(`[Acelle Stats] DEBUG: Using account ${accountData.name} with endpoint: ${ACELLE_API_BASE_URL}`);
+    
+    // TEST DIRECT: Vérification directe de l'API avant toute logique
+    try {
+      const testUrl = `${ACELLE_API_BASE_URL}/me?api_token=${API_TOKEN}`;
+      console.log(`[Acelle Stats] TEST: Appel direct à l'API Acelle pour vérifier l'authentification: ${testUrl}`);
+      
+      const testResponse = await fetch(testUrl, {
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      
+      console.log(`[Acelle Stats] TEST: Statut de la réponse auth: ${testResponse.status}`);
+      
+      if (testResponse.ok) {
+        const authData = await testResponse.json();
+        console.log(`[Acelle Stats] TEST: Authentification réussie, user: ${authData.user?.email || "unknown"}`);
+      } else {
+        console.error(`[Acelle Stats] TEST: Échec authentification: ${await testResponse.text()}`);
+      }
+    } catch (testError) {
+      console.error(`[Acelle Stats] TEST: Erreur lors de l'appel d'authentification: ${testError.message}`);
+    }
+    
     // Construire l'URL de l'API
     let apiEndpoint: string;
     if (campaignId) {
       apiEndpoint = `${ACELLE_API_BASE_URL}/api/v1/campaigns/${campaignId}?api_token=${API_TOKEN}`;
+      console.log(`[Acelle Stats] Fetching campaign details from: ${apiEndpoint}`);
     } else {
       apiEndpoint = `${ACELLE_API_BASE_URL}/api/v1/campaigns?api_token=${API_TOKEN}&page=${page}&per_page=${perPage}&sort=created_at&sort_direction=desc`;
+      console.log(`[Acelle Stats] Fetching campaigns list from: ${apiEndpoint}`);
     }
     
     // Vérifier si nous avons les données en cache
@@ -106,12 +132,15 @@ serve(async (req: Request) => {
     });
     
     if (!response.ok) {
-      throw new Error(`API returned ${response.status}: ${await response.text()}`);
+      const errorText = await response.text();
+      console.error(`[Acelle Stats] API returned ${response.status}: ${errorText}`);
+      throw new Error(`API returned ${response.status}: ${errorText}`);
     }
     
     // Récupérer les données
     const rawData = await response.json();
-    console.log(`[Acelle Stats] Raw API response: ${JSON.stringify(rawData, null, 2).substring(0, 500)}...`);
+    console.log(`[Acelle Stats] Raw API response type: ${typeof rawData}, is array: ${Array.isArray(rawData)}`);
+    console.log(`[Acelle Stats] Raw API response preview: ${JSON.stringify(rawData, null, 2).substring(0, 500)}...`);
     
     // Transformer les données
     const transformedData = campaignId ? 
@@ -251,6 +280,13 @@ function transformCampaignData(campaign: any): any {
   };
   
   console.log("[Acelle Stats] Transformed campaign data:", JSON.stringify(result, null, 2));
+  
+  // Vérifications supplémentaires des valeurs clés pour le debug
+  console.log("[Acelle Stats] KEY VALUES CHECK:");
+  console.log(`subscriber_count: ${campaign.subscriber_count} → ${result.subscriberCount}`);
+  console.log(`delivered_count: ${campaign.delivered_count} → ${result.deliveredCount}`);
+  console.log(`open_rate: ${campaign.open_rate} → ${result.openRate}`);
+  console.log(`click_rate: ${campaign.click_rate} → ${result.clickRate}`);
   
   return result;
 }

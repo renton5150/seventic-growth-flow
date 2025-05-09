@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,9 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
     toast.loading("Exécution des tests de méthodes de récupération de statistiques...");
     
     try {
+      // Test utilisant la nouvelle fonction Edge directement
+      await testEdgeFunction();
+      
       // Méthode 1: Service directStats
       await testMethod1();
       
@@ -105,21 +109,116 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       // Méthode 4: Récupération depuis la base de données locale (email_campaigns_cache)
       await testMethod4();
       
-      // Méthode 5: table de cache des statistiques
-      await testMethod5();
-      
-      // Méthode 6: API route stats legacy
-      await testMethod6();
-      
-      // Méthode 7: API route stats v2
-      await testMethod7();
-      
       toast.success("Tests terminés avec succès");
     } catch (error) {
       console.error("Erreur lors de l'exécution des tests:", error);
       toast.error("Erreur lors de l'exécution des tests");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Test utilisant la fonction Edge Supabase directement
+  const testEdgeFunction = async () => {
+    try {
+      const startTime = performance.now();
+      
+      const supabaseUrl = "https://dupguifqyjchlmzbadav.supabase.co";
+      
+      // Construire l'URL pour la fonction Edge
+      const functionUrl = `${supabaseUrl}/functions/v1/acelle-stats?campaignId=${campaignUid}&accountId=${account.id}&forceRefresh=true`;
+      
+      console.log("[Test Edge Function] URL:", functionUrl);
+      
+      const response = await fetch(functionUrl, {
+        method: "GET",
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const endTime = performance.now();
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Test Edge Function] Erreur: ${response.status} - ${errorText}`);
+        
+        setResults(prev => [...prev, {
+          method: "edge-function",
+          label: "Fonction Edge Supabase",
+          data: errorText,
+          success: false,
+          error: `Erreur HTTP ${response.status}: ${errorText}`,
+          timing: endTime - startTime
+        }]);
+        return;
+      }
+      
+      const responseText = await response.text();
+      console.log("[Test Edge Function] Réponse brute:", responseText);
+      
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.error("[Test Edge Function] Erreur de parsing JSON:", e);
+        setResults(prev => [...prev, {
+          method: "edge-function",
+          label: "Fonction Edge Supabase",
+          data: responseText,
+          success: false,
+          error: `Erreur de parsing JSON: ${e.message}`,
+          timing: endTime - startTime
+        }]);
+        return;
+      }
+      
+      console.log("[Test Edge Function] Données JSON parsées:", responseData);
+      
+      // Extraire les statistiques de la réponse
+      let stats: AcelleCampaignStatistics = createEmptyStatistics();
+      
+      if (responseData && responseData.data) {
+        const campaignData = responseData.data;
+        
+        stats = {
+          subscriber_count: campaignData.subscriberCount || 0,
+          delivered_count: campaignData.deliveredCount || 0,
+          delivered_rate: campaignData.deliveredRate || 0,
+          open_count: campaignData.uniqueOpenCount || 0,
+          uniq_open_count: campaignData.uniqueOpenCount || 0,
+          uniq_open_rate: campaignData.openRate || 0,
+          click_count: campaignData.clickCount || 0,
+          click_rate: campaignData.clickRate || 0,
+          bounce_count: campaignData.bounceCount || 0,
+          soft_bounce_count: 0,
+          hard_bounce_count: 0,
+          unsubscribe_count: campaignData.unsubscribeCount || 0,
+          abuse_complaint_count: campaignData.spamCount || 0
+        };
+        
+        console.log("[Test Edge Function] Statistiques extraites:", stats);
+      }
+      
+      setResults(prev => [...prev, {
+        method: "edge-function",
+        label: "Fonction Edge Supabase",
+        data: responseData,
+        success: true,
+        timing: endTime - startTime,
+        formatted: stats
+      }]);
+      
+    } catch (error) {
+      console.error("Erreur avec la fonction Edge:", error);
+      setResults(prev => [...prev, {
+        method: "edge-function",
+        label: "Fonction Edge Supabase",
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      }]);
     }
   };
 
@@ -166,21 +265,88 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         { api_token: account.api_token }
       );
       
+      console.log("[Method 2] URL de l'API:", url);
+      
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json'
         }
       });
       
+      // Récupérer le texte brut de la réponse pour le débogage
+      const responseText = await response.text();
+      console.log("[Method 2] Réponse brute:", responseText);
+      
       if (!response.ok) {
-        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
+        throw new Error(`API a retourné ${response.status}: ${responseText}`);
       }
       
-      const data = await response.json();
-      console.log("[Method 2] Données brutes de l'API:", data);
+      // Tenter de parser le JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log("[Method 2] Données brutes de l'API:", data);
+      } catch (e) {
+        console.error("[Method 2] Erreur parsing JSON:", e);
+        throw new Error(`Erreur parsing JSON: ${e.message} - Réponse: ${responseText}`);
+      }
       
-      const stats = ensureValidStatistics(data);
-      console.log("[Method 2] Statistiques après traitement:", stats);
+      // Créer un objet statistiques sécurisé
+      const stats: AcelleCampaignStatistics = createEmptyStatistics();
+      
+      // Extraire manuellement les statistiques si des données sont disponibles
+      if (data && typeof data === 'object') {
+        console.log("[Method 2] Extraction manuelle des statistiques");
+        
+        // Tenter d'extraire les données de plusieurs formats possibles
+        const rawStats = data.statistics || data.data || data;
+        
+        if (rawStats && typeof rawStats === 'object') {
+          stats.subscriber_count = typeof rawStats.subscriber_count === 'number' ? rawStats.subscriber_count : 
+                                 (typeof rawStats.total === 'number' ? rawStats.total : 0);
+                                 
+          stats.delivered_count = typeof rawStats.delivered_count === 'number' ? rawStats.delivered_count : 
+                                (typeof rawStats.delivered === 'number' ? rawStats.delivered : 0);
+                                
+          stats.delivered_rate = typeof rawStats.delivered_rate === 'number' ? rawStats.delivered_rate : 
+                               (typeof rawStats.delivery_rate === 'number' ? rawStats.delivery_rate : 0);
+                               
+          stats.open_count = typeof rawStats.open_count === 'number' ? rawStats.open_count : 
+                           (typeof rawStats.opened === 'number' ? rawStats.opened : 0);
+                           
+          stats.uniq_open_count = typeof rawStats.uniq_open_count === 'number' ? rawStats.uniq_open_count : 
+                                (typeof rawStats.unique_open_count === 'number' ? rawStats.unique_open_count : 
+                                (typeof rawStats.opened === 'number' ? rawStats.opened : 0));
+                                
+          stats.uniq_open_rate = typeof rawStats.uniq_open_rate === 'number' ? rawStats.uniq_open_rate : 
+                               (typeof rawStats.unique_open_rate === 'number' ? rawStats.unique_open_rate : 
+                               (typeof rawStats.open_rate === 'number' ? rawStats.open_rate : 0));
+                               
+          stats.click_count = typeof rawStats.click_count === 'number' ? rawStats.click_count : 
+                            (typeof rawStats.clicked === 'number' ? rawStats.clicked : 0);
+                            
+          stats.click_rate = typeof rawStats.click_rate === 'number' ? rawStats.click_rate : 0;
+          
+          // Gestion du bounce qui peut être un objet ou un nombre
+          if (typeof rawStats.bounce_count === 'number') {
+            stats.bounce_count = rawStats.bounce_count;
+          } else if (typeof rawStats.bounced === 'object' && rawStats.bounced) {
+            stats.bounce_count = typeof rawStats.bounced.total === 'number' ? rawStats.bounced.total : 0;
+            stats.soft_bounce_count = typeof rawStats.bounced.soft === 'number' ? rawStats.bounced.soft : 0;
+            stats.hard_bounce_count = typeof rawStats.bounced.hard === 'number' ? rawStats.bounced.hard : 0;
+          } else if (typeof rawStats.bounced === 'number') {
+            stats.bounce_count = rawStats.bounced;
+          }
+          
+          stats.unsubscribe_count = typeof rawStats.unsubscribe_count === 'number' ? rawStats.unsubscribe_count : 
+                                  (typeof rawStats.unsubscribed === 'number' ? rawStats.unsubscribed : 0);
+                                  
+          stats.abuse_complaint_count = typeof rawStats.abuse_complaint_count === 'number' ? rawStats.abuse_complaint_count : 
+                                      (typeof rawStats.complained === 'number' ? rawStats.complained : 0);
+                                      
+          console.log("[Method 2] Statistiques extraites manuellement:", stats);
+        }
+      }
       
       const endTime = performance.now();
       
@@ -188,7 +354,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         method: "method-2",
         label: "API directe (buildDirectApiUrl)",
         data: data,
-        success: !!stats && typeof stats === 'object',
+        success: !!stats,
         timing: endTime - startTime,
         formatted: stats
       }]);
@@ -209,7 +375,9 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
     try {
       const startTime = performance.now();
       
-      const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/statistics?api_token=${account.api_token}`;
+      const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}?api_token=${account.api_token}`;
+      
+      console.log("[Method 3] URL de l'API:", apiUrl);
       
       const response = await fetch(apiUrl, {
         headers: {
@@ -217,15 +385,58 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         }
       });
       
+      // Récupérer le texte brut de la réponse pour le débogage
+      const responseText = await response.text();
+      console.log("[Method 3] Réponse brute:", responseText);
+      
       if (!response.ok) {
-        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
+        throw new Error(`API a retourné ${response.status}: ${responseText}`);
       }
       
-      const data = await response.json();
-      console.log("[Method 3] Données brutes de l'API:", data);
+      // Tenter de parser le JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log("[Method 3] Données brutes de l'API:", data);
+      } catch (e) {
+        console.error("[Method 3] Erreur parsing JSON:", e);
+        throw new Error(`Erreur parsing JSON: ${e.message} - Réponse: ${responseText}`);
+      }
       
-      const stats = ensureValidStatistics(data);
-      console.log("[Method 3] Statistiques après traitement:", stats);
+      // Créer un objet statistiques sécurisé
+      const stats: AcelleCampaignStatistics = createEmptyStatistics();
+      
+      // Extraire manuellement les statistiques
+      if (data && typeof data === 'object') {
+        stats.subscriber_count = Number(data.subscriber_count || data.total || 0);
+        stats.delivered_count = Number(data.delivered_count || data.delivered || 0);
+        stats.delivered_rate = Number(data.delivered_rate || data.delivery_rate || 0);
+        stats.open_count = Number(data.open_count || data.opened || 0);
+        stats.uniq_open_count = Number(data.unique_open_count || data.uniq_open_count || data.opened || 0);
+        stats.uniq_open_rate = Number(data.unique_open_rate || data.uniq_open_rate || data.open_rate || 0);
+        stats.click_count = Number(data.click_count || data.clicked || 0);
+        stats.click_rate = Number(data.click_rate || 0);
+        
+        // Gérer bounced qui peut être un objet ou un nombre
+        if (data.bounced !== undefined) {
+          if (typeof data.bounced === 'object' && data.bounced !== null) {
+            stats.bounce_count = Number(data.bounced.total || 0);
+            stats.soft_bounce_count = Number(data.bounced.soft || 0);
+            stats.hard_bounce_count = Number(data.bounced.hard || 0);
+          } else {
+            stats.bounce_count = Number(data.bounced || 0);
+          }
+        } else {
+          stats.bounce_count = Number(data.bounce_count || 0);
+          stats.soft_bounce_count = Number(data.soft_bounce_count || 0);
+          stats.hard_bounce_count = Number(data.hard_bounce_count || 0);
+        }
+        
+        stats.unsubscribe_count = Number(data.unsubscribe_count || data.unsubscribed || 0);
+        stats.abuse_complaint_count = Number(data.abuse_complaint_count || data.complained || 0);
+        
+        console.log("[Method 3] Statistiques extraites:", stats);
+      }
       
       const endTime = performance.now();
       
@@ -233,7 +444,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         method: "method-3",
         label: "API directe (fetch personnalisé)",
         data: data,
-        success: !!stats && typeof stats === 'object',
+        success: !!stats,
         timing: endTime - startTime,
         formatted: stats
       }]);
@@ -263,32 +474,18 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       
       if (error) throw error;
       
-      const deliveryInfo = data.delivery_info;
+      const deliveryInfoJson = data.delivery_info;
       
-      console.log("[Method 4] Données brutes de la base:", deliveryInfo);
+      console.log("[Method 4] Données brutes de la base:", deliveryInfoJson);
       
       // Création directe d'un objet AcelleCampaignStatistics sûr
-      const stats: AcelleCampaignStatistics = {
-        subscriber_count: 0,
-        delivered_count: 0,
-        delivered_rate: 0,
-        open_count: 0,
-        uniq_open_count: 0,
-        uniq_open_rate: 0,
-        click_count: 0,
-        click_rate: 0,
-        bounce_count: 0,
-        soft_bounce_count: 0,
-        hard_bounce_count: 0,
-        unsubscribe_count: 0,
-        abuse_complaint_count: 0
-      };
+      const stats: AcelleCampaignStatistics = createEmptyStatistics();
       
-      // Si deliveryInfo est un objet valide
-      if (deliveryInfo && typeof deliveryInfo === 'object' && !Array.isArray(deliveryInfo)) {
-        console.log("[Method 4] Extracting from:", deliveryInfo);
+      // Si deliveryInfoJson est un objet valide
+      if (deliveryInfoJson && typeof deliveryInfoJson === 'object' && !Array.isArray(deliveryInfoJson)) {
+        console.log("[Method 4] Extracting from:", deliveryInfoJson);
         
-        const di = deliveryInfo as Record<string, any>;
+        const di = deliveryInfoJson as Record<string, any>;
         
         // Extraction manuelle des valeurs avec des logs
         stats.subscriber_count = Number(di.total || di.subscriber_count || 0);
@@ -320,7 +517,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         
         console.log("[Method 4] Extracted stats:", stats);
       } else {
-        console.warn("[Method 4] Format de delivery_info invalide:", deliveryInfo);
+        console.warn("[Method 4] Format de delivery_info invalide:", deliveryInfoJson);
       }
       
       const endTime = performance.now();
@@ -329,7 +526,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         method: "method-4",
         label: "Base de données locale (email_campaigns_cache)",
         data: {
-          delivery_info: deliveryInfo,
+          delivery_info: deliveryInfoJson,
           last_updated: data.cache_updated_at
         },
         success: !!stats,
@@ -341,300 +538,6 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       setResults(prev => [...prev, {
         method: "method-4",
         label: "Base de données locale (email_campaigns_cache)",
-        data: null,
-        success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
-      }]);
-    }
-  };
-
-  // Méthode 5: Récupération depuis la table de cache des statistiques
-  const testMethod5 = async () => {
-    try {
-      const startTime = performance.now();
-      
-      const { data, error } = await supabase
-        .from('campaign_stats_cache')
-        .select('statistics, last_updated')
-        .eq('campaign_uid', campaignUid)
-        .eq('account_id', account.id)
-        .single();
-      
-      if (error) throw error;
-      
-      const statistics = data.statistics;
-      
-      console.log("[Method 5] Données brutes de la base:", statistics);
-      
-      // Création directe d'un objet AcelleCampaignStatistics sûr
-      const stats: AcelleCampaignStatistics = {
-        subscriber_count: 0,
-        delivered_count: 0,
-        delivered_rate: 0,
-        open_count: 0,
-        uniq_open_count: 0,
-        uniq_open_rate: 0,
-        click_count: 0,
-        click_rate: 0,
-        bounce_count: 0,
-        soft_bounce_count: 0,
-        hard_bounce_count: 0,
-        unsubscribe_count: 0,
-        abuse_complaint_count: 0
-      };
-      
-      if (statistics && typeof statistics === 'object' && !Array.isArray(statistics)) {
-        console.log("[Method 5] Statistics valide:", statistics);
-        
-        const statsData = statistics as Record<string, any>;
-        
-        // Extraire directement les valeurs
-        stats.subscriber_count = Number(statsData.total || statsData.subscriber_count || 0);
-        stats.delivered_count = Number(statsData.delivered || statsData.delivered_count || 0);
-        stats.delivered_rate = Number(statsData.delivery_rate || statsData.delivered_rate || 0);
-        stats.open_count = Number(statsData.opened || statsData.open_count || 0);
-        stats.uniq_open_count = Number(statsData.opened || statsData.unique_open_count || statsData.uniq_open_count || 0);
-        stats.uniq_open_rate = Number(statsData.unique_open_rate || statsData.uniq_open_rate || statsData.open_rate || 0);
-        stats.click_count = Number(statsData.clicked || statsData.click_count || 0);
-        stats.click_rate = Number(statsData.click_rate || 0);
-        
-        // Gérer bounced qui peut être un objet ou un nombre
-        if (statsData.bounced !== undefined) {
-          if (typeof statsData.bounced === 'object' && statsData.bounced !== null) {
-            stats.bounce_count = Number(statsData.bounced.total || 0);
-            stats.soft_bounce_count = Number(statsData.bounced.soft || 0);
-            stats.hard_bounce_count = Number(statsData.bounced.hard || 0);
-          } else {
-            stats.bounce_count = Number(statsData.bounced || 0);
-          }
-        } else {
-          stats.bounce_count = Number(statsData.bounce_count || 0);
-          stats.soft_bounce_count = Number(statsData.soft_bounce_count || 0);
-          stats.hard_bounce_count = Number(statsData.hard_bounce_count || 0);
-        }
-        
-        stats.unsubscribe_count = Number(statsData.unsubscribed || statsData.unsubscribe_count || 0);
-        stats.abuse_complaint_count = Number(statsData.complained || statsData.abuse_complaint_count || 0);
-        
-        console.log("[Method 5] Statistiques extraites:", stats);
-      } else {
-        console.warn("[Method 5] Format de statistics invalide:", statistics);
-      }
-      
-      const endTime = performance.now();
-      
-      setResults(prev => [...prev, {
-        method: "method-5",
-        label: "Table de cache des statistiques",
-        data: {
-          statistics,
-          last_updated: data.last_updated
-        },
-        success: !!stats,
-        timing: endTime - startTime,
-        formatted: stats
-      }]);
-    } catch (error) {
-      console.error("Erreur avec la méthode 5:", error);
-      setResults(prev => [...prev, {
-        method: "method-5",
-        label: "Table de cache des statistiques",
-        data: null,
-        success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
-      }]);
-    }
-  };
-
-  // Méthode 6: API route stats legacy
-  const testMethod6 = async () => {
-    try {
-      const startTime = performance.now();
-      
-      const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/tracking-log?api_token=${account.api_token}`;
-      
-      const response = await fetch(apiUrl, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log("[Method 6] Données brutes de l'API:", data);
-      
-      // Extraction manuelle des statistiques
-      let stats: AcelleCampaignStatistics = createEmptyStatistics();
-      
-      if (data && typeof data === 'object' && !Array.isArray(data)) {
-        const apiData = data as Record<string, any>;
-        
-        // Log pour debug
-        console.log("[Method 6] API data valide:", apiData);
-        
-        // Extraire directement les valeurs
-        stats.subscriber_count = Number(apiData.total || apiData.subscriber_count || 0);
-        stats.delivered_count = Number(apiData.delivered || apiData.delivered_count || 0);
-        stats.delivered_rate = Number(apiData.delivery_rate || apiData.delivered_rate || 0);
-        stats.open_count = Number(apiData.opened || apiData.open_count || 0);
-        stats.uniq_open_count = Number(apiData.opened || apiData.unique_open_count || apiData.uniq_open_count || 0);
-        stats.uniq_open_rate = Number(apiData.unique_open_rate || apiData.uniq_open_rate || apiData.open_rate || 0);
-        stats.click_count = Number(apiData.clicked || apiData.click_count || 0);
-        stats.click_rate = Number(apiData.click_rate || 0);
-        
-        // Gérer bounced qui peut être un objet ou un nombre
-        if (apiData.bounced !== undefined) {
-          if (typeof apiData.bounced === 'object' && apiData.bounced !== null) {
-            stats.bounce_count = Number(apiData.bounced.total || 0);
-            stats.soft_bounce_count = Number(apiData.bounced.soft || 0);
-            stats.hard_bounce_count = Number(apiData.bounced.hard || 0);
-          } else {
-            stats.bounce_count = Number(apiData.bounced || 0);
-          }
-        } else {
-          stats.bounce_count = Number(apiData.bounce_count || 0);
-          stats.soft_bounce_count = Number(apiData.soft_bounce_count || 0);
-          stats.hard_bounce_count = Number(apiData.hard_bounce_count || 0);
-        }
-        
-        stats.unsubscribe_count = Number(apiData.unsubscribed || apiData.unsubscribe_count || 0);
-        stats.abuse_complaint_count = Number(apiData.complained || apiData.abuse_complaint_count || 0);
-        
-        console.log("[Method 6] Statistiques extraites:", stats);
-      } else {
-        console.warn("[Method 6] Format de données invalide:", data);
-      }
-      
-      const endTime = performance.now();
-      
-      setResults(prev => [...prev, {
-        method: "method-6",
-        label: "API route tracking-log (legacy)",
-        data: data,
-        success: !!stats,
-        timing: endTime - startTime,
-        formatted: stats
-      }]);
-    } catch (error) {
-      console.error("Erreur avec la méthode 6:", error);
-      setResults(prev => [...prev, {
-        method: "method-6",
-        label: "API route tracking-log (legacy)",
-        data: null,
-        success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
-      }]);
-    }
-  };
-
-  // Méthode 7: API route stats v2
-  const testMethod7 = async () => {
-    try {
-      const startTime = performance.now();
-      
-      const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/stats?api_token=${account.api_token}`;
-      
-      const response = await fetch(apiUrl, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API a retourné ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log("[Method 7] Données brutes de l'API:", data);
-      
-      const endTime = performance.now();
-      
-      // Récupération sécurisée des données de statistiques
-      const statsData = data.stats || data.data || data;
-      
-      // Vérifier que statsData est un objet valide avant de continuer
-      if (!statsData || typeof statsData !== 'object' || Array.isArray(statsData)) {
-        throw new Error('Format de données invalide: les statistiques doivent être un objet');
-      }
-      
-      console.log("[Method 7] Données de statistiques:", statsData);
-      
-      // Créer un objet DeliveryInfo correctement typé
-      const deliveryInfo: DeliveryInfo = {
-        total: extractNumericValue(statsData, 'total'),
-        delivered: extractNumericValue(statsData, 'delivered'),
-        delivery_rate: extractNumericValue(statsData, 'delivery_rate'),
-        opened: extractNumericValue(statsData, 'opened'),
-        unique_open_rate: extractNumericValue(statsData, 'unique_open_rate') || extractNumericValue(statsData, 'open_rate'),
-        clicked: extractNumericValue(statsData, 'clicked'),
-        click_rate: extractNumericValue(statsData, 'click_rate')
-      };
-      
-      // Gérer le cas spécial pour "bounced" qui peut être un nombre ou un objet
-      if ('bounced' in statsData) {
-        const bouncedValue = statsData.bounced;
-        
-        if (typeof bouncedValue === 'number') {
-          deliveryInfo.bounced = bouncedValue;
-        } else if (typeof bouncedValue === 'object' && bouncedValue !== null) {
-          deliveryInfo.bounced = {
-            soft: extractNumericValue(bouncedValue, 'soft'),
-            hard: extractNumericValue(bouncedValue, 'hard'),
-            total: extractNumericValue(bouncedValue, 'total')
-          };
-        }
-      }
-      
-      // Ajouter d'autres propriétés
-      deliveryInfo.unsubscribed = extractNumericValue(statsData, 'unsubscribed');
-      deliveryInfo.complained = extractNumericValue(statsData, 'complained');
-      
-      console.log("[Method 7] DeliveryInfo créé:", deliveryInfo);
-      
-      // Créer manuellement l'objet des statistiques
-      let stats: AcelleCampaignStatistics = createEmptyStatistics();
-      
-      // Remplir manuellement l'objet stats
-      if (deliveryInfo && typeof deliveryInfo === 'object') {
-        stats.subscriber_count = deliveryInfo.total || 0;
-        stats.delivered_count = deliveryInfo.delivered || 0;
-        stats.delivered_rate = deliveryInfo.delivery_rate || 0;
-        stats.open_count = deliveryInfo.opened || 0;
-        stats.uniq_open_rate = deliveryInfo.unique_open_rate || 0;
-        stats.click_count = deliveryInfo.clicked || 0;
-        stats.click_rate = deliveryInfo.click_rate || 0;
-        
-        // Gérer le cas où bounced est un objet ou un nombre
-        if (typeof deliveryInfo.bounced === 'object' && deliveryInfo.bounced !== null) {
-          stats.bounce_count = deliveryInfo.bounced.total || 0;
-          stats.soft_bounce_count = deliveryInfo.bounced.soft || 0;
-          stats.hard_bounce_count = deliveryInfo.bounced.hard || 0;
-        } else {
-          stats.bounce_count = typeof deliveryInfo.bounced === 'number' ? deliveryInfo.bounced : 0;
-        }
-        
-        stats.unsubscribe_count = deliveryInfo.unsubscribed || 0;
-        stats.abuse_complaint_count = deliveryInfo.complained || 0;
-      }
-      
-      console.log("[Method 7] Statistiques finales:", stats);
-      
-      setResults(prev => [...prev, {
-        method: "method-7",
-        label: "API route stats v2",
-        data: data,
-        success: !!stats,
-        timing: endTime - startTime,
-        formatted: stats
-      }]);
-    } catch (error) {
-      console.error("Erreur avec la méthode 7:", error);
-      setResults(prev => [...prev, {
-        method: "method-7",
-        label: "API route stats v2",
         data: null,
         success: false,
         error: error instanceof Error ? error.message : "Erreur inconnue"
