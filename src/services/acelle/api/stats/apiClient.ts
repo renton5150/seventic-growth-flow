@@ -5,7 +5,7 @@ import { buildApiPath } from "@/utils/acelle/proxyUtils";
 
 /**
  * Récupère les statistiques d'une campagne depuis l'API Acelle
- * Modifié pour utiliser la construction d'URL corrigée et résoudre les problèmes d'authentification
+ * Modifié pour utiliser la méthode d'authentification validée par cURL
  */
 export const fetchCampaignStatisticsFromApi = async (
   campaignUid: string,
@@ -50,33 +50,29 @@ export const fetchCampaignStatisticsFromApi = async (
       return null;
     }
     
-    // Utiliser buildApiPath pour construire l'URL correctement
-    // AMÉLIORATION: Ajouter explicitement le token API dans les paramètres pour résoudre les problèmes 403
+    // MODIFICATION MAJEURE: Utiliser l'authentification par paramètre URL, validée par cURL
+    // Ajouter explicitement le token API dans les paramètres
     const proxyUrl = buildApiPath(account.api_endpoint, apiPath, {
-      api_token: account.api_token // Ajouter explicitement le token dans les paramètres URL
+      api_token: account.api_token // Méthode d'authentification principale
     });
     console.log(`URL complète construite pour la requête: ${proxyUrl.replace(account.api_token, "***MASQUÉ***")}`);
     
-    // Préparer les en-têtes pour l'authentification correcte
+    // Préparer les en-têtes pour l'authentification
+    // Simplifié pour n'utiliser que la méthode bearer comme secours
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${sessionToken}`, // Token Supabase pour l'Edge Function
-      'X-Acelle-Token': account.api_token, // Token Acelle pour l'API
+      'X-Acelle-Token': account.api_token, // Token Acelle pour les fonctions edge
       'X-Acelle-Endpoint': account.api_endpoint, // Endpoint explicite
-      'X-Debug-Level': '4', // Niveau de log élevé pour diagnostic
-      // AJOUT: Multiples méthodes d'authentification pour maximiser la compatibilité
-      'API-Token': account.api_token,
-      'X-API-TOKEN': account.api_token
+      'X-Auth-Priority': 'both' // Utiliser la méthode combinée (URL + Bearer)
     };
     
     // Ajouter des logs détaillés pour diagnostiquer les problèmes d'authentification
     console.log("En-têtes de requête API (authentification masquée):", {
       ...headers,
       'Authorization': 'Bearer ***MASQUÉ***',
-      'X-Acelle-Token': '***MASQUÉ***',
-      'X-API-TOKEN': '***MASQUÉ***',
-      'API-Token': '***MASQUÉ***'
+      'X-Acelle-Token': '***MASQUÉ***'
     });
     
     console.log(`URL du proxy: ${proxyUrl.replace(account.api_token, "***MASQUÉ***")}`);
@@ -103,12 +99,7 @@ export const fetchCampaignStatisticsFromApi = async (
       if (response.status === 403) {
         console.error(`Erreur d'authentification (403 Forbidden) lors de l'accès à l'API Acelle. 
         Détails de réponse: ${errorText}
-        Méthodes d'authentification utilisées: 
-        - Paramètre URL api_token
-        - Header Authorization: Bearer 
-        - Header X-API-TOKEN
-        - Header API-Token
-        - Header X-Acelle-Token`);
+        Méthode d'authentification utilisée: Paramètre URL api_token (méthode validée par cURL)`);
         
         throw new Error(`Erreur d'authentification à l'API Acelle (403 Forbidden). Vérifiez la validité du token API.`);
       }

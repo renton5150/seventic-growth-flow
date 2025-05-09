@@ -4,7 +4,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // Configuration CORS pour permettre les requêtes cross-origin
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-token, x-acelle-endpoint, x-debug-level, x-auth-method, path',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acelle-token, x-acelle-endpoint, x-debug-level, x-auth-method, path, x-auth-priority',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Max-Age': '86400',
   'Vary': 'Origin'
@@ -63,7 +63,7 @@ function logMessage(message: string, data?: any, level: number = LOG_LEVELS.INFO
 
 // Log initial pour vérifier que la fonction démarre correctement
 logMessage("===== FONCTION ACELLE-PROXY DÉMARRÉE =====", {
-  version: "2.0.0", // Version incrémentée pour suivre les corrections des problèmes d'authentification
+  version: "3.0.0", // Version incrémentée après confirmation de la méthode d'authentification correcte
   timestamp: new Date().toISOString()
 }, LOG_LEVELS.INFO);
 
@@ -75,6 +75,13 @@ function startHeartbeat() {
   
   return interval;
 }
+
+// Méthodes d'authentification disponibles
+const AUTH_METHODS = {
+  URL_PARAM: 'url_param',     // Authentification via paramètre URL api_token=XXX
+  BEARER: 'bearer',           // Authentification via header Authorization: Bearer XXX
+  BOTH: 'both',               // Les deux méthodes combinées (recommandé)
+};
 
 // Handler principal pour toutes les requêtes
 serve(async (req) => {
@@ -101,6 +108,10 @@ serve(async (req) => {
     // Récupérer l'URL de l'API et le token d'API à partir des headers
     const acelleToken = req.headers.get('x-acelle-token');
     let acelleEndpoint = req.headers.get('x-acelle-endpoint');
+    
+    // Récupérer la méthode d'authentification préférée (si spécifiée)
+    // Par défaut, utiliser la méthode URL_PARAM basée sur les tests cURL
+    const authPriority = req.headers.get('x-auth-priority') || AUTH_METHODS.BOTH;
     
     if (!acelleToken || !acelleEndpoint) {
       logMessage("Headers d'authentification Acelle manquants", {}, LOG_LEVELS.ERROR);
@@ -161,12 +172,12 @@ serve(async (req) => {
       headers_count: [...req.headers.keys()].length,
       path: apiPath,
       has_prefix_in_endpoint: hasApiPrefixInEndpoint,
-      has_prefix_in_path: hasApiPrefixInPath
+      has_prefix_in_path: hasApiPrefixInPath,
+      auth_method: authPriority
     }, LOG_LEVELS.INFO);
     
-    // Ajouter le token API à l'URL - MODIFICATION: Placer le token en premier paramètre
-    // Cette modification semble triviale mais peut être importante pour certaines API qui
-    // vérifient spécifiquement la position du token dans l'URL
+    // MODIFICATION MAJEURE: D'après les tests cURL, le paramètre URL fonctionne le plus fiablement
+    // Toujours ajouter le token API comme paramètre URL en priorité
     const finalUrl = apiUrl + (apiUrl.includes('?') ? '&' : '?') + `api_token=${acelleToken}`;
     
     // Ajouter des paramètres URL à partir de la requête originale
@@ -182,24 +193,23 @@ serve(async (req) => {
     const timestamp = Date.now();
     finalUrlWithParams += `&_t=${timestamp}`;
     
-    logMessage(`Transmission vers l'API Acelle avec authentification via paramètre URL`, {
+    logMessage(`Transmission vers l'API Acelle avec authentification par paramètre URL`, {
       url_without_token: urlForLogs,
-      auth_method: 'URL Parameter (api_token)',
-      headers_auth_used: true
+      auth_method: authPriority,
+      URL_included: true
     }, LOG_LEVELS.INFO);
     
     // Préparer les headers pour la requête à l'API
     const apiHeaders = new Headers();
     apiHeaders.set('Accept', 'application/json');
     apiHeaders.set('Content-Type', 'application/json');
-    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/2.0');
+    apiHeaders.set('User-Agent', 'Seventic-Acelle-Proxy/3.0');
     
-    // MODIFICATION: Ajouter plusieurs méthodes d'authentification pour augmenter les chances de succès
-    apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Méthode 1: Bearer token
-    apiHeaders.set('X-API-TOKEN', acelleToken);              // Méthode 2: Header X-API-TOKEN
-    apiHeaders.set('API-Token', acelleToken);                // Méthode 3: Header API-Token
-    apiHeaders.set('Api-Token', acelleToken);                // Méthode 4: Header Api-Token (casse différente)
-    apiHeaders.set('X-Acelle-Token', acelleToken);           // Méthode 5: Header X-Acelle-Token personnalisé
+    // MODIFICATION MAJEURE: Simplifier les méthodes d'authentification
+    // D'après les tests cURL, conserver uniquement Bearer comme méthode secondaire
+    if (authPriority === AUTH_METHODS.BEARER || authPriority === AUTH_METHODS.BOTH) {
+      apiHeaders.set('Authorization', `Bearer ${acelleToken}`); // Méthode secondaire
+    }
     
     // Copier certains headers de la requête originale
     ['cache-control', 'if-none-match', 'if-modified-since'].forEach(headerName => {
@@ -220,7 +230,7 @@ serve(async (req) => {
       apiOptions.body = await req.text();
     }
     
-    logMessage(`Envoi de requête à l'API Acelle avec méthodes d'authentification multiples`, {
+    logMessage(`Envoi de requête à l'API Acelle avec méthode d'authentification: ${authPriority}`, {
       method: req.method,
       headers_sent: [...apiHeaders.keys()],
       has_body: apiOptions.body ? "Oui" : "Non",
@@ -252,13 +262,9 @@ serve(async (req) => {
       if (response.status === 403) {
         logMessage(`Erreur d'authentification (403 Forbidden) pour l'URL: ${urlForLogs}`, {
           url_finale: urlForLogs,
-          auth_headers_sent: {
-            'Authorization': 'Bearer ***MASQUÉ***',
-            'X-API-TOKEN': '***MASQUÉ***',
-            'API-Token': '***MASQUÉ***',
-            'X-Acelle-Token': '***MASQUÉ***'
-          },
-          auth_method_in_url: 'api_token=***MASQUÉ***'
+          auth_method_used: authPriority,
+          auth_has_url_param: authPriority === AUTH_METHODS.URL_PARAM || authPriority === AUTH_METHODS.BOTH,
+          auth_has_bearer: authPriority === AUTH_METHODS.BEARER || authPriority === AUTH_METHODS.BOTH
         }, LOG_LEVELS.ERROR);
         
         // Tentative de diagnostic pour les erreurs 403
@@ -276,12 +282,9 @@ serve(async (req) => {
             details: {
               responseBody: responseBody || "Pas de corps de réponse disponible",
               auth_methods_tried: [
-                "URL Parameter (api_token=)",
-                "Bearer Authorization Header",
-                "X-API-TOKEN Header",
-                "API-Token Header",
-                "X-Acelle-Token Header"
-              ],
+                authPriority === AUTH_METHODS.URL_PARAM || authPriority === AUTH_METHODS.BOTH ? "URL Parameter (api_token=)" : null,
+                authPriority === AUTH_METHODS.BEARER || authPriority === AUTH_METHODS.BOTH ? "Bearer Authorization Header" : null
+              ].filter(Boolean),
               suggested_checks: [
                 "Vérifiez que le token API est toujours valide et actif",
                 "Connectez-vous à l'interface web Acelle pour confirmer que les identifiants fonctionnent",

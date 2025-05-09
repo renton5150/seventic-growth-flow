@@ -38,12 +38,12 @@ async function testApiWithAuthMethod(
     const headers: Record<string, string> = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'User-Agent': 'Seventic-Acelle-Check/2.0'
+      'User-Agent': 'Seventic-Acelle-Check/3.0'
     };
     
     // Configurer l'authentification selon la méthode
     switch (authMethod) {
-      case 'url-param':
+      case 'url_param':
         // Ajouter le token API comme paramètre d'URL
         finalUrl = url.includes('?') 
           ? `${url}&api_token=${apiToken}`
@@ -55,25 +55,19 @@ async function testApiWithAuthMethod(
         headers['Authorization'] = `Bearer ${apiToken}`;
         break;
         
-      case 'x-api-token':
-        // Utiliser le header X-API-TOKEN
-        headers['X-API-TOKEN'] = apiToken;
-        break;
-        
-      case 'api-token':
-        // Utiliser le header API-Token
-        headers['API-Token'] = apiToken;
-        break;
-        
-      case 'mixed':
-      default:
-        // Utiliser plusieurs méthodes simultanément
+      case 'both':
+        // Utiliser à la fois le paramètre URL et le header Bearer
         finalUrl = url.includes('?') 
           ? `${url}&api_token=${apiToken}`
           : `${url}?api_token=${apiToken}`;
         headers['Authorization'] = `Bearer ${apiToken}`;
-        headers['X-API-TOKEN'] = apiToken;
-        headers['API-Token'] = apiToken;
+        break;
+        
+      default:
+        // Par défaut utiliser le paramètre URL (méthode validée par cURL)
+        finalUrl = url.includes('?') 
+          ? `${url}&api_token=${apiToken}`
+          : `${url}?api_token=${apiToken}`;
         break;
     }
     
@@ -172,24 +166,6 @@ async function testApiWithAuthMethod(
   }
 }
 
-// Tester une API avec différentes méthodes d'authentification
-async function testApiWithMultipleAuthMethods(
-  url: string,
-  apiToken: string,
-  timeout: number = 10000
-): Promise<DiagnosticResponse[]> {
-  // Liste des méthodes d'authentification à tester
-  const authMethods = ['url-param', 'bearer', 'x-api-token', 'api-token', 'mixed'];
-  
-  // Exécuter tous les tests en parallèle
-  const testPromises = authMethods.map(method => 
-    testApiWithAuthMethod(url, apiToken, method, timeout)
-  );
-  
-  // Attendre que tous les tests soient terminés
-  return Promise.all(testPromises);
-}
-
 serve(async (req) => {
   // Pour les requêtes OPTIONS (CORS preflight)
   if (req.method === 'OPTIONS') {
@@ -207,7 +183,7 @@ serve(async (req) => {
     // Récupérer les headers d'authentification alternatifs
     const headerToken = req.headers.get('x-acelle-token');
     const headerEndpoint = req.headers.get('x-acelle-endpoint');
-    const authMethod = req.headers.get('x-auth-method') || 'mixed';
+    const authMethod = req.headers.get('x-auth-method') || 'url_param'; // Par défaut, utiliser la méthode URL validée
     
     // Récupérer le corps de la requête pour les méthodes POST
     let requestBody = {};
@@ -253,7 +229,14 @@ serve(async (req) => {
     if (testMultipleAuth || authMethod === 'multiple' || requestBody?.testMultipleAuthMethods) {
       console.log("Testing multiple authentication methods");
       
-      const results = await testApiWithMultipleAuthMethods(testEndpoint, finalApiToken);
+      // Tester uniquement avec les méthodes prioritaires basées sur les tests cURL
+      const authMethods = ['url_param', 'bearer', 'both'];
+      
+      const testPromises = authMethods.map(method => 
+        testApiWithAuthMethod(testEndpoint, finalApiToken, method)
+      );
+      
+      const results = await Promise.all(testPromises);
       
       // Trouver la première méthode qui a réussi
       const successfulMethod = results.find(r => r.success);

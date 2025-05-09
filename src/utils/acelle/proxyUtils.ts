@@ -60,8 +60,7 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
     
     const accessToken = sessionData.session.access_token;
     
-    // AMÉLIORATION: Test avec différentes méthodes d'authentification
-    console.log("Test de connexion API avec diverses méthodes d'authentification");
+    console.log("Test de connexion API avec paramètre URL (méthode confirmée par tests cURL)");
     
     // Appeler la fonction Edge pour vérifier l'API
     const { data, error } = await supabase.functions.invoke('check-acelle-api', {
@@ -71,12 +70,12 @@ export const checkApiEndpoint = async (apiEndpoint: string, apiToken: string): P
         'Content-Type': 'application/json',
         'X-Acelle-Token': apiToken,
         'X-Acelle-Endpoint': apiEndpoint,
-        'X-Auth-Method': 'multiple' // Indique de tester plusieurs méthodes d'authentification
+        'X-Auth-Method': 'url_param' // Utiliser la méthode par paramètre URL validée par cURL
       },
       body: { 
         apiEndpoint, 
         apiToken,
-        testMultipleAuthMethods: true // Drapeau pour tester différentes méthodes d'authentification
+        testMultipleAuthMethods: false // Ne tester que la méthode URL param qui fonctionne
       }
     });
     
@@ -133,8 +132,7 @@ export const buildApiPath = (apiEndpoint: string, path: string, params: Record<s
   // Log pour debug - TRÈS IMPORTANT pour diagnostiquer les problèmes d'URL
   console.log(`Construction URL complète: endpoint=${cleanEndpoint}, chemin=${path}, chemin final=${finalPath}`);
   
-  // MODIFICATION: Ajouter le token API directement dans les paramètres URL pour résoudre les problèmes 403
-  // Cette méthode est généralement plus fiable pour les API qui s'attendent à recevoir le token comme paramètre URL
+  // MODIFICATION MAJEURE: Toujours ajouter le token API dans les paramètres URL (méthode validée par cURL)
   const finalParams = { 
     ...params, 
     path: finalPath 
