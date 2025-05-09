@@ -65,24 +65,44 @@ export const AcelleTableRow = ({
         return;
       }
       
+      setIsLoading(true);
+      
       try {
-        setIsLoading(true);
-        
         // Récupérer les statistiques directement depuis l'API
         const freshStats = await fetchDirectStatistics(campaignUid, account);
         
-        if (freshStats && !hasEmptyStatistics(freshStats)) {
+        if (freshStats) {
           console.log(`[TableRow] Statistiques récupérées pour ${campaignName}`, freshStats);
           setStats(freshStats);
-          
-          // Pour le débogage
-          console.log(`[TableRow] Stats subscriber_count: ${freshStats.subscriber_count}`);
-          console.log(`[TableRow] Stats uniq_open_rate: ${freshStats.uniq_open_rate}`);
         } else {
           console.log(`[TableRow] Pas de statistiques disponibles pour ${campaignName}`);
-          // Utiliser les statistiques existantes si disponibles
+          // Utiliser les statistiques existantes si disponibles, ou extraire de delivery_info
           if (campaign.statistics && !hasEmptyStatistics(campaign.statistics)) {
             setStats(campaign.statistics);
+          } else if (campaign.delivery_info) {
+            // Tenter d'extraire les données depuis delivery_info
+            const extractedStats: AcelleCampaignStatistics = {
+              subscriber_count: campaign.delivery_info.total || 0,
+              delivered_count: campaign.delivery_info.delivered || 0,
+              delivered_rate: campaign.delivery_info.delivery_rate || 0,
+              open_count: campaign.delivery_info.opened || 0,
+              uniq_open_count: campaign.delivery_info.unique_opened || 0,
+              uniq_open_rate: campaign.delivery_info.unique_open_rate || 0,
+              click_count: campaign.delivery_info.clicked || 0,
+              click_rate: campaign.delivery_info.click_rate || 0,
+              bounce_count: typeof campaign.delivery_info.bounced === 'object' 
+                ? campaign.delivery_info.bounced.total 
+                : (campaign.delivery_info.bounced || 0),
+              soft_bounce_count: typeof campaign.delivery_info.bounced === 'object'
+                ? campaign.delivery_info.bounced.soft
+                : 0,
+              hard_bounce_count: typeof campaign.delivery_info.bounced === 'object'
+                ? campaign.delivery_info.bounced.hard
+                : 0,
+              unsubscribe_count: campaign.delivery_info.unsubscribed || 0,
+              abuse_complaint_count: campaign.delivery_info.complained || 0
+            };
+            setStats(extractedStats);
           } else {
             setLoadError("Aucune statistique disponible");
           }
@@ -111,7 +131,7 @@ export const AcelleTableRow = ({
       
       const freshStats = await fetchDirectStatistics(campaignUid, account);
       
-      if (freshStats && !hasEmptyStatistics(freshStats)) {
+      if (freshStats) {
         setStats(freshStats);
         toast.success(`Statistiques mises à jour pour ${campaignName}`);
       } else {

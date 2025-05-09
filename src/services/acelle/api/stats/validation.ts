@@ -64,62 +64,31 @@ export const ensureValidStatistics = (statistics: Partial<AcelleCampaignStatisti
     return !isNaN(numValue) ? numValue : 0;
   };
   
-  // Appliquer les valeurs fournies avec validation stricte
-  if (statistics.subscriber_count !== undefined) {
-    validatedStats.subscriber_count = processNumericValue(statistics.subscriber_count);
-  }
+  // Appliquer les valeurs fournies avec validation stricte pour chaque propriété
+  const applyIfExists = (key: keyof AcelleCampaignStatistics) => {
+    if (statistics[key] !== undefined) {
+      (validatedStats as any)[key] = processNumericValue(statistics[key]);
+    }
+  };
   
-  if (statistics.delivered_count !== undefined) {
-    validatedStats.delivered_count = processNumericValue(statistics.delivered_count);
-  }
-  
-  if (statistics.delivered_rate !== undefined) {
-    validatedStats.delivered_rate = processNumericValue(statistics.delivered_rate);
-  }
-  
-  if (statistics.open_count !== undefined) {
-    validatedStats.open_count = processNumericValue(statistics.open_count);
-  }
-  
-  if (statistics.uniq_open_count !== undefined) {
-    validatedStats.uniq_open_count = processNumericValue(statistics.uniq_open_count);
-  }
-  
-  if (statistics.uniq_open_rate !== undefined) {
-    validatedStats.uniq_open_rate = processNumericValue(statistics.uniq_open_rate);
-  }
+  // Appliquer pour chaque propriété
+  applyIfExists("subscriber_count");
+  applyIfExists("delivered_count");
+  applyIfExists("delivered_rate");
+  applyIfExists("open_count");
+  applyIfExists("uniq_open_count");
+  applyIfExists("uniq_open_rate");
+  applyIfExists("click_count");
+  applyIfExists("click_rate");
+  applyIfExists("bounce_count");
+  applyIfExists("soft_bounce_count");
+  applyIfExists("hard_bounce_count");
+  applyIfExists("unsubscribe_count");
+  applyIfExists("abuse_complaint_count");
   
   // Utiliser unique_open_rate comme fallback pour uniq_open_rate si disponible
   if ((statistics as any).unique_open_rate !== undefined && validatedStats.uniq_open_rate === 0) {
     validatedStats.uniq_open_rate = processNumericValue((statistics as any).unique_open_rate);
-  }
-  
-  if (statistics.click_count !== undefined) {
-    validatedStats.click_count = processNumericValue(statistics.click_count);
-  }
-  
-  if (statistics.click_rate !== undefined) {
-    validatedStats.click_rate = processNumericValue(statistics.click_rate);
-  }
-  
-  if (statistics.bounce_count !== undefined) {
-    validatedStats.bounce_count = processNumericValue(statistics.bounce_count);
-  }
-  
-  if (statistics.soft_bounce_count !== undefined) {
-    validatedStats.soft_bounce_count = processNumericValue(statistics.soft_bounce_count);
-  }
-  
-  if (statistics.hard_bounce_count !== undefined) {
-    validatedStats.hard_bounce_count = processNumericValue(statistics.hard_bounce_count);
-  }
-  
-  if (statistics.unsubscribe_count !== undefined) {
-    validatedStats.unsubscribe_count = processNumericValue(statistics.unsubscribe_count);
-  }
-  
-  if (statistics.abuse_complaint_count !== undefined) {
-    validatedStats.abuse_complaint_count = processNumericValue(statistics.abuse_complaint_count);
   }
   
   // Petite vérification de cohérence: si certaines valeurs sont manquantes mais peuvent être calculées

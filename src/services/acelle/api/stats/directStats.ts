@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { fetchCampaignStatisticsFromApi, fetchCampaignStatisticsLegacy } from "./apiClient";
@@ -11,12 +12,12 @@ export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null)
   if (!statistics) return true;
   
   // Vérifier si les valeurs principales sont à zéro
+  // Note: On ne considère plus automatiquement qu'une statistique à zéro est vide
+  // car certaines campagnes peuvent réellement avoir zéro envoi/ouverture
   const isEmpty = 
-    (statistics.subscriber_count === 0 || 
-     statistics.subscriber_count === undefined || 
+    (statistics.subscriber_count === undefined || 
      statistics.subscriber_count === null) &&
-    (statistics.delivered_count === 0 || 
-     statistics.delivered_count === undefined || 
+    (statistics.delivered_count === undefined || 
      statistics.delivered_count === null);
   
   return isEmpty;
@@ -127,14 +128,12 @@ export const fetchDirectStatistics = async (
     }
     
     // S'assurer que les statistiques sont valides et normalisées
-    if (stats && !hasEmptyStatistics(stats)) {
+    if (stats) {
       const validatedStats = ensureValidStatistics(stats);
       console.log(`Statistiques récupérées avec succès pour ${campaignUid}`, validatedStats);
       return validatedStats;
     } else {
       console.error(`Aucune statistique valide n'a pu être récupérée pour ${campaignUid}`);
-      
-      // PAS de statistiques simulées - on retourne null pour être transparent
       return null;
     }
   } catch (error) {

@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { buildProxyUrl, buildDirectApiUrl } from "../../acelle-service";
@@ -22,7 +23,7 @@ export const fetchCampaignStatisticsFromApi = async (
     
     console.log(`Récupération directe des informations pour la campagne ${campaignUid}`);
     
-    // Construire l'URL avec l'endpoint et le token
+    // URL de base corrigée pour éviter la duplication 'api/v1/api/v1'
     const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}`;
     const url = new URL(endpoint);
     url.searchParams.append('api_token', account.api_token);
@@ -67,14 +68,16 @@ export const fetchCampaignStatisticsFromApi = async (
         console.log("Tentative avec en-têtes alternatifs après erreur 401");
         return await fetchWithAlternativeHeaders(campaignUid, account, token);
       }
+      // Si erreur 404, l'URL peut être incorrecte - essayons avec le format correct
+      if (response.status === 404) {
+        console.log("URL incorrecte possible - tentative avec chemin corrigé");
+        return await fetchWithCorrectedPath(campaignUid, account, token);
+      }
       return null;
     }
     
     const responseData = await response.json();
     console.log(`Données brutes reçues pour ${campaignUid}:`, responseData);
-    
-    // Extraction des statistiques avec affichage complet pour debug
-    console.log("RÉPONSE API COMPLÈTE:", JSON.stringify(responseData, null, 2));
     
     // Extraction des statistiques
     return extractStatistics(responseData);
@@ -130,6 +133,52 @@ const fetchWithAlternativeHeaders = async (
 };
 
 /**
+ * Tente une requête avec un chemin corrigé
+ * - Parfois l'API nécessite "campaigns/uid" et parfois "campaign/uid"
+ */
+const fetchWithCorrectedPath = async (
+  campaignUid: string,
+  account: AcelleAccount, 
+  token: string
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    // Essayer avec "campaign" (singulier) au lieu de "campaigns" (pluriel)
+    const endpoint = `${account.api_endpoint}/api/v1/campaign/${campaignUid}`;
+    const url = new URL(endpoint);
+    url.searchParams.append('api_token', account.api_token);
+    url.searchParams.append('_t', Date.now().toString());
+    
+    const proxyUrl = encodeURIComponent(url.toString());
+    const corsProxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=${proxyUrl}`;
+    
+    console.log(`Tentative avec chemin corrigé pour la campagne ${campaignUid}`);
+    
+    const response = await fetch(corsProxyUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'x-acelle-token': account.api_token,
+        'x-acelle-endpoint': account.api_endpoint
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`Échec de la tentative avec chemin corrigé: ${response.status}`);
+      return null;
+    }
+    
+    const responseData = await response.json();
+    console.log(`Données avec chemin corrigé reçues pour ${campaignUid}:`, responseData);
+    
+    return extractStatistics(responseData);
+    
+  } catch (error) {
+    console.error(`Erreur lors de la tentative avec chemin corrigé pour ${campaignUid}:`, error);
+    return null;
+  }
+};
+
+/**
  * Méthode de secours pour la compatibilité - utilise les endpoints directs mentionnés
  */
 export const fetchCampaignStatisticsLegacy = async (
@@ -144,9 +193,11 @@ export const fetchCampaignStatisticsLegacy = async (
     
     console.log(`Tentative de récupération via méthode legacy pour la campagne ${campaignUid}`);
     
-    // Construire l'URL directe pour l'API legacy
+    // Construire l'URL directe pour l'API legacy - Assurez-vous que c'est le bon chemin
     const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/track`;
-    const url = new URL(endpoint);
+    // Enlever les duplications possibles de api/v1
+    const cleanEndpoint = endpoint.replace('/api/v1/api/v1/', '/api/v1/');
+    const url = new URL(cleanEndpoint);
     url.searchParams.append('api_token', account.api_token);
     url.searchParams.append('_t', Date.now().toString());
     
@@ -185,6 +236,12 @@ export const fetchCampaignStatisticsLegacy = async (
       if (response.status === 401) {
         return await fetchLegacyWithAlternativeHeaders(campaignUid, account, token);
       }
+      
+      // Si erreur 404, essayer l'endpoint report au lieu de track
+      if (response.status === 404) {
+        return await fetchLegacyWithReportEndpoint(campaignUid, account, token);
+      }
+      
       return null;
     }
     
@@ -210,7 +267,8 @@ const fetchLegacyWithAlternativeHeaders = async (
   try {
     // Essayer avec un endpoint alternatif pour les statistiques
     const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/report`;
-    const url = new URL(endpoint);
+    const cleanEndpoint = endpoint.replace('/api/v1/api/v1/', '/api/v1/');
+    const url = new URL(cleanEndpoint);
     url.searchParams.append('api_token', account.api_token);
     url.searchParams.append('_t', Date.now().toString());
     
@@ -243,10 +301,55 @@ const fetchLegacyWithAlternativeHeaders = async (
 };
 
 /**
+ * Tente une requête avec l'endpoint report au lieu de track
+ */
+const fetchLegacyWithReportEndpoint = async (
+  campaignUid: string,
+  account: AcelleAccount,
+  token: string
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    const endpoint = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/report`;
+    const cleanEndpoint = endpoint.replace('/api/v1/api/v1/', '/api/v1/');
+    const url = new URL(cleanEndpoint);
+    url.searchParams.append('api_token', account.api_token);
+    url.searchParams.append('_t', Date.now().toString());
+    
+    const proxyUrl = encodeURIComponent(url.toString());
+    const corsProxyUrl = `https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy?url=${proxyUrl}`;
+    
+    console.log(`Tentative avec endpoint report pour la campagne ${campaignUid}`);
+    
+    const response = await fetch(corsProxyUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'x-acelle-token': account.api_token,
+        'x-acelle-endpoint': account.api_endpoint
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`Échec de la tentative avec endpoint report: ${response.status}`);
+      return null;
+    }
+    
+    const responseData = await response.json();
+    console.log(`Données report reçues pour ${campaignUid}:`, responseData);
+    
+    return extractStatistics(responseData);
+    
+  } catch (error) {
+    console.error(`Erreur lors de la tentative avec endpoint report pour ${campaignUid}:`, error);
+    return null;
+  }
+};
+
+/**
  * Extrait les statistiques de la réponse de l'API, quelle que soit sa structure
  */
 const extractStatistics = (responseData: any): AcelleCampaignStatistics | null => {
-  // Affichons la structure complète pour le debug
+  // Débogage pour comprendre la structure de la réponse
   console.log("STRUCTURE DE LA RÉPONSE:", Object.keys(responseData));
   
   // Extraction des données selon diverses structures possibles
@@ -258,50 +361,48 @@ const extractStatistics = (responseData: any): AcelleCampaignStatistics | null =
     return null;
   }
   
-  // Afficher toute la structure pour mieux comprendre où sont les statistiques
-  console.log("STRUCTURE DATA:", Object.keys(data));
-  
-  // Afficher les structures pertinentes si elles existent
-  if (data.campaign) console.log("STRUCTURE CAMPAIGN:", Object.keys(data.campaign));
-  if (data.statistics) console.log("STRUCTURE STATISTICS:", Object.keys(data.statistics));
-  if (data.delivery_info) console.log("STRUCTURE DELIVERY_INFO:", Object.keys(data.delivery_info));
-  
-  // Structure possible : campaign -> statistics
-  if (data.campaign?.statistics) {
-    console.log("Statistiques trouvées dans data.campaign.statistics:", data.campaign.statistics);
-    return mapToStandardFormat(data.campaign.statistics);
-  }
-  
-  // Structure possible : data -> statistics
-  if (data.statistics) {
-    console.log("Statistiques trouvées dans data.statistics:", data.statistics);
-    return mapToStandardFormat(data.statistics);
-  }
-  
-  // Structure possible : campaign -> delivery_info
-  if (data.campaign?.delivery_info) {
-    console.log("Statistiques trouvées dans campaign.delivery_info:", data.campaign.delivery_info);
-    return mapDeliveryInfoToStats(data.campaign.delivery_info);
-  }
-  
-  // Structure possible : data -> delivery_info
+  // Récupérer les données de delivery_info depuis la base
   if (data.delivery_info) {
-    console.log("Statistiques trouvées dans data.delivery_info:", data.delivery_info);
+    console.log("Données extraites directement du delivery_info:", data.delivery_info);
     return mapDeliveryInfoToStats(data.delivery_info);
   }
   
+  // Récupérer les données depuis la structure campaign
+  if (data.campaign && data.campaign.delivery_info) {
+    console.log("Données extraites de campaign.delivery_info:", data.campaign.delivery_info);
+    return mapDeliveryInfoToStats(data.campaign.delivery_info);
+  }
+  
+  // Récupérer les données depuis statistics
+  if (data.statistics) {
+    console.log("Données extraites de statistics:", data.statistics);
+    return mapToStandardFormat(data.statistics);
+  }
+  
+  // Récupérer les données depuis campaign.statistics
+  if (data.campaign && data.campaign.statistics) {
+    console.log("Données extraites de campaign.statistics:", data.campaign.statistics);
+    return mapToStandardFormat(data.campaign.statistics);
+  }
+  
   // Structure possible : data -> track -> data
-  if (data.track?.data) {
-    console.log("Statistiques trouvées dans track.data:", data.track.data);
+  if (data.track && data.track.data) {
+    console.log("Données extraites de track.data:", data.track.data);
     return mapToStandardFormat(data.track.data);
+  }
+  
+  // Données dans meta?.report
+  if (data.meta && data.meta.report) {
+    console.log("Données extraites de meta.report:", data.meta.report);
+    return mapToStandardFormat(data.meta.report);
   }
   
   // Structure possible : campaign contient directement les stats
   if (data.campaign && (
-      typeof data.campaign.subscriber_count !== 'undefined' ||
-      typeof data.campaign.total !== 'undefined'
+    typeof data.campaign.subscriber_count !== 'undefined' ||
+    typeof data.campaign.total !== 'undefined'
   )) {
-    console.log("Statistiques trouvées directement dans campaign:", data.campaign);
+    console.log("Données extraites directement de campaign:", data.campaign);
     return mapToStandardFormat(data.campaign);
   }
   
@@ -309,7 +410,7 @@ const extractStatistics = (responseData: any): AcelleCampaignStatistics | null =
   if (typeof data.subscriber_count !== 'undefined' || 
       typeof data.total !== 'undefined' || 
       typeof data.delivered_count !== 'undefined') {
-    console.log("Statistiques trouvées directement dans data:", data);
+    console.log("Données extraites directement de data:", data);
     return mapToStandardFormat(data);
   }
 
@@ -321,9 +422,6 @@ const extractStatistics = (responseData: any): AcelleCampaignStatistics | null =
  * Transforme un objet de statistiques en format standard AcelleCampaignStatistics
  */
 const mapToStandardFormat = (stats: any): AcelleCampaignStatistics => {
-  // Afficher l'entrée complète pour le debug
-  console.log("Données à mapper:", stats);
-  
   return {
     subscriber_count: parseNumber(stats.subscriber_count) || parseNumber(stats.total) || 0,
     delivered_count: parseNumber(stats.delivered_count) || parseNumber(stats.delivered) || parseNumber(stats.sent) || 0,
@@ -387,14 +485,10 @@ const getHardBounceCount = (data: any): number => {
 };
 
 /**
- * Convertit une valeur en nombre de manière sécurisée et détaillée
+ * Convertit une valeur en nombre de manière sécurisée
  */
 const parseNumber = (value: any): number => {
-  // Affichage pour debug
-  console.log(`Parsing value: ${value} (type: ${typeof value})`);
-  
   if (value === undefined || value === null) {
-    console.log("  → null/undefined → 0");
     return 0;
   }
   
@@ -403,22 +497,18 @@ const parseNumber = (value: any): number => {
     let numValue;
     if (value.includes('%')) {
       numValue = parseFloat(value.replace('%', ''));
-      console.log(`  → string with % → ${numValue}`);
     } else {
       numValue = parseFloat(value);
-      console.log(`  → string → ${numValue}`);
     }
     return !isNaN(numValue) ? numValue : 0;
   }
   
   // Pour les autres types de valeurs
   if (typeof value === 'number') {
-    console.log(`  → number → ${value}`);
     return !isNaN(value) ? value : 0;
   }
   
   // Conversion forcée
   const numValue = Number(value);
-  console.log(`  → forced conversion → ${numValue}`);
   return !isNaN(numValue) ? numValue : 0;
 };
