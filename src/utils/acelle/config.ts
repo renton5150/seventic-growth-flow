@@ -4,7 +4,7 @@
  */
 
 // Activer/désactiver le mode développeur global
-export const ACELLE_DEV_MODE = true;
+export const ACELLE_DEV_MODE = false;
 
 // Configuration des endpoints
 export const SUPABASE_FUNCTION_BASE_URL = "https://dupguifqyjchlmzbadav.supabase.co/functions/v1";
