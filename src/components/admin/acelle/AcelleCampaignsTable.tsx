@@ -32,6 +32,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
+import { ACELLE_DEV_MODE } from "@/utils/acelle/config";
+import { mockCampaignStatisticsResponse, generateFakeCampaigns, withDeveloperFallback } from "@/utils/acelle/developerMode";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -65,7 +67,18 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   } = useCampaignCache(account);
   
   // Fonction modifiée pour récupérer les statistiques d'une campagne via la fonction Edge
+  // avec support du mode développeur
   const fetchCampaignStatistics = async (campaignId: string, accountId: string, forceRefresh = false) => {
+    // En mode développeur, utiliser les données factices
+    if (ACELLE_DEV_MODE) {
+      console.log(`[DEV MODE] Génération de statistiques factices pour la campagne ${campaignId}`);
+      return withDeveloperFallback(
+        () => Promise.reject(new Error("Mode développeur activé")),
+        mockCampaignStatisticsResponse(campaignId)
+      );
+    }
+    
+    // En mode production, utiliser l'API réelle
     try {
       const supabaseUrl = "https://dupguifqyjchlmzbadav.supabase.co";
       const functionUrl = `${supabaseUrl}/functions/v1/acelle-stats-test?campaignId=${campaignId}&accountId=${accountId}&forceRefresh=${forceRefresh}`;
@@ -106,7 +119,16 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     
     try {
       if (account?.id) {
-        // Fetch campaigns from cache
+        // En mode développeur, générer des données factices
+        if (ACELLE_DEV_MODE) {
+          console.log("[DEV MODE] Génération de campagnes factices");
+          const fakeCampaigns = generateFakeCampaigns(Math.floor(Math.random() * 15) + 5); // 5 à 20 campagnes
+          setCampaigns(fakeCampaigns);
+          setIsLoading(false);
+          return;
+        }
+        
+        // En mode production, fetch campaigns from cache
         console.log(`Fetching campaigns from cache for page ${currentPage}, forcing refresh: ${shouldForceRefresh}`);
         const fetchedCampaigns = await fetchCampaignsFromCache(
           [account], 
@@ -397,6 +419,179 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setCurrentPage(page);
     console.log(`Changement de page: ${page}`);
   };
+
+  // Si le compte est inactif
+  if (account?.status !== 'active') {
+    return <InactiveAccountState />;
+  }
+
+  // Afficher un état de chargement
+  if (isLoading) {
+    return <TableLoadingState />;
+  }
+
+  // Afficher un état d'erreur
+  if (isError) {
+    return (
+      <TableErrorState 
+        error={error instanceof Error ? error.message : "Une erreur est survenue"} 
+        onRetry={() => {
+          setRetryCount((prev) => prev + 1);
+          refetch({ forceRefresh: false });
+        }}
+        retryCount={retryCount}
+      />
+    );
+  }
+
+  // Si aucune campagne n'est trouvée
+  if (!filteredCampaigns?.length) {
+    return <EmptyState onSync={handleSync} />;
+  }
+
+  // Ajouter un indicateur de mode développeur dans le rendu
+  if (ACELLE_DEV_MODE) {
+    return (
+      <div className="space-y-4">
+        <Card className="bg-amber-50 border-amber-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-amber-800 font-medium">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <span>Mode Développeur Actif - Les données affichées sont générées localement</span>
+            </div>
+            <p className="text-sm text-amber-700 mt-1">
+              Les appels API à Acelle sont simulés. Désactivez le mode développeur dans <code>config.ts</code> pour utiliser l'API réelle.
+            </p>
+          </CardContent>
+        </Card>
+        
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between gap-4">
+            <AcelleTableFilters 
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+            />
+            
+            <div className="flex flex-wrap gap-2 items-center">
+              {backgroundRefreshInProgress && (
+                <div className="text-sm text-muted-foreground flex items-center">
+                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  Actualisation en cours...
+                </div>
+              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isManuallyRefreshing || backgroundRefreshInProgress}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
+                Actualiser
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSync}
+                disabled={isSyncing || !accessToken || backgroundRefreshInProgress}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+                Synchroniser
+              </Button>
+            </div>
+          </div>
+          
+          {connectionError && (
+            <Card className="bg-amber-50 border-amber-200">
+              <CardContent className="p-4 text-amber-800 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                <p>{connectionError}</p>
+              </CardContent>
+            </Card>
+          )}
+          
+          {lastRefreshTimestamp && (
+            <div className="text-xs text-muted-foreground mb-2">
+              Dernière synchronisation: {new Date(lastRefreshTimestamp).toLocaleString()}
+            </div>
+          )}
+          
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <CampaignsTableHeader 
+                    columns={[
+                      { key: "name", label: "Nom" },
+                      { key: "subject", label: "Sujet" },
+                      { key: "status", label: "Statut" },
+                      { key: "delivery_date", label: "Date d'envoi" },
+                      { key: "subscriber_count", label: "Destinataires" },
+                      { key: "open_rate", label: "Taux d'ouverture" },
+                      { key: "click_rate", label: "Taux de clic" },
+                      { key: "bounce_count", label: "Bounces" },
+                      { key: "", label: "" }
+                    ]}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSort={(column) => {
+                      if (sortBy === column) {
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      } else {
+                        setSortBy(column);
+                        setSortOrder("desc");
+                      }
+                    }}
+                  />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCampaigns.map((campaign) => (
+                  <AcelleTableRow 
+                    key={campaign.uid || campaign.campaign_uid} 
+                    campaign={campaign} 
+                    account={account}
+                    onViewCampaign={handleViewCampaign}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex justify-end mt-4">
+            <CampaignsTablePagination 
+              currentPage={currentPage}
+              onPageChange={handlePageChange}
+              hasNextPage={hasNextPage}
+              totalPages={totalPages}
+            />
+          </div>
+
+          <Dialog open={!!selectedCampaign} onOpenChange={(open) => {
+            if (!open) handleCloseDetails();
+          }}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedCampaign && "Détails de la campagne"}
+                </DialogTitle>
+              </DialogHeader>
+              {selectedCampaign && (
+                <AcelleCampaignDetails 
+                  campaignId={selectedCampaign} 
+                  account={account} 
+                  onClose={handleCloseDetails}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+    );
+  }
 
   // Si le compte est inactif
   if (account?.status !== 'active') {
