@@ -158,7 +158,13 @@ serve(async (req: Request) => {
         click_rate: responseData.click_rate || 0,
         bounce_count: responseData.bounce_count || 0,
         unsubscribe_count: responseData.unsubscribe_count || 0,
-        status: responseData.status || "unknown"
+        status: responseData.status || "unknown",
+        // Ajout de champs manquants pour une compatibilité totale
+        uniq_open_count: responseData.unique_open_count || responseData.open_count || 0,
+        uniq_open_rate: responseData.unique_open_rate || responseData.open_rate || 0,
+        soft_bounce_count: 0,
+        hard_bounce_count: 0,
+        abuse_complaint_count: responseData.abuse_complaint_count || 0
       };
       
       stats.extractedStats = extractedStats;

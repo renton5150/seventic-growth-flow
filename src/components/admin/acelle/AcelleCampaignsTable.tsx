@@ -32,7 +32,6 @@ import { RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
-import { enrichCampaignsWithStats } from "@/services/acelle/api/stats/directStats";
 import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 
 interface AcelleCampaignsTableProps {
@@ -65,6 +64,38 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     lastRefreshTimestamp,
     isCacheBusy
   } = useCampaignCache(account);
+  
+  // Fonction pour récupérer les statistiques d'une campagne via la fonction Edge
+  const fetchCampaignStatistics = async (campaignId: string, accountId: string, forceRefresh = false) => {
+    try {
+      const supabaseUrl = "https://dupguifqyjchlmzbadav.supabase.co";
+      const functionUrl = `${supabaseUrl}/functions/v1/acelle-stats-test?campaignId=${campaignId}&accountId=${accountId}&forceRefresh=${forceRefresh}`;
+      
+      console.log(`Récupération des statistiques pour la campagne ${campaignId} via Edge function`);
+      
+      const response = await fetch(functionUrl, {
+        method: "GET",
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Erreur HTTP ${response.status} lors de la récupération des statistiques:`, errorText);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Statistiques récupérées avec succès pour la campagne ${campaignId}:`, data);
+      
+      return data;
+    } catch (error) {
+      console.error(`Erreur lors de la récupération des statistiques pour ${campaignId}:`, error);
+      throw error;
+    }
+  };
   
   // Create a refetch function to reload the campaigns
   const refetch = useCallback(async (options?: { forceRefresh?: boolean }) => {
@@ -110,31 +141,62 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
               try {
                 // Si nous avons des campagnes spécifiques à rafraîchir et qu'un rafraîchissement complet n'est pas demandé
                 if (campaignsNeedingRefresh.length > 0 && !shouldForceRefresh) {
-                  // Rafraîchir uniquement les campagnes avec des statistiques vides
-                  const refreshedCampaigns = await enrichCampaignsWithStats(
-                    campaignsNeedingRefresh, 
-                    account, 
-                    { forceRefresh: true }
-                  );
+                  // Pour chaque campagne nécessitant un rafraîchissement
+                  const refreshedCampaigns = [];
+                  
+                  for (const campaign of campaignsNeedingRefresh) {
+                    try {
+                      const campaignId = campaign.uid || campaign.campaign_uid;
+                      if (campaignId) {
+                        const statsData = await fetchCampaignStatistics(campaignId, account.id, true);
+                        if (statsData && statsData.success) {
+                          refreshedCampaigns.push({
+                            ...campaign,
+                            statistics: statsData.stats
+                          });
+                        }
+                      }
+                    } catch (err) {
+                      console.error(`Erreur lors du rafraîchissement de la campagne ${campaign.name}:`, err);
+                    }
+                  }
                   
                   // Mettre à jour uniquement les campagnes qui ont été rafraîchies
-                  const updatedCampaigns = fetchedCampaigns.map(campaign => {
-                    const refreshed = refreshedCampaigns.find(c => 
-                      c.uid === campaign.uid || c.campaign_uid === campaign.campaign_uid
-                    );
-                    return refreshed || campaign;
-                  });
-                  
-                  setCampaigns(updatedCampaigns);
-                  console.log(`Updated ${refreshedCampaigns.length} campaigns with fresh statistics`);
+                  if (refreshedCampaigns.length > 0) {
+                    const updatedCampaigns = fetchedCampaigns.map(campaign => {
+                      const refreshed = refreshedCampaigns.find(c => 
+                        c.uid === campaign.uid || c.campaign_uid === campaign.campaign_uid
+                      );
+                      return refreshed || campaign;
+                    });
+                    
+                    setCampaigns(updatedCampaigns);
+                    console.log(`Updated ${refreshedCampaigns.length} campaigns with fresh statistics`);
+                  }
                 } else {
                   // Rafraîchir toutes les campagnes si demandé
-                  const enrichedCampaigns = await enrichCampaignsWithStats(
-                    fetchedCampaigns, 
-                    account, 
-                    { forceRefresh: true }
-                  );
-                  setCampaigns(enrichedCampaigns);
+                  const updatedCampaigns = [...fetchedCampaigns];
+                  
+                  for (let i = 0; i < fetchedCampaigns.length; i++) {
+                    try {
+                      const campaign = fetchedCampaigns[i];
+                      const campaignId = campaign.uid || campaign.campaign_uid;
+                      
+                      if (campaignId) {
+                        const statsData = await fetchCampaignStatistics(campaignId, account.id, true);
+                        if (statsData && statsData.success) {
+                          updatedCampaigns[i] = {
+                            ...campaign,
+                            statistics: statsData.stats
+                          };
+                        }
+                      }
+                    } catch (err) {
+                      console.error(`Erreur lors du rafraîchissement de la campagne ${fetchedCampaigns[i].name}:`, err);
+                    }
+                  }
+                  
+                  setCampaigns(updatedCampaigns);
                   console.log("Background refresh of all campaigns completed successfully");
                 }
               } catch (err) {
@@ -148,14 +210,44 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           // Si le cache est vide, nous devons attendre l'enrichissement
           console.log("No campaigns in cache, waiting for enrichment...");
           
-          // Même dans ce cas, on ne force pas le refresh pour le premier affichage
-          const enrichedCampaigns = await enrichCampaignsWithStats(
-            fetchedCampaigns, 
-            account, 
-            { forceRefresh: false }
-          );
-          setCampaigns(enrichedCampaigns);
+          const fetchedCampaignsList = await fetchCampaignsFromCache([account], currentPage, itemsPerPage);
+          setCampaigns(fetchedCampaignsList);
           setIsLoading(false);
+          
+          // Lancer automatiquement la récupération des statistiques pour les campagnes
+          setBackgroundRefreshInProgress(true);
+          
+          setTimeout(async () => {
+            try {
+              const updatedCampaigns = [...fetchedCampaignsList];
+              
+              for (let i = 0; i < fetchedCampaignsList.length; i++) {
+                try {
+                  const campaign = fetchedCampaignsList[i];
+                  const campaignId = campaign.uid || campaign.campaign_uid;
+                  
+                  if (campaignId) {
+                    const statsData = await fetchCampaignStatistics(campaignId, account.id, true);
+                    if (statsData && statsData.success) {
+                      updatedCampaigns[i] = {
+                        ...campaign,
+                        statistics: statsData.stats
+                      };
+                    }
+                  }
+                } catch (err) {
+                  console.error(`Erreur lors de l'enrichissement de la campagne ${fetchedCampaignsList[i].name}:`, err);
+                }
+              }
+              
+              setCampaigns(updatedCampaigns);
+              console.log("Initial statistics enrichment completed");
+            } catch (err) {
+              console.error("Error during initial statistics enrichment:", err);
+            } finally {
+              setBackgroundRefreshInProgress(false);
+            }
+          }, 100);
         }
       }
     } catch (err) {
