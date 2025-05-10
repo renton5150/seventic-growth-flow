@@ -76,14 +76,19 @@ serve(async (req: Request) => {
     
     console.log(`Utilisation du compte ${accountData.name} avec endpoint: ${ACELLE_API_BASE_URL}`);
     
-    // Construction de l'URL
-    const apiUrl = `${ACELLE_API_BASE_URL}/api/v1/campaigns/${campaignId}?api_token=${ACELLE_API_TOKEN}`;
-    console.log("URL de l'API Acelle:", apiUrl);
+    // Logging sécurisé du token (premiers caractères seulement)
+    console.log(`Token API utilisé (premiers 5 caractères seulement): ${ACELLE_API_TOKEN.substring(0, 5)}...`);
+    
+    // Construction de l'URL - CORRIGÉE pour éviter le doublon /api/v1/api/v1/
+    // Remarque: ACELLE_API_BASE_URL contient déjà /api/v1, donc pas besoin de le répéter
+    const apiUrl = `${ACELLE_API_BASE_URL}/campaigns/${campaignId}?api_token=${ACELLE_API_TOKEN}`;
+    console.log(`URL complète (sans token): ${ACELLE_API_BASE_URL}/campaigns/${campaignId}?api_token=***`);
     
     // Tester la disponibilité de l'API avant l'appel principal
     try {
-      const testUrl = `${ACELLE_API_BASE_URL}/api/v1/campaigns?api_token=${ACELLE_API_TOKEN}&page=1&per_page=1`;
-      console.log("Test de disponibilité de l'API:", testUrl);
+      // URL de test également corrigée pour éviter le doublon
+      const testUrl = `${ACELLE_API_BASE_URL}/campaigns?api_token=${ACELLE_API_TOKEN}&page=1&per_page=1`;
+      console.log(`Test de disponibilité de l'API: ${ACELLE_API_BASE_URL}/campaigns?api_token=***&page=1&per_page=1`);
       
       const testResponse = await fetch(testUrl, {
         method: "GET",

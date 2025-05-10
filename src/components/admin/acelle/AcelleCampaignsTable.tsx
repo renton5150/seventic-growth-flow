@@ -1,4 +1,3 @@
-
 // Mise à jour du composant AcelleCampaignsTable pour retirer le mode démo
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -65,7 +64,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isCacheBusy
   } = useCampaignCache(account);
   
-  // Fonction pour récupérer les statistiques d'une campagne via la fonction Edge
+  // Fonction modifiée pour récupérer les statistiques d'une campagne via la fonction Edge
   const fetchCampaignStatistics = async (campaignId: string, accountId: string, forceRefresh = false) => {
     try {
       const supabaseUrl = "https://dupguifqyjchlmzbadav.supabase.co";
@@ -555,3 +554,30 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     </div>
   );
 }
+
+// Fonction de test pour déboguer avec des données factices
+const fetchMockCampaignStatistics = async () => {
+  console.log("Génération de fausses statistiques pour debug");
+  
+  // Données factices pour test
+  return {
+    success: true,
+    stats: {
+      subscriber_count: 100,
+      delivered_count: 95,
+      open_count: 50,
+      click_count: 25,
+      delivered_rate: 95,
+      open_rate: 52.6,
+      click_rate: 26.3,
+      bounce_count: 5,
+      unsubscribe_count: 2,
+      status: "sent",
+      uniq_open_count: 48,
+      uniq_open_rate: 50.5,
+      soft_bounce_count: 2,
+      hard_bounce_count: 3,
+      abuse_complaint_count: 1
+    }
+  };
+};
