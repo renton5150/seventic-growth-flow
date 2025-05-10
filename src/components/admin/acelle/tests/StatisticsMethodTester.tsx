@@ -126,7 +126,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       const supabaseUrl = "https://dupguifqyjchlmzbadav.supabase.co";
       
       // Construire l'URL pour la fonction Edge
-      const functionUrl = `${supabaseUrl}/functions/v1/acelle-stats?campaignId=${campaignUid}&accountId=${account.id}&forceRefresh=true`;
+      const functionUrl = `${supabaseUrl}/functions/v1/acelle-stats-test?campaignId=${campaignUid}&accountId=${account.id}&forceRefresh=true`;
       
       console.log("[Test Edge Function] URL:", functionUrl);
       
@@ -168,7 +168,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
           label: "Fonction Edge Supabase",
           data: responseText,
           success: false,
-          error: `Erreur de parsing JSON: ${e.message}`,
+          error: `Erreur de parsing JSON: ${e instanceof Error ? e.message : String(e)}`,
           timing: endTime - startTime
         }]);
         return;
@@ -183,22 +183,26 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         const campaignData = responseData.data;
         
         stats = {
-          subscriber_count: campaignData.subscriberCount || 0,
-          delivered_count: campaignData.deliveredCount || 0,
-          delivered_rate: campaignData.deliveredRate || 0,
-          open_count: campaignData.uniqueOpenCount || 0,
-          uniq_open_count: campaignData.uniqueOpenCount || 0,
-          uniq_open_rate: campaignData.openRate || 0,
-          click_count: campaignData.clickCount || 0,
-          click_rate: campaignData.clickRate || 0,
-          bounce_count: campaignData.bounceCount || 0,
+          subscriber_count: extractNumericValue(campaignData, 'subscriberCount') || extractNumericValue(campaignData, 'subscriber_count') || 0,
+          delivered_count: extractNumericValue(campaignData, 'deliveredCount') || extractNumericValue(campaignData, 'delivered_count') || 0,
+          delivered_rate: extractNumericValue(campaignData, 'deliveredRate') || extractNumericValue(campaignData, 'delivered_rate') || 0,
+          open_count: extractNumericValue(campaignData, 'uniqueOpenCount') || extractNumericValue(campaignData, 'open_count') || 0,
+          uniq_open_count: extractNumericValue(campaignData, 'uniqueOpenCount') || extractNumericValue(campaignData, 'uniq_open_count') || 0,
+          uniq_open_rate: extractNumericValue(campaignData, 'openRate') || extractNumericValue(campaignData, 'uniq_open_rate') || 0,
+          click_count: extractNumericValue(campaignData, 'clickCount') || extractNumericValue(campaignData, 'click_count') || 0,
+          click_rate: extractNumericValue(campaignData, 'clickRate') || extractNumericValue(campaignData, 'click_rate') || 0,
+          bounce_count: extractNumericValue(campaignData, 'bounceCount') || extractNumericValue(campaignData, 'bounce_count') || 0,
           soft_bounce_count: 0,
           hard_bounce_count: 0,
-          unsubscribe_count: campaignData.unsubscribeCount || 0,
-          abuse_complaint_count: campaignData.spamCount || 0
+          unsubscribe_count: extractNumericValue(campaignData, 'unsubscribeCount') || extractNumericValue(campaignData, 'unsubscribe_count') || 0,
+          abuse_complaint_count: extractNumericValue(campaignData, 'spamCount') || extractNumericValue(campaignData, 'abuse_complaint_count') || 0
         };
         
         console.log("[Test Edge Function] Statistiques extraites:", stats);
+      } else if (responseData && responseData.stats) {
+        // Utiliser directement les statistiques extraites côté serveur
+        stats = responseData.stats as AcelleCampaignStatistics;
+        console.log("[Test Edge Function] Statistiques déjà extraites côté serveur:", stats);
       }
       
       setResults(prev => [...prev, {
@@ -217,7 +221,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         label: "Fonction Edge Supabase",
         data: null,
         success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
+        error: error instanceof Error ? error.message : String(error)
       }]);
     }
   };
@@ -249,7 +253,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         label: "Service directStats",
         data: null,
         success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
+        error: error instanceof Error ? error.message : String(error)
       }]);
     }
   };
@@ -288,7 +292,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         console.log("[Method 2] Données brutes de l'API:", data);
       } catch (e) {
         console.error("[Method 2] Erreur parsing JSON:", e);
-        throw new Error(`Erreur parsing JSON: ${e.message} - Réponse: ${responseText}`);
+        throw new Error(`Erreur parsing JSON: ${e instanceof Error ? e.message : String(e)} - Réponse: ${responseText}`);
       }
       
       // Créer un objet statistiques sécurisé
@@ -365,7 +369,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         label: "API directe (buildDirectApiUrl)",
         data: null,
         success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
+        error: error instanceof Error ? error.message : String(error)
       }]);
     }
   };
@@ -400,7 +404,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         console.log("[Method 3] Données brutes de l'API:", data);
       } catch (e) {
         console.error("[Method 3] Erreur parsing JSON:", e);
-        throw new Error(`Erreur parsing JSON: ${e.message} - Réponse: ${responseText}`);
+        throw new Error(`Erreur parsing JSON: ${e instanceof Error ? e.message : String(e)} - Réponse: ${responseText}`);
       }
       
       // Créer un objet statistiques sécurisé
@@ -455,7 +459,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         label: "API directe (fetch personnalisé)",
         data: null,
         success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
+        error: error instanceof Error ? error.message : String(error)
       }]);
     }
   };
@@ -502,6 +506,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
       if (deliveryInfoJson && typeof deliveryInfoJson === 'object' && !Array.isArray(deliveryInfoJson)) {
         console.log("[Method 4] Extracting from:", deliveryInfoJson);
         
+        // Utiliser une approche directe pour éviter l'erreur TypeScript
         const di = deliveryInfoJson as Record<string, any>;
         
         // Extraction manuelle des valeurs avec des logs
@@ -557,7 +562,7 @@ export const StatisticsMethodTester: React.FC<StatisticsMethodTesterProps> = ({
         label: "Base de données locale (email_campaigns_cache)",
         data: null,
         success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue"
+        error: error instanceof Error ? error.message : String(error)
       }]);
     }
   };

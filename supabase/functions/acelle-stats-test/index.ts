@@ -25,6 +25,9 @@ serve(async (req: Request) => {
     const url = new URL(req.url);
     const campaignId = url.searchParams.get('campaignId') || '63ffcc82abb3e';
     const accountId = url.searchParams.get('accountId');
+    const forceRefresh = url.searchParams.get('forceRefresh') === 'true';
+    
+    console.log(`Paramètres: campaignId=${campaignId}, accountId=${accountId}, forceRefresh=${forceRefresh}`);
     
     if (!accountId) {
       throw new Error("accountId est requis pour obtenir le token API");
@@ -38,19 +41,30 @@ serve(async (req: Request) => {
       throw new Error("SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY doivent être configurés");
     }
     
+    console.log(`URL Supabase: ${supabaseUrl}`);
+    
     // Créer un client Supabase pour accéder à la base de données
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.38.4");
     const supabase = createClient(supabaseUrl, supabaseServiceRole);
     
+    console.log("Client Supabase créé avec succès");
+    
     // Récupérer les informations du compte Acelle depuis la base de données
+    console.log(`Récupération des informations du compte Acelle avec ID: ${accountId}`);
     const { data: accountData, error: accountError } = await supabase
       .from("acelle_accounts")
       .select("id, name, api_token, api_endpoint")
       .eq("id", accountId)
       .single();
     
-    if (accountError || !accountData) {
-      throw new Error(`Échec de récupération du compte: ${accountError?.message || "Compte non trouvé"}`);
+    if (accountError) {
+      console.error("Erreur Supabase:", accountError.message);
+      throw new Error(`Échec de récupération du compte: ${accountError.message}`);
+    }
+    
+    if (!accountData) {
+      console.error("Aucun compte trouvé avec cet ID");
+      throw new Error("Compte non trouvé");
     }
     
     const ACELLE_API_TOKEN = accountData.api_token;
@@ -66,8 +80,34 @@ serve(async (req: Request) => {
     const apiUrl = `${ACELLE_API_BASE_URL}/api/v1/campaigns/${campaignId}?api_token=${ACELLE_API_TOKEN}`;
     console.log("URL de l'API Acelle:", apiUrl);
     
-    // Appel direct à l'API
-    console.log("Envoi de la requête à Acelle...");
+    // Tester la disponibilité de l'API avant l'appel principal
+    try {
+      const testUrl = `${ACELLE_API_BASE_URL}/api/v1/campaigns?api_token=${ACELLE_API_TOKEN}&page=1&per_page=1`;
+      console.log("Test de disponibilité de l'API:", testUrl);
+      
+      const testResponse = await fetch(testUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+      
+      console.log("Résultat du test de disponibilité:", {
+        status: testResponse.status,
+        statusText: testResponse.statusText,
+        headers: Object.fromEntries(testResponse.headers.entries())
+      });
+      
+      if (!testResponse.ok) {
+        const testBody = await testResponse.text();
+        console.error("Test API a échoué:", testBody);
+      }
+    } catch (testError) {
+      console.error("Erreur lors du test de disponibilité:", testError);
+    }
+    
+    // Appel principal à l'API
+    console.log("Envoi de la requête principale à Acelle...");
     const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
@@ -123,6 +163,32 @@ serve(async (req: Request) => {
       
       stats.extractedStats = extractedStats;
       console.log("Statistiques extraites:", extractedStats);
+    }
+    
+    // Stockage des données dans la cache de statistiques (si la campagne existe)
+    try {
+      if (responseData && responseData.status) {
+        console.log("Tentative de mise à jour du cache de statistiques...");
+        
+        const { error: statsError } = await supabase
+          .from("campaign_stats_cache")
+          .upsert({
+            campaign_uid: campaignId,
+            account_id: accountId,
+            statistics: stats.extractedStats,
+            last_updated: new Date().toISOString()
+          }, { 
+            onConflict: "campaign_uid,account_id" 
+          });
+        
+        if (statsError) {
+          console.error("Erreur lors de la mise à jour du cache:", statsError);
+        } else {
+          console.log("Mise à jour du cache réussie");
+        }
+      }
+    } catch (cacheError) {
+      console.error("Erreur lors du stockage en cache:", cacheError);
     }
     
     // Retour des données brutes pour analyse
