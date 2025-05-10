@@ -3,7 +3,7 @@ import { AcelleCampaign, AcelleCampaignStatistics, AcelleAccount } from '../../t
 import { createEmptyStatistics } from './campaignStats';
 
 // Flag pour activer/désactiver le mode développeur globalement
-export const DEVELOPER_MODE = true;
+export const DEVELOPER_MODE = false;
 
 // Data generator de statistiques réalistes
 export function generateFakeStats(campaignId: string): AcelleCampaignStatistics {
