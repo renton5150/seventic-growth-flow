@@ -17,8 +17,8 @@ const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Configuration
-const DEFAULT_TIMEOUT = 30000; // 30 seconds default timeout
-const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+const DEFAULT_TIMEOUT = 60000; // 60 seconds default timeout
+const HEARTBEAT_INTERVAL = 60 * 1000; // 60 seconds
 
 // Configuration des niveaux de log
 const LOG_LEVELS = {
