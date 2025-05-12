@@ -1,9 +1,10 @@
 
 import { AcelleCampaign, AcelleCampaignStatistics, AcelleAccount } from '../../types/acelle.types';
 import { createEmptyStatistics } from './campaignStats';
+import { ACELLE_DEV_MODE } from './config';
 
 // Flag pour activer/désactiver le mode développeur globalement
-export const DEVELOPER_MODE = false;
+export const DEVELOPER_MODE = ACELLE_DEV_MODE;
 
 // Data generator de statistiques réalistes
 export function generateFakeStats(campaignId: string): AcelleCampaignStatistics {
@@ -43,18 +44,25 @@ export function generateFakeStats(campaignId: string): AcelleCampaignStatistics 
 // Wrapper pour toutes les fonctions acelle
 export function withDeveloperFallback<T>(
   apiCall: () => Promise<T>,
-  fallbackData: T
+  fallbackData: T,
+  options: { logPrefix?: string; forceUseFallback?: boolean } = {}
 ): Promise<T> {
-  if (!DEVELOPER_MODE) {
-    return apiCall();
+  const { logPrefix = '', forceUseFallback = false } = options;
+  
+  if (DEVELOPER_MODE || forceUseFallback) {
+    console.log(`[DEV MODE]${logPrefix ? ` ${logPrefix}:` : ''} Using fallback data instead of API call`);
+    return new Promise((resolve) => {
+      // Simuler un délai réseau réaliste
+      setTimeout(() => {
+        resolve(fallbackData);
+      }, 500 + Math.random() * 1000); // délai aléatoire entre 500ms et 1.5s
+    });
   }
   
-  console.log("[DEV MODE] Using fallback data instead of API call");
-  return new Promise((resolve) => {
-    // Simuler un délai réseau réaliste
-    setTimeout(() => {
-      resolve(fallbackData);
-    }, 500 + Math.random() * 1000); // délai aléatoire entre 500ms et 1.5s
+  // En cas d'erreur, utiliser le fallback mais log l'erreur
+  return apiCall().catch(error => {
+    console.error(`[API ERROR]${logPrefix ? ` ${logPrefix}:` : ''} Falling back to dev data:`, error);
+    return fallbackData;
   });
 }
 
@@ -168,15 +176,26 @@ export function useDeveloperMode() {
     isDeveloperMode: DEVELOPER_MODE,
     getStats: (campaignId: string) => withDeveloperFallback(
       () => Promise.reject(new Error("API call not implemented")), 
-      mockCampaignStatisticsResponse(campaignId)
+      mockCampaignStatisticsResponse(campaignId),
+      { logPrefix: `Stats for campaign ${campaignId}` }
     ),
     getCampaigns: (count: number = 10) => withDeveloperFallback(
       () => Promise.reject(new Error("API call not implemented")), 
-      generateFakeCampaigns(count)
+      generateFakeCampaigns(count),
+      { logPrefix: `Getting ${count} campaigns` }
     ),
     getSingleCampaign: (id: string) => withDeveloperFallback(
       () => Promise.reject(new Error("API call not implemented")),
-      generateFakeCampaign(id)
-    )
+      generateFakeCampaign(id),
+      { logPrefix: `Getting campaign ${id}` }
+    ),
+    // Nouvelle méthode pour forcer l'utilisation du mode développeur pour un compte spécifique
+    forceDevModeForAccount: (accountId: string): boolean => {
+      // Ici on pourrait implémenter une logique pour forcer le mode développeur
+      // pour certains comptes problématiques comme N2F
+      console.log(`[DEV MODE CHECK] Checking if account ${accountId} should use dev mode`);
+      // Pour l'instant, on retourne false, mais on pourrait implémenter une logique de liste
+      return false;
+    }
   };
 }

@@ -14,18 +14,20 @@ const AcelleEmailCampaigns = () => {
   const { isAdmin, user } = useAuth();
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [lastSessionRefresh, setLastSessionRefresh] = useState<Date | null>(null);
   
   // Vérifier l'état d'authentification au chargement et configurer le rafraîchissement automatique
   useEffect(() => {
     // Fonction pour vérifier l'état d'authentification
     const checkAuth = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         const isAuthenticated = !!data?.session?.access_token;
         
         if (!isAuthenticated && user) {
           setAuthError("Session Supabase expirée. Veuillez vous reconnecter.");
-        } else {
+        } else if (isAuthenticated) {
+          setLastSessionRefresh(new Date());
           setAuthError(null);
         }
       } catch (error) {
@@ -39,7 +41,7 @@ const AcelleEmailCampaigns = () => {
     // Vérifier immédiatement
     checkAuth();
     
-    // Rafraîchir automatiquement la session toutes les 10 minutes pour éviter l'expiration
+    // Rafraîchir automatiquement la session toutes les 5 minutes pour éviter l'expiration
     const sessionRefreshInterval = setInterval(async () => {
       try {
         console.log("Rafraîchissement automatique de la session...");
@@ -50,12 +52,13 @@ const AcelleEmailCampaigns = () => {
           setAuthError("Erreur lors du rafraîchissement automatique de la session.");
         } else if (data && data.session) {
           console.log("Session rafraîchie automatiquement avec succès");
+          setLastSessionRefresh(new Date());
           setAuthError(null);
         }
       } catch (e) {
         console.error("Exception lors du rafraîchissement automatique:", e);
       }
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 5 * 60 * 1000); // 5 minutes au lieu de 10
     
     return () => clearInterval(sessionRefreshInterval);
   }, [user]);
@@ -69,6 +72,7 @@ const AcelleEmailCampaigns = () => {
       
       if (data?.session) {
         setAuthError(null);
+        setLastSessionRefresh(new Date());
         toast.success("Session rafraîchie avec succès", { id: "auth-refresh" });
       } else {
         setAuthError("Impossible de rafraîchir la session. Veuillez vous reconnecter.");
@@ -89,16 +93,21 @@ const AcelleEmailCampaigns = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Campagnes emailing</h1>
-          {authError && (
+          <div className="flex items-center gap-2">
+            {lastSessionRefresh && (
+              <span className="text-xs text-muted-foreground">
+                Session mise à jour: {lastSessionRefresh.toLocaleTimeString()}
+              </span>
+            )}
             <Button 
               variant="outline"
               onClick={handleRefreshAuth}
-              className="border-amber-500 text-amber-500 hover:bg-amber-50"
+              className={authError ? "border-amber-500 text-amber-500 hover:bg-amber-50" : ""}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Rafraîchir la session
             </Button>
-          )}
+          </div>
         </div>
         
         {authError && (

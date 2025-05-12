@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, cache-control',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, cache-control, x-debug-level, x-acelle-key',
   'Content-Type': 'application/json'
 };
 
@@ -26,8 +26,9 @@ serve(async (req: Request) => {
     const campaignId = url.searchParams.get('campaignId') || '63ffcc82abb3e';
     const accountId = url.searchParams.get('accountId');
     const forceRefresh = url.searchParams.get('forceRefresh') === 'true';
+    const debugMode = url.searchParams.get('debug') === 'true';
     
-    console.log(`Paramètres: campaignId=${campaignId}, accountId=${accountId}, forceRefresh=${forceRefresh}`);
+    console.log(`Paramètres: campaignId=${campaignId}, accountId=${accountId}, forceRefresh=${forceRefresh}, debug=${debugMode}`);
     
     if (!accountId) {
       throw new Error("accountId est requis pour obtenir le token API");
@@ -79,22 +80,31 @@ serve(async (req: Request) => {
     // Logging sécurisé du token (premiers caractères seulement)
     console.log(`Token API utilisé (premiers 5 caractères seulement): ${ACELLE_API_TOKEN.substring(0, 5)}...`);
     
+    // Vérifier si l'URL de base se termine par /api/v1
+    let apiBaseUrl = ACELLE_API_BASE_URL;
+    if (apiBaseUrl.endsWith('/api/v1')) {
+      console.log("URL de base contient déjà /api/v1, ajustement pour éviter la duplication");
+      apiBaseUrl = apiBaseUrl.replace(/\/api\/v1$/, '');
+    }
+    
     // Construction de l'URL - CORRIGÉE pour éviter le doublon /api/v1/api/v1/
-    // Remarque: ACELLE_API_BASE_URL contient déjà /api/v1, donc pas besoin de le répéter
-    const apiUrl = `${ACELLE_API_BASE_URL}/campaigns/${campaignId}?api_token=${ACELLE_API_TOKEN}`;
-    console.log(`URL complète (sans token): ${ACELLE_API_BASE_URL}/campaigns/${campaignId}?api_token=***`);
+    const apiUrl = `${apiBaseUrl}/api/v1/campaigns/${campaignId}?api_token=${ACELLE_API_TOKEN}`;
+    console.log(`URL complète (sans token): ${apiBaseUrl}/api/v1/campaigns/${campaignId}?api_token=***`);
     
     // Tester la disponibilité de l'API avant l'appel principal
     try {
       // URL de test également corrigée pour éviter le doublon
-      const testUrl = `${ACELLE_API_BASE_URL}/campaigns?api_token=${ACELLE_API_TOKEN}&page=1&per_page=1`;
-      console.log(`Test de disponibilité de l'API: ${ACELLE_API_BASE_URL}/campaigns?api_token=***&page=1&per_page=1`);
+      const testUrl = `${apiBaseUrl}/api/v1/campaigns?api_token=${ACELLE_API_TOKEN}&page=1&per_page=1`;
+      console.log(`Test de disponibilité de l'API: ${apiBaseUrl}/api/v1/campaigns?api_token=***&page=1&per_page=1`);
       
       const testResponse = await fetch(testUrl, {
         method: "GET",
         headers: {
-          "Accept": "application/json"
-        }
+          "Accept": "application/json",
+          "User-Agent": "Acelle-Test/1.0",
+          "Cache-Control": "no-cache"
+        },
+        signal: AbortSignal.timeout(30000) // 30 secondes de timeout
       });
       
       console.log("Résultat du test de disponibilité:", {
@@ -106,6 +116,8 @@ serve(async (req: Request) => {
       if (!testResponse.ok) {
         const testBody = await testResponse.text();
         console.error("Test API a échoué:", testBody);
+      } else {
+        console.log("Test API réussi, récupération des données principales");
       }
     } catch (testError) {
       console.error("Erreur lors du test de disponibilité:", testError);
@@ -113,13 +125,21 @@ serve(async (req: Request) => {
     
     // Appel principal à l'API
     console.log("Envoi de la requête principale à Acelle...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
+    
     const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "Content-Type": "application/json"
-      }
+        "Content-Type": "application/json",
+        "User-Agent": "Acelle-Test/1.0",
+        "Cache-Control": "no-cache"
+      },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     // Logs de la réponse
     console.log("Statut de la réponse:", response.status);
@@ -138,7 +158,8 @@ serve(async (req: Request) => {
       console.error("Erreur lors du parsing JSON:", error.message);
       return new Response(JSON.stringify({ 
         error: "Échec du parsing JSON", 
-        rawResponse: responseText 
+        rawResponse: responseText,
+        error_details: error instanceof Error ? error.message : "Erreur inconnue"
       }), {
         headers: corsHeaders,
         status: 500
@@ -167,8 +188,8 @@ serve(async (req: Request) => {
         // Ajout de champs manquants pour une compatibilité totale
         uniq_open_count: responseData.unique_open_count || responseData.open_count || 0,
         uniq_open_rate: responseData.unique_open_rate || responseData.open_rate || 0,
-        soft_bounce_count: 0,
-        hard_bounce_count: 0,
+        soft_bounce_count: responseData.soft_bounce_count || 0,
+        hard_bounce_count: responseData.hard_bounce_count || 0,
         abuse_complaint_count: responseData.abuse_complaint_count || 0
       };
       
@@ -213,6 +234,11 @@ serve(async (req: Request) => {
         id: accountData.id,
         name: accountData.name,
         endpoint: ACELLE_API_BASE_URL
+      },
+      api_url: {
+        original: ACELLE_API_BASE_URL,
+        corrected: apiBaseUrl,
+        final: `${apiBaseUrl}/api/v1/campaigns/${campaignId}?api_token=***`
       }
     }), {
       headers: corsHeaders
@@ -223,7 +249,8 @@ serve(async (req: Request) => {
     console.error("Erreur globale:", error.message);
     return new Response(JSON.stringify({ 
       error: "Erreur lors du test de l'API Acelle", 
-      message: error.message 
+      message: error.message,
+      stack: error.stack
     }), {
       headers: corsHeaders,
       status: 500
