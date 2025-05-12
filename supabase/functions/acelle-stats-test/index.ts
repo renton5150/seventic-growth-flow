@@ -80,12 +80,13 @@ serve(async (req: Request) => {
     // Logging sécurisé du token (premiers caractères seulement)
     console.log(`Token API utilisé (premiers 5 caractères seulement): ${ACELLE_API_TOKEN.substring(0, 5)}...`);
     
-    // Vérifier si l'URL de base se termine par /api/v1
+    // Détection plus robuste pour les variations de /api/v1
     let apiBaseUrl = ACELLE_API_BASE_URL;
-    if (apiBaseUrl.endsWith('/api/v1')) {
+    if (apiBaseUrl.match(/\/api\/v1\/?$/)) {
       console.log("URL de base contient déjà /api/v1, ajustement pour éviter la duplication");
-      apiBaseUrl = apiBaseUrl.replace(/\/api\/v1$/, '');
+      apiBaseUrl = apiBaseUrl.replace(/\/api\/v1\/?$/, '');
     }
+    console.log(`URL de base après ajustement: ${apiBaseUrl}`);
     
     // Construction de l'URL - CORRIGÉE pour éviter le doublon /api/v1/api/v1/
     const apiUrl = `${apiBaseUrl}/api/v1/campaigns/${campaignId}?api_token=${ACELLE_API_TOKEN}`;

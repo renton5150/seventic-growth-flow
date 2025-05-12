@@ -17,8 +17,9 @@ const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Configuration
-const DEFAULT_TIMEOUT = 60000; // 60 seconds default timeout
+const DEFAULT_TIMEOUT = 60000; // 60 secondes default timeout - augmenté comme demandé
 const HEARTBEAT_INTERVAL = 60 * 1000; // 60 seconds
+const MAX_RETRIES = 3; // Maximum de tentatives de connexion
 
 // Configuration des niveaux de log
 const LOG_LEVELS = {
@@ -341,6 +342,8 @@ async function fetchCampaignsForAccount(account: any, options: {
   debug?: boolean
 } = {}) {
   const startTime = Date.now();
+  let retryCount = 0;
+  let lastError = null;
   
   try {
     // Update debug level if requested
@@ -436,9 +439,10 @@ async function fetchCampaignsForAccount(account: any, options: {
       };
     }
     
-    // FIXED: Avoid duplicate api/v1 in the URL path
-    // Check if the API endpoint already includes /api/v1
-    const apiPath = apiEndpoint.includes('/api/v1') ? '' : '/api/v1';
+    // Détection plus robuste pour les variations de /api/v1
+    const hasApiV1 = apiEndpoint.match(/\/api\/v1\/?$/);
+    const apiPath = hasApiV1 ? '' : '/api/v1';
+    console.log(`URL finale (sans token) pour ${accountName}: ${apiEndpoint}${apiPath}/campaigns`);
     
     // Use token auth as recommended by Acelle Mail API
     // https://api.acellemail.com/ recommends adding api_token as parameter
@@ -455,165 +459,183 @@ async function fetchCampaignsForAccount(account: any, options: {
     
     debugLog(`Making request to: ${url} with headers:`, headers, LOG_LEVELS.DEBUG);
     
-    // Set up timeout for the request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT);
-    
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      // Log basic response info
-      debugLog(`Response from API for ${accountName}: ${response.status} ${response.statusText}`, {
-        timeTaken: `${Date.now() - startTime}ms`
-      }, LOG_LEVELS.DEBUG);
-
-      // Log response headers for debugging
-      const responseHeadersObj: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        responseHeadersObj[key] = value;
-      });
-      debugLog(`Response headers for ${accountName}:`, responseHeadersObj, LOG_LEVELS.DEBUG);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        debugLog(`Error fetching campaigns for ${accountName}: Status ${response.status}, Response: ${errorText}`, {}, LOG_LEVELS.ERROR);
-        await updateAccountStatus(account.id, `error: API returned ${response.status}`);
-        return { 
-          success: false, 
-          error: `API Error: ${response.status}`, 
-          details: errorText,
-          endpoint: apiEndpoint,
-          diagnostic: {
-            status: response.status,
-            responseHeaders: responseHeadersObj,
-            errorText: errorText.substring(0, 1000),
-            url,
-            timestamp: new Date().toISOString()
-          }
-        };
-      }
-
-      const campaignsData = await response.json();
-      
-      if (!Array.isArray(campaignsData)) {
-        debugLog(`API returned non-array data for ${accountName}:`, campaignsData, LOG_LEVELS.ERROR);
-        await updateAccountStatus(account.id, `error: API returned invalid data format`);
-        return { 
-          success: false, 
-          error: `API returned invalid data format`, 
-          details: typeof campaignsData,
-          endpoint: apiEndpoint,
-          diagnostic: {
-            dataType: typeof campaignsData,
-            sample: JSON.stringify(campaignsData).substring(0, 200),
-            timestamp: new Date().toISOString()
-          }
-        };
-      }
-      
-      debugLog(`Retrieved ${campaignsData.length} campaigns for account ${accountName}`, {
-        timeTaken: `${Date.now() - startTime}ms`
-      }, LOG_LEVELS.INFO);
-      
-      // Debug sample data
-      if (campaignsData.length > 0) {
-        debugLog(`Sample campaign data for ${accountName}:`, campaignsData[0], LOG_LEVELS.DEBUG);
-      }
-      
-      // Update cache for each campaign with improved statistics handling
-      for (const campaign of campaignsData) {
-        // Ensure the delivery_info is properly structured as a JSON object
-        // with all required fields for client-side display
-        const deliveryInfo = {
-          total: parseInt(campaign.statistics?.subscriber_count) || 0,
-          delivered: parseInt(campaign.statistics?.delivered_count) || 0,
-          delivery_rate: parseFloat(campaign.statistics?.delivered_rate) || 0,
-          opened: parseInt(campaign.statistics?.open_count) || 0,
-          unique_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || 0,
-          clicked: parseInt(campaign.statistics?.click_count) || 0,
-          click_rate: parseFloat(campaign.statistics?.click_rate) || 0,
-          bounced: {
-            soft: parseInt(campaign.statistics?.soft_bounce_count) || 0,
-            hard: parseInt(campaign.statistics?.hard_bounce_count) || 0,
-            total: parseInt(campaign.statistics?.bounce_count) || 0
-          },
-          unsubscribed: parseInt(campaign.statistics?.unsubscribe_count) || 0,
-          complained: parseInt(campaign.statistics?.abuse_complaint_count) || 0,
-          unsubscribe_rate: parseFloat(campaign.statistics?.unsubscribe_rate) || 0,
-          bounce_rate: parseFloat(campaign.statistics?.bounce_rate) || 0
-        };
+    // Système de retry en cas de timeout
+    async function attemptFetch() {
+      try {
+        // Set up timeout for the request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT);
         
-        // Log the delivery_info for debugging
-        debugLog(`Storing delivery info for campaign ${campaign.name}:`, deliveryInfo, LOG_LEVELS.DEBUG);
-
-        await supabase.from('email_campaigns_cache').upsert({
-          campaign_uid: campaign.uid,
-          account_id: account.id,
-          name: campaign.name,
-          subject: campaign.subject,
-          status: campaign.status,
-          created_at: campaign.created_at,
-          updated_at: campaign.updated_at,
-          delivery_date: campaign.delivery_at || campaign.run_at,
-          run_at: campaign.run_at,
-          last_error: campaign.last_error,
-          delivery_info: deliveryInfo,
-          cache_updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'campaign_uid'
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          signal: controller.signal
         });
-      }
-
-      // Update last sync time for account
-      await updateAccountStatus(account.id);
-
-      return { 
-        success: true, 
-        count: campaignsData.length,
-        diagnostic: {
-          timeTaken: Date.now() - startTime,
-          url,
-          timestamp: new Date().toISOString()
+        
+        clearTimeout(timeoutId);
+        
+        // Log basic response info
+        debugLog(`Response from API for ${accountName}: ${response.status} ${response.statusText}`, {
+          timeTaken: `${Date.now() - startTime}ms`
+        }, LOG_LEVELS.DEBUG);
+        
+        // Log response headers for debugging
+        const responseHeadersObj: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+          responseHeadersObj[key] = value;
+        });
+        debugLog(`Response headers for ${accountName}:`, responseHeadersObj, LOG_LEVELS.DEBUG);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          debugLog(`Error fetching campaigns for ${accountName}: Status ${response.status}, Response: ${errorText}`, {}, LOG_LEVELS.ERROR);
+          await updateAccountStatus(account.id, `error: API returned ${response.status}`);
+          return { 
+            success: false, 
+            error: `API Error: ${response.status}`, 
+            details: errorText,
+            endpoint: apiEndpoint,
+            diagnostic: {
+              status: response.status,
+              responseHeaders: responseHeadersObj,
+              errorText: errorText.substring(0, 1000),
+              url,
+              timestamp: new Date().toISOString()
+            }
+          };
         }
-      };
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      if (fetchError.name === 'AbortError') {
-        debugLog(`Request to ${apiEndpoint} timed out`, {timeout: options.timeout || DEFAULT_TIMEOUT}, LOG_LEVELS.ERROR);
-        await updateAccountStatus(account.id, 'error: API request timed out');
+        
+        const campaignsData = await response.json();
+        
+        if (!Array.isArray(campaignsData)) {
+          debugLog(`API returned non-array data for ${accountName}:`, campaignsData, LOG_LEVELS.ERROR);
+          await updateAccountStatus(account.id, `error: API returned invalid data format`);
+          return { 
+            success: false, 
+            error: `API returned invalid data format`, 
+            details: typeof campaignsData,
+            endpoint: apiEndpoint,
+            diagnostic: {
+              dataType: typeof campaignsData,
+              sample: JSON.stringify(campaignsData).substring(0, 200),
+              timestamp: new Date().toISOString()
+            }
+          };
+        }
+        
+        debugLog(`Retrieved ${campaignsData.length} campaigns for account ${accountName}`, {
+          timeTaken: `${Date.now() - startTime}ms`
+        }, LOG_LEVELS.INFO);
+        
+        // Debug sample data
+        if (campaignsData.length > 0) {
+          debugLog(`Sample campaign data for ${accountName}:`, campaignsData[0], LOG_LEVELS.DEBUG);
+        }
+        
+        // Update cache for each campaign with improved statistics handling
+        for (const campaign of campaignsData) {
+          // Ensure the delivery_info is properly structured as a JSON object
+          // with all required fields for client-side display
+          const deliveryInfo = {
+            total: parseInt(campaign.statistics?.subscriber_count) || 0,
+            delivered: parseInt(campaign.statistics?.delivered_count) || 0,
+            delivery_rate: parseFloat(campaign.statistics?.delivered_rate) || 0,
+            opened: parseInt(campaign.statistics?.open_count) || 0,
+            unique_open_rate: parseFloat(campaign.statistics?.uniq_open_rate) || 0,
+            clicked: parseInt(campaign.statistics?.click_count) || 0,
+            click_rate: parseFloat(campaign.statistics?.click_rate) || 0,
+            bounced: {
+              soft: parseInt(campaign.statistics?.soft_bounce_count) || 0,
+              hard: parseInt(campaign.statistics?.hard_bounce_count) || 0,
+              total: parseInt(campaign.statistics?.bounce_count) || 0
+            },
+            unsubscribed: parseInt(campaign.statistics?.unsubscribe_count) || 0,
+            complained: parseInt(campaign.statistics?.abuse_complaint_count) || 0,
+            unsubscribe_rate: parseFloat(campaign.statistics?.unsubscribe_rate) || 0,
+            bounce_rate: parseFloat(campaign.statistics?.bounce_rate) || 0
+          };
+          
+          // Log the delivery_info for debugging
+          debugLog(`Storing delivery info for campaign ${campaign.name}:`, deliveryInfo, LOG_LEVELS.DEBUG);
+          
+          await supabase.from('email_campaigns_cache').upsert({
+            campaign_uid: campaign.uid,
+            account_id: account.id,
+            name: campaign.name,
+            subject: campaign.subject,
+            status: campaign.status,
+            created_at: campaign.created_at,
+            updated_at: campaign.updated_at,
+            delivery_date: campaign.delivery_at || campaign.run_at,
+            run_at: campaign.run_at,
+            last_error: campaign.last_error,
+            delivery_info: deliveryInfo,
+            cache_updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'campaign_uid'
+          });
+        }
+        
+        // Update last sync time for account
+        await updateAccountStatus(account.id);
+        
+        return { 
+          success: true, 
+          count: campaignsData.length,
+          diagnostic: {
+            timeTaken: Date.now() - startTime,
+            url,
+            timestamp: new Date().toISOString()
+          }
+        };
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError' && retryCount < MAX_RETRIES) {
+          retryCount++;
+          debugLog(`Request to ${apiEndpoint} timed out, attempt ${retryCount}/${MAX_RETRIES}`, 
+            { timeout: options.timeout || DEFAULT_TIMEOUT }, 
+            LOG_LEVELS.WARN);
+            
+          // Wait a short time before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return attemptFetch(); // Recursive retry
+        }
+        
+        if (fetchError.name === 'AbortError') {
+          debugLog(`Request to ${apiEndpoint} timed out after ${retryCount} retries`, 
+            { timeout: options.timeout || DEFAULT_TIMEOUT }, 
+            LOG_LEVELS.ERROR);
+          await updateAccountStatus(account.id, 'error: API request timed out after multiple attempts');
+          return { 
+            success: false, 
+            error: `Request timed out after ${retryCount} retries`, 
+            endpoint: apiEndpoint,
+            diagnostic: {
+              retries: retryCount,
+              timeout: options.timeout || DEFAULT_TIMEOUT,
+              url,
+              timestamp: new Date().toISOString()
+            }
+          };
+        }
+        
+        debugLog(`Fetch error for ${accountName}:`, fetchError, LOG_LEVELS.ERROR);
+        await updateAccountStatus(account.id, `error: ${fetchError.message}`);
         return { 
           success: false, 
-          error: 'Request timed out', 
+          error: fetchError.message || 'Unknown fetch error',
           endpoint: apiEndpoint,
           diagnostic: {
-            timeout: options.timeout || DEFAULT_TIMEOUT,
+            errorName: fetchError.name,
+            errorMessage: fetchError.message,
             url,
             timestamp: new Date().toISOString()
           }
         };
       }
-      
-      debugLog(`Fetch error for ${accountName}:`, fetchError, LOG_LEVELS.ERROR);
-      await updateAccountStatus(account.id, `error: ${fetchError.message}`);
-      return { 
-        success: false, 
-        error: fetchError.message || 'Unknown fetch error',
-        endpoint: apiEndpoint,
-        diagnostic: {
-          errorName: fetchError.name,
-          errorMessage: fetchError.message,
-          url,
-          timestamp: new Date().toISOString()
-        }
-      };
     }
+    
+    // Execute fetch with retry mechanism
+    return await attemptFetch();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
