@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, cache-control, x-debug-level, x-acelle-key',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, cache-control, x-debug-level, x-acelle-key, x-account-id, x-account-token',
   'Content-Type': 'application/json'
 };
 
@@ -202,6 +202,12 @@ serve(async (req: Request) => {
     try {
       if (responseData && responseData.status) {
         console.log("Tentative de mise à jour du cache de statistiques...");
+        
+        // Stockage de la réponse brute pour référence ultérieure
+        const fullStatisticsData = {
+          ...stats.extractedStats,
+          raw_response: responseText  // Stockage de la réponse brute pour dépannage
+        };
         
         const { error: statsError } = await supabase
           .from("campaign_stats_cache")

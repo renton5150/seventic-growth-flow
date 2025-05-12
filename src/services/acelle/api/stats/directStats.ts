@@ -3,6 +3,7 @@ import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types
 import { ensureValidStatistics } from "./validation";
 import { fetchCampaignStatisticsFromApi, fetchCampaignStatisticsLegacy } from "./apiClient";
 import { createEmptyStatistics, extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
+import { saveCampaignStatistics } from "./cacheManager";
 
 /**
  * Vérifie si les statistiques sont vides ou non initialisées
@@ -74,6 +75,14 @@ export const enrichCampaignsWithStats = async (
       // Vérifier si les statistiques ont été récupérées avec succès
       if (validatedStats && !hasEmptyStatistics(validatedStats)) {
         console.log(`Statistiques récupérées avec succès pour la campagne ${campaignUid}:`, validatedStats);
+        
+        // Stocker les statistiques dans le cache pour une utilisation future
+        try {
+          await saveCampaignStatistics(campaignUid, account.id, validatedStats);
+          console.log(`Statistiques sauvegardées dans la base de données pour ${campaignUid}`);
+        } catch (error) {
+          console.error(`Erreur lors de la sauvegarde des statistiques pour ${campaignUid}:`, error);
+        }
       } else {
         console.warn(`Aucune statistique valide récupérée pour la campagne ${campaignUid}`);
       }
@@ -152,6 +161,17 @@ export const fetchDirectStatistics = async (
     if (stats) {
       const validatedStats = ensureValidStatistics(stats);
       console.log(`Statistiques récupérées avec succès pour ${campaignUid}`, validatedStats);
+      
+      // Stocker les statistiques dans le cache
+      try {
+        if (!hasEmptyStatistics(validatedStats) && account.id) {
+          await saveCampaignStatistics(campaignUid, account.id, validatedStats);
+          console.log(`Statistiques sauvegardées dans la base de données pour ${campaignUid}`);
+        }
+      } catch (error) {
+        console.error(`Erreur lors de la sauvegarde des statistiques pour ${campaignUid}:`, error);
+      }
+      
       return validatedStats;
     } else {
       console.error(`Aucune statistique valide n'a pu être récupérée pour ${campaignUid}`);

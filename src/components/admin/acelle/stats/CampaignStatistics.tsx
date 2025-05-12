@@ -69,16 +69,19 @@ export const CampaignStatistics = ({
   
   const lastUpdatedText = formatLastUpdated();
 
+  // Afficher un message si les statistiques sont vides
+  const isStatsEmpty = !total && !delivered && !opened && !clicked;
+
   return (
     <div className="space-y-6">
       {/* En-tête avec bouton de rafraîchissement */}
-      {onRefresh && (
-        <div className="flex justify-between items-center">
-          <div>
-            {lastUpdatedText && (
-              <p className="text-xs text-muted-foreground">{lastUpdatedText}</p>
-            )}
-          </div>
+      <div className="flex justify-between items-center">
+        <div>
+          {lastUpdatedText && (
+            <p className="text-xs text-muted-foreground">{lastUpdatedText}</p>
+          )}
+        </div>
+        {onRefresh && (
           <Button 
             onClick={onRefresh} 
             size="sm" 
@@ -89,6 +92,13 @@ export const CampaignStatistics = ({
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Rafraîchir les statistiques
           </Button>
+        )}
+      </div>
+      
+      {/* Message si les statistiques sont vides */}
+      {isStatsEmpty && !loading && (
+        <div className="p-4 border rounded-md bg-amber-50 text-amber-800 mb-4">
+          <p className="text-sm">Aucune statistique disponible pour cette campagne. Cliquez sur "Rafraîchir les statistiques" pour récupérer les dernières données.</p>
         </div>
       )}
       
