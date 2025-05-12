@@ -104,7 +104,7 @@ serve(async (req: Request) => {
           "User-Agent": "Acelle-Test/1.0",
           "Cache-Control": "no-cache"
         },
-        signal: AbortSignal.timeout(30000) // 30 secondes de timeout
+        signal: AbortSignal.timeout(60000) // 60 secondes de timeout
       });
       
       console.log("Résultat du test de disponibilité:", {
@@ -126,7 +126,7 @@ serve(async (req: Request) => {
     // Appel principal à l'API
     console.log("Envoi de la requête principale à Acelle...");
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 secondes de timeout
     
     const response = await fetch(apiUrl, {
       method: "GET",
