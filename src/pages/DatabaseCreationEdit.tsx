@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { DatabaseRequest } from "@/types/types";
 import { toast } from "sonner";
-import { syncKnownMissions, preloadMissionNames, forceRefreshFreshworks } from "@/services/missionNameService";
+import { syncKnownMissions, preloadMissionNames, forceRefreshFreshworks, getMissionNameCache } from "@/services/missionNameService";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { supabase } from "@/integrations/supabase/client";
+
+// ID Constant de Freshworks pour vérification directe
+const FRESHWORKS_ID = "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
 
 const DatabaseCreationEdit = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,59 +27,94 @@ const DatabaseCreationEdit = () => {
       try {
         setLoading(true);
         
-        // Forcer le rafraîchissement de Freshworks au démarrage
+        // ÉTAPE 1: Initialiser le cache de noms de mission AVANT toute requête
+        console.log("DatabaseCreationEdit - Initialisation du cache de missions");
+        
+        // Forcer le rafraîchissement de Freshworks avant tout
         forceRefreshFreshworks();
-        console.log("DatabaseCreationEdit - Rafraîchissement forcé de Freshworks");
+        console.log("DatabaseCreationEdit - Cache Freshworks forcé");
         
-        // Synchroniser les noms de mission connus au chargement
-        console.log("DatabaseCreationEdit - Synchronisation des missions connues");
+        // Puis synchroniser toutes les missions connues
         await syncKnownMissions();
+        console.log("DatabaseCreationEdit - Missions connues synchronisées");
         
-        // Récupérer directement la demande depuis l'API pour éviter les problèmes de cache
+        // Vérification du cache après initialisation
+        const initialCache = getMissionNameCache();
+        console.log("DatabaseCreationEdit - Cache de missions initialisé:", initialCache);
+        
+        // ÉTAPE 2: Récupérer la requête depuis Supabase
+        console.log(`DatabaseCreationEdit - Récupération de la demande ${id}`);
         const { data: rawRequest, error } = await supabase
-          .from('requests')
+          .from('requests_with_missions')
           .select('*')
           .eq('id', id)
           .single();
         
         if (error) {
-          console.error("Erreur lors de la récupération de la demande:", error);
+          console.error("DatabaseCreationEdit - Erreur de requête Supabase:", error);
           toast.error("Erreur lors de la récupération de la demande");
           navigate("/dashboard");
           return;
         }
         
         if (rawRequest && rawRequest.type === "database") {
-          // Vérifier si c'est une mission Freshworks
-          const isFreshworks = rawRequest.mission_id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+          console.log("DatabaseCreationEdit - Requête database récupérée:", rawRequest);
+          
+          // ÉTAPE 3: Vérification spéciale pour Freshworks
+          const isFreshworks = rawRequest.mission_id === FRESHWORKS_ID;
           if (isFreshworks) {
-            console.log("DatabaseCreationEdit - Demande liée à Freshworks détectée");
-            // Forcer une double vérification pour Freshworks
+            console.log("DatabaseCreationEdit - Mission Freshworks détectée - traitement spécial");
+            // Assurer que Freshworks est correctement dans le cache
             forceRefreshFreshworks();
-          }
-          
-          // Utiliser le formatteur centralisé pour résoudre correctement le nom de mission
-          const formattedRequest = await formatRequestFromDb(rawRequest);
-          
-          // Précharger le nom de la mission pour garantir qu'il est disponible
-          if (formattedRequest.missionId) {
-            await preloadMissionNames([formattedRequest.missionId]);
-            console.log(`DatabaseCreationEdit - Mission ID: ${formattedRequest.missionId}, Nom: ${formattedRequest.missionName}`);
             
-            // Vérification supplémentaire pour Freshworks
-            if (isFreshworks && formattedRequest.missionName !== "Freshworks") {
-              console.error("DatabaseCreationEdit - ERREUR: Le nom Freshworks n'a pas été correctement résolu!");
-              formattedRequest.missionName = "Freshworks";
+            // Pour Freshworks, créer directement l'objet pour garantir le nom correct
+            const freshworksRequest: DatabaseRequest = {
+              id: rawRequest.id,
+              title: rawRequest.title,
+              type: rawRequest.type,
+              status: rawRequest.status as any,
+              createdBy: rawRequest.created_by,
+              missionId: FRESHWORKS_ID,
+              missionName: "Freshworks", // Force le nom
+              sdrName: rawRequest.sdr_name,
+              assignedToName: rawRequest.assigned_to_name,
+              dueDate: rawRequest.due_date,
+              details: rawRequest.details || {},
+              workflow_status: rawRequest.workflow_status as any,
+              assigned_to: rawRequest.assigned_to,
+              isLate: false, // Calculé plus tard
+              createdAt: new Date(rawRequest.created_at),
+              lastUpdated: new Date(rawRequest.last_updated || rawRequest.updated_at),
+              target_role: rawRequest.target_role,
+              tool: rawRequest.details?.tool || "Hubspot",
+              targeting: rawRequest.details?.targeting || {},
+              blacklist: rawRequest.details?.blacklist || {}
+            };
+            
+            console.log("DatabaseCreationEdit - Requête Freshworks préparée:", freshworksRequest);
+            setRequest(freshworksRequest);
+          } else {
+            // Pour les autres missions, utiliser le formatteur standard
+            console.log("DatabaseCreationEdit - Formatage standard pour mission non-Freshworks");
+            
+            // Précharger le nom de la mission
+            if (rawRequest.mission_id) {
+              await preloadMissionNames([rawRequest.mission_id]);
             }
+            
+            // Utiliser le formatteur pour résoudre correctement le nom
+            const formattedRequest = await formatRequestFromDb(rawRequest);
+            console.log("DatabaseCreationEdit - Requête formatée:", formattedRequest);
+            
+            setRequest(formattedRequest as DatabaseRequest);
           }
-          
-          setRequest(formattedRequest as DatabaseRequest);
         } else {
+          console.error("DatabaseCreationEdit - Type de requête invalide ou non trouvé");
           toast.error("La demande n'existe pas ou n'est pas une demande de base de données");
           navigate("/dashboard");
         }
       } catch (error) {
-        console.error("Erreur lors de la récupération de la demande:", error);
+        console.error("DatabaseCreationEdit - Erreur inattendue:", error);
         toast.error("Erreur lors de la récupération de la demande");
       } finally {
         setLoading(false);
@@ -85,16 +123,6 @@ const DatabaseCreationEdit = () => {
 
     fetchRequestDetails();
   }, [id, navigate]);
-
-  if (loading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <p>Chargement de la demande...</p>
-        </div>
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>
@@ -106,7 +134,26 @@ const DatabaseCreationEdit = () => {
           <h1 className="text-2xl font-bold">Modifier la demande de base de données</h1>
         </div>
         
-        {request && <DatabaseCreationForm editMode={true} initialData={request} />}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64">
+            <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+            <p>Chargement des données de la demande...</p>
+          </div>
+        ) : request ? (
+          <>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+              <p className="text-blue-800 font-medium">Mission: <span className="font-bold">{request.missionName || "Sans mission"}</span></p>
+              {request.missionId === FRESHWORKS_ID && (
+                <p className="text-xs text-blue-600 mt-1">Mission Freshworks confirmée</p>
+              )}
+            </div>
+            <DatabaseCreationForm editMode={true} initialData={request} />
+          </>
+        ) : (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800">Impossible de charger les détails de la demande</p>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

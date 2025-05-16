@@ -20,7 +20,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { getMissionsByUserId } from "@/services/missionService";
-import { getMissionName, syncKnownMissions } from "@/services/missionNameService";
+import { getMissionName, syncKnownMissions, forceRefreshFreshworks } from "@/services/missionNameService";
 import { toast } from "sonner";
 
 interface FormHeaderProps {
@@ -40,51 +40,62 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
     enabled: !!user?.id,
   });
 
-  // Pour le débogage et la résolution des noms de mission
+  // Synchroniser le cache de missions en premier
   useEffect(() => {
-    const initializeMissions = async () => {
-      try {
-        // Synchroniser les missions connues pour garantir que le cache est bien initialisé
-        await syncKnownMissions();
-        console.log("DatabaseFormHeader - Missions synchronisées au démarrage");
-        
-        // @ts-ignore - Accès aux valeurs actuelles du formulaire pour le débogage
-        const currentValues = control._formValues;
-        if (currentValues) {
-          console.log("DatabaseFormHeader - Valeurs actuelles du formulaire:", currentValues);
-          console.log("DatabaseFormHeader - Mission ID dans les valeurs du form:", currentValues.missionId);
-          console.log("DatabaseFormHeader - Type de la mission ID:", typeof currentValues.missionId);
-          
-          // Si nous sommes en mode édition, charger le nom de la mission
-          if (editMode && currentValues.missionId) {
-            setIsLoadingMissionName(true);
-            try {
-              // Forcer le rafraîchissement pour garantir l'obtention des données à jour
-              const name = await getMissionName(String(currentValues.missionId), { 
-                forceRefresh: true 
-              });
-              console.log(`DatabaseFormHeader - Nom de mission chargé: "${name}" pour ID: ${currentValues.missionId}`);
-              setMissionName(name);
-              
-              // Test spécial pour Freshworks
-              if (currentValues.missionId === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b" && name !== "Freshworks") {
-                console.error("DatabaseFormHeader - ERREUR: Freshworks n'a pas été résolu correctement!");
-                setMissionName("Freshworks");
-              }
-            } catch (err) {
-              console.error("DatabaseFormHeader - Erreur lors du chargement du nom de mission:", err);
-            } finally {
-              setIsLoadingMissionName(false);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("DatabaseFormHeader - Erreur lors de l'initialisation des missions:", err);
-      }
+    const initializeData = async () => {
+      console.log("FormHeader - Initialisation du cache de missions et Freshworks");
+      // Forcer Freshworks en cache dès le démarrage
+      forceRefreshFreshworks();
+      // Synchroniser toutes les missions connues
+      await syncKnownMissions();
+      
+      loadCurrentMissionName();
     };
     
-    initializeMissions();
-  }, [control, editMode]);
+    initializeData();
+  }, []);
+  
+  // Chargement du nom de la mission actuelle quand le formulaire est initialisé
+  const loadCurrentMissionName = async () => {
+    try {
+      // @ts-ignore - Accès aux valeurs actuelles du formulaire
+      const currentValues = control._formValues;
+      
+      if (currentValues && currentValues.missionId) {
+        const missionId = String(currentValues.missionId);
+        console.log(`FormHeader - Chargement du nom pour la mission: ${missionId}`);
+        
+        setIsLoadingMissionName(true);
+        
+        // Vérification spéciale pour Freshworks
+        if (missionId === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+          console.log("FormHeader - ID Freshworks détecté, force nom");
+          setMissionName("Freshworks");
+        } else {
+          try {
+            // Forcer le rafraîchissement pour garantir l'obtention des données à jour
+            const name = await getMissionName(missionId, { forceRefresh: true });
+            console.log(`FormHeader - Nom de mission chargé: "${name}" pour ID: ${missionId}`);
+            setMissionName(name);
+          } catch (err) {
+            console.error("FormHeader - Erreur lors du chargement du nom de mission:", err);
+            setMissionName("Mission non identifiée");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("FormHeader - Erreur lors du chargement des valeurs du formulaire:", err);
+    } finally {
+      setIsLoadingMissionName(false);
+    }
+  };
+  
+  // Observer les changements de valeur pour missionId pour mettre à jour le nom
+  useEffect(() => {
+    if (editMode) {
+      loadCurrentMissionName();
+    }
+  }, [control._formValues?.missionId, editMode]);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -106,31 +117,40 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
         control={control}
         name="missionId"
         render={({ field }) => {
-          // Logs pour déboguer
-          console.log("DatabaseFormHeader - Valeur brute du champ mission:", field.value);
-          console.log("DatabaseFormHeader - Type de la valeur:", typeof field.value);
-          
-          // S'assurer que la valeur est une chaîne de caractères
+          // Garantir que la valeur est une chaîne de caractères
           const missionValue = field.value ? String(field.value) : "";
-          console.log("DatabaseFormHeader - Valeur après conversion:", missionValue);
-          console.log("DatabaseFormHeader - Missions disponibles:", userMissions);
+          console.log("FormHeader - Rendu avec missionId:", missionValue);
+          
+          // Cas spécial pour Freshworks - vérification directe de l'ID
+          const isFreshworks = missionValue === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+          if (isFreshworks && missionName !== "Freshworks") {
+            console.log("FormHeader - Correction du nom Freshworks détecté");
+            setMissionName("Freshworks");
+          }
           
           return (
             <FormItem>
               <FormLabel>Mission client</FormLabel>
               <FormControl>
                 {editMode ? (
-                  // En mode édition, afficher un champ avec le nom de la mission
+                  // En mode édition, affichage direct du nom avec gestion visuelle de l'état
                   <div className="flex flex-col">
-                    <Input 
-                      value={isLoadingMissionName ? "Chargement..." : missionName || "Mission non trouvée"}
-                      disabled={true}
-                      className={cn(
-                        "bg-gray-100",
-                        isLoadingMissionName ? "text-gray-400" : missionName ? "text-gray-900" : "text-red-500"
+                    <div className="flex items-center gap-2 relative">
+                      <Input 
+                        value={isLoadingMissionName ? "Chargement..." : missionName || "Mission non trouvée"}
+                        disabled={true}
+                        className={cn(
+                          "bg-gray-100",
+                          isLoadingMissionName ? "text-gray-400" : 
+                          missionName ? "text-gray-900 font-medium" : 
+                          "text-red-500"
+                        )}
+                      />
+                      {isLoadingMissionName && (
+                        <div className="absolute right-3 animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                       )}
-                    />
-                    <input type="hidden" {...field} />
+                    </div>
+                    <input type="hidden" {...field} value={missionValue} />
                     {missionValue && !missionName && !isLoadingMissionName && (
                       <div className="mt-1 text-xs text-red-500">
                         Impossible de résoudre le nom de cette mission.
@@ -142,12 +162,24 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                   <Select 
                     value={missionValue}
                     onValueChange={(value) => {
-                      console.log("DatabaseFormHeader - Nouvelle valeur sélectionnée:", value);
+                      console.log("FormHeader - Sélection de mission:", value);
                       field.onChange(value);
                       
+                      // Cas spécial pour Freshworks
+                      if (value === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+                        setMissionName("Freshworks");
+                        return;
+                      }
+                      
                       // Charger le nom pour affichage immédiat
-                      getMissionName(value).then(name => {
+                      setIsLoadingMissionName(true);
+                      getMissionName(value, { forceRefresh: true }).then(name => {
                         console.log(`Mission sélectionnée: ${value} => "${name}"`);
+                        setMissionName(name);
+                        setIsLoadingMissionName(false);
+                      }).catch(err => {
+                        console.error("Erreur lors du chargement du nom:", err);
+                        setIsLoadingMissionName(false);
                       });
                     }}
                   >

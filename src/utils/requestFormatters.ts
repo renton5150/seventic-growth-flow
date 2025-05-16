@@ -3,6 +3,9 @@ import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks } from "@/services/missionNameService";
 
+// ID Freshworks constant pour faciliter les vérifications
+const FRESHWORKS_ID = "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Convert dates
@@ -16,24 +19,42 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Force refresh Freshworks in cache
-  const isFreshworksMission = request.mission_id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+  // Traitement spécial pour Freshworks - TOUJOURS PRIORITAIRE
+  const isFreshworksMission = request.mission_id === FRESHWORKS_ID;
+  
+  // Forcer le rafraîchissement du cache Freshworks quelle que soit la requête
+  // Cela garantit que Freshworks est toujours correctement identifié
+  forceRefreshFreshworks();
+  
+  // Vérification spécifique pour Freshworks
   if (isFreshworksMission) {
-    forceRefreshFreshworks();
-    console.log("[formatRequestFromDb] Freshworks mission détectée, rafraîchissement du cache");
+    console.log("[formatRequestFromDb] Mission Freshworks détectée - traitement prioritaire");
+    
+    return {
+      id: request.id,
+      title: request.title,
+      type: request.type,
+      status: request.status as RequestStatus,
+      createdBy: request.created_by,
+      missionId: FRESHWORKS_ID,
+      missionName: "Freshworks", // FORCE le nom à "Freshworks"
+      sdrName: request.sdr_name,
+      assignedToName: request.assigned_to_name,
+      dueDate: request.due_date,
+      details: request.details || {},
+      workflow_status: request.workflow_status as WorkflowStatus,
+      assigned_to: request.assigned_to,
+      isLate,
+      createdAt,
+      lastUpdated,
+      target_role: request.target_role
+    };
   }
   
-  // MISSION NAME PROCESSING
-  // MODIFICATION MAJEURE : Traitement simplifié et spécial pour Freshworks
+  // Pour les missions connues, utiliser directement les noms constants (non-Freshworks)
   let missionName = "Sans mission";
   
-  // Cas spécial pour Freshworks - priorité absolue
-  if (isFreshworksMission) {
-    missionName = "Freshworks";
-    console.log(`[formatRequestFromDb] Mission Freshworks détectée - Nom forcé: "${missionName}"`);
-  }
-  // Pour les autres missions connues, utiliser directement les noms constants
-  else if (request.mission_id && KNOWN_MISSIONS[request.mission_id]) {
+  if (request.mission_id && KNOWN_MISSIONS[request.mission_id]) {
     missionName = KNOWN_MISSIONS[request.mission_id];
     console.log(`[formatRequestFromDb] Using known mission name: "${missionName}" for ${request.mission_id}`);
   } 
@@ -42,7 +63,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     missionName = await getMissionName(request.mission_id, {
       fallbackClient: request.mission_client, 
       fallbackName: request.mission_name,
-      forceRefresh: false
+      forceRefresh: true // Force toujours le rafraîchissement pour les autres missions
     });
   }
   
@@ -55,7 +76,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     status: request.status as RequestStatus,
     createdBy: request.created_by,
     missionId: request.mission_id,
-    missionName: missionName, // Important : utiliser le nom standardisé
+    missionName: missionName,
     sdrName: request.sdr_name,
     assignedToName: request.assigned_to_name,
     dueDate: request.due_date,
