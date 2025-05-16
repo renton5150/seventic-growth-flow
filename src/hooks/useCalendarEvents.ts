@@ -1,5 +1,6 @@
 
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react"; // Add proper React import
 import { getAllRequests } from "@/services/requestService";
 import { useCalendarDates } from "./calendar/useCalendarDates";
 import { useMissionData } from "./calendar/useMissionData";
@@ -8,7 +9,7 @@ import { syncKnownMissions } from "@/services/missionNameService";
 
 export const useCalendarEvents = (userId: string | undefined) => {
   // Synchroniser les missions connues au démarrage
-  React.useEffect(() => {
+  useEffect(() => {
     syncKnownMissions();
   }, []);
 
