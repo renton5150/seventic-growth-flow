@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request } from "@/types/types";
@@ -45,8 +46,9 @@ export const useDashboardRequests = () => {
         console.log(`Requêtes récupérées pour le tableau de bord: ${data.length}`, 
                     isSDR ? "pour le SDR" : "pour Admin/Growth");
         
-        // Traiter les données avec formatRequestFromDb
-        return data.map((req: any) => formatRequestFromDb(req));
+        // Traiter les données avec formatRequestFromDb - et attendre les résultats des promesses
+        const formattedRequests = await Promise.all(data.map((req: any) => formatRequestFromDb(req)));
+        return formattedRequests;
       } catch (err) {
         console.error("Exception lors de la récupération des requêtes:", err);
         return [];
@@ -78,8 +80,7 @@ export const useDashboardRequests = () => {
 
     if (isSDR && userMissions.length) {
       // Pour les SDR, ne montrer que les requêtes qu'ils ont créées
-      // Cet effet est maintenant redondant avec le filtre dans la requête,
-      // mais gardons-le pour une double vérification
+      // allRequests est maintenant correctement typé comme Request[] et non Promise<Request>[]
       const filteredRequests = allRequests.filter(request => request.createdBy === user?.id);
       setRequests(filteredRequests);
     } else {

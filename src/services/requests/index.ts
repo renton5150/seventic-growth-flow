@@ -11,7 +11,7 @@ import { updateEmailRequest } from "./emailRequestService";
 import { updateDatabaseRequest } from "./databaseRequestService";
 import { updateLinkedInRequest } from "./linkedinRequestService";
 import { supabase } from "@/integrations/supabase/client";
-import { formatRequestFromDb } from "./utils";
+import { formatRequestFromDb } from "../utils/requestFormatters";
 
 /**
  * Type guard to check if an object has a template property
@@ -85,7 +85,8 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
         return undefined;
       }
 
-      return formatRequestFromDb(updatedRequest);
+      // Make sure to await the result of formatRequestFromDb
+      return await formatRequestFromDb(updatedRequest);
     }
   } catch (error) {
     console.error("Erreur inattendue lors de la mise à jour de la requête:", error);

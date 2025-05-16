@@ -37,7 +37,8 @@ export const useRequestDetails = () => {
         
         console.log("Données brutes de la requête récupérée:", data);
         
-        const formattedRequest = formatRequestFromDb(data);
+        // Attendre la résolution de la promesse retournée par formatRequestFromDb
+        const formattedRequest = await formatRequestFromDb(data);
         setRequest(formattedRequest);
         
         if (formattedRequest.workflow_status) {
