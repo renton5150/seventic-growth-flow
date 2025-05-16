@@ -73,7 +73,7 @@ export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => 
 // Alias function for backward compatibility
 export const getMissionsByUserId = getMissionsBySdrId;
 
-// Implementation of getMissionsByGrowthId with fixed joining syntax
+// Fixed implementation of getMissionsByGrowthId with improved error handling and logging
 export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
@@ -85,7 +85,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
 
     console.log(`DEBUG - Récupération missions pour Growth ID: ${growthId}`);
 
-    // Fix the query by specifying the foreign key for profiles explicitly
+    // Improved query with better column specification and proper join syntax
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -101,18 +101,31 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
         end_date,
         created_at,
         updated_at,
-        profiles(id, name, email)
+        profiles!sdr_id (id, name, email)
       `)
       .eq('growth_id', growthId)
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error(`Erreur lors de la récupération des missions pour Growth ID ${growthId}:`, error);
-      return [];
+      
+      // Fallback query if the first one fails - try without the join
+      console.log("Tentative de récupération sans jointure...");
+      const { data: fallbackMissions, error: fallbackError } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('growth_id', growthId)
+        .order('created_at', { ascending: false });
+        
+      if (fallbackError || !fallbackMissions || fallbackMissions.length === 0) {
+        console.error("Échec de la récupération, même sans jointure:", fallbackError);
+        return [];
+      }
+      
+      console.log(`Récupération sans jointure réussie: ${fallbackMissions.length} missions trouvées`);
+      return fallbackMissions.map(mission => mapSupaMissionToMission(mission));
     }
 
-    console.log(`SUCCÈS - ${missions?.length || 0} missions trouvées pour Growth ID ${growthId}:`, missions);
-    
     if (!missions || missions.length === 0) {
       console.log(`ATTENTION - Aucune mission associée au Growth ID ${growthId}`);
       
@@ -124,24 +137,44 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
         
       console.log("DEBUG - Échantillon des missions disponibles:", allMissions);
       
+      // Tenter une recherche alternative si aucune mission n'a été trouvée
+      console.log("Tentative de récupération de toutes les missions (limité à 50)...");
+      const { data: alternateMissions } = await supabase
+        .from('missions')
+        .select('*')
+        .limit(50);
+        
+      if (alternateMissions && alternateMissions.length > 0) {
+        console.log(`DEBUG - ${alternateMissions.length} missions trouvées au total dans la base`);
+        
+        // Vérifier si le growth_id existe dans l'une de ces missions
+        const growthMissions = alternateMissions.filter(m => m.growth_id === growthId);
+        if (growthMissions.length > 0) {
+          console.log(`DEBUG - ${growthMissions.length} missions trouvées par recherche alternative`);
+          return growthMissions.map(mission => mapSupaMissionToMission(mission));
+        }
+      }
+      
       return [];
     }
     
-    // Mapper les données de mission au format attendu
+    console.log(`SUCCÈS - ${missions.length} missions trouvées pour Growth ID ${growthId}`);
+    
+    // Mapper les données de mission au format attendu avec gestion améliorée des noms
     const mappedMissions = missions.map(mission => {
-      // Get profile data from the joined profiles table
-      // Handle the case where profiles could be an array due to the join
-      const profileData = Array.isArray(mission.profiles) && mission.profiles.length > 0 
-        ? mission.profiles[0] 
-        : (mission.profiles || null);
+      // Get profile data from the joined profiles table - handle both object and array formats
+      const profileData = mission.profiles ? (
+        Array.isArray(mission.profiles) ? mission.profiles[0] : mission.profiles
+      ) : null;
       
+      // Improved mission name handling - prioritize client name if available
       const missionName = mission.client && mission.client !== mission.name 
         ? mission.client 
         : (mission.name || `Mission ${mission.id.substring(0, 6)}`);
       
       const mappedMission: Mission = {
         id: mission.id,
-        name: missionName,
+        name: mission.name || `Mission ${mission.id.substring(0, 6)}`,
         sdrId: mission.sdr_id || "",
         description: mission.description || "",
         createdAt: new Date(mission.created_at),

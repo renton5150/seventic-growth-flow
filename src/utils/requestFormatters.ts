@@ -19,13 +19,38 @@ export const formatRequestFromDb = (request: any): Request => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Prioritize client name if it differs from mission name
+  // Enhanced mission name selection logic with multiple fallbacks
   let missionName = "Sans mission";
   
-  if (request.mission_client && request.mission_name !== request.mission_client) {
+  // Step 1: Check if we have a mission_client value that differs from mission_name
+  if (request.mission_client && request.mission_name && request.mission_client !== request.mission_name) {
     missionName = request.mission_client;
-  } else if (request.mission_name) {
+    console.log(`[formatRequestFromDb] Using mission_client: "${missionName}"`);
+  } 
+  // Step 2: Check if we have a mission_client value (even if it's the same as mission_name)
+  else if (request.mission_client) {
+    missionName = request.mission_client;
+    console.log(`[formatRequestFromDb] Using mission_client: "${missionName}"`);
+  }
+  // Step 3: Check if we have a mission_name value
+  else if (request.mission_name) {
     missionName = request.mission_name;
+    console.log(`[formatRequestFromDb] Using mission_name: "${missionName}"`);
+  }
+  // Step 4: Check if we have a mission_id but no name - try to use part of the ID
+  else if (request.mission_id) {
+    missionName = `Mission ${String(request.mission_id).substring(0, 8)}`;
+    console.log(`[formatRequestFromDb] Using generated name from mission_id: "${missionName}"`);
+  }
+  // Step 5: Default to "Sans mission" if nothing else is available
+  else {
+    console.log(`[formatRequestFromDb] No mission information available - using default: "${missionName}"`);
+  }
+  
+  // Final fallback - check for empty or "null" strings which sometimes appear in the data
+  if (missionName === "null" || missionName === "" || missionName === "undefined") {
+    missionName = "Sans mission";
+    console.log(`[formatRequestFromDb] Invalid mission name detected - using default: "${missionName}"`);
   }
   
   console.log(`[formatRequestFromDb] Final mission name for request ${request.id}: "${missionName}"`);

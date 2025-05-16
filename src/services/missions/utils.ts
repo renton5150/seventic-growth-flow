@@ -161,11 +161,21 @@ export const updateSupaMission = async (missionData: any) => {
 
 /**
  * Maps a Supabase mission data object to the Mission type used in the application
+ * with enhanced handling of mission names and client information
  */
 export const mapSupaMissionToMission = (mission: any): Mission => {
-  // Extract SDR profile information 
+  // Extract SDR profile information - handle both array and object formats
   // When we join with profiles, Supabase returns it as an object under the relation name
-  const sdrProfile = mission.profiles || null;
+  // or as an array of objects in newer versions of the API
+  let sdrProfile = null;
+  
+  if (mission.profiles) {
+    if (Array.isArray(mission.profiles) && mission.profiles.length > 0) {
+      sdrProfile = mission.profiles[0];
+    } else {
+      sdrProfile = mission.profiles;
+    }
+  }
   
   // Log the mission data and extracted profile for debugging
   console.log('Mapping mission to display format:', {
