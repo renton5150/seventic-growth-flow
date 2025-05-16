@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Cache global pour les noms de mission
@@ -13,7 +12,8 @@ export const KNOWN_MISSIONS: Record<string, string> = {
   "41a43fba-74e3-46e2-a6a9-6ebeb2d1e5ea": "Eiffage",
   "bdb6b562-f9ef-49cd-b035-b48d7df054e8": "Seventic",
   "124ea847-cf3f-44af-becb-75641ebf0ef1": "Datalit",
-  "f34e4f08-34c6-4419-b79e-83b6f519f8cf": "Sames"
+  "f34e4f08-34c6-4419-b79e-83b6f519f8cf": "Sames",
+  "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b": "Freshworks" // Ajout de l'ID Freshworks
 };
 
 // Fonction pour synchroniser les missions connues avec la base de données

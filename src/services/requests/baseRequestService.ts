@@ -1,7 +1,8 @@
 
 import { Request, RequestStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
-import { formatRequestFromDb } from "./utils";
+import { formatRequestFromDb } from "@/utils/requestFormatters";
+import { preloadMissionNames } from "@/services/missionNameService";
 
 /**
  * Obtenir toutes les requêtes
@@ -18,8 +19,18 @@ export const getAllRequests = async (): Promise<Request[]> => {
       return [];
     }
 
+    // Précharger les noms de missions pour optimiser les performances
+    const missionIds = requests
+      .map(req => req.mission_id)
+      .filter((id): id is string => !!id);
+      
+    if (missionIds.length > 0) {
+      // Déclencher le préchargement en parallèle
+      preloadMissionNames(missionIds);
+    }
+
     // Adapter les données au format attendu par l'application
-    return requests.map(request => formatRequestFromDb(request));
+    return Promise.all(requests.map(request => formatRequestFromDb(request)));
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des requêtes:", error);
     return [];
@@ -31,6 +42,8 @@ export const getAllRequests = async (): Promise<Request[]> => {
  */
 export const getRequestById = async (requestId: string): Promise<Request | undefined> => {
   try {
+    console.log(`[getRequestById] Récupération de la requête ${requestId}`);
+    
     const { data: request, error } = await supabase
       .from('requests')
       .select('*')
@@ -42,7 +55,8 @@ export const getRequestById = async (requestId: string): Promise<Request | undef
       return undefined;
     }
 
-    return formatRequestFromDb(request);
+    // Utiliser le formatteur centralisé qui gère correctement les noms de mission
+    return await formatRequestFromDb(request);
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération de la requête:", error);
     return undefined;
@@ -65,7 +79,7 @@ export const getRequestsByMissionId = async (missionId: string): Promise<Request
       return [];
     }
 
-    return requests.map(request => formatRequestFromDb(request));
+    return Promise.all(requests.map(request => formatRequestFromDb(request)));
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des requêtes par mission:", error);
     return [];

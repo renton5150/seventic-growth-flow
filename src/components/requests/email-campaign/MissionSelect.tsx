@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMissionName, preloadMissionNames } from "@/services/missionNameService";
+import { getMissionName, preloadMissionNames, syncKnownMissions } from "@/services/missionNameService";
 
 export function MissionSelect() {
   const [missions, setMissions] = useState<{ id: string; name: string; displayName: string }[]>([]);
@@ -20,11 +20,17 @@ export function MissionSelect() {
   const { register, setValue, watch } = useFormContext();
   const { user } = useAuth();
   const isSDR = user?.role === 'sdr';
+  const selectedMissionId = watch("missionId");
 
   useEffect(() => {
     const fetchMissions = async () => {
       setLoading(true);
       try {
+        console.log("MissionSelect - Démarrage du chargement des missions");
+        
+        // Synchroniser d'abord les missions connues pour s'assurer que le cache est à jour
+        await syncKnownMissions();
+        
         let query = supabase.from("missions").select("id, name, client");
         
         if (isSDR && user?.id) {
@@ -45,6 +51,7 @@ export function MissionSelect() {
             .filter((id): id is string => !!id);
             
           if (missionIds.length > 0) {
+            console.log(`MissionSelect - Préchargement de ${missionIds.length} noms de mission`);
             await preloadMissionNames(missionIds);
           }
           
@@ -53,8 +60,11 @@ export function MissionSelect() {
             data.map(async mission => {
               const displayName = await getMissionName(mission.id, {
                 fallbackClient: mission.client,
-                fallbackName: mission.name
+                fallbackName: mission.name,
+                forceRefresh: true // Forcer le rafraîchissement pour obtenir les données les plus récentes
               });
+              
+              console.log(`MissionSelect - Mission ${mission.id}: "${displayName}"`);
               
               return {
                 id: mission.id,
@@ -69,6 +79,7 @@ export function MissionSelect() {
             new Map(missionsWithDisplayName.map(item => [item.id, item])).values()
           );
           
+          console.log(`MissionSelect - ${uniqueMissions.length} missions uniques chargées`);
           setMissions(uniqueMissions);
         }
       } catch (error) {
@@ -80,12 +91,45 @@ export function MissionSelect() {
 
     fetchMissions();
   }, [isSDR, user?.id]);
+  
+  // Effet pour vérifier si la mission sélectionnée existe dans la liste chargée
+  useEffect(() => {
+    if (!loading && selectedMissionId && missions.length > 0) {
+      const missionExists = missions.some(m => m.id === selectedMissionId);
+      if (!missionExists) {
+        console.log(`MissionSelect - Mission sélectionnée ${selectedMissionId} non trouvée dans la liste chargée`);
+        
+        // Tenter de récupérer le nom de la mission sélectionnée
+        const fetchSelectedMissionName = async () => {
+          try {
+            const name = await getMissionName(selectedMissionId, { forceRefresh: true });
+            console.log(`MissionSelect - Nom récupéré pour la mission ${selectedMissionId}: "${name}"`);
+            
+            // Ajouter la mission à la liste si elle n'y est pas déjà
+            setMissions(prev => {
+              if (!prev.some(m => m.id === selectedMissionId)) {
+                return [...prev, { 
+                  id: selectedMissionId, 
+                  name: name, 
+                  displayName: name 
+                }];
+              }
+              return prev;
+            });
+          } catch (err) {
+            console.error("Erreur lors de la récupération du nom de la mission sélectionnée:", err);
+          }
+        };
+        
+        fetchSelectedMissionName();
+      }
+    }
+  }, [selectedMissionId, missions, loading]);
 
   const handleMissionChange = (value: string) => {
+    console.log(`MissionSelect - Mission sélectionnée: ${value}`);
     setValue("missionId", value, { shouldValidate: true });
   };
-
-  const selectedMissionId = watch("missionId");
   
   return (
     <div className="space-y-2">
@@ -108,7 +152,7 @@ export function MissionSelect() {
             ) : missions.length > 0 ? (
               missions.map((mission) => (
                 <SelectItem key={mission.id} value={mission.id}>
-                  {mission.displayName}
+                  {mission.displayName || mission.name}
                 </SelectItem>
               ))
             ) : (

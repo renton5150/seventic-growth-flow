@@ -8,6 +8,8 @@ import { ChevronLeft } from "lucide-react";
 import { getRequestById } from "@/services/requestService";
 import { EmailCampaignRequest } from "@/types/types";
 import { toast } from "sonner";
+import { syncKnownMissions, preloadMissionNames } from "@/services/missionNameService";
+import { formatRequestFromDb } from "@/utils/requestFormatters";
 
 const EmailCampaignEdit = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,19 +23,43 @@ const EmailCampaignEdit = () => {
       
       try {
         setLoading(true);
-        const fetchedRequest = await getRequestById(id);
         
-        if (fetchedRequest && fetchedRequest.type === "email") {
+        // Synchroniser les noms de mission connus au chargement
+        await syncKnownMissions();
+        
+        // Récupérer directement la demande depuis l'API
+        const { data: rawRequest, error } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) {
+          toast.error("Erreur lors de la récupération de la demande");
+          navigate("/dashboard");
+          return;
+        }
+        
+        if (rawRequest && rawRequest.type === "email") {
+          // Utiliser le formatteur centralisé qui résout correctement les noms de mission
+          const formattedRequest = await formatRequestFromDb(rawRequest);
+          
+          // Précharger les noms de mission pour de meilleures performances
+          if (formattedRequest.missionId) {
+            await preloadMissionNames([formattedRequest.missionId]);
+          }
+          
           // Explicitement convertir missionId en string pour éviter les problèmes de type
           const preparedRequest = {
-            ...fetchedRequest,
-            missionId: fetchedRequest.missionId ? String(fetchedRequest.missionId) : "",
+            ...formattedRequest,
+            missionId: formattedRequest.missionId ? String(formattedRequest.missionId) : "",
           };
+          
           setRequest(preparedRequest as EmailCampaignRequest);
           
           console.log("EmailCampaignEdit - Requête récupérée:", preparedRequest);
           console.log("EmailCampaignEdit - Mission ID:", preparedRequest.missionId);
-          console.log("EmailCampaignEdit - Type de mission ID:", typeof preparedRequest.missionId);
+          console.log("EmailCampaignEdit - Mission Name:", preparedRequest.missionName);
         } else {
           toast.error("La demande n'existe pas ou n'est pas une campagne email");
           navigate("/dashboard");
