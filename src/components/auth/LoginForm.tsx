@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,50 +19,17 @@ export const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("checking");
+  const [networkStatus, setNetworkStatus] = useState<"online" | "offline" | "checking">("online"); // Définir comme "online" par défaut
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Check network connection and Supabase availability on load
+  // Ne vérifie que le statut de connexion du navigateur
   useEffect(() => {
-    const checkConnection = async () => {
-      setNetworkStatus("checking");
-      
-      // Check internet connection
-      if (!navigator.onLine) {
-        setNetworkStatus("offline");
-        setError("Vous semblez être hors ligne. Vérifiez votre connexion internet.");
-        return;
-      }
-      
-      // Check Supabase connection
-      try {
-        const start = Date.now();
-        const { error } = await supabase.from("missions").select("id").limit(1);
-        const elapsed = Date.now() - start;
-        
-        if (error) {
-          console.error("Failed to connect to Supabase:", error);
-          setNetworkStatus("offline");
-          setError(`Problème de connexion au serveur: ${error.message}`);
-        } else {
-          console.log(`Supabase connection OK (${elapsed}ms)`);
-          setNetworkStatus("online");
-          setError(null);
-        }
-      } catch (err) {
-        console.error("Error testing connection:", err);
-        setNetworkStatus("offline");
-        setError("Impossible de se connecter au serveur. Veuillez réessayer plus tard.");
-      }
-    };
-    
-    checkConnection();
-    
-    // Watch for connectivity changes
+    // Uniquement mettre à jour le statut de connexion en fonction du navigateur
     const handleOnline = () => {
       console.log("Network connection restored");
-      checkConnection();
+      setNetworkStatus("online");
+      setError(null);
     };
     
     const handleOffline = () => {
@@ -71,6 +37,9 @@ export const LoginForm = () => {
       setNetworkStatus("offline");
       setError("Vous êtes hors ligne. Vérifiez votre connexion internet.");
     };
+    
+    // Définir le statut initial
+    setNetworkStatus(navigator.onLine ? "online" : "offline");
     
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -197,31 +166,9 @@ export const LoginForm = () => {
   };
 
   const retryConnection = () => {
-    setNetworkStatus("checking");
-    setError(null);
-    
-    // Trigger connection check
-    const checkConnection = async () => {
-      try {
-        const { error } = await supabase.from("missions").select("id").limit(1);
-        
-        if (error) {
-          console.error("Failed to connect to Supabase:", error);
-          setNetworkStatus("offline");
-          setError(`Problème de connexion au serveur: ${error.message}`);
-        } else {
-          console.log("Supabase connection OK");
-          setNetworkStatus("online");
-          setError(null);
-        }
-      } catch (err) {
-        console.error("Error testing connection:", err);
-        setNetworkStatus("offline");
-        setError("Impossible de se connecter au serveur. Veuillez réessayer plus tard.");
-      }
-    };
-    
-    checkConnection();
+    // Simple vérification basée sur le statut de connexion du navigateur
+    setNetworkStatus(navigator.onLine ? "online" : "offline");
+    setError(navigator.onLine ? null : "Vous êtes hors ligne. Vérifiez votre connexion internet.");
   };
 
   return (
@@ -241,7 +188,9 @@ export const LoginForm = () => {
         
         <ConnectionStatus 
           status={networkStatus} 
-          onRetry={retryConnection} 
+          onRetry={retryConnection}
+          error={error}
+          retryCount={0}
         />
         
         <ErrorMessage error={error} />

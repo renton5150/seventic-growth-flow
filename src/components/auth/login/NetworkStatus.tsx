@@ -16,23 +16,12 @@ export const NetworkStatus = ({
   onRetry,
   retryCount = 0 
 }: NetworkStatusProps) => {
-  // Ne rien afficher si tout est ok
-  if (status === "online" && !error) {
+  // Ne rien afficher si tout est ok ou si on vérifie simplement la connexion
+  if (status === "online" || status === "checking") {
     return null;
   }
   
-  // Afficher un indicateur de chargement pendant la vérification
-  if (status === "checking") {
-    return (
-      <Alert className="mb-4 bg-blue-50 border-blue-200">
-        <AlertDescription className="flex items-center">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Vérification de la connexion...
-        </AlertDescription>
-      </Alert>
-    );
-  }
-  
+  // N'afficher une alerte que si on est vraiment hors ligne
   return (
     <>
       {status === "offline" && (
@@ -40,9 +29,7 @@ export const NetworkStatus = ({
           <div className="flex items-center">
             <WifiOff className="h-4 w-4 mr-2" />
             <AlertDescription>
-              {retryCount > 2 
-                ? "Problème de connexion persistant" 
-                : "Problème de connexion au serveur"}
+              Problème de connexion au serveur
             </AlertDescription>
           </div>
           <Button 
@@ -52,14 +39,8 @@ export const NetworkStatus = ({
             className="ml-2"
           >
             <RefreshCw className="h-4 w-4 mr-1" /> 
-            {retryCount > 2 ? "Réessayer encore" : "Réessayer"}
+            Réessayer
           </Button>
-        </Alert>
-      )}
-      
-      {error && status !== "offline" && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
     </>
