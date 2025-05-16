@@ -34,13 +34,22 @@ export function useRequestQueries(userId: string | undefined) {
       }
       // Si c'est un Growth, filtrer pour voir uniquement les missions qui lui sont assignées
       else if (isGrowth && !isAdmin) {
-        // Récupérer d'abord les missions assignées à ce Growth
-        const growthMissions = await getMissionsByGrowthId(userId);
-        const missionIds = growthMissions.map(mission => mission.id);
-        
-        // S'il y a des missions, filtrer par ces ID
-        if (missionIds.length > 0) {
-          query = query.in('mission_id', missionIds);
+        try {
+          // Récupérer d'abord les missions assignées à ce Growth
+          const growthMissions = await getMissionsByGrowthId(userId);
+          console.log("Growth missions fetched for filtering requests:", growthMissions);
+          
+          const missionIds = growthMissions.map(mission => mission.id);
+          console.log("Mission IDs for filtering:", missionIds);
+          
+          // S'il y a des missions, filtrer par ces ID
+          if (missionIds.length > 0) {
+            query = query.in('mission_id', missionIds);
+          } else {
+            console.log("No mission IDs found for Growth user, may result in empty requests list");
+          }
+        } catch (err) {
+          console.error("Error while fetching growth missions for filtering:", err);
         }
       }
       
@@ -73,15 +82,24 @@ export function useRequestQueries(userId: string | undefined) {
       
       // Pour Growth: seulement les requêtes assignées à lui-même
       if (isGrowth) {
-        // Pour un utilisateur Growth, on veut les requêtes qui:
-        // 1. Sont directement assignées à lui-même OU
-        // 2. Sont associées aux missions dont il est responsable
-        const growthMissions = await getMissionsByGrowthId(userId);
-        const missionIds = growthMissions.map(mission => mission.id);
-        
-        if (missionIds.length > 0) {
-          query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
-        } else {
+        try {
+          // Pour un utilisateur Growth, on veut les requêtes qui:
+          // 1. Sont directement assignées à lui-même OU
+          // 2. Sont associées aux missions dont il est responsable
+          const growthMissions = await getMissionsByGrowthId(userId);
+          console.log("Growth missions for my assignments:", growthMissions);
+          
+          const missionIds = growthMissions.map(mission => mission.id);
+          console.log("Mission IDs for my assignments:", missionIds);
+          
+          if (missionIds.length > 0) {
+            query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
+          } else {
+            console.log("No missions found for growth user, falling back to assigned_to only");
+            query = query.eq('assigned_to', userId);
+          }
+        } catch (err) {
+          console.error("Error while fetching growth missions for my assignments:", err);
           query = query.eq('assigned_to', userId);
         }
       }
@@ -126,12 +144,21 @@ export function useRequestQueries(userId: string | undefined) {
       // Si c'est un Growth, récupérer les requêtes associées à ses missions
       else if (isGrowth && !isAdmin) {
         console.log('Growth detected - Filtering requests for user ID:', userId);
-        const growthMissions = await getMissionsByGrowthId(userId);
-        const missionIds = growthMissions.map(mission => mission.id);
-        
-        if (missionIds.length > 0) {
-          query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
-        } else {
+        try {
+          const growthMissions = await getMissionsByGrowthId(userId);
+          console.log("Growth missions for all requests:", growthMissions);
+          
+          const missionIds = growthMissions.map(mission => mission.id);
+          console.log("Mission IDs for all requests:", missionIds);
+          
+          if (missionIds.length > 0) {
+            query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
+          } else {
+            console.log("No missions found for growth user, falling back to assigned_to only");
+            query = query.eq('assigned_to', userId);
+          }
+        } catch (err) {
+          console.error("Error while fetching growth missions for all requests:", err);
           query = query.eq('assigned_to', userId);
         }
       }

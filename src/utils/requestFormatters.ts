@@ -26,9 +26,16 @@ export const formatRequestFromDb = (dbRequest: any): Request => {
   const details = dbRequest.details || {};
   
   // Récupération du nom de la mission - s'assurer qu'il n'est jamais null/undefined
-  // Conversion explicite en string pour garantir la cohérence du type
   const missionId = dbRequest.mission_id ? String(dbRequest.mission_id) : "";
-  let missionName = dbRequest.mission_name || "Mission sans nom";
+  let missionName = dbRequest.mission_name || "";
+  
+  // Si le nom de la mission est null ou vide, essayer de le récupérer par d'autres moyens
+  if (!missionName && missionId) {
+    // Si nous avons un ID mission mais pas de nom, définir une valeur par défaut utile
+    missionName = "Mission " + missionId.substring(0, 6);
+  } else if (!missionName) {
+    missionName = "Sans mission";
+  }
   
   console.log("Mission name final pour la requête", dbRequest.id, ":", missionName);
   console.log("Mission ID final pour la requête", dbRequest.id, ":", missionId);

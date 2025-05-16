@@ -73,7 +73,7 @@ export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => 
 // Alias function for backward compatibility
 export const getMissionsByUserId = getMissionsBySdrId;
 
-// Implémentation correcte de getMissionsByGrowthId
+// Implémentation améliorée de getMissionsByGrowthId
 export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
@@ -86,6 +86,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
     console.log(`Fetching missions for Growth user with ID: ${growthId}`);
 
     // Récupérer les missions où growth_id correspond à l'ID de l'utilisateur Growth
+    // et joindre les informations de profil SDR
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -100,8 +101,22 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       return [];
     }
 
+    // Log détaillé pour déboguer
     console.log(`Retrieved ${missions?.length || 0} missions for Growth ID ${growthId}:`, missions);
-    return missions.map(mission => mapSupaMissionToMission(mission));
+    
+    // Si aucune mission n'est trouvée, essayons de vérifier toutes les missions pour déboguer
+    if (!missions?.length) {
+      console.log("No missions found, checking ALL missions in database for debugging");
+      const { data: allMissions } = await supabase.from('missions').select('*');
+      console.log("All missions in database:", allMissions);
+    }
+    
+    // Mapper les données reçues au format Mission
+    return missions?.map(mission => {
+      const mappedMission = mapSupaMissionToMission(mission);
+      console.log("Mapped mission:", mappedMission);
+      return mappedMission;
+    }) || [];
   } catch (error) {
     console.error(`Error fetching missions for Growth ID ${growthId}:`, error);
     return [];
