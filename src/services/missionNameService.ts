@@ -13,7 +13,7 @@ export const KNOWN_MISSIONS: Record<string, string> = {
   "bdb6b562-f9ef-49cd-b035-b48d7df054e8": "Seventic",
   "124ea847-cf3f-44af-becb-75641ebf0ef1": "Datalit",
   "f34e4f08-34c6-4419-b79e-83b6f519f8cf": "Sames",
-  "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b": "Freshworks" // Ajout de l'ID Freshworks
+  "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b": "Freshworks" // ID Freshworks - corrigé et confirmé
 };
 
 // Fonction pour synchroniser les missions connues avec la base de données
@@ -38,9 +38,22 @@ export const syncKnownMissions = async (): Promise<void> => {
     
     console.log(`[syncKnownMissions] ${data.length} missions récupérées`);
     
+    // Avant de mettre à jour avec les données de la base, garantir que KNOWN_MISSIONS est dans le cache
+    Object.entries(KNOWN_MISSIONS).forEach(([id, name]) => {
+      missionNameCache[id] = name;
+      console.log(`[syncKnownMissions] Mission fixe dans le cache: ${id} => "${name}"`);
+    });
+    
     // Mettre à jour le cache avec les données de la base
     data.forEach(mission => {
       if (!mission.id) return;
+      
+      // Pour Freshworks et autres missions connues, utiliser le nom fixe défini dans KNOWN_MISSIONS
+      if (KNOWN_MISSIONS[mission.id]) {
+        missionNameCache[mission.id] = KNOWN_MISSIONS[mission.id];
+        console.log(`[syncKnownMissions] Mission connue ${mission.id}: "${KNOWN_MISSIONS[mission.id]}" (prioritaire sur DB)`);
+        return;
+      }
       
       const displayName = mission.client && mission.client.trim() !== "" && 
                          mission.client !== "null" && mission.client !== "undefined" 
@@ -52,6 +65,10 @@ export const syncKnownMissions = async (): Promise<void> => {
         console.log(`[syncKnownMissions] Mis en cache: ${mission.id} => "${displayName}"`);
       }
     });
+    
+    // Vérifier que Freshworks est correctement dans le cache
+    const freshworksId = "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+    console.log(`[syncKnownMissions] Vérification Freshworks: ${freshworksId} => "${missionNameCache[freshworksId] || 'NON TROUVÉ!!!'}"`)
     
     console.log("[syncKnownMissions] Synchronisation terminée avec succès");
   } catch (err) {
@@ -256,4 +273,13 @@ export const clearMissionNameCache = (missionId?: string): void => {
  */
 export const getMissionNameCache = (): Record<string, string> => {
   return {...missionNameCache};
+};
+
+/**
+ * Fonction pour forcer la valeur de la mission Freshworks dans le cache
+ */
+export const forceRefreshFreshworks = (): void => {
+  const freshworksId = "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+  missionNameCache[freshworksId] = "Freshworks";
+  console.log(`[forceRefreshFreshworks] Mission Freshworks forcée dans le cache: ${freshworksId} => "Freshworks"`);
 };

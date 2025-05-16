@@ -2,13 +2,18 @@
 import { Request, RequestStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
-import { preloadMissionNames } from "@/services/missionNameService";
+import { preloadMissionNames, forceRefreshFreshworks } from "@/services/missionNameService";
 
 /**
  * Obtenir toutes les requêtes
  */
 export const getAllRequests = async (): Promise<Request[]> => {
   try {
+    console.log("[getAllRequests] Début récupération de toutes les requêtes");
+    
+    // Forcer le rafraîchissement de Freshworks
+    forceRefreshFreshworks();
+    
     const { data: requests, error } = await supabase
       .from('requests')
       .select('*')
@@ -26,11 +31,27 @@ export const getAllRequests = async (): Promise<Request[]> => {
       
     if (missionIds.length > 0) {
       // Déclencher le préchargement en parallèle
-      preloadMissionNames(missionIds);
+      await preloadMissionNames(missionIds);
+      console.log(`[getAllRequests] ${missionIds.length} noms de missions préchargés`);
     }
 
     // Adapter les données au format attendu par l'application
-    return Promise.all(requests.map(request => formatRequestFromDb(request)));
+    const formattedRequests = await Promise.all(requests.map(request => formatRequestFromDb(request)));
+    
+    console.log(`[getAllRequests] ${formattedRequests.length} requêtes récupérées et formatées`);
+    
+    // Vérifier si des requêtes ont une mission Freshworks
+    const freshworksRequests = formattedRequests.filter(req => 
+      req.missionId === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b"
+    );
+    
+    if (freshworksRequests.length > 0) {
+      console.log(`[getAllRequests] ${freshworksRequests.length} requêtes liées à Freshworks:`, 
+        freshworksRequests.map(r => ({id: r.id, missionName: r.missionName}))
+      );
+    }
+    
+    return formattedRequests;
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération des requêtes:", error);
     return [];
@@ -44,6 +65,9 @@ export const getRequestById = async (requestId: string): Promise<Request | undef
   try {
     console.log(`[getRequestById] Récupération de la requête ${requestId}`);
     
+    // Forcer le rafraîchissement de Freshworks
+    forceRefreshFreshworks();
+    
     const { data: request, error } = await supabase
       .from('requests')
       .select('*')
@@ -55,8 +79,16 @@ export const getRequestById = async (requestId: string): Promise<Request | undef
       return undefined;
     }
 
+    // Si la requête est liée à Freshworks, log spécial
+    if (request.mission_id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+      console.log("[getRequestById] Requête liée à Freshworks détectée!");
+    }
+
     // Utiliser le formatteur centralisé qui gère correctement les noms de mission
-    return await formatRequestFromDb(request);
+    const formattedRequest = await formatRequestFromDb(request);
+    console.log(`[getRequestById] Requête formatée: ID=${formattedRequest.id}, Mission=${formattedRequest.missionName}`);
+    
+    return formattedRequest;
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération de la requête:", error);
     return undefined;

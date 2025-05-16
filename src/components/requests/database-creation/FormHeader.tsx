@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Control } from "react-hook-form";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -20,6 +20,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { getMissionsByUserId } from "@/services/missionService";
+import { getMissionName } from "@/services/missionNameService";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -28,6 +29,8 @@ interface FormHeaderProps {
 }
 
 export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps) => {
+  const [missionName, setMissionName] = useState<string>("");
+  
   // Récupérer les missions de l'utilisateur connecté
   const { data: userMissions = [] } = useQuery({
     queryKey: ['missions', user?.id],
@@ -44,11 +47,22 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
         console.log("DatabaseFormHeader - Valeurs actuelles du formulaire:", currentValues);
         console.log("DatabaseFormHeader - Mission ID dans les valeurs du form:", currentValues.missionId);
         console.log("DatabaseFormHeader - Type de la mission ID:", typeof currentValues.missionId);
+        
+        // Si nous sommes en mode édition, charger le nom de la mission
+        if (editMode && currentValues.missionId) {
+          const loadMissionName = async () => {
+            const name = await getMissionName(String(currentValues.missionId), { forceRefresh: true });
+            console.log(`DatabaseFormHeader - Nom de mission chargé: ${name}`);
+            setMissionName(name);
+          };
+          
+          loadMissionName();
+        }
       }
     } catch (err) {
       console.log("Impossible d'accéder aux valeurs du formulaire pour le débogage");
     }
-  }, [control]);
+  }, [control, editMode]);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -83,31 +97,43 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             <FormItem>
               <FormLabel>Mission client</FormLabel>
               <FormControl>
-                <Select 
-                  value={missionValue}
-                  onValueChange={(value) => {
-                    console.log("DatabaseFormHeader - Nouvelle valeur sélectionnée:", value);
-                    field.onChange(value);
-                  }}
-                  disabled={field.disabled || editMode}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez une mission" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    {userMissions.length > 0 ? (
-                      userMissions.map((mission) => (
-                        <SelectItem key={mission.id} value={String(mission.id)}>
-                          {mission.name}
+                {editMode ? (
+                  // En mode édition, afficher un champ de texte désactivé avec le nom de la mission
+                  <div className="flex">
+                    <Input 
+                      value={missionName || "Chargement..."}
+                      disabled={true}
+                      className="bg-gray-100"
+                    />
+                    <input type="hidden" {...field} />
+                  </div>
+                ) : (
+                  // En mode création, afficher le sélecteur normal
+                  <Select 
+                    value={missionValue}
+                    onValueChange={(value) => {
+                      console.log("DatabaseFormHeader - Nouvelle valeur sélectionnée:", value);
+                      field.onChange(value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez une mission" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {userMissions.length > 0 ? (
+                        userMissions.map((mission) => (
+                          <SelectItem key={mission.id} value={String(mission.id)}>
+                            {mission.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-missions" disabled>
+                          Aucune mission disponible
                         </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-missions" disabled>
-                        Aucune mission disponible
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               </FormControl>
               <FormMessage />
             </FormItem>

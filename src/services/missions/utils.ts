@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
-import { getMissionName, clearMissionNameCache } from "@/services/missionNameService";
+import { getMissionName, clearMissionNameCache, forceRefreshFreshworks, KNOWN_MISSIONS } from "@/services/missionNameService";
 
 // Simple function to check if a mission exists by ID
 export const checkMissionExists = async (missionId: string): Promise<boolean> => {
@@ -47,6 +47,11 @@ export const getAllSupaMissions = async () => {
 // Get missions by user ID
 export const getSupaMissionsByUserId = async (userId: string) => {
   try {
+    console.log(`[getSupaMissionsByUserId] Récupération des missions pour l'utilisateur ${userId}`);
+    
+    // Forcer le rafraîchissement de Freshworks pour s'assurer qu'il est bien dans le cache
+    forceRefreshFreshworks();
+    
     const { data, error } = await supabase
       .from('missions')
       .select('*')
@@ -57,9 +62,25 @@ export const getSupaMissionsByUserId = async (userId: string) => {
       return [];
     }
     
-    return data;
+    // Convertir les données brutes en objets Mission avec noms standardisés
+    const missionsWithNames = await Promise.all(
+      (data || []).map(mission => mapSupaMissionToMission(mission))
+    );
+    
+    console.log(`[getSupaMissionsByUserId] ${missionsWithNames.length} missions récupérées et formatées`);
+    
+    // Log pour vérifier si Freshworks est présent
+    const freshworks = missionsWithNames.find(m => 
+      m.id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b" || 
+      m.name === "Freshworks"
+    );
+    if (freshworks) {
+      console.log("[getSupaMissionsByUserId] Mission Freshworks trouvée:", freshworks);
+    }
+    
+    return missionsWithNames;
   } catch (error) {
-    console.error("Error in getSupaMissionsByUserId:", error);
+    console.error("[getSupaMissionsByUserId] Error retrieving user missions:", error);
     return [];
   }
 };
@@ -187,11 +208,26 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
     client: mission.client
   });
 
-  // Use centralized service to get the standardized mission name
-  const displayName = await getMissionName(mission.id, {
-    fallbackClient: mission.client,
-    fallbackName: mission.name
-  });
+  // Vérifier si la mission est dans les missions connues d'abord
+  let displayName: string;
+  
+  if (KNOWN_MISSIONS[mission.id]) {
+    displayName = KNOWN_MISSIONS[mission.id];
+    console.log(`[mapSupaMissionToMission] Mission connue: ${mission.id} => "${displayName}"`);
+  } else {
+    // Sinon utiliser le service centralisé
+    displayName = await getMissionName(mission.id, {
+      fallbackClient: mission.client,
+      fallbackName: mission.name,
+      forceRefresh: false
+    });
+  }
+  
+  // Pour Freshworks, forcer le nom
+  if (mission.id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+    displayName = "Freshworks";
+    console.log(`[mapSupaMissionToMission] Nom Freshworks forcé: "${displayName}"`);
+  }
   
   console.log(`[mapSupaMissionToMission] FINAL name chosen: "${displayName}"`);
 

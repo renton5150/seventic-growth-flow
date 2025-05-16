@@ -1,21 +1,7 @@
+
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
-import { getMissionName } from "@/services/missionNameService";
-
-// Cache for mission names to avoid repeated database queries - Now replaced by centralized cache
-const missionNameCache: Record<string, string> = {};
-
-// Utility function to format dates as needed
-const formatDate = (date: Date | string): string => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString(); // Adjust format as needed
-};
-
-// Get mission name directly from the missions table if needed - Now replaced by centralized service
-const getMissionNameFromDb = async (missionId: string): Promise<string | null> => {
-  // This function is now deprecated - Using centralized service instead
-  return getMissionName(missionId);
-};
+import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
@@ -30,14 +16,29 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // MISSION NAME PROCESSING - USING CENTRALIZED SERVICE
-  const missionName = await getMissionName(request.mission_id, {
-    fallbackClient: request.mission_client, 
-    fallbackName: request.mission_name,
-    forceRefresh: false // Utiliser le cache si disponible pour de meilleures performances
-  });
+  // Force refresh Freshworks in cache
+  if (request.mission_id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+    forceRefreshFreshworks();
+    console.log("[formatRequestFromDb] Freshworks mission detected, refreshing cache");
+  }
   
-  console.log(`[formatRequestFromDb] FINAL mission name for request ${request.id}: "${missionName}" (Using centralized service)`);
+  // MISSION NAME PROCESSING
+  let missionName = "Sans mission";
+  
+  // Pour les missions connues, utiliser directement les noms constants
+  if (request.mission_id && KNOWN_MISSIONS[request.mission_id]) {
+    missionName = KNOWN_MISSIONS[request.mission_id];
+    console.log(`[formatRequestFromDb] Using known mission name: "${missionName}" for ${request.mission_id}`);
+  } else {
+    // Sinon utiliser le service centralisé
+    missionName = await getMissionName(request.mission_id, {
+      fallbackClient: request.mission_client, 
+      fallbackName: request.mission_name,
+      forceRefresh: false
+    });
+  }
+  
+  console.log(`[formatRequestFromDb] FINAL mission name for request ${request.id}: "${missionName}"`);
 
   return {
     id: request.id,
