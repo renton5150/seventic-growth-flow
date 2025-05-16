@@ -10,6 +10,7 @@ import { EmailCampaignRequest } from "@/types/types";
 import { toast } from "sonner";
 import { syncKnownMissions, preloadMissionNames } from "@/services/missionNameService";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
+import { supabase } from "@/integrations/supabase/client";
 
 const EmailCampaignEdit = () => {
   const { id } = useParams<{ id: string }>();
