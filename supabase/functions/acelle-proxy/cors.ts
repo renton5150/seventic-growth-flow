@@ -21,7 +21,7 @@ export const corsHeaders = {
  * @param req - La requête entrante
  * @returns Response - Une réponse 204 avec les en-têtes CORS
  */
-export function handleCorsPreflightRequest(req: Request): Response {
+export function handleCorsPreflightRequest(req: Request): Response | null {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,

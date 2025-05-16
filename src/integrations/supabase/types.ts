@@ -252,6 +252,114 @@ export type Database = {
         }
         Relationships: []
       }
+      enriched_contacts: {
+        Row: {
+          civilite: string | null
+          created_at: string
+          email: string | null
+          entreprise: string | null
+          id: string
+          id_hubspot: string | null
+          imported_contact_id: string | null
+          nom: string | null
+          prenom: string | null
+          processing_job_id: string
+          status_enrichissement: string
+        }
+        Insert: {
+          civilite?: string | null
+          created_at?: string
+          email?: string | null
+          entreprise?: string | null
+          id?: string
+          id_hubspot?: string | null
+          imported_contact_id?: string | null
+          nom?: string | null
+          prenom?: string | null
+          processing_job_id: string
+          status_enrichissement: string
+        }
+        Update: {
+          civilite?: string | null
+          created_at?: string
+          email?: string | null
+          entreprise?: string | null
+          id?: string
+          id_hubspot?: string | null
+          imported_contact_id?: string | null
+          nom?: string | null
+          prenom?: string | null
+          processing_job_id?: string
+          status_enrichissement?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enriched_contacts_imported_contact_id_fkey"
+            columns: ["imported_contact_id"]
+            isOneToOne: false
+            referencedRelation: "imported_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_enriched_contacts_job"
+            columns: ["processing_job_id"]
+            isOneToOne: false
+            referencedRelation: "processing_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imported_contacts: {
+        Row: {
+          created_at: string
+          email: string | null
+          entreprise: string | null
+          file_id: string
+          id: string
+          id_hubspot: string | null
+          nom: string | null
+          prenom: string | null
+          processing_job_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          entreprise?: string | null
+          file_id: string
+          id?: string
+          id_hubspot?: string | null
+          nom?: string | null
+          prenom?: string | null
+          processing_job_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          entreprise?: string | null
+          file_id?: string
+          id?: string
+          id_hubspot?: string | null
+          nom?: string | null
+          prenom?: string | null
+          processing_job_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_imported_contacts_job"
+            columns: ["processing_job_id"]
+            isOneToOne: false
+            referencedRelation: "processing_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imported_contacts_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "uploaded_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       missions: {
         Row: {
           client: string
@@ -312,6 +420,104 @@ export type Database = {
           },
         ]
       }
+      processing_checkpoints: {
+        Row: {
+          checkpoint_data: Json
+          created_at: string
+          id: string
+          processing_job_id: string
+          updated_at: string
+        }
+        Insert: {
+          checkpoint_data?: Json
+          created_at?: string
+          id?: string
+          processing_job_id: string
+          updated_at?: string
+        }
+        Update: {
+          checkpoint_data?: Json
+          created_at?: string
+          id?: string
+          processing_job_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_checkpoints_processing_job_id_fkey"
+            columns: ["processing_job_id"]
+            isOneToOne: false
+            referencedRelation: "processing_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processing_jobs: {
+        Row: {
+          contacts_file_id: string | null
+          created_at: string
+          date_debut: string | null
+          date_fin: string | null
+          error_message: string | null
+          id: string
+          nombre_contacts_enrichis: number | null
+          nombre_contacts_non_enrichis: number | null
+          nombre_total_contacts: number | null
+          point_reprise: Json | null
+          reference_file_id: string | null
+          status_traitement: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          contacts_file_id?: string | null
+          created_at?: string
+          date_debut?: string | null
+          date_fin?: string | null
+          error_message?: string | null
+          id?: string
+          nombre_contacts_enrichis?: number | null
+          nombre_contacts_non_enrichis?: number | null
+          nombre_total_contacts?: number | null
+          point_reprise?: Json | null
+          reference_file_id?: string | null
+          status_traitement?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          contacts_file_id?: string | null
+          created_at?: string
+          date_debut?: string | null
+          date_fin?: string | null
+          error_message?: string | null
+          id?: string
+          nombre_contacts_enrichis?: number | null
+          nombre_contacts_non_enrichis?: number | null
+          nombre_total_contacts?: number | null
+          point_reprise?: Json | null
+          reference_file_id?: string | null
+          status_traitement?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_jobs_contacts_file_id_fkey"
+            columns: ["contacts_file_id"]
+            isOneToOne: false
+            referencedRelation: "uploaded_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processing_jobs_reference_file_id_fkey"
+            columns: ["reference_file_id"]
+            isOneToOne: false
+            referencedRelation: "uploaded_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar: string | null
@@ -341,6 +547,57 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      reference_firstnames: {
+        Row: {
+          civility_en: string | null
+          civility_fr: string | null
+          created_at: string
+          file_id: string | null
+          gender: string | null
+          id: string
+          name_first: string
+          name_first_lowercase: string | null
+          processing_job_id: string | null
+        }
+        Insert: {
+          civility_en?: string | null
+          civility_fr?: string | null
+          created_at?: string
+          file_id?: string | null
+          gender?: string | null
+          id?: string
+          name_first?: string
+          name_first_lowercase?: string | null
+          processing_job_id?: string | null
+        }
+        Update: {
+          civility_en?: string | null
+          civility_fr?: string | null
+          created_at?: string
+          file_id?: string | null
+          gender?: string | null
+          id?: string
+          name_first?: string
+          name_first_lowercase?: string | null
+          processing_job_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reference_firstnames_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "uploaded_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reference_firstnames_processing_job_id_fkey"
+            columns: ["processing_job_id"]
+            isOneToOne: false
+            referencedRelation: "processing_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       requests: {
         Row: {
@@ -450,6 +707,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      uploaded_files: {
+        Row: {
+          file_name: string
+          file_type: string
+          id: string
+          storage_path: string
+          uploaded_at: string
+          uploader_id: string | null
+        }
+        Insert: {
+          file_name: string
+          file_type: string
+          id?: string
+          storage_path: string
+          uploaded_at?: string
+          uploader_id?: string | null
+        }
+        Update: {
+          file_name?: string
+          file_type?: string
+          id?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploader_id?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -566,6 +850,14 @@ export type Database = {
       }
     }
     Functions: {
+      check_if_table_exists: {
+        Args: { table_name: string }
+        Returns: boolean
+      }
+      create_checkpoint_table: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       create_user_profile: {
         Args: {
           user_id: string

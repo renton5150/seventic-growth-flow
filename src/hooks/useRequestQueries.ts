@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { getMissionsByGrowthId } from "@/services/missions-service/operations/readMissions";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -30,6 +31,17 @@ export function useRequestQueries(userId: string | undefined) {
       // Si c'est un SDR, filtrer uniquement ses requêtes
       if (isSDR) {
         query = query.eq('created_by', userId);
+      }
+      // Si c'est un Growth, filtrer pour voir uniquement les missions qui lui sont assignées
+      else if (isGrowth && !isAdmin) {
+        // Récupérer d'abord les missions assignées à ce Growth
+        const growthMissions = await getMissionsByGrowthId(userId);
+        const missionIds = growthMissions.map(mission => mission.id);
+        
+        // S'il y a des missions, filtrer par ces ID
+        if (missionIds.length > 0) {
+          query = query.in('mission_id', missionIds);
+        }
       }
       
       query = query.order('due_date', { ascending: true });
@@ -61,7 +73,17 @@ export function useRequestQueries(userId: string | undefined) {
       
       // Pour Growth: seulement les requêtes assignées à lui-même
       if (isGrowth) {
-        query = query.eq('assigned_to', userId);
+        // Pour un utilisateur Growth, on veut les requêtes qui:
+        // 1. Sont directement assignées à lui-même OU
+        // 2. Sont associées aux missions dont il est responsable
+        const growthMissions = await getMissionsByGrowthId(userId);
+        const missionIds = growthMissions.map(mission => mission.id);
+        
+        if (missionIds.length > 0) {
+          query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
+        } else {
+          query = query.eq('assigned_to', userId);
+        }
       }
       // Pour SDR: seulement ses requêtes créées
       else if (isSDR) {
@@ -87,11 +109,12 @@ export function useRequestQueries(userId: string | undefined) {
   
   // Toutes les requêtes - Filtre par SDR pour restreindre l'accès
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
-    queryKey: ['growth-all-requests', userId, isSDR],
+    queryKey: ['growth-all-requests', userId, isSDR, isGrowth],
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log('Fetching ALL requests for dashboard with role:', isSDR ? 'SDR' : 'Admin/Growth');
+      console.log('Fetching ALL requests for dashboard with role:', 
+                  isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
       
       let query = supabase.from('requests_with_missions').select('*');
       
@@ -100,7 +123,19 @@ export function useRequestQueries(userId: string | undefined) {
         query = query.eq('created_by', userId);
         console.log('SDR detected - Filtering requests for user ID:', userId);
       }
-      // Pour Growth et Admin, récupérer toutes les requêtes sans filtre
+      // Si c'est un Growth, récupérer les requêtes associées à ses missions
+      else if (isGrowth && !isAdmin) {
+        console.log('Growth detected - Filtering requests for user ID:', userId);
+        const growthMissions = await getMissionsByGrowthId(userId);
+        const missionIds = growthMissions.map(mission => mission.id);
+        
+        if (missionIds.length > 0) {
+          query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
+        } else {
+          query = query.eq('assigned_to', userId);
+        }
+      }
+      // Pour Admin, récupérer toutes les requêtes sans filtre
       
       query = query.order('due_date', { ascending: true });
       
@@ -112,7 +147,8 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       const requestsArray = Array.isArray(data) ? data : [];
-      console.log(`Retrieved ${requestsArray.length} total requests`, isSDR ? 'for SDR' : 'for Admin/Growth');
+      console.log(`Retrieved ${requestsArray.length} total requests`, 
+                  isSDR ? 'for SDR' : isGrowth ? 'for Growth' : 'for Admin');
       
       return requestsArray.map(request => formatRequestFromDb(request));
     },
