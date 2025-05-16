@@ -1,4 +1,3 @@
-
 import { useMemo } from "react";
 import { Mission } from "@/types/types";
 
@@ -14,8 +13,12 @@ export const useMissionNameUtils = (missions: Mission[]) => {
       missions.forEach(mission => {
         if (mission && mission.id) {
           const missionId = String(mission.id).trim();
-          // Use name first, fallback to client if available, then generate a name from ID
-          const missionName = mission.name || (mission.client ? `${mission.client}` : `Mission ${missionId.substring(0, 6)}`);
+          // Prioritize client name if available and different from mission name
+          // otherwise use name, and fallback to ID-based name if nothing else is available
+          const missionName = mission.client && mission.client !== mission.name 
+            ? mission.client 
+            : (mission.name || `Mission ${missionId.substring(0, 6)}`);
+            
           map[missionId] = missionName;
           console.log(`[useMissionNameUtils] Added mission: ${missionId} => ${missionName}`);
         }

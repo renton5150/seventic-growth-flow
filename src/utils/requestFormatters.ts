@@ -1,3 +1,4 @@
+
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
 // Utility function to format dates as needed
@@ -13,21 +14,21 @@ export const formatRequestFromDb = (request: any): Request => {
   const lastUpdated = new Date(request.last_updated || request.updated_at);
   const dueDate = new Date(request.due_date);
   
-  console.log(`[formatRequestFromDb] Formatting request ${request.id}, mission_id: ${request.mission_id}, mission_name: ${request.mission_name || 'MISSING'}`);
+  console.log(`[formatRequestFromDb] Formatting request ${request.id}, mission_id: ${request.mission_id}, mission_name: ${request.mission_name || 'MISSING'}, mission_client: ${request.mission_client || 'MISSING'}`);
 
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Get mission name, prioritizing mission_name from the view if available
-  // This should fix the issue where mission names appear as code
-  let missionName = request.mission_name || "Sans mission";
+  // Prioritize client name if it differs from mission name
+  let missionName = "Sans mission";
   
-  // Add client name if available and different from mission name
-  if (request.mission_client && request.mission_client !== request.mission_name) {
-    missionName = request.mission_name || request.mission_client;
+  if (request.mission_client && request.mission_name !== request.mission_client) {
+    missionName = request.mission_client;
+  } else if (request.mission_name) {
+    missionName = request.mission_name;
   }
   
-  console.log(`[formatRequestFromDb] Mission name for request ${request.id}: "${missionName}"`);
+  console.log(`[formatRequestFromDb] Final mission name for request ${request.id}: "${missionName}"`);
 
   return {
     id: request.id,

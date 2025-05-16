@@ -86,6 +86,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
     console.log(`DEBUG - Récupération missions pour Growth ID: ${growthId}`);
 
     // Récupérer directement les missions depuis la table missions avec tous les détails
+    // Fix: Correctly specify the column name when joining with profiles table
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -129,6 +130,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
     
     // Mapper les données de mission au format attendu
     const mappedMissions = missions.map(mission => {
+      // Get profile data from the joined profiles table
       const profileData = mission.profiles || null;
       
       const mappedMission: Mission = {
@@ -141,7 +143,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
         requests: [],
         startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
         endDate: mission.end_date ? new Date(mission.end_date) : null,
-        type: (mission.type as MissionType) || "Full",
+        type: mission.type as MissionType || "Full",
         // Ensure status is one of the allowed values, defaulting to "En cours" if not
         status: mission.status === "Fin" ? "Fin" : "En cours",
         client: mission.client || mission.name || ""

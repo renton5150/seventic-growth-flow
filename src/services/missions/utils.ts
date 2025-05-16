@@ -175,13 +175,14 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
     sdrProfile
   });
 
-  // Ensure we always use a meaningful name
-  const missionName = mission.name || 
-                     (mission.client ? `${mission.client}` : `Mission ${mission.id.substring(0, 6)}`);
+  // Prioritize client name if different from mission name
+  const missionName = mission.client && mission.client !== mission.name 
+    ? mission.client 
+    : (mission.name || `Mission ${mission.id.substring(0, 6)}`);
 
   return {
     id: mission.id,
-    name: missionName,
+    name: mission.name || `Mission ${mission.id.substring(0, 6)}`,
     description: mission.description || '',
     sdrId: mission.sdr_id || null,
     // Use the name from the joined profiles table if available
@@ -191,7 +192,7 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
     endDate: mission.end_date ? new Date(mission.end_date) : null,
     type: (mission.type as MissionType) || 'Full',
     status: mission.status === "Fin" ? "Fin" : "En cours",
-    client: mission.client || missionName,
+    client: mission.client || mission.name || `Mission ${mission.id.substring(0, 6)}`,
     requests: []
   };
 };
