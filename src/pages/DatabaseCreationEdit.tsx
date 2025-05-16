@@ -68,6 +68,11 @@ const DatabaseCreationEdit = () => {
             forceRefreshFreshworks();
             
             // Pour Freshworks, créer directement l'objet pour garantir le nom correct
+            // S'assurer que details est un objet et non une chaîne
+            const details = typeof rawRequest.details === 'string' 
+              ? JSON.parse(rawRequest.details) 
+              : rawRequest.details || {};
+            
             const freshworksRequest: DatabaseRequest = {
               id: rawRequest.id,
               title: rawRequest.title,
@@ -79,16 +84,16 @@ const DatabaseCreationEdit = () => {
               sdrName: rawRequest.sdr_name,
               assignedToName: rawRequest.assigned_to_name,
               dueDate: rawRequest.due_date,
-              details: rawRequest.details || {},
+              details: details,
               workflow_status: rawRequest.workflow_status as any,
               assigned_to: rawRequest.assigned_to,
               isLate: false, // Calculé plus tard
               createdAt: new Date(rawRequest.created_at),
               lastUpdated: new Date(rawRequest.last_updated || rawRequest.updated_at),
               target_role: rawRequest.target_role,
-              tool: rawRequest.details?.tool || "Hubspot",
-              targeting: rawRequest.details?.targeting || {},
-              blacklist: rawRequest.details?.blacklist || {}
+              tool: details.tool || "Hubspot",
+              targeting: details.targeting || {},
+              blacklist: details.blacklist || {}
             };
             
             console.log("DatabaseCreationEdit - Requête Freshworks préparée:", freshworksRequest);

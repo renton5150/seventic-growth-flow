@@ -213,7 +213,7 @@ export const preloadMissionNames = async (missionIds: string[]): Promise<void> =
   
   // Filtrer les IDs déjà en cache sauf Freshworks
   const freshworksFiltered = missionIds.filter(id => id !== FRESHWORKS_ID); // Filtrer Freshworks
-  const idsToFetch = freshworksFiltered.filter(id => !missionNameCache[id] || options?.forceRefresh);
+  const idsToFetch = freshworksFiltered.filter(id => !missionNameCache[id]);
   
   if (!idsToFetch.length) {
     console.log('[preloadMissionNames] Toutes les missions sont déjà en cache');
