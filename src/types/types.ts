@@ -126,6 +126,7 @@ export interface Mission {
   type: MissionType;
   status: "En cours" | "Fin";
   requests: Request[];
+  client?: string; // Added client property as it's used in the code but wasn't in the type
 }
 
 export interface AppData {

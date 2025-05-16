@@ -127,17 +127,17 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
     }
     
     const mappedMissions = missions.map(mission => {
-      const mappedMission = {
+      const mappedMission: Mission = {
         id: mission.id,
         name: mission.name || `Mission ${mission.id.substring(0, 6)}`,
-        sdrId: mission.sdr_id || null,
+        sdrId: mission.sdr_id || "",
         description: mission.description || "",
         createdAt: new Date(mission.created_at),
         sdrName: "À déterminer", // Sera complété plus tard si nécessaire
         requests: [],
         startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
         endDate: mission.end_date ? new Date(mission.end_date) : null,
-        type: mission.type || "Full",
+        type: (mission.type as MissionType) || "Full",
         status: mission.status || "En cours",
         client: mission.client || ""
       };

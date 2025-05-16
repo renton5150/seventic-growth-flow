@@ -14,7 +14,8 @@ export const useMissionNameUtils = (missions: Mission[]) => {
       missions.forEach(mission => {
         if (mission && mission.id) {
           const missionId = String(mission.id).trim();
-          const missionName = mission.name || mission.client || `Mission ${missionId.substring(0, 6)}`;
+          // Use name first, fallback to client if available, then generate a name from ID
+          const missionName = mission.name || (mission.client ? mission.client : `Mission ${missionId.substring(0, 6)}`);
           map[missionId] = missionName;
           console.log(`[useMissionNameUtils] Added mission: ${missionId} => ${missionName}`);
         }
