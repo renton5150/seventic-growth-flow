@@ -20,8 +20,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { getMissionsByUserId } from "@/services/missionService";
-import { getMissionName, syncKnownMissions, forceRefreshFreshworks } from "@/services/missionNameService";
-import { toast } from "sonner";
+import { getMissionName, syncKnownMissions, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -67,8 +66,8 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
         
         setIsLoadingMissionName(true);
         
-        // Vérification spéciale pour Freshworks
-        if (missionId === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+        // Vérification spéciale pour Freshworks (les DEUX IDs possibles)
+        if (isFreshworksId(missionId)) {
           console.log("FormHeader - ID Freshworks détecté, force nom");
           setMissionName("Freshworks");
         } else {
@@ -121,9 +120,9 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
           const missionValue = field.value ? String(field.value) : "";
           console.log("FormHeader - Rendu avec missionId:", missionValue);
           
-          // Cas spécial pour Freshworks - vérification directe de l'ID
-          const isFreshworks = missionValue === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
-          if (isFreshworks && missionName !== "Freshworks") {
+          // Cas spécial pour Freshworks - vérification unifiée avec les deux IDs
+          const isMissionFreshworks = isFreshworksId(missionValue);
+          if (isMissionFreshworks && missionName !== "Freshworks") {
             console.log("FormHeader - Correction du nom Freshworks détecté");
             setMissionName("Freshworks");
           }
@@ -165,8 +164,8 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                       console.log("FormHeader - Sélection de mission:", value);
                       field.onChange(value);
                       
-                      // Cas spécial pour Freshworks
-                      if (value === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+                      // Cas spécial pour Freshworks (les deux IDs)
+                      if (isFreshworksId(value)) {
                         setMissionName("Freshworks");
                         return;
                       }

@@ -1,6 +1,7 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
-import { getMissionName, clearMissionNameCache, forceRefreshFreshworks, KNOWN_MISSIONS } from "@/services/missionNameService";
+import { getMissionName, clearMissionNameCache, forceRefreshFreshworks, KNOWN_MISSIONS, isFreshworksId } from "@/services/missionNameService";
 
 // Simple function to check if a mission exists by ID
 export const checkMissionExists = async (missionId: string): Promise<boolean> => {
@@ -71,7 +72,7 @@ export const getSupaMissionsByUserId = async (userId: string) => {
     
     // Log pour vérifier si Freshworks est présent
     const freshworks = missionsWithNames.find(m => 
-      m.id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b" || 
+      isFreshworksId(m.id) || 
       m.name === "Freshworks"
     );
     if (freshworks) {
@@ -211,7 +212,12 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
   // Vérifier si la mission est dans les missions connues d'abord
   let displayName: string;
   
-  if (KNOWN_MISSIONS[mission.id]) {
+  // Cas spécial pour Freshworks - vérification unifiée
+  if (isFreshworksId(mission.id)) {
+    displayName = "Freshworks";
+    console.log(`[mapSupaMissionToMission] Freshworks détecté: ${mission.id} => "${displayName}"`);
+  } 
+  else if (KNOWN_MISSIONS[mission.id]) {
     displayName = KNOWN_MISSIONS[mission.id];
     console.log(`[mapSupaMissionToMission] Mission connue: ${mission.id} => "${displayName}"`);
   } else {
@@ -221,12 +227,6 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
       fallbackName: mission.name,
       forceRefresh: false
     });
-  }
-  
-  // Pour Freshworks, forcer le nom
-  if (mission.id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
-    displayName = "Freshworks";
-    console.log(`[mapSupaMissionToMission] Nom Freshworks forcé: "${displayName}"`);
   }
   
   console.log(`[mapSupaMissionToMission] FINAL name chosen: "${displayName}"`);

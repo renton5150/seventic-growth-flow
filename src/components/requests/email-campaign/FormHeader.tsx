@@ -1,5 +1,5 @@
 
-import * as React from "react";  // Add this import at the top of the file
+import * as React from "react";
 import { User } from "@/types/types";
 import { Control } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { getMissionName } from "@/services/missionNameService";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -20,7 +21,39 @@ interface FormHeaderProps {
 }
 
 export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps) => {
-  console.log("FormHeader - Rendu avec editMode:", editMode);
+  const [missionName, setMissionName] = React.useState<string>("");
+  const [isLoadingMissionName, setIsLoadingMissionName] = React.useState<boolean>(false);
+  
+  console.log("EmailFormHeader - Rendu avec editMode:", editMode);
+
+  // Chargement initial du nom de la mission si on est en mode édition
+  React.useEffect(() => {
+    if (editMode) {
+      const loadMissionName = async () => {
+        try {
+          // @ts-ignore - Accès aux valeurs actuelles du formulaire
+          const currentValues = control._formValues;
+          
+          if (currentValues && currentValues.missionId) {
+            setIsLoadingMissionName(true);
+            console.log(`EmailFormHeader - Chargement du nom pour la mission ID: ${currentValues.missionId}`);
+            
+            const name = await getMissionName(currentValues.missionId, { forceRefresh: true });
+            console.log(`EmailFormHeader - Nom de mission chargé: "${name}"`);
+            
+            setMissionName(name);
+            setIsLoadingMissionName(false);
+          }
+        } catch (error) {
+          console.error("EmailFormHeader - Erreur de chargement du nom de mission:", error);
+          setMissionName("Mission non identifiée");
+          setIsLoadingMissionName(false);
+        }
+      };
+      
+      loadMissionName();
+    }
+  }, [editMode, control._formValues]);
 
   return (
     <Card className="border-t-4 border-t-seventic-500">
@@ -43,20 +76,43 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             )}
           />
           
-          {/* Mission associée - Utilisation du composant MissionSelect qui a été mis à jour */}
+          {/* Mission associée - En mode édition, affiche le nom de la mission en lecture seule */}
           <FormField
             control={control}
             name="missionId"
             render={({ field }) => {
-              console.log("FormHeader - Rendu du champ mission", field);
-              console.log("FormHeader - Valeur du champ mission:", field.value);
-              console.log("FormHeader - Type de la valeur du champ mission:", typeof field.value);
+              console.log("EmailFormHeader - Rendu du champ mission", field);
+              console.log("EmailFormHeader - Valeur du champ mission:", field.value);
+              console.log("EmailFormHeader - Type de la valeur du champ mission:", typeof field.value);
               
               return (
                 <FormItem>
                   <FormLabel>Mission*</FormLabel>
                   <FormControl>
-                    <MissionSelect />
+                    {editMode ? (
+                      // En mode édition, afficher le nom de la mission en lecture seule
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2 relative">
+                          <Input 
+                            value={isLoadingMissionName ? "Chargement..." : missionName || "Mission non trouvée"}
+                            disabled={true}
+                            className={cn(
+                              "bg-gray-100",
+                              isLoadingMissionName ? "text-gray-400" : 
+                              missionName ? "text-gray-900 font-medium" : 
+                              "text-red-500"
+                            )}
+                          />
+                          {isLoadingMissionName && (
+                            <div className="absolute right-3 animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                          )}
+                        </div>
+                        <input type="hidden" name="missionId" value={field.value} />
+                      </div>
+                    ) : (
+                      // En mode création, utiliser le sélecteur
+                      <MissionSelect />
+                    )}
                   </FormControl>
                   <FormMessage />
                 </FormItem>

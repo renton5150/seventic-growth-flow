@@ -1,10 +1,7 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
-import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks } from "@/services/missionNameService";
-
-// ID Freshworks constant pour faciliter les vérifications
-const FRESHWORKS_ID = "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
@@ -19,8 +16,8 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Traitement spécial pour Freshworks - TOUJOURS PRIORITAIRE
-  const isFreshworksMission = request.mission_id === FRESHWORKS_ID;
+  // Traitement spécial pour Freshworks - TOUJOURS PRIORITAIRE - Utilise la fonction unifiée
+  const isFreshworksMission = isFreshworksId(request.mission_id);
   
   // Forcer le rafraîchissement du cache Freshworks quelle que soit la requête
   // Cela garantit que Freshworks est toujours correctement identifié
@@ -30,18 +27,23 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   if (isFreshworksMission) {
     console.log("[formatRequestFromDb] Mission Freshworks détectée - traitement prioritaire");
     
+    // Normaliser les détails pour éviter les problèmes de type
+    const details = typeof request.details === 'string' 
+      ? JSON.parse(request.details) 
+      : request.details || {};
+    
     return {
       id: request.id,
       title: request.title,
       type: request.type,
       status: request.status as RequestStatus,
       createdBy: request.created_by,
-      missionId: FRESHWORKS_ID,
+      missionId: request.mission_id,
       missionName: "Freshworks", // FORCE le nom à "Freshworks"
       sdrName: request.sdr_name,
       assignedToName: request.assigned_to_name,
       dueDate: request.due_date,
-      details: request.details || {},
+      details: details,
       workflow_status: request.workflow_status as WorkflowStatus,
       assigned_to: request.assigned_to,
       isLate,
@@ -69,6 +71,11 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   
   console.log(`[formatRequestFromDb] FINAL mission name for request ${request.id}: "${missionName}"`);
 
+  // Normaliser les détails pour éviter les problèmes de type
+  const details = typeof request.details === 'string' 
+    ? JSON.parse(request.details) 
+    : request.details || {};
+
   return {
     id: request.id,
     title: request.title,
@@ -80,7 +87,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     sdrName: request.sdr_name,
     assignedToName: request.assigned_to_name,
     dueDate: request.due_date,
-    details: request.details || {},
+    details: details,
     workflow_status: request.workflow_status as WorkflowStatus,
     assigned_to: request.assigned_to,
     isLate,

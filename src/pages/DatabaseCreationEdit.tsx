@@ -7,12 +7,9 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { DatabaseRequest } from "@/types/types";
 import { toast } from "sonner";
-import { syncKnownMissions, preloadMissionNames, forceRefreshFreshworks, getMissionNameCache } from "@/services/missionNameService";
+import { syncKnownMissions, preloadMissionNames, forceRefreshFreshworks, getMissionNameCache, isFreshworksId } from "@/services/missionNameService";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { supabase } from "@/integrations/supabase/client";
-
-// ID Constant de Freshworks pour vérification directe
-const FRESHWORKS_ID = "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
 
 const DatabaseCreationEdit = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,7 +58,7 @@ const DatabaseCreationEdit = () => {
           console.log("DatabaseCreationEdit - Requête database récupérée:", rawRequest);
           
           // ÉTAPE 3: Vérification spéciale pour Freshworks
-          const isFreshworks = rawRequest.mission_id === FRESHWORKS_ID;
+          const isFreshworks = isFreshworksId(rawRequest.mission_id);
           if (isFreshworks) {
             console.log("DatabaseCreationEdit - Mission Freshworks détectée - traitement spécial");
             // Assurer que Freshworks est correctement dans le cache
@@ -79,7 +76,7 @@ const DatabaseCreationEdit = () => {
               type: rawRequest.type,
               status: rawRequest.status as any,
               createdBy: rawRequest.created_by,
-              missionId: FRESHWORKS_ID,
+              missionId: rawRequest.mission_id,
               missionName: "Freshworks", // Force le nom
               sdrName: rawRequest.sdr_name,
               assignedToName: rawRequest.assigned_to_name,
@@ -111,7 +108,19 @@ const DatabaseCreationEdit = () => {
             const formattedRequest = await formatRequestFromDb(rawRequest);
             console.log("DatabaseCreationEdit - Requête formatée:", formattedRequest);
             
-            setRequest(formattedRequest as DatabaseRequest);
+            // S'assurer que les champs spécifiques à DatabaseRequest sont présents
+            const details = typeof formattedRequest.details === 'string'
+              ? JSON.parse(formattedRequest.details)
+              : formattedRequest.details || {};
+              
+            const databaseRequest: DatabaseRequest = {
+              ...formattedRequest as any,
+              tool: details.tool || "Hubspot",
+              targeting: details.targeting || {},
+              blacklist: details.blacklist || {}
+            };
+            
+            setRequest(databaseRequest);
           }
         } else {
           console.error("DatabaseCreationEdit - Type de requête invalide ou non trouvé");
@@ -148,7 +157,7 @@ const DatabaseCreationEdit = () => {
           <>
             <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
               <p className="text-blue-800 font-medium">Mission: <span className="font-bold">{request.missionName || "Sans mission"}</span></p>
-              {request.missionId === FRESHWORKS_ID && (
+              {isFreshworksId(request.missionId) && (
                 <p className="text-xs text-blue-600 mt-1">Mission Freshworks confirmée</p>
               )}
             </div>

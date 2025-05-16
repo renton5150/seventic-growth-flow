@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMissionName, preloadMissionNames, syncKnownMissions } from "@/services/missionNameService";
+import { getMissionName, preloadMissionNames, syncKnownMissions, isFreshworksId, forceRefreshFreshworks } from "@/services/missionNameService";
 
 export function MissionSelect() {
   const [missions, setMissions] = useState<{ id: string; name: string; displayName: string }[]>([]);
@@ -23,6 +23,9 @@ export function MissionSelect() {
   const selectedMissionId = watch("missionId");
 
   useEffect(() => {
+    // Initialisation - Force Freshworks au démarrage
+    forceRefreshFreshworks();
+    
     const fetchMissions = async () => {
       setLoading(true);
       try {
@@ -58,6 +61,16 @@ export function MissionSelect() {
           // Préparer les données avec les noms standardisés
           const missionsWithDisplayName = await Promise.all(
             data.map(async mission => {
+              // Vérification spéciale pour Freshworks
+              if (isFreshworksId(mission.id)) {
+                console.log(`MissionSelect - Mission Freshworks détectée: ${mission.id}`);
+                return {
+                  id: mission.id,
+                  name: mission.name,
+                  displayName: "Freshworks"
+                };
+              }
+              
               const displayName = await getMissionName(mission.id, {
                 fallbackClient: mission.client,
                 fallbackName: mission.name,
@@ -102,6 +115,21 @@ export function MissionSelect() {
         // Tenter de récupérer le nom de la mission sélectionnée
         const fetchSelectedMissionName = async () => {
           try {
+            // Vérification spéciale pour Freshworks
+            if (isFreshworksId(selectedMissionId)) {
+              setMissions(prev => {
+                if (!prev.some(m => m.id === selectedMissionId)) {
+                  return [...prev, { 
+                    id: selectedMissionId, 
+                    name: "Freshworks", 
+                    displayName: "Freshworks" 
+                  }];
+                }
+                return prev;
+              });
+              return;
+            }
+            
             const name = await getMissionName(selectedMissionId, { forceRefresh: true });
             console.log(`MissionSelect - Nom récupéré pour la mission ${selectedMissionId}: "${name}"`);
             
@@ -129,6 +157,12 @@ export function MissionSelect() {
   const handleMissionChange = (value: string) => {
     console.log(`MissionSelect - Mission sélectionnée: ${value}`);
     setValue("missionId", value, { shouldValidate: true });
+    
+    // Vérification spéciale pour Freshworks
+    if (isFreshworksId(value)) {
+      console.log("MissionSelect - Sélection de Freshworks détectée - traitement spécial");
+      forceRefreshFreshworks();
+    }
   };
   
   return (
