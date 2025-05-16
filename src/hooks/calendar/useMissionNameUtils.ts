@@ -3,11 +3,11 @@ import { useMemo } from "react";
 import { Mission } from "@/types/types";
 
 export const useMissionNameUtils = (missions: Mission[]) => {
-  // Create a memoized map for faster lookups with more fallback options
+  // Create a memoized map for faster lookups with consistent naming convention
   const missionNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     
-    console.log("[useMissionNameUtils] Création de la map de noms avec", missions?.length || 0, "missions");
+    console.log("[useMissionNameUtils] Creating mission name map with", missions?.length || 0, "missions");
     
     // Add missions from the mission array if available
     if (Array.isArray(missions)) {
@@ -15,23 +15,23 @@ export const useMissionNameUtils = (missions: Mission[]) => {
         if (mission && mission.id) {
           const missionId = String(mission.id).trim();
           
-          // COHÉRENCE AVEC formatRequestFromDb: 
+          // CRITICAL: Use EXACT SAME priority logic as formatRequestFromDb
           // PRIORITÉ : client > name > id court
           let missionName = "Sans mission";
           
           if (mission.client && mission.client.trim() !== "" && 
               mission.client !== "null" && mission.client !== "undefined") {
             missionName = mission.client;
-            console.log(`[useMissionNameUtils] CHOIX #1: Utilisation du client pour ${missionId}: "${missionName}"`);
+            console.log(`[useMissionNameUtils] PRIORITY #1: Using client for ${missionId}: "${missionName}"`);
           }
           else if (mission.name && mission.name.trim() !== "" && 
                   mission.name !== "null" && mission.name !== "undefined") {
             missionName = mission.name;
-            console.log(`[useMissionNameUtils] CHOIX #2: Utilisation du nom pour ${missionId}: "${missionName}"`);
+            console.log(`[useMissionNameUtils] PRIORITY #2: Using name for ${missionId}: "${missionName}"`);
           }
           else {
             missionName = `Mission ${missionId.substring(0, 8)}`;
-            console.log(`[useMissionNameUtils] CHOIX #3: Utilisation de l'ID court pour ${missionId}: "${missionName}"`);
+            console.log(`[useMissionNameUtils] PRIORITY #3: Using short ID for ${missionId}: "${missionName}"`);
           }
             
           map[missionId] = missionName;
@@ -54,12 +54,12 @@ export const useMissionNameUtils = (missions: Mission[]) => {
     Object.entries(knownMissions).forEach(([id, name]) => {
       if (!map[id]) {
         map[id] = name;
-        console.log(`[useMissionNameUtils] Ajout mission de secours: ${id} => ${name}`);
+        console.log(`[useMissionNameUtils] Added known mission fallback: ${id} => ${name}`);
       }
     });
     
-    console.log("[useMissionNameUtils] Map de noms créée avec", 
-      Object.keys(map).length, "entrées");
+    console.log("[useMissionNameUtils] Mission name map created with", 
+      Object.keys(map).length, "entries");
     
     return map;
   }, [missions]);
@@ -89,12 +89,12 @@ export const useMissionNameUtils = (missions: Mission[]) => {
     };
     
     if (knownMissions[missionIdStr]) {
-      console.log(`[useMissionNameUtils] Mission trouvée dans la liste connue: ${missionIdStr} => ${knownMissions[missionIdStr]}`);
+      console.log(`[useMissionNameUtils] Mission found in known list: ${missionIdStr} => ${knownMissions[missionIdStr]}`);
       return knownMissions[missionIdStr];
     }
     
     // Last resort - generate a name from the ID
-    console.log(`[useMissionNameUtils] Mission non trouvée dans la map: ${missionIdStr} => utilisation de l'ID court`);
+    console.log(`[useMissionNameUtils] Mission not found in map: ${missionIdStr} => using short ID`);
     
     return `Mission ${missionIdStr.substring(0, 8)}`;
   };

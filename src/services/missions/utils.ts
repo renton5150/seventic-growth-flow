@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
 
@@ -177,15 +178,13 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
     }
   }
   
-  // Log the mission data and extracted profile for debugging
-  console.log('Mappage mission vers format d\'affichage:', {
+  console.log('Mission mapping - Raw mission data:', {
     id: mission.id,
     name: mission.name,
-    client: mission.client,
-    sdrProfile
+    client: mission.client
   });
 
-  // COHÉRENCE AVEC formatRequestFromDb - Même logique de priorisation:
+  // CRITICAL: Use EXACT SAME priority logic as formatRequestFromDb
   // PRIORITÉ: client > name > ID court
   let displayName = "Sans mission";
   let clientName = "Sans mission";
@@ -194,21 +193,21 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
       mission.client !== "null" && mission.client !== "undefined") {
     clientName = mission.client;
     displayName = clientName;
-    console.log(`[mapSupaMissionToMission] CHOIX #1: Utilisation du client: "${displayName}"`);
+    console.log(`[mapSupaMissionToMission] PRIORITY #1: Using client: "${displayName}"`);
   }
   else if (mission.name && mission.name.trim() !== "" && 
            mission.name !== "null" && mission.name !== "undefined") {
     displayName = mission.name;
     clientName = displayName;
-    console.log(`[mapSupaMissionToMission] CHOIX #2: Utilisation du nom: "${displayName}"`);
+    console.log(`[mapSupaMissionToMission] PRIORITY #2: Using name: "${displayName}"`);
   }
   else if (mission.id) {
     displayName = `Mission ${mission.id.substring(0, 8)}`;
     clientName = displayName;
-    console.log(`[mapSupaMissionToMission] CHOIX #3: Utilisation de l'ID court: "${displayName}"`);
+    console.log(`[mapSupaMissionToMission] PRIORITY #3: Using short ID: "${displayName}"`);
   }
   
-  console.log(`[mapSupaMissionToMission] Nom final choisi: "${displayName}", Client: "${clientName}"`);
+  console.log(`[mapSupaMissionToMission] FINAL name chosen: "${displayName}", Client: "${clientName}"`);
 
   return {
     id: mission.id,

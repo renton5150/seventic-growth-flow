@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -13,7 +14,7 @@ export function useRequestQueries(userId: string | undefined) {
 
   // Requêtes à affecter - UNIQUEMENT les demandes sans assignation
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
-    queryKey: ['growth-requests-to-assign', userId, isSDR],
+    queryKey: ['growth-requests-to-assign', userId, isSDR, isGrowth, isAdmin],
     queryFn: async () => {
       if (!userId) return [];
       
@@ -33,30 +34,6 @@ export function useRequestQueries(userId: string | undefined) {
       if (isSDR) {
         query = query.eq('created_by', userId);
       }
-      // Si c'est un Growth, filtrer pour voir uniquement les missions qui lui sont assignées
-      else if (isGrowth && !isAdmin) {
-        try {
-          // Récupérer d'abord les missions assignées à ce Growth
-          const growthMissions = await getMissionsByGrowthId(userId);
-          console.log("Growth missions fetched for filtering requests:", growthMissions);
-          
-          if (growthMissions && growthMissions.length > 0) {
-            const missionIds = growthMissions.map(mission => mission.id);
-            console.log("Mission IDs for filtering:", missionIds);
-            
-            // S'il y a des missions, filtrer par ces ID
-            if (missionIds.length > 0) {
-              query = query.in('mission_id', missionIds);
-            } else {
-              console.log("No mission IDs found for Growth user, may result in empty requests list");
-            }
-          } else {
-            console.log("No missions found for Growth user ID:", userId);
-          }
-        } catch (err) {
-          console.error("Error while fetching growth missions for filtering:", err);
-        }
-      }
       
       query = query.order('due_date', { ascending: true });
       
@@ -67,65 +44,41 @@ export function useRequestQueries(userId: string | undefined) {
         return [];
       }
       
-      console.log(`Requêtes à affecter récupérées: ${data.length} sur ${count} requêtes totales dans la vue`);
+      console.log(`Requêtes à affecter récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
       
-      // Vérifier les données brutes pour s'assurer que les noms de mission sont présents
-      data.forEach(request => {
-        console.log(`Request ${request.id}: mission_id=${request.mission_id}, mission_name=${request.mission_name}`);
-      });
+      // Formater les données pour l'affichage avec plus de logging
+      const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
+      console.log("Requêtes formatées:", formattedRequests.length);
       
-      return data.map(request => formatRequestFromDb(request));
+      return formattedRequests;
     },
     enabled: !!userId,
-    refetchInterval: 10000 // Rafraîchir toutes les 10 secondes
+    refetchInterval: 10000 // Refresh every 10 seconds
   });
   
-  // Mes assignations - Pour Growth et Admin, voir TOUTES les requêtes
-  // Pour SDR, voir uniquement mes demandes
+  // Mes assignations - For Growth and Admin, see ALL requests assigned to them
+  // For SDR, see only their own requests
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
-    queryKey: ['growth-requests-my-assignments', userId, isSDR, isGrowth],
+    queryKey: ['growth-requests-my-assignments', userId, isSDR, isGrowth, isAdmin],
     queryFn: async () => {
       if (!userId) return [];
       
       console.log("Récupération de mes assignations avec userId:", userId);
-      console.log("Est-ce un SDR?", isSDR ? "Oui" : "Non");
-      console.log("Est-ce un Growth?", isGrowth ? "Oui" : "Non");
       
       let query = supabase.from('requests_with_missions').select('*', { count: 'exact' });
       
-      // Pour Growth: seulement les requêtes assignées à lui-même ou associées à ses missions
+      // Pour Growth: seulement les requêtes assignées à lui-même
       if (isGrowth && !isAdmin) {
-        try {
-          // Pour un utilisateur Growth, on veut les requêtes qui:
-          // 1. Sont directement assignées à lui-même OU
-          // 2. Sont associées aux missions dont il est responsable
-          const growthMissions = await getMissionsByGrowthId(userId);
-          console.log("Growth missions for my assignments:", growthMissions);
-          
-          if (growthMissions && growthMissions.length > 0) {
-            const missionIds = growthMissions.map(mission => mission.id);
-            console.log("Mission IDs for my assignments:", missionIds);
-            
-            if (missionIds.length > 0) {
-              query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
-            } else {
-              console.log("No missions found for growth user, falling back to assigned_to only");
-              query = query.eq('assigned_to', userId);
-            }
-          } else {
-            console.log("No missions found for Growth user ID:", userId);
-            query = query.eq('assigned_to', userId);
-          }
-        } catch (err) {
-          console.error("Error while fetching growth missions for my assignments:", err);
-          query = query.eq('assigned_to', userId);
-        }
+        query = query.eq('assigned_to', userId);
       }
       // Pour SDR: seulement ses requêtes créées
       else if (isSDR) {
         query = query.eq('created_by', userId);
       }
-      // Pour Admin: toutes les requêtes
+      // Pour Admin: toutes les requêtes assignées (non null)
+      else if (isAdmin) {
+        query = query.not('assigned_to', 'is', null);
+      }
       
       query = query.order('due_date', { ascending: true });
       
@@ -136,22 +89,21 @@ export function useRequestQueries(userId: string | undefined) {
         return [];
       }
       
-      console.log(`Mes assignations récupérées: ${data.length} sur ${count} requêtes totales dans la vue`);
+      console.log(`Mes assignations récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
       
-      // Vérifier les données brutes pour s'assurer que les noms de mission sont présents
-      data.forEach(request => {
-        console.log(`Request ${request.id}: mission_id=${request.mission_id}, mission_name=${request.mission_name}`);
-      });
+      // Formater les données pour l'affichage
+      const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
+      console.log("Requêtes formatées:", formattedRequests.length);
       
-      return data.map(request => formatRequestFromDb(request));
+      return formattedRequests;
     },
     enabled: !!userId,
-    refetchInterval: 10000 // Rafraîchir toutes les 10 secondes
+    refetchInterval: 10000 // Refresh every 10 seconds
   });
   
-  // Toutes les requêtes - Filtre par SDR pour restreindre l'accès
+  // Toutes les requêtes - IMPORTANT: Ne pas filtrer excessivement!
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
-    queryKey: ['growth-all-requests', userId, isSDR, isGrowth],
+    queryKey: ['growth-all-requests', userId, isSDR, isGrowth, isAdmin],
     queryFn: async () => {
       if (!userId) return [];
       
@@ -159,31 +111,13 @@ export function useRequestQueries(userId: string | undefined) {
                   isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
       
       // IMPORTANT: Utilisez toujours la même source de données (requests_with_missions)
-      // pour éviter les incohérences d'affichage
       let query = supabase.from('requests_with_missions').select('*');
       
       // Si c'est un SDR, ne récupérer QUE ses demandes créées
       if (isSDR) {
         query = query.eq('created_by', userId);
-        console.log('SDR détecté - Filtrage requêtes par ID utilisateur:', userId);
+        console.log('SDR - Filtrage requêtes par ID utilisateur:', userId);
       }
-      // Si c'est un Growth, récupérer les requêtes associées à ses missions
-      else if (isGrowth && !isAdmin) {
-        console.log('Growth détecté - Filtrage requêtes par ID utilisateur:', userId);
-        try {
-          // Ne pas utiliser de filtre initial pour les Growth - récupérer TOUTES les requêtes d'abord
-          // Pour éviter de manquer des requêtes à cause de missions non assignées
-          console.log("Pour les Growth, récupération de toutes les requêtes sans filtre initial");
-          
-          // Une bonne pratique serait de réduire un peu la quantité de données récupérées
-          // mais pour le moment, priorité à l'exactitude des données
-        } catch (err) {
-          console.error("Erreur durant la récupération des missions pour les requêtes:", err);
-          // En cas d'erreur, essayer l'approche par assigned_to
-          query = query.eq('assigned_to', userId);
-        }
-      }
-      // Pour Admin, récupérer toutes les requêtes sans filtre
       
       query = query.order('due_date', { ascending: true });
       
@@ -195,18 +129,20 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       const requestsArray = Array.isArray(data) ? data : [];
-      console.log(`Récupéré ${requestsArray.length} requêtes au total`, 
-                  isSDR ? 'pour SDR' : isGrowth ? 'pour Growth' : 'pour Admin');
+      console.log(`${requestsArray.length} requêtes récupérées au total`);
       
-      // Vérifier les données brutes pour s'assurer que les noms de mission sont présents
-      requestsArray.forEach(request => {
-        console.log(`Requête ${request.id}: mission_id=${request.mission_id}, mission_name=${request.mission_name || 'MANQUANT'}, mission_client=${request.mission_client || 'MANQUANT'}`);
+      // Formater les données pour l'affichage - Assurer que les noms de mission sont correctement définis
+      const formattedRequests = await Promise.all(requestsArray.map(request => formatRequestFromDb(request)));
+      
+      console.log(`${formattedRequests.length} requêtes formatées pour l'affichage`);
+      formattedRequests.forEach(req => {
+        console.log(`Request ${req.id}: mission_id=${req.missionId}, missionName=${req.missionName}`);
       });
       
-      return requestsArray.map(request => formatRequestFromDb(request));
+      return formattedRequests;
     },
     enabled: !!userId,
-    refetchInterval: 10000 // Rafraîchir toutes les 10 secondes
+    refetchInterval: 10000 // Refresh every 10 seconds
   });
 
   // Récupération des détails d'une demande spécifique
@@ -238,9 +174,9 @@ export function useRequestQueries(userId: string | undefined) {
       }
 
       console.log("Détails de la demande récupérés:", data);
-      console.log(`Request detail ${data.id}: mission_id=${data.mission_id}, mission_name=${data.mission_name || 'MISSING'}`);
       
-      return formatRequestFromDb(data);
+      // Formatage avec la nouvelle fonction qui récupère les noms de mission manquants
+      return await formatRequestFromDb(data);
     } catch (err) {
       console.error("Erreur lors de la récupération des détails:", err);
       return null;
