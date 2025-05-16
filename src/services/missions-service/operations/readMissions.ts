@@ -83,42 +83,72 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       return [];
     }
 
-    console.log(`Fetching missions for Growth user with ID: ${growthId}`);
+    console.log(`DÉBUT - Récupération missions pour Growth ID: ${growthId}`);
 
-    // Récupérer les missions où growth_id correspond à l'ID de l'utilisateur Growth
-    // et joindre les informations de profil SDR
+    // Récupérer directement les missions depuis la table missions
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
-        *,
-        profiles:sdr_id (id, name, email)
+        id,
+        name,
+        client,
+        description,
+        sdr_id,
+        growth_id,
+        type,
+        status,
+        start_date,
+        end_date,
+        created_at,
+        updated_at
       `)
       .eq('growth_id', growthId)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error("Error fetching growth missions from Supabase:", error);
+      console.error(`Erreur lors de la récupération des missions pour Growth ID ${growthId}:`, error);
       return [];
     }
 
-    // Log détaillé pour déboguer
-    console.log(`Retrieved ${missions?.length || 0} missions for Growth ID ${growthId}:`, missions);
+    console.log(`SUCCÈS - ${missions.length} missions trouvées pour Growth ID ${growthId}:`, missions);
     
-    // Si aucune mission n'est trouvée, essayons de vérifier toutes les missions pour déboguer
-    if (!missions?.length) {
-      console.log("No missions found, checking ALL missions in database for debugging");
-      const { data: allMissions } = await supabase.from('missions').select('*');
-      console.log("All missions in database:", allMissions);
+    if (!missions || missions.length === 0) {
+      console.log(`ATTENTION - Aucune mission associée au Growth ID ${growthId}`);
+      
+      // Pour le débogage, vérifions si des missions existent avec ce growth_id
+      const { data: allMissions } = await supabase
+        .from('missions')
+        .select('id, name, growth_id')
+        .limit(20);
+        
+      console.log("DEBUG - Échantillon des missions disponibles:", allMissions);
+      
+      return [];
     }
     
-    // Mapper les données reçues au format Mission
-    return missions?.map(mission => {
-      const mappedMission = mapSupaMissionToMission(mission);
-      console.log("Mapped mission:", mappedMission);
+    const mappedMissions = missions.map(mission => {
+      const mappedMission = {
+        id: mission.id,
+        name: mission.name || `Mission ${mission.id.substring(0, 6)}`,
+        sdrId: mission.sdr_id || null,
+        description: mission.description || "",
+        createdAt: new Date(mission.created_at),
+        sdrName: "À déterminer", // Sera complété plus tard si nécessaire
+        requests: [],
+        startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
+        endDate: mission.end_date ? new Date(mission.end_date) : null,
+        type: mission.type || "Full",
+        status: mission.status || "En cours",
+        client: mission.client || ""
+      };
+      
+      console.log(`Mission mappée: ID=${mappedMission.id}, Nom=${mappedMission.name}`);
       return mappedMission;
-    }) || [];
+    });
+    
+    return mappedMissions;
   } catch (error) {
-    console.error(`Error fetching missions for Growth ID ${growthId}:`, error);
+    console.error(`Erreur lors de la récupération des missions pour Growth ID ${growthId}:`, error);
     return [];
   }
 };
