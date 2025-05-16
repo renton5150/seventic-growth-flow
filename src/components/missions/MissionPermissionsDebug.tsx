@@ -121,7 +121,7 @@ export function MissionPermissionsDebug() {
       
       // Convertir les données Supabase au format Mission de l'application
       if (missionData) {
-        const mission = mapSupaMissionToMission(missionData);
+        const mission = await mapSupaMissionToMission(missionData);
         setMissionDetails(mission);
       } else {
         setMissionDetails(null);

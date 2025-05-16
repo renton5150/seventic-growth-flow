@@ -1,3 +1,4 @@
+
 import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import { isSupabaseAuthenticated } from "../auth/supabaseAuth";
@@ -29,7 +30,8 @@ export const getAllMissionsFromSupabase = async (): Promise<Mission[]> => {
     }
 
     console.log("Missions retrieved with SDR data:", missions);
-    return missions.map(mission => mapSupaMissionToMission(mission));
+    // Use Promise.all to wait for all Promise<Mission> to resolve
+    return await Promise.all(missions.map(mission => mapSupaMissionToMission(mission)));
   } catch (error) {
     console.error("Error fetching missions from Supabase:", error);
     return [];
@@ -62,7 +64,8 @@ export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => 
     }
 
     console.log("User missions retrieved with SDR data:", missions);
-    return missions.map(mission => mapSupaMissionToMission(mission));
+    // Use Promise.all to wait for all Promise<Mission> to resolve
+    return await Promise.all(missions.map(mission => mapSupaMissionToMission(mission)));
   } catch (error) {
     console.error("Error fetching user missions from Supabase:", error);
     return [];
@@ -146,8 +149,8 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       console.log(`SUCCÈS PARTIEL - Récupéré ${allMissions.length} missions au total`);
       console.log("En l'absence d'association directe, nous utilisons toutes les missions disponibles");
       
-      // Utiliser toutes les missions disponibles puisqu'aucune n'est spécifiquement associée
-      return allMissions.map(mission => mapSupaMissionToMission(mission));
+      // Use Promise.all to wait for all Promise<Mission> to resolve
+      return await Promise.all(allMissions.map(mission => mapSupaMissionToMission(mission)));
     }
 
     if (!missions || missions.length === 0) {
@@ -185,11 +188,13 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       }
       
       console.log(`SUCCÈS PARTIEL - Fallback récupéré ${recentMissions.length} missions récentes`);
-      return recentMissions.map(mission => mapSupaMissionToMission(mission));
+      // Use Promise.all to wait for all Promise<Mission> to resolve
+      return await Promise.all(recentMissions.map(mission => mapSupaMissionToMission(mission)));
     }
     
     console.log(`SUCCÈS - ${missions.length} missions trouvées pour Growth ID ${growthId}`);
-    return missions.map(mission => mapSupaMissionToMission(mission));
+    // Use Promise.all to wait for all Promise<Mission> to resolve
+    return await Promise.all(missions.map(mission => mapSupaMissionToMission(mission)));
   } catch (error) {
     console.error(`Erreur lors de la récupération des missions pour Growth ID ${growthId}:`, error);
     return [];

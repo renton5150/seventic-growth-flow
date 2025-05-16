@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllRequests } from "@/services/requestService";
 import { useCalendarDates } from "./calendar/useCalendarDates";
 import { useMissionData } from "./calendar/useMissionData";
-import { useMissionNameUtils } from "./calendar/useMissionNames";
+import { useMissionNameUtils } from "./calendar/useMissionNameUtils";
 
 export const useCalendarEvents = (userId: string | undefined) => {
   // Fetch all requests

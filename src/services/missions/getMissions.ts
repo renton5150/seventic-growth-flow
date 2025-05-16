@@ -1,4 +1,3 @@
-
 import { Mission } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "./utils";
@@ -22,7 +21,8 @@ export const getAllSupaMissions = async (): Promise<Mission[]> => {
     }
 
     console.log("Missions récupérées avec données de profil:", missions);
-    return missions.map(mission => mapSupaMissionToMission(mission));
+    // Utiliser Promise.all pour attendre la résolution de toutes les promesses
+    return Promise.all(missions.map(mission => mapSupaMissionToMission(mission)));
   } catch (error) {
     console.error("Erreur lors de la récupération des missions:", error);
     throw error;
@@ -49,7 +49,8 @@ export const getSupaMissionsByUserId = async (userId: string): Promise<Mission[]
     }
 
     console.log("Missions d'un utilisateur:", missions);
-    return missions.map(mission => mapSupaMissionToMission(mission));
+    // Utiliser Promise.all pour attendre la résolution de toutes les promesses
+    return Promise.all(missions.map(mission => mapSupaMissionToMission(mission)));
   } catch (error) {
     console.error("Erreur lors de la récupération des missions:", error);
     throw error;
