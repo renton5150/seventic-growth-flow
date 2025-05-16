@@ -11,7 +11,7 @@ import { updateEmailRequest } from "./emailRequestService";
 import { updateDatabaseRequest } from "./databaseRequestService";
 import { updateLinkedInRequest } from "./linkedinRequestService";
 import { supabase } from "@/integrations/supabase/client";
-import { formatRequestFromDb } from "../utils/requestFormatters";
+import { formatRequestFromDb } from "@/utils/requestFormatters";
 
 /**
  * Type guard to check if an object has a template property
