@@ -81,9 +81,6 @@ export const useMissionNameUtils = (missions: Mission[]) => {
     // Last resort - generate a name from the ID
     console.log(`[useMissionNameUtils] Mission ID not found in map: ${missionIdStr}`);
     
-    // Try to fetch the mission name from the database
-    // Since we can't do async operations here, we'll just return a placeholder
-    // but provide a more user-friendly format
     return `Mission ${missionIdStr.substring(0, 8)}`;
   };
 

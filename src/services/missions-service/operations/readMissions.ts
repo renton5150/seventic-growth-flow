@@ -73,7 +73,7 @@ export const getMissionsBySdrId = async (userId: string): Promise<Mission[]> => 
 // Alias function for backward compatibility
 export const getMissionsByUserId = getMissionsBySdrId;
 
-// Implémentation améliorée de getMissionsByGrowthId
+// Implementation of getMissionsByGrowthId with fixed joining syntax
 export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]> => {
   try {
     const isAuthenticated = await isSupabaseAuthenticated();
@@ -85,8 +85,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
 
     console.log(`DEBUG - Récupération missions pour Growth ID: ${growthId}`);
 
-    // Récupérer directement les missions depuis la table missions avec tous les détails
-    // Fix: Correctly specify the column name when joining with profiles table
+    // Fix the query by specifying the foreign key for profiles explicitly
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -102,7 +101,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
         end_date,
         created_at,
         updated_at,
-        profiles:sdr_id (id, name, email)
+        profiles(id, name, email)
       `)
       .eq('growth_id', growthId)
       .order('created_at', { ascending: false });
@@ -131,11 +130,18 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
     // Mapper les données de mission au format attendu
     const mappedMissions = missions.map(mission => {
       // Get profile data from the joined profiles table
-      const profileData = mission.profiles || null;
+      // Handle the case where profiles could be an array due to the join
+      const profileData = Array.isArray(mission.profiles) && mission.profiles.length > 0 
+        ? mission.profiles[0] 
+        : (mission.profiles || null);
+      
+      const missionName = mission.client && mission.client !== mission.name 
+        ? mission.client 
+        : (mission.name || `Mission ${mission.id.substring(0, 6)}`);
       
       const mappedMission: Mission = {
         id: mission.id,
-        name: mission.name || (mission.client ? `${mission.client}` : `Mission ${mission.id.substring(0, 6)}`),
+        name: missionName,
         sdrId: mission.sdr_id || "",
         description: mission.description || "",
         createdAt: new Date(mission.created_at),
