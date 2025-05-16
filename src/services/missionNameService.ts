@@ -4,16 +4,59 @@ import { supabase } from "@/integrations/supabase/client";
 // Cache global pour les noms de mission
 const missionNameCache: Record<string, string> = {};
 
-// Constantes pour les ID de missions connues
+// Constantes pour les ID de missions connues - CORRIGÉS avec les IDs exacts
 export const KNOWN_MISSIONS: Record<string, string> = {
   "2180c854-4d88-4d53-88c3-f2efc9d251af": "HSBC",
-  "2f042e2b-d591-4b5f-b73d-c5050d53874d": "Capensis",
+  "21042e2b-d591-4b5f-b73d-c5050d53874d": "Capensis", // ID corrigé: 2f -> 21
   "c033b7b7-9fd1-4970-8834-b5c2bdde12b7": "DFIN",
-  "250d09ae-44b8-4296-a7df-6d9a56269a3": "Axialys",
+  "250d09ee-44b8-4296-a7df-6d9a56269a30": "Axialys", // ID corrigé: ae -> ee, ajout de 0 à la fin
   "41a43fba-74e3-46e2-a6a9-6ebeb2d1e5ea": "Eiffage",
   "bdb6b562-f9ef-49cd-b035-b48d7df054e8": "Seventic",
   "124ea847-cf3f-44af-becb-75641ebf0ef1": "Datalit",
   "f34e4f08-34c6-4419-b79e-83b6f519f8cf": "Sames"
+};
+
+// Fonction pour synchroniser les missions connues avec la base de données
+export const syncKnownMissions = async (): Promise<void> => {
+  try {
+    console.log("[syncKnownMissions] Synchronisation des missions connues avec la base de données");
+    
+    const { data, error } = await supabase
+      .from('missions')
+      .select('id, name, client')
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error("[syncKnownMissions] Erreur lors de la récupération des missions:", error);
+      return;
+    }
+    
+    if (!data || data.length === 0) {
+      console.log("[syncKnownMissions] Aucune mission trouvée dans la base de données");
+      return;
+    }
+    
+    console.log(`[syncKnownMissions] ${data.length} missions récupérées`);
+    
+    // Mettre à jour le cache avec les données de la base
+    data.forEach(mission => {
+      if (!mission.id) return;
+      
+      const displayName = mission.client && mission.client.trim() !== "" && 
+                         mission.client !== "null" && mission.client !== "undefined" 
+                         ? mission.client 
+                         : mission.name;
+                         
+      if (displayName && displayName.trim() !== "") {
+        missionNameCache[mission.id] = displayName;
+        console.log(`[syncKnownMissions] Mis en cache: ${mission.id} => "${displayName}"`);
+      }
+    });
+    
+    console.log("[syncKnownMissions] Synchronisation terminée avec succès");
+  } catch (err) {
+    console.error("[syncKnownMissions] Erreur lors de la synchronisation:", err);
+  }
 };
 
 /**
@@ -162,6 +205,36 @@ export const preloadMissionNames = async (missionIds: string[]): Promise<void> =
     }
   } catch (err) {
     console.error('[preloadMissionNames] Error preloading mission names:', err);
+  }
+};
+
+/**
+ * Exécute une vérification périodique du cache des noms de mission
+ */
+export const refreshMissionNameCache = async (forceAll: boolean = false): Promise<void> => {
+  try {
+    console.log(`[refreshMissionNameCache] Rafraîchissement du cache ${forceAll ? 'complet' : 'sélectif'} démarré`);
+    
+    // Si on force tout, on vide le cache
+    if (forceAll) {
+      clearMissionNameCache();
+    }
+    
+    // Récupérer tous les IDs actuellement dans le cache
+    const cachedIds = Object.keys(missionNameCache);
+    
+    if (cachedIds.length === 0) {
+      // Si le cache est vide, on synchronise les missions connues
+      await syncKnownMissions();
+      return;
+    }
+    
+    // Sinon, on rafraîchit les missions en cache
+    await preloadMissionNames(cachedIds);
+    
+    console.log(`[refreshMissionNameCache] Rafraîchissement terminé pour ${cachedIds.length} missions`);
+  } catch (err) {
+    console.error('[refreshMissionNameCache] Erreur lors du rafraîchissement du cache:', err);
   }
 };
 

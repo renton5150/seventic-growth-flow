@@ -4,8 +4,14 @@ import { getAllRequests } from "@/services/requestService";
 import { useCalendarDates } from "./calendar/useCalendarDates";
 import { useMissionData } from "./calendar/useMissionData";
 import { useMissionNameUtils } from "./calendar/useMissionNameUtils";
+import { syncKnownMissions } from "@/services/missionNameService";
 
 export const useCalendarEvents = (userId: string | undefined) => {
+  // Synchroniser les missions connues au démarrage
+  React.useEffect(() => {
+    syncKnownMissions();
+  }, []);
+
   // Fetch all requests
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
     queryKey: ['calendar-requests'],

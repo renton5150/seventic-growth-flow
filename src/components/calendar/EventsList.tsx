@@ -92,23 +92,11 @@ export const EventsList = ({
       return missionNameMap[event.missionId];
     }
     
-    // Fallback to hardcoded IDs for immediate display
-    if (event.missionId) {
-      // Check hardcoded IDs
-      if (event.missionId === "bdb6b562-f9ef-49cd-b035-b48d7df054e8") {
-        return "Seventic";
-      }
-      
-      if (event.missionId === "124ea847-cf3f-44af-becb-75641ebf0ef1") {
-        return "Datalit";
-      }
-
-      if (event.missionId === "f34e4f08-34c6-4419-b79e-83b6f519f8cf") {
-        return "Sames";
-      }
-
-      if (event.missionId === "2180c854-4d88-4d53-88c3-f2efc9d251af") {
-        return "HSBC";
+    // Recherche dans les missions chargées
+    if (event.missionId && missions.length > 0) {
+      const mission = missions.find(m => m.id === event.missionId);
+      if (mission && mission.name) {
+        return mission.name;
       }
     }
     

@@ -1,9 +1,32 @@
 
 import { useMemo, useCallback, useEffect } from "react";
 import { Mission } from "@/types/types";
-import { getMissionName, preloadMissionNames, KNOWN_MISSIONS } from "@/services/missionNameService";
+import { 
+  getMissionName, 
+  preloadMissionNames, 
+  KNOWN_MISSIONS, 
+  syncKnownMissions,
+  refreshMissionNameCache
+} from "@/services/missionNameService";
 
 export const useMissionNameUtils = (missions: Mission[]) => {
+  // Synchroniser les missions connues au montage du composant
+  useEffect(() => {
+    // Synchronisation des missions connues avec la base de données
+    syncKnownMissions().then(() => {
+      console.log("[useMissionNameUtils] Missions connues synchronisées");
+    });
+    
+    // Rafraîchissement périodique du cache toutes les 5 minutes
+    const refreshInterval = setInterval(() => {
+      refreshMissionNameCache();
+    }, 5 * 60 * 1000);
+    
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, []);
+
   // Create a memoized map for faster lookups with consistent naming convention
   const missionNameMap = useMemo(() => {
     const map: Record<string, string> = {};
