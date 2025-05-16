@@ -1,4 +1,3 @@
-
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
 // Utility function to format dates as needed
@@ -19,41 +18,32 @@ export const formatRequestFromDb = (request: any): Request => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Enhanced mission name selection logic with multiple fallbacks
+  // Traitement spécifique du nom de mission pour assurer la cohérence
+  // PRIORITÉ : mission_client > mission_name > mission_id court
   let missionName = "Sans mission";
   
-  // Step 1: Check if we have a mission_client value that differs from mission_name
-  if (request.mission_client && request.mission_name && request.mission_client !== request.mission_name) {
+  // Utiliser client comme priorité #1
+  if (request.mission_client && request.mission_client.trim() !== "" && 
+      request.mission_client !== "null" && request.mission_client !== "undefined") {
     missionName = request.mission_client;
-    console.log(`[formatRequestFromDb] Using mission_client: "${missionName}"`);
-  } 
-  // Step 2: Check if we have a mission_client value (even if it's the same as mission_name)
-  else if (request.mission_client) {
-    missionName = request.mission_client;
-    console.log(`[formatRequestFromDb] Using mission_client: "${missionName}"`);
+    console.log(`[formatRequestFromDb] CHOIX #1: Utilisation du client: "${missionName}"`);
   }
-  // Step 3: Check if we have a mission_name value
-  else if (request.mission_name) {
+  // Utiliser name comme priorité #2
+  else if (request.mission_name && request.mission_name.trim() !== "" && 
+           request.mission_name !== "null" && request.mission_name !== "undefined") {
     missionName = request.mission_name;
-    console.log(`[formatRequestFromDb] Using mission_name: "${missionName}"`);
+    console.log(`[formatRequestFromDb] CHOIX #2: Utilisation du nom: "${missionName}"`);
   }
-  // Step 4: Check if we have a mission_id but no name - try to use part of the ID
+  // Générer un nom à partir de l'ID comme dernier recours
   else if (request.mission_id) {
     missionName = `Mission ${String(request.mission_id).substring(0, 8)}`;
-    console.log(`[formatRequestFromDb] Using generated name from mission_id: "${missionName}"`);
+    console.log(`[formatRequestFromDb] CHOIX #3: Utilisation de l'ID raccourci: "${missionName}"`);
   }
-  // Step 5: Default to "Sans mission" if nothing else is available
   else {
-    console.log(`[formatRequestFromDb] No mission information available - using default: "${missionName}"`);
+    console.log(`[formatRequestFromDb] CHOIX #4: Aucune information disponible - utilisation du nom par défaut: "${missionName}"`);
   }
   
-  // Final fallback - check for empty or "null" strings which sometimes appear in the data
-  if (missionName === "null" || missionName === "" || missionName === "undefined") {
-    missionName = "Sans mission";
-    console.log(`[formatRequestFromDb] Invalid mission name detected - using default: "${missionName}"`);
-  }
-  
-  console.log(`[formatRequestFromDb] Final mission name for request ${request.id}: "${missionName}"`);
+  console.log(`[formatRequestFromDb] Nom final de la mission pour requête ${request.id}: "${missionName}"`);
 
   return {
     id: request.id,

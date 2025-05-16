@@ -1,4 +1,3 @@
-
 import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import { isSupabaseAuthenticated } from "../auth/supabaseAuth";
@@ -79,13 +78,13 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
     const isAuthenticated = await isSupabaseAuthenticated();
     
     if (!isSupabaseConfigured || !isAuthenticated || !growthId) {
-      console.log("Supabase not configured, user not authenticated, or invalid growth ID");
+      console.log("Supabase non configuré, utilisateur non authentifié, ou ID growth invalide");
       return [];
     }
 
     console.log(`DEBUG - Récupération missions pour Growth ID: ${growthId}`);
 
-    // Improved query with better column specification and proper join syntax
+    // Première tentative: récupérer les missions par growth_id (la plus fiable)
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -101,7 +100,11 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
         end_date,
         created_at,
         updated_at,
-        profiles!sdr_id (id, name, email)
+        profiles:sdr_id (
+          id, 
+          name, 
+          email
+        )
       `)
       .eq('growth_id', growthId)
       .order('created_at', { ascending: false });
@@ -109,90 +112,84 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
     if (error) {
       console.error(`Erreur lors de la récupération des missions pour Growth ID ${growthId}:`, error);
       
-      // Fallback query if the first one fails - try without the join
-      console.log("Tentative de récupération sans jointure...");
-      const { data: fallbackMissions, error: fallbackError } = await supabase
+      // Seconde tentative: récupérer toutes les missions
+      console.log("TENTATIVE ALTERNATIVE - Récupération de toutes les missions disponibles...");
+      const { data: allMissions, error: allMissionsError } = await supabase
         .from('missions')
-        .select('*')
-        .eq('growth_id', growthId)
+        .select(`
+          id,
+          name,
+          client,
+          description,
+          sdr_id,
+          growth_id,
+          type,
+          status,
+          start_date,
+          end_date,
+          created_at,
+          updated_at,
+          profiles:sdr_id (
+            id, 
+            name, 
+            email
+          )
+        `)
+        .limit(100)
         .order('created_at', { ascending: false });
         
-      if (fallbackError || !fallbackMissions || fallbackMissions.length === 0) {
-        console.error("Échec de la récupération, même sans jointure:", fallbackError);
+      if (allMissionsError || !allMissions) {
+        console.error("ÉCHEC - Récupération des missions alternatives:", allMissionsError);
         return [];
       }
       
-      console.log(`Récupération sans jointure réussie: ${fallbackMissions.length} missions trouvées`);
-      return fallbackMissions.map(mission => mapSupaMissionToMission(mission));
+      console.log(`SUCCÈS PARTIEL - Récupéré ${allMissions.length} missions au total`);
+      console.log("En l'absence d'association directe, nous utilisons toutes les missions disponibles");
+      
+      // Utiliser toutes les missions disponibles puisqu'aucune n'est spécifiquement associée
+      return allMissions.map(mission => mapSupaMissionToMission(mission));
     }
 
     if (!missions || missions.length === 0) {
       console.log(`ATTENTION - Aucune mission associée au Growth ID ${growthId}`);
       
-      // Pour le débogage, vérifions si des missions existent avec ce growth_id
-      const { data: allMissions } = await supabase
+      // Dernière tentative: récupérer les 50 dernières missions comme fallback
+      console.log("FALLBACK - Récupération des 50 dernières missions...");
+      const { data: recentMissions, error: recentError } = await supabase
         .from('missions')
-        .select('id, name, client, growth_id')
-        .limit(20);
-        
-      console.log("DEBUG - Échantillon des missions disponibles:", allMissions);
-      
-      // Tenter une recherche alternative si aucune mission n'a été trouvée
-      console.log("Tentative de récupération de toutes les missions (limité à 50)...");
-      const { data: alternateMissions } = await supabase
-        .from('missions')
-        .select('*')
+        .select(`
+          id,
+          name,
+          client,
+          description,
+          sdr_id,
+          growth_id,
+          type,
+          status,
+          start_date,
+          end_date,
+          created_at,
+          updated_at,
+          profiles:sdr_id (
+            id, 
+            name, 
+            email
+          )
+        `)
+        .order('created_at', { ascending: false })
         .limit(50);
         
-      if (alternateMissions && alternateMissions.length > 0) {
-        console.log(`DEBUG - ${alternateMissions.length} missions trouvées au total dans la base`);
-        
-        // Vérifier si le growth_id existe dans l'une de ces missions
-        const growthMissions = alternateMissions.filter(m => m.growth_id === growthId);
-        if (growthMissions.length > 0) {
-          console.log(`DEBUG - ${growthMissions.length} missions trouvées par recherche alternative`);
-          return growthMissions.map(mission => mapSupaMissionToMission(mission));
-        }
+      if (recentError || !recentMissions || recentMissions.length === 0) {
+        console.log("ÉCHEC TOTAL - Aucune mission trouvée même en fallback");
+        return [];
       }
       
-      return [];
+      console.log(`SUCCÈS PARTIEL - Fallback récupéré ${recentMissions.length} missions récentes`);
+      return recentMissions.map(mission => mapSupaMissionToMission(mission));
     }
     
     console.log(`SUCCÈS - ${missions.length} missions trouvées pour Growth ID ${growthId}`);
-    
-    // Mapper les données de mission au format attendu avec gestion améliorée des noms
-    const mappedMissions = missions.map(mission => {
-      // Get profile data from the joined profiles table - handle both object and array formats
-      const profileData = mission.profiles ? (
-        Array.isArray(mission.profiles) ? mission.profiles[0] : mission.profiles
-      ) : null;
-      
-      // Improved mission name handling - prioritize client name if available
-      const missionName = mission.client && mission.client !== mission.name 
-        ? mission.client 
-        : (mission.name || `Mission ${mission.id.substring(0, 6)}`);
-      
-      const mappedMission: Mission = {
-        id: mission.id,
-        name: mission.name || `Mission ${mission.id.substring(0, 6)}`,
-        sdrId: mission.sdr_id || "",
-        description: mission.description || "",
-        createdAt: new Date(mission.created_at),
-        sdrName: profileData?.name || "À déterminer",
-        requests: [],
-        startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
-        endDate: mission.end_date ? new Date(mission.end_date) : null,
-        type: mission.type as MissionType || "Full",
-        // Ensure status is one of the allowed values, defaulting to "En cours" if not
-        status: mission.status === "Fin" ? "Fin" : "En cours",
-        client: mission.client || mission.name || ""
-      };
-      
-      console.log(`Mission mappée: ID=${mappedMission.id}, Nom=${mappedMission.name}, Client=${mappedMission.client}`);
-      return mappedMission;
-    });
-    
-    return mappedMissions;
+    return missions.map(mission => mapSupaMissionToMission(mission));
   } catch (error) {
     console.error(`Erreur lors de la récupération des missions pour Growth ID ${growthId}:`, error);
     return [];

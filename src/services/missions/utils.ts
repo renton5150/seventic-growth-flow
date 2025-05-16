@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
 
@@ -161,7 +160,8 @@ export const updateSupaMission = async (missionData: any) => {
 
 /**
  * Maps a Supabase mission data object to the Mission type used in the application
- * with enhanced handling of mission names and client information
+ * with enhanced handling of mission names and client information to ensure consistency
+ * between SDR and Growth users
  */
 export const mapSupaMissionToMission = (mission: any): Mission => {
   // Extract SDR profile information - handle both array and object formats
@@ -178,31 +178,50 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
   }
   
   // Log the mission data and extracted profile for debugging
-  console.log('Mapping mission to display format:', {
+  console.log('Mappage mission vers format d\'affichage:', {
     id: mission.id,
     name: mission.name,
     client: mission.client,
     sdrProfile
   });
 
-  // Prioritize client name if different from mission name
-  const missionName = mission.client && mission.client !== mission.name 
-    ? mission.client 
-    : (mission.name || `Mission ${mission.id.substring(0, 6)}`);
+  // COHÉRENCE AVEC formatRequestFromDb - Même logique de priorisation:
+  // PRIORITÉ: client > name > ID court
+  let displayName = "Sans mission";
+  let clientName = "Sans mission";
+  
+  if (mission.client && mission.client.trim() !== "" && 
+      mission.client !== "null" && mission.client !== "undefined") {
+    clientName = mission.client;
+    displayName = clientName;
+    console.log(`[mapSupaMissionToMission] CHOIX #1: Utilisation du client: "${displayName}"`);
+  }
+  else if (mission.name && mission.name.trim() !== "" && 
+           mission.name !== "null" && mission.name !== "undefined") {
+    displayName = mission.name;
+    clientName = displayName;
+    console.log(`[mapSupaMissionToMission] CHOIX #2: Utilisation du nom: "${displayName}"`);
+  }
+  else if (mission.id) {
+    displayName = `Mission ${mission.id.substring(0, 8)}`;
+    clientName = displayName;
+    console.log(`[mapSupaMissionToMission] CHOIX #3: Utilisation de l'ID court: "${displayName}"`);
+  }
+  
+  console.log(`[mapSupaMissionToMission] Nom final choisi: "${displayName}", Client: "${clientName}"`);
 
   return {
     id: mission.id,
-    name: mission.name || `Mission ${mission.id.substring(0, 6)}`,
+    name: displayName,
     description: mission.description || '',
     sdrId: mission.sdr_id || null,
-    // Use the name from the joined profiles table if available
     sdrName: sdrProfile?.name || null,
     createdAt: new Date(mission.created_at),
     startDate: mission.start_date ? new Date(mission.start_date) : null,
     endDate: mission.end_date ? new Date(mission.end_date) : null,
     type: (mission.type as MissionType) || 'Full',
     status: mission.status === "Fin" ? "Fin" : "En cours",
-    client: mission.client || mission.name || `Mission ${mission.id.substring(0, 6)}`,
+    client: clientName,
     requests: []
   };
 };

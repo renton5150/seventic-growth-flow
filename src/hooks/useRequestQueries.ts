@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -156,39 +155,31 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log('Fetching ALL requests for dashboard with role:', 
+      console.log('Récupération de TOUTES les requêtes avec rôle:', 
                   isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
       
+      // IMPORTANT: Utilisez toujours la même source de données (requests_with_missions)
+      // pour éviter les incohérences d'affichage
       let query = supabase.from('requests_with_missions').select('*');
       
       // Si c'est un SDR, ne récupérer QUE ses demandes créées
       if (isSDR) {
         query = query.eq('created_by', userId);
-        console.log('SDR detected - Filtering requests for user ID:', userId);
+        console.log('SDR détecté - Filtrage requêtes par ID utilisateur:', userId);
       }
       // Si c'est un Growth, récupérer les requêtes associées à ses missions
       else if (isGrowth && !isAdmin) {
-        console.log('Growth detected - Filtering requests for user ID:', userId);
+        console.log('Growth détecté - Filtrage requêtes par ID utilisateur:', userId);
         try {
-          const growthMissions = await getMissionsByGrowthId(userId);
-          console.log("Growth missions for all requests:", growthMissions);
+          // Ne pas utiliser de filtre initial pour les Growth - récupérer TOUTES les requêtes d'abord
+          // Pour éviter de manquer des requêtes à cause de missions non assignées
+          console.log("Pour les Growth, récupération de toutes les requêtes sans filtre initial");
           
-          if (growthMissions && growthMissions.length > 0) {
-            const missionIds = growthMissions.map(mission => mission.id);
-            console.log("Mission IDs for all requests:", missionIds);
-            
-            if (missionIds.length > 0) {
-              query = query.or(`assigned_to.eq.${userId},mission_id.in.(${missionIds.join(',')})`);
-            } else {
-              console.log("No missions found for growth user, falling back to assigned_to only");
-              query = query.eq('assigned_to', userId);
-            }
-          } else {
-            console.log("No missions found for Growth user ID:", userId);
-            query = query.eq('assigned_to', userId);
-          }
+          // Une bonne pratique serait de réduire un peu la quantité de données récupérées
+          // mais pour le moment, priorité à l'exactitude des données
         } catch (err) {
-          console.error("Error while fetching growth missions for all requests:", err);
+          console.error("Erreur durant la récupération des missions pour les requêtes:", err);
+          // En cas d'erreur, essayer l'approche par assigned_to
           query = query.eq('assigned_to', userId);
         }
       }
@@ -199,17 +190,17 @@ export function useRequestQueries(userId: string | undefined) {
       const { data, error } = await query;
       
       if (error) {
-        console.error('Error fetching all requests:', error);
+        console.error('Erreur pendant la récupération des requêtes:', error);
         throw error;
       }
       
       const requestsArray = Array.isArray(data) ? data : [];
-      console.log(`Retrieved ${requestsArray.length} total requests`, 
-                  isSDR ? 'for SDR' : isGrowth ? 'for Growth' : 'for Admin');
+      console.log(`Récupéré ${requestsArray.length} requêtes au total`, 
+                  isSDR ? 'pour SDR' : isGrowth ? 'pour Growth' : 'pour Admin');
       
       // Vérifier les données brutes pour s'assurer que les noms de mission sont présents
       requestsArray.forEach(request => {
-        console.log(`Request ${request.id}: mission_id=${request.mission_id}, mission_name=${request.mission_name || 'MISSING'}`);
+        console.log(`Requête ${request.id}: mission_id=${request.mission_id}, mission_name=${request.mission_name || 'MANQUANT'}, mission_client=${request.mission_client || 'MANQUANT'}`);
       });
       
       return requestsArray.map(request => formatRequestFromDb(request));
