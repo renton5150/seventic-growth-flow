@@ -1,5 +1,5 @@
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Database, User } from "lucide-react";
@@ -10,7 +10,8 @@ interface EventsListProps {
   selectedDate: Date | undefined;
   events: Request[];
   isLoading: boolean;
-  findMissionName: (missionId: string | undefined) => string;
+  findMissionName: (missionId: string | undefined) => Promise<string>;
+  missionNameMap: Record<string, string>;
   missions: Mission[];
 }
 
@@ -19,31 +20,36 @@ export const EventsList = ({
   events,
   isLoading,
   findMissionName,
+  missionNameMap,
   missions
 }: EventsListProps) => {
-  // Create a memoized map for quick mission name lookups
-  const missionNameMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    
-    // Add hardcoded missions first (highest priority)
-    map["bdb6b562-f9ef-49cd-b035-b48d7df054e8"] = "Seventic";
-    map["124ea847-cf3f-44af-becb-75641ebf0ef1"] = "Datalit";
-    map["f34e4f08-34c6-4419-b79e-83b6f519f8cf"] = "Sames";
-    map["2180c854-4d88-4d53-88c3-f2efc9d251af"] = "HSBC";
-    
-    // Add all missions to the map
-    if (missions && missions.length > 0) {
-      missions.forEach(mission => {
-        if (mission && mission.id) {
-          const missionId = String(mission.id);
-          // Use mission.name instead of mission.client
-          map[missionId] = mission.name || "Mission sans nom";
+  // State to hold resolved mission names
+  const [eventMissionNames, setEventMissionNames] = useState<Record<string, string>>({});
+  
+  // When events change, resolve all mission names
+  useEffect(() => {
+    const resolveMissionNames = async () => {
+      const namesMap: Record<string, string> = {};
+      
+      for (const event of events) {
+        if (event.missionId) {
+          // Try to get name from missionNameMap first (synchronous)
+          if (missionNameMap[event.missionId]) {
+            namesMap[event.id] = missionNameMap[event.missionId];
+          } else {
+            // Fallback to async function
+            namesMap[event.id] = await findMissionName(event.missionId);
+          }
+        } else {
+          namesMap[event.id] = "Sans mission";
         }
-      });
-    }
+      }
+      
+      setEventMissionNames(namesMap);
+    };
     
-    return map;
-  }, [missions]);
+    resolveMissionNames();
+  }, [events, missionNameMap, findMissionName]);
 
   const renderEventIcon = (type: string) => {
     switch (type) {
@@ -69,42 +75,45 @@ export const EventsList = ({
     }
   };
 
-  // Function to get the best mission name using multiple strategies
+  // Function to get the best mission name
   const getMissionName = (event: Request): string => {
-    // Strategy 1: Use missionName property if available
+    // If we have resolved the name in our state, use that first
+    if (eventMissionNames[event.id]) {
+      return eventMissionNames[event.id];
+    }
+    
+    // If event already has a mission name, use it
     if (event.missionName) {
       return event.missionName;
     }
     
-    // Strategy 2: Use our mission map for quick lookup
+    // If mission ID is in our map, use that
+    if (event.missionId && missionNameMap[event.missionId]) {
+      return missionNameMap[event.missionId];
+    }
+    
+    // Fallback to hardcoded IDs for immediate display
     if (event.missionId) {
-      const idStr = String(event.missionId);
-      
-      // Check hardcoded IDs first
-      if (idStr === "bdb6b562-f9ef-49cd-b035-b48d7df054e8") {
+      // Check hardcoded IDs
+      if (event.missionId === "bdb6b562-f9ef-49cd-b035-b48d7df054e8") {
         return "Seventic";
       }
       
-      if (idStr === "124ea847-cf3f-44af-becb-75641ebf0ef1") {
+      if (event.missionId === "124ea847-cf3f-44af-becb-75641ebf0ef1") {
         return "Datalit";
       }
 
-      if (idStr === "f34e4f08-34c6-4419-b79e-83b6f519f8cf") {
+      if (event.missionId === "f34e4f08-34c6-4419-b79e-83b6f519f8cf") {
         return "Sames";
       }
 
-      if (idStr === "2180c854-4d88-4d53-88c3-f2efc9d251af") {
+      if (event.missionId === "2180c854-4d88-4d53-88c3-f2efc9d251af") {
         return "HSBC";
-      }
-      
-      // Then check our map
-      if (missionNameMap[idStr]) {
-        return missionNameMap[idStr];
       }
     }
     
-    // Strategy 3: Use the provided findMissionName function
-    return findMissionName(event.missionId);
+    // Default fallback
+    return "Chargement...";
   };
 
   return (

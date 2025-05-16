@@ -53,6 +53,7 @@ export const useMissionNameUtils = (missions: Mission[]) => {
     }
   }, [missions]);
 
+  // This function has to be async to match the implementation in missionNameService
   const findMissionName = useCallback(async (missionId: string | undefined): Promise<string> => {
     if (!missionId) {
       return "Sans mission";

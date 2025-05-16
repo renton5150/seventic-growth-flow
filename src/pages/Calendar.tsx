@@ -45,6 +45,7 @@ const Calendar = () => {
               events={eventsForDate}
               isLoading={isLoadingRequests}
               findMissionName={findMissionName}
+              missionNameMap={missionNameMap}
               missions={missions || []}
             />
           </div>
