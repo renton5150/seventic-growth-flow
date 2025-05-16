@@ -1,40 +1,48 @@
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, WifiOff } from "lucide-react";
 
-interface ConnectionStatusProps {
+export interface ConnectionStatusProps {
   status: "online" | "offline" | "checking";
+  error: string | null;
   onRetry: () => void;
+  retryCount?: number;
 }
 
-export const ConnectionStatus = ({ status, onRetry }: ConnectionStatusProps) => {
-  if (status === "online") {
+export const ConnectionStatus = ({ 
+  status, 
+  error, 
+  onRetry,
+  retryCount = 0 
+}: ConnectionStatusProps) => {
+  // Ne rien afficher si tout est ok ou si on vérifie simplement la connexion
+  if (status === "online" || status === "checking") {
     return null;
   }
-
-  if (status === "checking") {
-    return (
-      <Alert className="mb-4 bg-blue-50 border-blue-200">
-        <AlertDescription className="flex items-center">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Vérification de la connexion...
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
+  
+  // N'afficher une alerte que si on est vraiment hors ligne
   return (
-    <Alert variant="destructive" className="mb-4 flex justify-between items-center">
-      <AlertDescription>Problème de connexion au serveur</AlertDescription>
-      <Button 
-        variant="outline" 
-        size="sm" 
-        onClick={onRetry} 
-        className="ml-2"
-      >
-        <RefreshCw className="h-4 w-4 mr-1" /> Réessayer
-      </Button>
-    </Alert>
+    <>
+      {status === "offline" && (
+        <Alert variant="destructive" className="mb-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <WifiOff className="h-4 w-4 mr-2" />
+            <AlertDescription>
+              Problème de connexion au serveur
+            </AlertDescription>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onRetry} 
+            className="ml-2"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" /> 
+            Réessayer
+          </Button>
+        </Alert>
+      )}
+    </>
   );
 };
