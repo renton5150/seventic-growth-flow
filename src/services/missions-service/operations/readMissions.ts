@@ -1,5 +1,5 @@
 
-import { Mission } from "@/types/types";
+import { Mission, MissionType } from "@/types/types";
 import { isSupabaseConfigured } from "@/services/missions/config";
 import { isSupabaseAuthenticated } from "../auth/supabaseAuth";
 import { mapSupaMissionToMission } from "@/services/missions/utils";
@@ -138,7 +138,8 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
         startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
         endDate: mission.end_date ? new Date(mission.end_date) : null,
         type: (mission.type as MissionType) || "Full",
-        status: mission.status || "En cours",
+        // Ensure status is one of the allowed values, defaulting to "En cours" if not
+        status: mission.status === "Fin" ? "Fin" : "En cours",
         client: mission.client || ""
       };
       
