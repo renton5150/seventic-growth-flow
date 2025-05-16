@@ -1,112 +1,75 @@
-
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
-import { supabase } from "@/integrations/supabase/client";
 
-/**
- * Formats a request object from database format to application format
- */
-export const formatRequestFromDb = (dbRequest: any): Request => {
-  // Ajouter des logs pour voir les données exactes reçues de Supabase
-  console.log("Données brutes de la requête reçue de Supabase:", dbRequest);
+// Utility function to format dates as needed
+const formatDate = (date: Date | string): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return dateObj.toLocaleDateString(); // Adjust format as needed
+};
+
+// Format request data from the database
+export const formatRequestFromDb = (request: any): Request => {
+  // Convert dates
+  const createdAt = new Date(request.created_at);
+  const lastUpdated = new Date(request.last_updated || request.updated_at);
+  const dueDate = new Date(request.due_date);
   
-  const createdAt = new Date(dbRequest.created_at);
-  const dueDate = new Date(dbRequest.due_date);
-  const lastUpdated = new Date(dbRequest.last_updated || dbRequest.created_at);
+  console.log(`[formatRequestFromDb] Formatting request ${request.id}, mission_id: ${request.mission_id}, mission_name: ${request.mission_name || 'MISSING'}`);
+
+  // Calculate if the request is late
+  const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  const isLate = dueDate < new Date() && 
-                 (dbRequest.workflow_status !== 'completed' && dbRequest.workflow_status !== 'canceled');
+  // Get mission name, prioritizing mission_name from the view if available
+  // This should fix the issue where mission names appear as code
+  let missionName = request.mission_name || "Sans mission";
   
-  // Get SDR name from relationships or directly from the view
-  const sdrName = dbRequest.sdr_name || dbRequest.created_by_profile?.name || "Non assigné";
-  
-  // Get assigned person name from view or relationships
-  const assignedToName = dbRequest.assigned_to_name || dbRequest.assigned_profile?.name || null;
-  
-  // Get specific details for the request type
-  const details = dbRequest.details || {};
-  
-  // Récupération du nom de la mission - s'assurer qu'il n'est jamais null/undefined
-  const missionId = dbRequest.mission_id ? String(dbRequest.mission_id) : "";
-  let missionName = dbRequest.mission_name || "";
-  
-  // Si le nom de la mission est null ou vide, essayer de le récupérer par d'autres moyens
-  if (!missionName && missionId) {
-    // Si nous avons un ID mission mais pas de nom, définir une valeur par défaut utile
-    missionName = "Mission " + missionId.substring(0, 6);
-  } else if (!missionName) {
-    missionName = "Sans mission";
+  // Add client name if available and different from mission name
+  if (request.mission_client && request.mission_client !== request.mission_name) {
+    missionName = request.mission_name || request.mission_client;
   }
   
-  console.log("Mission name final pour la requête", dbRequest.id, ":", missionName);
-  console.log("Mission ID final pour la requête", dbRequest.id, ":", missionId);
-  console.log("Type du mission ID:", typeof missionId);
-  
-  // Build the base request
-  const baseRequest: Request = {
-    id: dbRequest.id,
-    title: dbRequest.title,
-    type: dbRequest.type,
-    missionId: missionId,
+  console.log(`[formatRequestFromDb] Mission name for request ${request.id}: "${missionName}"`);
+
+  return {
+    id: request.id,
+    title: request.title,
+    type: request.type,
+    status: request.status as RequestStatus,
+    createdBy: request.created_by,
+    missionId: request.mission_id,
     missionName: missionName,
-    createdBy: dbRequest.created_by,
-    sdrName,
-    createdAt,
-    dueDate,
-    status: dbRequest.status as RequestStatus,
-    workflow_status: dbRequest.workflow_status as WorkflowStatus || 'pending_assignment',
-    target_role: dbRequest.target_role || 'growth',
-    assigned_to: dbRequest.assigned_to || null,
-    assignedToName,
-    lastUpdated,
+    sdrName: request.sdr_name,
+    assignedToName: request.assigned_to_name,
+    dueDate: request.due_date,
+    details: request.details || {},
+    workflow_status: request.workflow_status as WorkflowStatus,
+    assigned_to: request.assigned_to,
     isLate,
-    details
+    createdAt,
+    lastUpdated,
+    target_role: request.target_role
+  };
+};
+
+// Example usage of the formatting function
+export const example = () => {
+  const rawRequestData = {
+    id: "123",
+    title: "Create Email Campaign",
+    type: "email",
+    status: "pending",
+    created_at: new Date(),
+    last_updated: new Date(),
+    due_date: new Date(),
+    mission_id: "456",
+    mission_name: "Test Mission",
+    sdr_name: "John Doe",
+    assigned_to_name: "Jane Smith",
+    details: { platform: "Mailchimp" },
+    workflow_status: "in_progress",
+    assigned_to: "user123",
+    target_role: "marketing",
   };
 
-  // Add type-specific fields
-  switch(dbRequest.type) {
-    case 'email':
-      return {
-        ...baseRequest,
-        template: details.template || { content: "", fileUrl: "", webLink: "" },
-        database: details.database || { notes: "", fileUrl: "", webLink: "" },
-        blacklist: details.blacklist || {
-          accounts: { notes: "", fileUrl: "" },
-          emails: { notes: "", fileUrl: "" }
-        },
-        platform: details.platform || "",
-        statistics: details.statistics || { sent: 0, opened: 0, clicked: 0, bounced: 0 }
-      };
-    case 'database':
-      return {
-        ...baseRequest,
-        tool: details.tool || "",
-        targeting: details.targeting || {
-          jobTitles: [],
-          industries: [],
-          locations: [],
-          companySize: [],
-          otherCriteria: ""
-        },
-        blacklist: details.blacklist || {
-          accounts: { notes: "", fileUrl: "" }
-        },
-        contactsCreated: details.contactsCreated || 0,
-        resultFileUrl: details.resultFileUrl || ""
-      };
-    case 'linkedin':
-      return {
-        ...baseRequest,
-        targeting: details.targeting || {
-          jobTitles: [],
-          industries: [],
-          locations: [],
-          companySize: [],
-          otherCriteria: ""
-        },
-        profilesScraped: details.profilesScraped || 0,
-        resultFileUrl: details.resultFileUrl || ""
-      };
-    default:
-      return baseRequest;
-  }
-}
+  const formattedRequest = formatRequestFromDb(rawRequestData);
+  console.log("Formatted Request:", formattedRequest);
+};

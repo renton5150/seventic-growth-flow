@@ -83,9 +83,9 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       return [];
     }
 
-    console.log(`DÉBUT - Récupération missions pour Growth ID: ${growthId}`);
+    console.log(`DEBUG - Récupération missions pour Growth ID: ${growthId}`);
 
-    // Récupérer directement les missions depuis la table missions
+    // Récupérer directement les missions depuis la table missions avec tous les détails
     const { data: missions, error } = await supabase
       .from('missions')
       .select(`
@@ -100,7 +100,8 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
         start_date,
         end_date,
         created_at,
-        updated_at
+        updated_at,
+        profiles:sdr_id (id, name, email)
       `)
       .eq('growth_id', growthId)
       .order('created_at', { ascending: false });
@@ -110,7 +111,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       return [];
     }
 
-    console.log(`SUCCÈS - ${missions.length} missions trouvées pour Growth ID ${growthId}:`, missions);
+    console.log(`SUCCÈS - ${missions?.length || 0} missions trouvées pour Growth ID ${growthId}:`, missions);
     
     if (!missions || missions.length === 0) {
       console.log(`ATTENTION - Aucune mission associée au Growth ID ${growthId}`);
@@ -118,7 +119,7 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       // Pour le débogage, vérifions si des missions existent avec ce growth_id
       const { data: allMissions } = await supabase
         .from('missions')
-        .select('id, name, growth_id')
+        .select('id, name, client, growth_id')
         .limit(20);
         
       console.log("DEBUG - Échantillon des missions disponibles:", allMissions);
@@ -126,24 +127,27 @@ export const getMissionsByGrowthId = async (growthId: string): Promise<Mission[]
       return [];
     }
     
+    // Mapper les données de mission au format attendu
     const mappedMissions = missions.map(mission => {
+      const profileData = mission.profiles || null;
+      
       const mappedMission: Mission = {
         id: mission.id,
-        name: mission.name || `Mission ${mission.id.substring(0, 6)}`,
+        name: mission.name || (mission.client ? `${mission.client}` : `Mission ${mission.id.substring(0, 6)}`),
         sdrId: mission.sdr_id || "",
         description: mission.description || "",
         createdAt: new Date(mission.created_at),
-        sdrName: "À déterminer", // Sera complété plus tard si nécessaire
+        sdrName: profileData?.name || "À déterminer",
         requests: [],
         startDate: mission.start_date ? new Date(mission.start_date) : new Date(),
         endDate: mission.end_date ? new Date(mission.end_date) : null,
         type: (mission.type as MissionType) || "Full",
         // Ensure status is one of the allowed values, defaulting to "En cours" if not
         status: mission.status === "Fin" ? "Fin" : "En cours",
-        client: mission.client || ""
+        client: mission.client || mission.name || ""
       };
       
-      console.log(`Mission mappée: ID=${mappedMission.id}, Nom=${mappedMission.name}`);
+      console.log(`Mission mappée: ID=${mappedMission.id}, Nom=${mappedMission.name}, Client=${mappedMission.client}`);
       return mappedMission;
     });
     

@@ -170,13 +170,18 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
   // Log the mission data and extracted profile for debugging
   console.log('Mapping mission to display format:', {
     id: mission.id,
-    rawMission: mission,
+    name: mission.name,
+    client: mission.client,
     sdrProfile
   });
 
+  // Ensure we always use a meaningful name
+  const missionName = mission.name || 
+                     (mission.client ? `${mission.client}` : `Mission ${mission.id.substring(0, 6)}`);
+
   return {
     id: mission.id,
-    name: mission.name || '',
+    name: missionName,
     description: mission.description || '',
     sdrId: mission.sdr_id || null,
     // Use the name from the joined profiles table if available
@@ -185,7 +190,8 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
     startDate: mission.start_date ? new Date(mission.start_date) : null,
     endDate: mission.end_date ? new Date(mission.end_date) : null,
     type: (mission.type as MissionType) || 'Full',
-    status: mission.status || 'En cours',
+    status: mission.status === "Fin" ? "Fin" : "En cours",
+    client: mission.client || missionName,
     requests: []
   };
 };
