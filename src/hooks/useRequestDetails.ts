@@ -5,6 +5,7 @@ import { Request, Mission, WorkflowStatus } from "@/types/types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
+import { syncKnownMissions, getMissionName, preloadMissionNames } from "@/services/missionNameService";
 
 export const useRequestDetails = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -18,13 +19,20 @@ export const useRequestDetails = () => {
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("pending_assignment");
   const [emailPlatform, setEmailPlatform] = useState<string>("");
 
+  // Synchroniser les missions connues au chargement
+  useEffect(() => {
+    syncKnownMissions().then(() => {
+      console.log("[useRequestDetails] Missions connues synchronisées");
+    });
+  }, []);
+
   const fetchRequestDetails = async () => {
     if (id) {
       try {
         setLoading(true);
         const { data, error } = await supabase
           .from('requests_with_missions')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('id', id)
           .single();
           
@@ -35,7 +43,7 @@ export const useRequestDetails = () => {
           return;
         }
         
-        console.log("Données brutes de la requête récupérée:", data);
+        console.log("[useRequestDetails] Données brutes de la requête récupérée:", data);
         
         // Attendre la résolution de la promesse retournée par formatRequestFromDb
         const formattedRequest = await formatRequestFromDb(data);
@@ -50,11 +58,17 @@ export const useRequestDetails = () => {
         }
         
         if (data.mission_id) {
-          const missionName = data.mission_name || "Mission sans nom";
+          // Utiliser getMissionName pour obtenir le nom correct de la mission
+          const missionName = await getMissionName(data.mission_id, {
+            fallbackClient: data.mission_client,
+            fallbackName: data.mission_name
+          });
+          
+          console.log(`[useRequestDetails] Nom de mission récupéré pour ${data.mission_id}: "${missionName}"`);
           
           setMission({
             id: data.mission_id,
-            name: missionName,
+            name: missionName, // Utiliser le nom standardisé
             description: data.mission_client ? `Client: ${data.mission_client}` : "",
             sdrId: data.created_by,
             sdrName: data.sdr_name,

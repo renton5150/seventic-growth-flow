@@ -1,4 +1,3 @@
-
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getMissionName } from "@/services/missionNameService";
@@ -34,7 +33,8 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // MISSION NAME PROCESSING - USING CENTRALIZED SERVICE
   const missionName = await getMissionName(request.mission_id, {
     fallbackClient: request.mission_client, 
-    fallbackName: request.mission_name
+    fallbackName: request.mission_name,
+    forceRefresh: false // Utiliser le cache si disponible pour de meilleures performances
   });
   
   console.log(`[formatRequestFromDb] FINAL mission name for request ${request.id}: "${missionName}" (Using centralized service)`);
@@ -46,7 +46,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     status: request.status as RequestStatus,
     createdBy: request.created_by,
     missionId: request.mission_id,
-    missionName: missionName,
+    missionName: missionName, // Important : utiliser le nom standardisé
     sdrName: request.sdr_name,
     assignedToName: request.assigned_to_name,
     dueDate: request.due_date,

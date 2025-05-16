@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
+import { getMissionName } from "@/services/missionNameService";
 
 interface RequestEditDialogProps {
   open: boolean;
@@ -41,10 +41,34 @@ export function RequestEditDialog({
   const navigate = useNavigate();
   const { user } = useAuth();
   const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
+  const [resolvedMissionName, setResolvedMissionName] = useState<string | null>(null);
+
+  // Résoudre le nom de mission si nécessaire
+  useEffect(() => {
+    const resolveName = async () => {
+      if (selectedRequest?.missionId) {
+        try {
+          const name = await getMissionName(selectedRequest.missionId);
+          console.log(`[RequestEditDialog] Resolved mission name: ${name}`);
+          setResolvedMissionName(name);
+        } catch (error) {
+          console.error("[RequestEditDialog] Failed to resolve mission name:", error);
+        }
+      }
+    };
+    
+    if (open && selectedRequest) {
+      resolveName();
+    }
+  }, [open, selectedRequest]);
 
   useEffect(() => {
     if (selectedRequest) {
-      console.log("Mission dans RequestEditDialog:", selectedRequest.missionName, selectedRequest);
+      console.log("[RequestEditDialog] Mission name info:", {
+        fromRequest: selectedRequest.missionName,
+        resolved: resolvedMissionName
+      });
+      
       form.reset({
         title: selectedRequest.title,
         dueDate: new Date(selectedRequest.dueDate).toISOString().split('T')[0],
@@ -108,6 +132,11 @@ export function RequestEditDialog({
       default: return type;
     }
   };
+  
+  // Utiliser le nom de mission résolu ou celui de la requête
+  const displayMissionName = resolvedMissionName || 
+                          selectedRequest?.missionName || 
+                          "Non assignée";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,7 +152,7 @@ export function RequestEditDialog({
           <div className="space-y-2 mb-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">
-                <span className="text-muted-foreground">Mission:</span> {selectedRequest.missionName || "Non assignée"}
+                <span className="text-muted-foreground">Mission:</span> {displayMissionName}
               </p>
               <p className="text-sm font-medium">
                 <span className="text-muted-foreground">SDR:</span> {selectedRequest.sdrName || "Non assigné"}

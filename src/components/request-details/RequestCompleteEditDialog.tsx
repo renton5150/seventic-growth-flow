@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Request, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import { EmailCampaignForm } from "@/components/requests/EmailCampaignForm";
 import { DatabaseCreationForm } from "@/components/requests/DatabaseCreationForm";
 import { LinkedInScrapingForm } from "@/components/requests/LinkedInScrapingForm";
 import { Badge } from "@/components/ui/badge";
+import { getMissionName } from "@/services/missionNameService";
 
 interface RequestCompleteEditDialogProps {
   open: boolean;
@@ -27,21 +28,44 @@ export function RequestCompleteEditDialog({
   request,
   onRequestUpdated,
 }: RequestCompleteEditDialogProps) {
+  const [resolvedMissionName, setResolvedMissionName] = useState<string | null>(null);
+  
+  // Résoudre le nom de mission si nécessaire
+  useEffect(() => {
+    const resolveName = async () => {
+      if (request?.missionId) {
+        try {
+          const name = await getMissionName(request.missionId);
+          console.log(`[RequestCompleteEditDialog] Resolved mission name: ${name}`);
+          setResolvedMissionName(name);
+        } catch (error) {
+          console.error("[RequestCompleteEditDialog] Failed to resolve mission name:", error);
+        }
+      }
+    };
+    
+    if (open) {
+      resolveName();
+    }
+  }, [open, request?.missionId]);
+  
   if (!request) return null;
 
   // Logs détaillés pour déboguer le problème de nom de mission
-  console.log("Mission dans RequestCompleteEditDialog:", request.missionName, request);
-  console.log("Request mission ID:", request.missionId);
-  console.log("Type de missionId:", typeof request.missionId);
+  console.log("[RequestCompleteEditDialog] Mission info:", {
+    missionId: request.missionId,
+    missionName: request.missionName, 
+    resolvedName: resolvedMissionName
+  });
 
   // S'assurer que missionId est une chaîne de caractères valide
   const preparedRequest = {
     ...request,
     missionId: request.missionId ? String(request.missionId) : "",
+    missionName: resolvedMissionName || request.missionName // Utiliser le nom résolu ou celui de la requête
   };
 
-  console.log("Prepared request missionId:", preparedRequest.missionId);
-  console.log("Type du missionId préparé:", typeof preparedRequest.missionId);
+  console.log("[RequestCompleteEditDialog] Prepared request:", preparedRequest);
 
   const handleRequestUpdated = () => {
     onOpenChange(false);
@@ -59,6 +83,9 @@ export function RequestCompleteEditDialog({
     }
   };
 
+  // Utiliser le nom de mission résolu ou celui de la requête
+  const displayMissionName = resolvedMissionName || request.missionName || "Non assignée";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -73,7 +100,7 @@ export function RequestCompleteEditDialog({
           <div className="flex flex-wrap gap-4 items-center justify-between">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Mission</p>
-              <p className="text-sm font-semibold">{request.missionName || "Non assignée"}</p>
+              <p className="text-sm font-semibold">{displayMissionName}</p>
             </div>
             
             <div>
