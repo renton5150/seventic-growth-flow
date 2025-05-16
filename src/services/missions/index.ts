@@ -20,3 +20,6 @@ export { getAllSupaMissions as getMissions } from './utils';
 
 // Export getMissionsByUserId for backward compatibility
 export { getSupaMissionsByUserId as getMissionsByUserId } from './utils';
+
+// Export the centralized mission name service
+export * from '@/services/missionNameService';

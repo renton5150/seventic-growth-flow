@@ -1,8 +1,9 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
+import { getMissionName } from "@/services/missionNameService";
 
-// Cache for mission names to avoid repeated database queries
+// Cache for mission names to avoid repeated database queries - Now replaced by centralized cache
 const missionNameCache: Record<string, string> = {};
 
 // Utility function to format dates as needed
@@ -11,56 +12,10 @@ const formatDate = (date: Date | string): string => {
   return dateObj.toLocaleDateString(); // Adjust format as needed
 };
 
-// Get mission name directly from the missions table if needed
+// Get mission name directly from the missions table if needed - Now replaced by centralized service
 const getMissionNameFromDb = async (missionId: string): Promise<string | null> => {
-  if (!missionId) return null;
-  
-  // Check cache first
-  if (missionNameCache[missionId]) {
-    console.log(`[getMissionNameFromDb] Using cached mission name for ${missionId}: "${missionNameCache[missionId]}"`);
-    return missionNameCache[missionId];
-  }
-  
-  try {
-    console.log(`[getMissionNameFromDb] Fetching mission name for ID: ${missionId}`);
-    
-    const { data, error } = await supabase
-      .from('missions')
-      .select('id, name, client')
-      .eq('id', missionId)
-      .single();
-    
-    if (error || !data) {
-      console.error(`[getMissionNameFromDb] Error or no data for mission ${missionId}:`, error);
-      return null;
-    }
-    
-    // Apply the same naming priority logic as everywhere else
-    let missionName = "Sans mission";
-    
-    if (data.client && data.client.trim() !== "" && 
-        data.client !== "null" && data.client !== "undefined") {
-      missionName = data.client;
-      console.log(`[getMissionNameFromDb] Using client name: "${missionName}"`);
-    }
-    else if (data.name && data.name.trim() !== "" && 
-             data.name !== "null" && data.name !== "undefined") {
-      missionName = data.name;
-      console.log(`[getMissionNameFromDb] Using mission name: "${missionName}"`);
-    }
-    else {
-      missionName = `Mission ${missionId.substring(0, 8)}`;
-      console.log(`[getMissionNameFromDb] Using ID-based name: "${missionName}"`);
-    }
-    
-    // Cache the result
-    missionNameCache[missionId] = missionName;
-    
-    return missionName;
-  } catch (err) {
-    console.error(`[getMissionNameFromDb] Exception fetching mission ${missionId}:`, err);
-    return null;
-  }
+  // This function is now deprecated - Using centralized service instead
+  return getMissionName(missionId);
 };
 
 // Format request data from the database
@@ -76,37 +31,13 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // MISSION NAME PROCESSING - CRITICAL FIX
-  // Consistently apply the same logic for mission name selection across the entire app
-  let missionName = "Sans mission";
+  // MISSION NAME PROCESSING - USING CENTRALIZED SERVICE
+  const missionName = await getMissionName(request.mission_id, {
+    fallbackClient: request.mission_client, 
+    fallbackName: request.mission_name
+  });
   
-  // Step 1: Check if we have mission_client and mission_name from the request (from view)
-  if (request.mission_client && request.mission_client.trim() !== "" && 
-      request.mission_client !== "null" && request.mission_client !== "undefined") {
-    missionName = request.mission_client;
-    console.log(`[formatRequestFromDb] PRIORITY #1: Using client name: "${missionName}"`);
-  }
-  else if (request.mission_name && request.mission_name.trim() !== "" && 
-           request.mission_name !== "null" && request.mission_name !== "undefined") {
-    missionName = request.mission_name;
-    console.log(`[formatRequestFromDb] PRIORITY #2: Using mission name: "${missionName}"`);
-  }
-  // Step 2: If we have a mission_id but no name info from the view, try to fetch directly
-  else if (request.mission_id) {
-    const dbMissionName = await getMissionNameFromDb(request.mission_id);
-    if (dbMissionName) {
-      missionName = dbMissionName;
-      console.log(`[formatRequestFromDb] PRIORITY #3: Using db-fetched name: "${missionName}"`);
-    } else {
-      missionName = `Mission ${String(request.mission_id).substring(0, 8)}`;
-      console.log(`[formatRequestFromDb] PRIORITY #4: Using ID short name: "${missionName}"`);
-    }
-  }
-  else {
-    console.log(`[formatRequestFromDb] FALLBACK: No mission info available - using default: "${missionName}"`);
-  }
-  
-  console.log(`[formatRequestFromDb] FINAL mission name for request ${request.id}: "${missionName}"`);
+  console.log(`[formatRequestFromDb] FINAL mission name for request ${request.id}: "${missionName}" (Using centralized service)`);
 
   return {
     id: request.id,

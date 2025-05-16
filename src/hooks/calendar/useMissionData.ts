@@ -4,6 +4,7 @@ import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "@/services/missions/utils";
 import { getAllMissions } from "@/services/missionService";
+import { preloadMissionNames, KNOWN_MISSIONS } from "@/services/missionNameService";
 
 export const useMissionData = (userId: string | undefined) => {
   const { data: missions = [], isLoading: isLoadingMissions } = useQuery<Mission[]>({
@@ -31,76 +32,39 @@ export const useMissionData = (userId: string | undefined) => {
         
         console.log(`[useMissionData] Found ${data.length} missions in database`);
         
-        const mappedMissions = data.map(mission => mapSupaMissionToMission(mission));
+        // Précharger les noms de mission
+        const missionIds = data
+          .map(mission => mission.id)
+          .filter((id): id is string => !!id);
+          
+        if (missionIds.length > 0) {
+          await preloadMissionNames(missionIds);
+        }
         
-        // Add hardcoded missions for testing if needed
-        const hardcodedMissions: Mission[] = [
-          {
-            id: "bdb6b562-f9ef-49cd-b035-b48d7df054e8",
-            name: "Seventic",
-            sdrId: "user1",
+        // Utiliser le mapSupaMissionToMission pour transformer les données avec cohérence
+        const mappedMissions = await Promise.all(data.map(mission => mapSupaMissionToMission(mission)));
+        
+        // On garde toujours les missions connues hardcodées comme fallback
+        const knownMissionIds = Object.keys(KNOWN_MISSIONS);
+        const hardcodedMissions: Mission[] = knownMissionIds
+          .filter(id => !mappedMissions.some(m => m.id === id))
+          .map(id => ({
+            id: id,
+            name: KNOWN_MISSIONS[id],
+            sdrId: "unknown",
             description: "",
             createdAt: new Date(),
-            sdrName: "Test User",
-            requests: [],
-            startDate: new Date(),
-            endDate: null,
-            type: "Full" as MissionType, // Explicitly cast as MissionType
-            status: "En cours"
-          },
-          {
-            id: "124ea847-cf3f-44af-becb-75641ebf0ef1",
-            name: "Datalit",
-            sdrId: "user2",
-            description: "",
-            createdAt: new Date(),
-            sdrName: "Test User 2",
+            sdrName: "System",
             requests: [],
             startDate: new Date(),
             endDate: null,
             type: "Full" as MissionType,
-            status: "En cours"
-          },
-          {
-            id: "f34e4f08-34c6-4419-b79e-83b6f519f8cf",
-            name: "Sames",
-            sdrId: "user3",
-            description: "",
-            createdAt: new Date(),
-            sdrName: "Test User 3",
-            requests: [],
-            startDate: new Date(),
-            endDate: null,
-            type: "Full" as MissionType,
-            status: "En cours"
-          },
-          {
-            id: "2180c854-4d88-4d53-88c3-f2efc9d251af",
-            name: "HSBC",
-            sdrId: "user4",
-            description: "",
-            createdAt: new Date(),
-            sdrName: "Test User 4",
-            requests: [],
-            startDate: new Date(),
-            endDate: null,
-            type: "Full" as MissionType,
-            status: "En cours"
-          }
-        ];
+            status: "En cours",
+            client: KNOWN_MISSIONS[id]
+          }));
         
         // Merge Supabase missions with hardcoded ones to ensure coverage
-        const mergedMissions = [...mappedMissions];
-        
-        // Only add hardcoded missions if they don't already exist
-        hardcodedMissions.forEach(hardcodedMission => {
-          const exists = mergedMissions.some(m => m.id === hardcodedMission.id);
-          if (!exists) {
-            mergedMissions.push(hardcodedMission);
-          }
-        });
-        
-        return mergedMissions;
+        return [...mappedMissions, ...hardcodedMissions];
       } catch (err) {
         console.error("[useMissionData] Exception during mission fetch:", err);
         return [];

@@ -1,6 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
+import { getMissionName, clearMissionNameCache } from "@/services/missionNameService";
 
 // Simple function to check if a mission exists by ID
 export const checkMissionExists = async (missionId: string): Promise<boolean> => {
@@ -152,6 +152,9 @@ export const updateSupaMission = async (missionData: any) => {
       throw error;
     }
     
+    // Clear the mission name cache for this mission to ensure updated data is shown
+    clearMissionNameCache(missionData.id);
+    
     return data;
   } catch (error) {
     console.error("Error in updateSupaMission:", error);
@@ -162,9 +165,9 @@ export const updateSupaMission = async (missionData: any) => {
 /**
  * Maps a Supabase mission data object to the Mission type used in the application
  * with enhanced handling of mission names and client information to ensure consistency
- * between SDR and Growth users
+ * between SDR and Growth users - Now using centralized mission name service
  */
-export const mapSupaMissionToMission = (mission: any): Mission => {
+export const mapSupaMissionToMission = async (mission: any): Promise<Mission> => {
   // Extract SDR profile information - handle both array and object formats
   // When we join with profiles, Supabase returns it as an object under the relation name
   // or as an array of objects in newer versions of the API
@@ -184,30 +187,13 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
     client: mission.client
   });
 
-  // CRITICAL: Use EXACT SAME priority logic as formatRequestFromDb
-  // PRIORITÉ: client > name > ID court
-  let displayName = "Sans mission";
-  let clientName = "Sans mission";
+  // Use centralized service to get the standardized mission name
+  const displayName = await getMissionName(mission.id, {
+    fallbackClient: mission.client,
+    fallbackName: mission.name
+  });
   
-  if (mission.client && mission.client.trim() !== "" && 
-      mission.client !== "null" && mission.client !== "undefined") {
-    clientName = mission.client;
-    displayName = clientName;
-    console.log(`[mapSupaMissionToMission] PRIORITY #1: Using client: "${displayName}"`);
-  }
-  else if (mission.name && mission.name.trim() !== "" && 
-           mission.name !== "null" && mission.name !== "undefined") {
-    displayName = mission.name;
-    clientName = displayName;
-    console.log(`[mapSupaMissionToMission] PRIORITY #2: Using name: "${displayName}"`);
-  }
-  else if (mission.id) {
-    displayName = `Mission ${mission.id.substring(0, 8)}`;
-    clientName = displayName;
-    console.log(`[mapSupaMissionToMission] PRIORITY #3: Using short ID: "${displayName}"`);
-  }
-  
-  console.log(`[mapSupaMissionToMission] FINAL name chosen: "${displayName}", Client: "${clientName}"`);
+  console.log(`[mapSupaMissionToMission] FINAL name chosen: "${displayName}"`);
 
   return {
     id: mission.id,
@@ -220,7 +206,7 @@ export const mapSupaMissionToMission = (mission: any): Mission => {
     endDate: mission.end_date ? new Date(mission.end_date) : null,
     type: (mission.type as MissionType) || 'Full',
     status: mission.status === "Fin" ? "Fin" : "En cours",
-    client: clientName,
+    client: displayName, // Using the same standardized name for client to ensure consistency
     requests: []
   };
 };

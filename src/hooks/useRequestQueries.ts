@@ -5,6 +5,7 @@ import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMissionsByGrowthId } from "@/services/missions-service/operations/readMissions";
+import { preloadMissionNames } from "@/services/missionNameService";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -46,8 +47,18 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log(`Requêtes à affecter récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
       
+      // Précharger les noms de mission pour améliorer les performances
+      const missionIds = data
+        .map(req => req.mission_id)
+        .filter((id): id is string => !!id);
+      
+      if (missionIds.length > 0) {
+        // Déclencher le préchargement en parallèle
+        preloadMissionNames(missionIds);
+      }
+      
       // Formater les données pour l'affichage avec plus de logging
-      const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
+      const formattedRequests = await Promise.all(data.map((request: any) => formatRequestFromDb(request)));
       console.log("Requêtes formatées:", formattedRequests.length);
       
       return formattedRequests;
@@ -91,6 +102,16 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log(`Mes assignations récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
       
+      // Précharger les noms de mission
+      const missionIds = data
+        .map(req => req.mission_id)
+        .filter((id): id is string => !!id);
+      
+      if (missionIds.length > 0) {
+        // Déclencher le préchargement en parallèle
+        preloadMissionNames(missionIds);
+      }
+      
       // Formater les données pour l'affichage
       const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
       console.log("Requêtes formatées:", formattedRequests.length);
@@ -131,7 +152,18 @@ export function useRequestQueries(userId: string | undefined) {
       const requestsArray = Array.isArray(data) ? data : [];
       console.log(`${requestsArray.length} requêtes récupérées au total`);
       
-      // Formater les données pour l'affichage - Assurer que les noms de mission sont correctement définis
+      // Précharger les noms de mission pour améliorer les performances
+      const missionIds = requestsArray
+        .map(req => req.mission_id)
+        .filter((id): id is string => !!id);
+      
+      if (missionIds.length > 0) {
+        console.log(`Préchargement de ${missionIds.length} noms de mission`);
+        // Déclencher le préchargement en parallèle
+        preloadMissionNames(missionIds);
+      }
+      
+      // Formater les données pour l'affichage avec le service centralisé
       const formattedRequests = await Promise.all(requestsArray.map(request => formatRequestFromDb(request)));
       
       console.log(`${formattedRequests.length} requêtes formatées pour l'affichage`);
@@ -175,7 +207,7 @@ export function useRequestQueries(userId: string | undefined) {
 
       console.log("Détails de la demande récupérés:", data);
       
-      // Formatage avec la nouvelle fonction qui récupère les noms de mission manquants
+      // Formatage avec le service centralisé de nom de mission
       return await formatRequestFromDb(data);
     } catch (err) {
       console.error("Erreur lors de la récupération des détails:", err);

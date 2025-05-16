@@ -12,9 +12,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { getMissionName, preloadMissionNames } from "@/services/missionNameService";
 
 export function MissionSelect() {
-  const [missions, setMissions] = useState<{ id: string; name: string; client: string }[]>([]);
+  const [missions, setMissions] = useState<{ id: string; name: string; displayName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const { register, setValue, watch } = useFormContext();
   const { user } = useAuth();
@@ -37,11 +38,37 @@ export function MissionSelect() {
           return;
         }
         
-        if (data) {
+        if (data && data.length) {
+          // Précharger les noms de mission
+          const missionIds = data
+            .map(mission => mission.id)
+            .filter((id): id is string => !!id);
+            
+          if (missionIds.length > 0) {
+            await preloadMissionNames(missionIds);
+          }
+          
+          // Préparer les données avec les noms standardisés
+          const missionsWithDisplayName = await Promise.all(
+            data.map(async mission => {
+              const displayName = await getMissionName(mission.id, {
+                fallbackClient: mission.client,
+                fallbackName: mission.name
+              });
+              
+              return {
+                id: mission.id,
+                name: mission.name,
+                displayName
+              };
+            })
+          );
+          
           // S'assurer que les missions ont des IDs uniques
           const uniqueMissions = Array.from(
-            new Map(data.map(item => [item.id, item])).values()
+            new Map(missionsWithDisplayName.map(item => [item.id, item])).values()
           );
+          
           setMissions(uniqueMissions);
         }
       } catch (error) {
@@ -81,7 +108,7 @@ export function MissionSelect() {
             ) : missions.length > 0 ? (
               missions.map((mission) => (
                 <SelectItem key={mission.id} value={mission.id}>
-                  {mission.name}{mission.client && mission.client !== mission.name ? ` - ${mission.client}` : ''}
+                  {mission.displayName}
                 </SelectItem>
               ))
             ) : (
