@@ -5,10 +5,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { DatabaseCreationForm } from "@/components/requests/DatabaseCreationForm";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import { getRequestById } from "@/services/requestService";
 import { DatabaseRequest } from "@/types/types";
 import { toast } from "sonner";
-import { syncKnownMissions, preloadMissionNames } from "@/services/missionNameService";
+import { syncKnownMissions, preloadMissionNames, forceRefreshFreshworks } from "@/services/missionNameService";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,6 +23,10 @@ const DatabaseCreationEdit = () => {
       
       try {
         setLoading(true);
+        
+        // Forcer le rafraîchissement de Freshworks au démarrage
+        forceRefreshFreshworks();
+        console.log("DatabaseCreationEdit - Rafraîchissement forcé de Freshworks");
         
         // Synchroniser les noms de mission connus au chargement
         console.log("DatabaseCreationEdit - Synchronisation des missions connues");
@@ -44,6 +47,14 @@ const DatabaseCreationEdit = () => {
         }
         
         if (rawRequest && rawRequest.type === "database") {
+          // Vérifier si c'est une mission Freshworks
+          const isFreshworks = rawRequest.mission_id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+          if (isFreshworks) {
+            console.log("DatabaseCreationEdit - Demande liée à Freshworks détectée");
+            // Forcer une double vérification pour Freshworks
+            forceRefreshFreshworks();
+          }
+          
           // Utiliser le formatteur centralisé pour résoudre correctement le nom de mission
           const formattedRequest = await formatRequestFromDb(rawRequest);
           
@@ -51,6 +62,12 @@ const DatabaseCreationEdit = () => {
           if (formattedRequest.missionId) {
             await preloadMissionNames([formattedRequest.missionId]);
             console.log(`DatabaseCreationEdit - Mission ID: ${formattedRequest.missionId}, Nom: ${formattedRequest.missionName}`);
+            
+            // Vérification supplémentaire pour Freshworks
+            if (isFreshworks && formattedRequest.missionName !== "Freshworks") {
+              console.error("DatabaseCreationEdit - ERREUR: Le nom Freshworks n'a pas été correctement résolu!");
+              formattedRequest.missionName = "Freshworks";
+            }
           }
           
           setRequest(formattedRequest as DatabaseRequest);

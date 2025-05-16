@@ -17,19 +17,27 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
   // Force refresh Freshworks in cache
-  if (request.mission_id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b") {
+  const isFreshworksMission = request.mission_id === "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
+  if (isFreshworksMission) {
     forceRefreshFreshworks();
-    console.log("[formatRequestFromDb] Freshworks mission detected, refreshing cache");
+    console.log("[formatRequestFromDb] Freshworks mission détectée, rafraîchissement du cache");
   }
   
   // MISSION NAME PROCESSING
+  // MODIFICATION MAJEURE : Traitement simplifié et spécial pour Freshworks
   let missionName = "Sans mission";
   
-  // Pour les missions connues, utiliser directement les noms constants
-  if (request.mission_id && KNOWN_MISSIONS[request.mission_id]) {
+  // Cas spécial pour Freshworks - priorité absolue
+  if (isFreshworksMission) {
+    missionName = "Freshworks";
+    console.log(`[formatRequestFromDb] Mission Freshworks détectée - Nom forcé: "${missionName}"`);
+  }
+  // Pour les autres missions connues, utiliser directement les noms constants
+  else if (request.mission_id && KNOWN_MISSIONS[request.mission_id]) {
     missionName = KNOWN_MISSIONS[request.mission_id];
     console.log(`[formatRequestFromDb] Using known mission name: "${missionName}" for ${request.mission_id}`);
-  } else {
+  } 
+  else {
     // Sinon utiliser le service centralisé
     missionName = await getMissionName(request.mission_id, {
       fallbackClient: request.mission_client, 
