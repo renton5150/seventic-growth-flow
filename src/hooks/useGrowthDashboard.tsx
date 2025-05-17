@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -58,11 +59,14 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     const isSDR = user?.role === 'sdr';
     const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
 
+    // Filtrer d'abord pour exclure les demandes terminées qui ne devraient pas apparaître ici
+    const nonCompletedRequests = allRequests.filter(req => req.workflow_status !== 'completed');
+
     if (location.pathname.includes("/my-requests")) {
       if (isSDR) {
-        return allRequests.filter(req => req.createdBy === user?.id);
+        return nonCompletedRequests.filter(req => req.createdBy === user?.id);
       } else if (isGrowthOrAdmin) {
-        return allRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
+        return nonCompletedRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
       }
     }
 
@@ -73,44 +77,40 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     if (activeFilter) {
       switch (activeFilter) {
         case "all":
-          return allRequests;
+          return nonCompletedRequests;
         case "pending":
-          return allRequests.filter(req => req.workflow_status === "pending_assignment");
+          return nonCompletedRequests.filter(req => req.workflow_status === "pending_assignment");
         case "inprogress":
-          return allRequests.filter(req => req.workflow_status === "in_progress");
-        case "completed":
-          return allRequests.filter(req => req.workflow_status === "completed");
+          return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
         case "late":
-          return allRequests.filter(req => req.isLate);
+          return nonCompletedRequests.filter(req => req.isLate);
         default:
-          return allRequests;
+          return nonCompletedRequests;
       }
     }
     
     switch (activeTab) {
       case "all":
-        return allRequests;
+        return nonCompletedRequests;
       case "to_assign":
         return toAssignRequests;
       case "my_assignments":
         if (isSDR) {
-          return allRequests.filter(req => req.createdBy === user?.id);
+          return nonCompletedRequests.filter(req => req.createdBy === user?.id);
         } else if (isGrowthOrAdmin) {
-          return allRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
+          return nonCompletedRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
         }
-        return myAssignmentsRequests;
+        return myAssignmentsRequests.filter(req => req.workflow_status !== 'completed');
       case "inprogress":
-        return allRequests.filter(req => req.workflow_status === "in_progress");
-      case "completed":
-        return allRequests.filter(req => req.workflow_status === "completed");
+        return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
       case "email":
-        return allRequests.filter(req => req.type === "email");
+        return nonCompletedRequests.filter(req => req.type === "email");
       case "database":
-        return allRequests.filter(req => req.type === "database");
+        return nonCompletedRequests.filter(req => req.type === "database");
       case "linkedin":
-        return allRequests.filter(req => req.type === "linkedin");
+        return nonCompletedRequests.filter(req => req.type === "linkedin");
       default:
-        return allRequests;
+        return nonCompletedRequests;
     }
   }, [allRequests, toAssignRequests, myAssignmentsRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname]);
 
@@ -118,6 +118,12 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress") => {
     console.log(`Stat card clicked: ${filterType}`);
+    
+    // Si on clique sur "completed", rediriger vers les archives
+    if (filterType === "completed") {
+      navigate("/archives");
+      return;
+    }
     
     if (activeFilter === filterType) {
       setActiveFilter(null);
@@ -135,18 +141,15 @@ export const useGrowthDashboard = (defaultTab?: string) => {
         case "inprogress":
           setActiveTab("inprogress");
           break;
-        case "completed":
-          setActiveTab("completed");
-          break;
         case "late":
           setActiveTab("late");
           break;
       }
     }
-  }, [activeFilter]);
+  }, [activeFilter, navigate]);
 
   useEffect(() => {
-    const isStatCardTab = ["all", "pending", "inprogress", "completed", "late"].includes(activeTab);
+    const isStatCardTab = ["all", "pending", "inprogress", "late"].includes(activeTab);
     if (!isStatCardTab) {
       setActiveFilter(null);
     }

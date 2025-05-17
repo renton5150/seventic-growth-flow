@@ -33,6 +33,7 @@ import { DashboardWithRedirect } from "./components/dashboard/DashboardWithRedir
 import AIDashboard from "./pages/AIDashboard";
 import Planning from "./pages/Planning";
 import AcelleEmailCampaigns from "./pages/AcelleEmailCampaigns";
+import Archives from "./pages/Archives";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -149,6 +150,15 @@ function App() {
                     <Planning />
                   </ProtectedRoute>
                 } 
+              />
+              
+              <Route
+                path="/archives"
+                element={
+                  <ProtectedRoute>
+                    <Archives />
+                  </ProtectedRoute>
+                }
               />
               
               <Route

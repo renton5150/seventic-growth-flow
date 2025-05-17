@@ -28,7 +28,9 @@ export const useDashboardRequests = () => {
       console.log("Récupération des requêtes pour le tableau de bord");
       try {
         // Utilisation de la vue requests_with_missions
-        let query = supabase.from('requests_with_missions').select('*');
+        let query = supabase.from('requests_with_missions')
+          .select('*')
+          .neq('workflow_status', 'completed'); // Exclure les demandes terminées
         
         // Si c'est un SDR, filtrer pour ne montrer que ses propres requêtes
         if (isSDR) {
@@ -105,6 +107,8 @@ export const useDashboardRequests = () => {
         return request.workflow_status === "in_progress";
       }
       if (activeTab === "completed") {
+        // Ces requêtes ne devraient plus être présentes dans la liste principale
+        // mais conservons le filtre pour la cohérence du code
         return request.workflow_status === "completed";
       }
       if (activeTab === "late") {

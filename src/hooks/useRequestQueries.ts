@@ -29,7 +29,8 @@ export function useRequestQueries(userId: string | undefined) {
         .from('requests_with_missions')
         .select('*', { count: 'exact' })
         .is('assigned_to', null)
-        .eq('workflow_status', 'pending_assignment');
+        .eq('workflow_status', 'pending_assignment')
+        .neq('workflow_status', 'completed'); // Exclure les demandes terminées
       
       // Si c'est un SDR, filtrer uniquement ses requêtes
       if (isSDR) {
@@ -76,7 +77,9 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log("Récupération de mes assignations avec userId:", userId);
       
-      let query = supabase.from('requests_with_missions').select('*', { count: 'exact' });
+      let query = supabase.from('requests_with_missions')
+        .select('*', { count: 'exact' })
+        .neq('workflow_status', 'completed'); // Exclure les demandes terminées
       
       // Pour Growth: seulement les requêtes assignées à lui-même
       if (isGrowth && !isAdmin) {
@@ -132,7 +135,9 @@ export function useRequestQueries(userId: string | undefined) {
                   isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
       
       // IMPORTANT: Utilisez toujours la même source de données (requests_with_missions)
-      let query = supabase.from('requests_with_missions').select('*');
+      let query = supabase.from('requests_with_missions')
+        .select('*')
+        .neq('workflow_status', 'completed'); // Exclure les demandes terminées
       
       // Si c'est un SDR, ne récupérer QUE ses demandes créées
       if (isSDR) {

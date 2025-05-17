@@ -8,7 +8,8 @@ import {
   BrainCircuit,
   LogOut,
   CalendarDays,
-  Mail
+  Mail,
+  Archive
 } from "lucide-react";
 import React from "react";
 
@@ -33,6 +34,11 @@ export const sdrMenuItems: MenuItem[] = [
     title: "Missions",
     path: "/missions",
     icon: Building2
+  },
+  {
+    title: "Archives",
+    path: "/archives",
+    icon: Archive
   }
 ];
 
@@ -51,6 +57,11 @@ export const growthMenuItems: MenuItem[] = [
     title: "Mes demandes",
     path: "/growth/my-requests",
     icon: FileText
+  },
+  {
+    title: "Archives",
+    path: "/archives",
+    icon: Archive
   }
 ];
 
@@ -91,6 +102,11 @@ export const adminMenuItems: MenuItem[] = [
     title: "Dashboard",
     path: "/admin/dashboard",
     icon: LayoutDashboard
+  },
+  {
+    title: "Archives",
+    path: "/archives",
+    icon: Archive
   }
 ];
 
