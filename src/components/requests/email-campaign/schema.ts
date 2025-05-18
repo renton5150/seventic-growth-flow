@@ -3,6 +3,9 @@ import { z } from "zod";
 
 export const formSchema = z.object({
   title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
+  emailType: z.enum(["Mass email", "Cold email"], {
+    required_error: "Veuillez sélectionner un type d'emailing"
+  }),
   missionId: z.string().min(1, "Veuillez sélectionner une mission"),
   dueDate: z.string().min(1, "Veuillez sélectionner une date"),
   templateContent: z.string().optional(),
@@ -47,6 +50,7 @@ export type FormData = z.infer<typeof formSchema>;
 
 export const defaultValues = {
   title: "",
+  emailType: "Mass email",
   missionId: "",
   dueDate: "",
   templateContent: "",

@@ -49,6 +49,8 @@ export function EmailCompletionForm({ selectedRequest, onComplete, onCancel }: E
     },
   });
   
+  const emailType = selectedRequest.emailType || selectedRequest.details?.emailType || "Mass email";
+  
   const handleComplete = (data: z.infer<typeof emailCompletionSchema>) => {
     try {
       const completedRequest = updateRequestStatus(selectedRequest.id, "completed", {
@@ -62,7 +64,7 @@ export function EmailCompletionForm({ selectedRequest, onComplete, onCancel }: E
       });
       
       if (completedRequest) {
-        toast.success("La campagne d'email a été marquée comme terminée");
+        toast.success(`La campagne d'email (${emailType}) a été marquée comme terminée`);
         onComplete();
       }
     } catch (error) {
@@ -74,6 +76,10 @@ export function EmailCompletionForm({ selectedRequest, onComplete, onCancel }: E
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleComplete)} className="space-y-4">
+        <div className="mb-4">
+          <h3 className="text-lg font-medium">Type d'emailing: {emailType}</h3>
+        </div>
+        
         <FormField
           control={form.control}
           name="platform"
@@ -89,7 +95,7 @@ export function EmailCompletionForm({ selectedRequest, onComplete, onCancel }: E
                     <SelectValue placeholder="Sélectionner une plateforme" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent className="bg-white z-50">
                   <SelectItem value="Acelmail">Acelmail</SelectItem>
                   <SelectItem value="Bevo">Bevo</SelectItem>
                   <SelectItem value="Postyman">Postyman</SelectItem>

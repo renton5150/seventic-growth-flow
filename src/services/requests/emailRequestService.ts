@@ -22,6 +22,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       due_date: requestData.dueDate.toISOString(),
       last_updated: new Date().toISOString(),
       details: {
+        emailType: requestData.emailType,
         template: requestData.template,
         database: requestData.database,
         blacklist: requestData.blacklist
@@ -82,6 +83,11 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     // Initialiser l'objet details à partir des données actuelles
     const currentDetails = typeof currentRequest.details === 'object' && currentRequest.details !== null ? currentRequest.details : {};
     dbUpdates.details = { ...currentDetails };
+    
+    // Mettre à jour le type d'emailing si présent dans les updates
+    if (updates.emailType) {
+      dbUpdates.details.emailType = updates.emailType;
+    }
     
     // Mettre à jour template si présent dans les updates
     if (updates.template) {

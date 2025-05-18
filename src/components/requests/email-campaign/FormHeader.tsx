@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { getMissionName } from "@/services/missionNameService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -71,6 +72,32 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                 <FormControl>
                   <Input placeholder="Ex: Campagne de lancement produit" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          {/* Type d'emailing - NOUVEAU CHAMP */}
+          <FormField
+            control={control}
+            name="emailType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Type d'emailing*</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un type d'emailing" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="bg-white z-50">
+                    <SelectItem value="Mass email">Mass email</SelectItem>
+                    <SelectItem value="Cold email">Cold email</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

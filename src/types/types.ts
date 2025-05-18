@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -40,6 +41,7 @@ export interface Request {
   contactsCreated?: number;
   profilesScraped?: number;
   resultFileUrl?: string;
+  emailType?: "Mass email" | "Cold email";
 }
 
 export interface EmailCampaignRequest extends Request {
@@ -49,6 +51,7 @@ export interface EmailCampaignRequest extends Request {
   blacklist?: Blacklist;
   platform: string;
   statistics: EmailCampaignStatistics;
+  emailType: "Mass email" | "Cold email";
 }
 
 export interface DatabaseRequest extends Request {

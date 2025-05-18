@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -67,6 +68,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
 
       return {
         title: initialData.title || "",
+        emailType: initialData.details?.emailType || "Mass email",
         missionId: initialData.missionId || "",
         dueDate: formattedDueDate,
         templateContent: template.content || "",
@@ -212,6 +214,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       
       const requestData = {
         title: data.title,
+        emailType: data.emailType,
         missionId: data.missionId,
         createdBy: user.id,
         template: {
@@ -244,6 +247,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         result = await updateRequest(initialData.id, {
           title: data.title,
           dueDate: dueDate,
+          emailType: data.emailType,
           template: requestData.template,
           database: requestData.database,
           blacklist: requestData.blacklist
