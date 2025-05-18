@@ -28,7 +28,7 @@ export function GrowthTableRow({
   return (
     <TableRow>
       {columns.map((column) => (
-        <TableCell key={column.key} className={column.key === "title" ? "font-medium" : ""}>
+        <TableCell key={column.key} className={column.key === "mission" ? "font-medium" : ""}>
           {column.render(request)}
         </TableCell>
       ))}
@@ -42,7 +42,7 @@ export function GrowthTableRow({
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeTab={activeTab}
-          showDeleteButton={false} // Forcer à false pour ne jamais afficher le bouton dans le tableau
+          showDeleteButton={false}
         />
       </TableCell>
     </TableRow>

@@ -104,47 +104,68 @@ export const RequestRow = ({
     return <span className="text-muted-foreground">–</span>;
   };
 
+  const getRequestTypeLabel = (type: string): string => {
+    switch(type) {
+      case "email": return "Campagne Email";
+      case "database": return "Base de données";
+      case "linkedin": return "Scraping LinkedIn";
+      default: return type;
+    }
+  };
+
   return (
     <TableRow>
+      {/* Type */}
       <TableCell>
         <RequestTypeIcon type={request.type} />
       </TableCell>
       
-      <TableCell className="font-medium">
-        {request.title}
-      </TableCell>
-
-      {/* Always show mission column */}
+      {/* Mission */}
       <TableCell>{request.missionName || "Sans mission"}</TableCell>
 
+      {/* Type de demande */}
+      <TableCell>
+        <Badge variant="outline" className="bg-gray-100">
+          {getRequestTypeLabel(request.type)}
+        </Badge>
+      </TableCell>
+
+      {/* SDR (conditionnellement affiché) */}
       {showSdr && (
         <TableCell>{request.sdrName || "Non assigné"}</TableCell>
       )}
 
-      <TableCell>
-        <RequestStatusBadge status={request.workflow_status || request.status} isLate={request.isLate} />
-      </TableCell>
-
-      <TableCell>
-        {formatDate(request.dueDate)}
-      </TableCell>
-
-      <TableCell>
-        {formatDate(request.createdAt)}
-      </TableCell>
-
-      {/* Colonne Plateforme d'emailing */}
+      {/* Assigné à */}
+      <TableCell>{request.assignedToName || "Non assigné"}</TableCell>
+      
+      {/* Plateforme d'emailing */}
       <TableCell>
         {renderEmailPlatform()}
       </TableCell>
 
-      {/* Colonne Actions */}
+      {/* Créée le */}
+      <TableCell>
+        {formatDate(request.createdAt)}
+      </TableCell>
+
+      {/* Date prévue */}
+      <TableCell>
+        {formatDate(request.dueDate)}
+      </TableCell>
+
+      {/* Statut */}
+      <TableCell>
+        <RequestStatusBadge status={request.workflow_status || request.status} isLate={request.isLate} />
+      </TableCell>
+
+      {/* Titre (déplacé vers les actions) */}
       <TableCell className="text-right">
         <div className="flex items-center justify-end space-x-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={viewDetails}
+            title={request.title}
           >
             <Eye className="h-4 w-4 mr-1" /> Voir
           </Button>

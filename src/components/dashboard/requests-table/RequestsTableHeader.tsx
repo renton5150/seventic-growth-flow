@@ -266,24 +266,31 @@ export const RequestsTableHeader = ({
   return (
     <TableHeader>
       <TableRow>
+        {/* Type */}
         <TableHead className="w-[100px]">
           <div className="flex items-center justify-between">
             Type
             {renderFilterButton("type", uniqueValues.type || [])}
           </div>
         </TableHead>
-        <TableHead>
-          <div className="flex items-center justify-between">
-            Titre
-            {renderFilterButton("title", uniqueValues.title || [])}
-          </div>
-        </TableHead>
+
+        {/* Mission */}
         <TableHead>
           <div className="flex items-center justify-between">
             Mission
             {renderFilterButton("mission", uniqueValues.mission || [])}
           </div>
         </TableHead>
+
+        {/* Type de demande */}
+        <TableHead>
+          <div className="flex items-center justify-between">
+            Type de demande
+            {renderFilterButton("requestType", uniqueValues.requestType || [])}
+          </div>
+        </TableHead>
+
+        {/* SDR (conditionnel) */}
         {showSdr && (
           <TableHead>
             <div className="flex items-center justify-between">
@@ -292,23 +299,24 @@ export const RequestsTableHeader = ({
             </div>
           </TableHead>
         )}
+
+        {/* Assigné à */}
         <TableHead>
           <div className="flex items-center justify-between">
-            Statut
-            {renderFilterButton("status", uniqueValues.status || [])}
+            Assigné à
+            {renderFilterButton("assignedTo", uniqueValues.assignedTo || [])}
           </div>
         </TableHead>
+
+        {/* Plateforme d'emailing */}
         <TableHead>
           <div className="flex items-center justify-between">
-            <span className="cursor-pointer" onClick={() => handleSort("dueDate")}>
-              Échéance
-              {sortColumn === "dueDate" && (
-                sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4 inline" /> : <ArrowDown className="ml-2 h-4 w-4 inline" />
-              )}
-            </span>
-            {renderDateFilter("dueDate")}
+            Plateforme d'emailing
+            {renderFilterButton("emailPlatform", uniqueValues.emailPlatform || [])}
           </div>
         </TableHead>
+
+        {/* Créée le */}
         <TableHead>
           <div className="flex items-center justify-between">
             <span className="cursor-pointer" onClick={() => handleSort("createdAt")}>
@@ -320,14 +328,29 @@ export const RequestsTableHeader = ({
             {renderDateFilter("createdAt")}
           </div>
         </TableHead>
-        
+
+        {/* Date prévue */}
         <TableHead>
           <div className="flex items-center justify-between">
-            Plateforme d'emailing
-            {renderFilterButton("emailPlatform", uniqueValues.emailPlatform || [])}
+            <span className="cursor-pointer" onClick={() => handleSort("dueDate")}>
+              Échéance
+              {sortColumn === "dueDate" && (
+                sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4 inline" /> : <ArrowDown className="ml-2 h-4 w-4 inline" />
+              )}
+            </span>
+            {renderDateFilter("dueDate")}
+          </div>
+        </TableHead>
+
+        {/* Statut */}
+        <TableHead>
+          <div className="flex items-center justify-between">
+            Statut
+            {renderFilterButton("status", uniqueValues.status || [])}
           </div>
         </TableHead>
         
+        {/* Actions (remplace Titre) */}
         <TableHead className="text-right">Actions</TableHead>
       </TableRow>
     </TableHeader>

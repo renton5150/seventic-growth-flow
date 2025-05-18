@@ -32,18 +32,24 @@ const getRequestTypeLabel = (type: string): string => {
 };
 
 export const columns: ColumnDefinition[] = [
+  // Type
   {
     header: "Type",
     key: "type",
     width: "w-[50px]",
     render: (request) => <GrowthRequestTypeIcon type={request.type} />
   },
+  // Mission
   {
-    header: "Titre",
-    key: "title",
-    width: "w-[220px]",
-    render: (request) => <div className="font-medium">{request.title}</div>
+    header: "Mission",
+    key: "mission",
+    render: (request) => (
+      <div className="font-medium text-sm">
+        {request.missionName || "Sans mission"}
+      </div>
+    )
   },
+  // Type de demande
   {
     header: "Type de demande",
     key: "requestType",
@@ -54,15 +60,7 @@ export const columns: ColumnDefinition[] = [
       </Badge>
     )
   },
-  {
-    header: "Mission",
-    key: "mission",
-    render: (request) => (
-      <div className="font-medium text-sm">
-        {request.missionName || "Sans mission"}
-      </div>
-    )
-  },
+  // SDR
   {
     header: "SDR",
     key: "sdr",
@@ -73,6 +71,7 @@ export const columns: ColumnDefinition[] = [
       </div>
     )
   },
+  // Assigné à
   {
     header: "Assigné à",
     key: "assignedTo",
@@ -83,6 +82,7 @@ export const columns: ColumnDefinition[] = [
       </div>
     )
   },
+  // Plateforme d'emailing
   {
     header: "Plateforme d'emailing",
     key: "emailPlatform",
@@ -96,16 +96,19 @@ export const columns: ColumnDefinition[] = [
           <span className="text-muted-foreground">–</span>
         ),
   },
+  // Créée le
   {
     header: "Créée le",
     key: "createdAt",
     render: (request) => formatDate(request.createdAt)
   },
+  // Date prévue
   {
     header: "Date prévue",
     key: "dueDate",
     render: (request) => formatDate(request.dueDate)
   },
+  // Statut
   {
     header: "Statut",
     key: "status",
@@ -115,5 +118,6 @@ export const columns: ColumnDefinition[] = [
         isLate={request.isLate} 
       />
     )
-  }
+  },
+  // Titre - Removed from main columns and moved to actions column if needed
 ];
