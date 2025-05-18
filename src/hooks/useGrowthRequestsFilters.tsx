@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Request } from '@/types/types';
 
@@ -17,6 +16,16 @@ export interface DateFilter {
   values: DateFilterValues;
 }
 
+// Helper pour obtenir la traduction française du type de demande
+const getRequestTypeLabel = (type: string): string => {
+  switch(type.toLowerCase()) {
+    case "email": return "Campagne Email";
+    case "database": return "Base de données";
+    case "linkedin": return "Scraping LinkedIn";
+    default: return type;
+  }
+};
+
 export function useGrowthRequestsFilters(requests: Request[]) {
   // Column filters
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -29,17 +38,13 @@ export function useGrowthRequestsFilters(requests: Request[]) {
   const [createdDateFilter, setCreatedDateFilter] = useState<DateFilter | null>(null);
   const [dueDateFilter, setDueDateFilter] = useState<DateFilter | null>(null);
 
-  // Extract unique values for filter options
+  // Extract unique values for filter options with logs de débogage
   const uniqueTypes = useMemo(() => {
-    const types = [...new Set(requests.map(r => r.type))];
-    return types.map(type => {
-      switch(type) {
-        case "email": return "Campagne Email";
-        case "database": return "Base de données";
-        case "linkedin": return "Scraping LinkedIn";
-        default: return type;
-      }
-    });
+    const types = [...new Set(requests.map(r => {
+      return getRequestTypeLabel(r.type);
+    }))];
+    console.log("useGrowthRequestsFilters - types extraits:", types);
+    return types;
   }, [requests]);
 
   const uniqueMissions = useMemo(() => {
@@ -47,7 +52,9 @@ export function useGrowthRequestsFilters(requests: Request[]) {
   }, [requests]);
 
   const uniqueAssignees = useMemo(() => {
-    return [...new Set(requests.map(r => r.assignedToName || "Non assigné"))];
+    const assignees = [...new Set(requests.map(r => r.assignedToName || "Non assigné"))];
+    console.log("useGrowthRequestsFilters - assignees extraits:", assignees);
+    return assignees;
   }, [requests]);
 
   // Correction pour extraire tous les statuts possibles
@@ -114,20 +121,23 @@ export function useGrowthRequestsFilters(requests: Request[]) {
     }
   };
 
-  // Apply all filters to requests
+  // Apply all filters to requests with logging détaillé
   const filteredRequests = useMemo(() => {
+    console.log("useGrowthRequestsFilters - Applying filters:", {
+      typeFilter,
+      missionFilter,
+      assigneeFilter,
+      statusFilter,
+      sdrFilter
+    });
+    
     return requests.filter(request => {
-      // Apply type filter
+      // Apply type filter avec la traduction
       if (typeFilter.length > 0) {
-        const requestTypeLabel = (() => {
-          switch(request.type) {
-            case "email": return "Campagne Email";
-            case "database": return "Base de données";
-            case "linkedin": return "Scraping LinkedIn";
-            default: return request.type;
-          }
-        })();
-        if (!typeFilter.includes(requestTypeLabel)) return false;
+        const requestTypeLabel = getRequestTypeLabel(request.type);
+        if (!typeFilter.includes(requestTypeLabel)) {
+          return false;
+        }
       }
 
       // Apply mission filter
@@ -139,6 +149,7 @@ export function useGrowthRequestsFilters(requests: Request[]) {
       // Apply assignee filter - correction pour utiliser assignedToName
       if (assigneeFilter.length > 0) {
         const assigneeName = request.assignedToName || "Non assigné";
+        console.log(`Filtre assignee - request.assignedToName: ${request.assignedToName}, match: ${assigneeFilter.includes(assigneeName)}`);
         if (!assigneeFilter.includes(assigneeName)) return false;
       }
 

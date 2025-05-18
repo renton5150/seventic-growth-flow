@@ -31,6 +31,8 @@ export const RequestsTable = ({
     mission: [],
     sdr: [],
     status: [],
+    assignedTo: [], // Ajout explicite de assignedTo
+    requestType: [], // Ajout explicite de requestType
     emailPlatform: []
   });
 
@@ -63,22 +65,34 @@ export const RequestsTable = ({
       return "Non spécifié";
     }))];
     
+    // CORRECTION: Extraire les types de demande formatés avec les labels français
+    const requestTypes = [...new Set(requests.map(r => {
+      switch(r.type) {
+        case "email": return "Campagne Email";
+        case "database": return "Base de données";
+        case "linkedin": return "Scraping LinkedIn";
+        default: return r.type;
+      }
+    }))];
+    
+    // CORRECTION: Extraire les valeurs uniques pour assignedTo
+    const assignedToNames = [...new Set(requests.map(r => r.assignedToName || "Non assigné"))];
+    
+    // Ajouter des logs pour déboguer l'extraction des valeurs de filtre
+    console.log("RequestsTable - Valeurs extraites pour les filtres:", {
+      requestTypes,
+      assignedToNames
+    });
+    
     setUniqueValues({
       type: types,
       mission: missions,
       sdr: sdrs,
       status: statuses,
       title: titles,
-      emailPlatform: emailPlatforms
-    });
-    
-    console.log("Updated filter values:", {
-      types,
-      missions,
-      sdrs,
-      statuses,
-      titles,
-      emailPlatforms
+      emailPlatform: emailPlatforms,
+      requestType: requestTypes, // Ajouter les types de demande formatés
+      assignedTo: assignedToNames // Ajouter les noms des personnes assignées
     });
   }, [requests]);
 

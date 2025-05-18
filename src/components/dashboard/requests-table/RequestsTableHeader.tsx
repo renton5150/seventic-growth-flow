@@ -54,6 +54,9 @@ export const RequestsTableHeader = ({
   const [dateFilterType, setDateFilterType] = useState<{[key: string]: string}>({});
   const [selectedDate, setSelectedDate] = useState<{[key: string]: Date | undefined}>({});
 
+  // Log pour le débogage des valeurs uniques disponibles
+  console.log("RequestsTableHeader - uniqueValues disponibles:", uniqueValues);
+
   const toggleFilter = (column: string) => {
     setOpenFilters(prev => ({
       ...prev,
@@ -121,6 +124,9 @@ export const RequestsTableHeader = ({
     
     // Si this est la colonne status, obtenir tous les statuts possibles
     const valuesToShow = column === "status" ? getAllStatusOptions() : filterValues;
+    
+    // Log pour déboguer les valeurs disponibles pour ce filtre
+    console.log(`renderFilterButton - ${column} values:`, valuesToShow);
     
     return (
       <Popover open={isFilterOpen(column)} onOpenChange={() => toggleFilter(column)}>
@@ -284,7 +290,7 @@ export const RequestsTableHeader = ({
           </div>
         </TableHead>
 
-        {/* Type de demande */}
+        {/* Type de demande - CORRECTION: Utiliser les valeurs requestType */}
         <TableHead>
           <div className="flex items-center justify-between">
             Type de demande
@@ -302,7 +308,7 @@ export const RequestsTableHeader = ({
           </TableHead>
         )}
 
-        {/* Assigné à */}
+        {/* Assigné à - CORRECTION: Utiliser les valeurs assignedTo */}
         <TableHead>
           <div className="flex items-center justify-between">
             Assigné à

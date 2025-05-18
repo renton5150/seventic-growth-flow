@@ -15,6 +15,16 @@ const getStatusFilterValue = (statusValue: string): string => {
   return lowercaseStatus;
 };
 
+// Helper pour obtenir la traduction française du type de demande
+const getRequestTypeLabel = (type: string): string => {
+  switch(type.toLowerCase()) {
+    case "email": return "Campagne Email";
+    case "database": return "Base de données";
+    case "linkedin": return "Scraping LinkedIn";
+    default: return type;
+  }
+};
+
 export const sortRequests = (
   requests: Request[],
   sortColumn: string,
@@ -22,12 +32,17 @@ export const sortRequests = (
   filters: {[key: string]: string[]},
   dateFilters: {[key: string]: any}
 ): Request[] => {
+  // Log complet des filtres pour le débogage
+  console.log("sortRequests - Filtres appliqués:", filters);
+  console.log("sortRequests - Nombre de requêtes avant filtrage:", requests.length);
+  
   // Filtrer les demandes en fonction des filtres
   let filteredRequests = [...requests];
   
   // Appliquer les filtres de type
   if (filters.type && filters.type.length > 0) {
     filteredRequests = filteredRequests.filter(r => filters.type.includes(r.type));
+    console.log("Après filtre type:", filteredRequests.length);
   }
   
   // Appliquer les filtres de mission
@@ -36,6 +51,7 @@ export const sortRequests = (
       const missionName = r.missionName || "Sans mission";
       return filters.mission.includes(missionName);
     });
+    console.log("Après filtre mission:", filteredRequests.length);
   }
   
   // Appliquer les filtres de SDR
@@ -44,31 +60,38 @@ export const sortRequests = (
       const sdrName = r.sdrName || "Non assigné";
       return filters.sdr.includes(sdrName);
     });
+    console.log("Après filtre sdr:", filteredRequests.length);
   }
   
-  // Appliquer les filtres de type de demande (requestType)
-  // Cette partie était manquante, causant l'échec du filtre
+  // CORRECTION: Améliorer le filtre de type de demande (requestType)
   if (filters.requestType && filters.requestType.length > 0) {
+    console.log("Filtrage par type de demande:", filters.requestType);
+    
     filteredRequests = filteredRequests.filter(r => {
-      // Convertit le type en label français pour la comparaison
-      let requestTypeLabel;
-      switch(r.type) {
-        case "email": requestTypeLabel = "Campagne Email"; break;
-        case "database": requestTypeLabel = "Base de données"; break;
-        case "linkedin": requestTypeLabel = "Scraping LinkedIn"; break;
-        default: requestTypeLabel = r.type;
-      }
+      // Obtenir le label français pour ce type
+      const requestTypeLabel = getRequestTypeLabel(r.type);
+      
+      // Log pour vérifier la correspondance
+      console.log(`Comparaison - Type: ${r.type}, Label: ${requestTypeLabel}, Match: ${filters.requestType.includes(requestTypeLabel)}`);
+      
       return filters.requestType.includes(requestTypeLabel);
     });
+    console.log("Après filtre requestType:", filteredRequests.length);
   }
   
-  // Appliquer les filtres d'assignation (assignedTo)
-  // Cette partie était également problématique
+  // CORRECTION: Améliorer le filtre d'assignation (assignedTo)
   if (filters.assignedTo && filters.assignedTo.length > 0) {
+    console.log("Filtrage par assigné à:", filters.assignedTo);
+    
     filteredRequests = filteredRequests.filter(r => {
       const assignedToName = r.assignedToName || "Non assigné";
+      
+      // Log pour vérifier la correspondance
+      console.log(`Comparaison - Assigné à: ${assignedToName}, Match: ${filters.assignedTo.includes(assignedToName)}`);
+      
       return filters.assignedTo.includes(assignedToName);
     });
+    console.log("Après filtre assignedTo:", filteredRequests.length);
   }
   
   // Appliquer les filtres de statut avec support amélioré pour les différents formats de statut
@@ -86,11 +109,13 @@ export const sortRequests = (
                (normalizedFilterStatus === "in_progress" && r.status === "inprogress");
       });
     });
+    console.log("Après filtre status:", filteredRequests.length);
   }
   
   // Appliquer les filtres de titre
   if (filters.title && filters.title.length > 0) {
     filteredRequests = filteredRequests.filter(r => filters.title.includes(r.title));
+    console.log("Après filtre title:", filteredRequests.length);
   }
   
   // Appliquer les filtres de plateforme d'emailing
@@ -99,6 +124,7 @@ export const sortRequests = (
       const platform = r.details?.emailPlatform || "Non spécifié";
       return filters.emailPlatform.includes(platform);
     });
+    console.log("Après filtre emailPlatform:", filteredRequests.length);
   }
   
   // Appliquer les filtres de date de création
