@@ -46,6 +46,31 @@ export const sortRequests = (
     });
   }
   
+  // Appliquer les filtres de type de demande (requestType)
+  // Cette partie était manquante, causant l'échec du filtre
+  if (filters.requestType && filters.requestType.length > 0) {
+    filteredRequests = filteredRequests.filter(r => {
+      // Convertit le type en label français pour la comparaison
+      let requestTypeLabel;
+      switch(r.type) {
+        case "email": requestTypeLabel = "Campagne Email"; break;
+        case "database": requestTypeLabel = "Base de données"; break;
+        case "linkedin": requestTypeLabel = "Scraping LinkedIn"; break;
+        default: requestTypeLabel = r.type;
+      }
+      return filters.requestType.includes(requestTypeLabel);
+    });
+  }
+  
+  // Appliquer les filtres d'assignation (assignedTo)
+  // Cette partie était également problématique
+  if (filters.assignedTo && filters.assignedTo.length > 0) {
+    filteredRequests = filteredRequests.filter(r => {
+      const assignedToName = r.assignedToName || "Non assigné";
+      return filters.assignedTo.includes(assignedToName);
+    });
+  }
+  
   // Appliquer les filtres de statut avec support amélioré pour les différents formats de statut
   if (filters.status && filters.status.length > 0) {
     filteredRequests = filteredRequests.filter(r => {

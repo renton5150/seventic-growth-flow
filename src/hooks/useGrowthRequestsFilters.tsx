@@ -136,7 +136,7 @@ export function useGrowthRequestsFilters(requests: Request[]) {
         if (!missionFilter.includes(missionName)) return false;
       }
 
-      // Apply assignee filter
+      // Apply assignee filter - correction pour utiliser assignedToName
       if (assigneeFilter.length > 0) {
         const assigneeName = request.assignedToName || "Non assigné";
         if (!assigneeFilter.includes(assigneeName)) return false;

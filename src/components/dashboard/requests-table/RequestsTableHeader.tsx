@@ -73,6 +73,8 @@ export const RequestsTableHeader = ({
       newFilters = currentFilters.filter(filterValue => filterValue !== value);
     }
 
+    // Ajouter un log pour le débogage
+    console.log(`Modifier filtre ${column}:`, { value, checked, newFilters });
     onFilterChange(column, newFilters);
   };
 
@@ -117,7 +119,7 @@ export const RequestsTableHeader = ({
   const renderFilterButton = (column: string, filterValues: string[]) => {
     const hasFilter = filters[column]?.length > 0;
     
-    // If this is the status column, get all possible statuses
+    // Si this est la colonne status, obtenir tous les statuts possibles
     const valuesToShow = column === "status" ? getAllStatusOptions() : filterValues;
     
     return (
