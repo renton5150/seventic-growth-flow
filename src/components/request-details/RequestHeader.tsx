@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { deleteRequest } from "@/services/requests/deleteRequestService";
@@ -33,8 +34,9 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
   const queryClient = useQueryClient();
   const { user } = useAuth();
   
-  // Vérifier si l'utilisateur est admin ou growth pour montrer le bouton de suppression
-  const canDelete = user?.role === 'admin' || user?.role === 'growth';
+  // Vérifier si l'utilisateur est admin, growth, ou un SDR qui est le créateur de la demande
+  const canDelete = user?.role === 'admin' || user?.role === 'growth' || 
+                   (user?.role === 'sdr' && user?.id === request.createdBy);
 
   // Déterminer la page de redirection après suppression basée sur l'URL actuelle
   const getRedirectPath = () => {
@@ -45,6 +47,10 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
     // Si c'est un admin sur la page admin, rediriger vers dashboard admin
     if (location.pathname.includes('/admin')) {
       return '/admin/dashboard';
+    }
+    // Si c'est un SDR, rediriger vers le dashboard
+    if (user?.role === 'sdr') {
+      return '/dashboard';
     }
     // Si venant de mission ou d'une page spécifique, rediriger vers celle-ci
     if (location.state && location.state.from) {
@@ -114,7 +120,7 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
             </Button>
           )}
           
-          {/* Afficher le bouton de suppression uniquement pour admin et growth */}
+          {/* Afficher le bouton de suppression pour admin, growth et SDR créateur */}
           {canDelete && (
             <Button 
               variant="destructive"

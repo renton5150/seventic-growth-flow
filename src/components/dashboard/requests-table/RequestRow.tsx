@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -57,7 +56,7 @@ export const RequestRow = ({
   };
 
   const canEdit = user?.role === "admin" || user?.id === request.createdBy;
-  const canDelete = user?.role === "admin";
+  const canDelete = user?.role === "admin" || (user?.role === "sdr" && user?.id === request.createdBy);
 
   const formatDate = (date: Date | string | undefined) => {
     if (!date) return "-";

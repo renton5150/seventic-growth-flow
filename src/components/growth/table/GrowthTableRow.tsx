@@ -3,6 +3,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Request } from "@/types/types";
 import { columns } from "./columns";
 import { GrowthRequestActions } from "./GrowthRequestActions";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface GrowthTableRowProps {
   request: Request;
@@ -25,6 +26,10 @@ export function GrowthTableRow({
   updateRequestWorkflowStatus,
   activeTab
 }: GrowthTableRowProps) {
+  const { user } = useAuth();
+  const showDeleteButton = user?.role === "admin" || user?.role === "growth" || 
+                           (user?.role === "sdr" && user?.id === request.createdBy);
+
   return (
     <TableRow>
       {columns.map((column) => (
@@ -42,7 +47,7 @@ export function GrowthTableRow({
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeTab={activeTab}
-          showDeleteButton={false}
+          showDeleteButton={showDeleteButton}
         />
       </TableCell>
     </TableRow>

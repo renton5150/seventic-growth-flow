@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Request } from "@/types/types";
 import {
@@ -46,11 +45,12 @@ export function GrowthRequestActions({
   updateRequestWorkflowStatus,
   activeTab,
   onRequestDeleted,
-  showDeleteButton = false // Par défaut, ne pas afficher le bouton
+  showDeleteButton = false
 }: GrowthRequestActionsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
+  const isSdrCreator = user?.role === 'sdr' && user?.id === request.createdBy;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -123,7 +123,7 @@ export function GrowthRequestActions({
     
     // Sur la page détaillée (pas dans le tableau), toujours montrer pour admin/growth
     const isDetailPage = window.location.pathname.includes(`/requests/${request.type}/${request.id}`);
-    if (isDetailPage && isGrowthOrAdmin) {
+    if (isDetailPage && (isGrowthOrAdmin || isSdrCreator)) {
       return true;
     }
     
