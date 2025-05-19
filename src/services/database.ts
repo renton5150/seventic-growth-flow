@@ -112,9 +112,10 @@ export const extractFileName = (url: string): string | null => {
 };
 
 // Exporter les fonctions manquantes depuis les modules appropriés
-export { uploadFile, uploadDatabaseFile, deleteDatabaseFile } from './database/uploadService';
+export { uploadFile, uploadDatabaseFile } from './database/uploadService';
 export { downloadDatabaseFile } from './database/downloadService';
 export { getAllDatabaseFiles } from './database/queryService';
 export { extractPathFromSupabaseUrl } from './database/utils';
+export { deleteDatabaseFile } from './database/deleteService';
 
 // Ajouter ces fonctions à l'export par défaut pour compatibilité
