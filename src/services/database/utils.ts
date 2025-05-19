@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -76,6 +75,53 @@ export const extractFileName = (url: string): string | null => {
   } catch (e) {
     console.error("Erreur lors de l'extraction du nom de fichier:", e);
     return null;
+  }
+};
+
+/**
+ * Vérifie si un fichier existe à l'URL spécifiée
+ * @param url URL du fichier à vérifier
+ * @returns Promise<boolean> indiquant si le fichier existe
+ */
+export const checkFileExists = async (url: string): Promise<boolean> => {
+  try {
+    // Pour les URLs de stockage Supabase
+    if (url.includes('storage/v1')) {
+      // Extraire les informations du chemin à partir de l'URL
+      const pathInfo = extractPathFromSupabaseUrl(url);
+      
+      if (!pathInfo) {
+        console.error("Impossible d'extraire les informations de chemin à partir de l'URL:", url);
+        return false;
+      }
+      
+      // Vérifier l'existence du fichier via l'API Supabase
+      const { data, error } = await supabase.storage
+        .from(pathInfo.bucketName)
+        .list(pathInfo.filePath.split('/').slice(0, -1).join('/') || undefined);
+      
+      if (error) {
+        console.error("Erreur lors de la vérification via Supabase:", error);
+        return false;
+      }
+      
+      // Vérifier si le fichier est dans la liste
+      const fileName = pathInfo.filePath.split('/').pop();
+      return data.some(file => file.name === fileName);
+    } 
+    // Pour les URLs standards (http/https)
+    else if (url.startsWith('http')) {
+      // Utiliser un HEAD request pour vérifier l'existence
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    }
+    else {
+      console.error("Format d'URL non supporté pour la vérification:", url);
+      return false;
+    }
+  } catch (error) {
+    console.error("Erreur lors de la vérification du fichier:", error);
+    return false;
   }
 };
 
