@@ -1,4 +1,3 @@
-
 // Importations existantes
 import { supabase } from "@/integrations/supabase/client";
 
@@ -119,3 +118,4 @@ export { extractPathFromSupabaseUrl } from './database/utils';
 export { deleteDatabaseFile } from './database/deleteService';
 
 // Ajouter ces fonctions à l'export par défaut pour compatibilité
+

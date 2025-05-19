@@ -54,6 +54,32 @@ export const extractPathFromSupabaseUrl = (url: string): { bucketName: string; f
 };
 
 /**
+ * Extrait le nom de fichier d'une URL
+ * @param url URL du fichier
+ * @returns Nom du fichier ou null si l'extraction échoue
+ */
+export const extractFileName = (url: string): string | null => {
+  try {
+    // Récupérer le dernier segment de l'URL (après le dernier '/')
+    const segments = url.split('/');
+    let fileName = segments[segments.length - 1];
+    
+    // Si l'URL contient des paramètres, les supprimer
+    if (fileName.includes('?')) {
+      fileName = fileName.split('?')[0];
+    }
+    
+    // Décoder le nom du fichier au cas où il contiendrait des caractères spéciaux encodés
+    fileName = decodeURIComponent(fileName);
+    
+    return fileName || null;
+  } catch (e) {
+    console.error("Erreur lors de l'extraction du nom de fichier:", e);
+    return null;
+  }
+};
+
+/**
  * Téléchargement générique de fichier
  */
 export const downloadFile = async (url: string, fileName: string): Promise<boolean> => {
