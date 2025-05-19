@@ -1,10 +1,7 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { downloadFile } from '@/services/database';
-import { toast } from 'sonner';
+import { DownloadFileButton } from '@/components/common/DownloadFileButton';
 import { Blacklist } from '@/types/types';
 
 interface BlacklistSectionProps {
@@ -12,42 +9,9 @@ interface BlacklistSectionProps {
 }
 
 export const BlacklistSection = ({ blacklist }: BlacklistSectionProps) => {
-  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
-
-  const handleFileDownload = async (url: string | undefined, filename: string = "document") => {
-    if (!url) {
-      toast.error("Aucune URL de fichier disponible");
-      return;
-    }
-    
-    try {
-      console.log(`Téléchargement demandé pour: ${url}`);
-      
-      // Marquer le fichier comme en cours de téléchargement
-      setDownloadingFile(url);
-      
-      // Afficher un toast de chargement
-      const loadingToast = toast.loading("Téléchargement en cours...");
-      
-      const success = await downloadFile(url, filename);
-      
-      // Supprimer le toast de chargement
-      toast.dismiss(loadingToast);
-      
-      if (success) {
-        toast.success(`Téléchargement de "${filename}" réussi`);
-      } else {
-        // Afficher un message d'erreur spécifique si le téléchargement échoue
-        toast.error("Le fichier n'a pas pu être téléchargé");
-      }
-    } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-      toast.error("Erreur lors du téléchargement du fichier");
-    } finally {
-      setDownloadingFile(null);
-    }
-  };
-
+  console.log("Rendu du composant BlacklistSection avec:", blacklist);
+  
+  // Si aucune liste noire n'est définie ou si elle est vide, ne rien afficher
   if (!blacklist || (!blacklist.accounts && !blacklist.emails)) {
     return null;
   }
@@ -61,36 +25,29 @@ export const BlacklistSection = ({ blacklist }: BlacklistSectionProps) => {
         {blacklist.accounts && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Comptes exclus</h4>
-            {blacklist.accounts.notes && <p>{blacklist.accounts.notes}</p>}
+            {blacklist.accounts.notes && <p className="mt-1">{blacklist.accounts.notes}</p>}
             {blacklist.accounts.fileUrl && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts.xlsx")}
-                className="flex items-center gap-2 mt-1"
-                disabled={downloadingFile === blacklist.accounts.fileUrl}
-              >
-                <Download className="h-4 w-4" />
-                {downloadingFile === blacklist.accounts.fileUrl ? 'Téléchargement...' : 'Télécharger la liste de comptes'}
-              </Button>
+              <DownloadFileButton 
+                fileUrl={blacklist.accounts.fileUrl} 
+                fileName="blacklist-accounts.xlsx"
+                label="Télécharger la liste de comptes"
+                className="mt-2"
+              />
             )}
           </div>
         )}
+        
         {blacklist.emails && (
           <div>
             <h4 className="font-semibold text-sm">Emails exclus</h4>
-            {blacklist.emails.notes && <p>{blacklist.emails.notes}</p>}
+            {blacklist.emails.notes && <p className="mt-1">{blacklist.emails.notes}</p>}
             {blacklist.emails.fileUrl && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleFileDownload(blacklist.emails.fileUrl, "blacklist-emails.xlsx")}
-                className="flex items-center gap-2 mt-1"
-                disabled={downloadingFile === blacklist.emails.fileUrl}
-              >
-                <Download className="h-4 w-4" />
-                {downloadingFile === blacklist.emails.fileUrl ? 'Téléchargement...' : 'Télécharger la liste d\'emails'}
-              </Button>
+              <DownloadFileButton 
+                fileUrl={blacklist.emails.fileUrl} 
+                fileName="blacklist-emails.xlsx"
+                label="Télécharger la liste d'emails"
+                className="mt-2"
+              />
             )}
           </div>
         )}

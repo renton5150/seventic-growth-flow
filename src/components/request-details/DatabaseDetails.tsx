@@ -12,10 +12,13 @@ interface DatabaseDetailsProps {
 }
 
 export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
+  // S'assurer que les propriétés existent
   const { tool, targeting, blacklist, contactsCreated, resultFileUrl } = request;
   const [downloading, setDownloading] = useState<string | null>(null);
   const [fileStatuses, setFileStatuses] = useState<Record<string, boolean | null>>({});
   const [isCheckingFiles, setIsCheckingFiles] = useState(true);
+
+  console.log("Rendu DatabaseDetails avec:", request);
 
   // Vérifier tous les fichiers au chargement du composant
   useEffect(() => {
@@ -193,67 +196,65 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
         </CardContent>
       </Card>
 
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>Ciblage</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {targeting && (
-            <>
-              {targeting.jobTitles && targeting.jobTitles.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Titres de poste</h4>
-                  <ul className="list-disc pl-5 mt-1">
-                    {targeting.jobTitles.map((title, index) => (
-                      <li key={index}>{title}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {targeting.industries && targeting.industries.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Industries</h4>
-                  <ul className="list-disc pl-5 mt-1">
-                    {targeting.industries.map((industry, index) => (
-                      <li key={index}>{industry}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {targeting.locations && targeting.locations.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Localisations</h4>
-                  <ul className="list-disc pl-5 mt-1">
-                    {targeting.locations.map((location, index) => (
-                      <li key={index}>{location}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {targeting.companySize && targeting.companySize.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Taille d'entreprise</h4>
-                  <ul className="list-disc pl-5 mt-1">
-                    {targeting.companySize.map((size, index) => (
-                      <li key={index}>{size}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {targeting.otherCriteria && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-sm">Autres critères</h4>
-                  <p className="mt-1">{targeting.otherCriteria}</p>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {targeting && (
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle>Ciblage</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {targeting.jobTitles && targeting.jobTitles.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-semibold text-sm">Titres de poste</h4>
+                <ul className="list-disc pl-5 mt-1">
+                  {targeting.jobTitles.map((title, index) => (
+                    <li key={index}>{title}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {targeting.industries && targeting.industries.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-semibold text-sm">Industries</h4>
+                <ul className="list-disc pl-5 mt-1">
+                  {targeting.industries.map((industry, index) => (
+                    <li key={index}>{industry}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {targeting.locations && targeting.locations.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-semibold text-sm">Localisations</h4>
+                <ul className="list-disc pl-5 mt-1">
+                  {targeting.locations.map((location, index) => (
+                    <li key={index}>{location}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {targeting.companySize && targeting.companySize.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-semibold text-sm">Taille d'entreprise</h4>
+                <ul className="list-disc pl-5 mt-1">
+                  {targeting.companySize.map((size, index) => (
+                    <li key={index}>{size}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {targeting.otherCriteria && (
+              <div className="mb-4">
+                <h4 className="font-semibold text-sm">Autres critères</h4>
+                <p className="mt-1">{targeting.otherCriteria}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {blacklist && (
         <Card>

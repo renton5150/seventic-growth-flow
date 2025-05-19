@@ -10,6 +10,7 @@ interface EmailCampaignDetailsProps {
 }
 
 export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => {
+  // Assurer que les objets existent même s'ils sont vides
   const template = request.template || { content: "", webLink: "", fileUrl: "" };
   const database = request.database || { notes: "", webLink: "", fileUrl: "" };
   const blacklist = request.blacklist || {

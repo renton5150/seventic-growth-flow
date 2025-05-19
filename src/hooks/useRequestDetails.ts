@@ -47,6 +47,7 @@ export const useRequestDetails = () => {
         
         // Attendre la résolution de la promesse retournée par formatRequestFromDb
         const formattedRequest = await formatRequestFromDb(data);
+        console.log("[useRequestDetails] Demande formatée:", formattedRequest);
         setRequest(formattedRequest);
         
         if (formattedRequest.workflow_status) {
