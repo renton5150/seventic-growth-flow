@@ -31,3 +31,6 @@ export const getAllDatabases = async (): Promise<DatabaseFile[]> => {
     return [];
   }
 };
+
+// Alias for consistent naming
+export const getAllDatabaseFiles = getAllDatabases;

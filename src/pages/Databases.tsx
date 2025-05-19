@@ -6,6 +6,7 @@ import { DatabaseUploader } from "@/components/databases/DatabaseUploader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { getAllDatabaseFiles } from "@/services/database";
+import { DatabaseFile } from "@/types/database.types";
 
 const Databases = () => {
   const { user, loading: authLoading } = useAuth();
@@ -65,7 +66,7 @@ const Databases = () => {
       
       <div className="space-y-6">
         <DatabaseUploader />
-        <DatabasesList databases={databases} isLoading={isLoading} />
+        <DatabasesList databases={databases || []} isLoading={isLoading} />
       </div>
     </AppLayout>
   );

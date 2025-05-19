@@ -1,5 +1,5 @@
 
-import { extractPathFromSupabaseUrl, downloadFile as utilsDownloadFile } from './utils';
+import { extractPathFromSupabaseUrl } from './utils';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,11 +18,22 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
     if (fileUrl.includes('http')) {
       try {
         console.log(`[downloadFile:${requestId}] Tentative de téléchargement direct via fetch`);
-        const success = await utilsDownloadFile(fileUrl, fileName);
-        if (success) {
-          console.log(`[downloadFile:${requestId}] Téléchargement direct réussi pour: ${fileUrl}`);
-          return true;
+        const response = await fetch(fileUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+        console.log(`[downloadFile:${requestId}] Téléchargement direct réussi pour: ${fileUrl}`);
+        return true;
       } catch (fetchError) {
         console.error(`[downloadFile:${requestId}] Échec du téléchargement direct:`, fetchError);
         // Continuer avec la méthode Supabase si fetch échoue
@@ -76,3 +87,6 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
     return false;
   }
 };
+
+// Ajout d'une fonction d'export avec un nom alternatif pour maintenir la compatibilité
+export const downloadDatabaseFile = downloadFile;

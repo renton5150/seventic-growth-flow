@@ -7,5 +7,4 @@ export * from './utils';
 export * from './config';
 
 // Export the downloadFile from downloadService
-export { downloadFile } from './downloadService';
-export { downloadFile as downloadDatabaseFile } from './downloadService';
+export { downloadFile, downloadDatabaseFile } from './downloadService';
