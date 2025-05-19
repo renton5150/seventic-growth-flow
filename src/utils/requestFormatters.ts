@@ -1,3 +1,4 @@
+
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
@@ -45,7 +46,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
 
   // IMPORTANT: Normaliser les détails pour éviter les problèmes de type
   // Si details est une chaîne, la parser en JSON
-  let details = {};
+  let details: Record<string, any> = {};
   if (typeof request.details === 'string') {
     try {
       details = JSON.parse(request.details);
@@ -55,7 +56,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
       details = {};
     }
   } else if (request.details && typeof request.details === 'object') {
-    details = request.details;
+    details = request.details as Record<string, any>;
   }
 
   // Base request with common properties

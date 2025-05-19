@@ -27,8 +27,9 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
   // Récupérer le type d'emailing, soit directement de la propriété emailType,
   // soit depuis details.emailType (selon l'endroit où il est stocké)
   const emailType = request.emailType || 
-                    (request.details && request.details.emailType) || 
-                    "Mass email";
+                    (request.details && typeof request.details === 'object' && 'emailType' in request.details ? 
+                      request.details.emailType : 
+                      "Mass email");
 
   return (
     <div className="space-y-6">
