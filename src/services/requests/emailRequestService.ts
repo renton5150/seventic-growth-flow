@@ -10,6 +10,18 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
   try {
     console.log("Préparation des données pour la création de la requête:", requestData);
     
+    // Assurez-vous que tous les objets imbriqués existent
+    const template = requestData.template || { content: "", fileUrl: "", webLink: "" };
+    const database = requestData.database || { notes: "", fileUrl: "", webLinks: [] };
+    const blacklist = requestData.blacklist || {
+      accounts: { notes: "", fileUrl: "" },
+      emails: { notes: "", fileUrl: "" }
+    };
+    
+    // Assurez-vous que blacklist.accounts et blacklist.emails existent
+    if (!blacklist.accounts) blacklist.accounts = { notes: "", fileUrl: "" };
+    if (!blacklist.emails) blacklist.emails = { notes: "", fileUrl: "" };
+    
     const dbRequest = {
       type: "email",
       title: requestData.title,
@@ -22,14 +34,14 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       due_date: requestData.dueDate.toISOString(),
       last_updated: new Date().toISOString(),
       details: {
-        emailType: requestData.emailType,
-        template: requestData.template,
-        database: requestData.database,
-        blacklist: requestData.blacklist
+        emailType: requestData.emailType || "Mass email",
+        template: template,
+        database: database,
+        blacklist: blacklist
       }
     };
     
-    console.log("Données formatées pour l'insertion:", dbRequest);
+    console.log("Données formatées pour l'insertion:", JSON.stringify(dbRequest, null, 2));
 
     const { data: newRequest, error } = await supabase
       .from('requests')
@@ -81,8 +93,27 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     }
 
     // Initialiser l'objet details à partir des données actuelles
-    const currentDetails = typeof currentRequest.details === 'object' && currentRequest.details !== null ? currentRequest.details : {};
+    // Assurez-vous que currentRequest.details est un objet valide
+    let currentDetails = {};
+    if (typeof currentRequest.details === 'string') {
+      try {
+        currentDetails = JSON.parse(currentRequest.details);
+      } catch (e) {
+        console.error("Erreur lors du parsing des détails:", e);
+        currentDetails = {};
+      }
+    } else if (currentRequest.details && typeof currentRequest.details === 'object') {
+      currentDetails = currentRequest.details;
+    }
+    
     dbUpdates.details = { ...currentDetails };
+    
+    // Initialiser les objets imbriqués s'ils n'existent pas
+    if (!dbUpdates.details.template) dbUpdates.details.template = {};
+    if (!dbUpdates.details.database) dbUpdates.details.database = {};
+    if (!dbUpdates.details.blacklist) dbUpdates.details.blacklist = { accounts: {}, emails: {} };
+    if (!dbUpdates.details.blacklist.accounts) dbUpdates.details.blacklist.accounts = {};
+    if (!dbUpdates.details.blacklist.emails) dbUpdates.details.blacklist.emails = {};
     
     // Mettre à jour le type d'emailing si présent dans les updates
     if (updates.emailType) {
@@ -91,56 +122,51 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     // Mettre à jour template si présent dans les updates
     if (updates.template) {
-      const template = updates.template || {};
-      const currentTemplateObj = typeof dbUpdates.details.template === 'object' && dbUpdates.details.template !== null
-        ? dbUpdates.details.template 
-        : {};
-      
       dbUpdates.details.template = {
-        ...currentTemplateObj,
-        ...(typeof template === 'object' && template !== null ? template : {})
+        ...dbUpdates.details.template,
+        ...updates.template
       };
     }
     
     // Mettre à jour database si présent dans les updates
     if (updates.database) {
-      const database = updates.database || {};
-      const currentDatabaseObj = typeof dbUpdates.details.database === 'object' && dbUpdates.details.database !== null
-        ? dbUpdates.details.database
-        : {};
+      const database = updates.database;
       
       dbUpdates.details.database = {
-        ...currentDatabaseObj,
-        ...(typeof database === 'object' && database !== null ? database : {})
+        ...dbUpdates.details.database,
+        ...database
       };
     }
     
     // Mettre à jour blacklist si présent dans les updates
     if (updates.blacklist) {
-      const blacklist = updates.blacklist || {};
-      const currentBlacklistObj = typeof dbUpdates.details.blacklist === 'object' && dbUpdates.details.blacklist !== null
-        ? dbUpdates.details.blacklist
-        : {};
+      const blacklist = updates.blacklist;
       
-      // Ensure blacklist is always an object
+      // Ensure all objects exist and are structured properly
       dbUpdates.details.blacklist = {
-        ...currentBlacklistObj,
-        ...(typeof blacklist === 'object' && blacklist !== null ? blacklist : {}),
-        accounts: {
-          ...((currentBlacklistObj && typeof currentBlacklistObj.accounts === 'object' && currentBlacklistObj.accounts !== null) ? currentBlacklistObj.accounts : {}),
-          ...((blacklist && typeof blacklist.accounts === 'object' && blacklist.accounts !== null) ? blacklist.accounts : {})
-        },
-        emails: {
-          ...((currentBlacklistObj && typeof currentBlacklistObj.emails === 'object' && currentBlacklistObj.emails !== null) ? currentBlacklistObj.emails : {}),
-          ...((blacklist && typeof blacklist.emails === 'object' && blacklist.emails !== null) ? blacklist.emails : {})
-        }
+        ...dbUpdates.details.blacklist,
+        ...(blacklist || {})
       };
+
+      if (blacklist?.accounts) {
+        dbUpdates.details.blacklist.accounts = {
+          ...dbUpdates.details.blacklist.accounts,
+          ...blacklist.accounts
+        };
+      }
+      
+      if (blacklist?.emails) {
+        dbUpdates.details.blacklist.emails = {
+          ...dbUpdates.details.blacklist.emails,
+          ...blacklist.emails
+        };
+      }
     }
     
     // Toujours mettre à jour le timestamp last_updated
     dbUpdates.last_updated = new Date().toISOString();
 
-    console.log("Données formatées pour Supabase:", dbUpdates);
+    console.log("Données formatées pour Supabase:", JSON.stringify(dbUpdates, null, 2));
 
     const { data: updatedRequest, error: updateError } = await supabase
       .from('requests')

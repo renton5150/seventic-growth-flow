@@ -45,14 +45,20 @@ export const useFileDownload = () => {
       
       // Pour les chemins relatifs, vérifier si le fichier existe avant de tenter le téléchargement
       console.log(`[useFileDownload:${requestId}] Vérification d'existence pour: ${fileUrl}`);
-      const exists = await checkFileExists(fileUrl);
       
-      if (!exists) {
-        console.log(`[useFileDownload:${requestId}] Le fichier ${fileUrl} n'existe pas sur le serveur`);
-        toast.error("Le fichier demandé n'existe plus sur le serveur", {
-          description: "Veuillez contacter l'administrateur"
-        });
-        return false;
+      try {
+        const exists = await checkFileExists(fileUrl);
+        
+        if (!exists) {
+          console.log(`[useFileDownload:${requestId}] Le fichier ${fileUrl} n'existe pas sur le serveur`);
+          toast.error("Le fichier demandé n'existe plus sur le serveur", {
+            description: "Veuillez contacter l'administrateur"
+          });
+          return false;
+        }
+      } catch (error) {
+        console.error(`[useFileDownload:${requestId}] Erreur lors de la vérification d'existence:`, error);
+        // Continuer avec le téléchargement malgré l'erreur de vérification
       }
       
       // Extraire le nom de fichier de l'URL ou utiliser le nom par défaut

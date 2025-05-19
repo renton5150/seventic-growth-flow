@@ -9,10 +9,18 @@ interface BlacklistSectionProps {
 }
 
 export const BlacklistSection = ({ blacklist }: BlacklistSectionProps) => {
-  console.log("Rendu du composant BlacklistSection avec:", blacklist);
+  console.log("Rendu du composant BlacklistSection avec:", JSON.stringify(blacklist, null, 2));
   
-  // Si aucune liste noire n'est définie ou si elle est vide, ne rien afficher
-  if (!blacklist || (!blacklist.accounts && !blacklist.emails)) {
+  // Ensure blacklist and its properties exist to prevent errors
+  const safeBlacklist = blacklist || {};
+  const accounts = safeBlacklist.accounts || { notes: "", fileUrl: "" };
+  const emails = safeBlacklist.emails || { notes: "", fileUrl: "" };
+  
+  // Si aucune donnée significative n'existe, ne pas afficher la section
+  const hasAccounts = accounts.notes || accounts.fileUrl;
+  const hasEmails = emails.notes || emails.fileUrl;
+  
+  if (!hasAccounts && !hasEmails) {
     return null;
   }
 
@@ -22,13 +30,13 @@ export const BlacklistSection = ({ blacklist }: BlacklistSectionProps) => {
         <CardTitle>Liste noire</CardTitle>
       </CardHeader>
       <CardContent>
-        {blacklist.accounts && (
+        {hasAccounts && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Comptes exclus</h4>
-            {blacklist.accounts.notes && <p className="mt-1">{blacklist.accounts.notes}</p>}
-            {blacklist.accounts.fileUrl && (
+            {accounts.notes && <p className="mt-1">{accounts.notes}</p>}
+            {accounts.fileUrl && (
               <DownloadFileButton 
-                fileUrl={blacklist.accounts.fileUrl} 
+                fileUrl={accounts.fileUrl} 
                 fileName="blacklist-accounts.xlsx"
                 label="Télécharger la liste de comptes"
                 className="mt-2"
@@ -37,13 +45,13 @@ export const BlacklistSection = ({ blacklist }: BlacklistSectionProps) => {
           </div>
         )}
         
-        {blacklist.emails && (
+        {hasEmails && (
           <div>
             <h4 className="font-semibold text-sm">Emails exclus</h4>
-            {blacklist.emails.notes && <p className="mt-1">{blacklist.emails.notes}</p>}
-            {blacklist.emails.fileUrl && (
+            {emails.notes && <p className="mt-1">{emails.notes}</p>}
+            {emails.fileUrl && (
               <DownloadFileButton 
-                fileUrl={blacklist.emails.fileUrl} 
+                fileUrl={emails.fileUrl} 
                 fileName="blacklist-emails.xlsx"
                 label="Télécharger la liste d'emails"
                 className="mt-2"

@@ -12,7 +12,12 @@ interface TemplateDetailsProps {
 }
 
 export const TemplateSection = ({ template }: TemplateDetailsProps) => {
+  console.log("Rendu du composant TemplateSection avec:", JSON.stringify(template, null, 2));
+  
   const [downloading, setDownloading] = useState(false);
+  
+  // Ensure template object is valid
+  const safeTemplate = template || { content: "", webLink: "", fileUrl: "" };
 
   const handleFileDownload = async (url: string | undefined, filename: string = "document") => {
     if (!url) {
@@ -51,36 +56,50 @@ export const TemplateSection = ({ template }: TemplateDetailsProps) => {
     }
   };
 
+  // Show simplified view if no content available
+  if (!safeTemplate.content && !safeTemplate.webLink && !safeTemplate.fileUrl) {
+    return (
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Template Email</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500 italic">Aucun contenu de template disponible</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="mb-4">
       <CardHeader>
         <CardTitle>Template Email</CardTitle>
       </CardHeader>
       <CardContent>
-        {template.content && (
+        {safeTemplate.content && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Contenu</h4>
             <div 
               className="border rounded-md p-4 bg-white mt-1 overflow-auto max-h-[500px]"
-              dangerouslySetInnerHTML={{ __html: template.content }}
+              dangerouslySetInnerHTML={{ __html: safeTemplate.content }}
             />
           </div>
         )}
-        {template.webLink && (
+        {safeTemplate.webLink && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Lien web</h4>
-            <a href={template.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-              {template.webLink}
+            <a href={safeTemplate.webLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              {safeTemplate.webLink}
             </a>
           </div>
         )}
-        {template.fileUrl && (
+        {safeTemplate.fileUrl && (
           <div>
             <h4 className="font-semibold text-sm">Fichier attaché</h4>
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => handleFileDownload(template.fileUrl, "template.docx")}
+              onClick={() => handleFileDownload(safeTemplate.fileUrl, "template.docx")}
               className="flex items-center gap-2 mt-1"
               disabled={downloading}
             >

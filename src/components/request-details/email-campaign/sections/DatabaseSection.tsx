@@ -10,10 +10,18 @@ interface DatabaseSectionProps {
 }
 
 export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
-  console.log("Rendu du composant DatabaseSection avec:", database);
+  console.log("Rendu du composant DatabaseSection avec:", JSON.stringify(database, null, 2));
+  
+  // Ensure we have a valid database object
+  const safeDatabase = database || { notes: "", webLink: "", fileUrl: "" };
+  
+  // Handle webLinks array safely
+  const webLinks = Array.isArray(safeDatabase.webLinks) ? safeDatabase.webLinks : [];
   
   // Fonction pour extraire un nom de fichier significatif à partir de l'URL
   const getFileName = (url: string): string => {
+    if (!url) return "database.xlsx";
+    
     try {
       // Essayer d'extraire le nom du fichier de l'URL
       const segments = url.split('/');
@@ -36,6 +44,20 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
       return "database.xlsx";
     }
   };
+
+  // Show nothing if there's no content to display
+  if (!safeDatabase.notes && !safeDatabase.fileUrl && !safeDatabase.webLink && webLinks.length === 0) {
+    return (
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Base de données</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500 italic">Aucune information de base de données disponible</p>
+        </CardContent>
+      </Card>
+    );
+  }
   
   return (
     <Card className="mb-4">
@@ -43,19 +65,19 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
         <CardTitle>Base de données</CardTitle>
       </CardHeader>
       <CardContent>
-        {database.notes && (
+        {safeDatabase.notes && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Notes</h4>
-            <p>{database.notes}</p>
+            <p>{safeDatabase.notes}</p>
           </div>
         )}
         
-        {database.fileUrl && (
+        {safeDatabase.fileUrl && (
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Fichier</h4>
             <DownloadFileButton 
-              fileUrl={database.fileUrl} 
-              fileName={getFileName(database.fileUrl)}
+              fileUrl={safeDatabase.fileUrl} 
+              fileName={getFileName(safeDatabase.fileUrl)}
               label="Télécharger la base de données"
               className="mt-1"
             />
@@ -63,11 +85,11 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
         )}
         
         {/* Support pour l'affichage des webLinks (plusieurs liens) */}
-        {database.webLinks && database.webLinks.length > 0 && (
+        {webLinks.length > 0 && (
           <div>
             <h4 className="font-semibold text-sm">Liens web</h4>
             <div className="space-y-2 mt-2">
-              {database.webLinks.map((link, index) => (
+              {webLinks.map((link, index) => (
                 link && <WebLinkItem key={index} url={link} />
               ))}
             </div>
@@ -75,10 +97,10 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
         )}
         
         {/* Support pour l'affichage du webLink (pour la rétrocompatibilité) */}
-        {!database.webLinks && database.webLink && (
+        {!webLinks.length && safeDatabase.webLink && (
           <div>
             <h4 className="font-semibold text-sm">Lien web</h4>
-            <WebLinkItem url={database.webLink} />
+            <WebLinkItem url={safeDatabase.webLink} />
           </div>
         )}
       </CardContent>
