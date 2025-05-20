@@ -22,6 +22,7 @@ interface RequestDetailsContentProps {
   onAddComment: () => void;
   onRequestUpdated: () => void;
   onBack: () => void;
+  onClone: () => void;
 }
 
 export const RequestDetailsContent = ({
@@ -39,6 +40,7 @@ export const RequestDetailsContent = ({
   onAddComment,
   onRequestUpdated,
   onBack,
+  onClone,
 }: RequestDetailsContentProps) => {
   const { user } = useAuth();
   const isGrowthOrAdmin = user?.role === "admin" || user?.role === "growth";
@@ -50,6 +52,7 @@ export const RequestDetailsContent = ({
         request={request}
         onBack={onBack}
         onEdit={() => onEditDialogChange(true)}
+        onClone={onClone}
         canEdit={canEdit}
       />
 

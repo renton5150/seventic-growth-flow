@@ -4,6 +4,7 @@ export * from './baseRequestService';
 export * from './emailRequestService';
 export * from './databaseRequestService';
 export * from './linkedinRequestService';
+export * from './cloneRequestService';
 export * from './utils';
 
 import { Request, RequestStatus, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";

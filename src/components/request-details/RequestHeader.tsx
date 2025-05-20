@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, PenSquare, Trash2 } from "lucide-react";
+import { ChevronLeft, PenSquare, Trash2, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { GrowthRequestStatusBadge } from "@/components/growth/table/GrowthRequestStatusBadge";
 import { Request } from "@/types/types";
@@ -23,10 +23,11 @@ interface RequestHeaderProps {
   request: Request;
   onBack: () => void;
   onEdit: () => void;
+  onClone: () => void;
   canEdit: boolean;
 }
 
-export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeaderProps) => {
+export const RequestHeader = ({ request, onBack, onEdit, onClone, canEdit }: RequestHeaderProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
@@ -37,6 +38,9 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
   // Vérifier si l'utilisateur est admin, growth, ou un SDR qui est le créateur de la demande
   const canDelete = user?.role === 'admin' || user?.role === 'growth' || 
                    (user?.role === 'sdr' && user?.id === request.createdBy);
+  
+  // Les utilisateurs peuvent toujours cloner une demande, quelle que soit leur rôle
+  const canClone = true;
 
   // Déterminer la page de redirection après suppression basée sur l'URL actuelle
   const getRedirectPath = () => {
@@ -109,6 +113,18 @@ export const RequestHeader = ({ request, onBack, onEdit, canEdit }: RequestHeade
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Nouveau bouton pour cloner la demande */}
+          {canClone && (
+            <Button 
+              variant="outline"
+              onClick={onClone}
+              className="flex items-center gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              Cloner
+            </Button>
+          )}
+          
           {canEdit && (
             <Button 
               variant="default"

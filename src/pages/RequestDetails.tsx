@@ -23,6 +23,7 @@ const RequestDetails = () => {
     updateEmailPlatform,
     addComment,
     fetchRequestDetails,
+    handleCloneRequest,
   } = useRequestDetails();
 
   if (loading) {
@@ -50,6 +51,7 @@ const RequestDetails = () => {
         onAddComment={addComment}
         onRequestUpdated={fetchRequestDetails}
         onBack={() => navigate(-1)}
+        onClone={handleCloneRequest}
       />
     </AppLayout>
   );

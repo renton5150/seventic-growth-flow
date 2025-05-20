@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Request, Mission, WorkflowStatus } from "@/types/types";
@@ -6,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { syncKnownMissions, getMissionName, preloadMissionNames } from "@/services/missionNameService";
+import { cloneRequest } from "@/services/requests/cloneRequestService";
 
 export const useRequestDetails = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -18,6 +18,7 @@ export const useRequestDetails = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("pending_assignment");
   const [emailPlatform, setEmailPlatform] = useState<string>("");
+  const [isCloning, setIsCloning] = useState(false);
 
   // Synchroniser les missions connues au chargement
   useEffect(() => {
@@ -224,6 +225,37 @@ export const useRequestDetails = () => {
     }
   };
 
+  /**
+   * Fonction pour cloner la demande actuelle
+   */
+  const handleCloneRequest = async () => {
+    if (!request || !request.id || isCloning) return;
+    
+    try {
+      setIsCloning(true);
+      toast.loading("Clonage de la demande en cours...");
+      
+      const clonedRequest = await cloneRequest(request.id);
+      
+      if (clonedRequest) {
+        toast.dismiss();
+        toast.success("Demande clonée avec succès");
+        
+        // Rediriger vers la nouvelle demande
+        navigate(`/request/${clonedRequest.type}/${clonedRequest.id}`);
+      } else {
+        toast.dismiss();
+        toast.error("Erreur lors du clonage de la demande");
+      }
+    } catch (error) {
+      console.error("Erreur lors du clonage de la demande:", error);
+      toast.dismiss();
+      toast.error("Erreur lors du clonage de la demande");
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
   return {
     request,
     mission,
@@ -233,11 +265,13 @@ export const useRequestDetails = () => {
     isEditDialogOpen,
     workflowStatus,
     emailPlatform,
+    isCloning,
     setComment,
     setIsEditDialogOpen,
     updateWorkflowStatus,
     updateEmailPlatform,
     addComment,
     fetchRequestDetails,
+    handleCloneRequest,
   };
 };
