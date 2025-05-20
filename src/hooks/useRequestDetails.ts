@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Request, Mission, WorkflowStatus } from "@/types/types";
@@ -241,8 +242,8 @@ export const useRequestDetails = () => {
         toast.dismiss();
         toast.success("Demande clonée avec succès");
         
-        // Rediriger vers la nouvelle demande
-        navigate(`/request/${clonedRequest.type}/${clonedRequest.id}`);
+        // Corriger le chemin de redirection pour utiliser /requests/ au lieu de /request/
+        navigate(`/requests/${clonedRequest.type}/${clonedRequest.id}`);
       } else {
         toast.dismiss();
         toast.error("Erreur lors du clonage de la demande");
