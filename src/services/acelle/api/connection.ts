@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 
@@ -21,9 +20,9 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
       };
     }
 
-    // Utiliser uniquement l'Edge Function pour éviter les problèmes CORS
+    // Utiliser l'Edge Function corrigée
     try {
-      console.log(`[checkAcelleConnectionStatus] Appel Edge Function`);
+      console.log(`[checkAcelleConnectionStatus] Appel acelle-proxy pour test de connexion`);
       
       const { data, error } = await supabase.functions.invoke('acelle-proxy', {
         body: { 
@@ -50,7 +49,7 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
             method: 'edge_function',
             duration: data.duration,
             apiVersion: data.apiVersion,
-            campaignsFound: data.campaignsFound || 0
+            campaignsFound: data.campaignsCount || 0
           }
         };
       } else {
@@ -145,7 +144,7 @@ export const testAcelleConnection = async (
         apiVersion: data.apiVersion || "Inconnue",
         responseData: {
           campaignsCount: data.campaignsCount || 0,
-          totalCampaigns: data.totalCampaigns || 0,
+          totalCampaigns: data.campaignsCount || 0,
           hasData: !!data.responseData
         },
         request: {

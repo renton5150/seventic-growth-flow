@@ -19,9 +19,9 @@ export const fetchCampaignStatisticsFromApi = async (
       return null;
     }
     
-    // Méthode 1: Via edge function pour les statistiques
+    // Méthode 1: Via edge function dédiée aux statistiques
     try {
-      console.log(`[fetchCampaignStatisticsFromApi] Tentative via edge function pour les statistiques`);
+      console.log(`[fetchCampaignStatisticsFromApi] Tentative via acelle-stats-test`);
       
       const { data: statsData, error: statsError } = await supabase.functions.invoke('acelle-stats-test', {
         body: { 
@@ -33,16 +33,20 @@ export const fetchCampaignStatisticsFromApi = async (
       });
       
       if (!statsError && statsData && statsData.success && statsData.stats) {
-        console.log(`[fetchCampaignStatisticsFromApi] Edge function stats OK pour ${campaignUid}`);
+        console.log(`[fetchCampaignStatisticsFromApi] acelle-stats-test OK pour ${campaignUid}`);
         return ensureValidStatistics(statsData.stats);
       }
+      
+      if (statsError) {
+        console.warn(`[fetchCampaignStatisticsFromApi] Erreur acelle-stats-test:`, statsError);
+      }
     } catch (edgeError) {
-      console.warn(`[fetchCampaignStatisticsFromApi] Edge function stats échouée pour ${campaignUid}:`, edgeError);
+      console.warn(`[fetchCampaignStatisticsFromApi] acelle-stats-test échouée pour ${campaignUid}:`, edgeError);
     }
     
-    // Méthode 2: Via edge function proxy pour récupérer la campagne complète
+    // Méthode 2: Via acelle-proxy pour récupérer la campagne complète
     try {
-      console.log(`[fetchCampaignStatisticsFromApi] Tentative via proxy pour campagne complète`);
+      console.log(`[fetchCampaignStatisticsFromApi] Tentative via acelle-proxy`);
       
       const { data: proxyData, error: proxyError } = await supabase.functions.invoke('acelle-proxy', {
         body: { 
@@ -54,7 +58,7 @@ export const fetchCampaignStatisticsFromApi = async (
       });
       
       if (!proxyError && proxyData && proxyData.success) {
-        console.log(`[fetchCampaignStatisticsFromApi] Proxy OK pour ${campaignUid}`);
+        console.log(`[fetchCampaignStatisticsFromApi] acelle-proxy OK pour ${campaignUid}`);
         
         // Extraire les statistiques depuis différents formats possibles
         let stats = null;
@@ -62,6 +66,8 @@ export const fetchCampaignStatisticsFromApi = async (
           stats = extractStatisticsFromAnyFormat(proxyData.statistics);
         } else if (proxyData.campaign && proxyData.campaign.statistics) {
           stats = extractStatisticsFromAnyFormat(proxyData.campaign.statistics);
+        } else if (proxyData.campaign) {
+          stats = extractStatisticsFromAnyFormat(proxyData.campaign);
         } else if (proxyData.data) {
           stats = extractStatisticsFromAnyFormat(proxyData.data);
         }
@@ -70,8 +76,12 @@ export const fetchCampaignStatisticsFromApi = async (
           return ensureValidStatistics(stats);
         }
       }
+      
+      if (proxyError) {
+        console.error(`[fetchCampaignStatisticsFromApi] Erreur acelle-proxy:`, proxyError);
+      }
     } catch (proxyError) {
-      console.error(`[fetchCampaignStatisticsFromApi] Proxy échoué pour ${campaignUid}:`, proxyError);
+      console.error(`[fetchCampaignStatisticsFromApi] acelle-proxy échoué pour ${campaignUid}:`, proxyError);
     }
     
     console.error(`[fetchCampaignStatisticsFromApi] Toutes les méthodes ont échoué pour ${campaignUid}`);

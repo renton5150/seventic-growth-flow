@@ -26,7 +26,7 @@ export const getCampaigns = async (
 
     console.log(`[getCampaigns] Appel Edge Function pour récupérer les campagnes`);
     
-    // Utiliser uniquement l'Edge Function
+    // Utiliser l'Edge Function corrigée
     const { data, error } = await supabase.functions.invoke('acelle-proxy', {
       body: { 
         endpoint: account.api_endpoint,
@@ -100,7 +100,7 @@ export const getCampaign = async (
       return null;
     }
 
-    // Utiliser uniquement l'Edge Function
+    // Utiliser l'Edge Function corrigée
     const { data, error } = await supabase.functions.invoke('acelle-proxy', {
       body: { 
         endpoint: account.api_endpoint,
