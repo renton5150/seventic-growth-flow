@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
- * Récupère les campagnes d'un compte Acelle via Edge Functions uniquement avec pagination
+ * Récupère les campagnes d'un compte Acelle via Edge Functions uniquement avec pagination améliorée
  */
 export const getCampaigns = async (
   account: AcelleAccount, 
@@ -11,19 +11,19 @@ export const getCampaigns = async (
     page?: number;
     perPage?: number;
   }
-): Promise<AcelleCampaign[]> => {
+): Promise<{ campaigns: AcelleCampaign[]; hasMore: boolean; total: number }> => {
   try {
     console.log(`[getCampaigns] Début pour ${account.name} via Edge Function`);
     
     if (!account || !account.api_token || !account.api_endpoint) {
       console.error("[getCampaigns] Informations de compte incomplètes");
-      return [];
+      return { campaigns: [], hasMore: false, total: 0 };
     }
 
     const page = options?.page || 1;
-    const perPage = options?.perPage || 20;
+    const perPage = options?.perPage || 100; // Augmenter à 100
 
-    console.log(`[getCampaigns] Appel Edge Function pour récupérer les campagnes (page ${page})`);
+    console.log(`[getCampaigns] Appel Edge Function pour récupérer les campagnes (page ${page}, perPage ${perPage})`);
     
     // Utiliser l'Edge Function avec timeout augmenté
     const { data, error } = await supabase.functions.invoke('acelle-proxy', {
@@ -33,7 +33,7 @@ export const getCampaigns = async (
         action: 'get_campaigns',
         page: page.toString(),
         per_page: perPage.toString(),
-        timeout: 30000 // 30 secondes
+        timeout: 45000 // 45 secondes
       }
     });
     
@@ -59,11 +59,16 @@ export const getCampaigns = async (
       }));
       
       console.log(`[getCampaigns] ${campaigns.length} campagnes récupérées pour ${account.name} (page ${page})`);
-      return campaigns;
+      
+      return {
+        campaigns,
+        hasMore: data.has_more || false,
+        total: data.total || campaigns.length
+      };
     }
     
     console.warn("[getCampaigns] Format de réponse inattendu:", data);
-    return [];
+    return { campaigns: [], hasMore: false, total: 0 };
   } catch (error) {
     console.error("[getCampaigns] Erreur:", error);
     
@@ -81,12 +86,12 @@ export const getCampaigns = async (
       console.error("[getCampaigns] Erreur mise à jour statut:", updateError);
     }
     
-    return [];
+    return { campaigns: [], hasMore: false, total: 0 };
   }
 };
 
 /**
- * Récupère TOUTES les campagnes d'un compte avec pagination complète
+ * Récupère TOUTES les campagnes d'un compte avec pagination complète et robuste
  */
 export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
   try {
@@ -94,43 +99,77 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
     
     let allCampaigns: AcelleCampaign[] = [];
     let currentPage = 1;
-    const perPage = 50; // Augmenter pour réduire le nombre d'appels
+    const perPage = 100; // Augmenter pour réduire le nombre d'appels
     let hasMorePages = true;
+    let consecutiveEmptyPages = 0;
+    const maxConsecutiveEmpty = 3; // Arrêter après 3 pages vides consécutives
     
-    while (hasMorePages) {
+    while (hasMorePages && consecutiveEmptyPages < maxConsecutiveEmpty) {
       console.log(`[getAllCampaigns] Récupération page ${currentPage} pour ${account.name}`);
       
-      const campaigns = await getCampaigns(account, { 
-        page: currentPage, 
-        perPage 
-      });
-      
-      if (campaigns.length > 0) {
-        allCampaigns = [...allCampaigns, ...campaigns];
-        console.log(`[getAllCampaigns] Page ${currentPage}: ${campaigns.length} campagnes récupérées (total: ${allCampaigns.length})`);
+      try {
+        const result = await getCampaigns(account, { 
+          page: currentPage, 
+          perPage 
+        });
         
-        // Si on a récupéré moins que la taille de page demandée, on a atteint la fin
-        if (campaigns.length < perPage) {
-          hasMorePages = false;
+        const { campaigns, hasMore, total } = result;
+        
+        if (campaigns.length > 0) {
+          allCampaigns = [...allCampaigns, ...campaigns];
+          consecutiveEmptyPages = 0; // Reset le compteur de pages vides
+          console.log(`[getAllCampaigns] Page ${currentPage}: ${campaigns.length} campagnes récupérées (total actuel: ${allCampaigns.length})`);
+          
+          // Utiliser hasMore de l'API pour déterminer s'il y a plus de pages
+          if (!hasMore || campaigns.length < perPage) {
+            hasMorePages = false;
+            console.log(`[getAllCampaigns] Fin de pagination détectée pour ${account.name} (hasMore: ${hasMore}, récupérées: ${campaigns.length})`);
+          } else {
+            currentPage++;
+          }
         } else {
-          currentPage++;
+          // Page vide
+          consecutiveEmptyPages++;
+          console.log(`[getAllCampaigns] Page ${currentPage} vide pour ${account.name} (${consecutiveEmptyPages}/${maxConsecutiveEmpty})`);
+          
+          if (consecutiveEmptyPages >= maxConsecutiveEmpty) {
+            console.log(`[getAllCampaigns] Arrêt après ${maxConsecutiveEmpty} pages vides consécutives`);
+            hasMorePages = false;
+          } else {
+            currentPage++;
+          }
         }
-      } else {
-        // Aucune campagne récupérée, on s'arrête
-        hasMorePages = false;
-      }
-      
-      // Sécurité : ne pas dépasser 20 pages pour éviter les boucles infinies
-      if (currentPage > 20) {
-        console.warn(`[getAllCampaigns] Arrêt après 20 pages pour ${account.name}`);
-        break;
+        
+        // Sécurité : ne pas dépasser 50 pages pour éviter les boucles infinies
+        if (currentPage > 50) {
+          console.warn(`[getAllCampaigns] Arrêt après 50 pages pour ${account.name}`);
+          break;
+        }
+        
+        // Petite pause entre les appels pour éviter de surcharger l'API
+        if (hasMorePages) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+      } catch (pageError) {
+        console.error(`[getAllCampaigns] Erreur page ${currentPage} pour ${account.name}:`, pageError);
+        consecutiveEmptyPages++;
+        
+        if (consecutiveEmptyPages >= maxConsecutiveEmpty) {
+          console.log(`[getAllCampaigns] Arrêt après ${maxConsecutiveEmpty} erreurs consécutives`);
+          break;
+        }
+        
+        currentPage++;
+        // Attendre plus longtemps en cas d'erreur
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     
     console.log(`[getAllCampaigns] Récupération terminée pour ${account.name}: ${allCampaigns.length} campagnes au total`);
     return allCampaigns;
   } catch (error) {
-    console.error(`[getAllCampaigns] Erreur pour ${account.name}:`, error);
+    console.error(`[getAllCampaigns] Erreur générale pour ${account.name}:`, error);
     return [];
   }
 };

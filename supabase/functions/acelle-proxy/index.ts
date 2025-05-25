@@ -41,7 +41,7 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '30000'); // 30 secondes par défaut
+    const timeout = parseInt(body.timeout || '45000'); // 45 secondes pour plus de robustesse
     
     console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
@@ -71,7 +71,7 @@ serve(async (req) => {
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '20';
+        const perPage = body.per_page || '100'; // Augmenter à 100 pour récupérer plus de campagnes
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
@@ -116,10 +116,10 @@ serve(async (req) => {
         });
     }
     
-    console.log(`URL API construite pour action ${action}`);
+    console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
     
     // Appel à l'API avec timeout configuré et retry automatique
-    const maxRetries = 3;
+    const maxRetries = 2; // Réduire à 2 retries pour éviter les timeouts
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -133,8 +133,9 @@ serve(async (req) => {
           method: "GET",
           headers: {
             "Accept": "application/json",
-            "User-Agent": "Seventic-Acelle-Proxy/4.0",
-            "Cache-Control": "no-cache"
+            "User-Agent": "Seventic-Acelle-Proxy/5.0",
+            "Cache-Control": "no-cache",
+            "Connection": "close" // Forcer la fermeture de connexion
           },
           signal: controller.signal
         });
@@ -145,9 +146,22 @@ serve(async (req) => {
           const errorText = await response.text().catch(() => "Impossible de lire la réponse");
           console.error(`Erreur API ${response.status} (tentative ${attempt}):`, errorText);
           
-          // Si c'est une erreur 404 et que ce n'est pas le dernier essai, retry
-          if (response.status === 404 && attempt < maxRetries) {
-            console.log(`Erreur 404, retry dans 2 secondes...`);
+          // Pas de retry pour les erreurs 404 (campagne non trouvée)
+          if (response.status === 404) {
+            return new Response(JSON.stringify({ 
+              success: false,
+              error: `Campagne non trouvée (404)`,
+              message: errorText,
+              timestamp: new Date().toISOString()
+            }), {
+              status: 404,
+              headers: corsHeaders
+            });
+          }
+          
+          // Retry seulement pour les erreurs 5xx et timeouts
+          if (response.status >= 500 && attempt < maxRetries) {
+            console.log(`Erreur serveur ${response.status}, retry dans 2 secondes...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
@@ -177,7 +191,7 @@ serve(async (req) => {
           
           return new Response(JSON.stringify({ 
             success: false,
-            error: "Réponse API invalide",
+            error: "Réponse API invalide (JSON)",
             timestamp: new Date().toISOString()
           }), {
             status: 500,
@@ -185,17 +199,25 @@ serve(async (req) => {
           });
         }
         
-        console.log(`Données reçues pour ${action} - Type: ${typeof responseData} (tentative ${attempt})`);
+        console.log(`Données reçues pour ${action} - Type: ${typeof responseData}, Tentative: ${attempt}`);
         
         // Formatage de la réponse selon l'action
         let formattedResponse;
         
         switch (action) {
           case 'get_campaigns':
+            const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
+            const total = responseData.total || campaigns.length;
+            
+            console.log(`Campagnes récupérées: ${campaigns.length}, Total: ${total}`);
+            
             formattedResponse = {
               success: true,
-              campaigns: Array.isArray(responseData) ? responseData : (responseData.data || []),
-              total: responseData.total || (Array.isArray(responseData) ? responseData.length : 0),
+              campaigns: campaigns,
+              total: total,
+              page: parseInt(body.page || '1'),
+              per_page: parseInt(body.per_page || '100'),
+              has_more: campaigns.length === parseInt(body.per_page || '100'),
               timestamp: new Date().toISOString()
             };
             break;
@@ -212,11 +234,11 @@ serve(async (req) => {
             
           case 'check_connection':
           case 'test_connection':
-            const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
+            const testCampaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
             formattedResponse = {
               success: true,
               message: 'Connexion établie',
-              campaignsCount: campaigns.length,
+              campaignsCount: testCampaigns.length,
               timestamp: new Date().toISOString()
             };
             break;
@@ -248,7 +270,7 @@ serve(async (req) => {
         
         // Si ce n'est pas la dernière tentative, attendre avant de retry
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Attente progressive
+          await new Promise(resolve => setTimeout(resolve, 1500 * attempt)); // Attente progressive réduite
         }
       }
     }
