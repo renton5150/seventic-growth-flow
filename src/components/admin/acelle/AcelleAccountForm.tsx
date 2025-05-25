@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -18,7 +19,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { checkAcelleConnectionStatus, testAcelleConnection } from "@/services/acelle/api/connection";
 
 // Schéma de validation
 const formSchema = z.object({
@@ -76,56 +76,43 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         return;
       }
       
-      // Récupérer le token d'authentification
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      console.log("Test de connexion via Edge Function uniquement");
       
-      if (!token) {
-        toast.error("Erreur d'authentification");
-        return;
+      // Utiliser uniquement l'edge function pour éviter les problèmes CORS
+      const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+        body: { 
+          endpoint: api_endpoint,
+          api_token: api_token,
+          action: 'test_connection'
+        }
+      });
+      
+      if (error) {
+        console.error("Erreur Edge Function:", error);
+        throw new Error(error.message || "Erreur de connexion via Edge Function");
       }
       
-      // Créer un compte temporaire pour tester
-      const tempAccount: AcelleAccount = {
-        id: 'temp',
-        created_at: new Date().toISOString(),
-        name: 'Test Connection',
-        api_endpoint,
-        api_token,
-        status: 'inactive',
-        last_sync_date: null,
-        last_sync_error: null,
-        cache_priority: 0
-      };
+      console.log("Réponse Edge Function:", data);
       
-      const result = await checkAcelleConnectionStatus(tempAccount);
-      
-      // Adapter le résultat au format AcelleConnectionDebug avec vérifications de type strictes
       const debugResult: AcelleConnectionDebug = {
-        success: result.success,
+        success: data?.success || false,
         timestamp: new Date().toISOString(),
-        errorMessage: result.success ? undefined : result.message,
-        responseTime: result.details && 'duration' in result.details ? result.details.duration : undefined,
-        apiVersion: result.details && 'apiVersion' in result.details && typeof result.details.apiVersion === 'string' 
-          ? result.details.apiVersion 
-          : undefined,
-        responseData: result.details && 'campaignsFound' in result.details ? {
-          campaignsFound: result.details.campaignsFound,
-          totalCampaigns: (result.details && 'totalCampaigns' in result.details) 
-            ? result.details.totalCampaigns || 0 
-            : 0
-        } : undefined
+        errorMessage: data?.success ? undefined : (data?.message || "Connexion échouée"),
+        responseTime: data?.duration,
+        apiVersion: data?.apiVersion,
+        responseData: data?.responseData
       };
       
       setConnectionResult(debugResult);
       
       if (debugResult.success) {
-        toast.success("Connexion réussie à l'API Acelle");
+        toast.success("Connexion réussie à l'API Acelle via Edge Function");
       } else {
         toast.error(`La connexion a échoué: ${debugResult.errorMessage}`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Erreur test connexion:", error);
       toast.error(`Erreur: ${errorMessage}`);
       setConnectionResult({
         success: false,
@@ -315,7 +302,7 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
           <Card className={connectionResult.success ? 'bg-green-50' : 'bg-red-50'}>
             <CardContent className="p-4">
               <p className={`font-medium ${connectionResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                {connectionResult.success ? 'Connexion réussie' : `Échec de la connexion: ${connectionResult.errorMessage}`}
+                {connectionResult.success ? 'Connexion réussie via Edge Function' : `Échec de la connexion: ${connectionResult.errorMessage}`}
               </p>
               {connectionResult.success && connectionResult.apiVersion && (
                 <p className="mt-1 text-sm text-green-600">Version API: {connectionResult.apiVersion}</p>

@@ -1,15 +1,15 @@
 
 import { useState, useCallback } from "react";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { testAcelleConnection, checkAcelleConnectionStatus } from "@/services/acelle/api/connection";
+import { supabase } from "@/integrations/supabase/client";
 
-// Hook pour vérifier la connexion à l'API Acelle directement
+// Hook pour vérifier la connexion à l'API Acelle via Edge Functions uniquement
 export function useApiConnection(account?: AcelleAccount) {
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckResult, setLastCheckResult] = useState<boolean | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
 
-  // Vérifie si l'API est disponible en utilisant les appels directs
+  // Vérifie si l'API est disponible en utilisant uniquement les Edge Functions
   const checkApiAvailability = useCallback(async () => {
     if (!account) {
       setLastCheckResult(false);
@@ -19,25 +19,37 @@ export function useApiConnection(account?: AcelleAccount) {
     try {
       setIsChecking(true);
       
-      console.log(`Vérification de la connexion pour le compte ${account.name}`);
+      console.log(`Vérification de la connexion pour le compte ${account.name} via Edge Function`);
       
-      // Utiliser la nouvelle fonction de test de connexion directe
-      const result = await checkAcelleConnectionStatus(account);
+      // Utiliser uniquement l'edge function pour éviter les problèmes CORS
+      const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+        body: { 
+          endpoint: account.api_endpoint,
+          api_token: account.api_token,
+          action: 'check_status'
+        }
+      });
       
-      setLastCheckResult(result.success);
+      if (error) {
+        console.error("Erreur Edge Function:", error);
+        throw new Error(error.message || "Erreur de connexion via Edge Function");
+      }
       
-      // Convertir le résultat en format AcelleConnectionDebug en accédant sûrement aux propriétés
+      const success = data?.success || false;
+      setLastCheckResult(success);
+      
       const debugResult: AcelleConnectionDebug = {
-        success: result.success,
+        success: success,
         timestamp: new Date().toISOString(),
-        errorMessage: result.success ? undefined : result.message,
-        statusCode: result.success ? 200 : undefined,
-        duration: result.details && 'duration' in result.details ? result.details.duration : 0
+        errorMessage: success ? undefined : (data?.message || "Connexion échouée"),
+        responseTime: data?.duration,
+        apiVersion: data?.apiVersion,
+        responseData: data?.responseData
       };
       
       setDebugInfo(debugResult);
       
-      return result.success;
+      return success;
     } catch (error) {
       console.error("Erreur lors de la vérification de l'API:", error);
       setLastCheckResult(false);
@@ -52,7 +64,7 @@ export function useApiConnection(account?: AcelleAccount) {
     }
   }, [account]);
 
-  // Récupère des informations de diagnostic en utilisant les appels directs
+  // Récupère des informations de diagnostic via Edge Functions uniquement
   const getDebugInfo = useCallback(async (): Promise<AcelleConnectionDebug> => {
     if (!account || !account.api_token || !account.api_endpoint) {
       return {
@@ -63,13 +75,28 @@ export function useApiConnection(account?: AcelleAccount) {
     }
 
     try {
-      console.log(`Récupération des infos de diagnostic pour ${account.name}`);
+      console.log(`Récupération des infos de diagnostic pour ${account.name} via Edge Function`);
       
-      // Utiliser la fonction de test directe
-      const result = await testAcelleConnection(
-        account.api_endpoint,
-        account.api_token
-      );
+      const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+        body: { 
+          endpoint: account.api_endpoint,
+          api_token: account.api_token,
+          action: 'get_debug_info'
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message || "Erreur de connexion via Edge Function");
+      }
+      
+      const result: AcelleConnectionDebug = {
+        success: data?.success || false,
+        timestamp: new Date().toISOString(),
+        errorMessage: data?.success ? undefined : (data?.message || "Diagnostic échoué"),
+        responseTime: data?.duration,
+        apiVersion: data?.apiVersion,
+        responseData: data?.responseData
+      };
       
       setDebugInfo(result);
       return result;
@@ -85,10 +112,26 @@ export function useApiConnection(account?: AcelleAccount) {
     }
   }, [account]);
 
-  // Fonction simplifiée pour le réveil (plus nécessaire avec les appels directs)
+  // Fonction pour réveiller les Edge Functions
   const wakeUpEdgeFunctions = useCallback(async () => {
-    console.log("Edge Functions non utilisées, appels directs à l'API Acelle");
-    return true;
+    try {
+      console.log("Réveil des Edge Functions...");
+      
+      const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+        body: { action: 'ping' }
+      });
+      
+      if (error) {
+        console.error("Erreur réveil Edge Functions:", error);
+        return false;
+      }
+      
+      console.log("Edge Functions réveillées:", data);
+      return true;
+    } catch (error) {
+      console.error("Erreur réveil Edge Functions:", error);
+      return false;
+    }
   }, []);
 
   return {

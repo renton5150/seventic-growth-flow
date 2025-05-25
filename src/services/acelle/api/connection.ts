@@ -1,14 +1,13 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { buildCleanAcelleApiUrl, callViaEdgeFunction, callDirectAcelleApi } from "../acelle-service";
 
 /**
- * Vérifie l'état de la connexion en priorisant les edge functions
+ * Vérifie l'état de la connexion en utilisant uniquement les Edge Functions
  */
 export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
   try {
-    console.log(`[checkAcelleConnectionStatus] Test connexion pour ${account.name}`);
+    console.log(`[checkAcelleConnectionStatus] Test connexion pour ${account.name} via Edge Function`);
     
     if (!account || !account.api_token || !account.api_endpoint) {
       console.error("[checkAcelleConnectionStatus] Informations compte incomplètes");
@@ -22,91 +21,53 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
       };
     }
 
-    // Étape 1: Essayer via edge function (méthode recommandée)
+    // Utiliser uniquement l'Edge Function pour éviter les problèmes CORS
     try {
-      console.log(`[checkAcelleConnectionStatus] Tentative via edge function`);
+      console.log(`[checkAcelleConnectionStatus] Appel Edge Function`);
       
-      // Utiliser une campagne existante pour tester la connexion
-      const { data: existingCampaigns } = await supabase
-        .from('email_campaigns_cache')
-        .select('campaign_uid')
-        .eq('account_id', account.id)
-        .limit(1);
-      
-      if (existingCampaigns && existingCampaigns.length > 0) {
-        const testCampaignId = existingCampaigns[0].campaign_uid;
-        const result = await callViaEdgeFunction(testCampaignId, account.id, false);
-        
-        if (result && result.success) {
-          console.log(`[checkAcelleConnectionStatus] Edge function OK pour ${account.name}`);
-          
-          await updateAccountStatus(account.id, 'active', null);
-          
-          return {
-            success: true,
-            message: "Connexion établie via edge function",
-            details: { method: 'edge_function', campaignTested: testCampaignId }
-          };
-        }
-      }
-    } catch (edgeError) {
-      console.warn(`[checkAcelleConnectionStatus] Edge function échouée:`, edgeError);
-    }
-
-    // Étape 2: Fallback vers appel direct simplifié
-    try {
-      console.log(`[checkAcelleConnectionStatus] Fallback vers appel direct`);
-      
-      const testUrl = buildCleanAcelleApiUrl(
-        "campaigns",
-        account.api_endpoint,
-        { 
+      const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+        body: { 
+          endpoint: account.api_endpoint,
           api_token: account.api_token,
-          page: "1",
-          per_page: "1"
+          action: 'check_connection'
         }
-      );
+      });
       
-      const startTime = Date.now();
-      const data = await callDirectAcelleApi(testUrl, { timeout: 8000 });
-      const duration = Date.now() - startTime;
+      if (error) {
+        console.error("[checkAcelleConnectionStatus] Erreur Edge Function:", error);
+        throw new Error(error.message || "Erreur de connexion via Edge Function");
+      }
       
-      if (data && (data.data || data.campaigns)) {
-        console.log(`[checkAcelleConnectionStatus] Appel direct OK pour ${account.name}`);
+      if (data && data.success) {
+        console.log(`[checkAcelleConnectionStatus] Edge Function OK pour ${account.name}`);
         
         await updateAccountStatus(account.id, 'active', null);
         
         return {
           success: true,
-          message: "Connexion établie via appel direct",
+          message: "Connexion établie via Edge Function",
           details: { 
-            method: 'direct_api',
-            duration,
-            campaignsFound: data.data ? data.data.length : 0
+            method: 'edge_function',
+            duration: data.duration,
+            apiVersion: data.apiVersion,
+            campaignsFound: data.campaignsFound || 0
           }
         };
+      } else {
+        throw new Error(data?.message || "Connexion échouée");
       }
-    } catch (directError) {
-      console.error(`[checkAcelleConnectionStatus] Appel direct échoué:`, directError);
+    } catch (edgeError) {
+      console.error(`[checkAcelleConnectionStatus] Edge Function échouée:`, edgeError);
       
-      const errorMessage = directError instanceof Error ? directError.message : String(directError);
+      const errorMessage = edgeError instanceof Error ? edgeError.message : String(edgeError);
       await updateAccountStatus(account.id, 'error', errorMessage);
       
       return {
         success: false,
         message: errorMessage,
-        details: { method: 'direct_api', error: errorMessage }
+        details: { method: 'edge_function', error: errorMessage }
       };
     }
-
-    // Si on arrive ici, aucune méthode n'a fonctionné
-    await updateAccountStatus(account.id, 'error', 'Toutes les méthodes de connexion ont échoué');
-    
-    return {
-      success: false,
-      message: "Impossible d'établir la connexion",
-      details: { allMethodsFailed: true }
-    };
   } catch (error) {
     console.error("[checkAcelleConnectionStatus] Erreur générale:", error);
     
@@ -154,44 +115,41 @@ const updateAccountStatus = async (
 };
 
 /**
- * Teste la connexion avec les paramètres fournis
+ * Teste la connexion avec les paramètres fournis via Edge Function uniquement
  */
 export const testAcelleConnection = async (
   apiEndpoint: string, 
-  apiToken: string, 
-  authToken?: string
+  apiToken: string
 ): Promise<AcelleConnectionDebug> => {
   try {
-    console.log(`[testAcelleConnection] Test avec endpoint: ${apiEndpoint}`);
+    console.log(`[testAcelleConnection] Test avec endpoint: ${apiEndpoint} via Edge Function`);
     
-    const testUrl = buildCleanAcelleApiUrl(
-      "campaigns",
-      apiEndpoint,
-      { 
+    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+      body: { 
+        endpoint: apiEndpoint,
         api_token: apiToken,
-        page: "1",
-        per_page: "1" 
+        action: 'test_connection'
       }
-    );
+    });
     
-    const startTime = Date.now();
-    const data = await callDirectAcelleApi(testUrl, { timeout: 8000 });
-    const duration = Date.now() - startTime;
+    if (error) {
+      throw new Error(error.message || "Erreur de connexion via Edge Function");
+    }
     
-    if (data && (data.data || data.campaigns)) {
+    if (data && data.success) {
       return {
         success: true,
         timestamp: new Date().toISOString(),
-        duration,
+        duration: data.duration,
         statusCode: 200,
-        apiVersion: data.version || "Inconnue",
+        apiVersion: data.apiVersion || "Inconnue",
         responseData: {
-          campaignsCount: data.data ? data.data.length : 0,
-          totalCampaigns: data.total || 0,
-          hasData: !!data.data
+          campaignsCount: data.campaignsCount || 0,
+          totalCampaigns: data.totalCampaigns || 0,
+          hasData: !!data.responseData
         },
         request: {
-          url: testUrl.replace(apiToken, '***'),
+          url: `${apiEndpoint}/campaigns`,
           method: 'GET'
         }
       };
@@ -199,10 +157,10 @@ export const testAcelleConnection = async (
       return {
         success: false,
         timestamp: new Date().toISOString(),
-        errorMessage: "Réponse API inattendue",
-        duration,
+        errorMessage: data?.message || "Test de connexion échoué",
+        duration: data?.duration,
         request: {
-          url: testUrl.replace(apiToken, '***'),
+          url: `${apiEndpoint}/campaigns`,
           method: 'GET'
         }
       };
