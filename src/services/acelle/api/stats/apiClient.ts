@@ -34,15 +34,13 @@ export const fetchCampaignStatisticsFromApi = async (
     
     console.log(`URL API directe (sans token): ${apiUrl.replace(account.api_token, '***')}`);
     
-    // Appeler l'API directement
+    // Appeler l'API directement avec headers simplifiés
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-account-id': account.id,
-        'x-acelle-token': account.api_token,
-        'Origin': window.location.origin
+        'Content-Type': 'application/json'
+        // Headers simplifiés selon config serveur Icodia
       }
     });
     
@@ -97,15 +95,12 @@ export const fetchCampaignStatisticsLegacy = async (
       { api_token: account.api_token }
     );
     
-    // Appeler l'API directement
+    // Appeler l'API directement avec headers simplifiés
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-account-id': account.id,
-        'x-acelle-token': account.api_token,
-        'Origin': window.location.origin
+        'Content-Type': 'application/json'
       }
     });
     

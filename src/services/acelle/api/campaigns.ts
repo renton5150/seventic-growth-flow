@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { buildDirectAcelleApiUrl } from "../acelle-service";
@@ -27,23 +26,20 @@ export const getCampaigns = async (
     const params = {
       api_token: account.api_token,
       page: page.toString(),
-      per_page: perPage.toString(),
-      _t: Date.now().toString() // Empêche la mise en cache
+      per_page: perPage.toString()
     };
 
     // Construction de l'URL directe
     const url = buildDirectAcelleApiUrl("campaigns", account.api_endpoint, params);
-    console.log(`Requesting campaigns directly from Acelle API: ${url.replace(account.api_token, '***')}`);
+    console.log(`Récupération des campagnes: ${url.replace(account.api_token, '***')}`);
 
-    // Effectuer la requête API directe
+    // Effectuer la requête API directe avec headers simplifiés
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-account-id': account.id,
-        'x-acelle-token': account.api_token,
-        'Origin': window.location.origin
+        'Content-Type': 'application/json'
+        // Headers simplifiés selon config Icodia
       }
     });
 
@@ -95,8 +91,7 @@ export const getCampaign = async (
 
     // Construction des paramètres
     const params = {
-      api_token: account.api_token,
-      _t: Date.now().toString()
+      api_token: account.api_token
     };
 
     // Construction de l'URL directe
@@ -107,10 +102,7 @@ export const getCampaign = async (
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-account-id': account.id,
-        'x-acelle-token': account.api_token,
-        'Origin': window.location.origin
+        'Content-Type': 'application/json'
       }
     });
 

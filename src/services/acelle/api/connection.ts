@@ -25,33 +25,30 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
     const testParams = { 
       api_token: account.api_token,
       page: "1",
-      per_page: "1",
-      _t: Date.now().toString()  // Anti-cache
+      per_page: "1"
     };
     
     const testUrl = buildDirectAcelleApiUrl("campaigns", account.api_endpoint, testParams);
     
+    console.log(`Test de connexion directe pour ${account.name}: ${testUrl.replace(account.api_token, '***')}`);
+    
     // Mesurer le temps de réponse
     const startTime = Date.now();
     
-    // Effectuer l'appel API direct avec headers CORS appropriés
+    // Effectuer l'appel API direct avec headers simplifiés selon la config Icodia
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-account-id': account.id,
-        'x-acelle-token': account.api_token,
-        'Origin': window.location.origin,
-        'Access-Control-Request-Method': 'GET',
-        'Access-Control-Request-Headers': 'Content-Type, x-account-id, x-acelle-token'
-      },
-      mode: 'cors',
-      credentials: 'omit',
-      signal: AbortSignal.timeout(15000) // Timeout après 15 secondes
+        'Content-Type': 'application/json'
+        // Suppression de tous les headers CORS personnalisés qui causent des problèmes
+        // Le serveur Icodia gère déjà CORS côté serveur
+      }
     });
     
     const responseTime = Date.now() - startTime;
+    
+    console.log(`Réponse reçue: Status ${response.status}, Headers:`, Object.fromEntries(response.headers.entries()));
     
     // Analyser la réponse
     if (!response.ok) {
@@ -63,7 +60,21 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
           errorMessage += `: ${errorText}`;
         }
       } catch (e) {
-        // Impossible de lire la réponse d'erreur
+        console.log("Impossible de lire la réponse d'erreur");
+      }
+      
+      // Mettre à jour le statut du compte en erreur
+      try {
+        await supabase
+          .from('acelle_accounts')
+          .update({ 
+            status: 'error',
+            last_sync_error: errorMessage,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', account.id);
+      } catch (updateError) {
+        console.error("Erreur lors de la mise à jour du statut du compte:", updateError);
       }
       
       return {
@@ -79,6 +90,22 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
     }
     
     const data = await response.json();
+    console.log(`Données reçues pour ${account.name}:`, data);
+    
+    // Mettre à jour le statut du compte en actif
+    try {
+      await supabase
+        .from('acelle_accounts')
+        .update({ 
+          status: 'active',
+          last_sync_error: null,
+          last_sync_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', account.id);
+    } catch (updateError) {
+      console.error("Erreur lors de la mise à jour du statut du compte:", updateError);
+    }
     
     return {
       success: true,
@@ -96,9 +123,23 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
     let errorMessage = "Erreur de connexion";
     
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      errorMessage = "Erreur CORS - Impossible d'accéder à l'API Acelle. Vérifiez la configuration CORS du serveur.";
+      errorMessage = "Erreur de connexion réseau - Vérifiez que l'API Acelle est accessible";
     } else if (error instanceof Error) {
       errorMessage = error.message;
+    }
+    
+    // Mettre à jour le statut du compte en erreur
+    try {
+      await supabase
+        .from('acelle_accounts')
+        .update({ 
+          status: 'error',
+          last_sync_error: errorMessage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', account.id);
+    } catch (updateError) {
+      console.error("Erreur lors de la mise à jour du statut du compte:", updateError);
     }
     
     return {
@@ -132,24 +173,24 @@ export const testAcelleConnection = async (
       }
     );
     
+    console.log(`Test de connexion: ${testUrl.replace(apiToken, '***')}`);
+    
     // Mesurer le temps de réponse
     const startTime = Date.now();
     
-    // Effectuer l'appel API direct avec gestion CORS améliorée
+    // Effectuer l'appel API direct avec configuration simplifiée
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-acelle-token': apiToken,
-        'Origin': window.location.origin
-      },
-      mode: 'cors',
-      credentials: 'omit',
-      signal: AbortSignal.timeout(15000) // Timeout après 15 secondes
+        'Content-Type': 'application/json'
+        // Headers simplifiés - le serveur Icodia gère CORS
+      }
     });
     
     const duration = Date.now() - startTime;
+    
+    console.log(`Test terminé: Status ${response.status}, Durée ${duration}ms`);
     
     if (!response.ok) {
       let errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
@@ -160,7 +201,7 @@ export const testAcelleConnection = async (
           errorMessage += ` - ${errorText}`;
         }
       } catch (e) {
-        // Impossible de lire la réponse d'erreur
+        console.log("Impossible de lire la réponse d'erreur");
       }
       
       return {
@@ -199,10 +240,12 @@ export const testAcelleConnection = async (
       }
     };
   } catch (error) {
+    console.error("Erreur lors du test de connexion:", error);
+    
     let errorMessage = "Erreur de connexion";
     
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      errorMessage = "Erreur CORS - L'API Acelle n'autorise pas les requêtes depuis ce domaine";
+      errorMessage = "Erreur de connexion réseau ou CORS";
     } else if (error instanceof Error) {
       errorMessage = error.message;
     }
