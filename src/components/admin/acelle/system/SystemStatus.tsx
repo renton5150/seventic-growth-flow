@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +16,7 @@ export const SystemStatus = () => {
     isLoading,
     systemStatus,
     refreshStatus,
-    edgeFunctionsStatus,
+    acelleApiStatus,
     databaseStatus,
     cachingStatus,
     lastRefresh,
@@ -107,9 +106,9 @@ export const SystemStatus = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <StatusCard 
               icon={<Server className="h-5 w-5 text-blue-500" />}
-              title="Edge Functions"
-              status={edgeFunctionsStatus?.acelle ? "online" : "offline"}
-              details={`Latence: ${edgeFunctionsStatus?.latency || "N/A"}ms`}
+              title="API Acelle"
+              status={acelleApiStatus?.isAvailable ? "online" : "offline"}
+              details={`${acelleApiStatus?.activeAccountsCount || 0} comptes actifs`}
             />
             
             <StatusCard 
@@ -150,16 +149,10 @@ export const SystemStatus = () => {
                 />
                 
                 <StatusRow 
-                  label="Edge Function (acelle-proxy)" 
-                  value={edgeFunctionsStatus?.acelle ? "En ligne" : "Hors ligne"} 
-                  status={edgeFunctionsStatus?.acelle ? "online" : "offline"}
-                  details={`Latence: ${edgeFunctionsStatus?.latency || "N/A"}ms`}
-                />
-                
-                <StatusRow 
-                  label="Edge Function (sync-email-campaigns)" 
-                  value={edgeFunctionsStatus?.sync ? "En ligne" : "Non testé"}
-                  status={edgeFunctionsStatus?.sync ? "online" : "warning"}
+                  label="API Acelle (connexion directe)" 
+                  value={acelleApiStatus?.isAvailable ? "En ligne" : "Hors ligne"} 
+                  status={acelleApiStatus?.isAvailable ? "online" : "offline"}
+                  details={`${acelleApiStatus?.activeAccountsCount || 0} comptes actifs sur ${acelleApiStatus?.accountsCount || 0}`}
                 />
                 
                 <StatusRow 

@@ -107,7 +107,10 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
         errorMessage: result.success ? undefined : result.message,
         responseTime: result.details?.responseTime,
         apiVersion: result.details?.apiVersion,
-        responseData: result.details?.data
+        responseData: result.details?.campaignsFound !== undefined ? {
+          campaignsFound: result.details.campaignsFound,
+          totalCampaigns: result.details.totalCampaigns
+        } : undefined
       };
       
       setConnectionResult(debugResult);

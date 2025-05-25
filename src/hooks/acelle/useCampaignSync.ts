@@ -62,8 +62,8 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
         return;
       }
       
-      // Réveiller les services avant la synchronisation
-      await wakeUpEdgeFunctions(token);
+      // Réveiller les services avant la synchronisation (plus nécessaire avec les appels directs)
+      await wakeUpEdgeFunctions();
       
       const result = await forceSyncCampaigns(account, token);
       setLastManuallySyncedAt(new Date());
@@ -115,7 +115,7 @@ export const useCampaignSync = ({ account, syncInterval }: UseCampaignSyncProps)
     isSyncing, 
     syncError, 
     syncCampaignsCache, 
-    wakeUpEdgeFunctions: (token: string | null) => wakeUpEdgeFunctions(token), 
+    wakeUpEdgeFunctions: () => wakeUpEdgeFunctions(), 
     checkApiAvailability, 
     getDebugInfo,
     lastSyncTime,
