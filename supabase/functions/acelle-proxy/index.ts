@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,13 +8,7 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Initialisation du client Supabase
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const supabase = createClient(supabaseUrl, supabaseServiceRole);
-
 serve(async (req) => {
-  // Gestion des requêtes OPTIONS (preflight)
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -26,7 +19,6 @@ serve(async (req) => {
   console.log("=== DÉBUT ACELLE PROXY ===");
   
   try {
-    const url = new URL(req.url);
     let body = {};
     
     if (req.method === 'POST') {
@@ -38,36 +30,17 @@ serve(async (req) => {
       }
     }
     
-    console.log("URL:", url.pathname);
-    console.log("Method:", req.method);
-    console.log("Body:", body);
-    
-    // Récupération des paramètres depuis le body ou les headers
+    const url = new URL(req.url);
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
     
-    console.log("Endpoint:", endpoint);
-    console.log("Action:", action);
-    console.log("Token (5 premiers chars):", apiToken ? apiToken.substring(0, 5) + "..." : "MANQUANT");
+    console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}`);
     
-    if (!endpoint) {
-      console.error("Endpoint manquant");
+    if (!endpoint || !apiToken) {
       return new Response(JSON.stringify({ 
         success: false,
-        error: 'Endpoint Acelle manquant',
-        timestamp: new Date().toISOString()
-      }), {
-        status: 400, 
-        headers: corsHeaders
-      });
-    }
-
-    if (!apiToken) {
-      console.error("Token API manquant");
-      return new Response(JSON.stringify({ 
-        success: false,
-        error: 'Token API manquant',
+        error: 'Endpoint ou token manquant',
         timestamp: new Date().toISOString()
       }), {
         status: 400, 
@@ -81,8 +54,6 @@ serve(async (req) => {
       cleanEndpoint = cleanEndpoint.replace(/\/api\/v1\/?$/, '');
     }
     
-    console.log("Endpoint nettoyé:", cleanEndpoint);
-    
     // Construction de l'URL selon l'action
     let apiUrl = '';
     
@@ -94,6 +65,7 @@ serve(async (req) => {
         break;
         
       case 'get_campaign':
+      case 'get_campaign_stats':
         const campaignUid = body.campaign_uid;
         if (!campaignUid) {
           return new Response(JSON.stringify({ 
@@ -108,23 +80,7 @@ serve(async (req) => {
         apiUrl = `${cleanEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${apiToken}`;
         break;
         
-      case 'get_campaign_stats':
-        const statsUid = body.campaign_uid;
-        if (!statsUid) {
-          return new Response(JSON.stringify({ 
-            success: false,
-            error: 'campaign_uid manquant pour les statistiques',
-            timestamp: new Date().toISOString()
-          }), {
-            status: 400, 
-            headers: corsHeaders
-          });
-        }
-        apiUrl = `${cleanEndpoint}/api/v1/campaigns/${statsUid}?api_token=${apiToken}`;
-        break;
-        
       case 'check_connection':
-      case 'check_status':
       case 'test_connection':
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=1&per_page=1`;
         break;
@@ -132,14 +88,13 @@ serve(async (req) => {
       case 'ping':
         return new Response(JSON.stringify({ 
           status: 'active', 
-          message: 'Acelle Proxy is running',
+          message: 'Acelle Proxy actif',
           timestamp: new Date().toISOString() 
         }), {
           headers: corsHeaders
         });
         
       default:
-        console.error("Action non supportée:", action);
         return new Response(JSON.stringify({ 
           success: false,
           error: `Action non supportée: ${action}`,
@@ -150,32 +105,32 @@ serve(async (req) => {
         });
     }
     
-    console.log("URL finale (sans token):", apiUrl.replace(apiToken, '***'));
+    console.log(`URL API construite pour action ${action}`);
     
-    // Appel à l'API Acelle
-    const startTime = Date.now();
+    // Appel à l'API avec timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
     const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "User-Agent": "Seventic-Acelle-Proxy/2.0",
+        "User-Agent": "Seventic-Acelle-Proxy/2.1",
         "Cache-Control": "no-cache"
       },
-      signal: AbortSignal.timeout(30000) // 30 secondes de timeout
+      signal: controller.signal
     });
     
-    const duration = Date.now() - startTime;
-    console.log("Réponse Acelle:", response.status, response.statusText, `(${duration}ms)`);
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Erreur Acelle API:", errorText);
+      console.error(`Erreur API ${response.status}:`, errorText);
       
       return new Response(JSON.stringify({ 
         success: false,
-        error: `Erreur API Acelle: ${response.status} ${response.statusText}`,
+        error: `Erreur API: ${response.status}`,
         message: errorText,
-        duration,
         timestamp: new Date().toISOString()
       }), {
         status: response.status,
@@ -184,7 +139,7 @@ serve(async (req) => {
     }
     
     const responseData = await response.json();
-    console.log("Données reçues:", typeof responseData, Array.isArray(responseData) ? `Array[${responseData.length}]` : 'Object');
+    console.log(`Données reçues pour ${action}`);
     
     // Formatage de la réponse selon l'action
     let formattedResponse;
@@ -195,7 +150,6 @@ serve(async (req) => {
           success: true,
           campaigns: Array.isArray(responseData) ? responseData : (responseData.data || []),
           total: responseData.total || (Array.isArray(responseData) ? responseData.length : 0),
-          duration,
           timestamp: new Date().toISOString()
         };
         break;
@@ -206,21 +160,17 @@ serve(async (req) => {
           success: true,
           campaign: responseData,
           statistics: responseData.statistics || responseData,
-          duration,
           timestamp: new Date().toISOString()
         };
         break;
         
       case 'check_connection':
-      case 'check_status':
       case 'test_connection':
         const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
         formattedResponse = {
           success: true,
-          message: 'Connexion établie avec succès',
+          message: 'Connexion établie',
           campaignsCount: campaigns.length,
-          apiVersion: response.headers.get('X-API-Version') || 'unknown',
-          duration,
           timestamp: new Date().toISOString()
         };
         break;
@@ -229,7 +179,6 @@ serve(async (req) => {
         formattedResponse = {
           success: true,
           data: responseData,
-          duration,
           timestamp: new Date().toISOString()
         };
     }
@@ -241,12 +190,12 @@ serve(async (req) => {
     });
     
   } catch (error) {
-    console.error("Erreur globale Acelle Proxy:", error);
+    console.error("Erreur globale:", error.message);
     
     return new Response(JSON.stringify({ 
       success: false,
       error: 'Erreur interne du proxy',
-      message: error instanceof Error ? error.message : String(error),
+      message: error.message,
       timestamp: new Date().toISOString()
     }), {
       status: 500,

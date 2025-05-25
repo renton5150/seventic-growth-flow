@@ -20,10 +20,8 @@ serve(async (req: Request) => {
   console.log("=== DÉBUT ACELLE STATS TEST ===");
   
   try {
-    const url = new URL(req.url);
     let body = {};
     
-    // Récupération des paramètres selon la méthode
     if (req.method === 'POST') {
       try {
         body = await req.json();
@@ -33,16 +31,14 @@ serve(async (req: Request) => {
       }
     }
     
-    // Récupération des paramètres depuis le body, l'URL ou les valeurs par défaut
+    const url = new URL(req.url);
     const campaignId = body.campaignId || url.searchParams.get('campaignId');
     const accountId = body.accountId || url.searchParams.get('accountId');
     const forceRefresh = (body.forceRefresh || url.searchParams.get('forceRefresh')) === 'true';
-    const debugMode = (body.debug || url.searchParams.get('debug')) === 'true';
     
-    console.log(`Paramètres reçus: campaignId=${campaignId}, accountId=${accountId}, forceRefresh=${forceRefresh}, debug=${debugMode}`);
+    console.log(`Paramètres: campaignId=${campaignId}, accountId=${accountId}, forceRefresh=${forceRefresh}`);
     
     if (!campaignId) {
-      console.error("campaignId manquant");
       return new Response(JSON.stringify({ 
         success: false,
         error: "campaignId est requis",
@@ -54,10 +50,9 @@ serve(async (req: Request) => {
     }
 
     if (!accountId) {
-      console.error("accountId manquant");
       return new Response(JSON.stringify({ 
         success: false,
-        error: "accountId est requis pour obtenir le token API",
+        error: "accountId est requis",
         timestamp: new Date().toISOString()
       }), {
         status: 400,
@@ -65,9 +60,9 @@ serve(async (req: Request) => {
       });
     }
     
-    // Récupération des informations du compte Acelle depuis la base de données
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    // Variables d'environnement Supabase
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!supabaseUrl || !supabaseServiceRole) {
       console.error("Variables d'environnement Supabase manquantes");
@@ -81,39 +76,23 @@ serve(async (req: Request) => {
       });
     }
     
-    console.log(`URL Supabase: ${supabaseUrl}`);
-    
-    // Créer un client Supabase pour accéder à la base de données
+    // Créer un client Supabase
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.38.4");
     const supabase = createClient(supabaseUrl, supabaseServiceRole);
     
-    console.log("Client Supabase créé avec succès");
-    
-    // Récupération des informations du compte Acelle
-    console.log(`Récupération des informations du compte Acelle avec ID: ${accountId}`);
+    // Récupération des informations du compte
+    console.log(`Récupération du compte ${accountId}`);
     const { data: accountData, error: accountError } = await supabase
       .from("acelle_accounts")
       .select("id, name, api_token, api_endpoint")
       .eq("id", accountId)
       .single();
     
-    if (accountError) {
-      console.error("Erreur Supabase:", accountError.message);
+    if (accountError || !accountData) {
+      console.error("Erreur compte:", accountError?.message);
       return new Response(JSON.stringify({ 
         success: false,
-        error: `Échec de récupération du compte: ${accountError.message}`,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-    
-    if (!accountData) {
-      console.error("Aucun compte trouvé avec cet ID");
-      return new Response(JSON.stringify({ 
-        success: false,
-        error: "Compte non trouvé",
+        error: `Compte non trouvé: ${accountError?.message}`,
         timestamp: new Date().toISOString()
       }), {
         status: 404,
@@ -121,26 +100,12 @@ serve(async (req: Request) => {
       });
     }
     
-    const ACELLE_API_TOKEN = accountData.api_token;
-    const ACELLE_API_BASE_URL = accountData.api_endpoint;
+    const { api_token, api_endpoint } = accountData;
     
-    if (!ACELLE_API_TOKEN) {
-      console.error("Token API manquant pour ce compte");
+    if (!api_token || !api_endpoint) {
       return new Response(JSON.stringify({ 
         success: false,
-        error: "Token API non trouvé pour ce compte",
-        timestamp: new Date().toISOString()
-      }), {
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-
-    if (!ACELLE_API_BASE_URL) {
-      console.error("Endpoint API manquant pour ce compte");
-      return new Response(JSON.stringify({ 
-        success: false,
-        error: "Endpoint API non trouvé pour ce compte",
+        error: "Configuration API incomplète",
         timestamp: new Date().toISOString()
       }), {
         status: 400,
@@ -148,47 +113,40 @@ serve(async (req: Request) => {
       });
     }
     
-    console.log(`Utilisation du compte ${accountData.name} avec endpoint: ${ACELLE_API_BASE_URL}`);
-    console.log(`Token API utilisé (premiers 5 caractères): ${ACELLE_API_TOKEN.substring(0, 5)}...`);
-    
-    // Nettoyage de l'URL de base
-    let apiBaseUrl = ACELLE_API_BASE_URL;
-    if (apiBaseUrl.match(/\/api\/v1\/?$/)) {
-      apiBaseUrl = apiBaseUrl.replace(/\/api\/v1\/?$/, '');
+    // Nettoyage de l'endpoint
+    let cleanEndpoint = api_endpoint;
+    if (cleanEndpoint.endsWith('/api/v1') || cleanEndpoint.endsWith('/api/v1/')) {
+      cleanEndpoint = cleanEndpoint.replace(/\/api\/v1\/?$/, '');
     }
-    console.log(`URL de base après nettoyage: ${apiBaseUrl}`);
     
-    // Construction de l'URL pour récupérer les statistiques de campagne
-    const apiUrl = `${apiBaseUrl}/api/v1/campaigns/${campaignId}?api_token=${ACELLE_API_TOKEN}`;
-    console.log(`URL complète (sans token): ${apiBaseUrl}/api/v1/campaigns/${campaignId}?api_token=***`);
+    // Construction de l'URL API avec timeout réduit
+    const apiUrl = `${cleanEndpoint}/api/v1/campaigns/${campaignId}?api_token=${api_token}`;
+    console.log(`Appel API: ${cleanEndpoint}/api/v1/campaigns/${campaignId}?api_token=***`);
     
-    // Appel à l'API Acelle
-    console.log("Envoi de la requête principale à Acelle...");
-    const startTime = Date.now();
+    // Appel à l'API avec timeout de 15 secondes
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Acelle-Stats-Test/2.0",
+        "User-Agent": "Acelle-Stats-Test/2.1",
         "Cache-Control": "no-cache"
       },
-      signal: AbortSignal.timeout(30000) // 30 secondes de timeout
+      signal: controller.signal
     });
     
-    const duration = Date.now() - startTime;
-    console.log("Statut de la réponse:", response.status, `(${duration}ms)`);
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Erreur API Acelle:", errorText);
+      console.error(`Erreur API ${response.status}:`, errorText);
       
       return new Response(JSON.stringify({ 
         success: false,
-        error: `Erreur API Acelle: ${response.status} ${response.statusText}`,
+        error: `API Error: ${response.status}`,
         message: errorText,
-        duration,
         timestamp: new Date().toISOString()
       }), {
         status: response.status,
@@ -196,29 +154,10 @@ serve(async (req: Request) => {
       });
     }
     
-    // Extraction du corps de la réponse
-    const responseText = await response.text();
-    console.log("Réponse reçue (longueur):", responseText.length);
+    const responseData = await response.json();
+    console.log("Données reçues:", typeof responseData);
     
-    // Parsing JSON
-    let responseData;
-    try {
-      responseData = JSON.parse(responseText);
-      console.log("Données JSON parsées avec succès");
-    } catch (error) {
-      console.error("Erreur lors du parsing JSON:", error.message);
-      return new Response(JSON.stringify({ 
-        success: false,
-        error: "Échec du parsing JSON", 
-        rawResponse: responseText.substring(0, 1000),
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: corsHeaders
-      });
-    }
-    
-    // Extraction des statistiques
+    // Extraction des statistiques avec valeurs par défaut
     const extractedStats = {
       subscriber_count: responseData.subscriber_count || 0,
       delivered_count: responseData.delivered_count || 0,
@@ -237,47 +176,38 @@ serve(async (req: Request) => {
       abuse_complaint_count: responseData.abuse_complaint_count || 0
     };
     
-    console.log("Statistiques extraites:", extractedStats);
-    
-    // Stockage des données dans le cache (optionnel)
+    // Sauvegarder en cache (sans bloquer la réponse)
     try {
-      if (responseData && responseData.status) {
-        console.log("Mise à jour du cache de statistiques...");
-        
-        const { error: cacheError } = await supabase
-          .from("campaign_stats_cache")
-          .upsert({
-            campaign_uid: campaignId,
-            account_id: accountId,
-            statistics: extractedStats,
-            last_updated: new Date().toISOString()
-          }, { 
-            onConflict: "campaign_uid,account_id" 
-          });
-        
-        if (cacheError) {
-          console.error("Erreur cache:", cacheError);
-        } else {
-          console.log("Cache mis à jour avec succès");
-        }
+      const { error: cacheError } = await supabase
+        .from("campaign_stats_cache")
+        .upsert({
+          campaign_uid: campaignId,
+          account_id: accountId,
+          statistics: extractedStats,
+          last_updated: new Date().toISOString()
+        }, { 
+          onConflict: "campaign_uid,account_id" 
+        });
+      
+      if (cacheError) {
+        console.warn("Erreur cache:", cacheError);
+      } else {
+        console.log("Cache mis à jour");
       }
-    } catch (cacheError) {
-      console.error("Erreur lors du stockage en cache:", cacheError);
+    } catch (err) {
+      console.warn("Erreur sauvegarde cache:", err);
     }
     
     console.log("=== FIN ACELLE STATS TEST (SUCCÈS) ===");
     
     return new Response(JSON.stringify({ 
       success: true, 
-      message: "Statistiques récupérées avec succès", 
+      message: "Statistiques récupérées", 
       stats: extractedStats,
-      campaign: responseData,
       account: {
         id: accountData.id,
-        name: accountData.name,
-        endpoint: ACELLE_API_BASE_URL
+        name: accountData.name
       },
-      duration,
       timestamp: new Date().toISOString()
     }), {
       headers: corsHeaders
@@ -287,7 +217,7 @@ serve(async (req: Request) => {
     console.error("Erreur globale:", error.message);
     return new Response(JSON.stringify({ 
       success: false,
-      error: "Erreur lors de la récupération des statistiques", 
+      error: "Erreur lors de la récupération", 
       message: error.message,
       timestamp: new Date().toISOString()
     }), {

@@ -29,14 +29,14 @@ export const fetchDirectStatistics = async (
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> => {
   try {
-    console.log(`[fetchDirectStatistics] Récupération via Edge Function pour ${campaignUid}`);
+    console.log(`[fetchDirectStatistics] Récupération pour ${campaignUid}`);
     
     if (!campaignUid || !account?.id) {
       console.error("[fetchDirectStatistics] Paramètres manquants");
       return null;
     }
     
-    // Méthode 1: Via acelle-stats-test
+    // Méthode 1: Via acelle-stats-test (prioritaire)
     try {
       console.log(`[fetchDirectStatistics] Tentative via acelle-stats-test`);
       
@@ -44,21 +44,18 @@ export const fetchDirectStatistics = async (
         body: { 
           campaignId: campaignUid, 
           accountId: account.id, 
-          forceRefresh: 'true',
-          debug: 'true'
+          forceRefresh: 'true'
         }
       });
       
-      if (!error && data && data.success && data.stats) {
-        console.log(`[fetchDirectStatistics] Stats récupérées via acelle-stats-test:`, data.stats);
+      if (!error && data?.success && data.stats) {
+        console.log(`[fetchDirectStatistics] Succès via acelle-stats-test`);
         const validStats = ensureValidStatistics(data.stats);
         
-        // Sauvegarder en cache
-        try {
-          await saveCampaignStatistics(campaignUid, account.id, validStats);
-        } catch (cacheError) {
-          console.warn("[fetchDirectStatistics] Erreur cache:", cacheError);
-        }
+        // Sauvegarder en cache (sans bloquer)
+        saveCampaignStatistics(campaignUid, account.id, validStats).catch(err => {
+          console.warn("[fetchDirectStatistics] Erreur cache:", err);
+        });
         
         return validStats;
       }
@@ -70,7 +67,7 @@ export const fetchDirectStatistics = async (
       console.warn(`[fetchDirectStatistics] acelle-stats-test échouée:`, edgeError);
     }
     
-    // Méthode 2: Via acelle-proxy
+    // Méthode 2: Via acelle-proxy (fallback)
     try {
       console.log(`[fetchDirectStatistics] Tentative via acelle-proxy`);
       
@@ -83,16 +80,14 @@ export const fetchDirectStatistics = async (
         }
       });
       
-      if (!error && data && data.success && data.statistics) {
-        console.log(`[fetchDirectStatistics] Stats récupérées via acelle-proxy:`, data.statistics);
+      if (!error && data?.success && data.statistics) {
+        console.log(`[fetchDirectStatistics] Succès via acelle-proxy`);
         const validStats = ensureValidStatistics(data.statistics);
         
-        // Sauvegarder en cache
-        try {
-          await saveCampaignStatistics(campaignUid, account.id, validStats);
-        } catch (cacheError) {
-          console.warn("[fetchDirectStatistics] Erreur cache:", cacheError);
-        }
+        // Sauvegarder en cache (sans bloquer)
+        saveCampaignStatistics(campaignUid, account.id, validStats).catch(err => {
+          console.warn("[fetchDirectStatistics] Erreur cache:", err);
+        });
         
         return validStats;
       }
@@ -105,10 +100,10 @@ export const fetchDirectStatistics = async (
     }
     
     console.warn(`[fetchDirectStatistics] Toutes les méthodes ont échoué pour ${campaignUid}`);
-    return createEmptyStatistics();
+    return null;
   } catch (error) {
     console.error(`[fetchDirectStatistics] Erreur générale:`, error);
-    return createEmptyStatistics();
+    return null;
   }
 };
 
