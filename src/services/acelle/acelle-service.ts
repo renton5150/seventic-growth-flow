@@ -5,10 +5,9 @@ import { getAcelleAccounts, getAcelleAccountById, createAcelleAccount, updateAce
 import { forceSyncCampaigns, getCampaigns } from "./api/campaigns";
 
 /**
- * Service pour gérer les appels à l'API Acelle
+ * Service pour gérer les appels à l'API Acelle avec priorisation des edge functions
  */
 export const acelleService = {
-  // Exporter les fonctions d'API
   accounts: {
     getAll: getAcelleAccounts,
     getById: getAcelleAccountById,
@@ -23,7 +22,6 @@ export const acelleService = {
   
   /**
    * Génère des campagnes fictives pour le mode démo
-   * @param count Nombre de campagnes à générer
    */
   generateMockCampaigns: (count: number = 5) => {
     return Array.from({ length: count }).map((_, index) => {
@@ -84,88 +82,119 @@ export const acelleService = {
 };
 
 /**
- * Construit l'URL pour le proxy CORS
- * Version simplifiée pour appeler directement l'API Acelle via acelle-proxy
- * @deprecated Utiliser buildDirectAcelleApiUrl pour les nouveaux appels API
+ * Construction d'URL simplifiée et robuste pour l'API Acelle
+ * Cette version évite toute duplication et problème de construction
  */
-export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
-  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
-  
-  const apiPath = path.startsWith('/') ? path.substring(1) : path;
-  
-  let apiUrl = `https://emailing.plateforme-solution.net/api/v1/${apiPath}`;
-  
-  if (Object.keys(params).length > 0) {
-    const searchParams = new URLSearchParams();
-    
-    for (const [key, value] of Object.entries(params)) {
-      searchParams.append(key, value);
-    }
-    
-    apiUrl += '?' + searchParams.toString();
-  }
-  
-  const encodedApiUrl = encodeURIComponent(apiUrl);
-  
-  return `${baseProxyUrl}?url=${encodedApiUrl}`;
-};
-
-/**
- * Construit l'URL pour appeler directement l'API Acelle sans proxy
- * Cette méthode est recommandée pour éviter les problèmes CORS
- */
-export const buildDirectAcelleApiUrl = (
+export const buildCleanAcelleApiUrl = (
   path: string, 
-  acelleEndpoint: string = 'https://emailing.plateforme-solution.net',
+  endpoint: string = 'https://emailing.plateforme-solution.net',
   params: Record<string, string> = {}
 ): string => {
-  console.log(`[buildDirectAcelleApiUrl] Construction URL pour path: ${path}`);
+  console.log(`[buildCleanAcelleApiUrl] Construction pour path: ${path}, endpoint: ${endpoint}`);
   
-  // Nettoyer le chemin d'API
-  const apiPath = path.startsWith('/') ? path.substring(1) : path;
-  console.log(`[buildDirectAcelleApiUrl] API path nettoyé: ${apiPath}`);
+  // Nettoyer l'endpoint - supprimer /api/v1 s'il existe
+  let cleanEndpoint = endpoint.replace(/\/api\/v1\/?$/, '');
   
-  // Normaliser l'endpoint - supprimer /api/v1 s'il est présent pour éviter la duplication
-  let cleanEndpoint = acelleEndpoint;
-  if (cleanEndpoint.endsWith('/api/v1')) {
-    cleanEndpoint = cleanEndpoint.replace('/api/v1', '');
-    console.log(`[buildDirectAcelleApiUrl] Endpoint nettoyé (suppression /api/v1): ${cleanEndpoint}`);
-  }
+  // Nettoyer le path - supprimer les slashes en début
+  const cleanPath = path.replace(/^\/+/, '');
   
-  // Construire l'URL complète de l'API Acelle
-  const apiUrl = `${cleanEndpoint}/api/v1/${apiPath}`;
-  console.log(`[buildDirectAcelleApiUrl] URL de base construite: ${apiUrl}`);
+  // Construire l'URL complète
+  const baseUrl = `${cleanEndpoint}/api/v1/${cleanPath}`;
   
-  // Construire les paramètres de requête pour l'API
+  // Ajouter les paramètres si nécessaires
   if (Object.keys(params).length > 0) {
     const searchParams = new URLSearchParams();
-    
-    for (const [key, value] of Object.entries(params)) {
+    Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined && value !== '') {
         searchParams.append(key, value);
       }
-    }
+    });
     
-    if (searchParams.toString()) {
-      const finalUrl = `${apiUrl}?${searchParams.toString()}`;
-      console.log(`[buildDirectAcelleApiUrl] URL finale avec paramètres: ${finalUrl.replace(params.api_token || '', '***')}`);
-      return finalUrl;
-    }
+    const finalUrl = `${baseUrl}?${searchParams.toString()}`;
+    console.log(`[buildCleanAcelleApiUrl] URL finale: ${finalUrl.replace(params.api_token || '', '***')}`);
+    return finalUrl;
   }
   
-  console.log(`[buildDirectAcelleApiUrl] URL finale sans paramètres: ${apiUrl}`);
-  return apiUrl;
+  console.log(`[buildCleanAcelleApiUrl] URL finale: ${baseUrl}`);
+  return baseUrl;
 };
 
 /**
- * Construit l'URL pour appeler directement l'API Acelle via acelle-proxy
- * Cette méthode est recommandée pour garantir une communication fiable
- * @deprecated Remplacé par buildDirectAcelleApiUrl pour éviter les problèmes CORS
+ * Appel API via Edge Function (méthode recommandée)
  */
-export const buildDirectApiUrl = (
-  path: string, 
-  acelleEndpoint: string = 'https://emailing.plateforme-solution.net',
-  params: Record<string, string> = {}
-): string => {
-  return buildDirectAcelleApiUrl(path, acelleEndpoint, params);
+export const callViaEdgeFunction = async (
+  campaignId: string,
+  accountId: string,
+  forceRefresh: boolean = false
+) => {
+  try {
+    console.log(`[callViaEdgeFunction] Appel pour campagne ${campaignId} via edge function`);
+    
+    const { data, error } = await supabase.functions.invoke('acelle-stats-test', {
+      body: { 
+        campaignId, 
+        accountId, 
+        forceRefresh: forceRefresh.toString(),
+        debug: 'false'
+      }
+    });
+    
+    if (error) {
+      console.error('[callViaEdgeFunction] Erreur edge function:', error);
+      throw error;
+    }
+    
+    console.log(`[callViaEdgeFunction] Succès pour ${campaignId}:`, data);
+    return data;
+  } catch (error) {
+    console.error(`[callViaEdgeFunction] Exception pour ${campaignId}:`, error);
+    throw error;
+  }
 };
+
+/**
+ * Appel API direct simplifié (fallback uniquement)
+ */
+export const callDirectAcelleApi = async (
+  url: string,
+  options: {
+    timeout?: number;
+  } = {}
+) => {
+  const { timeout = 10000 } = options;
+  
+  console.log(`[callDirectAcelleApi] Appel direct: ${url.replace(/api_token=[^&]+/, 'api_token=***')}`);
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      console.error(`[callDirectAcelleApi] HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[callDirectAcelleApi] Succès:`, typeof data);
+    return data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error(`[callDirectAcelleApi] Erreur:`, error);
+    throw error;
+  }
+};
+
+// Fonctions legacy pour compatibilité
+export const buildProxyUrl = buildCleanAcelleApiUrl;
+export const buildDirectAcelleApiUrl = buildCleanAcelleApiUrl;
+export const buildDirectApiUrl = buildCleanAcelleApiUrl;

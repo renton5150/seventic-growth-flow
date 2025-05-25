@@ -1,180 +1,160 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
-import { buildDirectAcelleApiUrl } from "../acelle-service";
+import { buildCleanAcelleApiUrl, callViaEdgeFunction, callDirectAcelleApi } from "../acelle-service";
 
 /**
- * Vérifie l'état de la connexion à l'API Acelle directement
+ * Vérifie l'état de la connexion en priorisant les edge functions
  */
 export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
   try {
-    console.log(`[checkAcelleConnectionStatus] Début du test pour ${account.name}`);
+    console.log(`[checkAcelleConnectionStatus] Test connexion pour ${account.name}`);
     
-    // Vérifier que les informations du compte sont complètes
     if (!account || !account.api_token || !account.api_endpoint) {
-      console.error("[checkAcelleConnectionStatus] Informations de compte incomplètes", {
-        hasAccount: !!account,
-        hasToken: account ? !!account.api_token : false,
-        hasEndpoint: account ? !!account.api_endpoint : false
-      });
+      console.error("[checkAcelleConnectionStatus] Informations compte incomplètes");
+      
+      await updateAccountStatus(account.id, 'error', 'Informations de compte incomplètes');
+      
       return {
         success: false,
         message: "Informations de compte incomplètes",
-        details: {
-          hasAccount: !!account,
-          hasToken: account ? !!account.api_token : false,
-          hasEndpoint: account ? !!account.api_endpoint : false
-        }
+        details: { incomplete: true }
       };
     }
 
-    // Construire l'URL pour tester la connexion directement
-    const testParams = { 
-      api_token: account.api_token,
-      page: "1",
-      per_page: "1"
-    };
-    
-    const testUrl = buildDirectAcelleApiUrl("campaigns", account.api_endpoint, testParams);
-    
-    console.log(`[checkAcelleConnectionStatus] Test de connexion directe pour ${account.name}: ${testUrl.replace(account.api_token, '***')}`);
-    
-    // Mesurer le temps de réponse
-    const startTime = Date.now();
-    
-    // Effectuer l'appel API direct avec headers minimalistes
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    
-    console.log(`[checkAcelleConnectionStatus] Headers utilisés:`, headers);
-    
-    const response = await fetch(testUrl, {
-      method: 'GET',
-      headers
-    });
-    
-    const responseTime = Date.now() - startTime;
-    
-    console.log(`[checkAcelleConnectionStatus] Réponse reçue: Status ${response.status}, Time ${responseTime}ms`);
-    console.log(`[checkAcelleConnectionStatus] Headers de réponse:`, Object.fromEntries(response.headers.entries()));
-    
-    // Analyser la réponse
-    if (!response.ok) {
-      let errorMessage = `Erreur API HTTP ${response.status}: ${response.statusText}`;
+    // Étape 1: Essayer via edge function (méthode recommandée)
+    try {
+      console.log(`[checkAcelleConnectionStatus] Tentative via edge function`);
       
-      try {
-        const errorText = await response.text();
-        console.log(`[checkAcelleConnectionStatus] Corps d'erreur:`, errorText);
-        if (errorText && errorText.length < 500) {
-          errorMessage += ` - ${errorText}`;
+      // Utiliser une campagne existante pour tester la connexion
+      const { data: existingCampaigns } = await supabase
+        .from('email_campaigns_cache')
+        .select('campaign_uid')
+        .eq('account_id', account.id)
+        .limit(1);
+      
+      if (existingCampaigns && existingCampaigns.length > 0) {
+        const testCampaignId = existingCampaigns[0].campaign_uid;
+        const result = await callViaEdgeFunction(testCampaignId, account.id, false);
+        
+        if (result && result.success) {
+          console.log(`[checkAcelleConnectionStatus] Edge function OK pour ${account.name}`);
+          
+          await updateAccountStatus(account.id, 'active', null);
+          
+          return {
+            success: true,
+            message: "Connexion établie via edge function",
+            details: { method: 'edge_function', campaignTested: testCampaignId }
+          };
         }
-      } catch (e) {
-        console.log("[checkAcelleConnectionStatus] Impossible de lire la réponse d'erreur");
       }
+    } catch (edgeError) {
+      console.warn(`[checkAcelleConnectionStatus] Edge function échouée:`, edgeError);
+    }
+
+    // Étape 2: Fallback vers appel direct simplifié
+    try {
+      console.log(`[checkAcelleConnectionStatus] Fallback vers appel direct`);
       
-      // Mettre à jour le statut du compte en erreur
-      try {
-        await supabase
-          .from('acelle_accounts')
-          .update({ 
-            status: 'error',
-            last_sync_error: errorMessage,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', account.id);
-        console.log(`[checkAcelleConnectionStatus] Statut du compte ${account.name} mis à jour: error`);
-      } catch (updateError) {
-        console.error("[checkAcelleConnectionStatus] Erreur lors de la mise à jour du statut du compte:", updateError);
+      const testUrl = buildCleanAcelleApiUrl(
+        "campaigns",
+        account.api_endpoint,
+        { 
+          api_token: account.api_token,
+          page: "1",
+          per_page: "1"
+        }
+      );
+      
+      const startTime = Date.now();
+      const data = await callDirectAcelleApi(testUrl, { timeout: 8000 });
+      const duration = Date.now() - startTime;
+      
+      if (data && (data.data || data.campaigns)) {
+        console.log(`[checkAcelleConnectionStatus] Appel direct OK pour ${account.name}`);
+        
+        await updateAccountStatus(account.id, 'active', null);
+        
+        return {
+          success: true,
+          message: "Connexion établie via appel direct",
+          details: { 
+            method: 'direct_api',
+            duration,
+            campaignsFound: data.data ? data.data.length : 0
+          }
+        };
       }
+    } catch (directError) {
+      console.error(`[checkAcelleConnectionStatus] Appel direct échoué:`, directError);
+      
+      const errorMessage = directError instanceof Error ? directError.message : String(directError);
+      await updateAccountStatus(account.id, 'error', errorMessage);
       
       return {
         success: false,
         message: errorMessage,
-        details: {
-          status: response.status,
-          statusText: response.statusText,
-          responseTime,
-          headers: Object.fromEntries(response.headers.entries()),
-          url: testUrl.replace(account.api_token, '***')
-        }
+        details: { method: 'direct_api', error: errorMessage }
       };
     }
-    
-    const data = await response.json();
-    console.log(`[checkAcelleConnectionStatus] Données reçues pour ${account.name}:`, {
-      dataType: typeof data,
-      hasData: !!data.data,
-      dataLength: data.data ? data.data.length : 0,
-      total: data.total
-    });
-    
-    // Mettre à jour le statut du compte en actif
-    try {
-      await supabase
-        .from('acelle_accounts')
-        .update({ 
-          status: 'active',
-          last_sync_error: null,
-          last_sync_date: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', account.id);
-      console.log(`[checkAcelleConnectionStatus] Statut du compte ${account.name} mis à jour: active`);
-    } catch (updateError) {
-      console.error("[checkAcelleConnectionStatus] Erreur lors de la mise à jour du statut du compte:", updateError);
-    }
+
+    // Si on arrive ici, aucune méthode n'a fonctionné
+    await updateAccountStatus(account.id, 'error', 'Toutes les méthodes de connexion ont échoué');
     
     return {
-      success: true,
-      message: "Connexion directe établie avec succès",
-      details: {
-        responseTime,
-        apiVersion: data.version || "Inconnue",
-        campaignsFound: data.data ? data.data.length : 0,
-        totalCampaigns: data.total || 0,
-        url: testUrl.replace(account.api_token, '***')
-      }
+      success: false,
+      message: "Impossible d'établir la connexion",
+      details: { allMethodsFailed: true }
     };
   } catch (error) {
-    console.error("[checkAcelleConnectionStatus] Erreur lors de la vérification de la connexion directe:", error);
+    console.error("[checkAcelleConnectionStatus] Erreur générale:", error);
     
-    let errorMessage = "Erreur de connexion";
-    
-    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      errorMessage = "Erreur de connexion réseau - Vérifiez que l'API Acelle est accessible";
-    } else if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-    
-    // Mettre à jour le statut du compte en erreur
-    try {
-      await supabase
-        .from('acelle_accounts')
-        .update({ 
-          status: 'error',
-          last_sync_error: errorMessage,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', account.id);
-      console.log(`[checkAcelleConnectionStatus] Statut du compte ${account.name} mis à jour: error (exception)`);
-    } catch (updateError) {
-      console.error("[checkAcelleConnectionStatus] Erreur lors de la mise à jour du statut du compte:", updateError);
-    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await updateAccountStatus(account.id, 'error', errorMessage);
     
     return {
       success: false,
       message: errorMessage,
-      details: {
-        error: String(error),
-        timestamp: new Date().toISOString()
-      }
+      details: { generalError: true }
     };
   }
 };
 
 /**
- * Teste la connexion à l'API Acelle directement avec les paramètres fournis
+ * Met à jour le statut d'un compte dans la base de données
+ */
+const updateAccountStatus = async (
+  accountId: string, 
+  status: 'active' | 'inactive' | 'error', 
+  errorMessage: string | null
+) => {
+  try {
+    const updates: any = { 
+      status,
+      updated_at: new Date().toISOString()
+    };
+    
+    if (status === 'active') {
+      updates.last_sync_date = new Date().toISOString();
+      updates.last_sync_error = null;
+    } else if (status === 'error') {
+      updates.last_sync_error = errorMessage;
+    }
+    
+    await supabase
+      .from('acelle_accounts')
+      .update(updates)
+      .eq('id', accountId);
+      
+    console.log(`[updateAccountStatus] Statut ${status} mis à jour pour compte ${accountId}`);
+  } catch (error) {
+    console.error("[updateAccountStatus] Erreur mise à jour:", error);
+  }
+};
+
+/**
+ * Teste la connexion avec les paramètres fournis
  */
 export const testAcelleConnection = async (
   apiEndpoint: string, 
@@ -182,10 +162,9 @@ export const testAcelleConnection = async (
   authToken?: string
 ): Promise<AcelleConnectionDebug> => {
   try {
-    console.log(`[testAcelleConnection] Test de connexion avec endpoint: ${apiEndpoint}`);
+    console.log(`[testAcelleConnection] Test avec endpoint: ${apiEndpoint}`);
     
-    // Construire l'URL pour tester la connexion directement
-    const testUrl = buildDirectAcelleApiUrl(
+    const testUrl = buildCleanAcelleApiUrl(
       "campaigns",
       apiEndpoint,
       { 
@@ -195,87 +174,43 @@ export const testAcelleConnection = async (
       }
     );
     
-    console.log(`[testAcelleConnection] URL de test: ${testUrl.replace(apiToken, '***')}`);
-    
-    // Mesurer le temps de réponse
     const startTime = Date.now();
-    
-    // Effectuer l'appel API direct avec configuration simplifiée
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    
-    console.log(`[testAcelleConnection] Headers utilisés:`, headers);
-    
-    const response = await fetch(testUrl, {
-      method: 'GET',
-      headers
-    });
-    
+    const data = await callDirectAcelleApi(testUrl, { timeout: 8000 });
     const duration = Date.now() - startTime;
     
-    console.log(`[testAcelleConnection] Test terminé: Status ${response.status}, Durée ${duration}ms`);
-    
-    if (!response.ok) {
-      let errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
-      
-      try {
-        const errorText = await response.text();
-        console.log(`[testAcelleConnection] Corps d'erreur:`, errorText);
-        if (errorText && errorText.length < 500) {
-          errorMessage += ` - ${errorText}`;
+    if (data && (data.data || data.campaigns)) {
+      return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        duration,
+        statusCode: 200,
+        apiVersion: data.version || "Inconnue",
+        responseData: {
+          campaignsCount: data.data ? data.data.length : 0,
+          totalCampaigns: data.total || 0,
+          hasData: !!data.data
+        },
+        request: {
+          url: testUrl.replace(apiToken, '***'),
+          method: 'GET'
         }
-      } catch (e) {
-        console.log("[testAcelleConnection] Impossible de lire la réponse d'erreur");
-      }
-      
+      };
+    } else {
       return {
         success: false,
         timestamp: new Date().toISOString(),
-        errorMessage,
-        statusCode: response.status,
+        errorMessage: "Réponse API inattendue",
         duration,
         request: {
           url: testUrl.replace(apiToken, '***'),
-          method: 'GET',
-          headers
+          method: 'GET'
         }
       };
     }
-    
-    const data = await response.json();
-    console.log(`[testAcelleConnection] Données reçues:`, {
-      dataType: typeof data,
-      hasData: !!data.data,
-      dataLength: data.data ? data.data.length : 0
-    });
-    
-    return {
-      success: true,
-      timestamp: new Date().toISOString(),
-      duration,
-      statusCode: response.status,
-      apiVersion: data.version || "Inconnue",
-      responseData: {
-        campaignsCount: data.data ? data.data.length : 0,
-        totalCampaigns: data.total || 0,
-        hasData: !!data.data
-      },
-      request: {
-        url: testUrl.replace(apiToken, '***'),
-        method: 'GET'
-      }
-    };
   } catch (error) {
-    console.error("[testAcelleConnection] Erreur lors du test de connexion:", error);
+    console.error("[testAcelleConnection] Erreur:", error);
     
-    let errorMessage = "Erreur de connexion";
-    
-    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      errorMessage = "Erreur de connexion réseau ou CORS";
-    } else if (error instanceof Error) {
-      errorMessage = error.message;
-    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
     
     return {
       success: false,
