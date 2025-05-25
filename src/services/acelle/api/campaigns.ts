@@ -390,7 +390,7 @@ export const forceSyncCampaigns = async (
 };
 
 /**
- * Extraire les campagnes du cache par le compte
+ * Extraire les campagnes du cache par le compte avec pagination améliorée
  */
 export const extractCampaignsFromCache = async (
   accountId: string,
@@ -405,7 +405,7 @@ export const extractCampaignsFromCache = async (
     const start = (page - 1) * perPage;
     const end = start + perPage - 1;
 
-    console.log(`Extraction des campagnes en cache pour le compte ${accountId}, page ${page}`);
+    console.log(`Extraction des campagnes en cache pour le compte ${accountId}, page ${page}, perPage ${perPage}`);
 
     let query = supabase
       .from('email_campaigns_cache')
@@ -450,7 +450,7 @@ export const extractCampaignsFromCache = async (
       };
     });
 
-    console.log(`${campaigns.length} campagnes extraites du cache`);
+    console.log(`${campaigns.length} campagnes extraites du cache pour la page ${page}`);
     return campaigns;
   } catch (error) {
     console.error("Erreur lors de l'extraction des campagnes du cache:", error);

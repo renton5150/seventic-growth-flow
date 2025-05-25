@@ -14,6 +14,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [hasMore, setHasMore] = useState<boolean>(false);
   const [cacheStatus, setCacheStatus] = useState<{ lastUpdated: string | null; count: number }>({
     lastUpdated: null,
     count: 0
@@ -22,6 +23,8 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
   const fetchCampaignsData = async () => {
     if (!account) {
       setCampaigns([]);
+      setTotalCount(0);
+      setHasMore(false);
       return;
     }
 
@@ -30,6 +33,8 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
 
     try {
       let fetchedCampaigns: AcelleCampaign[] = [];
+      let total = 0;
+      let hasMorePages = false;
 
       if (options?.useCache) {
         // Fetch campaigns from cache
@@ -40,12 +45,21 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
         const status = await getCacheStatus(account.id);
         setCacheStatus(status);
         setTotalCount(status.count);
+        
+        // Calculate if there are more pages in cache
+        const currentPage = options?.page || 1;
+        const perPage = options?.perPage || 10;
+        hasMorePages = (currentPage * perPage) < status.count;
       } else {
-        // Fetch campaigns from API
-        const campaignsFromApi = await getCampaigns(account, options);
-        fetchedCampaigns = campaignsFromApi;
-        setTotalCount(campaignsFromApi.length);
+        // Fetch campaigns from API with proper pagination
+        const result = await getCampaigns(account, options);
+        fetchedCampaigns = result.campaigns;
+        total = result.total;
+        hasMorePages = result.hasMore;
+        setTotalCount(total);
       }
+
+      setHasMore(hasMorePages);
 
       // Enrich campaigns with statistics
       const enrichedCampaigns = await enrichCampaignsWithStats(fetchedCampaigns, account);
@@ -53,6 +67,9 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
     } catch (err) {
       console.error("Erreur lors de la récupération des campagnes:", err);
       setError("Erreur lors de la récupération des campagnes");
+      setCampaigns([]);
+      setTotalCount(0);
+      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +84,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
     isLoading,
     error,
     totalCount,
+    hasMore,
     cacheStatus,
     refresh: fetchCampaignsData
   };
