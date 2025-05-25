@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -32,6 +31,7 @@ import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
 import { callViaEdgeFunction, getCachedStatistics } from "@/services/acelle/acelle-service";
+import { SyncProgressDialog } from "./SyncProgressDialog";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -45,6 +45,8 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isFullSyncing, setIsFullSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, message: "" });
   const [totalPages, setTotalPages] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -276,7 +278,37 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     }
   }, [refetch]);
 
-  // Synchronisation manuelle
+  // Synchronisation complète avec progression
+  const handleFullSync = useCallback(async () => {
+    if (!accessToken || !account) {
+      toast.error("Token ou compte manquant", { id: "full-sync" });
+      return;
+    }
+    
+    setIsFullSyncing(true);
+    setSyncProgress({ current: 0, total: 0, message: "Démarrage de la synchronisation complète..." });
+    
+    try {
+      const result = await forceSyncCampaigns(account, accessToken, (progress) => {
+        setSyncProgress(progress);
+      });
+      
+      if (result.success) {
+        toast.success(`${result.totalCampaigns || 0} campagnes synchronisées !`, { id: "full-sync" });
+        await refetch({ forceRefresh: false });
+      } else {
+        toast.error(result.message, { id: "full-sync" });
+      }
+    } catch (err) {
+      console.error("Erreur synchronisation complète:", err);
+      toast.error("Erreur de synchronisation complète", { id: "full-sync" });
+    } finally {
+      setIsFullSyncing(false);
+      setSyncProgress({ current: 0, total: 0, message: "" });
+    }
+  }, [accessToken, account, refetch]);
+
+  // Synchronisation manuelle (rapide)
   const handleSync = useCallback(async () => {
     if (!accessToken || !account) {
       toast.error("Token ou compte manquant", { id: "sync" });
@@ -286,7 +318,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setIsSyncing(true);
     
     try {
-      toast.loading("Synchronisation...", { id: "sync" });
+      toast.loading("Synchronisation rapide...", { id: "sync" });
       const result = await forceSyncCampaigns(account, accessToken);
       
       if (result.success) {
@@ -402,11 +434,15 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             </div>
           )}
           
+          <div className="text-xs text-muted-foreground">
+            {campaignsCount} campagnes en cache
+          </div>
+          
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={isManuallyRefreshing || backgroundRefreshInProgress}
+            disabled={isManuallyRefreshing || backgroundRefreshInProgress || isFullSyncing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
             Actualiser
@@ -416,10 +452,20 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             variant="outline"
             size="sm"
             onClick={handleSync}
-            disabled={isSyncing || !accessToken || backgroundRefreshInProgress}
+            disabled={isSyncing || !accessToken || backgroundRefreshInProgress || isFullSyncing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-            Synchroniser
+            Sync rapide
+          </Button>
+          
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleFullSync}
+            disabled={isFullSyncing || !accessToken || backgroundRefreshInProgress}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isFullSyncing ? "animate-spin" : ""}`} />
+            Sync complète
           </Button>
         </div>
       </div>
@@ -508,6 +554,11 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           )}
         </DialogContent>
       </Dialog>
+
+      <SyncProgressDialog 
+        isOpen={isFullSyncing}
+        progress={syncProgress}
+      />
     </div>
   );
 }

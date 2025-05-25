@@ -1,10 +1,9 @@
-
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
- * Récupère les campagnes d'un compte Acelle via Edge Functions uniquement
+ * Récupère les campagnes d'un compte Acelle via Edge Functions uniquement avec pagination
  */
 export const getCampaigns = async (
   account: AcelleAccount, 
@@ -24,16 +23,17 @@ export const getCampaigns = async (
     const page = options?.page || 1;
     const perPage = options?.perPage || 20;
 
-    console.log(`[getCampaigns] Appel Edge Function pour récupérer les campagnes`);
+    console.log(`[getCampaigns] Appel Edge Function pour récupérer les campagnes (page ${page})`);
     
-    // Utiliser l'Edge Function corrigée
+    // Utiliser l'Edge Function avec timeout augmenté
     const { data, error } = await supabase.functions.invoke('acelle-proxy', {
       body: { 
         endpoint: account.api_endpoint,
         api_token: account.api_token,
         action: 'get_campaigns',
         page: page.toString(),
-        per_page: perPage.toString()
+        per_page: perPage.toString(),
+        timeout: 30000 // 30 secondes
       }
     });
     
@@ -58,7 +58,7 @@ export const getCampaigns = async (
         statistics: campaign.statistics || createEmptyStatistics()
       }));
       
-      console.log(`[getCampaigns] ${campaigns.length} campagnes récupérées pour ${account.name}`);
+      console.log(`[getCampaigns] ${campaigns.length} campagnes récupérées pour ${account.name} (page ${page})`);
       return campaigns;
     }
     
@@ -81,6 +81,56 @@ export const getCampaigns = async (
       console.error("[getCampaigns] Erreur mise à jour statut:", updateError);
     }
     
+    return [];
+  }
+};
+
+/**
+ * Récupère TOUTES les campagnes d'un compte avec pagination complète
+ */
+export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
+  try {
+    console.log(`[getAllCampaigns] Début récupération complète pour ${account.name}`);
+    
+    let allCampaigns: AcelleCampaign[] = [];
+    let currentPage = 1;
+    const perPage = 50; // Augmenter pour réduire le nombre d'appels
+    let hasMorePages = true;
+    
+    while (hasMorePages) {
+      console.log(`[getAllCampaigns] Récupération page ${currentPage} pour ${account.name}`);
+      
+      const campaigns = await getCampaigns(account, { 
+        page: currentPage, 
+        perPage 
+      });
+      
+      if (campaigns.length > 0) {
+        allCampaigns = [...allCampaigns, ...campaigns];
+        console.log(`[getAllCampaigns] Page ${currentPage}: ${campaigns.length} campagnes récupérées (total: ${allCampaigns.length})`);
+        
+        // Si on a récupéré moins que la taille de page demandée, on a atteint la fin
+        if (campaigns.length < perPage) {
+          hasMorePages = false;
+        } else {
+          currentPage++;
+        }
+      } else {
+        // Aucune campagne récupérée, on s'arrête
+        hasMorePages = false;
+      }
+      
+      // Sécurité : ne pas dépasser 20 pages pour éviter les boucles infinies
+      if (currentPage > 20) {
+        console.warn(`[getAllCampaigns] Arrêt après 20 pages pour ${account.name}`);
+        break;
+      }
+    }
+    
+    console.log(`[getAllCampaigns] Récupération terminée pour ${account.name}: ${allCampaigns.length} campagnes au total`);
+    return allCampaigns;
+  } catch (error) {
+    console.error(`[getAllCampaigns] Erreur pour ${account.name}:`, error);
     return [];
   }
 };
@@ -142,18 +192,22 @@ export const getCampaign = async (
 };
 
 /**
- * Force la synchronisation des campagnes pour un compte
+ * Force la synchronisation complète des campagnes pour un compte avec pagination
  */
 export const forceSyncCampaigns = async (
   account: AcelleAccount,
-  accessToken?: string
-): Promise<{ success: boolean; message: string }> => {
+  accessToken?: string,
+  progressCallback?: (progress: { current: number; total: number; message: string }) => void
+): Promise<{ success: boolean; message: string; totalCampaigns?: number }> => {
   try {
     if (!account?.id) {
       return { success: false, message: "Aucun compte spécifié" };
     }
 
-    console.log(`[forceSyncCampaigns] Synchronisation pour ${account.name}`);
+    console.log(`[forceSyncCampaigns] Synchronisation complète pour ${account.name}`);
+    
+    // Notifier le début
+    progressCallback?.({ current: 0, total: 0, message: "Démarrage de la synchronisation..." });
 
     // Marquer le début de la synchronisation
     await supabase
@@ -165,55 +219,90 @@ export const forceSyncCampaigns = async (
       })
       .eq('id', account.id);
 
-    // Récupérer les campagnes
-    const campaigns = await getCampaigns(account, { page: 1, perPage: 50 });
+    // Récupérer TOUTES les campagnes avec pagination
+    progressCallback?.({ current: 0, total: 0, message: "Récupération de toutes les campagnes..." });
     
-    if (campaigns.length > 0) {
-      // Mettre en cache les campagnes
-      try {
-        const cachePromises = campaigns.map(async (campaign) => {
-          const { error } = await supabase
-            .from('email_campaigns_cache')
-            .upsert({
-              account_id: account.id,
-              campaign_uid: campaign.uid,
-              name: campaign.name,
-              subject: campaign.subject,
-              status: campaign.status,
-              created_at: campaign.created_at,
-              updated_at: campaign.updated_at,
-              delivery_date: campaign.delivery_date,
-              run_at: campaign.run_at,
-              last_error: campaign.last_error,
-              delivery_info: campaign.delivery_info as any,
-              cache_updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'account_id,campaign_uid'
-            });
-          
-          if (error) {
-            console.error(`[forceSyncCampaigns] Erreur cache ${campaign.uid}:`, error);
+    const allCampaigns = await getAllCampaigns(account);
+    
+    if (allCampaigns.length > 0) {
+      console.log(`[forceSyncCampaigns] ${allCampaigns.length} campagnes récupérées, mise en cache...`);
+      
+      progressCallback?.({ 
+        current: 0, 
+        total: allCampaigns.length, 
+        message: `Mise en cache de ${allCampaigns.length} campagnes...` 
+      });
+      
+      // Mettre en cache les campagnes par lots pour éviter les timeouts
+      const batchSize = 10;
+      let processedCount = 0;
+      
+      for (let i = 0; i < allCampaigns.length; i += batchSize) {
+        const batch = allCampaigns.slice(i, i + batchSize);
+        
+        const cachePromises = batch.map(async (campaign) => {
+          try {
+            const { error } = await supabase
+              .from('email_campaigns_cache')
+              .upsert({
+                account_id: account.id,
+                campaign_uid: campaign.uid,
+                name: campaign.name,
+                subject: campaign.subject,
+                status: campaign.status,
+                created_at: campaign.created_at,
+                updated_at: campaign.updated_at,
+                delivery_date: campaign.delivery_date,
+                run_at: campaign.run_at,
+                last_error: campaign.last_error,
+                delivery_info: campaign.delivery_info as any,
+                cache_updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'account_id,campaign_uid'
+              });
+            
+            if (error) {
+              console.error(`[forceSyncCampaigns] Erreur cache ${campaign.uid}:`, error);
+            } else {
+              console.log(`[forceSyncCampaigns] Campagne ${campaign.name} mise en cache`);
+            }
+          } catch (err) {
+            console.error(`[forceSyncCampaigns] Exception cache ${campaign.uid}:`, err);
           }
         });
         
         await Promise.all(cachePromises);
+        processedCount += batch.length;
         
-        // Marquer la synchronisation comme réussie
-        await supabase
-          .from('acelle_accounts')
-          .update({ 
-            last_sync_date: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', account.id);
+        progressCallback?.({ 
+          current: processedCount, 
+          total: allCampaigns.length, 
+          message: `${processedCount}/${allCampaigns.length} campagnes mises en cache` 
+        });
         
-      } catch (cacheError) {
-        console.warn("[forceSyncCampaigns] Erreur cache, mais sync réussie:", cacheError);
+        // Petite pause pour éviter de surcharger la base de données
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
+      
+      // Marquer la synchronisation comme réussie
+      await supabase
+        .from('acelle_accounts')
+        .update({ 
+          last_sync_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', account.id);
+      
+      progressCallback?.({ 
+        current: allCampaigns.length, 
+        total: allCampaigns.length, 
+        message: "Synchronisation terminée avec succès !" 
+      });
       
       return { 
         success: true, 
-        message: `${campaigns.length} campagnes synchronisées avec succès` 
+        message: `${allCampaigns.length} campagnes synchronisées avec succès`,
+        totalCampaigns: allCampaigns.length
       };
     } else {
       // Marquer comme erreur si aucune campagne
@@ -247,6 +336,12 @@ export const forceSyncCampaigns = async (
     } catch (updateError) {
       console.error("[forceSyncCampaigns] Erreur mise à jour:", updateError);
     }
+    
+    progressCallback?.({ 
+      current: 0, 
+      total: 0, 
+      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"}` 
+    });
     
     return { 
       success: false, 

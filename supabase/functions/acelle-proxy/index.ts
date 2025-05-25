@@ -41,8 +41,9 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
+    const timeout = parseInt(body.timeout || '30000'); // 30 secondes par défaut
     
-    console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}`);
+    console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
     if (!endpoint || !apiToken) {
       return new Response(JSON.stringify({ 
@@ -117,125 +118,152 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}`);
     
-    // Appel à l'API avec timeout de 20 secondes
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    // Appel à l'API avec timeout configuré et retry automatique
+    const maxRetries = 3;
+    let lastError = null;
     
-    let response;
-    try {
-      response = await fetch(apiUrl, {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-          "User-Agent": "Seventic-Acelle-Proxy/4.0",
-          "Cache-Control": "no-cache"
-        },
-        signal: controller.signal
-      });
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      console.error("Erreur fetch:", fetchError);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
       
-      if (fetchError.name === 'AbortError') {
-        return new Response(JSON.stringify({ 
-          success: false,
-          error: "Timeout API (20s)",
-          timestamp: new Date().toISOString()
-        }), {
-          status: 408,
+      try {
+        console.log(`Tentative ${attempt}/${maxRetries} pour ${action}`);
+        
+        const response = await fetch(apiUrl, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "User-Agent": "Seventic-Acelle-Proxy/4.0",
+            "Cache-Control": "no-cache"
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "Impossible de lire la réponse");
+          console.error(`Erreur API ${response.status} (tentative ${attempt}):`, errorText);
+          
+          // Si c'est une erreur 404 et que ce n'est pas le dernier essai, retry
+          if (response.status === 404 && attempt < maxRetries) {
+            console.log(`Erreur 404, retry dans 2 secondes...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
+          return new Response(JSON.stringify({ 
+            success: false,
+            error: `Erreur API: ${response.status}`,
+            message: errorText,
+            timestamp: new Date().toISOString()
+          }), {
+            status: response.status,
+            headers: corsHeaders
+          });
+        }
+        
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (jsonError) {
+          console.error("Erreur parsing JSON réponse:", jsonError);
+          
+          if (attempt < maxRetries) {
+            console.log(`Erreur JSON, retry dans 1 seconde...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          
+          return new Response(JSON.stringify({ 
+            success: false,
+            error: "Réponse API invalide",
+            timestamp: new Date().toISOString()
+          }), {
+            status: 500,
+            headers: corsHeaders
+          });
+        }
+        
+        console.log(`Données reçues pour ${action} - Type: ${typeof responseData} (tentative ${attempt})`);
+        
+        // Formatage de la réponse selon l'action
+        let formattedResponse;
+        
+        switch (action) {
+          case 'get_campaigns':
+            formattedResponse = {
+              success: true,
+              campaigns: Array.isArray(responseData) ? responseData : (responseData.data || []),
+              total: responseData.total || (Array.isArray(responseData) ? responseData.length : 0),
+              timestamp: new Date().toISOString()
+            };
+            break;
+            
+          case 'get_campaign':
+          case 'get_campaign_stats':
+            formattedResponse = {
+              success: true,
+              campaign: responseData,
+              statistics: responseData.statistics || responseData,
+              timestamp: new Date().toISOString()
+            };
+            break;
+            
+          case 'check_connection':
+          case 'test_connection':
+            const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
+            formattedResponse = {
+              success: true,
+              message: 'Connexion établie',
+              campaignsCount: campaigns.length,
+              timestamp: new Date().toISOString()
+            };
+            break;
+            
+          default:
+            formattedResponse = {
+              success: true,
+              data: responseData,
+              timestamp: new Date().toISOString()
+            };
+        }
+        
+        console.log("=== FIN ACELLE PROXY (SUCCÈS) ===");
+        
+        return new Response(JSON.stringify(formattedResponse), {
           headers: corsHeaders
         });
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        lastError = fetchError;
+        console.error(`Erreur fetch (tentative ${attempt}):`, fetchError);
+        
+        if (fetchError.name === 'AbortError') {
+          console.log(`Timeout sur tentative ${attempt}, retry...`);
+        } else {
+          console.log(`Erreur réseau sur tentative ${attempt}, retry...`);
+        }
+        
+        // Si ce n'est pas la dernière tentative, attendre avant de retry
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Attente progressive
+        }
       }
-      
-      return new Response(JSON.stringify({ 
-        success: false,
-        error: `Erreur réseau: ${fetchError.message}`,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: corsHeaders
-      });
     }
     
-    clearTimeout(timeoutId);
+    // Si on arrive ici, toutes les tentatives ont échoué
+    console.error("Toutes les tentatives ont échoué:", lastError);
     
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Impossible de lire la réponse");
-      console.error(`Erreur API ${response.status}:`, errorText);
-      
-      return new Response(JSON.stringify({ 
-        success: false,
-        error: `Erreur API: ${response.status}`,
-        message: errorText,
-        timestamp: new Date().toISOString()
-      }), {
-        status: response.status,
-        headers: corsHeaders
-      });
-    }
-    
-    let responseData;
-    try {
-      responseData = await response.json();
-    } catch (jsonError) {
-      console.error("Erreur parsing JSON réponse:", jsonError);
-      return new Response(JSON.stringify({ 
-        success: false,
-        error: "Réponse API invalide",
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: corsHeaders
-      });
-    }
-    
-    console.log(`Données reçues pour ${action} - Type: ${typeof responseData}`);
-    
-    // Formatage de la réponse selon l'action
-    let formattedResponse;
-    
-    switch (action) {
-      case 'get_campaigns':
-        formattedResponse = {
-          success: true,
-          campaigns: Array.isArray(responseData) ? responseData : (responseData.data || []),
-          total: responseData.total || (Array.isArray(responseData) ? responseData.length : 0),
-          timestamp: new Date().toISOString()
-        };
-        break;
-        
-      case 'get_campaign':
-      case 'get_campaign_stats':
-        formattedResponse = {
-          success: true,
-          campaign: responseData,
-          statistics: responseData.statistics || responseData,
-          timestamp: new Date().toISOString()
-        };
-        break;
-        
-      case 'check_connection':
-      case 'test_connection':
-        const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
-        formattedResponse = {
-          success: true,
-          message: 'Connexion établie',
-          campaignsCount: campaigns.length,
-          timestamp: new Date().toISOString()
-        };
-        break;
-        
-      default:
-        formattedResponse = {
-          success: true,
-          data: responseData,
-          timestamp: new Date().toISOString()
-        };
-    }
-    
-    console.log("=== FIN ACELLE PROXY (SUCCÈS) ===");
-    
-    return new Response(JSON.stringify(formattedResponse), {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: lastError?.name === 'AbortError' 
+        ? `Timeout API (${timeout}ms) après ${maxRetries} tentatives`
+        : `Erreur réseau après ${maxRetries} tentatives: ${lastError?.message}`,
+      timestamp: new Date().toISOString()
+    }), {
+      status: 500,
       headers: corsHeaders
     });
     
