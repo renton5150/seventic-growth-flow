@@ -87,7 +87,7 @@ serve(async (req: Request) => {
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.38.4");
     const supabase = createClient(supabaseUrl, supabaseServiceRole);
     
-    // Récupération des informations du compte avec gestion d'erreur améliorée
+    // Récupération des informations du compte
     console.log(`Récupération du compte ${accountId}`);
     const { data: accountData, error: accountError } = await supabase
       .from("acelle_accounts")
@@ -145,9 +145,9 @@ serve(async (req: Request) => {
     const apiUrl = `${cleanEndpoint}/api/v1/campaigns/${campaignId}?api_token=${api_token}`;
     console.log(`Appel API: ${cleanEndpoint}/api/v1/campaigns/${campaignId}?api_token=***`);
     
-    // Appel à l'API avec timeout de 10 secondes
+    // Appel à l'API avec timeout augmenté à 30 secondes
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     let response;
     try {
@@ -167,7 +167,7 @@ serve(async (req: Request) => {
       if (fetchError.name === 'AbortError') {
         return new Response(JSON.stringify({ 
           success: false,
-          error: "Timeout API (10s)",
+          error: "Timeout API (30s)",
           timestamp: new Date().toISOString()
         }), {
           status: 408,
@@ -238,7 +238,7 @@ serve(async (req: Request) => {
       abuse_complaint_count: responseData.abuse_complaint_count || 0
     };
     
-    // Sauvegarder en cache avec gestion d'erreur améliorée
+    // Sauvegarder en cache
     try {
       const { error: cacheError } = await supabase
         .from("campaign_stats_cache")
@@ -254,7 +254,7 @@ serve(async (req: Request) => {
       if (cacheError) {
         console.warn("Erreur cache (non bloquant):", cacheError);
       } else {
-        console.log("Cache mis à jour");
+        console.log("Cache mis à jour avec succès");
       }
     } catch (err) {
       console.warn("Erreur sauvegarde cache (non bloquant):", err);

@@ -27,6 +27,7 @@ export const AcelleTableRow = ({
   const [stats, setStats] = useState<AcelleCampaignStatistics | null>(campaign?.statistics || null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'edge_function' | 'cache' | 'none'>('none');
   
   const campaignUid = campaign?.uid || campaign?.campaign_uid || '';
   const campaignName = campaign?.name || "Sans nom";
@@ -43,11 +44,13 @@ export const AcelleTableRow = ({
       if (campaign.statistics && !hasEmptyStatistics(campaign.statistics)) {
         console.log(`[TableRow] Statistiques déjà présentes pour ${campaignName}`);
         setStats(campaign.statistics);
+        setDataSource('cache');
         return;
       }
       
       if (!account || !campaignUid) {
         setLoadError(account ? "UID manquant" : "Compte non disponible");
+        setDataSource('none');
         return;
       }
       
@@ -55,25 +58,29 @@ export const AcelleTableRow = ({
       setIsLoading(true);
       
       try {
-        // Utiliser UNIQUEMENT les Edge Functions, pas d'appel direct
+        // Utiliser UNIQUEMENT les Edge Functions
         const freshStats = await fetchDirectStatistics(campaignUid, account);
         
         if (freshStats && !hasEmptyStatistics(freshStats)) {
           console.log(`[TableRow] Statistiques récupérées pour ${campaignName}`);
           setStats(freshStats);
           setLoadError(null);
+          setDataSource('edge_function');
         } else {
           console.log(`[TableRow] Pas de statistiques pour ${campaignName}`);
           if (campaign.statistics) {
             setStats(campaign.statistics);
+            setDataSource('cache');
           } else {
             setStats(null);
             setLoadError("Stats non disponibles");
+            setDataSource('none');
           }
         }
       } catch (error) {
         console.error(`[TableRow] Erreur pour ${campaignName}:`, error);
         setLoadError("Erreur Edge Function");
+        setDataSource('none');
         if (campaign.statistics) {
           setStats(campaign.statistics);
         }
@@ -101,15 +108,18 @@ export const AcelleTableRow = ({
       
       if (freshStats && !hasEmptyStatistics(freshStats)) {
         setStats(freshStats);
+        setDataSource('edge_function');
         toast.success(`Statistiques mises à jour`, { id: "refresh-stats" });
       } else {
         toast.error(`Échec de la mise à jour`, { id: "refresh-stats" });
         setLoadError("Échec du rafraîchissement");
+        setDataSource('none');
       }
     } catch (error) {
       console.error(`Erreur rafraîchissement:`, error);
       toast.error(`Erreur lors du rafraîchissement`, { id: "refresh-stats" });
       setLoadError("Erreur de rafraîchissement");
+      setDataSource('none');
     } finally {
       setIsLoading(false);
     }
@@ -155,9 +165,27 @@ export const AcelleTableRow = ({
     onViewCampaign(campaignUid);
   };
 
+  // Indicateur de source des données
+  const getDataSourceColor = () => {
+    switch (dataSource) {
+      case 'edge_function': return 'text-green-600';
+      case 'cache': return 'text-orange-600';
+      default: return 'text-red-600';
+    }
+  };
+
   return (
     <TableRow>
-      <TableCell className="font-medium">{campaignName}</TableCell>
+      <TableCell className="font-medium">
+        <div className="flex flex-col">
+          <span>{campaignName}</span>
+          <span className={`text-xs ${getDataSourceColor()}`}>
+            {dataSource === 'edge_function' && '● API Live'}
+            {dataSource === 'cache' && '● Cache'}
+            {dataSource === 'none' && '● Aucune donnée'}
+          </span>
+        </div>
+      </TableCell>
       <TableCell>{campaignSubject}</TableCell>
       <TableCell>
         <Badge variant={getStatusBadgeVariant(campaignStatus)}>

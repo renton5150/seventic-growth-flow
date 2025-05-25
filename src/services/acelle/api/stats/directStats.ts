@@ -22,7 +22,7 @@ export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null)
 };
 
 /**
- * Récupère les statistiques via Edge Functions uniquement (sans fallback direct API)
+ * Récupère les statistiques via Edge Functions uniquement
  */
 export const fetchDirectStatistics = async (
   campaignUid: string,
@@ -50,7 +50,7 @@ export const fetchDirectStatistics = async (
       
       if (!error && data?.success && data.stats) {
         console.log(`[fetchDirectStatistics] Succès via acelle-stats-test`);
-        const validStats = ensureValidStatistics(data.stats);
+        const validStats = ensureValidStatistics(data.stats as Partial<AcelleCampaignStatistics>);
         
         // Sauvegarder en cache (sans bloquer)
         saveCampaignStatistics(campaignUid, account.id, validStats).catch(err => {
@@ -82,7 +82,7 @@ export const fetchDirectStatistics = async (
       
       if (!error && data?.success && data.statistics) {
         console.log(`[fetchDirectStatistics] Succès via acelle-proxy`);
-        const validStats = ensureValidStatistics(data.statistics);
+        const validStats = ensureValidStatistics(data.statistics as Partial<AcelleCampaignStatistics>);
         
         // Sauvegarder en cache (sans bloquer)
         saveCampaignStatistics(campaignUid, account.id, validStats).catch(err => {
@@ -99,7 +99,7 @@ export const fetchDirectStatistics = async (
       console.warn(`[fetchDirectStatistics] acelle-proxy échouée:`, proxyError);
     }
     
-    // Méthode 3: Fallback sur le cache local (SANS appel direct API)
+    // Méthode 3: Fallback sur le cache local uniquement
     try {
       console.log(`[fetchDirectStatistics] Tentative de récupération depuis le cache`);
       
@@ -110,9 +110,9 @@ export const fetchDirectStatistics = async (
         .eq('account_id', account.id)
         .maybeSingle();
       
-      if (cachedStats?.statistics) {
+      if (cachedStats?.statistics && typeof cachedStats.statistics === 'object') {
         console.log(`[fetchDirectStatistics] Statistiques trouvées en cache pour ${campaignUid}`);
-        return ensureValidStatistics(cachedStats.statistics);
+        return ensureValidStatistics(cachedStats.statistics as Partial<AcelleCampaignStatistics>);
       }
     } catch (cacheError) {
       console.warn(`[fetchDirectStatistics] Erreur cache:`, cacheError);

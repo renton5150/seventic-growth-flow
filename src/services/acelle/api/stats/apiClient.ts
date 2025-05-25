@@ -32,7 +32,7 @@ export const fetchCampaignStatisticsFromApi = async (
       
       if (!error && data?.success && data.stats) {
         console.log(`[fetchCampaignStatisticsFromApi] Succès acelle-stats-test`);
-        return ensureValidStatistics(data.stats);
+        return ensureValidStatistics(data.stats as Partial<AcelleCampaignStatistics>);
       }
       
       if (error) {
@@ -58,11 +58,11 @@ export const fetchCampaignStatisticsFromApi = async (
       if (!error && data?.success) {
         console.log(`[fetchCampaignStatisticsFromApi] Succès acelle-proxy`);
         
-        // Extraire les statistiques
+        // Extraire les statistiques avec validation de type
         let stats = data.statistics || data.campaign?.statistics || data.campaign || null;
         
-        if (stats) {
-          return ensureValidStatistics(stats);
+        if (stats && typeof stats === 'object') {
+          return ensureValidStatistics(stats as Partial<AcelleCampaignStatistics>);
         }
       }
       
@@ -73,7 +73,7 @@ export const fetchCampaignStatisticsFromApi = async (
       console.error(`[fetchCampaignStatisticsFromApi] acelle-proxy échoué:`, proxyError);
     }
     
-    // Fallback sur le cache (SANS appel direct API)
+    // Fallback sur le cache uniquement
     try {
       console.log(`[fetchCampaignStatisticsFromApi] Tentative cache pour ${campaignUid}`);
       
@@ -84,9 +84,9 @@ export const fetchCampaignStatisticsFromApi = async (
         .eq('account_id', account.id)
         .maybeSingle();
       
-      if (cachedStats?.statistics) {
+      if (cachedStats?.statistics && typeof cachedStats.statistics === 'object') {
         console.log(`[fetchCampaignStatisticsFromApi] Stats trouvées en cache`);
-        return ensureValidStatistics(cachedStats.statistics);
+        return ensureValidStatistics(cachedStats.statistics as Partial<AcelleCampaignStatistics>);
       }
     } catch (cacheError) {
       console.warn(`[fetchCampaignStatisticsFromApi] Erreur cache:`, cacheError);

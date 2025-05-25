@@ -117,9 +117,9 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}`);
     
-    // Appel à l'API avec timeout de 10 secondes
+    // Appel à l'API avec timeout augmenté à 30 secondes
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     let response;
     try {
@@ -139,7 +139,7 @@ serve(async (req) => {
       if (fetchError.name === 'AbortError') {
         return new Response(JSON.stringify({ 
           success: false,
-          error: "Timeout API (10s)",
+          error: "Timeout API (30s)",
           timestamp: new Date().toISOString()
         }), {
           status: 408,
@@ -189,7 +189,7 @@ serve(async (req) => {
       });
     }
     
-    console.log(`Données reçues pour ${action}`);
+    console.log(`Données reçues pour ${action} - Type: ${typeof responseData}`);
     
     // Formatage de la réponse selon l'action
     let formattedResponse;
