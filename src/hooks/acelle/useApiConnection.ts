@@ -1,41 +1,17 @@
 
 import { useState, useCallback } from "react";
 import { AcelleAccount, AcelleConnectionDebug } from "@/types/acelle.types";
+import { testAcelleConnection, checkAcelleConnectionStatus } from "@/services/acelle/api/connection";
 
-// Hook pour vérifier la connexion à l'API Acelle
+// Hook pour vérifier la connexion à l'API Acelle directement
 export function useApiConnection(account?: AcelleAccount) {
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckResult, setLastCheckResult] = useState<boolean | null>(null);
   const [debugInfo, setDebugInfo] = useState<AcelleConnectionDebug | null>(null);
 
-  // Réveille l'edge function avant utilisation
-  const wakeUpEdgeFunctions = useCallback(async (token?: string | null) => {
-    if (!token) return false;
-
-    try {
-      console.log("Réveil des edge functions...");
-      
-      const response = await fetch(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/ping`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      
-      const result = await response.json();
-      console.log("Résultat du réveil:", result);
-      
-      return result.success;
-    } catch (error) {
-      console.error("Erreur lors du réveil des edge functions:", error);
-      return false;
-    }
-  }, []);
-
-  // Vérifie si l'API est disponible
-  const checkApiAvailability = useCallback(async (token?: string | null) => {
-    if (!account || !token) {
+  // Vérifie si l'API est disponible en utilisant les appels directs
+  const checkApiAvailability = useCallback(async () => {
+    if (!account) {
       setLastCheckResult(false);
       return false;
     }
@@ -43,22 +19,23 @@ export function useApiConnection(account?: AcelleAccount) {
     try {
       setIsChecking(true);
       
-      // Construire l'URL pour la vérification
-      const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
-      url.searchParams.append("url", account.api_endpoint);
+      console.log(`Vérification de la connexion pour le compte ${account.name}`);
       
-      // Effectuer la requête
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      // Utiliser la nouvelle fonction de test de connexion directe
+      const result = await checkAcelleConnectionStatus(account);
       
-      const result = await response.json();
       setLastCheckResult(result.success);
-      setDebugInfo(result);
+      
+      // Convertir le résultat en format AcelleConnectionDebug
+      const debugResult: AcelleConnectionDebug = {
+        success: result.success,
+        timestamp: new Date().toISOString(),
+        errorMessage: result.success ? undefined : result.message,
+        statusCode: result.success ? 200 : undefined,
+        duration: result.details?.responseTime || 0
+      };
+      
+      setDebugInfo(debugResult);
       
       return result.success;
     } catch (error) {
@@ -75,33 +52,25 @@ export function useApiConnection(account?: AcelleAccount) {
     }
   }, [account]);
 
-  // Récupère des informations de diagnostic
-  const getDebugInfo = useCallback(async (token?: string | null): Promise<AcelleConnectionDebug> => {
-    if (!account || !token) {
+  // Récupère des informations de diagnostic en utilisant les appels directs
+  const getDebugInfo = useCallback(async (): Promise<AcelleConnectionDebug> => {
+    if (!account || !account.api_token || !account.api_endpoint) {
       return {
         success: false,
         timestamp: new Date().toISOString(),
-        errorMessage: "Aucun compte ou token fourni"
+        errorMessage: "Informations de compte manquantes"
       };
     }
 
     try {
-      // Construire l'URL pour la vérification
-      const url = new URL(`https://dupguifqyjchlmzbadav.supabase.co/functions/v1/check-acelle-api`);
-      url.searchParams.append("url", account.api_endpoint);
-      url.searchParams.append("token", account.api_token);
-      url.searchParams.append("detailed", "true");
+      console.log(`Récupération des infos de diagnostic pour ${account.name}`);
       
-      // Effectuer la requête
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      // Utiliser la fonction de test directe
+      const result = await testAcelleConnection(
+        account.api_endpoint,
+        account.api_token
+      );
       
-      const result = await response.json();
       setDebugInfo(result);
       return result;
     } catch (error) {
@@ -116,12 +85,18 @@ export function useApiConnection(account?: AcelleAccount) {
     }
   }, [account]);
 
+  // Fonction simplifiée pour le réveil (plus nécessaire avec les appels directs)
+  const wakeUpEdgeFunctions = useCallback(async () => {
+    console.log("Edge Functions non utilisées, appels directs à l'API Acelle");
+    return true;
+  }, []);
+
   return {
     isChecking,
     lastCheckResult,
-    wakeUpEdgeFunctions,
     checkApiAvailability,
     getDebugInfo,
-    debugInfo
+    debugInfo,
+    wakeUpEdgeFunctions
   };
 }

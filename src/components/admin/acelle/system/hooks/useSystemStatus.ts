@@ -1,23 +1,23 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AcelleAccount } from '@/types/acelle.types';
 import { toast } from 'sonner';
+import { checkAcelleConnectionStatus } from '@/services/acelle/api/connection';
 
 export const useSystemStatus = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [systemStatus, setSystemStatus] = useState<Record<string, boolean>>({});
-  const [edgeFunctionsStatus, setEdgeFunctionsStatus] = useState<{
-    acelle: boolean;
-    sync: boolean;
-    latency: number;
+  const [acelleApiStatus, setAcelleApiStatus] = useState<{
     isAvailable: boolean;
+    accountsCount: number;
+    activeAccountsCount: number;
+    lastTestTime: Date | null;
   }>({
-    acelle: false,
-    sync: false,
-    latency: 0,
-    isAvailable: false
+    isAvailable: false,
+    accountsCount: 0,
+    activeAccountsCount: 0,
+    lastTestTime: null
   });
   const [databaseStatus, setDatabaseStatus] = useState<{
     isConnected: boolean;
@@ -90,57 +90,80 @@ export const useSystemStatus = () => {
     }
   }, []);
 
-  // Vérifier la disponibilité des Edge Functions
-  const checkEdgeFunctions = useCallback(async () => {
+  // Vérifier la disponibilité de l'API Acelle directement
+  const checkAcelleApiAvailability = useCallback(async () => {
     try {
-      // Vérifier si nous avons un token d'authentification
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      // Récupérer tous les comptes Acelle
+      const { data: accounts, error } = await supabase
+        .from('acelle_accounts')
+        .select('*');
       
-      if (!token) {
-        console.error("Aucun token d'authentification disponible pour tester les Edge Functions");
-        setEdgeFunctionsStatus({
-          acelle: false,
-          sync: false,
-          latency: 0,
-          isAvailable: false
-        });
-        return false;
+      if (error) throw error;
+      
+      let activeAccountsCount = 0;
+      let successfulConnections = 0;
+      
+      // Tester la connexion pour chaque compte
+      for (const account of accounts || []) {
+        try {
+          const result = await checkAcelleConnectionStatus(account as AcelleAccount);
+          
+          if (result.success) {
+            successfulConnections++;
+            
+            // Mettre à jour le statut du compte s'il n'est pas actif
+            if (account.status !== 'active') {
+              await supabase
+                .from('acelle_accounts')
+                .update({ status: 'active' })
+                .eq('id', account.id);
+            }
+            activeAccountsCount++;
+          } else {
+            console.error(`Connexion échouée pour ${account.name}:`, result.message);
+            
+            // Mettre à jour le statut du compte en erreur
+            if (account.status !== 'error') {
+              await supabase
+                .from('acelle_accounts')
+                .update({ 
+                  status: 'error',
+                  last_sync_error: result.message 
+                })
+                .eq('id', account.id);
+            }
+          }
+        } catch (err) {
+          console.error(`Erreur lors du test de connexion pour ${account.name}:`, err);
+          
+          // Mettre à jour le statut du compte en erreur
+          await supabase
+            .from('acelle_accounts')
+            .update({ 
+              status: 'error',
+              last_sync_error: err instanceof Error ? err.message : "Erreur inconnue"
+            })
+            .eq('id', account.id);
+        }
       }
       
-      // Test de l'Edge Function acelle-proxy avec un ping simple
-      const startTime = performance.now();
-      const response = await fetch(
-        'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping', 
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const isAvailable = successfulConnections > 0;
       
-      const endTime = performance.now();
-      const latency = Math.round(endTime - startTime);
-      
-      const isAvailable = response.ok;
-      
-      setEdgeFunctionsStatus({
-        acelle: isAvailable,
-        sync: isAvailable, // On suppose que si l'un fonctionne, l'autre aussi
-        latency,
-        isAvailable
+      setAcelleApiStatus({
+        isAvailable,
+        accountsCount: accounts?.length || 0,
+        activeAccountsCount,
+        lastTestTime: new Date()
       });
       
       return isAvailable;
     } catch (err) {
-      console.error("Erreur lors de la vérification des Edge Functions:", err);
-      setEdgeFunctionsStatus({
-        acelle: false,
-        sync: false,
-        latency: 0,
-        isAvailable: false
+      console.error("Erreur lors de la vérification de l'API Acelle:", err);
+      setAcelleApiStatus({
+        isAvailable: false,
+        accountsCount: 0,
+        activeAccountsCount: 0,
+        lastTestTime: new Date()
       });
       return false;
     }
@@ -165,17 +188,11 @@ export const useSystemStatus = () => {
         .single();
         
       // Récupérer le nombre de comptes distincts avec des campagnes en cache
-      const { data: uniqueAccountsData } = await supabase
-        .from('email_campaigns_cache')
-        .select('account_id', { count: 'exact' })
-        .limit(1);
-      
-      // Compter manuellement les comptes uniques
-      const uniqueAccountsSet = new Set();
       const { data: allAccountsData } = await supabase
         .from('email_campaigns_cache')
         .select('account_id');
       
+      const uniqueAccountsSet = new Set();
       if (allAccountsData) {
         allAccountsData.forEach(row => {
           if (row.account_id) {
@@ -204,7 +221,6 @@ export const useSystemStatus = () => {
         .from('campaign_stats_cache')
         .select('account_id');
         
-      // Compter manuellement les comptes uniques pour les statistiques
       const uniqueStatsAccountsSet = new Set();
       if (uniqueStatsAccountsData) {
         uniqueStatsAccountsData.forEach(row => {
@@ -217,13 +233,13 @@ export const useSystemStatus = () => {
       setCachingStatus({
         emailCampaignsCache: {
           totalRows: campaignCount || 0,
-          estimatedSize: formatSizeInKB(campaignCount || 0, 2), // Estimation de 2 KB par entrée
+          estimatedSize: formatSizeInKB(campaignCount || 0, 2),
           lastUpdate: lastCampaignUpdate?.cache_updated_at ? new Date(lastCampaignUpdate.cache_updated_at) : null,
           accountsWithCache: uniqueAccountsSet.size
         },
         campaignStatsCache: {
           totalRows: statsCount || 0,
-          estimatedSize: formatSizeInKB(statsCount || 0, 5), // Estimation de 5 KB par entrée
+          estimatedSize: formatSizeInKB(statsCount || 0, 5),
           lastUpdate: lastStatsUpdate?.last_updated ? new Date(lastStatsUpdate.last_updated) : null,
           accountsWithCache: uniqueStatsAccountsSet.size
         }
@@ -271,28 +287,25 @@ export const useSystemStatus = () => {
     }
   }, []);
 
-  // Test de connexion à acelle-proxy
-  const testEdgeFunctionConnection = useCallback(async (token: string | null): Promise<boolean> => {
-    if (!token) return false;
-    
+  // Test de connexion direct à l'API Acelle
+  const testAcelleApiConnection = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch(
-        'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/acelle-proxy/ping',
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const accounts = await getAcelleAccounts();
       
-      return response.ok;
+      if (accounts.length === 0) {
+        return false;
+      }
+      
+      // Tester au moins un compte
+      const testAccount = accounts.find(acc => acc.status === 'active') || accounts[0];
+      const result = await checkAcelleConnectionStatus(testAccount);
+      
+      return result.success;
     } catch (err) {
-      console.error("Erreur lors du test de connexion à l'Edge Function:", err);
+      console.error("Erreur lors du test de connexion à l'API Acelle:", err);
       return false;
     }
-  }, []);
+  }, [getAcelleAccounts]);
 
   // Rafraîchir tous les statuts
   const refreshStatus = useCallback(async () => {
@@ -302,13 +315,13 @@ export const useSystemStatus = () => {
     try {
       const dbStatus = await checkDatabaseConnection();
       const authOk = checkAuthStatus();
-      const edgeFunctionsOk = await checkEdgeFunctions();
+      const acelleApiOk = await checkAcelleApiAvailability();
       await checkCacheStatus();
       
       setSystemStatus({
         database: dbStatus,
         auth: authOk,
-        edgeFunctions: edgeFunctionsOk,
+        acelleApi: acelleApiOk,
       });
     } catch (err) {
       console.error("Erreur lors de l'actualisation des statuts:", err);
@@ -316,7 +329,7 @@ export const useSystemStatus = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [checkDatabaseConnection, checkAuthStatus, checkEdgeFunctions, checkCacheStatus]);
+  }, [checkDatabaseConnection, checkAuthStatus, checkAcelleApiAvailability, checkCacheStatus]);
 
   // Exécuter les tests de diagnostic
   const performTests = useCallback(async () => {
@@ -324,22 +337,13 @@ export const useSystemStatus = () => {
       setIsLoading(true);
       toast.loading("Exécution des tests de diagnostic...", { id: "diagnostic" });
       
-      // Obtenez le token d'authentification
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      // Test de l'API Acelle directe
+      const acelleApiConnected = await testAcelleApiConnection();
       
-      if (!token) {
-        toast.error("Aucun token d'authentification disponible", { id: "diagnostic" });
-        return;
-      }
-      
-      // Test 1: Vérifier la connexion à l'Edge Function
-      const edgeFunctionConnected = await testEdgeFunctionConnection(token);
-      
-      // Test 2: Vérifier la base de données
+      // Test de la base de données
       const dbConnected = await checkDatabaseConnection();
       
-      // Test 3: Vérifier l'état du cache
+      // Vérifier l'état du cache
       await checkCacheStatus();
       
       // Résultats compilés
@@ -347,11 +351,12 @@ export const useSystemStatus = () => {
         timestamp: new Date().toISOString(),
         auth: {
           isLoggedIn: !!user,
-          token: !!token
+          hasValidSession: !!user
         },
-        edgeFunction: {
-          connected: edgeFunctionConnected,
-          latency: edgeFunctionsStatus.latency
+        acelleApi: {
+          connected: acelleApiConnected,
+          accountsCount: acelleApiStatus.accountsCount,
+          activeAccountsCount: acelleApiStatus.activeAccountsCount
         },
         database: {
           connected: dbConnected,
@@ -373,22 +378,18 @@ export const useSystemStatus = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, testEdgeFunctionConnection, checkDatabaseConnection, checkCacheStatus, edgeFunctionsStatus.latency, databaseStatus.count, cachingStatus]);
+  }, [user, testAcelleApiConnection, checkDatabaseConnection, checkCacheStatus, acelleApiStatus, databaseStatus.count, cachingStatus]);
 
   // Exécuter la vérification initiale au chargement
   useEffect(() => {
     refreshStatus();
-    
-    // Rafraîchir automatiquement toutes les 60 secondes (si voulu)
-    // const interval = setInterval(refreshStatus, 60000);
-    // return () => clearInterval(interval);
   }, [refreshStatus]);
 
   return {
     isLoading,
     systemStatus,
     refreshStatus,
-    edgeFunctionsStatus,
+    acelleApiStatus,
     databaseStatus,
     cachingStatus,
     lastRefresh,
@@ -396,6 +397,6 @@ export const useSystemStatus = () => {
     performTests,
     diagnosticResult,
     getAcelleAccounts,
-    testEdgeFunctionConnection
+    testEdgeFunctionConnection: testAcelleApiConnection
   };
 };

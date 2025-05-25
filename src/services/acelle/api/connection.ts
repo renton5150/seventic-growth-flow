@@ -34,7 +34,7 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
     // Mesurer le temps de réponse
     const startTime = Date.now();
     
-    // Effectuer l'appel API direct
+    // Effectuer l'appel API direct avec headers CORS appropriés
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
@@ -42,22 +42,38 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
         'Content-Type': 'application/json',
         'x-account-id': account.id,
         'x-acelle-token': account.api_token,
-        'Origin': window.location.origin
+        'Origin': window.location.origin,
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'Content-Type, x-account-id, x-acelle-token'
       },
-      signal: AbortSignal.timeout(10000) // Timeout après 10 secondes
+      mode: 'cors',
+      credentials: 'omit',
+      signal: AbortSignal.timeout(15000) // Timeout après 15 secondes
     });
     
     const responseTime = Date.now() - startTime;
     
     // Analyser la réponse
     if (!response.ok) {
+      let errorMessage = `Erreur API HTTP ${response.status}`;
+      
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          errorMessage += `: ${errorText}`;
+        }
+      } catch (e) {
+        // Impossible de lire la réponse d'erreur
+      }
+      
       return {
         success: false,
-        message: `Erreur API directe (${response.status})`,
+        message: errorMessage,
         details: {
           status: response.status,
           statusText: response.statusText,
-          responseTime
+          responseTime,
+          headers: Object.fromEntries(response.headers.entries())
         }
       };
     }
@@ -66,21 +82,31 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
     
     return {
       success: true,
-      message: "Connexion directe établie",
+      message: "Connexion directe établie avec succès",
       details: {
         responseTime,
         apiVersion: data.version || "Inconnue",
-        data
+        campaignsFound: data.data ? data.data.length : 0,
+        totalCampaigns: data.total || 0
       }
     };
   } catch (error) {
     console.error("Erreur lors de la vérification de la connexion directe:", error);
     
+    let errorMessage = "Erreur de connexion";
+    
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      errorMessage = "Erreur CORS - Impossible d'accéder à l'API Acelle. Vérifiez la configuration CORS du serveur.";
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Erreur inconnue",
+      message: errorMessage,
       details: {
-        error: String(error)
+        error: String(error),
+        timestamp: new Date().toISOString()
       }
     };
   }
@@ -109,7 +135,7 @@ export const testAcelleConnection = async (
     // Mesurer le temps de réponse
     const startTime = Date.now();
     
-    // Effectuer l'appel API direct
+    // Effectuer l'appel API direct avec gestion CORS améliorée
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
@@ -118,18 +144,39 @@ export const testAcelleConnection = async (
         'x-acelle-token': apiToken,
         'Origin': window.location.origin
       },
-      signal: AbortSignal.timeout(10000) // Timeout après 10 secondes
+      mode: 'cors',
+      credentials: 'omit',
+      signal: AbortSignal.timeout(15000) // Timeout après 15 secondes
     });
     
     const duration = Date.now() - startTime;
     
     if (!response.ok) {
+      let errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
+      
+      try {
+        const errorText = await response.text();
+        if (errorText && errorText.length < 500) {
+          errorMessage += ` - ${errorText}`;
+        }
+      } catch (e) {
+        // Impossible de lire la réponse d'erreur
+      }
+      
       return {
         success: false,
         timestamp: new Date().toISOString(),
-        errorMessage: `Erreur HTTP ${response.status}: ${response.statusText}`,
+        errorMessage,
         statusCode: response.status,
-        duration
+        duration,
+        request: {
+          url: testUrl.replace(apiToken, '***'),
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
       };
     }
     
@@ -141,13 +188,33 @@ export const testAcelleConnection = async (
       duration,
       statusCode: response.status,
       apiVersion: data.version || "Inconnue",
-      responseData: data
+      responseData: {
+        campaignsCount: data.data ? data.data.length : 0,
+        totalCampaigns: data.total || 0,
+        hasData: !!data.data
+      },
+      request: {
+        url: testUrl.replace(apiToken, '***'),
+        method: 'GET'
+      }
     };
   } catch (error) {
+    let errorMessage = "Erreur de connexion";
+    
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      errorMessage = "Erreur CORS - L'API Acelle n'autorise pas les requêtes depuis ce domaine";
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     return {
       success: false,
       timestamp: new Date().toISOString(),
-      errorMessage: error instanceof Error ? error.message : String(error)
+      errorMessage,
+      request: {
+        url: apiEndpoint,
+        method: 'GET'
+      }
     };
   }
 };
