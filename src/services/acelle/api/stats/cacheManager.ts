@@ -54,8 +54,12 @@ export const getCachedCampaignStatistics = async (
       return null;
     }
 
-    if (data?.statistics && typeof data.statistics === 'object') {
-      return data.statistics as AcelleCampaignStatistics;
+    if (data?.statistics) {
+      // Validation et conversion sécurisée du type
+      const stats = data.statistics as unknown;
+      if (typeof stats === 'object' && stats !== null && !Array.isArray(stats)) {
+        return stats as AcelleCampaignStatistics;
+      }
     }
 
     return null;
