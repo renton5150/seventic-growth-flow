@@ -100,13 +100,13 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
     
     let allCampaigns: AcelleCampaign[] = [];
     let currentPage = 1;
-    const perPage = 200; // Plus élevé pour réduire le nombre d'appels
+    const perPage = 500; // Utiliser une taille de page plus grande
     let hasMorePages = true;
     let consecutiveFailures = 0;
     const maxConsecutiveFailures = 3;
     let totalExpected = 0;
     
-    while (hasMorePages && consecutiveFailures < maxConsecutiveFailures) {
+    while (hasMorePages && consecutiveFailures < maxConsecutiveFailures && currentPage <= 20) {
       console.log(`[getAllCampaigns] Récupération page ${currentPage} pour ${account.name}`);
       
       try {
@@ -124,16 +124,25 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
         }
         
         if (campaigns.length > 0) {
-          allCampaigns = [...allCampaigns, ...campaigns];
+          // Filtrer les doublons par UID
+          const newCampaigns = campaigns.filter(newCampaign => 
+            !allCampaigns.some(existingCampaign => 
+              existingCampaign.uid === newCampaign.uid || 
+              existingCampaign.campaign_uid === newCampaign.uid
+            )
+          );
+          
+          allCampaigns = [...allCampaigns, ...newCampaigns];
           consecutiveFailures = 0; // Reset le compteur d'échecs
-          console.log(`[getAllCampaigns] Page ${currentPage}: ${campaigns.length} campagnes récupérées (total actuel: ${allCampaigns.length}/${totalExpected})`);
+          
+          console.log(`[getAllCampaigns] Page ${currentPage}: ${campaigns.length} campagnes récupérées, ${newCampaigns.length} nouvelles (total actuel: ${allCampaigns.length}/${totalExpected})`);
           
           // Utiliser hasMore de l'API pour déterminer s'il y a plus de pages
+          hasMorePages = hasMore;
+          
           if (!hasMore) {
-            hasMorePages = false;
             console.log(`[getAllCampaigns] Fin de pagination détectée pour ${account.name} (hasMore: false)`);
-          } else {
-            currentPage++;
+            break;
           }
         } else {
           // Page vide
@@ -148,15 +157,11 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
           }
         }
         
-        // Sécurité : ne pas dépasser 100 pages
-        if (currentPage > 100) {
-          console.warn(`[getAllCampaigns] Arrêt après 100 pages pour ${account.name}`);
-          break;
-        }
+        currentPage++;
         
-        // Pause entre les appels pour éviter de surcharger l'API
+        // Pause plus courte entre les appels
         if (hasMorePages) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms entre les appels
+          await new Promise(resolve => setTimeout(resolve, 200)); // 200ms entre les appels
         }
         
       } catch (pageError) {
@@ -168,8 +173,8 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
           break;
         }
         
-        // Attendre plus longtemps en cas d'erreur avant de continuer
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Attendre moins longtemps en cas d'erreur
+        await new Promise(resolve => setTimeout(resolve, 2000));
         currentPage++;
       }
     }
@@ -286,8 +291,8 @@ export const forceSyncCampaigns = async (
         message: `Mise en cache de ${allCampaigns.length} campagnes...` 
       });
       
-      // Mettre en cache les campagnes par lots avec la nouvelle contrainte unique
-      const batchSize = 20; // Augmenter la taille des lots
+      // Mettre en cache les campagnes par lots avec correction des valeurs vides
+      const batchSize = 10; // Réduire la taille des lots pour éviter les timeouts
       let processedCount = 0;
       
       for (let i = 0; i < allCampaigns.length; i += batchSize) {
@@ -295,22 +300,25 @@ export const forceSyncCampaigns = async (
         
         const cachePromises = batch.map(async (campaign) => {
           try {
+            // Nettoyer les valeurs pour éviter les erreurs de timestamp
+            const cleanCampaign = {
+              account_id: account.id,
+              campaign_uid: campaign.uid,
+              name: campaign.name || '',
+              subject: campaign.subject || '',
+              status: campaign.status || '',
+              created_at: campaign.created_at || null,
+              updated_at: campaign.updated_at || null,
+              delivery_date: campaign.delivery_date || null,
+              run_at: campaign.run_at || null, // Utiliser null au lieu de chaîne vide
+              last_error: campaign.last_error || null,
+              delivery_info: campaign.delivery_info || {},
+              cache_updated_at: new Date().toISOString()
+            };
+            
             const { error } = await supabase
               .from('email_campaigns_cache')
-              .upsert({
-                account_id: account.id,
-                campaign_uid: campaign.uid,
-                name: campaign.name,
-                subject: campaign.subject,
-                status: campaign.status,
-                created_at: campaign.created_at,
-                updated_at: campaign.updated_at,
-                delivery_date: campaign.delivery_date,
-                run_at: campaign.run_at,
-                last_error: campaign.last_error,
-                delivery_info: campaign.delivery_info as any,
-                cache_updated_at: new Date().toISOString()
-              }, {
+              .upsert(cleanCampaign, {
                 onConflict: 'account_id,campaign_uid'
               });
             
@@ -333,8 +341,8 @@ export const forceSyncCampaigns = async (
           message: `${processedCount}/${allCampaigns.length} campagnes mises en cache` 
         });
         
-        // Petite pause pour éviter de surcharger la base de données
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Pause plus courte pour améliorer les performances
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       // Marquer la synchronisation comme réussie

@@ -41,7 +41,7 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '60000'); // 60 secondes
+    const timeout = parseInt(body.timeout || '90000'); // Augmenter à 90 secondes
     
     console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
@@ -71,7 +71,7 @@ serve(async (req) => {
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '200'; // Augmenter à 200 pour récupérer plus de campagnes par page
+        const perPage = body.per_page || '500'; // Augmenter drastiquement pour récupérer plus de campagnes
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
@@ -119,7 +119,7 @@ serve(async (req) => {
     console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
     
     // Appel à l'API avec timeout et retry améliorés
-    const maxRetries = 3;
+    const maxRetries = 5; // Augmenter le nombre de retry
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -133,9 +133,9 @@ serve(async (req) => {
           method: "GET",
           headers: {
             "Accept": "application/json",
-            "User-Agent": "Seventic-Acelle-Proxy/6.0",
+            "User-Agent": "Seventic-Acelle-Proxy/7.0",
             "Cache-Control": "no-cache",
-            "Connection": "close"
+            "Connection": "keep-alive" // Changer de close à keep-alive
           },
           signal: controller.signal
         });
@@ -159,10 +159,10 @@ serve(async (req) => {
             });
           }
           
-          // Retry pour les erreurs 5xx et timeouts
+          // Retry pour les erreurs 5xx et timeouts avec attente progressive
           if (response.status >= 500 && attempt < maxRetries) {
-            console.log(`Erreur serveur ${response.status}, retry dans 3 secondes...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            console.log(`Erreur serveur ${response.status}, retry dans ${attempt * 2} secondes...`);
+            await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // Attente progressive
             continue;
           }
           
@@ -184,8 +184,8 @@ serve(async (req) => {
           console.error("Erreur parsing JSON réponse:", jsonError);
           
           if (attempt < maxRetries) {
-            console.log(`Erreur JSON, retry dans 2 secondes...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log(`Erreur JSON, retry dans ${attempt * 2} secondes...`);
+            await new Promise(resolve => setTimeout(resolve, attempt * 2000));
             continue;
           }
           
@@ -208,20 +208,35 @@ serve(async (req) => {
           case 'get_campaigns':
             const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
             
-            // Calculer s'il y a plus de pages en se basant sur la réponse
+            // Améliorer la détection de pagination
             const currentPage = parseInt(body.page || '1');
-            const perPageSize = parseInt(body.per_page || '200');
-            const hasMore = campaigns.length === perPageSize; // S'il y a exactement perPage éléments, il y a probablement une autre page
+            const perPageSize = parseInt(body.per_page || '500');
             
-            console.log(`Campagnes récupérées: ${campaigns.length}, Page: ${currentPage}, PerPage: ${perPageSize}, HasMore: ${hasMore}`);
+            // Utiliser les métadonnées de l'API Acelle si disponibles
+            const totalFromApi = responseData.total || responseData.meta?.total;
+            const lastPageFromApi = responseData.last_page || responseData.meta?.last_page;
+            const currentPageFromApi = responseData.current_page || responseData.meta?.current_page;
+            
+            // Calculer s'il y a plus de pages
+            let hasMore = false;
+            if (totalFromApi && currentPageFromApi && lastPageFromApi) {
+              hasMore = currentPageFromApi < lastPageFromApi;
+            } else {
+              // Fallback: si on récupère exactement perPage éléments, il y a probablement plus
+              hasMore = campaigns.length === perPageSize;
+            }
+            
+            console.log(`Campagnes récupérées: ${campaigns.length}, Page: ${currentPage}, PerPage: ${perPageSize}, Total API: ${totalFromApi}, HasMore: ${hasMore}`);
             
             formattedResponse = {
               success: true,
               campaigns: campaigns,
-              total: responseData.total || campaigns.length,
+              total: totalFromApi || campaigns.length,
               page: currentPage,
               per_page: perPageSize,
               has_more: hasMore,
+              last_page: lastPageFromApi,
+              meta: responseData.meta, // Inclure les métadonnées complètes
               timestamp: new Date().toISOString()
             };
             break;
@@ -274,7 +289,7 @@ serve(async (req) => {
         
         // Si ce n'est pas la dernière tentative, attendre avant de retry
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Attente progressive
+          await new Promise(resolve => setTimeout(resolve, attempt * 3000)); // Attente encore plus progressive
         }
       }
     }
