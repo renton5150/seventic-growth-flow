@@ -8,8 +8,15 @@ import { buildDirectAcelleApiUrl } from "../acelle-service";
  */
 export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
   try {
+    console.log(`[checkAcelleConnectionStatus] Début du test pour ${account.name}`);
+    
     // Vérifier que les informations du compte sont complètes
     if (!account || !account.api_token || !account.api_endpoint) {
+      console.error("[checkAcelleConnectionStatus] Informations de compte incomplètes", {
+        hasAccount: !!account,
+        hasToken: account ? !!account.api_token : false,
+        hasEndpoint: account ? !!account.api_endpoint : false
+      });
       return {
         success: false,
         message: "Informations de compte incomplètes",
@@ -30,37 +37,40 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
     
     const testUrl = buildDirectAcelleApiUrl("campaigns", account.api_endpoint, testParams);
     
-    console.log(`Test de connexion directe pour ${account.name}: ${testUrl.replace(account.api_token, '***')}`);
+    console.log(`[checkAcelleConnectionStatus] Test de connexion directe pour ${account.name}: ${testUrl.replace(account.api_token, '***')}`);
     
     // Mesurer le temps de réponse
     const startTime = Date.now();
     
-    // Effectuer l'appel API direct avec headers simplifiés selon la config Icodia
+    // Effectuer l'appel API direct avec headers minimalistes
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    console.log(`[checkAcelleConnectionStatus] Headers utilisés:`, headers);
+    
     const response = await fetch(testUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-        // Suppression de tous les headers CORS personnalisés qui causent des problèmes
-        // Le serveur Icodia gère déjà CORS côté serveur
-      }
+      headers
     });
     
     const responseTime = Date.now() - startTime;
     
-    console.log(`Réponse reçue: Status ${response.status}, Headers:`, Object.fromEntries(response.headers.entries()));
+    console.log(`[checkAcelleConnectionStatus] Réponse reçue: Status ${response.status}, Time ${responseTime}ms`);
+    console.log(`[checkAcelleConnectionStatus] Headers de réponse:`, Object.fromEntries(response.headers.entries()));
     
     // Analyser la réponse
     if (!response.ok) {
-      let errorMessage = `Erreur API HTTP ${response.status}`;
+      let errorMessage = `Erreur API HTTP ${response.status}: ${response.statusText}`;
       
       try {
         const errorText = await response.text();
-        if (errorText) {
-          errorMessage += `: ${errorText}`;
+        console.log(`[checkAcelleConnectionStatus] Corps d'erreur:`, errorText);
+        if (errorText && errorText.length < 500) {
+          errorMessage += ` - ${errorText}`;
         }
       } catch (e) {
-        console.log("Impossible de lire la réponse d'erreur");
+        console.log("[checkAcelleConnectionStatus] Impossible de lire la réponse d'erreur");
       }
       
       // Mettre à jour le statut du compte en erreur
@@ -73,8 +83,9 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
             updated_at: new Date().toISOString()
           })
           .eq('id', account.id);
+        console.log(`[checkAcelleConnectionStatus] Statut du compte ${account.name} mis à jour: error`);
       } catch (updateError) {
-        console.error("Erreur lors de la mise à jour du statut du compte:", updateError);
+        console.error("[checkAcelleConnectionStatus] Erreur lors de la mise à jour du statut du compte:", updateError);
       }
       
       return {
@@ -84,13 +95,19 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
           status: response.status,
           statusText: response.statusText,
           responseTime,
-          headers: Object.fromEntries(response.headers.entries())
+          headers: Object.fromEntries(response.headers.entries()),
+          url: testUrl.replace(account.api_token, '***')
         }
       };
     }
     
     const data = await response.json();
-    console.log(`Données reçues pour ${account.name}:`, data);
+    console.log(`[checkAcelleConnectionStatus] Données reçues pour ${account.name}:`, {
+      dataType: typeof data,
+      hasData: !!data.data,
+      dataLength: data.data ? data.data.length : 0,
+      total: data.total
+    });
     
     // Mettre à jour le statut du compte en actif
     try {
@@ -103,8 +120,9 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
           updated_at: new Date().toISOString()
         })
         .eq('id', account.id);
+      console.log(`[checkAcelleConnectionStatus] Statut du compte ${account.name} mis à jour: active`);
     } catch (updateError) {
-      console.error("Erreur lors de la mise à jour du statut du compte:", updateError);
+      console.error("[checkAcelleConnectionStatus] Erreur lors de la mise à jour du statut du compte:", updateError);
     }
     
     return {
@@ -114,11 +132,12 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
         responseTime,
         apiVersion: data.version || "Inconnue",
         campaignsFound: data.data ? data.data.length : 0,
-        totalCampaigns: data.total || 0
+        totalCampaigns: data.total || 0,
+        url: testUrl.replace(account.api_token, '***')
       }
     };
   } catch (error) {
-    console.error("Erreur lors de la vérification de la connexion directe:", error);
+    console.error("[checkAcelleConnectionStatus] Erreur lors de la vérification de la connexion directe:", error);
     
     let errorMessage = "Erreur de connexion";
     
@@ -138,8 +157,9 @@ export const checkAcelleConnectionStatus = async (account: AcelleAccount) => {
           updated_at: new Date().toISOString()
         })
         .eq('id', account.id);
+      console.log(`[checkAcelleConnectionStatus] Statut du compte ${account.name} mis à jour: error (exception)`);
     } catch (updateError) {
-      console.error("Erreur lors de la mise à jour du statut du compte:", updateError);
+      console.error("[checkAcelleConnectionStatus] Erreur lors de la mise à jour du statut du compte:", updateError);
     }
     
     return {
@@ -162,6 +182,8 @@ export const testAcelleConnection = async (
   authToken?: string
 ): Promise<AcelleConnectionDebug> => {
   try {
+    console.log(`[testAcelleConnection] Test de connexion avec endpoint: ${apiEndpoint}`);
+    
     // Construire l'URL pour tester la connexion directement
     const testUrl = buildDirectAcelleApiUrl(
       "campaigns",
@@ -173,35 +195,38 @@ export const testAcelleConnection = async (
       }
     );
     
-    console.log(`Test de connexion: ${testUrl.replace(apiToken, '***')}`);
+    console.log(`[testAcelleConnection] URL de test: ${testUrl.replace(apiToken, '***')}`);
     
     // Mesurer le temps de réponse
     const startTime = Date.now();
     
     // Effectuer l'appel API direct avec configuration simplifiée
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    console.log(`[testAcelleConnection] Headers utilisés:`, headers);
+    
     const response = await fetch(testUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-        // Headers simplifiés - le serveur Icodia gère CORS
-      }
+      headers
     });
     
     const duration = Date.now() - startTime;
     
-    console.log(`Test terminé: Status ${response.status}, Durée ${duration}ms`);
+    console.log(`[testAcelleConnection] Test terminé: Status ${response.status}, Durée ${duration}ms`);
     
     if (!response.ok) {
       let errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
       
       try {
         const errorText = await response.text();
+        console.log(`[testAcelleConnection] Corps d'erreur:`, errorText);
         if (errorText && errorText.length < 500) {
           errorMessage += ` - ${errorText}`;
         }
       } catch (e) {
-        console.log("Impossible de lire la réponse d'erreur");
+        console.log("[testAcelleConnection] Impossible de lire la réponse d'erreur");
       }
       
       return {
@@ -213,15 +238,17 @@ export const testAcelleConnection = async (
         request: {
           url: testUrl.replace(apiToken, '***'),
           method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
+          headers
         }
       };
     }
     
     const data = await response.json();
+    console.log(`[testAcelleConnection] Données reçues:`, {
+      dataType: typeof data,
+      hasData: !!data.data,
+      dataLength: data.data ? data.data.length : 0
+    });
     
     return {
       success: true,
@@ -240,7 +267,7 @@ export const testAcelleConnection = async (
       }
     };
   } catch (error) {
-    console.error("Erreur lors du test de connexion:", error);
+    console.error("[testAcelleConnection] Erreur lors du test de connexion:", error);
     
     let errorMessage = "Erreur de connexion";
     

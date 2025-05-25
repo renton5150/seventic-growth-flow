@@ -119,33 +119,41 @@ export const buildDirectAcelleApiUrl = (
   acelleEndpoint: string = 'https://emailing.plateforme-solution.net',
   params: Record<string, string> = {}
 ): string => {
+  console.log(`[buildDirectAcelleApiUrl] Construction URL pour path: ${path}`);
+  
   // Nettoyer le chemin d'API
   const apiPath = path.startsWith('/') ? path.substring(1) : path;
+  console.log(`[buildDirectAcelleApiUrl] API path nettoyé: ${apiPath}`);
+  
+  // Normaliser l'endpoint - supprimer /api/v1 s'il est présent pour éviter la duplication
+  let cleanEndpoint = acelleEndpoint;
+  if (cleanEndpoint.endsWith('/api/v1')) {
+    cleanEndpoint = cleanEndpoint.replace('/api/v1', '');
+    console.log(`[buildDirectAcelleApiUrl] Endpoint nettoyé (suppression /api/v1): ${cleanEndpoint}`);
+  }
   
   // Construire l'URL complète de l'API Acelle
-  const apiBase = acelleEndpoint.endsWith('/api/v1') 
-    ? acelleEndpoint 
-    : `${acelleEndpoint}/api/v1`;
-    
-  let apiUrl = `${apiBase}/${apiPath}`;
+  const apiUrl = `${cleanEndpoint}/api/v1/${apiPath}`;
+  console.log(`[buildDirectAcelleApiUrl] URL de base construite: ${apiUrl}`);
   
   // Construire les paramètres de requête pour l'API
   if (Object.keys(params).length > 0) {
     const searchParams = new URLSearchParams();
     
     for (const [key, value] of Object.entries(params)) {
-      if (value !== null && value !== undefined) {
+      if (value !== null && value !== undefined && value !== '') {
         searchParams.append(key, value);
       }
     }
     
-    apiUrl += '?' + searchParams.toString();
+    if (searchParams.toString()) {
+      const finalUrl = `${apiUrl}?${searchParams.toString()}`;
+      console.log(`[buildDirectAcelleApiUrl] URL finale avec paramètres: ${finalUrl.replace(params.api_token || '', '***')}`);
+      return finalUrl;
+    }
   }
   
-  // Ajouter un paramètre de timestamp pour éviter la mise en cache
-  const timestamp = Date.now().toString();
-  apiUrl += (apiUrl.includes('?') ? '&' : '?') + `_t=${timestamp}`;
-  
+  console.log(`[buildDirectAcelleApiUrl] URL finale sans paramètres: ${apiUrl}`);
   return apiUrl;
 };
 

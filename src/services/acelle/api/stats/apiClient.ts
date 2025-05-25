@@ -12,11 +12,11 @@ export const fetchCampaignStatisticsFromApi = async (
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> => {
   try {
-    console.log(`Appel API statistics direct pour la campagne ${campaignUid}`);
+    console.log(`[fetchCampaignStatisticsFromApi] Début pour campagne ${campaignUid} sur compte ${account.name}`);
     
     // Vérifier les paramètres requis
     if (!campaignUid || !account || !account.api_token || !account.api_endpoint) {
-      console.error("Paramètres manquants pour fetchCampaignStatisticsFromApi", {
+      console.error("[fetchCampaignStatisticsFromApi] Paramètres manquants", {
         campaignUid,
         hasAccount: !!account,
         hasToken: account ? !!account.api_token : false,
@@ -32,21 +32,33 @@ export const fetchCampaignStatisticsFromApi = async (
       { api_token: account.api_token }
     );
     
-    console.log(`URL API directe (sans token): ${apiUrl.replace(account.api_token, '***')}`);
+    console.log(`[fetchCampaignStatisticsFromApi] URL API directe: ${apiUrl.replace(account.api_token, '***')}`);
     
     // Appeler l'API directement avec headers simplifiés
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    console.log(`[fetchCampaignStatisticsFromApi] Headers utilisés:`, headers);
+    
     const response = await fetch(apiUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-        // Headers simplifiés selon config serveur Icodia
-      }
+      headers
     });
+    
+    console.log(`[fetchCampaignStatisticsFromApi] Réponse: Status ${response.status}`);
     
     // Vérifier la réponse HTTP
     if (!response.ok) {
-      console.error(`Erreur API HTTP ${response.status} (${campaignUid}): ${response.statusText}`);
+      console.error(`[fetchCampaignStatisticsFromApi] Erreur API HTTP ${response.status} (${campaignUid}): ${response.statusText}`);
+      
+      try {
+        const errorText = await response.text();
+        console.log(`[fetchCampaignStatisticsFromApi] Corps d'erreur:`, errorText);
+      } catch (e) {
+        console.log("[fetchCampaignStatisticsFromApi] Impossible de lire le corps d'erreur");
+      }
+      
       return null;
     }
     
@@ -54,19 +66,28 @@ export const fetchCampaignStatisticsFromApi = async (
     const data = await response.json();
     
     if (!data) {
-      console.error("Pas de données retournées par l'API directe");
+      console.error("[fetchCampaignStatisticsFromApi] Pas de données retournées par l'API directe");
       return null;
     }
     
-    console.log(`Données brutes reçues pour la campagne ${campaignUid}:`, data);
+    console.log(`[fetchCampaignStatisticsFromApi] Données brutes reçues pour la campagne ${campaignUid}:`, {
+      dataType: typeof data,
+      hasStatistics: !!data.statistics,
+      hasCampaign: !!data.campaign
+    });
     
     // Créer l'objet avec les statistiques
     const stats = extractStatisticsFromAnyFormat(data);
-    console.log(`Statistiques extraites pour la campagne ${campaignUid}:`, stats);
+    console.log(`[fetchCampaignStatisticsFromApi] Statistiques extraites pour la campagne ${campaignUid}:`, {
+      subscriber_count: stats.subscriber_count,
+      delivered_count: stats.delivered_count,
+      open_count: stats.open_count,
+      click_count: stats.click_count
+    });
     
     return ensureValidStatistics(stats);
   } catch (error) {
-    console.error(`Erreur lors de la récupération des statistiques pour ${campaignUid}:`, error);
+    console.error(`[fetchCampaignStatisticsFromApi] Erreur lors de la récupération des statistiques pour ${campaignUid}:`, error);
     return null;
   }
 };
@@ -80,11 +101,11 @@ export const fetchCampaignStatisticsLegacy = async (
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> => {
   try {
-    console.log(`Appel API legacy direct pour la campagne ${campaignUid}`);
+    console.log(`[fetchCampaignStatisticsLegacy] Début pour campagne ${campaignUid} sur compte ${account.name}`);
     
     // Vérifier les paramètres requis
     if (!campaignUid || !account || !account.api_token || !account.api_endpoint) {
-      console.error("Paramètres manquants pour fetchCampaignStatisticsLegacy");
+      console.error("[fetchCampaignStatisticsLegacy] Paramètres manquants");
       return null;
     }
     
@@ -95,18 +116,23 @@ export const fetchCampaignStatisticsLegacy = async (
       { api_token: account.api_token }
     );
     
+    console.log(`[fetchCampaignStatisticsLegacy] URL API legacy: ${apiUrl.replace(account.api_token, '***')}`);
+    
     // Appeler l'API directement avec headers simplifiés
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
     const response = await fetch(apiUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+      headers
     });
+    
+    console.log(`[fetchCampaignStatisticsLegacy] Réponse: Status ${response.status}`);
     
     // Vérifier la réponse HTTP
     if (!response.ok) {
-      console.error(`Erreur API HTTP ${response.status} (legacy): ${response.statusText}`);
+      console.error(`[fetchCampaignStatisticsLegacy] Erreur API HTTP ${response.status} (legacy): ${response.statusText}`);
       return null;
     }
     
@@ -114,24 +140,33 @@ export const fetchCampaignStatisticsLegacy = async (
     const data = await response.json();
     
     if (!data) {
-      console.error("Pas de données retournées par l'API legacy directe");
+      console.error("[fetchCampaignStatisticsLegacy] Pas de données retournées par l'API legacy directe");
       return null;
     }
     
-    console.log(`Données brutes reçues pour la campagne ${campaignUid} (legacy):`, data);
+    console.log(`[fetchCampaignStatisticsLegacy] Données brutes reçues pour la campagne ${campaignUid} (legacy):`, {
+      dataType: typeof data,
+      hasStats: !!data.stats,
+      hasData: !!data.data
+    });
     
     // Traiter les statistiques depuis la réponse
     const statsData = data.stats || data.data || data;
     if (statsData) {
       // Extraire les statistiques de n'importe quel format
       const stats = extractStatisticsFromAnyFormat(statsData);
-      console.log(`Statistiques extraites pour la campagne ${campaignUid} (legacy):`, stats);
+      console.log(`[fetchCampaignStatisticsLegacy] Statistiques extraites pour la campagne ${campaignUid} (legacy):`, {
+        subscriber_count: stats.subscriber_count,
+        delivered_count: stats.delivered_count,
+        open_count: stats.open_count,
+        click_count: stats.click_count
+      });
       return ensureValidStatistics(stats);
     }
     
     return null;
   } catch (error) {
-    console.error(`Erreur lors de la récupération des statistiques legacy pour ${campaignUid}:`, error);
+    console.error(`[fetchCampaignStatisticsLegacy] Erreur lors de la récupération des statistiques legacy pour ${campaignUid}:`, error);
     return null;
   }
 };

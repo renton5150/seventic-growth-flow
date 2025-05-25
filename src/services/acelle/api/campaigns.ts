@@ -14,8 +14,10 @@ export const getCampaigns = async (
   }
 ): Promise<AcelleCampaign[]> => {
   try {
+    console.log(`[getCampaigns] Début de récupération pour ${account.name}`);
+    
     if (!account || !account.api_token || !account.api_endpoint) {
-      console.error("Informations de compte incomplètes pour la récupération des campagnes");
+      console.error("[getCampaigns] Informations de compte incomplètes pour la récupération des campagnes");
       return [];
     }
 
@@ -31,29 +33,47 @@ export const getCampaigns = async (
 
     // Construction de l'URL directe
     const url = buildDirectAcelleApiUrl("campaigns", account.api_endpoint, params);
-    console.log(`Récupération des campagnes: ${url.replace(account.api_token, '***')}`);
+    console.log(`[getCampaigns] Récupération des campagnes: ${url.replace(account.api_token, '***')}`);
 
     // Effectuer la requête API directe avec headers simplifiés
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    console.log(`[getCampaigns] Headers utilisés:`, headers);
+    
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-        // Headers simplifiés selon config Icodia
-      }
+      headers
     });
 
+    console.log(`[getCampaigns] Réponse reçue: Status ${response.status}`);
+
     if (!response.ok) {
-      console.error(`Erreur API directe: ${response.status} ${response.statusText}`);
+      console.error(`[getCampaigns] Erreur API directe: ${response.status} ${response.statusText}`);
+      
+      try {
+        const errorText = await response.text();
+        console.log(`[getCampaigns] Corps d'erreur:`, errorText);
+      } catch (e) {
+        console.log("[getCampaigns] Impossible de lire le corps d'erreur");
+      }
+      
       return [];
     }
 
     // Traiter la réponse
     const data = await response.json();
+    console.log(`[getCampaigns] Données reçues:`, {
+      dataType: typeof data,
+      hasData: !!data.data,
+      dataLength: data.data ? data.data.length : 0,
+      total: data.total
+    });
     
     // Normaliser les données des campagnes
     if (data.data && Array.isArray(data.data)) {
-      return data.data.map((campaign: any): AcelleCampaign => ({
+      const campaigns = data.data.map((campaign: any): AcelleCampaign => ({
         uid: campaign.uid,
         campaign_uid: campaign.uid,
         name: campaign.name || '',
@@ -67,12 +87,15 @@ export const getCampaigns = async (
         delivery_info: campaign.delivery_info || {},
         statistics: campaign.statistics || createEmptyStatistics()
       }));
+      
+      console.log(`[getCampaigns] ${campaigns.length} campagnes normalisées pour ${account.name}`);
+      return campaigns;
     }
     
-    console.error("Format de réponse API inattendu:", data);
+    console.error("[getCampaigns] Format de réponse API inattendu:", data);
     return [];
   } catch (error) {
-    console.error("Erreur lors de la récupération des campagnes:", error);
+    console.error("[getCampaigns] Erreur lors de la récupération des campagnes:", error);
     return [];
   }
 };
@@ -85,7 +108,10 @@ export const getCampaign = async (
   account: AcelleAccount
 ): Promise<AcelleCampaign | null> => {
   try {
+    console.log(`[getCampaign] Récupération de la campagne ${uid} pour ${account.name}`);
+    
     if (!uid || !account || !account.api_token) {
+      console.error("[getCampaign] Paramètres manquants");
       return null;
     }
 
@@ -96,23 +122,31 @@ export const getCampaign = async (
 
     // Construction de l'URL directe
     const url = buildDirectAcelleApiUrl(`campaigns/${uid}`, account.api_endpoint, params);
+    console.log(`[getCampaign] URL: ${url.replace(account.api_token, '***')}`);
 
     // Effectuer la requête API directe
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+      headers
     });
 
+    console.log(`[getCampaign] Réponse: Status ${response.status}`);
+
     if (!response.ok) {
-      console.error(`Erreur API directe: ${response.status} ${response.statusText}`);
+      console.error(`[getCampaign] Erreur API directe: ${response.status} ${response.statusText}`);
       return null;
     }
 
     // Traiter la réponse
     const data = await response.json();
+    console.log(`[getCampaign] Données reçues pour ${uid}:`, {
+      dataType: typeof data,
+      hasCampaign: !!data.campaign
+    });
 
     if (data && data.campaign) {
       const campaign = data.campaign;
@@ -134,7 +168,7 @@ export const getCampaign = async (
     
     return null;
   } catch (error) {
-    console.error(`Erreur lors de la récupération de la campagne ${uid}:`, error);
+    console.error(`[getCampaign] Erreur lors de la récupération de la campagne ${uid}:`, error);
     return null;
   }
 };
