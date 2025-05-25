@@ -77,3 +77,13 @@ export const buildDirectApiUrl = (path: string, endpoint: string, params: Record
   const searchParams = new URLSearchParams(params);
   return `${cleanEndpoint}/api/v1/${path}?${searchParams.toString()}`;
 };
+
+/**
+ * Construction d'URL proxy (pour compatibilité avec l'ancien code)
+ */
+export const buildProxyUrl = (action: string, params: Record<string, string> = {}) => {
+  // Cette fonction est gardée pour compatibilité mais ne devrait plus être utilisée
+  // Préférer l'utilisation des Edge Functions directement
+  console.warn('[buildProxyUrl] Cette fonction est dépréciée, utiliser les Edge Functions à la place');
+  return `/api/proxy?action=${action}&${new URLSearchParams(params).toString()}`;
+};
