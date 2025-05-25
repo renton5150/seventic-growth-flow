@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
-import { acelleService } from "@/services/acelle";
 import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable";
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
@@ -32,7 +31,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
 import { hasEmptyStatistics } from "@/services/acelle/api/stats/directStats";
-import { callViaEdgeFunction } from "@/services/acelle/acelle-service";
+import { callViaEdgeFunction, getCachedStatistics } from "@/services/acelle/acelle-service";
 
 interface AcelleCampaignsTableProps {
   account: AcelleAccount;
@@ -64,21 +63,49 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isCacheBusy
   } = useCampaignCache(account);
   
-  // Fonction améliorée pour récupérer les statistiques via edge function
+  // Fonction améliorée pour récupérer les statistiques via edge function UNIQUEMENT
   const fetchCampaignStatistics = async (campaignId: string, accountId: string, forceRefresh = false) => {
     try {
       console.log(`[fetchCampaignStatistics] Via edge function pour ${campaignId}`);
+      
+      // Essayer d'abord via Edge Function
       const result = await callViaEdgeFunction(campaignId, accountId, forceRefresh);
       
       if (result && result.success) {
         console.log(`[fetchCampaignStatistics] Succès pour ${campaignId}`);
         return result;
-      } else {
-        console.warn(`[fetchCampaignStatistics] Échec pour ${campaignId}:`, result);
-        return null;
       }
+      
+      // Fallback sur le cache en cas d'échec
+      console.log(`[fetchCampaignStatistics] Fallback cache pour ${campaignId}`);
+      const cachedStats = await getCachedStatistics(campaignId, accountId);
+      
+      if (cachedStats) {
+        return {
+          success: true,
+          stats: cachedStats,
+          source: 'cache'
+        };
+      }
+      
+      return null;
     } catch (error) {
       console.error(`[fetchCampaignStatistics] Erreur pour ${campaignId}:`, error);
+      
+      // Fallback sur le cache en cas d'exception
+      try {
+        const cachedStats = await getCachedStatistics(campaignId, accountId);
+        if (cachedStats) {
+          return {
+            success: true,
+            stats: cachedStats,
+            source: 'cache'
+          };
+        }
+      } catch (cacheError) {
+        console.error(`[fetchCampaignStatistics] Erreur cache fallback:`, cacheError);
+      }
+      
       return null;
     }
   };

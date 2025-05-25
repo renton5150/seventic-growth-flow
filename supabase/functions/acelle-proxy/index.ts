@@ -117,9 +117,9 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}`);
     
-    // Appel à l'API avec timeout augmenté à 30 secondes
+    // Appel à l'API avec timeout de 20 secondes
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     
     let response;
     try {
@@ -127,7 +127,7 @@ serve(async (req) => {
         method: "GET",
         headers: {
           "Accept": "application/json",
-          "User-Agent": "Seventic-Acelle-Proxy/3.0",
+          "User-Agent": "Seventic-Acelle-Proxy/4.0",
           "Cache-Control": "no-cache"
         },
         signal: controller.signal
@@ -139,7 +139,7 @@ serve(async (req) => {
       if (fetchError.name === 'AbortError') {
         return new Response(JSON.stringify({ 
           success: false,
-          error: "Timeout API (30s)",
+          error: "Timeout API (20s)",
           timestamp: new Date().toISOString()
         }), {
           status: 408,
