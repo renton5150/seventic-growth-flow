@@ -1,10 +1,10 @@
+
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { buildCleanAcelleApiUrl, callDirectAcelleApi } from "../acelle-service";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
- * Récupère les campagnes d'un compte Acelle avec gestion d'erreur améliorée
+ * Récupère les campagnes d'un compte Acelle via Edge Functions uniquement
  */
 export const getCampaigns = async (
   account: AcelleAccount, 
@@ -14,7 +14,7 @@ export const getCampaigns = async (
   }
 ): Promise<AcelleCampaign[]> => {
   try {
-    console.log(`[getCampaigns] Début pour ${account.name}`);
+    console.log(`[getCampaigns] Début pour ${account.name} via Edge Function`);
     
     if (!account || !account.api_token || !account.api_endpoint) {
       console.error("[getCampaigns] Informations de compte incomplètes");
@@ -24,19 +24,26 @@ export const getCampaigns = async (
     const page = options?.page || 1;
     const perPage = options?.perPage || 20;
 
-    const params = {
-      api_token: account.api_token,
-      page: page.toString(),
-      per_page: perPage.toString()
-    };
-
-    const url = buildCleanAcelleApiUrl("campaigns", account.api_endpoint, params);
-    console.log(`[getCampaigns] URL: ${url.replace(account.api_token, '***')}`);
-
-    const data = await callDirectAcelleApi(url, { timeout: 10000 });
+    console.log(`[getCampaigns] Appel Edge Function pour récupérer les campagnes`);
     
-    if (data && data.data && Array.isArray(data.data)) {
-      const campaigns = data.data.map((campaign: any): AcelleCampaign => ({
+    // Utiliser uniquement l'Edge Function
+    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+      body: { 
+        endpoint: account.api_endpoint,
+        api_token: account.api_token,
+        action: 'get_campaigns',
+        page: page.toString(),
+        per_page: perPage.toString()
+      }
+    });
+    
+    if (error) {
+      console.error("[getCampaigns] Erreur Edge Function:", error);
+      throw new Error(error.message || "Erreur lors de la récupération des campagnes");
+    }
+    
+    if (data && data.success && data.campaigns && Array.isArray(data.campaigns)) {
+      const campaigns = data.campaigns.map((campaign: any): AcelleCampaign => ({
         uid: campaign.uid,
         campaign_uid: campaign.uid,
         name: campaign.name || '',
@@ -79,26 +86,36 @@ export const getCampaigns = async (
 };
 
 /**
- * Récupère une campagne spécifique par son UID
+ * Récupère une campagne spécifique par son UID via Edge Functions uniquement
  */
 export const getCampaign = async (
   uid: string,
   account: AcelleAccount
 ): Promise<AcelleCampaign | null> => {
   try {
-    console.log(`[getCampaign] Récupération ${uid} pour ${account.name}`);
+    console.log(`[getCampaign] Récupération ${uid} pour ${account.name} via Edge Function`);
     
     if (!uid || !account || !account.api_token) {
       console.error("[getCampaign] Paramètres manquants");
       return null;
     }
 
-    const params = { api_token: account.api_token };
-    const url = buildCleanAcelleApiUrl(`campaigns/${uid}`, account.api_endpoint, params);
+    // Utiliser uniquement l'Edge Function
+    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+      body: { 
+        endpoint: account.api_endpoint,
+        api_token: account.api_token,
+        action: 'get_campaign',
+        campaign_uid: uid
+      }
+    });
     
-    const data = await callDirectAcelleApi(url, { timeout: 8000 });
+    if (error) {
+      console.error("[getCampaign] Erreur Edge Function:", error);
+      return null;
+    }
 
-    if (data && data.campaign) {
+    if (data && data.success && data.campaign) {
       const campaign = data.campaign;
       return {
         uid: campaign.uid,
