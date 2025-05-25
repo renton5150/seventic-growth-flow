@@ -1,19 +1,16 @@
 
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
-import { fetchCampaignStatisticsFromApi, fetchCampaignStatisticsLegacy } from "./apiClient";
-import { createEmptyStatistics, extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
+import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 import { saveCampaignStatistics } from "./cacheManager";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Vérifie si les statistiques sont vides ou non initialisées
- * Une campagne est considérée comme ayant des statistiques vides si le nombre
- * de destinataires (subscriber_count) est à zéro et qu'aucun autre champ n'a de valeur
  */
 export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null): boolean => {
   if (!statistics) return true;
   
-  // Vérifier si toutes les valeurs principales sont nulles ou zéro
   const hasNonZeroValue = 
     statistics.subscriber_count > 0 || 
     statistics.delivered_count > 0 ||
@@ -21,13 +18,102 @@ export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null)
     statistics.click_count > 0 ||
     statistics.bounce_count > 0;
   
-  // Si au moins une valeur est non-nulle, les statistiques ne sont pas vides
   return !hasNonZeroValue;
 };
 
 /**
- * Enrichit les campagnes avec des statistiques en utilisant uniquement l'API directe
- * Version simplifiée et robuste qui tente d'abord la méthode directe puis la méthode legacy
+ * Récupère les statistiques via Edge Functions uniquement
+ */
+export const fetchDirectStatistics = async (
+  campaignUid: string,
+  account: AcelleAccount
+): Promise<AcelleCampaignStatistics | null> => {
+  try {
+    console.log(`[fetchDirectStatistics] Récupération via Edge Function pour ${campaignUid}`);
+    
+    if (!campaignUid || !account?.id) {
+      console.error("[fetchDirectStatistics] Paramètres manquants");
+      return null;
+    }
+    
+    // Méthode 1: Via acelle-stats-test
+    try {
+      console.log(`[fetchDirectStatistics] Tentative via acelle-stats-test`);
+      
+      const { data, error } = await supabase.functions.invoke('acelle-stats-test', {
+        body: { 
+          campaignId: campaignUid, 
+          accountId: account.id, 
+          forceRefresh: 'true',
+          debug: 'true'
+        }
+      });
+      
+      if (!error && data && data.success && data.stats) {
+        console.log(`[fetchDirectStatistics] Stats récupérées via acelle-stats-test:`, data.stats);
+        const validStats = ensureValidStatistics(data.stats);
+        
+        // Sauvegarder en cache
+        try {
+          await saveCampaignStatistics(campaignUid, account.id, validStats);
+        } catch (cacheError) {
+          console.warn("[fetchDirectStatistics] Erreur cache:", cacheError);
+        }
+        
+        return validStats;
+      }
+      
+      if (error) {
+        console.warn(`[fetchDirectStatistics] Erreur acelle-stats-test:`, error);
+      }
+    } catch (edgeError) {
+      console.warn(`[fetchDirectStatistics] acelle-stats-test échouée:`, edgeError);
+    }
+    
+    // Méthode 2: Via acelle-proxy
+    try {
+      console.log(`[fetchDirectStatistics] Tentative via acelle-proxy`);
+      
+      const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+        body: { 
+          endpoint: account.api_endpoint,
+          api_token: account.api_token,
+          action: 'get_campaign_stats',
+          campaign_uid: campaignUid
+        }
+      });
+      
+      if (!error && data && data.success && data.statistics) {
+        console.log(`[fetchDirectStatistics] Stats récupérées via acelle-proxy:`, data.statistics);
+        const validStats = ensureValidStatistics(data.statistics);
+        
+        // Sauvegarder en cache
+        try {
+          await saveCampaignStatistics(campaignUid, account.id, validStats);
+        } catch (cacheError) {
+          console.warn("[fetchDirectStatistics] Erreur cache:", cacheError);
+        }
+        
+        return validStats;
+      }
+      
+      if (error) {
+        console.warn(`[fetchDirectStatistics] Erreur acelle-proxy:`, error);
+      }
+    } catch (proxyError) {
+      console.warn(`[fetchDirectStatistics] acelle-proxy échouée:`, proxyError);
+    }
+    
+    console.warn(`[fetchDirectStatistics] Toutes les méthodes ont échoué pour ${campaignUid}`);
+    return createEmptyStatistics();
+  } catch (error) {
+    console.error(`[fetchDirectStatistics] Erreur générale:`, error);
+    return createEmptyStatistics();
+  }
+};
+
+/**
+ * Enrichit les campagnes avec des statistiques via Edge Functions uniquement
  */
 export const enrichCampaignsWithStats = async (
   campaigns: AcelleCampaign[],
@@ -36,7 +122,9 @@ export const enrichCampaignsWithStats = async (
     forceRefresh?: boolean;
   }
 ): Promise<AcelleCampaign[]> => {
-  if (!campaigns.length) return campaigns;
+  if (!campaigns.length || !account) return campaigns;
+  
+  console.log(`[enrichCampaignsWithStats] Enrichissement de ${campaigns.length} campagnes`);
   
   const enrichedCampaigns: AcelleCampaign[] = [];
   
@@ -44,141 +132,43 @@ export const enrichCampaignsWithStats = async (
     try {
       const campaignUid = campaign.uid || campaign.campaign_uid || '';
       if (!campaignUid) {
-        console.error("Campaign is missing UID:", campaign);
+        console.warn("[enrichCampaignsWithStats] Campaign sans UID:", campaign);
         enrichedCampaigns.push(campaign);
         continue;
       }
       
-      // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement, on saute
+      // Si les statistiques semblent déjà complètes et qu'on ne force pas le rafraîchissement
       if (!options?.forceRefresh && 
           campaign.statistics && 
           !hasEmptyStatistics(campaign.statistics)) {
-        console.log(`Statistiques déjà disponibles pour la campagne ${campaign.name}, aucun enrichissement nécessaire`);
+        console.log(`[enrichCampaignsWithStats] Statistiques déjà disponibles pour ${campaign.name}`);
         enrichedCampaigns.push(campaign);
         continue;
       }
       
-      console.log(`Récupération des statistiques depuis l'API pour la campagne ${campaignUid}`);
+      console.log(`[enrichCampaignsWithStats] Récupération stats pour ${campaignUid}`);
       
-      // Tenter d'abord la nouvelle méthode directe
-      let statistics = await fetchCampaignStatisticsFromApi(campaignUid, account);
+      // Récupérer les statistiques via Edge Functions
+      const statistics = await fetchDirectStatistics(campaignUid, account);
       
-      // Si échec avec la nouvelle méthode, essayer la méthode legacy
-      if (!statistics || hasEmptyStatistics(statistics)) {
-        console.log(`Tentative de récupération via méthode legacy pour la campagne ${campaignUid}`);
-        statistics = await fetchCampaignStatisticsLegacy(campaignUid, account);
-      }
-      
-      // Valider et normaliser les statistiques récupérées
-      const validatedStats = statistics ? ensureValidStatistics(statistics) : null;
-      
-      // Vérifier si les statistiques ont été récupérées avec succès
-      if (validatedStats && !hasEmptyStatistics(validatedStats)) {
-        console.log(`Statistiques récupérées avec succès pour la campagne ${campaignUid}:`, validatedStats);
-        
-        // Stocker les statistiques dans le cache pour une utilisation future
-        try {
-          await saveCampaignStatistics(campaignUid, account.id, validatedStats);
-          console.log(`Statistiques sauvegardées dans la base de données pour ${campaignUid}`);
-        } catch (error) {
-          console.error(`Erreur lors de la sauvegarde des statistiques pour ${campaignUid}:`, error);
-        }
-      } else {
-        console.warn(`Aucune statistique valide récupérée pour la campagne ${campaignUid}`);
-      }
-      
-      // Ajouter les statistiques à la campagne
+      // Créer la campagne enrichie
       const enrichedCampaign = {
         ...campaign,
-        statistics: validatedStats || campaign.statistics || createEmptyStatistics()
+        statistics: statistics || campaign.statistics || createEmptyStatistics(),
+        meta: {
+          ...campaign.meta,
+          data_source: statistics ? 'edge_function' : 'cache',
+          last_refresh: new Date().toISOString()
+        }
       };
-      
-      // Ajouter des informations sur la source de données à la meta
-      if (enrichedCampaign.meta) {
-        enrichedCampaign.meta = {
-          ...enrichedCampaign.meta,
-          data_source: validatedStats ? 'api_direct' : 'cache',
-          last_refresh: new Date().toISOString()
-        };
-      } else {
-        enrichedCampaign.meta = {
-          data_source: validatedStats ? 'api_direct' : 'cache',
-          last_refresh: new Date().toISOString()
-        };
-      }
       
       enrichedCampaigns.push(enrichedCampaign);
       
     } catch (error) {
-      console.error(`Error enriching campaign ${campaign.uid || campaign.name} with stats:`, error);
-      // Inclure quand même la campagne sans statistiques
+      console.error(`[enrichCampaignsWithStats] Erreur pour campagne ${campaign.uid}:`, error);
       enrichedCampaigns.push(campaign);
     }
   }
   
   return enrichedCampaigns;
-};
-
-/**
- * Récupère les statistiques directement, en essayant d'abord la méthode directe puis la méthode legacy
- */
-export const fetchDirectStatistics = async (
-  campaignUid: string,
-  account: AcelleAccount
-): Promise<AcelleCampaignStatistics | null> => {
-  try {
-    console.log(`Tentative de récupération directe des statistiques pour ${campaignUid}`);
-    
-    // Tenter d'abord la méthode directe
-    let stats = await fetchCampaignStatisticsFromApi(campaignUid, account);
-    
-    if (!stats || hasEmptyStatistics(stats)) {
-      console.log(`Échec ou statistiques vides avec la méthode directe, tentative via legacy pour ${campaignUid}`);
-      stats = await fetchCampaignStatisticsLegacy(campaignUid, account);
-    }
-    
-    // Essai de la méthode stats v2 si les deux premières ont échoué
-    if (!stats || hasEmptyStatistics(stats)) {
-      console.log(`Méthodes principales échouées, tentative via API stats pour ${campaignUid}`);
-      try {
-        const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/stats?api_token=${account.api_token}`;
-        const response = await fetch(apiUrl, {
-          headers: { 'Accept': 'application/json' }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const statsData = data.stats || data.data || data;
-          if (statsData) {
-            stats = extractStatisticsFromAnyFormat(statsData);
-          }
-        }
-      } catch (e) {
-        console.error("Erreur lors de la récupération des statistiques via API stats:", e);
-      }
-    }
-    
-    // S'assurer que les statistiques sont valides et normalisées
-    if (stats) {
-      const validatedStats = ensureValidStatistics(stats);
-      console.log(`Statistiques récupérées avec succès pour ${campaignUid}`, validatedStats);
-      
-      // Stocker les statistiques dans le cache
-      try {
-        if (!hasEmptyStatistics(validatedStats) && account.id) {
-          await saveCampaignStatistics(campaignUid, account.id, validatedStats);
-          console.log(`Statistiques sauvegardées dans la base de données pour ${campaignUid}`);
-        }
-      } catch (error) {
-        console.error(`Erreur lors de la sauvegarde des statistiques pour ${campaignUid}:`, error);
-      }
-      
-      return validatedStats;
-    } else {
-      console.error(`Aucune statistique valide n'a pu être récupérée pour ${campaignUid}`);
-      return createEmptyStatistics();
-    }
-  } catch (error) {
-    console.error(`Error fetching direct statistics for campaign ${campaignUid}:`, error);
-    return createEmptyStatistics();
-  }
 };

@@ -27,7 +27,16 @@ serve(async (req) => {
   
   try {
     const url = new URL(req.url);
-    const body = req.method === 'POST' ? await req.json() : {};
+    let body = {};
+    
+    if (req.method === 'POST') {
+      try {
+        body = await req.json();
+      } catch (e) {
+        console.error("Erreur parsing JSON:", e);
+        body = {};
+      }
+    }
     
     console.log("URL:", url.pathname);
     console.log("Method:", req.method);

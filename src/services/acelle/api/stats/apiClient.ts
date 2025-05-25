@@ -2,7 +2,6 @@
 import { AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { supabase } from "@/integrations/supabase/client";
-import { extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
 
 /**
  * Récupère les statistiques d'une campagne via Edge Functions uniquement
@@ -63,13 +62,13 @@ export const fetchCampaignStatisticsFromApi = async (
         // Extraire les statistiques depuis différents formats possibles
         let stats = null;
         if (proxyData.statistics) {
-          stats = extractStatisticsFromAnyFormat(proxyData.statistics);
+          stats = proxyData.statistics;
         } else if (proxyData.campaign && proxyData.campaign.statistics) {
-          stats = extractStatisticsFromAnyFormat(proxyData.campaign.statistics);
+          stats = proxyData.campaign.statistics;
         } else if (proxyData.campaign) {
-          stats = extractStatisticsFromAnyFormat(proxyData.campaign);
+          stats = proxyData.campaign;
         } else if (proxyData.data) {
-          stats = extractStatisticsFromAnyFormat(proxyData.data);
+          stats = proxyData.data;
         }
         
         if (stats) {

@@ -25,17 +25,34 @@ serve(async (req: Request) => {
     
     // Récupération des paramètres selon la méthode
     if (req.method === 'POST') {
-      body = await req.json();
+      try {
+        body = await req.json();
+      } catch (e) {
+        console.error("Erreur parsing JSON:", e);
+        body = {};
+      }
     }
     
     // Récupération des paramètres depuis le body, l'URL ou les valeurs par défaut
-    const campaignId = body.campaignId || url.searchParams.get('campaignId') || '63ffcc82abb3e';
+    const campaignId = body.campaignId || url.searchParams.get('campaignId');
     const accountId = body.accountId || url.searchParams.get('accountId');
     const forceRefresh = (body.forceRefresh || url.searchParams.get('forceRefresh')) === 'true';
     const debugMode = (body.debug || url.searchParams.get('debug')) === 'true';
     
-    console.log(`Paramètres: campaignId=${campaignId}, accountId=${accountId}, forceRefresh=${forceRefresh}, debug=${debugMode}`);
+    console.log(`Paramètres reçus: campaignId=${campaignId}, accountId=${accountId}, forceRefresh=${forceRefresh}, debug=${debugMode}`);
     
+    if (!campaignId) {
+      console.error("campaignId manquant");
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "campaignId est requis",
+        timestamp: new Date().toISOString()
+      }), {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+
     if (!accountId) {
       console.error("accountId manquant");
       return new Response(JSON.stringify({ 
@@ -53,7 +70,15 @@ serve(async (req: Request) => {
     const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
     if (!supabaseUrl || !supabaseServiceRole) {
-      throw new Error("SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY doivent être configurés");
+      console.error("Variables d'environnement Supabase manquantes");
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Configuration Supabase manquante",
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: corsHeaders
+      });
     }
     
     console.log(`URL Supabase: ${supabaseUrl}`);
@@ -100,9 +125,22 @@ serve(async (req: Request) => {
     const ACELLE_API_BASE_URL = accountData.api_endpoint;
     
     if (!ACELLE_API_TOKEN) {
+      console.error("Token API manquant pour ce compte");
       return new Response(JSON.stringify({ 
         success: false,
         error: "Token API non trouvé pour ce compte",
+        timestamp: new Date().toISOString()
+      }), {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+
+    if (!ACELLE_API_BASE_URL) {
+      console.error("Endpoint API manquant pour ce compte");
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Endpoint API non trouvé pour ce compte",
         timestamp: new Date().toISOString()
       }), {
         status: 400,
