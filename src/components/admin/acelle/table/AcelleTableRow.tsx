@@ -55,6 +55,7 @@ export const AcelleTableRow = ({
       setIsLoading(true);
       
       try {
+        // Utiliser UNIQUEMENT les Edge Functions, pas d'appel direct
         const freshStats = await fetchDirectStatistics(campaignUid, account);
         
         if (freshStats && !hasEmptyStatistics(freshStats)) {
@@ -67,12 +68,12 @@ export const AcelleTableRow = ({
             setStats(campaign.statistics);
           } else {
             setStats(null);
-            setLoadError("Aucune statistique disponible");
+            setLoadError("Stats non disponibles");
           }
         }
       } catch (error) {
         console.error(`[TableRow] Erreur pour ${campaignName}:`, error);
-        setLoadError("Erreur de récupération");
+        setLoadError("Erreur Edge Function");
         if (campaign.statistics) {
           setStats(campaign.statistics);
         }
@@ -95,6 +96,7 @@ export const AcelleTableRow = ({
       setLoadError(null);
       toast.loading(`Rafraîchissement pour ${campaignName}...`, { id: "refresh-stats" });
       
+      // Utiliser UNIQUEMENT les Edge Functions
       const freshStats = await fetchDirectStatistics(campaignUid, account);
       
       if (freshStats && !hasEmptyStatistics(freshStats)) {

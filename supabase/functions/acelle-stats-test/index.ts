@@ -27,7 +27,14 @@ serve(async (req: Request) => {
         body = await req.json();
       } catch (e) {
         console.error("Erreur parsing JSON:", e);
-        body = {};
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: "JSON invalide",
+          timestamp: new Date().toISOString()
+        }), {
+          status: 400,
+          headers: corsHeaders
+        });
       }
     }
     
@@ -80,19 +87,31 @@ serve(async (req: Request) => {
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.38.4");
     const supabase = createClient(supabaseUrl, supabaseServiceRole);
     
-    // Récupération des informations du compte
+    // Récupération des informations du compte avec gestion d'erreur améliorée
     console.log(`Récupération du compte ${accountId}`);
     const { data: accountData, error: accountError } = await supabase
       .from("acelle_accounts")
       .select("id, name, api_token, api_endpoint")
       .eq("id", accountId)
-      .single();
+      .maybeSingle();
     
-    if (accountError || !accountData) {
-      console.error("Erreur compte:", accountError?.message);
+    if (accountError) {
+      console.error("Erreur compte:", accountError.message);
       return new Response(JSON.stringify({ 
         success: false,
-        error: `Compte non trouvé: ${accountError?.message}`,
+        error: `Erreur base de données: ${accountError.message}`,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: corsHeaders
+      });
+    }
+    
+    if (!accountData) {
+      console.error("Compte non trouvé");
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Compte non trouvé",
         timestamp: new Date().toISOString()
       }), {
         status: 404,
@@ -114,33 +133,62 @@ serve(async (req: Request) => {
     }
     
     // Nettoyage de l'endpoint
-    let cleanEndpoint = api_endpoint;
-    if (cleanEndpoint.endsWith('/api/v1') || cleanEndpoint.endsWith('/api/v1/')) {
-      cleanEndpoint = cleanEndpoint.replace(/\/api\/v1\/?$/, '');
+    let cleanEndpoint = api_endpoint.trim();
+    if (cleanEndpoint.endsWith('/')) {
+      cleanEndpoint = cleanEndpoint.slice(0, -1);
+    }
+    if (cleanEndpoint.endsWith('/api/v1')) {
+      cleanEndpoint = cleanEndpoint.replace(/\/api\/v1$/, '');
     }
     
-    // Construction de l'URL API avec timeout réduit
+    // Construction de l'URL API
     const apiUrl = `${cleanEndpoint}/api/v1/campaigns/${campaignId}?api_token=${api_token}`;
     console.log(`Appel API: ${cleanEndpoint}/api/v1/campaigns/${campaignId}?api_token=***`);
     
-    // Appel à l'API avec timeout de 15 secondes
+    // Appel à l'API avec timeout de 10 secondes
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(apiUrl, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": "Acelle-Stats-Test/2.1",
-        "Cache-Control": "no-cache"
-      },
-      signal: controller.signal
-    });
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "Acelle-Stats-Test/3.0",
+          "Cache-Control": "no-cache"
+        },
+        signal: controller.signal
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      console.error("Erreur fetch:", fetchError);
+      
+      if (fetchError.name === 'AbortError') {
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: "Timeout API (10s)",
+          timestamp: new Date().toISOString()
+        }), {
+          status: 408,
+          headers: corsHeaders
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: `Erreur réseau: ${fetchError.message}`,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: corsHeaders
+      });
+    }
     
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text().catch(() => "Impossible de lire la réponse");
       console.error(`Erreur API ${response.status}:`, errorText);
       
       return new Response(JSON.stringify({ 
@@ -154,10 +202,24 @@ serve(async (req: Request) => {
       });
     }
     
-    const responseData = await response.json();
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (jsonError) {
+      console.error("Erreur parsing JSON réponse:", jsonError);
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Réponse API invalide",
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: corsHeaders
+      });
+    }
+    
     console.log("Données reçues:", typeof responseData);
     
-    // Extraction des statistiques avec valeurs par défaut
+    // Extraction des statistiques avec valeurs par défaut robustes
     const extractedStats = {
       subscriber_count: responseData.subscriber_count || 0,
       delivered_count: responseData.delivered_count || 0,
@@ -176,7 +238,7 @@ serve(async (req: Request) => {
       abuse_complaint_count: responseData.abuse_complaint_count || 0
     };
     
-    // Sauvegarder en cache (sans bloquer la réponse)
+    // Sauvegarder en cache avec gestion d'erreur améliorée
     try {
       const { error: cacheError } = await supabase
         .from("campaign_stats_cache")
@@ -190,12 +252,12 @@ serve(async (req: Request) => {
         });
       
       if (cacheError) {
-        console.warn("Erreur cache:", cacheError);
+        console.warn("Erreur cache (non bloquant):", cacheError);
       } else {
         console.log("Cache mis à jour");
       }
     } catch (err) {
-      console.warn("Erreur sauvegarde cache:", err);
+      console.warn("Erreur sauvegarde cache (non bloquant):", err);
     }
     
     console.log("=== FIN ACELLE STATS TEST (SUCCÈS) ===");
@@ -217,7 +279,7 @@ serve(async (req: Request) => {
     console.error("Erreur globale:", error.message);
     return new Response(JSON.stringify({ 
       success: false,
-      error: "Erreur lors de la récupération", 
+      error: "Erreur interne", 
       message: error.message,
       timestamp: new Date().toISOString()
     }), {

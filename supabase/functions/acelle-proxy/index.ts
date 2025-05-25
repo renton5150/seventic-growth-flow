@@ -26,7 +26,14 @@ serve(async (req) => {
         body = await req.json();
       } catch (e) {
         console.error("Erreur parsing JSON:", e);
-        body = {};
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: "JSON invalide",
+          timestamp: new Date().toISOString()
+        }), {
+          status: 400,
+          headers: corsHeaders
+        });
       }
     }
     
@@ -49,9 +56,12 @@ serve(async (req) => {
     }
 
     // Nettoyage de l'endpoint
-    let cleanEndpoint = endpoint;
-    if (cleanEndpoint.endsWith('/api/v1') || cleanEndpoint.endsWith('/api/v1/')) {
-      cleanEndpoint = cleanEndpoint.replace(/\/api\/v1\/?$/, '');
+    let cleanEndpoint = endpoint.trim();
+    if (cleanEndpoint.endsWith('/')) {
+      cleanEndpoint = cleanEndpoint.slice(0, -1);
+    }
+    if (cleanEndpoint.endsWith('/api/v1')) {
+      cleanEndpoint = cleanEndpoint.replace(/\/api\/v1$/, '');
     }
     
     // Construction de l'URL selon l'action
@@ -107,24 +117,50 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}`);
     
-    // Appel à l'API avec timeout
+    // Appel à l'API avec timeout de 10 secondes
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(apiUrl, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": "Seventic-Acelle-Proxy/2.1",
-        "Cache-Control": "no-cache"
-      },
-      signal: controller.signal
-    });
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "Seventic-Acelle-Proxy/3.0",
+          "Cache-Control": "no-cache"
+        },
+        signal: controller.signal
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      console.error("Erreur fetch:", fetchError);
+      
+      if (fetchError.name === 'AbortError') {
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: "Timeout API (10s)",
+          timestamp: new Date().toISOString()
+        }), {
+          status: 408,
+          headers: corsHeaders
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: `Erreur réseau: ${fetchError.message}`,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: corsHeaders
+      });
+    }
     
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text().catch(() => "Impossible de lire la réponse");
       console.error(`Erreur API ${response.status}:`, errorText);
       
       return new Response(JSON.stringify({ 
@@ -138,7 +174,21 @@ serve(async (req) => {
       });
     }
     
-    const responseData = await response.json();
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (jsonError) {
+      console.error("Erreur parsing JSON réponse:", jsonError);
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Réponse API invalide",
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: corsHeaders
+      });
+    }
+    
     console.log(`Données reçues pour ${action}`);
     
     // Formatage de la réponse selon l'action

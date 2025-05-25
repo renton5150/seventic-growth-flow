@@ -22,7 +22,7 @@ export const hasEmptyStatistics = (statistics?: AcelleCampaignStatistics | null)
 };
 
 /**
- * Récupère les statistiques via Edge Functions uniquement
+ * Récupère les statistiques via Edge Functions uniquement (sans fallback direct API)
  */
 export const fetchDirectStatistics = async (
   campaignUid: string,
@@ -67,7 +67,7 @@ export const fetchDirectStatistics = async (
       console.warn(`[fetchDirectStatistics] acelle-stats-test échouée:`, edgeError);
     }
     
-    // Méthode 2: Via acelle-proxy (fallback)
+    // Méthode 2: Via acelle-proxy (fallback Edge Function)
     try {
       console.log(`[fetchDirectStatistics] Tentative via acelle-proxy`);
       
@@ -97,6 +97,25 @@ export const fetchDirectStatistics = async (
       }
     } catch (proxyError) {
       console.warn(`[fetchDirectStatistics] acelle-proxy échouée:`, proxyError);
+    }
+    
+    // Méthode 3: Fallback sur le cache local (SANS appel direct API)
+    try {
+      console.log(`[fetchDirectStatistics] Tentative de récupération depuis le cache`);
+      
+      const { data: cachedStats } = await supabase
+        .from('campaign_stats_cache')
+        .select('statistics')
+        .eq('campaign_uid', campaignUid)
+        .eq('account_id', account.id)
+        .maybeSingle();
+      
+      if (cachedStats?.statistics) {
+        console.log(`[fetchDirectStatistics] Statistiques trouvées en cache pour ${campaignUid}`);
+        return ensureValidStatistics(cachedStats.statistics);
+      }
+    } catch (cacheError) {
+      console.warn(`[fetchDirectStatistics] Erreur cache:`, cacheError);
     }
     
     console.warn(`[fetchDirectStatistics] Toutes les méthodes ont échoué pour ${campaignUid}`);
@@ -143,7 +162,7 @@ export const enrichCampaignsWithStats = async (
       
       console.log(`[enrichCampaignsWithStats] Récupération stats pour ${campaignUid}`);
       
-      // Récupérer les statistiques via Edge Functions
+      // Récupérer les statistiques via Edge Functions uniquement
       const statistics = await fetchDirectStatistics(campaignUid, account);
       
       // Créer la campagne enrichie
@@ -161,7 +180,10 @@ export const enrichCampaignsWithStats = async (
       
     } catch (error) {
       console.error(`[enrichCampaignsWithStats] Erreur pour campagne ${campaign.uid}:`, error);
-      enrichedCampaigns.push(campaign);
+      enrichedCampaigns.push({
+        ...campaign,
+        statistics: campaign.statistics || createEmptyStatistics()
+      });
     }
   }
   

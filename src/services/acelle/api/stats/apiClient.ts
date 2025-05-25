@@ -73,6 +73,25 @@ export const fetchCampaignStatisticsFromApi = async (
       console.error(`[fetchCampaignStatisticsFromApi] acelle-proxy échoué:`, proxyError);
     }
     
+    // Fallback sur le cache (SANS appel direct API)
+    try {
+      console.log(`[fetchCampaignStatisticsFromApi] Tentative cache pour ${campaignUid}`);
+      
+      const { data: cachedStats } = await supabase
+        .from('campaign_stats_cache')
+        .select('statistics')
+        .eq('campaign_uid', campaignUid)
+        .eq('account_id', account.id)
+        .maybeSingle();
+      
+      if (cachedStats?.statistics) {
+        console.log(`[fetchCampaignStatisticsFromApi] Stats trouvées en cache`);
+        return ensureValidStatistics(cachedStats.statistics);
+      }
+    } catch (cacheError) {
+      console.warn(`[fetchCampaignStatisticsFromApi] Erreur cache:`, cacheError);
+    }
+    
     console.error(`[fetchCampaignStatisticsFromApi] Toutes les méthodes ont échoué pour ${campaignUid}`);
     return null;
   } catch (error) {
