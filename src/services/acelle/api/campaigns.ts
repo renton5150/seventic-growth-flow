@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { buildDirectAcelleApiUrl } from "../acelle-service";
@@ -181,7 +182,7 @@ export const forceSyncCampaigns = async (
               delivery_date: campaign.delivery_date,
               run_at: campaign.run_at,
               last_error: campaign.last_error,
-              delivery_info: campaign.delivery_info,
+              delivery_info: campaign.delivery_info as any, // Conversion explicite pour compatibilité JSON
               cache_updated_at: new Date().toISOString()
             }, {
               onConflict: 'account_id,campaign_uid'
