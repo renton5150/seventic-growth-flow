@@ -1,7 +1,7 @@
 
 import { AcelleAccount, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
-import { buildDirectApiUrl } from "../../acelle-service";
+import { buildDirectAcelleApiUrl } from "../../acelle-service";
 import { extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
 
 /**
@@ -12,7 +12,7 @@ export const fetchCampaignStatisticsFromApi = async (
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> => {
   try {
-    console.log(`Appel API statistics pour la campagne ${campaignUid}`);
+    console.log(`Appel API statistics direct pour la campagne ${campaignUid}`);
     
     // Vérifier les paramètres requis
     if (!campaignUid || !account || !account.api_token || !account.api_endpoint) {
@@ -25,18 +25,24 @@ export const fetchCampaignStatisticsFromApi = async (
       return null;
     }
     
-    // Construire l'URL de l'API
-    const apiUrl = buildDirectApiUrl(
+    // Construire l'URL de l'API directe
+    const apiUrl = buildDirectAcelleApiUrl(
       `campaigns/${campaignUid}/statistics`, 
       account.api_endpoint,
       { api_token: account.api_token }
     );
     
-    // Appeler l'API
+    console.log(`URL API directe (sans token): ${apiUrl.replace(account.api_token, '***')}`);
+    
+    // Appeler l'API directement
     const response = await fetch(apiUrl, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'x-acelle-token': account.api_token
+        'Content-Type': 'application/json',
+        'x-account-id': account.id,
+        'x-acelle-token': account.api_token,
+        'Origin': window.location.origin
       }
     });
     
@@ -50,7 +56,7 @@ export const fetchCampaignStatisticsFromApi = async (
     const data = await response.json();
     
     if (!data) {
-      console.error("Pas de données retournées par l'API");
+      console.error("Pas de données retournées par l'API directe");
       return null;
     }
     
@@ -76,7 +82,7 @@ export const fetchCampaignStatisticsLegacy = async (
   account: AcelleAccount
 ): Promise<AcelleCampaignStatistics | null> => {
   try {
-    console.log(`Appel API legacy pour la campagne ${campaignUid}`);
+    console.log(`Appel API legacy direct pour la campagne ${campaignUid}`);
     
     // Vérifier les paramètres requis
     if (!campaignUid || !account || !account.api_token || !account.api_endpoint) {
@@ -84,13 +90,22 @@ export const fetchCampaignStatisticsLegacy = async (
       return null;
     }
     
-    // Construire l'URL de l'API legacy
-    const apiUrl = `${account.api_endpoint}/api/v1/campaigns/${campaignUid}/stats?api_token=${account.api_token}`;
+    // Construire l'URL de l'API legacy directe
+    const apiUrl = buildDirectAcelleApiUrl(
+      `campaigns/${campaignUid}/stats`,
+      account.api_endpoint,
+      { api_token: account.api_token }
+    );
     
-    // Appeler l'API
+    // Appeler l'API directement
     const response = await fetch(apiUrl, {
+      method: 'GET',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-account-id': account.id,
+        'x-acelle-token': account.api_token,
+        'Origin': window.location.origin
       }
     });
     
@@ -104,7 +119,7 @@ export const fetchCampaignStatisticsLegacy = async (
     const data = await response.json();
     
     if (!data) {
-      console.error("Pas de données retournées par l'API legacy");
+      console.error("Pas de données retournées par l'API legacy directe");
       return null;
     }
     

@@ -86,7 +86,7 @@ export const acelleService = {
 /**
  * Construit l'URL pour le proxy CORS
  * Version simplifiée pour appeler directement l'API Acelle via acelle-proxy
- * @deprecated Utiliser buildDirectApiUrl pour les nouveaux appels API
+ * @deprecated Utiliser buildDirectAcelleApiUrl pour les nouveaux appels API
  */
 export const buildProxyUrl = (path: string, params: Record<string, string> = {}): string => {
   const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
@@ -111,17 +111,14 @@ export const buildProxyUrl = (path: string, params: Record<string, string> = {})
 };
 
 /**
- * Construit l'URL pour appeler directement l'API Acelle via acelle-proxy
- * Cette méthode est recommandée pour garantir une communication fiable
+ * Construit l'URL pour appeler directement l'API Acelle sans proxy
+ * Cette méthode est recommandée pour éviter les problèmes CORS
  */
-export const buildDirectApiUrl = (
+export const buildDirectAcelleApiUrl = (
   path: string, 
   acelleEndpoint: string = 'https://emailing.plateforme-solution.net',
   params: Record<string, string> = {}
 ): string => {
-  // Utiliser le proxy CORS directement pour une meilleure compatibilité
-  const baseProxyUrl = 'https://dupguifqyjchlmzbadav.supabase.co/functions/v1/cors-proxy';
-  
   // Nettoyer le chemin d'API
   const apiPath = path.startsWith('/') ? path.substring(1) : path;
   
@@ -149,9 +146,18 @@ export const buildDirectApiUrl = (
   const timestamp = Date.now().toString();
   apiUrl += (apiUrl.includes('?') ? '&' : '?') + `_t=${timestamp}`;
   
-  // Encoder l'URL de l'API pour la passer au proxy CORS
-  const encodedApiUrl = encodeURIComponent(apiUrl);
-  
-  // Construire l'URL finale pour le proxy CORS
-  return `${baseProxyUrl}?url=${encodedApiUrl}`;
+  return apiUrl;
+};
+
+/**
+ * Construit l'URL pour appeler directement l'API Acelle via acelle-proxy
+ * Cette méthode est recommandée pour garantir une communication fiable
+ * @deprecated Remplacé par buildDirectAcelleApiUrl pour éviter les problèmes CORS
+ */
+export const buildDirectApiUrl = (
+  path: string, 
+  acelleEndpoint: string = 'https://emailing.plateforme-solution.net',
+  params: Record<string, string> = {}
+): string => {
+  return buildDirectAcelleApiUrl(path, acelleEndpoint, params);
 };

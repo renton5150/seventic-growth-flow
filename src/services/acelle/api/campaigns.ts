@@ -1,11 +1,10 @@
-
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { buildProxyUrl } from "../acelle-service";
+import { buildDirectAcelleApiUrl } from "../acelle-service";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
 
 /**
- * Récupère les campagnes d'un compte Acelle depuis l'API
+ * Récupère les campagnes d'un compte Acelle depuis l'API directement
  */
 export const getCampaigns = async (
   account: AcelleAccount, 
@@ -31,29 +30,24 @@ export const getCampaigns = async (
       _t: Date.now().toString() // Empêche la mise en cache
     };
 
-    // Construction de l'URL
-    const url = buildProxyUrl("campaigns", params);
-    console.log(`Requesting campaigns from API: ${url}`);
+    // Construction de l'URL directe
+    const url = buildDirectAcelleApiUrl("campaigns", account.api_endpoint, params);
+    console.log(`Requesting campaigns directly from Acelle API: ${url.replace(account.api_token, '***')}`);
 
-    // Récupérer le token d'authentification
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    if (!token) {
-      console.error("Aucun token d'authentification disponible");
-      return [];
-    }
-
-    // Effectuer la requête API
+    // Effectuer la requête API directe
     const response = await fetch(url, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Content-Type': 'application/json',
+        'x-account-id': account.id,
+        'x-acelle-token': account.api_token,
+        'Origin': window.location.origin
       }
     });
 
     if (!response.ok) {
-      console.error(`Erreur API: ${response.status} ${response.statusText}`);
+      console.error(`Erreur API directe: ${response.status} ${response.statusText}`);
       return [];
     }
 
@@ -87,7 +81,7 @@ export const getCampaigns = async (
 };
 
 /**
- * Récupère une campagne spécifique par son UID
+ * Récupère une campagne spécifique par son UID directement depuis l'API
  */
 export const getCampaign = async (
   uid: string,
@@ -104,28 +98,23 @@ export const getCampaign = async (
       _t: Date.now().toString()
     };
 
-    // Construction de l'URL
-    const url = buildProxyUrl(`campaigns/${uid}`, params);
+    // Construction de l'URL directe
+    const url = buildDirectAcelleApiUrl(`campaigns/${uid}`, account.api_endpoint, params);
 
-    // Récupérer le token d'authentification
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    if (!token) {
-      console.error("Aucun token d'authentification disponible");
-      return null;
-    }
-
-    // Effectuer la requête API
+    // Effectuer la requête API directe
     const response = await fetch(url, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Content-Type': 'application/json',
+        'x-account-id': account.id,
+        'x-acelle-token': account.api_token,
+        'Origin': window.location.origin
       }
     });
 
     if (!response.ok) {
-      console.error(`Erreur API: ${response.status} ${response.statusText}`);
+      console.error(`Erreur API directe: ${response.status} ${response.statusText}`);
       return null;
     }
 
@@ -159,56 +148,65 @@ export const getCampaign = async (
 
 /**
  * Force la synchronisation des campagnes pour un compte
+ * Note: Cette fonction est maintenant simplifiée car nous n'utilisons plus les Edge functions
  */
 export const forceSyncCampaigns = async (
   account: AcelleAccount,
-  accessToken: string
+  accessToken?: string
 ): Promise<{ success: boolean; message: string }> => {
   try {
     if (!account?.id) {
       return { success: false, message: "Aucun compte spécifié" };
     }
 
-    if (!accessToken) {
-      return { success: false, message: "Token d'authentification manquant" };
-    }
+    console.log(`Synchronisation directe des campagnes pour le compte ${account.name}`);
 
-    console.log(`Forçage de la synchronisation des campagnes pour le compte ${account.name}`);
-
-    // Appeler la fonction Edge pour synchroniser
-    const { data, error } = await supabase.functions.invoke('sync-email-campaigns', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: { 
-        accountId: account.id
-      }
-    });
+    // Récupérer directement les campagnes depuis l'API
+    const campaigns = await getCampaigns(account, { page: 1, perPage: 50 });
     
-    if (error) {
-      console.error("Erreur lors de la synchronisation:", error);
-      return { 
-        success: false, 
-        message: `Erreur: ${error.message || "Échec de la synchronisation"}` 
-      };
-    }
-
-    if (data?.success) {
+    if (campaigns.length > 0) {
+      // Optionnellement, mettre en cache les campagnes récupérées
+      try {
+        await Promise.all(campaigns.map(async (campaign) => {
+          const { error } = await supabase
+            .from('email_campaigns_cache')
+            .upsert({
+              account_id: account.id,
+              campaign_uid: campaign.uid,
+              name: campaign.name,
+              subject: campaign.subject,
+              status: campaign.status,
+              created_at: campaign.created_at,
+              updated_at: campaign.updated_at,
+              delivery_date: campaign.delivery_date,
+              run_at: campaign.run_at,
+              last_error: campaign.last_error,
+              delivery_info: campaign.delivery_info,
+              cache_updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'account_id,campaign_uid'
+            });
+          
+          if (error) {
+            console.error(`Erreur lors de la mise en cache de la campagne ${campaign.uid}:`, error);
+          }
+        }));
+      } catch (cacheError) {
+        console.warn("Erreur lors de la mise en cache, mais synchronisation réussie:", cacheError);
+      }
+      
       return { 
         success: true, 
-        message: data.message || "Synchronisation réussie" 
+        message: `${campaigns.length} campagnes synchronisées avec succès` 
       };
     } else {
-      console.error("La synchronisation a échoué:", data);
       return { 
         success: false, 
-        message: data?.message || "La synchronisation a échoué pour une raison inconnue" 
+        message: "Aucune campagne trouvée ou erreur lors de la récupération" 
       };
     }
   } catch (error) {
-    console.error("Erreur lors de la synchronisation forcée:", error);
+    console.error("Erreur lors de la synchronisation directe:", error);
     return { 
       success: false, 
       message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"}` 
