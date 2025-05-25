@@ -26,13 +26,13 @@ export function useApiConnection(account?: AcelleAccount) {
       
       setLastCheckResult(result.success);
       
-      // Convertir le résultat en format AcelleConnectionDebug
+      // Convertir le résultat en format AcelleConnectionDebug en accédant sûrement aux propriétés
       const debugResult: AcelleConnectionDebug = {
         success: result.success,
         timestamp: new Date().toISOString(),
         errorMessage: result.success ? undefined : result.message,
         statusCode: result.success ? 200 : undefined,
-        duration: result.details?.responseTime || 0
+        duration: result.details && 'duration' in result.details ? result.details.duration : 0
       };
       
       setDebugInfo(debugResult);

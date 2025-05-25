@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -100,16 +101,16 @@ export function AcelleAccountForm({ account, onSuccess, onCancel }: AcelleAccoun
       
       const result = await checkAcelleConnectionStatus(tempAccount);
       
-      // Adapter le résultat au format AcelleConnectionDebug
+      // Adapter le résultat au format AcelleConnectionDebug en accédant sûrement aux propriétés
       const debugResult: AcelleConnectionDebug = {
         success: result.success,
         timestamp: new Date().toISOString(),
         errorMessage: result.success ? undefined : result.message,
-        responseTime: result.details?.responseTime,
-        apiVersion: result.details?.apiVersion,
-        responseData: result.details?.campaignsFound !== undefined ? {
+        responseTime: result.details && 'duration' in result.details ? result.details.duration : undefined,
+        apiVersion: result.details && 'apiVersion' in result.details ? result.details.apiVersion : undefined,
+        responseData: result.details && 'campaignsFound' in result.details ? {
           campaignsFound: result.details.campaignsFound,
-          totalCampaigns: result.details.totalCampaigns
+          totalCampaigns: result.details.totalCampaigns || 0
         } : undefined
       };
       
