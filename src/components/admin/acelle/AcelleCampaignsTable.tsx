@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -65,7 +64,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     useCache: true // Toujours utiliser le cache pour l'affichage
   });
 
-  console.log(`[AcelleCampaignsTable] SIMPLE - Rendu pour ${account.name}: ${campaigns.length} campagnes affichées, ${totalCount} total`);
+  console.log(`[AcelleCampaignsTable] NOUVEAU - ${account.name}: ${campaigns.length} campagnes affichées, ${totalCount} total`);
 
   // Obtenir le token d'authentification
   useEffect(() => {
@@ -126,29 +125,41 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     }
     
     setIsFullSyncing(true);
-    setSyncProgress({ current: 0, total: 0, message: "Démarrage synchronisation SIMPLE..." });
+    setSyncProgress({ current: 0, total: 0, message: "Démarrage synchronisation NOUVELLE VERSION..." });
     
     try {
-      console.log(`[AcelleCampaignsTable] SIMPLE - Début synchronisation pour ${account.name}`);
+      console.log(`[AcelleCampaignsTable] NOUVELLE VERSION - Début synchronisation pour ${account.name}`);
       
       const result = await forceSyncCampaigns(account, accessToken, (progress) => {
         setSyncProgress(progress);
       });
       
       if (result.success) {
-        toast.success(`${result.totalCampaigns || 0} campagnes synchronisées !`, { id: "full-sync" });
-        console.log(`[AcelleCampaignsTable] SIMPLE - Synchronisation RÉUSSIE: ${result.totalCampaigns} campagnes`);
+        toast.success(`✅ ${result.totalCampaigns || 0} campagnes synchronisées pour ${account.name} !`, { 
+          id: "full-sync",
+          duration: 5000
+        });
+        console.log(`[AcelleCampaignsTable] NOUVELLE VERSION - Synchronisation RÉUSSIE: ${result.totalCampaigns} campagnes`);
         
         // Actualiser le cache et les données
         await getCachedCampaignsCount();
         await refresh();
+        
+        // Message de succès spécifique
+        setConnectionError(null);
+        toast.success(`🎉 Toutes les campagnes de ${account.name} sont maintenant disponibles !`, {
+          duration: 8000
+        });
       } else {
-        toast.error(result.message, { id: "full-sync" });
-        console.error(`[AcelleCampaignsTable] SIMPLE - Synchronisation échouée: ${result.message}`);
+        toast.error(`❌ ${result.message}`, { id: "full-sync" });
+        setConnectionError(result.message);
+        console.error(`[AcelleCampaignsTable] Synchronisation échouée: ${result.message}`);
       }
     } catch (err) {
       console.error("Erreur synchronisation:", err);
-      toast.error("Erreur de synchronisation", { id: "full-sync" });
+      const errorMsg = err instanceof Error ? err.message : "Erreur de synchronisation";
+      toast.error(`❌ ${errorMsg}`, { id: "full-sync" });
+      setConnectionError(errorMsg);
     } finally {
       setIsFullSyncing(false);
       setSyncProgress({ current: 0, total: 0, message: "" });
@@ -223,92 +234,157 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
 
   // Si le compte est inactif
   if (account?.status !== 'active') {
-    return <InactiveAccountState />;
+    return (
+      <div className="text-center py-8">
+        <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Compte Acelle inactif</h3>
+        <p className="text-gray-600 mb-4">
+          Le compte {account.name} est marqué comme inactif. 
+        </p>
+        <Button onClick={handleFullSync} disabled={isFullSyncing || !accessToken}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isFullSyncing ? "animate-spin" : ""}`} />
+          Activer et synchroniser
+        </Button>
+      </div>
+    );
   }
 
   // États d'affichage
   if (isLoading) {
-    return <TableLoadingState />;
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <Spinner className="h-8 w-8 mb-4" />
+        <p className="text-gray-600">Chargement des campagnes pour {account.name}...</p>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <TableErrorState 
-        error={error} 
-        onRetry={handleRefresh}
-        retryCount={0}
-      />
+      <div className="text-center py-8">
+        <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
+        <p className="text-red-600 mb-4">{error}</p>
+        <div className="space-x-2">
+          <Button variant="outline" onClick={handleRefresh} disabled={isManuallyRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
+            Actualiser cache
+          </Button>
+          <Button onClick={handleFullSync} disabled={isFullSyncing || !accessToken}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isFullSyncing ? "animate-spin" : ""}`} />
+            Synchroniser depuis API
+          </Button>
+        </div>
+      </div>
     );
   }
 
   if (!campaigns?.length) {
-    return <EmptyState onSync={handleFullSync} />;
+    return (
+      <div className="text-center py-8">
+        <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune campagne trouvée</h3>
+        <p className="text-gray-600 mb-4">
+          Aucune campagne n'est disponible en cache pour {account.name}.
+        </p>
+        <Button onClick={handleFullSync} disabled={isFullSyncing || !accessToken} size="lg">
+          <RefreshCw className={`h-4 w-4 mr-2 ${isFullSyncing ? "animate-spin" : ""}`} />
+          Synchroniser les campagnes depuis l'API
+        </Button>
+        {isFullSyncing && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-blue-800 font-medium">{syncProgress.message}</p>
+            {syncProgress.total > 0 && (
+              <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <AcelleTableFilters 
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-        />
-        
-        <div className="flex flex-wrap gap-2 items-center">
-          <ConnectionStatusIndicator />
-          
-          <div className="text-xs text-muted-foreground flex items-center gap-1">
-            <Database className="h-3 w-3" />
-            {totalCount} campagnes en cache
+      {/* En-tête avec statistiques et actions */}
+      <div className="bg-white p-4 rounded-lg border">
+        <div className="flex flex-col sm:flex-row justify-between gap-4 items-start">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Campagnes {account.name}
+            </h3>
+            <div className="flex items-center gap-4 mt-1">
+              <ConnectionStatusIndicator />
+              <div className="text-sm text-gray-600 flex items-center gap-1">
+                <Database className="h-3 w-3" />
+                {totalCount} campagnes en cache
+              </div>
+              {lastRefreshTimestamp && (
+                <div className="text-xs text-gray-500">
+                  Dernière sync: {new Date(lastRefreshTimestamp).toLocaleString()}
+                </div>
+              )}
+            </div>
           </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isManuallyRefreshing || isFullSyncing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
-            Actualiser cache
-          </Button>
-          
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleFullSync}
-            disabled={isFullSyncing || !accessToken}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isFullSyncing ? "animate-spin" : ""}`} />
-            Sync API COMPLÈTE
-          </Button>
-          
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleClearCache}
-            disabled={isCacheBusy || isFullSyncing}
-          >
-            Vider cache
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isManuallyRefreshing || isFullSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
+              Actualiser cache
+            </Button>
+            
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleFullSync}
+              disabled={isFullSyncing || !accessToken}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isFullSyncing ? "animate-spin" : ""}`} />
+              Sync API COMPLÈTE
+            </Button>
+            
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleClearCache}
+              disabled={isCacheBusy || isFullSyncing}
+            >
+              Vider cache
+            </Button>
+          </div>
         </div>
       </div>
       
       {connectionError && (
-        <Card className="bg-amber-50 border-amber-200">
-          <CardContent className="p-4 text-amber-800 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
-            <p>{connectionError}</p>
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="p-4 text-red-800 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <div>
+              <p className="font-medium">Erreur de synchronisation</p>
+              <p className="text-sm">{connectionError}</p>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Filtres */}
+      <AcelleTableFilters 
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+      />
       
-      {lastRefreshTimestamp && (
-        <div className="text-xs text-muted-foreground mb-2">
-          Dernière synchronisation: {new Date(lastRefreshTimestamp).toLocaleString()}
-        </div>
-      )}
-      
+      {/* Tableau des campagnes */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -352,10 +428,13 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       </div>
 
       {/* Affichage du total */}
-      <div className="flex justify-center items-center mt-4 text-sm text-muted-foreground">
-        Affichage de {filteredCampaigns.length} campagnes sur {totalCount} au total
+      <div className="flex justify-center items-center mt-4 text-sm text-muted-foreground bg-gray-50 p-3 rounded-lg">
+        <span className="font-medium">
+          Affichage de {filteredCampaigns.length} campagnes sur {totalCount} au total pour {account.name}
+        </span>
       </div>
 
+      {/* Dialogue des détails de campagne */}
       <Dialog open={!!selectedCampaign} onOpenChange={(open) => {
         if (!open) handleCloseDetails();
       }}>
@@ -375,6 +454,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         </DialogContent>
       </Dialog>
 
+      {/* Dialogue de progression de synchronisation */}
       <SyncProgressDialog 
         isOpen={isFullSyncing}
         progress={syncProgress}

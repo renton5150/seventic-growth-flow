@@ -4,19 +4,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-acelle-endpoint, x-acelle-token',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
   'Content-Type': 'application/json'
 };
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  console.log("=== ACELLE PROXY CORRECTION URGENTE ===");
+  console.log("=== ACELLE PROXY SIMPLE ET ROBUSTE ===");
   
   try {
     let body = {};
@@ -28,35 +26,25 @@ serve(async (req) => {
         console.error("Erreur parsing JSON:", e);
         return new Response(JSON.stringify({ 
           success: false,
-          error: "JSON invalide",
-          timestamp: new Date().toISOString()
-        }), {
-          status: 400,
-          headers: corsHeaders
-        });
+          error: "JSON invalide"
+        }), { status: 400, headers: corsHeaders });
       }
     }
     
-    const url = new URL(req.url);
-    const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
-    const apiToken = body.api_token || req.headers.get('x-acelle-token');
-    const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '30000'); // Timeout plus court mais réaliste
+    const endpoint = body.endpoint;
+    const apiToken = body.api_token;
+    const action = body.action || 'get_campaigns';
     
-    console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
+    console.log(`Action: ${action}, Endpoint: ${!!endpoint}, Token: ${!!apiToken}`);
     
     if (!endpoint || !apiToken) {
       return new Response(JSON.stringify({ 
         success: false,
-        error: 'Endpoint ou token manquant',
-        timestamp: new Date().toISOString()
-      }), {
-        status: 400, 
-        headers: corsHeaders
-      });
+        error: 'Endpoint ou token manquant'
+      }), { status: 400, headers: corsHeaders });
     }
 
-    // Nettoyage de l'endpoint
+    // Nettoyer l'endpoint
     let cleanEndpoint = endpoint.trim();
     if (cleanEndpoint.endsWith('/')) {
       cleanEndpoint = cleanEndpoint.slice(0, -1);
@@ -65,72 +53,52 @@ serve(async (req) => {
       cleanEndpoint = cleanEndpoint.replace(/\/api\/v1$/, '');
     }
     
-    // Construction de l'URL selon l'action
+    // Construction URL API
     let apiUrl = '';
     
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '50'; // Taille de page raisonnable
+        const perPage = body.per_page || '100'; // Plus de campagnes par page
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
       case 'get_campaign':
-      case 'get_campaign_stats':
         const campaignUid = body.campaign_uid;
         if (!campaignUid) {
           return new Response(JSON.stringify({ 
             success: false,
-            error: 'campaign_uid manquant',
-            timestamp: new Date().toISOString()
-          }), {
-            status: 400, 
-            headers: corsHeaders
-          });
+            error: 'campaign_uid manquant'
+          }), { status: 400, headers: corsHeaders });
         }
         apiUrl = `${cleanEndpoint}/api/v1/campaigns/${campaignUid}?api_token=${apiToken}`;
-        break;
-        
-      case 'check_connection':
-      case 'test_connection':
-        apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=1&per_page=1`;
         break;
         
       case 'ping':
         return new Response(JSON.stringify({ 
           status: 'active', 
-          message: 'Acelle Proxy actif et corrigé',
-          timestamp: new Date().toISOString() 
-        }), {
-          headers: corsHeaders
-        });
+          message: 'Acelle Proxy actif'
+        }), { headers: corsHeaders });
         
       default:
         return new Response(JSON.stringify({ 
           success: false,
-          error: `Action non supportée: ${action}`,
-          timestamp: new Date().toISOString()
-        }), {
-          status: 400, 
-          headers: corsHeaders
-        });
+          error: `Action non supportée: ${action}`
+        }), { status: 400, headers: corsHeaders });
     }
     
-    console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
+    console.log(`Appel API: ${apiUrl.replace(apiToken, '***')}`);
     
-    // Appel API simplifié et robuste
+    // Appel API avec timeout plus long
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 secondes
     
     try {
-      console.log(`Appel API simple pour ${action} (timeout: ${timeout}ms)`);
-      
       const response = await fetch(apiUrl, {
         method: "GET",
         headers: {
           "Accept": "application/json",
-          "User-Agent": "Seventic-Acelle-Proxy-Fixed/1.0",
-          "Cache-Control": "no-cache"
+          "User-Agent": "Seventic-Acelle-Proxy/2.0"
         },
         signal: controller.signal
       });
@@ -138,18 +106,13 @@ serve(async (req) => {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        const errorText = await response.text().catch(() => "Impossible de lire la réponse");
+        const errorText = await response.text().catch(() => "Erreur inconnue");
         console.error(`Erreur API ${response.status}:`, errorText);
         
         return new Response(JSON.stringify({ 
           success: false,
-          error: `Erreur API ${response.status}`,
-          message: errorText,
-          timestamp: new Date().toISOString()
-        }), {
-          status: response.status,
-          headers: corsHeaders
-        });
+          error: `Erreur API ${response.status}: ${errorText}`
+        }), { status: response.status, headers: corsHeaders });
       }
       
       let responseData;
@@ -157,88 +120,49 @@ serve(async (req) => {
         responseData = await response.json();
       } catch (jsonError) {
         console.error("Erreur parsing JSON réponse:", jsonError);
-        
         return new Response(JSON.stringify({ 
           success: false,
-          error: "Réponse API invalide (JSON)",
-          timestamp: new Date().toISOString()
-        }), {
-          status: 500,
-          headers: corsHeaders
-        });
+          error: "Réponse API invalide"
+        }), { status: 500, headers: corsHeaders });
       }
       
-      console.log(`Données reçues pour ${action} - Type: ${typeof responseData}`);
+      console.log(`✅ Données reçues pour ${action}`);
       
-      // Formatage simple et efficace de la réponse
+      // Formatage simple de la réponse
       let formattedResponse;
       
-      switch (action) {
-        case 'get_campaigns':
-          const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
-          
-          // Pagination simple
-          const currentPage = parseInt(body.page || '1');
-          const perPageSize = parseInt(body.per_page || '50');
-          
-          const totalFromApi = responseData.total || responseData.meta?.total || campaigns.length;
-          const lastPageFromApi = responseData.last_page || responseData.meta?.last_page;
-          const currentPageFromApi = responseData.current_page || responseData.meta?.current_page || currentPage;
-          
-          let hasMore = false;
-          if (lastPageFromApi) {
-            hasMore = currentPageFromApi < lastPageFromApi;
-          } else if (totalFromApi) {
-            const expectedLastPage = Math.ceil(totalFromApi / perPageSize);
-            hasMore = currentPageFromApi < expectedLastPage;
-          } else {
-            hasMore = campaigns.length === perPageSize;
-          }
-          
-          console.log(`✅ Campagnes: ${campaigns.length}, Total: ${totalFromApi}, HasMore: ${hasMore}, Page: ${currentPageFromApi}`);
-          
-          formattedResponse = {
-            success: true,
-            campaigns: campaigns,
-            total: totalFromApi,
-            page: currentPageFromApi,
-            per_page: perPageSize,
-            has_more: hasMore,
-            last_page: lastPageFromApi,
-            timestamp: new Date().toISOString()
-          };
-          break;
-          
-        case 'get_campaign':
-        case 'get_campaign_stats':
-          formattedResponse = {
-            success: true,
-            campaign: responseData,
-            statistics: responseData.statistics || responseData,
-            timestamp: new Date().toISOString()
-          };
-          break;
-          
-        case 'check_connection':
-        case 'test_connection':
-          const testCampaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
-          formattedResponse = {
-            success: true,
-            message: 'Connexion établie',
-            campaignsCount: testCampaigns.length,
-            timestamp: new Date().toISOString()
-          };
-          break;
-          
-        default:
-          formattedResponse = {
-            success: true,
-            data: responseData,
-            timestamp: new Date().toISOString()
-          };
+      if (action === 'get_campaigns') {
+        const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
+        
+        const currentPage = parseInt(body.page || '1');
+        const perPageSize = parseInt(body.per_page || '100');
+        const totalFromApi = responseData.total || campaigns.length;
+        const lastPageFromApi = responseData.last_page;
+        
+        let hasMore = false;
+        if (lastPageFromApi) {
+          hasMore = currentPage < lastPageFromApi;
+        } else {
+          hasMore = campaigns.length === perPageSize;
+        }
+        
+        console.log(`✅ ${campaigns.length} campagnes récupérées, Total: ${totalFromApi}, HasMore: ${hasMore}`);
+        
+        formattedResponse = {
+          success: true,
+          campaigns: campaigns,
+          total: totalFromApi,
+          page: currentPage,
+          per_page: perPageSize,
+          has_more: hasMore
+        };
+      } else {
+        formattedResponse = {
+          success: true,
+          campaign: responseData,
+          statistics: responseData.statistics || responseData
+        };
       }
-      
-      console.log("=== FIN ACELLE PROXY (SUCCÈS) ===");
       
       return new Response(JSON.stringify(formattedResponse), {
         headers: corsHeaders
@@ -249,32 +173,22 @@ serve(async (req) => {
       console.error(`Erreur fetch:`, fetchError);
       
       const isTimeout = fetchError.name === 'AbortError';
-      const errorMessage = isTimeout 
-        ? `Timeout API (${timeout}ms)` 
-        : `Erreur réseau: ${fetchError.message}`;
+      const errorMessage = isTimeout ? 'Timeout API (60s)' : `Erreur réseau: ${fetchError.message}`;
       
       return new Response(JSON.stringify({ 
         success: false,
         error: errorMessage,
-        timeout: isTimeout,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: corsHeaders
-      });
+        timeout: isTimeout
+      }), { status: 500, headers: corsHeaders });
     }
     
   } catch (error) {
-    console.error("Erreur globale:", error.message);
+    console.error("Erreur globale:", error);
     
     return new Response(JSON.stringify({ 
       success: false,
       error: 'Erreur interne du proxy',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: corsHeaders
-    });
+      message: error.message
+    }), { status: 500, headers: corsHeaders });
   }
 });

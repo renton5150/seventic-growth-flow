@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { AcelleAccount, AcelleCampaign, DeliveryInfo } from '@/types/acelle.types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCampaigns } from '@/services/acelle/api/campaigns';
-import { createEmptyStatistics } from '@/utils/acelle/campaignStats';
+import { createEmptyStatistics, extractStatisticsFromAnyFormat } from '@/utils/acelle/campaignStats';
 
 export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
   page?: number;
@@ -32,14 +32,14 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
     setError(null);
 
     try {
-      console.log(`[useAcelleCampaigns] SIMPLE - Récupération pour ${account.name}, useCache: ${options?.useCache}`);
+      console.log(`[useAcelleCampaigns] NOUVEAU - Récupération pour ${account.name}, useCache: ${options?.useCache}`);
       
       let fetchedCampaigns: AcelleCampaign[] = [];
       let total = 0;
       let hasMorePages = false;
 
       if (options?.useCache) {
-        console.log(`[useAcelleCampaigns] SIMPLE - Mode cache pour ${account.name}`);
+        console.log(`[useAcelleCampaigns] Mode cache pour ${account.name}`);
         
         // Récupérer TOUTES les campagnes du cache
         const { data: cachedCampaigns, error: cacheError } = await supabase
@@ -49,55 +49,25 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
           .order('created_at', { ascending: false });
 
         if (cacheError) {
-          console.error("[useAcelleCampaigns] SIMPLE - Erreur cache:", cacheError);
+          console.error("[useAcelleCampaigns] Erreur cache:", cacheError);
           throw new Error("Erreur lors de la récupération du cache");
         }
 
-        console.log(`[useAcelleCampaigns] SIMPLE - ${cachedCampaigns?.length || 0} campagnes trouvées en cache`);
+        console.log(`[useAcelleCampaigns] ${cachedCampaigns?.length || 0} campagnes trouvées en cache`);
 
-        // Conversion simple des données du cache
+        // Conversion SIMPLE et ROBUSTE des données du cache
         fetchedCampaigns = (cachedCampaigns || []).map((item): AcelleCampaign => {
-          // Helper simple pour extraire des valeurs de delivery_info
-          const getStatValue = (path: string, defaultValue: number = 0): number => {
-            try {
-              if (!item.delivery_info || typeof item.delivery_info !== 'object') return defaultValue;
-              
-              const value = (item.delivery_info as any)[path];
-              if (value === null || value === undefined || value === '') return defaultValue;
-              
-              const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-              return isNaN(numValue) ? defaultValue : numValue;
-            } catch (e) {
-              return defaultValue;
-            }
-          };
-
-          // Créer les statistiques depuis delivery_info
-          const statistics = {
-            subscriber_count: getStatValue('subscriber_count') || getStatValue('total'),
-            delivered_count: getStatValue('delivered_count') || getStatValue('delivered'),
-            delivered_rate: getStatValue('delivered_rate') || getStatValue('delivery_rate'),
-            open_count: getStatValue('open_count') || getStatValue('opened'),
-            uniq_open_count: getStatValue('uniq_open_count') || getStatValue('opened'),
-            uniq_open_rate: getStatValue('uniq_open_rate') || getStatValue('unique_open_rate') || getStatValue('open_rate'),
-            click_count: getStatValue('click_count') || getStatValue('clicked'),
-            click_rate: getStatValue('click_rate'),
-            bounce_count: getStatValue('bounce_count') || getStatValue('bounced.total') || getStatValue('bounced'),
-            soft_bounce_count: getStatValue('soft_bounce_count') || getStatValue('bounced.soft'),
-            hard_bounce_count: getStatValue('hard_bounce_count') || getStatValue('bounced.hard'),
-            unsubscribe_count: getStatValue('unsubscribe_count') || getStatValue('unsubscribed'),
-            abuse_complaint_count: getStatValue('abuse_complaint_count') || getStatValue('complained')
-          };
-
-          // Conversion simple de delivery_info
+          // Extraction des statistiques depuis delivery_info
+          let statistics = createEmptyStatistics();
           let deliveryInfo: DeliveryInfo = {};
+          
           try {
-            if (item.delivery_info && typeof item.delivery_info === 'object' && !Array.isArray(item.delivery_info)) {
+            if (item.delivery_info && typeof item.delivery_info === 'object') {
               deliveryInfo = item.delivery_info as DeliveryInfo;
+              statistics = extractStatisticsFromAnyFormat(item.delivery_info);
             }
           } catch (e) {
-            console.warn(`[useAcelleCampaigns] SIMPLE - Erreur conversion delivery_info pour ${item.campaign_uid}:`, e);
-            deliveryInfo = {};
+            console.warn(`[useAcelleCampaigns] Erreur conversion statistiques pour ${item.campaign_uid}:`, e);
           }
 
           return {
@@ -126,7 +96,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
         }
         
       } else {
-        console.log(`[useAcelleCampaigns] SIMPLE - Mode API pour ${account.name}`);
+        console.log(`[useAcelleCampaigns] Mode API pour ${account.name}`);
         
         // Récupération via API
         const result = await getCampaigns(account, options);
@@ -134,17 +104,17 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
         total = result.total;
         hasMorePages = result.hasMore;
         
-        console.log(`[useAcelleCampaigns] SIMPLE - API: ${fetchedCampaigns.length} campagnes récupérées, total: ${total}`);
+        console.log(`[useAcelleCampaigns] API: ${fetchedCampaigns.length} campagnes récupérées, total: ${total}`);
       }
 
       setHasMore(hasMorePages);
       setTotalCount(total);
       setCampaigns(fetchedCampaigns);
       
-      console.log(`[useAcelleCampaigns] SIMPLE - ${fetchedCampaigns.length} campagnes finales pour ${account.name}`);
+      console.log(`[useAcelleCampaigns] ✅ ${fetchedCampaigns.length} campagnes finales pour ${account.name}`);
       
     } catch (err) {
-      console.error("[useAcelleCampaigns] SIMPLE - Erreur:", err);
+      console.error("[useAcelleCampaigns] Erreur:", err);
       setError(err instanceof Error ? err.message : "Erreur lors de la récupération des campagnes");
       setCampaigns([]);
       setTotalCount(0);
