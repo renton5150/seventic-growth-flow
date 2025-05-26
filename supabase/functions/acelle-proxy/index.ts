@@ -41,7 +41,7 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '30000'); // Réduire à 30 secondes
+    const timeout = parseInt(body.timeout || '20000'); // Réduire à 20 secondes
     
     console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
@@ -71,7 +71,7 @@ serve(async (req) => {
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '100'; // Réduire à 100 pour éviter les timeouts
+        const perPage = body.per_page || '50'; // Réduire à 50 pour tous les comptes
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
@@ -118,8 +118,8 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
     
-    // Appel à l'API avec timeout et retry améliorés
-    const maxRetries = 3; // Réduire le nombre de retry
+    // Appel à l'API avec timeout et retry réduits
+    const maxRetries = 2; // Réduire le nombre de retry
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -135,7 +135,7 @@ serve(async (req) => {
             "Accept": "application/json",
             "User-Agent": "Seventic-Acelle-Proxy/7.0",
             "Cache-Control": "no-cache",
-            "Connection": "close" // Fermer la connexion après chaque requête
+            "Connection": "close"
           },
           signal: controller.signal
         });
@@ -162,7 +162,7 @@ serve(async (req) => {
           // Retry pour les erreurs 5xx et timeouts avec attente progressive
           if (response.status >= 500 && attempt < maxRetries) {
             console.log(`Erreur serveur ${response.status}, retry dans ${attempt} secondes...`);
-            await new Promise(resolve => setTimeout(resolve, attempt * 1000)); // Attente progressive
+            await new Promise(resolve => setTimeout(resolve, attempt * 1000));
             continue;
           }
           
@@ -210,7 +210,7 @@ serve(async (req) => {
             
             // Améliorer la détection de pagination avec plus de robustesse
             const currentPage = parseInt(body.page || '1');
-            const perPageSize = parseInt(body.per_page || '100');
+            const perPageSize = parseInt(body.per_page || '50');
             
             // Utiliser les métadonnées de l'API Acelle si disponibles
             const totalFromApi = responseData.total || responseData.meta?.total;
@@ -243,7 +243,7 @@ serve(async (req) => {
               per_page: perPageSize,
               has_more: hasMore,
               last_page: lastPageFromApi,
-              meta: responseData.meta, // Inclure les métadonnées complètes
+              meta: responseData.meta,
               timestamp: new Date().toISOString()
             };
             break;
@@ -296,7 +296,7 @@ serve(async (req) => {
         
         // Si ce n'est pas la dernière tentative, attendre avant de retry
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // Attente progressive
+          await new Promise(resolve => setTimeout(resolve, attempt * 1500)); // Attente progressive
         }
       }
     }

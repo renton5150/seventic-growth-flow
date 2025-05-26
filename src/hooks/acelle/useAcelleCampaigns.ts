@@ -57,14 +57,25 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
 
         // Convertir les données du cache au format AcelleCampaign
         fetchedCampaigns = (allCachedCampaigns || []).map((item): AcelleCampaign => {
-          let deliveryInfo = {};
+          // Gérer delivery_info de manière sécurisée avec des types appropriés
+          let deliveryInfo: Record<string, any> = {};
           try {
-            deliveryInfo = typeof item.delivery_info === 'string' 
-              ? JSON.parse(item.delivery_info) 
-              : item.delivery_info || {};
+            if (item.delivery_info) {
+              deliveryInfo = typeof item.delivery_info === 'string' 
+                ? JSON.parse(item.delivery_info) 
+                : item.delivery_info;
+            }
           } catch (e) {
             console.warn(`[useAcelleCampaigns] Erreur parsing delivery_info pour ${item.campaign_uid}:`, e);
+            deliveryInfo = {};
           }
+
+          // Fonction helper pour extraire des valeurs numériques de manière sécurisée
+          const getNumericValue = (value: any, defaultValue: number = 0): number => {
+            if (value === null || value === undefined) return defaultValue;
+            const num = Number(value);
+            return isNaN(num) ? defaultValue : num;
+          };
 
           return {
             uid: item.campaign_uid,
@@ -79,19 +90,19 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
             last_error: item.last_error || '',
             delivery_info: deliveryInfo,
             statistics: {
-              subscriber_count: Number(deliveryInfo.subscriber_count || 0),
-              delivered_count: Number(deliveryInfo.delivered_count || 0),
-              delivered_rate: Number(deliveryInfo.delivered_rate || 0),
-              open_count: Number(deliveryInfo.open_count || 0),
-              uniq_open_count: Number(deliveryInfo.uniq_open_count || 0),
-              uniq_open_rate: Number(deliveryInfo.uniq_open_rate || 0),
-              click_count: Number(deliveryInfo.click_count || 0),
-              click_rate: Number(deliveryInfo.click_rate || 0),
-              bounce_count: Number(deliveryInfo.bounce_count || 0),
-              soft_bounce_count: Number(deliveryInfo.soft_bounce_count || 0),
-              hard_bounce_count: Number(deliveryInfo.hard_bounce_count || 0),
-              unsubscribe_count: Number(deliveryInfo.unsubscribe_count || 0),
-              abuse_complaint_count: Number(deliveryInfo.abuse_complaint_count || 0)
+              subscriber_count: getNumericValue(deliveryInfo.subscriber_count),
+              delivered_count: getNumericValue(deliveryInfo.delivered_count),
+              delivered_rate: getNumericValue(deliveryInfo.delivered_rate),
+              open_count: getNumericValue(deliveryInfo.open_count),
+              uniq_open_count: getNumericValue(deliveryInfo.uniq_open_count),
+              uniq_open_rate: getNumericValue(deliveryInfo.uniq_open_rate),
+              click_count: getNumericValue(deliveryInfo.click_count),
+              click_rate: getNumericValue(deliveryInfo.click_rate),
+              bounce_count: getNumericValue(deliveryInfo.bounce_count),
+              soft_bounce_count: getNumericValue(deliveryInfo.soft_bounce_count),
+              hard_bounce_count: getNumericValue(deliveryInfo.hard_bounce_count),
+              unsubscribe_count: getNumericValue(deliveryInfo.unsubscribe_count),
+              abuse_complaint_count: getNumericValue(deliveryInfo.abuse_complaint_count)
             }
           };
         });
@@ -134,7 +145,9 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
 
       // Enrichir les campagnes avec les statistiques si nécessaire
       console.log(`[useAcelleCampaigns] Enrichissement de ${fetchedCampaigns.length} campagnes...`);
-      const enrichedCampaigns = await enrichCampaignsWithStats(fetchedCampaigns, account);
+      const enrichedCampaigns = await enrichCampaignsWithStats(fetchedCampaigns, account, {
+        forceRefresh: false // Ne pas forcer le refresh par défaut pour éviter les lenteurs
+      });
       setCampaigns(enrichedCampaigns);
       
       console.log(`[useAcelleCampaigns] ${enrichedCampaigns.length} campagnes finales pour ${account.name}`);

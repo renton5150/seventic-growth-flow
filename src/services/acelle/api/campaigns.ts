@@ -1,3 +1,4 @@
+
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
@@ -21,11 +22,11 @@ export const getCampaigns = async (
     }
 
     const page = options?.page || 1;
-    const perPage = options?.perPage || 200; // Augmenter à 200
+    const perPage = options?.perPage || 100; // Réduire à 100 pour éviter les timeouts
 
     console.log(`[getCampaigns] Appel Edge Function pour récupérer les campagnes (page ${page}, perPage ${perPage})`);
     
-    // Utiliser l'Edge Function avec timeout augmenté
+    // Utiliser l'Edge Function avec timeout réduit
     const { data, error } = await supabase.functions.invoke('acelle-proxy', {
       body: { 
         endpoint: account.api_endpoint,
@@ -33,7 +34,7 @@ export const getCampaigns = async (
         action: 'get_campaigns',
         page: page.toString(),
         per_page: perPage.toString(),
-        timeout: 60000 // 60 secondes
+        timeout: 45000 // Réduire à 45 secondes
       }
     });
     
@@ -99,10 +100,10 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
     
     let allCampaigns: AcelleCampaign[] = [];
     let currentPage = 1;
-    const perPage = 100; // Réduire la taille de page pour éviter les timeouts
+    const perPage = 50; // Réduire encore plus la taille de page pour Eiffage
     let hasMorePages = true;
     let consecutiveFailures = 0;
-    const maxConsecutiveFailures = 3;
+    const maxConsecutiveFailures = 2; // Réduire le nombre d'échecs tolérés
     let totalFromFirstPage = 0;
     
     // D'abord, tester la connexion avec une petite requête
@@ -114,14 +115,17 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
         return [];
       }
       totalFromFirstPage = testResult.total;
-      console.log(`[getAllCampaigns] Test réussi - ${totalFromFirstPage} campagnes attendues`);
+      console.log(`[getAllCampaigns] Test réussi - ${totalFromFirstPage} campagnes attendues pour ${account.name}`);
     } catch (testError) {
       console.error(`[getAllCampaigns] Test de connexion échoué pour ${account.name}:`, testError);
       return [];
     }
     
-    while (hasMorePages && consecutiveFailures < maxConsecutiveFailures && currentPage <= 50) {
-      console.log(`[getAllCampaigns] === PAGE ${currentPage} pour ${account.name} ===`);
+    // Limiter le nombre de pages maximum selon le compte
+    const maxPages = totalFromFirstPage > 200 ? 100 : 20; // Plus de pages pour les gros comptes
+    
+    while (hasMorePages && consecutiveFailures < maxConsecutiveFailures && currentPage <= maxPages) {
+      console.log(`[getAllCampaigns] === PAGE ${currentPage} pour ${account.name} (max: ${maxPages}) ===`);
       
       try {
         const result = await getCampaigns(account, { 
@@ -143,19 +147,19 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
           allCampaigns = [...allCampaigns, ...newCampaigns];
           consecutiveFailures = 0; // Reset le compteur d'échecs
           
-          console.log(`[getAllCampaigns] Page ${currentPage}: ${campaigns.length} récupérées, ${newCampaigns.length} nouvelles (total: ${allCampaigns.length}/${totalFromFirstPage || total})`);
+          console.log(`[getAllCampaigns] Page ${currentPage}: ${campaigns.length} récupérées, ${newCampaigns.length} nouvelles (total: ${allCampaigns.length}/${totalFromFirstPage || total}) pour ${account.name}`);
           
           // Vérifier s'il y a plus de pages selon l'API
           hasMorePages = hasMore;
           
           if (!hasMore) {
-            console.log(`[getAllCampaigns] ✅ Fin de pagination détectée (hasMore: false)`);
+            console.log(`[getAllCampaigns] ✅ Fin de pagination détectée (hasMore: false) pour ${account.name}`);
             break;
           }
           
           // Vérification de sécurité : si on a récupéré autant que le total attendu
           if (totalFromFirstPage > 0 && allCampaigns.length >= totalFromFirstPage) {
-            console.log(`[getAllCampaigns] ✅ Total attendu atteint: ${allCampaigns.length}/${totalFromFirstPage}`);
+            console.log(`[getAllCampaigns] ✅ Total attendu atteint: ${allCampaigns.length}/${totalFromFirstPage} pour ${account.name}`);
             break;
           }
           
@@ -165,7 +169,7 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
             console.log(`[getAllCampaigns] ❌ Première page vide pour ${account.name}`);
             hasMorePages = false;
           } else {
-            console.log(`[getAllCampaigns] ✅ Page ${currentPage} vide, fin de pagination`);
+            console.log(`[getAllCampaigns] ✅ Page ${currentPage} vide, fin de pagination pour ${account.name}`);
             hasMorePages = false;
           }
         }
@@ -174,20 +178,20 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
         
         // Pause plus courte entre les appels pour éviter les timeouts
         if (hasMorePages) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms entre les appels
+          await new Promise(resolve => setTimeout(resolve, 300)); // 300ms entre les appels
         }
         
       } catch (pageError) {
         consecutiveFailures++;
-        console.error(`[getAllCampaigns] ❌ Erreur page ${currentPage} (échec ${consecutiveFailures}/${maxConsecutiveFailures}):`, pageError);
+        console.error(`[getAllCampaigns] ❌ Erreur page ${currentPage} pour ${account.name} (échec ${consecutiveFailures}/${maxConsecutiveFailures}):`, pageError);
         
         if (consecutiveFailures >= maxConsecutiveFailures) {
-          console.log(`[getAllCampaigns] ❌ Arrêt après ${maxConsecutiveFailures} échecs consécutifs`);
+          console.log(`[getAllCampaigns] ❌ Arrêt après ${maxConsecutiveFailures} échecs consécutifs pour ${account.name}`);
           break;
         }
         
         // Attendre plus longtemps en cas d'erreur
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         currentPage++;
       }
     }
@@ -196,9 +200,9 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
     
     // Vérifier le résultat final
     if (totalFromFirstPage > 0 && allCampaigns.length < totalFromFirstPage) {
-      console.warn(`[getAllCampaigns] ⚠️ Récupération incomplète: ${allCampaigns.length}/${totalFromFirstPage} campagnes`);
+      console.warn(`[getAllCampaigns] ⚠️ Récupération incomplète pour ${account.name}: ${allCampaigns.length}/${totalFromFirstPage} campagnes`);
     } else if (allCampaigns.length > 0) {
-      console.log(`[getAllCampaigns] ✅ Récupération réussie: ${allCampaigns.length} campagnes`);
+      console.log(`[getAllCampaigns] ✅ Récupération réussie pour ${account.name}: ${allCampaigns.length} campagnes`);
     }
     
     return allCampaigns;
@@ -280,7 +284,7 @@ export const forceSyncCampaigns = async (
     console.log(`[forceSyncCampaigns] ===== SYNCHRONISATION COMPLÈTE ${account.name} =====`);
     
     // Notifier le début
-    progressCallback?.({ current: 0, total: 0, message: "Démarrage de la synchronisation..." });
+    progressCallback?.({ current: 0, total: 0, message: `Démarrage de la synchronisation pour ${account.name}...` });
 
     // Marquer le début de la synchronisation
     await supabase
@@ -293,17 +297,17 @@ export const forceSyncCampaigns = async (
       .eq('id', account.id);
 
     // Récupérer TOUTES les campagnes avec la logique améliorée
-    progressCallback?.({ current: 0, total: 0, message: "Récupération de toutes les campagnes..." });
+    progressCallback?.({ current: 0, total: 0, message: `Récupération de toutes les campagnes pour ${account.name}...` });
     
     const allCampaigns = await getAllCampaigns(account);
     
     if (allCampaigns.length > 0) {
-      console.log(`[forceSyncCampaigns] ${allCampaigns.length} campagnes récupérées, début mise en cache...`);
+      console.log(`[forceSyncCampaigns] ${allCampaigns.length} campagnes récupérées pour ${account.name}, début mise en cache...`);
       
       progressCallback?.({ 
         current: 0, 
         total: allCampaigns.length, 
-        message: `Mise en cache de ${allCampaigns.length} campagnes...` 
+        message: `Mise en cache de ${allCampaigns.length} campagnes pour ${account.name}...` 
       });
       
       // D'abord, supprimer l'ancien cache pour ce compte
@@ -314,13 +318,13 @@ export const forceSyncCampaigns = async (
         .eq('account_id', account.id);
       
       // Mettre en cache les campagnes par lots
-      const batchSize = 5; // Réduire la taille des lots
+      const batchSize = 3; // Réduire encore plus la taille des lots pour éviter les timeouts
       let processedCount = 0;
       
       for (let i = 0; i < allCampaigns.length; i += batchSize) {
         const batch = allCampaigns.slice(i, i + batchSize);
         
-        console.log(`[forceSyncCampaigns] Traitement du lot ${Math.floor(i/batchSize) + 1}/${Math.ceil(allCampaigns.length/batchSize)}`);
+        console.log(`[forceSyncCampaigns] Traitement du lot ${Math.floor(i/batchSize) + 1}/${Math.ceil(allCampaigns.length/batchSize)} pour ${account.name}`);
         
         const cachePromises = batch.map(async (campaign) => {
           try {
@@ -345,12 +349,12 @@ export const forceSyncCampaigns = async (
               .insert(cleanCampaign);
             
             if (error) {
-              console.error(`[forceSyncCampaigns] Erreur cache ${campaign.uid}:`, error);
+              console.error(`[forceSyncCampaigns] Erreur cache ${campaign.uid} pour ${account.name}:`, error);
             } else {
-              console.log(`[forceSyncCampaigns] ✅ Campagne ${campaign.name} mise en cache`);
+              console.log(`[forceSyncCampaigns] ✅ Campagne ${campaign.name} mise en cache pour ${account.name}`);
             }
           } catch (err) {
-            console.error(`[forceSyncCampaigns] Exception cache ${campaign.uid}:`, err);
+            console.error(`[forceSyncCampaigns] Exception cache ${campaign.uid} pour ${account.name}:`, err);
           }
         });
         
@@ -360,11 +364,11 @@ export const forceSyncCampaigns = async (
         progressCallback?.({ 
           current: processedCount, 
           total: allCampaigns.length, 
-          message: `${processedCount}/${allCampaigns.length} campagnes mises en cache` 
+          message: `${processedCount}/${allCampaigns.length} campagnes mises en cache pour ${account.name}` 
         });
         
         // Pause entre les lots
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       // Marquer la synchronisation comme réussie
@@ -379,14 +383,14 @@ export const forceSyncCampaigns = async (
       progressCallback?.({ 
         current: allCampaigns.length, 
         total: allCampaigns.length, 
-        message: "Synchronisation terminée avec succès !" 
+        message: `Synchronisation terminée avec succès pour ${account.name} !` 
       });
       
-      console.log(`[forceSyncCampaigns] ✅ SYNCHRONISATION RÉUSSIE: ${allCampaigns.length} campagnes`);
+      console.log(`[forceSyncCampaigns] ✅ SYNCHRONISATION RÉUSSIE pour ${account.name}: ${allCampaigns.length} campagnes`);
       
       return { 
         success: true, 
-        message: `${allCampaigns.length} campagnes synchronisées avec succès`,
+        message: `${allCampaigns.length} campagnes synchronisées avec succès pour ${account.name}`,
         totalCampaigns: allCampaigns.length
       };
     } else {
@@ -404,11 +408,11 @@ export const forceSyncCampaigns = async (
       
       return { 
         success: false, 
-        message: "Aucune campagne trouvée ou erreur de connexion" 
+        message: `Aucune campagne trouvée ou erreur de connexion pour ${account.name}` 
       };
     }
   } catch (error) {
-    console.error("[forceSyncCampaigns] ❌ Erreur:", error);
+    console.error(`[forceSyncCampaigns] ❌ Erreur pour ${account.name}:`, error);
     
     // Marquer le compte en erreur
     try {
@@ -421,18 +425,18 @@ export const forceSyncCampaigns = async (
         })
         .eq('id', account.id);
     } catch (updateError) {
-      console.error("[forceSyncCampaigns] Erreur mise à jour:", updateError);
+      console.error(`[forceSyncCampaigns] Erreur mise à jour pour ${account.name}:`, updateError);
     }
     
     progressCallback?.({ 
       current: 0, 
       total: 0, 
-      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"}` 
+      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"} pour ${account.name}` 
     });
     
     return { 
       success: false, 
-      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"}` 
+      message: `Erreur: ${error instanceof Error ? error.message : "Échec de la synchronisation"} pour ${account.name}` 
     };
   }
 };
