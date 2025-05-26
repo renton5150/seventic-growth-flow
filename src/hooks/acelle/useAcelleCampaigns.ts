@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { AcelleAccount, AcelleCampaign } from '@/types/acelle.types';
+import { AcelleAccount, AcelleCampaign, DeliveryInfo } from '@/types/acelle.types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCampaigns } from '@/services/acelle/api/campaigns';
 import { createEmptyStatistics } from '@/utils/acelle/campaignStats';
@@ -62,7 +62,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
             try {
               if (!item.delivery_info || typeof item.delivery_info !== 'object') return defaultValue;
               
-              const value = item.delivery_info[path];
+              const value = (item.delivery_info as any)[path];
               if (value === null || value === undefined || value === '') return defaultValue;
               
               const numValue = typeof value === 'number' ? value : parseFloat(String(value));
@@ -89,6 +89,17 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
             abuse_complaint_count: getStatValue('abuse_complaint_count') || getStatValue('complained')
           };
 
+          // Convertir delivery_info vers DeliveryInfo type
+          let deliveryInfo: DeliveryInfo = {};
+          try {
+            if (item.delivery_info && typeof item.delivery_info === 'object' && !Array.isArray(item.delivery_info)) {
+              deliveryInfo = item.delivery_info as DeliveryInfo;
+            }
+          } catch (e) {
+            console.warn(`[useAcelleCampaigns] Erreur conversion delivery_info pour ${item.campaign_uid}:`, e);
+            deliveryInfo = {};
+          }
+
           return {
             uid: item.campaign_uid,
             campaign_uid: item.campaign_uid,
@@ -100,7 +111,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
             delivery_date: item.delivery_date || '',
             run_at: item.run_at || '',
             last_error: item.last_error || '',
-            delivery_info: item.delivery_info || {},
+            delivery_info: deliveryInfo,
             statistics: statistics
           };
         });
