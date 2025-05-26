@@ -1,6 +1,6 @@
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
-import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
+import { createEmptyStatistics, extractStatisticsFromAnyFormat } from "@/utils/acelle/campaignStats";
 
 /**
  * Récupération SIMPLE et FIABLE des campagnes
@@ -75,6 +75,44 @@ export const getCampaigns = async (
 };
 
 /**
+ * Récupération des statistiques d'une campagne spécifique
+ */
+export const getCampaignStatistics = async (
+  campaignUid: string,
+  account: AcelleAccount
+): Promise<any> => {
+  try {
+    console.log(`[getCampaignStatistics] Récupération stats pour ${campaignUid}`);
+    
+    const { data, error } = await supabase.functions.invoke('acelle-proxy', {
+      body: { 
+        endpoint: account.api_endpoint,
+        api_token: account.api_token,
+        action: 'get_campaign_stats',
+        campaign_uid: campaignUid
+      }
+    });
+    
+    if (error) {
+      console.error(`[getCampaignStatistics] Erreur pour ${campaignUid}:`, error);
+      return null;
+    }
+    
+    if (data?.success && data.statistics) {
+      console.log(`[getCampaignStatistics] ✅ Stats récupérées pour ${campaignUid}`);
+      return data.statistics;
+    }
+    
+    console.warn(`[getCampaignStatistics] Pas de stats pour ${campaignUid}`);
+    return null;
+    
+  } catch (error) {
+    console.error(`[getCampaignStatistics] Erreur pour ${campaignUid}:`, error);
+    return null;
+  }
+};
+
+/**
  * Récupération COMPLÈTE de TOUTES les campagnes
  */
 export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCampaign[]> => {
@@ -134,7 +172,7 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
 };
 
 /**
- * Synchronisation COMPLÈTE et ROBUSTE avec correction TypeScript
+ * Synchronisation COMPLÈTE avec récupération séparée des statistiques
  */
 export const forceSyncCampaigns = async (
   account: AcelleAccount,
@@ -146,7 +184,7 @@ export const forceSyncCampaigns = async (
       return { success: false, message: "Aucun compte spécifié" };
     }
 
-    console.log(`[forceSyncCampaigns] === SYNC COMPLÈTE ${account.name} ===`);
+    console.log(`[forceSyncCampaigns] === SYNC COMPLÈTE AVEC STATS ${account.name} ===`);
     
     progressCallback?.({ current: 0, total: 0, message: `Début synchronisation ${account.name}...` });
 
@@ -169,16 +207,61 @@ export const forceSyncCampaigns = async (
       };
     }
 
-    console.log(`[forceSyncCampaigns] ${allCampaigns.length} campagnes récupérées, mise en cache...`);
+    console.log(`[forceSyncCampaigns] ${allCampaigns.length} campagnes récupérées, récupération des statistiques...`);
     
-    // 3. MISE EN CACHE PAR LOTS avec correction TypeScript
+    // 3. RÉCUPÉRER LES STATISTIQUES POUR CHAQUE CAMPAGNE
+    progressCallback?.({ current: 0, total: allCampaigns.length, message: `Récupération des statistiques...` });
+    
+    const enrichedCampaigns = [];
+    for (let i = 0; i < allCampaigns.length; i++) {
+      const campaign = allCampaigns[i];
+      
+      progressCallback?.({ 
+        current: i + 1, 
+        total: allCampaigns.length, 
+        message: `Récupération stats ${i + 1}/${allCampaigns.length}: ${campaign.name}` 
+      });
+      
+      // Récupérer les statistiques de cette campagne
+      const stats = await getCampaignStatistics(campaign.uid, account);
+      
+      if (stats) {
+        console.log(`[forceSyncCampaigns] ✅ Stats récupérées pour ${campaign.name}`);
+        
+        // Extraire et formater les statistiques
+        const formattedStats = extractStatisticsFromAnyFormat(stats, true);
+        
+        enrichedCampaigns.push({
+          ...campaign,
+          delivery_info: formattedStats,
+          statistics: formattedStats
+        });
+      } else {
+        console.warn(`[forceSyncCampaigns] ⚠️ Pas de stats pour ${campaign.name}`);
+        enrichedCampaigns.push({
+          ...campaign,
+          delivery_info: createEmptyStatistics(),
+          statistics: createEmptyStatistics()
+        });
+      }
+      
+      // Petite pause pour éviter de surcharger l'API
+      if (i < allCampaigns.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(`[forceSyncCampaigns] ${enrichedCampaigns.length} campagnes enrichies, mise en cache...`);
+    
+    // 4. MISE EN CACHE PAR LOTS avec statistiques
+    progressCallback?.({ current: 0, total: enrichedCampaigns.length, message: `Mise en cache des campagnes...` });
+    
     const batchSize = 10;
     let processedCount = 0;
     
-    for (let i = 0; i < allCampaigns.length; i += batchSize) {
-      const batch = allCampaigns.slice(i, i + batchSize);
+    for (let i = 0; i < enrichedCampaigns.length; i += batchSize) {
+      const batch = enrichedCampaigns.slice(i, i + batchSize);
       
-      // CORRECTION: Cast explicite vers le type Json pour Supabase
       const campaignData = batch.map(campaign => ({
         account_id: account.id,
         campaign_uid: campaign.uid,
@@ -190,8 +273,8 @@ export const forceSyncCampaigns = async (
         delivery_date: campaign.delivery_date || null,
         run_at: campaign.run_at || null,
         last_error: campaign.last_error || null,
-        // CORRECTION: Cast vers 'any' puis vers le type attendu par Supabase
-        delivery_info: (campaign.delivery_info || campaign.statistics || {}) as any,
+        // IMPORTANT: Stocker les vraies statistiques dans delivery_info
+        delivery_info: campaign.delivery_info as any,
         cache_updated_at: new Date().toISOString()
       }));
       
@@ -203,19 +286,19 @@ export const forceSyncCampaigns = async (
         console.error(`[forceSyncCampaigns] Erreur batch ${i}:`, error);
       } else {
         processedCount += batch.length;
-        console.log(`[forceSyncCampaigns] ✅ Batch ${i + 1} inséré (${batch.length} campagnes)`);
+        console.log(`[forceSyncCampaigns] ✅ Batch ${i + 1} inséré (${batch.length} campagnes avec stats)`);
       }
       
       progressCallback?.({ 
         current: processedCount, 
-        total: allCampaigns.length, 
-        message: `${processedCount}/${allCampaigns.length} campagnes mises en cache` 
+        total: enrichedCampaigns.length, 
+        message: `${processedCount}/${enrichedCampaigns.length} campagnes mises en cache avec statistiques` 
       });
       
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
-    // 4. MARQUER LA SYNCHRONISATION RÉUSSIE
+    // 5. MARQUER LA SYNCHRONISATION RÉUSSIE
     await supabase
       .from('acelle_accounts')
       .update({ 
@@ -227,17 +310,17 @@ export const forceSyncCampaigns = async (
       .eq('id', account.id);
     
     progressCallback?.({ 
-      current: allCampaigns.length, 
-      total: allCampaigns.length, 
-      message: `✅ Synchronisation terminée pour ${account.name} !` 
+      current: enrichedCampaigns.length, 
+      total: enrichedCampaigns.length, 
+      message: `✅ Synchronisation terminée pour ${account.name} avec statistiques !` 
     });
     
-    console.log(`[forceSyncCampaigns] ✅ SYNC RÉUSSIE ${account.name}: ${allCampaigns.length} campagnes`);
+    console.log(`[forceSyncCampaigns] ✅ SYNC RÉUSSIE ${account.name}: ${enrichedCampaigns.length} campagnes avec statistiques`);
     
     return { 
       success: true, 
-      message: `${allCampaigns.length} campagnes synchronisées avec succès pour ${account.name}`,
-      totalCampaigns: allCampaigns.length
+      message: `${enrichedCampaigns.length} campagnes synchronisées avec statistiques pour ${account.name}`,
+      totalCampaigns: enrichedCampaigns.length
     };
     
   } catch (error) {
