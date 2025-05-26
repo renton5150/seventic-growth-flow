@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
@@ -22,7 +21,7 @@ export const getCampaigns = async (
     }
 
     const page = options?.page || 1;
-    const perPage = options?.perPage || 100; // Plus de campagnes par page
+    const perPage = options?.perPage || 100;
 
     console.log(`[getCampaigns] Appel Edge Function - page ${page}, perPage ${perPage}`);
     
@@ -86,7 +85,7 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
     let currentPage = 1;
     const perPage = 100;
     let hasMorePages = true;
-    let maxPages = 10; // Limite sécurisée
+    let maxPages = 10;
     
     while (hasMorePages && currentPage <= maxPages) {
       console.log(`[getAllCampaigns] Page ${currentPage} pour ${account.name}`);
@@ -99,7 +98,6 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
       const { campaigns, hasMore, total } = result;
       
       if (campaigns.length > 0) {
-        // Éviter les doublons
         const newCampaigns = campaigns.filter(newCampaign => 
           !allCampaigns.some(existing => existing.uid === newCampaign.uid)
         );
@@ -121,7 +119,6 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
       
       currentPage++;
       
-      // Pause entre les appels
       if (hasMorePages) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -137,7 +134,7 @@ export const getAllCampaigns = async (account: AcelleAccount): Promise<AcelleCam
 };
 
 /**
- * Synchronisation COMPLÈTE et ROBUSTE
+ * Synchronisation COMPLÈTE et ROBUSTE avec correction TypeScript
  */
 export const forceSyncCampaigns = async (
   account: AcelleAccount,
@@ -174,13 +171,14 @@ export const forceSyncCampaigns = async (
 
     console.log(`[forceSyncCampaigns] ${allCampaigns.length} campagnes récupérées, mise en cache...`);
     
-    // 3. MISE EN CACHE PAR LOTS
+    // 3. MISE EN CACHE PAR LOTS avec correction TypeScript
     const batchSize = 10;
     let processedCount = 0;
     
     for (let i = 0; i < allCampaigns.length; i += batchSize) {
       const batch = allCampaigns.slice(i, i + batchSize);
       
+      // CORRECTION: Cast explicite vers le type Json pour Supabase
       const campaignData = batch.map(campaign => ({
         account_id: account.id,
         campaign_uid: campaign.uid,
@@ -192,7 +190,8 @@ export const forceSyncCampaigns = async (
         delivery_date: campaign.delivery_date || null,
         run_at: campaign.run_at || null,
         last_error: campaign.last_error || null,
-        delivery_info: campaign.delivery_info || campaign.statistics || {},
+        // CORRECTION: Cast vers 'any' puis vers le type attendu par Supabase
+        delivery_info: (campaign.delivery_info || campaign.statistics || {}) as any,
         cache_updated_at: new Date().toISOString()
       }));
       
@@ -213,7 +212,6 @@ export const forceSyncCampaigns = async (
         message: `${processedCount}/${allCampaigns.length} campagnes mises en cache` 
       });
       
-      // Pause entre les lots
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
@@ -245,7 +243,6 @@ export const forceSyncCampaigns = async (
   } catch (error) {
     console.error(`[forceSyncCampaigns] Erreur pour ${account.name}:`, error);
     
-    // Marquer le compte en erreur
     await supabase
       .from('acelle_accounts')
       .update({ 
