@@ -198,7 +198,7 @@ export const forceSyncCampaigns = async (
           delivery_date: campaign.delivery_date || null,
           run_at: campaign.run_at || null,
           last_error: campaign.last_error || null,
-          delivery_info: campaign.delivery_info || campaign.statistics || {},
+          delivery_info: (campaign.delivery_info || campaign.statistics || {}) as any, // Fix TypeScript error by casting to any
           cache_updated_at: new Date().toISOString()
         };
         
