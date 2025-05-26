@@ -55,26 +55,32 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
 
         console.log(`[useAcelleCampaigns] ${allCachedCampaigns?.length || 0} campagnes trouvées en cache`);
 
-        // Convertir les données du cache au format AcelleCampaign
+        // Convertir les données du cache au format AcelleCampaign avec gestion d'erreur robuste
         fetchedCampaigns = (allCachedCampaigns || []).map((item): AcelleCampaign => {
-          // Gérer delivery_info de manière sécurisée avec des types appropriés
+          // Gérer delivery_info de manière ultra-sécurisée
           let deliveryInfo: Record<string, any> = {};
           try {
             if (item.delivery_info) {
-              deliveryInfo = typeof item.delivery_info === 'string' 
-                ? JSON.parse(item.delivery_info) 
-                : item.delivery_info;
+              if (typeof item.delivery_info === 'string') {
+                deliveryInfo = JSON.parse(item.delivery_info);
+              } else if (typeof item.delivery_info === 'object' && item.delivery_info !== null) {
+                deliveryInfo = item.delivery_info;
+              }
             }
           } catch (e) {
             console.warn(`[useAcelleCampaigns] Erreur parsing delivery_info pour ${item.campaign_uid}:`, e);
             deliveryInfo = {};
           }
 
-          // Fonction helper pour extraire des valeurs numériques de manière sécurisée
+          // Fonction helper ultra-robuste pour extraire des valeurs numériques
           const getNumericValue = (value: any, defaultValue: number = 0): number => {
-            if (value === null || value === undefined) return defaultValue;
-            const num = Number(value);
-            return isNaN(num) ? defaultValue : num;
+            if (value === null || value === undefined || value === '') return defaultValue;
+            if (typeof value === 'number' && !isNaN(value)) return value;
+            if (typeof value === 'string') {
+              const num = parseFloat(value);
+              return isNaN(num) ? defaultValue : num;
+            }
+            return defaultValue;
           };
 
           return {
@@ -143,10 +149,10 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
       setHasMore(hasMorePages);
       setTotalCount(total);
 
-      // Enrichir les campagnes avec les statistiques si nécessaire
+      // Enrichir les campagnes avec les statistiques - FORCER pour les campagnes avec stats vides
       console.log(`[useAcelleCampaigns] Enrichissement de ${fetchedCampaigns.length} campagnes...`);
       const enrichedCampaigns = await enrichCampaignsWithStats(fetchedCampaigns, account, {
-        forceRefresh: false // Ne pas forcer le refresh par défaut pour éviter les lenteurs
+        forceRefresh: true // Forcer le refresh pour récupérer les vraies statistiques
       });
       setCampaigns(enrichedCampaigns);
       

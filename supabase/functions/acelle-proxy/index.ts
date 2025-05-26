@@ -16,7 +16,7 @@ serve(async (req) => {
     });
   }
 
-  console.log("=== DÉBUT ACELLE PROXY ===");
+  console.log("=== DÉBUT ACELLE PROXY ULTRA-ROBUSTE ===");
   
   try {
     let body = {};
@@ -41,7 +41,7 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '20000'); // Réduire à 20 secondes
+    const timeout = parseInt(body.timeout || '15000'); // Réduire à 15 secondes par défaut
     
     console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
@@ -71,7 +71,7 @@ serve(async (req) => {
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '50'; // Réduire à 50 pour tous les comptes
+        const perPage = body.per_page || '25'; // Réduire par défaut
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
@@ -118,8 +118,8 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
     
-    // Appel à l'API avec timeout et retry réduits
-    const maxRetries = 2; // Réduire le nombre de retry
+    // Appel à l'API avec timeout et retry ultra-réduits mais plus fiables
+    const maxRetries = 1; // Un seul retry pour éviter les timeouts
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -127,13 +127,13 @@ serve(async (req) => {
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       
       try {
-        console.log(`Tentative ${attempt}/${maxRetries} pour ${action}`);
+        console.log(`Tentative ${attempt}/${maxRetries} pour ${action} (timeout: ${timeout}ms)`);
         
         const response = await fetch(apiUrl, {
           method: "GET",
           headers: {
             "Accept": "application/json",
-            "User-Agent": "Seventic-Acelle-Proxy/7.0",
+            "User-Agent": "Seventic-Acelle-Proxy/8.0",
             "Cache-Control": "no-cache",
             "Connection": "close"
           },
@@ -146,23 +146,23 @@ serve(async (req) => {
           const errorText = await response.text().catch(() => "Impossible de lire la réponse");
           console.error(`Erreur API ${response.status} (tentative ${attempt}):`, errorText);
           
-          // Pas de retry pour les erreurs 404
-          if (response.status === 404) {
+          // Pas de retry pour les erreurs 404 ou 401
+          if (response.status === 404 || response.status === 401) {
             return new Response(JSON.stringify({ 
               success: false,
-              error: `Ressource non trouvée (404)`,
+              error: `Erreur API ${response.status}`,
               message: errorText,
               timestamp: new Date().toISOString()
             }), {
-              status: 404,
+              status: response.status,
               headers: corsHeaders
             });
           }
           
-          // Retry pour les erreurs 5xx et timeouts avec attente progressive
+          // Retry uniquement pour les erreurs 5xx
           if (response.status >= 500 && attempt < maxRetries) {
-            console.log(`Erreur serveur ${response.status}, retry dans ${attempt} secondes...`);
-            await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+            console.log(`Erreur serveur ${response.status}, retry dans 2 secondes...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
           
@@ -182,12 +182,6 @@ serve(async (req) => {
           responseData = await response.json();
         } catch (jsonError) {
           console.error("Erreur parsing JSON réponse:", jsonError);
-          
-          if (attempt < maxRetries) {
-            console.log(`Erreur JSON, retry dans ${attempt} secondes...`);
-            await new Promise(resolve => setTimeout(resolve, attempt * 1000));
-            continue;
-          }
           
           return new Response(JSON.stringify({ 
             success: false,
@@ -210,7 +204,7 @@ serve(async (req) => {
             
             // Améliorer la détection de pagination avec plus de robustesse
             const currentPage = parseInt(body.page || '1');
-            const perPageSize = parseInt(body.per_page || '50');
+            const perPageSize = parseInt(body.per_page || '25');
             
             // Utiliser les métadonnées de l'API Acelle si disponibles
             const totalFromApi = responseData.total || responseData.meta?.total;
@@ -223,12 +217,11 @@ serve(async (req) => {
               hasMore = currentPageFromApi < lastPageFromApi;
               console.log(`Pagination API: page ${currentPageFromApi}/${lastPageFromApi}, total ${totalFromApi}`);
             } else if (totalFromApi && currentPageFromApi) {
-              // Fallback: calculer s'il y a plus de pages basé sur le total
               const expectedLastPage = Math.ceil(totalFromApi / perPageSize);
               hasMore = currentPageFromApi < expectedLastPage;
               console.log(`Pagination calculée: page ${currentPageFromApi}/${expectedLastPage}, total ${totalFromApi}`);
             } else {
-              // Fallback ultime: si on récupère exactement perPage éléments, il y a probablement plus
+              // Fallback: si on récupère exactement perPage éléments, il y a probablement plus
               hasMore = campaigns.length === perPageSize;
               console.log(`Pagination fallback: ${campaigns.length} campagnes = ${perPageSize} (hasMore: ${hasMore})`);
             }
@@ -289,14 +282,14 @@ serve(async (req) => {
         console.error(`Erreur fetch (tentative ${attempt}):`, fetchError);
         
         if (fetchError.name === 'AbortError') {
-          console.log(`Timeout sur tentative ${attempt}, retry...`);
+          console.log(`Timeout ${timeout}ms sur tentative ${attempt}`);
         } else {
-          console.log(`Erreur réseau sur tentative ${attempt}, retry...`);
+          console.log(`Erreur réseau sur tentative ${attempt}`);
         }
         
         // Si ce n'est pas la dernière tentative, attendre avant de retry
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, attempt * 1500)); // Attente progressive
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
     }
@@ -307,8 +300,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: false,
       error: lastError?.name === 'AbortError' 
-        ? `Timeout API (${timeout}ms) après ${maxRetries} tentatives`
-        : `Erreur réseau après ${maxRetries} tentatives: ${lastError?.message}`,
+        ? `Timeout API (${timeout}ms) après ${maxRetries} tentative(s)`
+        : `Erreur réseau après ${maxRetries} tentative(s): ${lastError?.message}`,
       timestamp: new Date().toISOString()
     }), {
       status: 500,
