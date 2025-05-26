@@ -16,7 +16,7 @@ serve(async (req) => {
     });
   }
 
-  console.log("=== DÉBUT ACELLE PROXY ULTRA-ROBUSTE ===");
+  console.log("=== DÉBUT ACELLE PROXY ULTRA-SIMPLE ===");
   
   try {
     let body = {};
@@ -41,7 +41,7 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '15000'); // Réduire à 15 secondes par défaut
+    const timeout = parseInt(body.timeout || '25000'); // Timeout plus long
     
     console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
@@ -71,7 +71,7 @@ serve(async (req) => {
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '25'; // Réduire par défaut
+        const perPage = body.per_page || '50'; // Augmenter pour récupérer plus de campagnes
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
@@ -118,195 +118,151 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
     
-    // Appel à l'API avec timeout et retry ultra-réduits mais plus fiables
-    const maxRetries = 1; // Un seul retry pour éviter les timeouts
-    let lastError = null;
+    // Appel API ultra-simplifié avec UN SEUL essai
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
     
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+      console.log(`Appel API pour ${action} (timeout: ${timeout}ms)`);
       
-      try {
-        console.log(`Tentative ${attempt}/${maxRetries} pour ${action} (timeout: ${timeout}ms)`);
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "Seventic-Acelle-Proxy/9.0",
+          "Cache-Control": "no-cache"
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Impossible de lire la réponse");
+        console.error(`Erreur API ${response.status}:`, errorText);
         
-        const response = await fetch(apiUrl, {
-          method: "GET",
-          headers: {
-            "Accept": "application/json",
-            "User-Agent": "Seventic-Acelle-Proxy/8.0",
-            "Cache-Control": "no-cache",
-            "Connection": "close"
-          },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => "Impossible de lire la réponse");
-          console.error(`Erreur API ${response.status} (tentative ${attempt}):`, errorText);
-          
-          // Pas de retry pour les erreurs 404 ou 401
-          if (response.status === 404 || response.status === 401) {
-            return new Response(JSON.stringify({ 
-              success: false,
-              error: `Erreur API ${response.status}`,
-              message: errorText,
-              timestamp: new Date().toISOString()
-            }), {
-              status: response.status,
-              headers: corsHeaders
-            });
-          }
-          
-          // Retry uniquement pour les erreurs 5xx
-          if (response.status >= 500 && attempt < maxRetries) {
-            console.log(`Erreur serveur ${response.status}, retry dans 2 secondes...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            continue;
-          }
-          
-          return new Response(JSON.stringify({ 
-            success: false,
-            error: `Erreur API: ${response.status}`,
-            message: errorText,
-            timestamp: new Date().toISOString()
-          }), {
-            status: response.status,
-            headers: corsHeaders
-          });
-        }
-        
-        let responseData;
-        try {
-          responseData = await response.json();
-        } catch (jsonError) {
-          console.error("Erreur parsing JSON réponse:", jsonError);
-          
-          return new Response(JSON.stringify({ 
-            success: false,
-            error: "Réponse API invalide (JSON)",
-            timestamp: new Date().toISOString()
-          }), {
-            status: 500,
-            headers: corsHeaders
-          });
-        }
-        
-        console.log(`Données reçues pour ${action} - Type: ${typeof responseData}, Tentative: ${attempt}`);
-        
-        // Formatage de la réponse selon l'action
-        let formattedResponse;
-        
-        switch (action) {
-          case 'get_campaigns':
-            const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
-            
-            // Améliorer la détection de pagination avec plus de robustesse
-            const currentPage = parseInt(body.page || '1');
-            const perPageSize = parseInt(body.per_page || '25');
-            
-            // Utiliser les métadonnées de l'API Acelle si disponibles
-            const totalFromApi = responseData.total || responseData.meta?.total;
-            const lastPageFromApi = responseData.last_page || responseData.meta?.last_page;
-            const currentPageFromApi = responseData.current_page || responseData.meta?.current_page || currentPage;
-            
-            // Calculer s'il y a plus de pages avec plus de précision
-            let hasMore = false;
-            if (totalFromApi && currentPageFromApi && lastPageFromApi) {
-              hasMore = currentPageFromApi < lastPageFromApi;
-              console.log(`Pagination API: page ${currentPageFromApi}/${lastPageFromApi}, total ${totalFromApi}`);
-            } else if (totalFromApi && currentPageFromApi) {
-              const expectedLastPage = Math.ceil(totalFromApi / perPageSize);
-              hasMore = currentPageFromApi < expectedLastPage;
-              console.log(`Pagination calculée: page ${currentPageFromApi}/${expectedLastPage}, total ${totalFromApi}`);
-            } else {
-              // Fallback: si on récupère exactement perPage éléments, il y a probablement plus
-              hasMore = campaigns.length === perPageSize;
-              console.log(`Pagination fallback: ${campaigns.length} campagnes = ${perPageSize} (hasMore: ${hasMore})`);
-            }
-            
-            console.log(`✅ Campagnes récupérées: ${campaigns.length}, Total API: ${totalFromApi}, HasMore: ${hasMore}`);
-            
-            formattedResponse = {
-              success: true,
-              campaigns: campaigns,
-              total: totalFromApi || campaigns.length,
-              page: currentPageFromApi,
-              per_page: perPageSize,
-              has_more: hasMore,
-              last_page: lastPageFromApi,
-              meta: responseData.meta,
-              timestamp: new Date().toISOString()
-            };
-            break;
-            
-          case 'get_campaign':
-          case 'get_campaign_stats':
-            formattedResponse = {
-              success: true,
-              campaign: responseData,
-              statistics: responseData.statistics || responseData,
-              timestamp: new Date().toISOString()
-            };
-            break;
-            
-          case 'check_connection':
-          case 'test_connection':
-            const testCampaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
-            formattedResponse = {
-              success: true,
-              message: 'Connexion établie',
-              campaignsCount: testCampaigns.length,
-              timestamp: new Date().toISOString()
-            };
-            break;
-            
-          default:
-            formattedResponse = {
-              success: true,
-              data: responseData,
-              timestamp: new Date().toISOString()
-            };
-        }
-        
-        console.log("=== FIN ACELLE PROXY (SUCCÈS) ===");
-        
-        return new Response(JSON.stringify(formattedResponse), {
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: `Erreur API ${response.status}`,
+          message: errorText,
+          timestamp: new Date().toISOString()
+        }), {
+          status: response.status,
           headers: corsHeaders
         });
-        
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        lastError = fetchError;
-        console.error(`Erreur fetch (tentative ${attempt}):`, fetchError);
-        
-        if (fetchError.name === 'AbortError') {
-          console.log(`Timeout ${timeout}ms sur tentative ${attempt}`);
-        } else {
-          console.log(`Erreur réseau sur tentative ${attempt}`);
-        }
-        
-        // Si ce n'est pas la dernière tentative, attendre avant de retry
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
       }
+      
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (jsonError) {
+        console.error("Erreur parsing JSON réponse:", jsonError);
+        
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: "Réponse API invalide (JSON)",
+          timestamp: new Date().toISOString()
+        }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+      
+      console.log(`Données reçues pour ${action} - Type: ${typeof responseData}`);
+      
+      // Formatage de la réponse selon l'action - VERSION SIMPLIFIÉE
+      let formattedResponse;
+      
+      switch (action) {
+        case 'get_campaigns':
+          const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
+          
+          // Pagination simplifiée
+          const currentPage = parseInt(body.page || '1');
+          const perPageSize = parseInt(body.per_page || '50');
+          
+          const totalFromApi = responseData.total || responseData.meta?.total || campaigns.length;
+          const lastPageFromApi = responseData.last_page || responseData.meta?.last_page;
+          const currentPageFromApi = responseData.current_page || responseData.meta?.current_page || currentPage;
+          
+          let hasMore = false;
+          if (lastPageFromApi) {
+            hasMore = currentPageFromApi < lastPageFromApi;
+          } else if (totalFromApi) {
+            const expectedLastPage = Math.ceil(totalFromApi / perPageSize);
+            hasMore = currentPageFromApi < expectedLastPage;
+          } else {
+            hasMore = campaigns.length === perPageSize;
+          }
+          
+          console.log(`✅ Campagnes: ${campaigns.length}, Total: ${totalFromApi}, HasMore: ${hasMore}`);
+          
+          formattedResponse = {
+            success: true,
+            campaigns: campaigns,
+            total: totalFromApi,
+            page: currentPageFromApi,
+            per_page: perPageSize,
+            has_more: hasMore,
+            last_page: lastPageFromApi,
+            timestamp: new Date().toISOString()
+          };
+          break;
+          
+        case 'get_campaign':
+        case 'get_campaign_stats':
+          formattedResponse = {
+            success: true,
+            campaign: responseData,
+            statistics: responseData.statistics || responseData,
+            timestamp: new Date().toISOString()
+          };
+          break;
+          
+        case 'check_connection':
+        case 'test_connection':
+          const testCampaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
+          formattedResponse = {
+            success: true,
+            message: 'Connexion établie',
+            campaignsCount: testCampaigns.length,
+            timestamp: new Date().toISOString()
+          };
+          break;
+          
+        default:
+          formattedResponse = {
+            success: true,
+            data: responseData,
+            timestamp: new Date().toISOString()
+          };
+      }
+      
+      console.log("=== FIN ACELLE PROXY (SUCCÈS) ===");
+      
+      return new Response(JSON.stringify(formattedResponse), {
+        headers: corsHeaders
+      });
+      
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      console.error(`Erreur fetch:`, fetchError);
+      
+      const isTimeout = fetchError.name === 'AbortError';
+      const errorMessage = isTimeout 
+        ? `Timeout API (${timeout}ms)` 
+        : `Erreur réseau: ${fetchError.message}`;
+      
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: errorMessage,
+        timeout: isTimeout,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: corsHeaders
+      });
     }
-    
-    // Si on arrive ici, toutes les tentatives ont échoué
-    console.error("Toutes les tentatives ont échoué:", lastError);
-    
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: lastError?.name === 'AbortError' 
-        ? `Timeout API (${timeout}ms) après ${maxRetries} tentative(s)`
-        : `Erreur réseau après ${maxRetries} tentative(s): ${lastError?.message}`,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: corsHeaders
-    });
     
   } catch (error) {
     console.error("Erreur globale:", error.message);
