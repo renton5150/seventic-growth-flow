@@ -15,7 +15,6 @@ import { useAcelleCampaignsTable } from "@/hooks/acelle/useAcelleCampaignsTable"
 import { AcelleTableFilters } from "./table/AcelleTableFilters";
 import { AcelleTableRow } from "./table/AcelleTableRow";
 import { CampaignsTableHeader } from "./table/TableHeader";
-import { CampaignsTablePagination } from "./table/TablePagination";
 import {
   TableLoadingState,
   TableErrorState,
@@ -26,7 +25,7 @@ import AcelleCampaignDetails from "./AcelleCampaignDetails";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
+import { RefreshCw, AlertTriangle, CheckCircle, Database } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCampaignCache } from "@/hooks/acelle/useCampaignCache";
 import { forceSyncCampaigns } from "@/services/acelle/api/campaigns";
@@ -37,8 +36,6 @@ interface AcelleCampaignsTableProps {
 }
 
 export default function AcelleCampaignsTable({ account }: AcelleCampaignsTableProps) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
@@ -56,23 +53,19 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     isCacheBusy
   } = useCampaignCache(account);
 
-  // Utiliser le hook corrigé avec pagination
+  // Utiliser le hook sans pagination artificielle - afficher TOUTES les campagnes du cache
   const {
     campaigns,
     isLoading,
     error,
     totalCount,
-    hasMore,
     cacheStatus,
     refresh
   } = useAcelleCampaigns(account, {
-    page: currentPage,
-    perPage: itemsPerPage,
-    useCache: true
+    useCache: true // Toujours utiliser le cache pour l'affichage
   });
 
-  // Calculer le nombre total de pages
-  const totalPages = Math.ceil(totalCount / itemsPerPage);
+  console.log(`[AcelleCampaignsTable] Rendu pour ${account.name}: ${campaigns.length} campagnes affichées, ${totalCount} total`);
 
   // Obtenir le token d'authentification
   useEffect(() => {
@@ -114,7 +107,8 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     
     try {
       await refresh();
-      toast.success("Données rafraîchies", { id: "refresh" });
+      await getCachedCampaignsCount(); // Actualiser le compteur de cache
+      toast.success("Cache actualisé", { id: "refresh" });
     } catch (err) {
       console.error("Erreur rafraîchissement:", err);
       toast.error("Erreur de rafraîchissement", { id: "refresh" });
@@ -122,7 +116,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     } finally {
       setIsManuallyRefreshing(false);
     }
-  }, [refresh]);
+  }, [refresh, getCachedCampaignsCount]);
 
   // Synchronisation complète avec progression
   const handleFullSync = useCallback(async () => {
@@ -135,17 +129,22 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setSyncProgress({ current: 0, total: 0, message: "Démarrage de la synchronisation complète..." });
     
     try {
+      console.log(`[AcelleCampaignsTable] Début synchronisation complète pour ${account.name}`);
+      
       const result = await forceSyncCampaigns(account, accessToken, (progress) => {
         setSyncProgress(progress);
       });
       
       if (result.success) {
         toast.success(`${result.totalCampaigns || 0} campagnes synchronisées !`, { id: "full-sync" });
+        console.log(`[AcelleCampaignsTable] Synchronisation réussie: ${result.totalCampaigns} campagnes`);
+        
         // Actualiser le cache et les données
         await getCachedCampaignsCount();
         await refresh();
       } else {
         toast.error(result.message, { id: "full-sync" });
+        console.error(`[AcelleCampaignsTable] Synchronisation échouée: ${result.message}`);
       }
     } catch (err) {
       console.error("Erreur synchronisation complète:", err);
@@ -156,33 +155,21 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     }
   }, [accessToken, account, refresh, getCachedCampaignsCount]);
 
-  // Synchronisation manuelle (rapide)
-  const handleSync = useCallback(async () => {
-    if (!accessToken || !account) {
-      toast.error("Token ou compte manquant", { id: "sync" });
-      return;
-    }
+  // Vider le cache
+  const handleClearCache = useCallback(async () => {
+    if (!account) return;
     
-    setIsSyncing(true);
-    
-    try {
-      toast.loading("Synchronisation rapide...", { id: "sync" });
-      const result = await forceSyncCampaigns(account, accessToken);
-      
-      if (result.success) {
-        toast.success(result.message, { id: "sync" });
-        await getCachedCampaignsCount();
+    if (confirm(`Êtes-vous sûr de vouloir vider le cache pour ${account.name} ?`)) {
+      try {
+        await clearAccountCache();
         await refresh();
-      } else {
-        toast.error(result.message, { id: "sync" });
+        toast.success("Cache vidé avec succès");
+      } catch (err) {
+        console.error("Erreur lors du vidage du cache:", err);
+        toast.error("Erreur lors du vidage du cache");
       }
-    } catch (err) {
-      console.error("Erreur synchronisation:", err);
-      toast.error("Erreur de synchronisation", { id: "sync" });
-    } finally {
-      setIsSyncing(false);
     }
-  }, [accessToken, account, refresh, getCachedCampaignsCount]);
+  }, [account, clearAccountCache, refresh]);
 
   // Traitement des campagnes filtrées
   const {
@@ -204,11 +191,6 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   const handleCloseDetails = () => {
     setSelectedCampaign(null);
   };
-  
-  const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return;
-    setCurrentPage(page);
-  };
 
   // Indicateur de statut de connexion
   const ConnectionStatusIndicator = () => {
@@ -217,21 +199,21 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         return (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <RefreshCw className="h-3 w-3 animate-spin" />
-            Vérification connexion...
+            Vérification cache...
           </div>
         );
       case 'ok':
         return (
           <div className="flex items-center gap-2 text-sm text-green-600">
             <CheckCircle className="h-3 w-3" />
-            Connexion OK
+            Cache OK
           </div>
         );
       case 'error':
         return (
           <div className="flex items-center gap-2 text-sm text-red-600">
             <AlertTriangle className="h-3 w-3" />
-            Problème de connexion
+            Erreur cache
           </div>
         );
       default:
@@ -260,7 +242,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
   }
 
   if (!campaigns?.length) {
-    return <EmptyState onSync={handleSync} />;
+    return <EmptyState onSync={handleFullSync} />;
   }
 
   return (
@@ -276,8 +258,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         <div className="flex flex-wrap gap-2 items-center">
           <ConnectionStatusIndicator />
           
-          <div className="text-xs text-muted-foreground">
-            {totalCount} campagnes total | Page {currentPage} sur {totalPages}
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            <Database className="h-3 w-3" />
+            {totalCount} campagnes en cache
           </div>
           
           <Button
@@ -287,17 +270,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             disabled={isManuallyRefreshing || isFullSyncing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isManuallyRefreshing ? "animate-spin" : ""}`} />
-            Actualiser
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSync}
-            disabled={isSyncing || !accessToken || isFullSyncing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-            Sync rapide
+            Actualiser cache
           </Button>
           
           <Button
@@ -307,7 +280,16 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             disabled={isFullSyncing || !accessToken}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isFullSyncing ? "animate-spin" : ""}`} />
-            Sync complète
+            Sync API complète
+          </Button>
+          
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleClearCache}
+            disabled={isCacheBusy || isFullSyncing}
+          >
+            Vider cache
           </Button>
         </div>
       </div>
@@ -369,13 +351,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         </Table>
       </div>
 
-      <div className="flex justify-end mt-4">
-        <CampaignsTablePagination 
-          currentPage={currentPage}
-          onPageChange={handlePageChange}
-          hasNextPage={hasMore}
-          totalPages={totalPages}
-        />
+      {/* Affichage simple du total sans pagination complexe */}
+      <div className="flex justify-center items-center mt-4 text-sm text-muted-foreground">
+        Affichage de {filteredCampaigns.length} campagnes sur {totalCount} au total
       </div>
 
       <Dialog open={!!selectedCampaign} onOpenChange={(open) => {
