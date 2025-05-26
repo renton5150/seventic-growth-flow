@@ -32,16 +32,16 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
     setError(null);
 
     try {
-      console.log(`[useAcelleCampaigns] Récupération pour ${account.name}, useCache: ${options?.useCache}`);
+      console.log(`[useAcelleCampaigns] ROBUSTE - Récupération pour ${account.name}, useCache: ${options?.useCache}`);
       
       let fetchedCampaigns: AcelleCampaign[] = [];
       let total = 0;
       let hasMorePages = false;
 
       if (options?.useCache) {
-        console.log(`[useAcelleCampaigns] Mode cache pour ${account.name}`);
+        console.log(`[useAcelleCampaigns] ROBUSTE - Mode cache pour ${account.name}`);
         
-        // Récupérer les campagnes du cache principal seulement
+        // Récupérer TOUTES les campagnes du cache
         const { data: cachedCampaigns, error: cacheError } = await supabase
           .from('email_campaigns_cache')
           .select('*')
@@ -49,15 +49,15 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
           .order('created_at', { ascending: false });
 
         if (cacheError) {
-          console.error("[useAcelleCampaigns] Erreur cache:", cacheError);
+          console.error("[useAcelleCampaigns] ROBUSTE - Erreur cache:", cacheError);
           throw new Error("Erreur lors de la récupération du cache");
         }
 
-        console.log(`[useAcelleCampaigns] ${cachedCampaigns?.length || 0} campagnes trouvées en cache`);
+        console.log(`[useAcelleCampaigns] ROBUSTE - ${cachedCampaigns?.length || 0} campagnes trouvées en cache`);
 
-        // Convertir les données du cache au format AcelleCampaign - VERSION SIMPLIFIÉE
+        // Conversion robuste des données du cache
         fetchedCampaigns = (cachedCampaigns || []).map((item): AcelleCampaign => {
-          // Helper pour extraire des valeurs numériques de delivery_info
+          // Helper robuste pour extraire des valeurs numériques de delivery_info
           const getStatValue = (path: string, defaultValue: number = 0): number => {
             try {
               if (!item.delivery_info || typeof item.delivery_info !== 'object') return defaultValue;
@@ -72,7 +72,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
             }
           };
 
-          // Créer les statistiques directement depuis delivery_info
+          // Créer les statistiques complètes depuis delivery_info
           const statistics = {
             subscriber_count: getStatValue('subscriber_count') || getStatValue('total'),
             delivered_count: getStatValue('delivered_count') || getStatValue('delivered'),
@@ -89,14 +89,14 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
             abuse_complaint_count: getStatValue('abuse_complaint_count') || getStatValue('complained')
           };
 
-          // Convertir delivery_info vers DeliveryInfo type
+          // Conversion robuste de delivery_info vers DeliveryInfo type
           let deliveryInfo: DeliveryInfo = {};
           try {
             if (item.delivery_info && typeof item.delivery_info === 'object' && !Array.isArray(item.delivery_info)) {
               deliveryInfo = item.delivery_info as DeliveryInfo;
             }
           } catch (e) {
-            console.warn(`[useAcelleCampaigns] Erreur conversion delivery_info pour ${item.campaign_uid}:`, e);
+            console.warn(`[useAcelleCampaigns] ROBUSTE - Erreur conversion delivery_info pour ${item.campaign_uid}:`, e);
             deliveryInfo = {};
           }
 
@@ -117,7 +117,7 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
         });
 
         total = fetchedCampaigns.length;
-        hasMorePages = false; // Pas de pagination en mode cache
+        hasMorePages = false; // Pas de pagination en mode cache - on récupère tout
         
         // Statut du cache
         if (cachedCampaigns && cachedCampaigns.length > 0) {
@@ -126,25 +126,25 @@ export const useAcelleCampaigns = (account: AcelleAccount | null, options?: {
         }
         
       } else {
-        console.log(`[useAcelleCampaigns] Mode API pour ${account.name}`);
+        console.log(`[useAcelleCampaigns] ROBUSTE - Mode API pour ${account.name}`);
         
-        // Récupération via API avec pagination
+        // Récupération via API avec pagination robuste
         const result = await getCampaigns(account, options);
         fetchedCampaigns = result.campaigns;
         total = result.total;
         hasMorePages = result.hasMore;
         
-        console.log(`[useAcelleCampaigns] API: ${fetchedCampaigns.length} campagnes récupérées, total: ${total}`);
+        console.log(`[useAcelleCampaigns] ROBUSTE - API: ${fetchedCampaigns.length} campagnes récupérées, total: ${total}`);
       }
 
       setHasMore(hasMorePages);
       setTotalCount(total);
       setCampaigns(fetchedCampaigns);
       
-      console.log(`[useAcelleCampaigns] ${fetchedCampaigns.length} campagnes finales pour ${account.name}`);
+      console.log(`[useAcelleCampaigns] ROBUSTE - ${fetchedCampaigns.length} campagnes finales pour ${account.name}`);
       
     } catch (err) {
-      console.error("[useAcelleCampaigns] Erreur:", err);
+      console.error("[useAcelleCampaigns] ROBUSTE - Erreur:", err);
       setError(err instanceof Error ? err.message : "Erreur lors de la récupération des campagnes");
       setCampaigns([]);
       setTotalCount(0);

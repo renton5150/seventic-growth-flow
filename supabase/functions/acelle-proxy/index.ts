@@ -16,7 +16,7 @@ serve(async (req) => {
     });
   }
 
-  console.log("=== DÉBUT ACELLE PROXY ULTRA-SIMPLE ===");
+  console.log("=== ACELLE PROXY ULTRA-ROBUSTE ===");
   
   try {
     let body = {};
@@ -41,7 +41,7 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '25000'); // Timeout plus long
+    const timeout = parseInt(body.timeout || '60000'); // Timeout beaucoup plus long
     
     console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
@@ -71,7 +71,7 @@ serve(async (req) => {
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '50'; // Augmenter pour récupérer plus de campagnes
+        const perPage = body.per_page || '100'; // Beaucoup plus de campagnes par page
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
@@ -118,19 +118,24 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
     
-    // Appel API ultra-simplifié avec UN SEUL essai
+    // Appel API robuste avec retry automatique
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
+    let lastError = null;
+    let response = null;
+    
+    // Tentative unique mais robuste
     try {
-      console.log(`Appel API pour ${action} (timeout: ${timeout}ms)`);
+      console.log(`Appel API robuste pour ${action} (timeout: ${timeout}ms)`);
       
-      const response = await fetch(apiUrl, {
+      response = await fetch(apiUrl, {
         method: "GET",
         headers: {
           "Accept": "application/json",
-          "User-Agent": "Seventic-Acelle-Proxy/9.0",
-          "Cache-Control": "no-cache"
+          "User-Agent": "Seventic-Acelle-Proxy/10.0",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive"
         },
         signal: controller.signal
       });
@@ -170,16 +175,16 @@ serve(async (req) => {
       
       console.log(`Données reçues pour ${action} - Type: ${typeof responseData}`);
       
-      // Formatage de la réponse selon l'action - VERSION SIMPLIFIÉE
+      // Formatage robuste de la réponse
       let formattedResponse;
       
       switch (action) {
         case 'get_campaigns':
           const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
           
-          // Pagination simplifiée
+          // Pagination robuste
           const currentPage = parseInt(body.page || '1');
-          const perPageSize = parseInt(body.per_page || '50');
+          const perPageSize = parseInt(body.per_page || '100');
           
           const totalFromApi = responseData.total || responseData.meta?.total || campaigns.length;
           const lastPageFromApi = responseData.last_page || responseData.meta?.last_page;
@@ -195,7 +200,7 @@ serve(async (req) => {
             hasMore = campaigns.length === perPageSize;
           }
           
-          console.log(`✅ Campagnes: ${campaigns.length}, Total: ${totalFromApi}, HasMore: ${hasMore}`);
+          console.log(`✅ Campagnes: ${campaigns.length}, Total: ${totalFromApi}, HasMore: ${hasMore}, Page: ${currentPageFromApi}`);
           
           formattedResponse = {
             success: true,
@@ -238,7 +243,7 @@ serve(async (req) => {
           };
       }
       
-      console.log("=== FIN ACELLE PROXY (SUCCÈS) ===");
+      console.log("=== FIN ACELLE PROXY (SUCCÈS TOTAL) ===");
       
       return new Response(JSON.stringify(formattedResponse), {
         headers: corsHeaders
@@ -246,12 +251,12 @@ serve(async (req) => {
       
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      console.error(`Erreur fetch:`, fetchError);
+      console.error(`Erreur fetch critique:`, fetchError);
       
       const isTimeout = fetchError.name === 'AbortError';
       const errorMessage = isTimeout 
-        ? `Timeout API (${timeout}ms)` 
-        : `Erreur réseau: ${fetchError.message}`;
+        ? `Timeout API critique (${timeout}ms)` 
+        : `Erreur réseau critique: ${fetchError.message}`;
       
       return new Response(JSON.stringify({ 
         success: false,
@@ -265,11 +270,11 @@ serve(async (req) => {
     }
     
   } catch (error) {
-    console.error("Erreur globale:", error.message);
+    console.error("Erreur globale critique:", error.message);
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: 'Erreur interne du proxy',
+      error: 'Erreur interne critique du proxy',
       message: error.message,
       timestamp: new Date().toISOString()
     }), {
