@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign } from "@/types/acelle.types";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
@@ -300,7 +299,7 @@ export const forceSyncCampaigns = async (
         
         const cachePromises = batch.map(async (campaign) => {
           try {
-            // Nettoyer les valeurs pour éviter les erreurs de timestamp
+            // Nettoyer les valeurs pour éviter les erreurs de timestamp et convertir delivery_info en Json
             const cleanCampaign = {
               account_id: account.id,
               campaign_uid: campaign.uid,
@@ -312,7 +311,7 @@ export const forceSyncCampaigns = async (
               delivery_date: campaign.delivery_date || null,
               run_at: campaign.run_at || null, // Utiliser null au lieu de chaîne vide
               last_error: campaign.last_error || null,
-              delivery_info: campaign.delivery_info || {},
+              delivery_info: campaign.delivery_info as any, // Cast vers any pour compatibilité Json
               cache_updated_at: new Date().toISOString()
             };
             
