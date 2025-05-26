@@ -62,10 +62,10 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     cacheStatus,
     refresh
   } = useAcelleCampaigns(account, {
-    useCache: true // Toujours utiliser le cache pour l'affichage ROBUSTE
+    useCache: true // Toujours utiliser le cache pour l'affichage
   });
 
-  console.log(`[AcelleCampaignsTable] ROBUSTE - Rendu pour ${account.name}: ${campaigns.length} campagnes affichées, ${totalCount} total`);
+  console.log(`[AcelleCampaignsTable] SIMPLE - Rendu pour ${account.name}: ${campaigns.length} campagnes affichées, ${totalCount} total`);
 
   // Obtenir le token d'authentification
   useEffect(() => {
@@ -126,47 +126,47 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     }
     
     setIsFullSyncing(true);
-    setSyncProgress({ current: 0, total: 0, message: "Démarrage synchronisation COMPLÈTE..." });
+    setSyncProgress({ current: 0, total: 0, message: "Démarrage synchronisation SIMPLE..." });
     
     try {
-      console.log(`[AcelleCampaignsTable] ROBUSTE - Début synchronisation COMPLÈTE pour ${account.name}`);
+      console.log(`[AcelleCampaignsTable] SIMPLE - Début synchronisation pour ${account.name}`);
       
       const result = await forceSyncCampaigns(account, accessToken, (progress) => {
         setSyncProgress(progress);
       });
       
       if (result.success) {
-        toast.success(`${result.totalCampaigns || 0} campagnes synchronisées COMPLÈTEMENT !`, { id: "full-sync" });
-        console.log(`[AcelleCampaignsTable] ROBUSTE - Synchronisation RÉUSSIE: ${result.totalCampaigns} campagnes`);
+        toast.success(`${result.totalCampaigns || 0} campagnes synchronisées !`, { id: "full-sync" });
+        console.log(`[AcelleCampaignsTable] SIMPLE - Synchronisation RÉUSSIE: ${result.totalCampaigns} campagnes`);
         
         // Actualiser le cache et les données
         await getCachedCampaignsCount();
         await refresh();
       } else {
         toast.error(result.message, { id: "full-sync" });
-        console.error(`[AcelleCampaignsTable] ROBUSTE - Synchronisation échouée: ${result.message}`);
+        console.error(`[AcelleCampaignsTable] SIMPLE - Synchronisation échouée: ${result.message}`);
       }
     } catch (err) {
-      console.error("Erreur synchronisation COMPLÈTE:", err);
-      toast.error("Erreur de synchronisation COMPLÈTE", { id: "full-sync" });
+      console.error("Erreur synchronisation:", err);
+      toast.error("Erreur de synchronisation", { id: "full-sync" });
     } finally {
       setIsFullSyncing(false);
       setSyncProgress({ current: 0, total: 0, message: "" });
     }
   }, [accessToken, account, refresh, getCachedCampaignsCount]);
 
-  // Vider le cache COMPLÈTEMENT
+  // Vider le cache
   const handleClearCache = useCallback(async () => {
     if (!account) return;
     
-    if (confirm(`Êtes-vous sûr de vouloir vider COMPLÈTEMENT le cache pour ${account.name} ?`)) {
+    if (confirm(`Êtes-vous sûr de vouloir vider le cache pour ${account.name} ?`)) {
       try {
         await clearAccountCache();
         await refresh();
-        toast.success("Cache vidé COMPLÈTEMENT avec succès");
+        toast.success("Cache vidé avec succès");
       } catch (err) {
-        console.error("Erreur lors du vidage COMPLET du cache:", err);
-        toast.error("Erreur lors du vidage COMPLET du cache");
+        console.error("Erreur lors du vidage du cache:", err);
+        toast.error("Erreur lors du vidage du cache");
       }
     }
   }, [account, clearAccountCache, refresh]);
@@ -192,28 +192,28 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
     setSelectedCampaign(null);
   };
 
-  // Indicateur de statut ROBUSTE
+  // Indicateur de statut
   const ConnectionStatusIndicator = () => {
     switch (connectionStatus) {
       case 'checking':
         return (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <RefreshCw className="h-3 w-3 animate-spin" />
-            Vérification cache ROBUSTE...
+            Vérification cache...
           </div>
         );
       case 'ok':
         return (
           <div className="flex items-center gap-2 text-sm text-green-600">
             <CheckCircle className="h-3 w-3" />
-            Cache ROBUSTE OK
+            Cache OK
           </div>
         );
       case 'error':
         return (
           <div className="flex items-center gap-2 text-sm text-red-600">
             <AlertTriangle className="h-3 w-3" />
-            Erreur cache ROBUSTE
+            Erreur cache
           </div>
         );
       default:
@@ -260,7 +260,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
           
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             <Database className="h-3 w-3" />
-            {totalCount} campagnes COMPLÈTES en cache
+            {totalCount} campagnes en cache
           </div>
           
           <Button
@@ -289,7 +289,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
             onClick={handleClearCache}
             disabled={isCacheBusy || isFullSyncing}
           >
-            Vider cache COMPLET
+            Vider cache
           </Button>
         </div>
       </div>
@@ -305,7 +305,7 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
       
       {lastRefreshTimestamp && (
         <div className="text-xs text-muted-foreground mb-2">
-          Dernière synchronisation COMPLÈTE: {new Date(lastRefreshTimestamp).toLocaleString()}
+          Dernière synchronisation: {new Date(lastRefreshTimestamp).toLocaleString()}
         </div>
       )}
       
@@ -351,9 +351,9 @@ export default function AcelleCampaignsTable({ account }: AcelleCampaignsTablePr
         </Table>
       </div>
 
-      {/* Affichage ROBUSTE du total */}
+      {/* Affichage du total */}
       <div className="flex justify-center items-center mt-4 text-sm text-muted-foreground">
-        Affichage COMPLET de {filteredCampaigns.length} campagnes sur {totalCount} au total
+        Affichage de {filteredCampaigns.length} campagnes sur {totalCount} au total
       </div>
 
       <Dialog open={!!selectedCampaign} onOpenChange={(open) => {

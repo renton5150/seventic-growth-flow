@@ -16,7 +16,7 @@ serve(async (req) => {
     });
   }
 
-  console.log("=== ACELLE PROXY ULTRA-ROBUSTE ===");
+  console.log("=== ACELLE PROXY CORRECTION URGENTE ===");
   
   try {
     let body = {};
@@ -41,7 +41,7 @@ serve(async (req) => {
     const endpoint = body.endpoint || req.headers.get('x-acelle-endpoint');
     const apiToken = body.api_token || req.headers.get('x-acelle-token');
     const action = body.action || url.searchParams.get('action') || 'get_campaigns';
-    const timeout = parseInt(body.timeout || '60000'); // Timeout beaucoup plus long
+    const timeout = parseInt(body.timeout || '30000'); // Timeout plus court mais réaliste
     
     console.log(`Action: ${action}, Endpoint présent: ${!!endpoint}, Token présent: ${!!apiToken}, Timeout: ${timeout}ms`);
     
@@ -71,7 +71,7 @@ serve(async (req) => {
     switch (action) {
       case 'get_campaigns':
         const page = body.page || '1';
-        const perPage = body.per_page || '100'; // Beaucoup plus de campagnes par page
+        const perPage = body.per_page || '50'; // Taille de page raisonnable
         apiUrl = `${cleanEndpoint}/api/v1/campaigns?api_token=${apiToken}&page=${page}&per_page=${perPage}`;
         break;
         
@@ -99,7 +99,7 @@ serve(async (req) => {
       case 'ping':
         return new Response(JSON.stringify({ 
           status: 'active', 
-          message: 'Acelle Proxy actif',
+          message: 'Acelle Proxy actif et corrigé',
           timestamp: new Date().toISOString() 
         }), {
           headers: corsHeaders
@@ -118,24 +118,19 @@ serve(async (req) => {
     
     console.log(`URL API construite pour action ${action}: ${apiUrl.replace(apiToken, '***')}`);
     
-    // Appel API robuste avec retry automatique
+    // Appel API simplifié et robuste
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
-    let lastError = null;
-    let response = null;
-    
-    // Tentative unique mais robuste
     try {
-      console.log(`Appel API robuste pour ${action} (timeout: ${timeout}ms)`);
+      console.log(`Appel API simple pour ${action} (timeout: ${timeout}ms)`);
       
-      response = await fetch(apiUrl, {
+      const response = await fetch(apiUrl, {
         method: "GET",
         headers: {
           "Accept": "application/json",
-          "User-Agent": "Seventic-Acelle-Proxy/10.0",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive"
+          "User-Agent": "Seventic-Acelle-Proxy-Fixed/1.0",
+          "Cache-Control": "no-cache"
         },
         signal: controller.signal
       });
@@ -175,16 +170,16 @@ serve(async (req) => {
       
       console.log(`Données reçues pour ${action} - Type: ${typeof responseData}`);
       
-      // Formatage robuste de la réponse
+      // Formatage simple et efficace de la réponse
       let formattedResponse;
       
       switch (action) {
         case 'get_campaigns':
           const campaigns = Array.isArray(responseData) ? responseData : (responseData.data || []);
           
-          // Pagination robuste
+          // Pagination simple
           const currentPage = parseInt(body.page || '1');
-          const perPageSize = parseInt(body.per_page || '100');
+          const perPageSize = parseInt(body.per_page || '50');
           
           const totalFromApi = responseData.total || responseData.meta?.total || campaigns.length;
           const lastPageFromApi = responseData.last_page || responseData.meta?.last_page;
@@ -243,7 +238,7 @@ serve(async (req) => {
           };
       }
       
-      console.log("=== FIN ACELLE PROXY (SUCCÈS TOTAL) ===");
+      console.log("=== FIN ACELLE PROXY (SUCCÈS) ===");
       
       return new Response(JSON.stringify(formattedResponse), {
         headers: corsHeaders
@@ -251,12 +246,12 @@ serve(async (req) => {
       
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      console.error(`Erreur fetch critique:`, fetchError);
+      console.error(`Erreur fetch:`, fetchError);
       
       const isTimeout = fetchError.name === 'AbortError';
       const errorMessage = isTimeout 
-        ? `Timeout API critique (${timeout}ms)` 
-        : `Erreur réseau critique: ${fetchError.message}`;
+        ? `Timeout API (${timeout}ms)` 
+        : `Erreur réseau: ${fetchError.message}`;
       
       return new Response(JSON.stringify({ 
         success: false,
@@ -270,11 +265,11 @@ serve(async (req) => {
     }
     
   } catch (error) {
-    console.error("Erreur globale critique:", error.message);
+    console.error("Erreur globale:", error.message);
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: 'Erreur interne critique du proxy',
+      error: 'Erreur interne du proxy',
       message: error.message,
       timestamp: new Date().toISOString()
     }), {
