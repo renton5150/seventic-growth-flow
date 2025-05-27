@@ -3,20 +3,28 @@ import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Clock, Zap, Turtle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface CampaignStatisticsProps {
   statistics: AcelleCampaignStatistics | null | undefined;
   loading?: boolean;
   onRefresh?: () => void;
   lastUpdated?: string | null;
+  // Nouvelles props pour les métriques de performance
+  isSlowApi?: boolean;
+  averageResponseTime?: number;
+  timeoutUsed?: number;
 }
 
 export const CampaignStatistics = ({ 
   statistics, 
   loading = false,
   onRefresh,
-  lastUpdated
+  lastUpdated,
+  isSlowApi = false,
+  averageResponseTime,
+  timeoutUsed
 }: CampaignStatisticsProps) => {
   // Formatage des nombres
   const formatNumber = (value?: number | null): string => {
@@ -25,17 +33,14 @@ export const CampaignStatistics = ({
     return value.toLocaleString();
   };
 
-  // Formatage des pourcentages
   const formatPercentage = (value?: number | null): string => {
     if (loading) return "...";
     if (value === undefined || value === null) return "0%";
     
-    // Si la valeur est déjà un pourcentage (0-100)
     if (value > 1) {
       return `${value.toFixed(1)}%`;
     }
     
-    // Si la valeur est une proportion (0-1)
     return `${(value * 100).toFixed(1)}%`;
   };
 
@@ -50,13 +55,11 @@ export const CampaignStatistics = ({
   const unsubscribed = statistics?.unsubscribe_count || 0;
   const complained = statistics?.abuse_complaint_count || 0;
 
-  // Calcul des taux si nécessaire
   const deliveryRate = statistics?.delivered_rate || (total > 0 ? (delivered / total) * 100 : 0);
   const openRate = statistics?.uniq_open_rate || statistics?.open_rate || 
     (delivered > 0 ? (opened / delivered) * 100 : 0);
   const clickRate = statistics?.click_rate || (delivered > 0 ? (clicked / delivered) * 100 : 0);
   
-  // Formatage de la date de dernière mise à jour
   const formatLastUpdated = () => {
     if (!lastUpdated) return null;
     try {
@@ -69,17 +72,45 @@ export const CampaignStatistics = ({
   
   const lastUpdatedText = formatLastUpdated();
 
-  // Afficher un message si les statistiques sont vides
   const isStatsEmpty = !total && !delivered && !opened && !clicked;
+
+  // Nouveau composant pour afficher les métriques de performance
+  const PerformanceIndicators = () => {
+    if (!averageResponseTime && !timeoutUsed && !isSlowApi) return null;
+
+    return (
+      <div className="flex flex-wrap gap-2 items-center">
+        {isSlowApi && (
+          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">
+            <Turtle className="h-3 w-3" />
+            API Lente
+          </Badge>
+        )}
+        {averageResponseTime && (
+          <Badge variant="outline" className="gap-1">
+            <Clock className="h-3 w-3" />
+            {Math.round(averageResponseTime / 1000)}s moy.
+          </Badge>
+        )}
+        {timeoutUsed && (
+          <Badge variant="outline" className="gap-1">
+            <Zap className="h-3 w-3" />
+            Timeout: {Math.round(timeoutUsed / 1000)}s
+          </Badge>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
-      {/* En-tête avec bouton de rafraîchissement */}
-      <div className="flex justify-between items-center">
-        <div>
+      {/* En-tête avec bouton de rafraîchissement et métriques de performance */}
+      <div className="flex justify-between items-start">
+        <div className="space-y-2">
           {lastUpdatedText && (
             <p className="text-xs text-muted-foreground">{lastUpdatedText}</p>
           )}
+          <PerformanceIndicators />
         </div>
         {onRefresh && (
           <Button 
@@ -90,15 +121,28 @@ export const CampaignStatistics = ({
             disabled={loading}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Rafraîchir les statistiques
+            {loading ? 'Chargement...' : 'Rafraîchir les statistiques'}
           </Button>
         )}
       </div>
       
-      {/* Message si les statistiques sont vides */}
+      {/* Message si les statistiques sont vides avec info sur l'API lente */}
       {isStatsEmpty && !loading && (
-        <div className="p-4 border rounded-md bg-amber-50 text-amber-800 mb-4">
-          <p className="text-sm">Aucune statistique disponible pour cette campagne. Cliquez sur "Rafraîchir les statistiques" pour récupérer les dernières données.</p>
+        <div className={`p-4 border rounded-md ${isSlowApi ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-blue-50 text-blue-800 border-blue-200'} mb-4`}>
+          <div className="flex items-start gap-2">
+            {isSlowApi ? <Turtle className="h-4 w-4 mt-0.5" /> : <RefreshCw className="h-4 w-4 mt-0.5" />}
+            <div>
+              <p className="text-sm font-medium">
+                {isSlowApi ? 'API lente détectée' : 'Aucune statistique disponible'}
+              </p>
+              <p className="text-xs mt-1">
+                {isSlowApi 
+                  ? 'Cette plateforme Acelle est plus lente que la moyenne. Le chargement peut prendre plus de temps.'
+                  : 'Cliquez sur "Rafraîchir les statistiques" pour récupérer les dernières données.'
+                }
+              </p>
+            </div>
+          </div>
         </div>
       )}
       
@@ -147,7 +191,6 @@ export const CampaignStatistics = ({
         </Card>
       </div>
 
-      {/* Cartes détaillées */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
