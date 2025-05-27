@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 
 const ResetPassword = () => {
@@ -23,6 +22,7 @@ const ResetPassword = () => {
   const [expiredLinkMessage, setExpiredLinkMessage] = useState("");
   const [email, setEmail] = useState("");
   const [isInvite, setIsInvite] = useState(false);
+  const [samePasswordError, setSamePasswordError] = useState(false);
 
   useEffect(() => {
     const processHash = async () => {
@@ -147,6 +147,7 @@ const ResetPassword = () => {
 
     setPasswordMatch(true);
     setLoading(true);
+    setSamePasswordError(false);
 
     try {
       // Utiliser updateUser sans token, car la session est déjà établie
@@ -156,7 +157,17 @@ const ResetPassword = () => {
 
       if (error) {
         console.error("Erreur lors de la mise à jour du mot de passe:", error);
-        toast.error("Une erreur s'est produite lors de la réinitialisation du mot de passe.");
+        
+        // Détecter spécifiquement l'erreur "same password"
+        if (error.message.includes("New password should be different from the old password") || 
+            error.message.includes("same_password")) {
+          setSamePasswordError(true);
+          toast.error("Mot de passe identique", {
+            description: "Votre nouveau mot de passe doit être différent de l'ancien"
+          });
+        } else {
+          toast.error("Une erreur s'est produite lors de la réinitialisation du mot de passe.");
+        }
       } else {
         setResetSuccessful(true);
         toast.success(isInvite 
@@ -264,46 +275,70 @@ const ResetPassword = () => {
               )}
             </>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="newPassword">Nouveau mot de passe</Label>
-                <Input
-                  type="password"
-                  id="newPassword"
-                  placeholder="Entrez votre nouveau mot de passe"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                <Input
-                  type="password"
-                  id="confirmPassword"
-                  placeholder="Confirmez votre nouveau mot de passe"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-              {!passwordMatch && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Erreur</AlertTitle>
+            <>
+              {samePasswordError && (
+                <Alert className="mb-4">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Mot de passe identique</AlertTitle>
                   <AlertDescription>
-                    Les mots de passe ne correspondent pas.
+                    Votre nouveau mot de passe doit être différent de votre mot de passe actuel. 
+                    Veuillez choisir un mot de passe que vous n'avez jamais utilisé auparavant.
                   </AlertDescription>
                 </Alert>
               )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading
-                  ? "Chargement..."
-                  : isInvite
-                  ? "Définir le mot de passe"
-                  : "Réinitialiser le mot de passe"}
-              </Button>
-            </form>
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="newPassword">
+                    {samePasswordError ? "Nouveau mot de passe (différent de l'ancien)" : "Nouveau mot de passe"}
+                  </Label>
+                  <Input
+                    type="password"
+                    id="newPassword"
+                    placeholder="Entrez votre nouveau mot de passe"
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      setSamePasswordError(false); // Reset error when user types
+                    }}
+                    required
+                    className={samePasswordError ? "border-orange-300 focus:border-orange-500" : ""}
+                  />
+                  {samePasswordError && (
+                    <p className="text-sm text-orange-600 mt-1">
+                      Assurez-vous que ce mot de passe est différent de votre mot de passe précédent
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                  <Input
+                    type="password"
+                    id="confirmPassword"
+                    placeholder="Confirmez votre nouveau mot de passe"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                {!passwordMatch && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Erreur</AlertTitle>
+                    <AlertDescription>
+                      Les mots de passe ne correspondent pas.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading
+                    ? "Chargement..."
+                    : isInvite
+                    ? "Définir le mot de passe"
+                    : "Réinitialiser le mot de passe"}
+                </Button>
+              </form>
+            </>
           )}
         </CardContent>
       </Card>
