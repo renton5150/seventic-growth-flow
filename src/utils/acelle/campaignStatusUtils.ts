@@ -28,8 +28,8 @@ export const getStatusBadgeVariant = (status: string): BadgeProps["variant"] => 
     'queued': 'secondary',
     'ready': 'secondary',
     'sending': 'default',
-    'sent': 'success',
-    'done': 'success',
+    'sent': 'default',
+    'done': 'default',
     'paused': 'outline',
     'failed': 'destructive'
   };
