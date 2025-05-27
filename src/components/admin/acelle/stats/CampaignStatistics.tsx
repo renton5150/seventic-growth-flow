@@ -1,10 +1,10 @@
-
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AcelleCampaignStatistics } from "@/types/acelle.types";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Clock, Zap, Turtle } from "lucide-react";
+import { RefreshCw, Clock, Zap, Turtle, AlertTriangle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CampaignStatisticsProps {
   statistics: AcelleCampaignStatistics | null | undefined;
@@ -13,8 +13,10 @@ interface CampaignStatisticsProps {
   lastUpdated?: string | null;
   // Nouvelles props pour les métriques de performance
   isSlowApi?: boolean;
+  isVerySlowApi?: boolean;
   averageResponseTime?: number;
   timeoutUsed?: number;
+  consecutiveSlowRequests?: number;
 }
 
 export const CampaignStatistics = ({ 
@@ -23,8 +25,10 @@ export const CampaignStatistics = ({
   onRefresh,
   lastUpdated,
   isSlowApi = false,
+  isVerySlowApi = false,
   averageResponseTime,
-  timeoutUsed
+  timeoutUsed,
+  consecutiveSlowRequests = 0
 }: CampaignStatisticsProps) => {
   // Formatage des nombres
   const formatNumber = (value?: number | null): string => {
@@ -72,18 +76,30 @@ export const CampaignStatistics = ({
   
   const lastUpdatedText = formatLastUpdated();
 
-  const isStatsEmpty = !total && !delivered && !opened && !clicked;
+  const isStatsEmpty = !statistics || (!statistics.subscriber_count && !statistics.delivered_count && !statistics.open_count && !statistics.click_count);
 
-  // Nouveau composant pour afficher les métriques de performance
+  // Composant pour afficher les métriques de performance améliorées
   const PerformanceIndicators = () => {
     if (!averageResponseTime && !timeoutUsed && !isSlowApi) return null;
 
     return (
       <div className="flex flex-wrap gap-2 items-center">
-        {isSlowApi && (
-          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">
+        {isVerySlowApi && (
+          <Badge variant="destructive" className="gap-1">
             <Turtle className="h-3 w-3" />
+            API Très Lente
+          </Badge>
+        )}
+        {isSlowApi && !isVerySlowApi && (
+          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">
+            <AlertTriangle className="h-3 w-3" />
             API Lente
+          </Badge>
+        )}
+        {!isSlowApi && averageResponseTime && (
+          <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
+            <CheckCircle className="h-3 w-3" />
+            API Normale
           </Badge>
         )}
         {averageResponseTime && (
@@ -98,7 +114,33 @@ export const CampaignStatistics = ({
             Timeout: {Math.round(timeoutUsed / 1000)}s
           </Badge>
         )}
+        {consecutiveSlowRequests > 0 && (
+          <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600">
+            <AlertTriangle className="h-3 w-3" />
+            {consecutiveSlowRequests} req. lentes
+          </Badge>
+        )}
       </div>
+    );
+  };
+
+  // Alerte pour les API très lentes
+  const SlowApiAlert = () => {
+    if (!isVerySlowApi && consecutiveSlowRequests < 3) return null;
+
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <Turtle className="h-4 w-4" />
+        <AlertDescription>
+          <div className="font-medium">Plateforme Acelle très lente détectée</div>
+          <div className="text-sm mt-1">
+            Cette plateforme répond très lentement ({Math.round((averageResponseTime || 0) / 1000)}s en moyenne).
+            {consecutiveSlowRequests >= 3 && " Plusieurs tentatives consécutives ont été lentes."}
+            <br />
+            <strong>Recommandations :</strong> Vérifiez la connexion réseau de votre serveur Acelle Mail ou contactez votre administrateur.
+          </div>
+        </AlertDescription>
+      </Alert>
     );
   };
 
@@ -126,19 +168,32 @@ export const CampaignStatistics = ({
         )}
       </div>
       
+      {/* Alerte pour les API très lentes */}
+      <SlowApiAlert />
+      
       {/* Message si les statistiques sont vides avec info sur l'API lente */}
       {isStatsEmpty && !loading && (
-        <div className={`p-4 border rounded-md ${isSlowApi ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-blue-50 text-blue-800 border-blue-200'} mb-4`}>
+        <div className={`p-4 border rounded-md ${
+          isVerySlowApi ? 'bg-red-50 text-red-800 border-red-200' : 
+          isSlowApi ? 'bg-amber-50 text-amber-800 border-amber-200' : 
+          'bg-blue-50 text-blue-800 border-blue-200'
+        } mb-4`}>
           <div className="flex items-start gap-2">
-            {isSlowApi ? <Turtle className="h-4 w-4 mt-0.5" /> : <RefreshCw className="h-4 w-4 mt-0.5" />}
+            {isVerySlowApi ? <Turtle className="h-4 w-4 mt-0.5" /> : 
+             isSlowApi ? <AlertTriangle className="h-4 w-4 mt-0.5" /> : 
+             <RefreshCw className="h-4 w-4 mt-0.5" />}
             <div>
               <p className="text-sm font-medium">
-                {isSlowApi ? 'API lente détectée' : 'Aucune statistique disponible'}
+                {isVerySlowApi ? 'API très lente détectée' : 
+                 isSlowApi ? 'API lente détectée' : 
+                 'Aucune statistique disponible'}
               </p>
               <p className="text-xs mt-1">
-                {isSlowApi 
-                  ? 'Cette plateforme Acelle est plus lente que la moyenne. Le chargement peut prendre plus de temps.'
-                  : 'Cliquez sur "Rafraîchir les statistiques" pour récupérer les dernières données.'
+                {isVerySlowApi 
+                  ? 'Cette plateforme Acelle est extrêmement lente. Le chargement peut prendre plusieurs minutes. Vérifiez la configuration serveur.'
+                  : isSlowApi 
+                    ? 'Cette plateforme Acelle est plus lente que la moyenne. Le chargement peut prendre plus de temps.'
+                    : 'Cliquez sur "Rafraîchir les statistiques" pour récupérer les dernières données.'
                 }
               </p>
             </div>

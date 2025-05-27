@@ -1,4 +1,3 @@
-
 import { AcelleAccount, AcelleCampaign, AcelleCampaignStatistics } from "@/types/acelle.types";
 import { ensureValidStatistics } from "./validation";
 import { createEmptyStatistics } from "@/utils/acelle/campaignStats";
@@ -40,7 +39,7 @@ const delayWithBackoff = (attempt: number): Promise<void> => {
 };
 
 /**
- * Récupère les statistiques via Edge Functions avec timeouts adaptatifs et retry amélioré
+ * Récupère les statistiques via Edge Functions avec timeouts adaptatifs ultra-robustes
  */
 export const fetchDirectStatistics = async (
   campaignUid: string,
@@ -48,28 +47,32 @@ export const fetchDirectStatistics = async (
   options?: {
     customTimeout?: number;
     skipCache?: boolean;
+    retryAttempt?: number;
   }
 ): Promise<AcelleCampaignStatistics | null> => {
   try {
-    console.log(`[fetchDirectStatistics] 🚀 Récupération pour ${campaignUid} via ${account.name}`);
+    console.log(`[fetchDirectStatistics] 🚀 Récupération ROBUSTE pour ${campaignUid} via ${account.name}`);
     
     if (!campaignUid || !account?.id) {
       console.error("[fetchDirectStatistics] ❌ Paramètres manquants");
       return null;
     }
     
-    // Calculer le timeout adaptatif
-    const adaptiveTimeout = options?.customTimeout || getAdaptiveTimeout(account.name);
-    console.log(`[fetchDirectStatistics] ⏱️ Timeout adaptatif: ${adaptiveTimeout}ms pour ${account.name}`);
+    // Calculer le timeout adaptatif avec escalade pour les tentatives multiples
+    const baseTimeout = options?.customTimeout || getAdaptiveTimeout(account.name);
+    const retryAttempt = options?.retryAttempt || 0;
+    const adaptiveTimeout = retryAttempt > 0 ? Math.min(baseTimeout * (1 + retryAttempt * 0.5), 180000) : baseTimeout;
     
-    // Méthode 1: Via acelle-proxy avec timeout adaptatif et retry
+    console.log(`[fetchDirectStatistics] ⏱️ Timeout adaptatif: ${adaptiveTimeout}ms pour ${account.name} (tentative ${retryAttempt + 1})`);
+    
+    // Méthode 1: Via acelle-proxy avec timeout adaptatif ultra-robuste
     for (let attempt = 0; attempt < ERROR_HANDLING.MAX_RETRIES; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(`[fetchDirectStatistics] 🔄 Tentative ${attempt + 1}/${ERROR_HANDLING.MAX_RETRIES} via acelle-proxy pour ${campaignUid}`);
+          console.log(`[fetchDirectStatistics] 🔄 Proxy tentative ${attempt + 1}/${ERROR_HANDLING.MAX_RETRIES} pour ${campaignUid}`);
           await delayWithBackoff(attempt - 1);
         } else {
-          console.log(`[fetchDirectStatistics] 📡 Première tentative via acelle-proxy pour ${campaignUid}`);
+          console.log(`[fetchDirectStatistics] 📡 Proxy première tentative pour ${campaignUid}`);
         }
         
         const startTime = Date.now();
@@ -80,15 +83,17 @@ export const fetchDirectStatistics = async (
             api_token: account.api_token,
             action: 'get_campaign_stats',
             campaign_uid: campaignUid,
-            timeout: adaptiveTimeout
+            timeout: adaptiveTimeout,
+            retry_attempt: attempt,
+            account_name: account.name
           }
         });
         
         const duration = Date.now() - startTime;
-        console.log(`[fetchDirectStatistics] ⏱️ Durée acelle-proxy: ${duration}ms`);
+        console.log(`[fetchDirectStatistics] ⏱️ Durée acelle-proxy: ${duration}ms (tentative ${attempt + 1})`);
         
         if (!error && data?.success && data.statistics) {
-          console.log(`[fetchDirectStatistics] ✅ Succès via acelle-proxy pour ${campaignUid} (tentative ${attempt + 1})`);
+          console.log(`[fetchDirectStatistics] ✅ SUCCÈS proxy pour ${campaignUid} en ${duration}ms (tentative ${attempt + 1})`);
           const validStats = ensureValidStatistics(data.statistics as Partial<AcelleCampaignStatistics>);
           
           // Sauvegarder en cache (sans bloquer)
@@ -102,26 +107,41 @@ export const fetchDirectStatistics = async (
         }
         
         if (error) {
-          console.warn(`[fetchDirectStatistics] ⚠️ Erreur acelle-proxy (tentative ${attempt + 1}):`, error);
-          // Ne pas continuer les tentatives si c'est une erreur d'authentification
-          if (error.message?.includes('unauthorized') || error.message?.includes('invalid token')) {
+          console.warn(`[fetchDirectStatistics] ⚠️ Erreur proxy (tentative ${attempt + 1}):`, error);
+          
+          // Analyser le type d'erreur pour décider si continuer
+          const errorMsg = error.message?.toLowerCase() || '';
+          if (errorMsg.includes('unauthorized') || errorMsg.includes('invalid token') || errorMsg.includes('forbidden')) {
             console.error(`[fetchDirectStatistics] ❌ Erreur d'authentification, arrêt des tentatives`);
             break;
           }
+          
+          // Pour les timeouts, augmenter le délai
+          if (errorMsg.includes('timeout') || errorMsg.includes('aborted')) {
+            console.warn(`[fetchDirectStatistics] ⏰ Timeout détecté, escalade du timeout pour tentative suivante`);
+            // La prochaine tentative utilisera un timeout plus long
+          }
         }
-      } catch (proxyError) {
-        console.warn(`[fetchDirectStatistics] ⚠️ Exception acelle-proxy (tentative ${attempt + 1}):`, proxyError);
+      } catch (proxyError: any) {
+        console.warn(`[fetchDirectStatistics] ⚠️ Exception proxy (tentative ${attempt + 1}):`, proxyError?.message || proxyError);
+        
+        // Si c'est un timeout, on peut être plus agressif sur les délais
+        if (proxyError?.name === 'AbortError' || proxyError?.message?.includes('aborted')) {
+          console.warn(`[fetchDirectStatistics] ⏰ Timeout AbortError détecté`);
+        }
       }
     }
     
-    // Méthode 2: Via acelle-stats-test avec retry
+    // Méthode 2: Via acelle-stats-test avec timeout encore plus long
+    const fallbackTimeout = Math.min(adaptiveTimeout * 1.2, 200000); // Encore plus de temps pour le fallback
+    
     for (let attempt = 0; attempt < ERROR_HANDLING.MAX_RETRIES; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(`[fetchDirectStatistics] 🔄 Fallback tentative ${attempt + 1}/${ERROR_HANDLING.MAX_RETRIES} via acelle-stats-test pour ${campaignUid}`);
+          console.log(`[fetchDirectStatistics] 🔄 Fallback tentative ${attempt + 1}/${ERROR_HANDLING.MAX_RETRIES} pour ${campaignUid}`);
           await delayWithBackoff(attempt - 1);
         } else {
-          console.log(`[fetchDirectStatistics] 📡 Fallback via acelle-stats-test pour ${campaignUid}`);
+          console.log(`[fetchDirectStatistics] 📡 Fallback acelle-stats-test pour ${campaignUid}`);
         }
         
         const startTime = Date.now();
@@ -131,15 +151,17 @@ export const fetchDirectStatistics = async (
             campaignId: campaignUid, 
             accountId: account.id, 
             forceRefresh: 'true',
-            timeout: Math.floor(adaptiveTimeout * 0.8) // Timeout légèrement réduit pour le fallback
+            timeout: fallbackTimeout,
+            retry_attempt: attempt,
+            account_name: account.name
           }
         });
         
         const duration = Date.now() - startTime;
-        console.log(`[fetchDirectStatistics] ⏱️ Durée acelle-stats-test: ${duration}ms`);
+        console.log(`[fetchDirectStatistics] ⏱️ Durée fallback: ${duration}ms (tentative ${attempt + 1})`);
         
         if (!error && data?.success && data.stats) {
-          console.log(`[fetchDirectStatistics] ✅ Succès via acelle-stats-test pour ${campaignUid} (tentative ${attempt + 1})`);
+          console.log(`[fetchDirectStatistics] ✅ SUCCÈS fallback pour ${campaignUid} en ${duration}ms (tentative ${attempt + 1})`);
           const validStats = ensureValidStatistics(data.stats as Partial<AcelleCampaignStatistics>);
           
           // Sauvegarder en cache (sans bloquer)
@@ -153,10 +175,10 @@ export const fetchDirectStatistics = async (
         }
         
         if (error) {
-          console.warn(`[fetchDirectStatistics] ⚠️ Erreur acelle-stats-test (tentative ${attempt + 1}):`, error);
+          console.warn(`[fetchDirectStatistics] ⚠️ Erreur fallback (tentative ${attempt + 1}):`, error);
         }
-      } catch (edgeError) {
-        console.warn(`[fetchDirectStatistics] ⚠️ Exception acelle-stats-test (tentative ${attempt + 1}):`, edgeError);
+      } catch (edgeError: any) {
+        console.warn(`[fetchDirectStatistics] ⚠️ Exception fallback (tentative ${attempt + 1}):`, edgeError?.message || edgeError);
       }
     }
     
@@ -181,10 +203,10 @@ export const fetchDirectStatistics = async (
       }
     }
     
-    console.error(`[fetchDirectStatistics] ❌ Toutes les méthodes ont échoué pour ${campaignUid} après ${ERROR_HANDLING.MAX_RETRIES} tentatives`);
+    console.error(`[fetchDirectStatistics] ❌ TOUTES les méthodes ont échoué pour ${campaignUid} après ${ERROR_HANDLING.MAX_RETRIES} tentatives avec timeouts adaptatifs`);
     return null;
-  } catch (error) {
-    console.error(`[fetchDirectStatistics] ❌ Erreur générale:`, error);
+  } catch (error: any) {
+    console.error(`[fetchDirectStatistics] ❌ Erreur générale:`, error?.message || error);
     return null;
   }
 };

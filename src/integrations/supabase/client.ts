@@ -10,7 +10,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIU
 // Mode démonstration si les clés sont manquantes
 const isDemoMode = !supabaseUrl || !supabaseAnonKey;
 
-// Client Supabase avec configuration explicite optimisée
+// Client Supabase avec configuration explicite optimisée pour APIs lentes
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -24,11 +24,23 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       const controller = new AbortController();
       const { signal } = controller;
       
-      // Définir un timeout de 10 secondes
+      // Timeout adaptatif selon le type de requête
+      let timeoutDuration = 90000; // 90 secondes par défaut pour les APIs lentes
+      
+      // Détection des Edge Functions Acelle (timeout plus long)
+      if (url.includes('/functions/v1/acelle-') || url.includes('acelle')) {
+        timeoutDuration = 120000; // 2 minutes pour les fonctions Acelle
+        console.log(`[Supabase] Timeout adaptatif Acelle: ${timeoutDuration}ms pour ${url}`);
+      } else if (url.includes('/functions/v1/')) {
+        timeoutDuration = 60000; // 1 minute pour les autres Edge Functions
+      } else {
+        timeoutDuration = 30000; // 30 secondes pour les requêtes normales
+      }
+      
       const timeoutId = setTimeout(() => {
         controller.abort();
-        console.warn("Requête Supabase interrompue après 10 secondes");
-      }, 10000);
+        console.warn(`Requête Supabase interrompue après ${timeoutDuration}ms: ${url}`);
+      }, timeoutDuration);
       
       return fetch(url, { 
         ...options, 
