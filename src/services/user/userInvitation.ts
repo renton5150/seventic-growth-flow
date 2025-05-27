@@ -22,8 +22,8 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     // Get current application base URL
     const origin = window.location.origin;
     
-    // Redirect URL with explicit type parameter and email
-    const redirectUrl = `${origin}/reset-password?type=invite&email=${encodeURIComponent(userEmail)}`;
+    // Utiliser la nouvelle URL de callback
+    const redirectUrl = `${origin}/auth-callback?email=${encodeURIComponent(userEmail)}`;
     
     // Use a longer client-side timeout (30 seconds)
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {

@@ -12,25 +12,19 @@ export async function sendResetLink(
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
   
   try {
-    // Configurer les options avec la durée d'expiration plus longue si spécifiée
+    // Utiliser une URL de redirection simplifiée sans paramètres supplémentaires
+    const simpleRedirectUrl = redirectUrl.split('?')[0] + `?type=recovery&email=${encodeURIComponent(email)}`;
+    
     const options: any = {
-      emailRedirectTo: redirectUrl,
+      emailRedirectTo: simpleRedirectUrl,
       data: {
         role: profile.role,
         name: profile.name
       }
     };
     
-    // Ajouter expireIn si spécifié (avec une valeur par défaut de 15552000 = 180 jours)
     options.expireIn = inviteOptions.expireIn || 15552000; // 180 jours par défaut
     console.log(`Durée d'expiration configurée pour le lien: ${options.expireIn} secondes (${options.expireIn / 86400} jours)`);
-    
-    // Ajouter le paramètre email dans l'URL de redirection
-    if (redirectUrl && !redirectUrl.includes('email=')) {
-      options.emailRedirectTo = redirectUrl.includes('?') 
-        ? `${redirectUrl}&email=${encodeURIComponent(email)}` 
-        : `${redirectUrl}?email=${encodeURIComponent(email)}`;
-    }
     
     const emailSettings = {
       email,
@@ -71,7 +65,6 @@ export async function sendResetLink(
       });
     }
     
-    // Journaliser la réponse complète pour le débogage
     console.log("Réponse complète de l'API de réinitialisation:", JSON.stringify(resetResult));
     console.log("Email de réinitialisation envoyé avec succès");
     
@@ -117,25 +110,19 @@ export async function sendInvitationLink(
   console.log("Nouvel utilisateur, envoi d'une invitation");
   
   try {
-    // Configurer les options avec la durée d'expiration plus longue si spécifiée
+    // Utiliser une URL de redirection simplifiée pour les invitations
+    const simpleRedirectUrl = redirectUrl.split('?')[0] + `?type=invite&email=${encodeURIComponent(email)}`;
+    
     const options: any = {
-      emailRedirectTo: redirectUrl,
+      emailRedirectTo: simpleRedirectUrl,
       data: {
         role: profile.role,
         name: profile.name
       }
     };
     
-    // Ajouter expireIn si spécifié (avec une valeur par défaut de 15552000 = 180 jours)
     options.expireIn = inviteOptions.expireIn || 15552000; // 180 jours par défaut
     console.log(`Durée d'expiration configurée pour l'invitation: ${options.expireIn} secondes (${options.expireIn / 86400} jours)`);
-    
-    // Ajouter le paramètre email dans l'URL de redirection
-    if (redirectUrl && !redirectUrl.includes('email=')) {
-      options.emailRedirectTo = redirectUrl.includes('?') 
-        ? `${redirectUrl}&email=${encodeURIComponent(email)}` 
-        : `${redirectUrl}?email=${encodeURIComponent(email)}`;
-    }
     
     const emailSettings = {
       email,
@@ -176,7 +163,6 @@ export async function sendInvitationLink(
         attempts++;
         
         if (attempts < maxAttempts) {
-          // Attente exponentielle entre les tentatives
           const waitTime = 1000 * Math.pow(2, attempts);
           console.log(`Nouvelle tentative dans ${waitTime}ms...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
@@ -191,7 +177,6 @@ export async function sendInvitationLink(
       }
     }
     
-    // Vérifier le résultat final
     if (inviteResult?.error) {
       console.error("ERREUR lors de l'envoi de l'invitation après plusieurs tentatives:", inviteResult.error);
       console.error("Détails de l'erreur:", typeof inviteResult.error === 'object' ? JSON.stringify(inviteResult.error) : inviteResult.error);
@@ -204,7 +189,6 @@ export async function sendInvitationLink(
       });
     }
     
-    // Journaliser la réponse complète pour le débogage
     console.log("Réponse complète de l'API d'invitation:", JSON.stringify(inviteResult));
     console.log("Invitation envoyée avec succès");
     

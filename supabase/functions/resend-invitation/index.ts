@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "./cors.ts";
 import { validateRequest } from "./validation.ts";
@@ -33,7 +32,7 @@ serve(async (req) => {
       checkSmtpConfig = false, 
       debug = false, 
       inviteOptions = {},
-      skipJwtVerification = true // Toujours ignorer la vérification JWT - important!
+      skipJwtVerification = true
     } = requestBody;
     
     console.log(`Attempting to send invitation to: ${email}`);
@@ -99,21 +98,12 @@ serve(async (req) => {
       console.log("Setting default expireIn to 180 days (15552000 seconds)");
     }
     
-    // Construire une URL de redirection explicite contenant le type et l'email
-    let enhancedRedirectUrl = redirectUrl;
+    // Utiliser la nouvelle URL de callback simplifiée
+    const callbackUrl = redirectUrl.includes('/auth-callback') 
+      ? redirectUrl 
+      : redirectUrl.replace('/reset-password', '/auth-callback');
     
-    // S'assurer que l'URL contient des paramètres explicites (type et email)
-    if (!enhancedRedirectUrl.includes('type=')) {
-      enhancedRedirectUrl += enhancedRedirectUrl.includes('?') ? '&' : '?';
-      enhancedRedirectUrl += `type=${userExists ? 'recovery' : 'invite'}`;
-    }
-    
-    if (!enhancedRedirectUrl.includes('email=')) {
-      enhancedRedirectUrl += enhancedRedirectUrl.includes('?') ? '&' : '?';
-      enhancedRedirectUrl += `email=${encodeURIComponent(email)}`;
-    }
-    
-    console.log("Enhanced redirect URL:", enhancedRedirectUrl);
+    console.log("Using callback URL:", callbackUrl);
     
     // Send appropriate email based on whether user exists
     if (userExists) {
@@ -121,7 +111,7 @@ serve(async (req) => {
       return await sendResetLink(
         supabaseAdmin.client, 
         email, 
-        enhancedRedirectUrl, 
+        callbackUrl, 
         profileResult.profile, 
         emailConfig,
         corsHeaders,
@@ -132,7 +122,7 @@ serve(async (req) => {
       return await sendInvitationLink(
         supabaseAdmin.client, 
         email, 
-        enhancedRedirectUrl, 
+        callbackUrl, 
         profileResult.profile, 
         emailConfig,
         corsHeaders,
