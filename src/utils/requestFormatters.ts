@@ -4,6 +4,7 @@ import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
   console.log(`[formatRequestFromDb] 🚀 START Formatting request ${request.id}`);
+  console.log(`[formatRequestFromDb] 🔍 RAW DATA pour request ${request.id}:`, JSON.stringify(request, null, 2));
   
   // Convert dates
   const createdAt = new Date(request.created_at);
@@ -13,24 +14,25 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // UTILISER DIRECTEMENT LES DONNÉES DE LA VUE requests_with_missions
-  console.log(`[formatRequestFromDb] 🔍 DONNÉES DEPUIS requests_with_missions pour request ${request.id}:`, {
-    mission_name: request.mission_name,
-    mission_client: request.mission_client,
-    sdr_name: request.sdr_name,
-    assigned_to_name: request.assigned_to_name
-  });
-  
-  // DÉTERMINATION DU NOM FINAL - utiliser directement les données de la vue
+  // DÉTERMINATION DU NOM FINAL - ESSAYER TOUTES LES SOURCES POSSIBLES
   let missionName = "Sans mission";
   
+  // 1. Essayer mission_client en premier (le plus spécifique)
   if (request.mission_client && String(request.mission_client).trim() !== "") {
     missionName = String(request.mission_client).trim();
     console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
-  } else if (request.mission_name && String(request.mission_name).trim() !== "") {
+  }
+  // 2. Essayer mission_name 
+  else if (request.mission_name && String(request.mission_name).trim() !== "") {
     missionName = String(request.mission_name).trim();
     console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
-  } else {
+  }
+  // 3. Essayer dans les details
+  else if (request.details?.missionName && String(request.details.missionName).trim() !== "") {
+    missionName = String(request.details.missionName).trim();
+    console.log(`[formatRequestFromDb] ✅ DETAILS MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
+  }
+  else {
     console.log(`[formatRequestFromDb] ⚠️ AUCUNE MISSION TROUVÉE pour request ${request.id}`);
   }
   
@@ -56,7 +58,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     details = request.details as Record<string, any>;
   }
 
-  // Base request with common properties
+  // GARDER TOUTES LES DONNÉES DE MISSION DANS L'OBJET FINAL
   const baseRequest: Request = {
     id: request.id,
     title: request.title,
@@ -68,14 +70,23 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     sdrName: sdrName,
     assignedToName: assignedToName,
     dueDate: request.due_date,
-    details: details,
+    details: {
+      ...details,
+      // CONSERVER TOUTES LES DONNÉES DE MISSION DANS DETAILS AUSSI
+      missionName: missionName,
+      mission_name: request.mission_name,
+      mission_client: request.mission_client
+    },
     workflow_status: request.workflow_status as WorkflowStatus,
     assigned_to: request.assigned_to,
     isLate,
     createdAt,
     lastUpdated,
-    target_role: request.target_role
-  };
+    target_role: request.target_role,
+    // AJOUTER LES CHAMPS BRUTS POUR DEBUG
+    ...(request.mission_name && { mission_name: request.mission_name }),
+    ...(request.mission_client && { mission_client: request.mission_client })
+  } as Request & { mission_name?: string; mission_client?: string };
 
   // Type-specific processing
   if (request.type === "email") {
@@ -97,10 +108,11 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
       emailType: details.emailType || "Mass email",
     };
 
-    console.log(`[formatRequestFromDb] Email request processed: ${request.id}`, 
-      `template: ${Object.keys(emailRequest.template || {}).length}`,
-      `database: ${Object.keys(emailRequest.database || {}).length}`, 
-      `blacklist: ${Object.keys(emailRequest.blacklist || {}).length}`);
+    console.log(`[formatRequestFromDb] ✅ Email request FINAL pour ${request.id}:`, {
+      missionName: emailRequest.missionName,
+      mission_name: (emailRequest as any).mission_name,
+      mission_client: (emailRequest as any).mission_client
+    });
     
     return emailRequest;
   } 
@@ -118,7 +130,11 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
       resultFileUrl: details.resultFileUrl || "",
     };
 
-    console.log(`[formatRequestFromDb] Database request processed: ${request.id}`);
+    console.log(`[formatRequestFromDb] ✅ Database request FINAL pour ${request.id}:`, {
+      missionName: databaseRequest.missionName,
+      mission_name: (databaseRequest as any).mission_name,
+      mission_client: (databaseRequest as any).mission_client
+    });
     return databaseRequest;
   } 
   else if (request.type === "linkedin") {
@@ -132,11 +148,19 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
       resultFileUrl: details.resultFileUrl || "",
     };
 
-    console.log(`[formatRequestFromDb] LinkedIn request processed: ${request.id}`);
+    console.log(`[formatRequestFromDb] ✅ LinkedIn request FINAL pour ${request.id}:`, {
+      missionName: linkedinRequest.missionName,
+      mission_name: (linkedinRequest as any).mission_name,
+      mission_client: (linkedinRequest as any).mission_client
+    });
     return linkedinRequest;
   }
   
-  console.log(`[formatRequestFromDb] Generic request processed: ${request.id}`);
+  console.log(`[formatRequestFromDb] ✅ Generic request FINAL pour ${request.id}:`, {
+    missionName: baseRequest.missionName,
+    mission_name: (baseRequest as any).mission_name,
+    mission_client: (baseRequest as any).mission_client
+  });
   return baseRequest as Request;
 };
 

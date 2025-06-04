@@ -39,17 +39,43 @@ export const columns: ColumnDefinition[] = [
     width: "w-[50px]",
     render: (request) => <GrowthRequestTypeIcon type={request.type} />
   },
-  // Mission - UTILISATION DES VRAIES DONNÉES
+  // Mission - CORRECTION RADICALE
   {
     header: "Mission",
     key: "mission",
     render: (request) => {
-      // Utiliser directement le missionName formaté depuis la base de données
-      const displayName = request.missionName && request.missionName !== "Sans mission" 
-        ? request.missionName 
-        : "Sans mission";
+      // Essayer plusieurs sources pour le nom de mission
+      let displayName = "Sans mission";
       
-      console.log(`[Column Mission] Request ${request.id}: displaying "${displayName}"`);
+      // 1. Essayer missionName directement
+      if (request.missionName && request.missionName.trim() !== "" && request.missionName !== "Sans mission") {
+        displayName = request.missionName.trim();
+        console.log(`[Column Mission] Utilisation missionName: "${displayName}" pour request ${request.id}`);
+      }
+      // 2. Essayer dans les détails
+      else if (request.details?.missionName && request.details.missionName.trim() !== "") {
+        displayName = request.details.missionName.trim();
+        console.log(`[Column Mission] Utilisation details.missionName: "${displayName}" pour request ${request.id}`);
+      }
+      // 3. Essayer mission_name (format snake_case)
+      else if ((request as any).mission_name && (request as any).mission_name.trim() !== "") {
+        displayName = (request as any).mission_name.trim();
+        console.log(`[Column Mission] Utilisation mission_name: "${displayName}" pour request ${request.id}`);
+      }
+      // 4. Essayer mission_client
+      else if ((request as any).mission_client && (request as any).mission_client.trim() !== "") {
+        displayName = (request as any).mission_client.trim();
+        console.log(`[Column Mission] Utilisation mission_client: "${displayName}" pour request ${request.id}`);
+      }
+      
+      console.log(`[Column Mission] FINAL pour request ${request.id}: "${displayName}"`);
+      console.log(`[Column Mission] DEBUG request ${request.id}:`, {
+        missionName: request.missionName,
+        mission_name: (request as any).mission_name,
+        mission_client: (request as any).mission_client,
+        details_missionName: request.details?.missionName,
+        full_request: request
+      });
       
       return (
         <div className="font-medium text-sm" title={displayName}>
