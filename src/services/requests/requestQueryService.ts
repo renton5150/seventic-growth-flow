@@ -14,14 +14,10 @@ interface RequestFilters {
 export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]> => {
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
+  // CORRECTION : Utiliser la vue requests_with_missions qui a déjà les jointures
   let query = supabase
-    .from('requests')
-    .select(`
-      *,
-      missions(name, client),
-      created_by_profile:profiles!requests_created_by_fkey(name),
-      assigned_to_profile:profiles!requests_assigned_to_fkey(name)
-    `);
+    .from('requests_with_missions')
+    .select('*');
     
   // Appliquer les filtres
   if (filters?.assignedToIsNull) {
@@ -53,16 +49,22 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
   }
   
   console.log(`📋 [fetchRequests] ${data?.length || 0} requests récupérées`);
-  console.log("🔍 [fetchRequests] Première request brute:", data?.[0]);
+  console.log("🔍 [fetchRequests] Première request brute (avec missions):", data?.[0]);
   
   if (!data || data.length === 0) {
     return [];
   }
   
-  // Transformation directe et simple
+  // Transformation directe et simple - utiliser les champs de la vue
   const requests = data.map((row: any) => {
-    // Mission name - utiliser client en priorité, puis name
-    const missionName = row.missions?.client || row.missions?.name || "Sans mission";
+    console.log(`🔍 [fetchRequests] Processing request ${row.id}:`, {
+      mission_name: row.mission_name,
+      mission_client: row.mission_client,
+      title: row.title
+    });
+    
+    // La vue requests_with_missions a déjà mission_name et mission_client
+    const missionName = row.mission_client || row.mission_name || "Sans mission";
     
     const formattedRequest: Request = {
       id: row.id,
@@ -72,8 +74,8 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       createdBy: row.created_by,
       missionId: row.mission_id,
       missionName: missionName,
-      sdrName: row.created_by_profile?.name || "Non assigné",
-      assignedToName: row.assigned_to_profile?.name || "Non assigné",
+      sdrName: row.sdr_name || "Non assigné",
+      assignedToName: row.assigned_to_name || "Non assigné",
       dueDate: row.due_date,
       details: row.details || {},
       workflow_status: row.workflow_status as WorkflowStatus,
@@ -84,11 +86,12 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       target_role: row.target_role
     };
     
+    console.log(`✅ [fetchRequests] Request formatée: ${formattedRequest.id}, mission="${formattedRequest.missionName}"`);
+    
     return formattedRequest;
   });
   
-  console.log(`✅ [fetchRequests] ${requests.length} requests formatées`);
-  console.log("🔍 [fetchRequests] Première request formatée:", requests[0]);
+  console.log(`✅ [fetchRequests] ${requests.length} requests formatées avec missions`);
   
   return requests;
 };
@@ -97,14 +100,10 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
   try {
     console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
     
+    // Utiliser aussi la vue pour les détails
     const { data, error } = await supabase
-      .from('requests')
-      .select(`
-        *,
-        missions(name, client),
-        created_by_profile:profiles!requests_created_by_fkey(name),
-        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
-      `)
+      .from('requests_with_missions')
+      .select('*')
       .eq('id', requestId)
       .maybeSingle();
 
@@ -123,7 +122,13 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       return null;
     }
 
-    const missionName = data.missions?.client || data.missions?.name || "Sans mission";
+    console.log("🔍 [getRequestDetails] Données récupérées:", {
+      mission_name: data.mission_name,
+      mission_client: data.mission_client,
+      title: data.title
+    });
+
+    const missionName = data.mission_client || data.mission_name || "Sans mission";
     
     const request: Request = {
       id: data.id,
@@ -133,8 +138,8 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       createdBy: data.created_by,
       missionId: data.mission_id,
       missionName: missionName,
-      sdrName: data.created_by_profile?.name || "Non assigné",
-      assignedToName: data.assigned_to_profile?.name || "Non assigné",
+      sdrName: data.sdr_name || "Non assigné",
+      assignedToName: data.assigned_to_name || "Non assigné",
       dueDate: data.due_date,
       details: data.details || {},
       workflow_status: data.workflow_status as WorkflowStatus,
