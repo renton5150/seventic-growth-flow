@@ -19,14 +19,15 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération des requêtes à affecter avec userId:", userId);
+      console.log("🚀 [useRequestQueries] Récupération des requêtes à affecter avec userId:", userId);
       
-      // SYNCHRONISATION SIMPLIFIÉE des missions
+      // SYNCHRONISATION FORCÉE des missions au début
       try {
+        console.log("🔄 [useRequestQueries] Synchronisation des missions...");
         await syncKnownMissions();
-        console.log("Synchronisation des missions terminée");
+        console.log("✅ [useRequestQueries] Synchronisation terminée");
       } catch (err) {
-        console.error("Erreur lors de la synchronisation:", err);
+        console.error("❌ [useRequestQueries] Erreur lors de la synchronisation:", err);
       }
       
       // Requête pour les demandes sans assignation
@@ -47,25 +48,34 @@ export function useRequestQueries(userId: string | undefined) {
       const { data, error, count } = await query;
       
       if (error) {
-        console.error("Erreur lors de la récupération des requêtes à affecter:", error);
+        console.error("❌ [useRequestQueries] Erreur lors de la récupération des requêtes à affecter:", error);
         return [];
       }
       
-      console.log(`Requêtes à affecter récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
+      console.log(`📋 [useRequestQueries] Requêtes à affecter récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
       
-      // Précharger les noms de mission
+      // Debug: Afficher les données mission pour chaque requête
+      data.forEach(req => {
+        console.log(`🔍 [useRequestQueries] Request ${req.id}:`, {
+          mission_id: req.mission_id,
+          mission_client: req.mission_client,
+          mission_name: req.mission_name
+        });
+      });
+      
+      // Précharger les noms de mission (si nécessaire)
       const missionIds = data
         .map(req => req.mission_id)
         .filter((id): id is string => !!id);
       
       if (missionIds.length > 0) {
-        console.log(`Préchargement de ${missionIds.length} noms de mission`);
+        console.log(`🔄 [useRequestQueries] Préchargement de ${missionIds.length} noms de mission`);
         preloadMissionNames(missionIds);
       }
       
-      // Formater les données
+      // Formater les données avec la logique corrigée
       const formattedRequests = await Promise.all(data.map((request: any) => formatRequestFromDb(request)));
-      console.log("Requêtes formatées:", formattedRequests.length);
+      console.log(`✅ [useRequestQueries] Requêtes formatées: ${formattedRequests.length}`);
       
       return formattedRequests;
     },
@@ -79,14 +89,15 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("Récupération de mes assignations avec userId:", userId);
+      console.log("🚀 [useRequestQueries] Récupération de mes assignations avec userId:", userId);
       
-      // SYNCHRONISATION SIMPLIFIÉE des missions
+      // SYNCHRONISATION FORCÉE des missions
       try {
+        console.log("🔄 [useRequestQueries] Synchronisation des missions pour mes assignations...");
         await syncKnownMissions();
-        console.log("Synchronisation des missions terminée pour mes assignations");
+        console.log("✅ [useRequestQueries] Synchronisation terminée pour mes assignations");
       } catch (err) {
-        console.error("Erreur lors de la synchronisation:", err);
+        console.error("❌ [useRequestQueries] Erreur lors de la synchronisation:", err);
       }
       
       let query = supabase.from('requests_with_missions')
@@ -111,25 +122,34 @@ export function useRequestQueries(userId: string | undefined) {
       const { data, error, count } = await query;
       
       if (error) {
-        console.error("Erreur lors de la récupération de mes assignations:", error);
+        console.error("❌ [useRequestQueries] Erreur lors de la récupération de mes assignations:", error);
         return [];
       }
       
-      console.log(`Mes assignations récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
+      console.log(`📋 [useRequestQueries] Mes assignations récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
       
-      // Précharger les noms de mission
+      // Debug: Afficher les données mission pour chaque requête
+      data.forEach(req => {
+        console.log(`🔍 [useRequestQueries] My Assignment ${req.id}:`, {
+          mission_id: req.mission_id,
+          mission_client: req.mission_client,
+          mission_name: req.mission_name
+        });
+      });
+      
+      // Précharger les noms de mission (si nécessaire)
       const missionIds = data
         .map(req => req.mission_id)
         .filter((id): id is string => !!id);
       
       if (missionIds.length > 0) {
-        console.log(`Préchargement de ${missionIds.length} noms de mission pour mes assignations`);
+        console.log(`🔄 [useRequestQueries] Préchargement de ${missionIds.length} noms de mission pour mes assignations`);
         preloadMissionNames(missionIds);
       }
       
-      // Formater les données
+      // Formater les données avec la logique corrigée
       const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
-      console.log("Mes assignations formatées:", formattedRequests.length);
+      console.log(`✅ [useRequestQueries] Mes assignations formatées: ${formattedRequests.length}`);
       
       return formattedRequests;
     },
@@ -143,15 +163,16 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log('Récupération de TOUTES les requêtes avec rôle:', 
+      console.log('🚀 [useRequestQueries] Récupération de TOUTES les requêtes avec rôle:', 
                   isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
       
-      // SYNCHRONISATION CRITIQUE ET SIMPLIFIÉE des missions
+      // SYNCHRONISATION CRITIQUE ET FORCÉE des missions
       try {
+        console.log("🔄 [useRequestQueries] Synchronisation des missions pour toutes les requêtes...");
         await syncKnownMissions();
-        console.log("Synchronisation des missions terminée pour toutes les requêtes");
+        console.log("✅ [useRequestQueries] Synchronisation terminée pour toutes les requêtes");
       } catch (err) {
-        console.error("Erreur lors de la synchronisation:", err);
+        console.error("❌ [useRequestQueries] Erreur lors de la synchronisation:", err);
       }
       
       let query = supabase.from('requests_with_missions')
@@ -161,7 +182,7 @@ export function useRequestQueries(userId: string | undefined) {
       // Si c'est un SDR, ne récupérer QUE ses demandes créées
       if (isSDR) {
         query = query.eq('created_by', userId);
-        console.log('SDR - Filtrage requêtes par ID utilisateur:', userId);
+        console.log('🔍 [useRequestQueries] SDR - Filtrage requêtes par ID utilisateur:', userId);
       }
       
       query = query.order('due_date', { ascending: true });
@@ -169,29 +190,38 @@ export function useRequestQueries(userId: string | undefined) {
       const { data, error } = await query;
       
       if (error) {
-        console.error('Erreur pendant la récupération des requêtes:', error);
+        console.error('❌ [useRequestQueries] Erreur pendant la récupération des requêtes:', error);
         throw error;
       }
       
       const requestsArray = Array.isArray(data) ? data : [];
-      console.log(`${requestsArray.length} requêtes récupérées au total`);
+      console.log(`📋 [useRequestQueries] ${requestsArray.length} requêtes récupérées au total`);
       
-      // Précharger les noms de mission
+      // Debug: Afficher les données mission pour chaque requête
+      requestsArray.forEach(req => {
+        console.log(`🔍 [useRequestQueries] All Request ${req.id}:`, {
+          mission_id: req.mission_id,
+          mission_client: req.mission_client,
+          mission_name: req.mission_name
+        });
+      });
+      
+      // Précharger les noms de mission (si nécessaire)
       const missionIds = requestsArray
         .map(req => req.mission_id)
         .filter((id): id is string => !!id);
       
       if (missionIds.length > 0) {
-        console.log(`Préchargement de ${missionIds.length} noms de mission pour toutes les requêtes`);
+        console.log(`🔄 [useRequestQueries] Préchargement de ${missionIds.length} noms de mission pour toutes les requêtes`);
         preloadMissionNames(missionIds);
       }
       
-      // Formater les données avec le service centralisé
+      // Formater les données avec le service centralisé corrigé
       const formattedRequests = await Promise.all(requestsArray.map(request => formatRequestFromDb(request)));
       
-      console.log(`${formattedRequests.length} requêtes formatées pour l'affichage`);
+      console.log(`✅ [useRequestQueries] ${formattedRequests.length} requêtes formatées pour l'affichage`);
       formattedRequests.forEach(req => {
-        console.log(`Request ${req.id}: mission_id=${req.missionId}, missionName=${req.missionName}`);
+        console.log(`📋 [useRequestQueries] Final Request ${req.id}: mission_id=${req.missionId}, missionName="${req.missionName}"`);
       });
       
       return formattedRequests;
@@ -203,7 +233,7 @@ export function useRequestQueries(userId: string | undefined) {
   // Récupération des détails d'une demande spécifique
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
-      console.log("Récupération des détails pour la demande:", requestId);
+      console.log("🔍 [useRequestQueries] Récupération des détails pour la demande:", requestId);
       
       const { data, error } = await supabase
         .from('requests_with_missions')
@@ -213,26 +243,36 @@ export function useRequestQueries(userId: string | undefined) {
 
       // Vérification des droits pour un SDR uniquement
       if (data && isSDR && data.created_by !== userId) {
-        console.error("SDR tentant d'accéder à une demande qui ne lui appartient pas");
+        console.error("❌ [useRequestQueries] SDR tentant d'accéder à une demande qui ne lui appartient pas");
         return null;
       }
 
       if (error) {
-        console.error("Erreur lors de la récupération des détails de la demande:", error);
+        console.error("❌ [useRequestQueries] Erreur lors de la récupération des détails de la demande:", error);
         return null;
       }
 
       if (!data) {
-        console.log("Aucun détail trouvé pour la demande:", requestId);
+        console.log("⚠️ [useRequestQueries] Aucun détail trouvé pour la demande:", requestId);
         return null;
       }
 
-      console.log("Détails de la demande récupérés:", data);
+      console.log("📋 [useRequestQueries] Détails de la demande récupérés:", data);
       
-      // Formatage avec le service centralisé
-      return await formatRequestFromDb(data);
+      // Debug: Afficher les données mission pour cette requête
+      console.log(`🔍 [useRequestQueries] Request Details ${data.id}:`, {
+        mission_id: data.mission_id,
+        mission_client: data.mission_client,
+        mission_name: data.mission_name
+      });
+      
+      // Formatage avec le service centralisé corrigé
+      const formatted = await formatRequestFromDb(data);
+      console.log(`✅ [useRequestQueries] Request Details formatted: ${formatted.id}, missionName="${formatted.missionName}"`);
+      
+      return formatted;
     } catch (err) {
-      console.error("Erreur lors de la récupération des détails:", err);
+      console.error("❌ [useRequestQueries] Erreur lors de la récupération des détails:", err);
       return null;
     }
   };

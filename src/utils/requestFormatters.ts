@@ -1,10 +1,16 @@
+
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getMissionName, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
-  console.log(`[formatRequestFromDb] START Formatting request ${request.id}, mission_id: ${request.mission_id}`);
+  console.log(`[formatRequestFromDb] 🚀 START Formatting request ${request.id}`);
+  console.log(`[formatRequestFromDb] 📋 Mission data:`, {
+    mission_id: request.mission_id,
+    mission_client: request.mission_client,
+    mission_name: request.mission_name
+  });
   
   // Convert dates
   const createdAt = new Date(request.created_at);
@@ -14,35 +20,53 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Force Freshworks dans le cache
+  // Force Freshworks dans le cache au cas où
   forceRefreshFreshworks();
   
-  // NOUVELLE LOGIQUE SIMPLIFIÉE pour récupérer le nom de mission
+  // NOUVELLE LOGIQUE TOTALEMENT REVUE pour le nom de mission
   let missionName = "Sans mission";
   
   if (request.mission_id) {
+    console.log(`[formatRequestFromDb] 🔍 Processing mission ID: ${request.mission_id}`);
+    
+    // CAS SPÉCIAL: Freshworks
     if (isFreshworksId(request.mission_id)) {
       missionName = "Freshworks";
-      console.log("[formatRequestFromDb] Mission Freshworks détectée");
-    } else {
-      // Utiliser le service simplifié pour récupérer le nom
+      console.log(`[formatRequestFromDb] ✅ FRESHWORKS détecté: ${request.mission_id} => "Freshworks"`);
+    } 
+    // CAS GÉNÉRAL: Utiliser mission_client de la vue requests_with_missions en priorité
+    else if (request.mission_client && 
+             request.mission_client.trim() !== "" && 
+             request.mission_client !== "null" && 
+             request.mission_client !== "undefined" &&
+             !request.mission_client.startsWith("Mission ")) {
+      missionName = request.mission_client.trim();
+      console.log(`[formatRequestFromDb] ✅ MISSION_CLIENT direct: ${request.mission_id} => "${missionName}"`);
+    }
+    // FALLBACK: Utiliser mission_name de la vue si disponible
+    else if (request.mission_name && 
+             request.mission_name.trim() !== "" && 
+             request.mission_name !== "null" && 
+             request.mission_name !== "undefined" &&
+             !request.mission_name.startsWith("Mission ")) {
+      missionName = request.mission_name.trim();
+      console.log(`[formatRequestFromDb] ⚠️ MISSION_NAME fallback: ${request.mission_id} => "${missionName}"`);
+    }
+    // DERNIER RECOURS: Interroger le service (mais normalement pas nécessaire)
+    else {
+      console.warn(`[formatRequestFromDb] ⚠️ Données mission insuffisantes, appel service pour: ${request.mission_id}`);
       missionName = await getMissionName(request.mission_id, {
         fallbackClient: request.mission_client, 
         fallbackName: request.mission_name,
         forceRefresh: false
       });
-      
-      console.log(`[formatRequestFromDb] Nom de mission récupéré pour ${request.mission_id}: "${missionName}"`);
-      
-      // VALIDATION : Si on obtient encore un nom technique, forcer "Sans mission"
-      if (missionName.startsWith("Mission ") && missionName.length < 20) {
-        console.warn(`[formatRequestFromDb] Nom technique détecté "${missionName}", utilisation de "Sans mission"`);
-        missionName = "Sans mission";
-      }
+      console.log(`[formatRequestFromDb] 🔄 SERVICE RESULT: ${request.mission_id} => "${missionName}"`);
     }
+  } else {
+    console.log(`[formatRequestFromDb] ⚠️ Aucun mission_id fourni`);
   }
   
-  console.log(`[formatRequestFromDb] FINAL mission name pour request ${request.id}: "${missionName}"`);
+  console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
 
   // Normaliser les détails pour éviter les problèmes de type
   let details: Record<string, any> = {};
