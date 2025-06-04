@@ -13,27 +13,23 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // RÉCUPÉRATION DU NOM DE MISSION DEPUIS LE JOIN EXPLICITE
-  console.log(`[formatRequestFromDb] 🔍 DONNÉES MISSION DEPUIS JOIN pour request ${request.id}:`, {
-    missions_object: request.missions,
-    sdr_object: request.sdr,
-    assigned_user_object: request.assigned_user
+  // UTILISER DIRECTEMENT LES DONNÉES DE LA VUE requests_with_missions
+  console.log(`[formatRequestFromDb] 🔍 DONNÉES DEPUIS requests_with_missions pour request ${request.id}:`, {
+    mission_name: request.mission_name,
+    mission_client: request.mission_client,
+    sdr_name: request.sdr_name,
+    assigned_to_name: request.assigned_to_name
   });
   
-  // DÉTERMINATION DU NOM FINAL - utiliser directement les données du JOIN
+  // DÉTERMINATION DU NOM FINAL - utiliser directement les données de la vue
   let missionName = "Sans mission";
   
-  if (request.missions) {
-    // Priorité au client, sinon au nom
-    if (request.missions.client && String(request.missions.client).trim() !== "") {
-      missionName = String(request.missions.client).trim();
-      console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
-    } else if (request.missions.name && String(request.missions.name).trim() !== "") {
-      missionName = String(request.missions.name).trim();
-      console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
-    } else {
-      console.log(`[formatRequestFromDb] ⚠️ MISSION TROUVÉE MAIS VIDE pour request ${request.id}`);
-    }
+  if (request.mission_client && String(request.mission_client).trim() !== "") {
+    missionName = String(request.mission_client).trim();
+    console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
+  } else if (request.mission_name && String(request.mission_name).trim() !== "") {
+    missionName = String(request.mission_name).trim();
+    console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
   } else {
     console.log(`[formatRequestFromDb] ⚠️ AUCUNE MISSION TROUVÉE pour request ${request.id}`);
   }
@@ -41,8 +37,8 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
 
   // Récupération des noms SDR et assigné
-  const sdrName = request.sdr?.name || null;
-  const assignedToName = request.assigned_user?.name || null;
+  const sdrName = request.sdr_name || null;
+  const assignedToName = request.assigned_to_name || null;
 
   console.log(`[formatRequestFromDb] 👥 NOMS pour request ${request.id}: sdr="${sdrName}", assigned="${assignedToName}"`);
 
@@ -155,9 +151,10 @@ export const example = () => {
     last_updated: new Date(),
     due_date: new Date(),
     mission_id: "456",
-    missions: { id: "456", name: "Test Mission", client: "Test Client" },
-    sdr: { id: "user1", name: "John Doe" },
-    assigned_user: { id: "user2", name: "Jane Smith" },
+    mission_name: "Test Mission",
+    mission_client: "Test Client", 
+    sdr_name: "John Doe",
+    assigned_to_name: "Jane Smith",
     details: { platform: "Mailchimp" },
     workflow_status: "in_progress",
     assigned_to: "user123",
