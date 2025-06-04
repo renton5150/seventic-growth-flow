@@ -11,13 +11,15 @@ export function useRequestQueries(userId: string | undefined) {
   const isGrowth = user?.role === 'growth';
   const isAdmin = user?.role === 'admin';
 
+  console.log(`[useRequestQueries] 🚀 USER ROLE DEBUG: ${user?.role}, userId: ${userId}`);
+
   // Requêtes à affecter - UNIQUEMENT les demandes sans assignation
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
     queryKey: ['growth-requests-to-assign', userId, isSDR, isGrowth, isAdmin],
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("🚀 [useRequestQueries] Récupération des requêtes à affecter avec userId:", userId);
+      console.log("🚀 [useRequestQueries] TO ASSIGN - Récupération avec userId:", userId, "rôle:", user?.role);
       
       // Requête pour les demandes sans assignation
       let query = supabase
@@ -37,26 +39,25 @@ export function useRequestQueries(userId: string | undefined) {
       const { data, error, count } = await query;
       
       if (error) {
-        console.error("❌ [useRequestQueries] Erreur lors de la récupération des requêtes à affecter:", error);
+        console.error("❌ [useRequestQueries] TO ASSIGN - Erreur:", error);
         return [];
       }
       
-      console.log(`📋 [useRequestQueries] Requêtes à affecter récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
+      console.log(`📋 [useRequestQueries] TO ASSIGN - ${data.length} requêtes récupérées`);
       
       // Debug: Afficher les données mission pour chaque requête
       data.forEach(req => {
-        console.log(`🔍 [useRequestQueries] TO ASSIGN Request ${req.id}:`, {
+        console.log(`🔍 [useRequestQueries] TO ASSIGN - Request ${req.id}:`, {
           mission_id: req.mission_id,
           mission_client: req.mission_client,
           mission_name: req.mission_name,
-          mission_client_type: typeof req.mission_client,
-          mission_client_value: JSON.stringify(req.mission_client)
+          user_role: user?.role
         });
       });
       
-      // Formater les données DIRECTEMENT sans service externe
+      // Formater les données
       const formattedRequests = await Promise.all(data.map((request: any) => formatRequestFromDb(request)));
-      console.log(`✅ [useRequestQueries] Requêtes à affecter formatées: ${formattedRequests.length}`);
+      console.log(`✅ [useRequestQueries] TO ASSIGN - ${formattedRequests.length} requêtes formatées`);
       
       return formattedRequests;
     },
@@ -70,7 +71,7 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log("🚀 [useRequestQueries] Récupération de mes assignations avec userId:", userId);
+      console.log("🚀 [useRequestQueries] MY ASSIGNMENTS - Récupération avec userId:", userId, "rôle:", user?.role);
       
       let query = supabase.from('requests_with_missions')
         .select('*', { count: 'exact' })
@@ -94,26 +95,25 @@ export function useRequestQueries(userId: string | undefined) {
       const { data, error, count } = await query;
       
       if (error) {
-        console.error("❌ [useRequestQueries] Erreur lors de la récupération de mes assignations:", error);
+        console.error("❌ [useRequestQueries] MY ASSIGNMENTS - Erreur:", error);
         return [];
       }
       
-      console.log(`📋 [useRequestQueries] Mes assignations récupérées: ${data.length} sur ${count || 'inconnu'} requêtes totales`);
+      console.log(`📋 [useRequestQueries] MY ASSIGNMENTS - ${data.length} requêtes récupérées`);
       
       // Debug: Afficher les données mission pour chaque requête
       data.forEach(req => {
-        console.log(`🔍 [useRequestQueries] MY ASSIGNMENTS Request ${req.id}:`, {
+        console.log(`🔍 [useRequestQueries] MY ASSIGNMENTS - Request ${req.id}:`, {
           mission_id: req.mission_id,
           mission_client: req.mission_client,
           mission_name: req.mission_name,
-          mission_client_type: typeof req.mission_client,
-          mission_client_value: JSON.stringify(req.mission_client)
+          user_role: user?.role
         });
       });
       
-      // Formater les données DIRECTEMENT sans service externe
+      // Formater les données
       const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
-      console.log(`✅ [useRequestQueries] Mes assignations formatées: ${formattedRequests.length}`);
+      console.log(`✅ [useRequestQueries] MY ASSIGNMENTS - ${formattedRequests.length} requêtes formatées`);
       
       return formattedRequests;
     },
@@ -127,8 +127,7 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      console.log('🚀 [useRequestQueries] Récupération de TOUTES les requêtes avec rôle:', 
-                  isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
+      console.log('🚀 [useRequestQueries] ALL REQUESTS - Récupération avec rôle:', user?.role, 'userId:', userId);
       
       let query = supabase.from('requests_with_missions')
         .select('*')
@@ -137,7 +136,9 @@ export function useRequestQueries(userId: string | undefined) {
       // Si c'est un SDR, ne récupérer QUE ses demandes créées
       if (isSDR) {
         query = query.eq('created_by', userId);
-        console.log('🔍 [useRequestQueries] SDR - Filtrage requêtes par ID utilisateur:', userId);
+        console.log('🔍 [useRequestQueries] ALL REQUESTS - SDR - Filtrage par created_by:', userId);
+      } else {
+        console.log('🔍 [useRequestQueries] ALL REQUESTS - GROWTH/ADMIN - Toutes les requêtes');
       }
       
       query = query.order('due_date', { ascending: true });
@@ -145,32 +146,33 @@ export function useRequestQueries(userId: string | undefined) {
       const { data, error } = await query;
       
       if (error) {
-        console.error('❌ [useRequestQueries] Erreur pendant la récupération des requêtes:', error);
+        console.error('❌ [useRequestQueries] ALL REQUESTS - Erreur:', error);
         throw error;
       }
       
       const requestsArray = Array.isArray(data) ? data : [];
-      console.log(`📋 [useRequestQueries] ${requestsArray.length} requêtes récupérées au total`);
+      console.log(`📋 [useRequestQueries] ALL REQUESTS - ${requestsArray.length} requêtes récupérées pour rôle ${user?.role}`);
       
-      // Debug: Afficher les données mission pour chaque requête avec plus de détails
-      requestsArray.forEach(req => {
-        console.log(`🔍 [useRequestQueries] ALL REQUESTS Request ${req.id}:`, {
+      // Debug: Afficher TOUTES les données mission pour diagnostiquer le problème
+      requestsArray.forEach((req, index) => {
+        console.log(`🔍 [useRequestQueries] ALL REQUESTS [${index}] - Request ${req.id}:`, {
           mission_id: req.mission_id,
           mission_client: req.mission_client,
           mission_name: req.mission_name,
           mission_client_type: typeof req.mission_client,
           mission_client_value: JSON.stringify(req.mission_client),
           mission_name_type: typeof req.mission_name,
-          mission_name_value: JSON.stringify(req.mission_name)
+          mission_name_value: JSON.stringify(req.mission_name),
+          user_role: user?.role
         });
       });
       
-      // Formater les données DIRECTEMENT sans service externe
+      // Formater les données
       const formattedRequests = await Promise.all(requestsArray.map(request => formatRequestFromDb(request)));
       
-      console.log(`✅ [useRequestQueries] ${formattedRequests.length} requêtes formatées pour l'affichage`);
+      console.log(`✅ [useRequestQueries] ALL REQUESTS - ${formattedRequests.length} requêtes formatées pour rôle ${user?.role}`);
       formattedRequests.forEach(req => {
-        console.log(`📋 [useRequestQueries] Final Request ${req.id}: mission_id=${req.missionId}, missionName="${req.missionName}"`);
+        console.log(`📋 [useRequestQueries] ALL REQUESTS FINAL - Request ${req.id}: mission_id=${req.missionId}, missionName="${req.missionName}"`);
       });
       
       return formattedRequests;
@@ -182,7 +184,7 @@ export function useRequestQueries(userId: string | undefined) {
   // Récupération des détails d'une demande spécifique
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
-      console.log("🔍 [useRequestQueries] Récupération des détails pour la demande:", requestId);
+      console.log("🔍 [useRequestQueries] REQUEST DETAILS - Récupération pour:", requestId, "rôle:", user?.role);
       
       const { data, error } = await supabase
         .from('requests_with_missions')
@@ -192,38 +194,35 @@ export function useRequestQueries(userId: string | undefined) {
 
       // Vérification des droits pour un SDR uniquement
       if (data && isSDR && data.created_by !== userId) {
-        console.error("❌ [useRequestQueries] SDR tentant d'accéder à une demande qui ne lui appartient pas");
+        console.error("❌ [useRequestQueries] REQUEST DETAILS - SDR accès refusé");
         return null;
       }
 
       if (error) {
-        console.error("❌ [useRequestQueries] Erreur lors de la récupération des détails de la demande:", error);
+        console.error("❌ [useRequestQueries] REQUEST DETAILS - Erreur:", error);
         return null;
       }
 
       if (!data) {
-        console.log("⚠️ [useRequestQueries] Aucun détail trouvé pour la demande:", requestId);
+        console.log("⚠️ [useRequestQueries] REQUEST DETAILS - Aucune donnée pour:", requestId);
         return null;
       }
 
-      console.log("📋 [useRequestQueries] Détails de la demande récupérés:", data);
-      
-      // Debug: Afficher les données mission pour cette requête
-      console.log(`🔍 [useRequestQueries] REQUEST DETAILS ${data.id}:`, {
+      console.log("📋 [useRequestQueries] REQUEST DETAILS - Données récupérées:", {
+        id: data.id,
         mission_id: data.mission_id,
         mission_client: data.mission_client,
         mission_name: data.mission_name,
-        mission_client_type: typeof data.mission_client,
-        mission_client_value: JSON.stringify(data.mission_client)
+        user_role: user?.role
       });
       
-      // Formatage DIRECTEMENT sans service externe
+      // Formatage
       const formatted = await formatRequestFromDb(data);
-      console.log(`✅ [useRequestQueries] Request Details formatted: ${formatted.id}, missionName="${formatted.missionName}"`);
+      console.log(`✅ [useRequestQueries] REQUEST DETAILS - Formaté: ${formatted.id}, missionName="${formatted.missionName}"`);
       
       return formatted;
     } catch (err) {
-      console.error("❌ [useRequestQueries] Erreur lors de la récupération des détails:", err);
+      console.error("❌ [useRequestQueries] REQUEST DETAILS - Exception:", err);
       return null;
     }
   };
