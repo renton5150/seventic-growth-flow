@@ -1,4 +1,6 @@
+
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
+import { getMissionName } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
@@ -13,28 +15,34 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // DIAGNOSTIC DÉTAILLÉ DES DONNÉES DE MISSION
-  console.log(`[formatRequestFromDb] 🔍 DIAGNOSTIC MISSION pour request ${request.id}:`);
-  console.log(`  - request.missions:`, request.missions);
-  console.log(`  - request.mission_id:`, request.mission_id);
+  // RÉCUPÉRATION DU NOM DE MISSION via le service centralisé
+  console.log(`[formatRequestFromDb] 🔍 MISSION ID pour request ${request.id}: ${request.mission_id}`);
   
   let missionName = "Sans mission";
   
-  // Vérifier si on a des données de mission via le JOIN
-  if (request.missions) {
-    console.log(`[formatRequestFromDb] ✅ MISSION TROUVÉE via JOIN pour request ${request.id}:`, request.missions);
-    
-    if (request.missions.client && request.missions.client.trim() !== "") {
-      missionName = request.missions.client.trim();
-      console.log(`[formatRequestFromDb] ✅ Utilisation de missions.client: "${missionName}" pour request ${request.id}`);
-    } else if (request.missions.name && request.missions.name.trim() !== "") {
-      missionName = request.missions.name.trim();
-      console.log(`[formatRequestFromDb] ✅ Utilisation de missions.name: "${missionName}" pour request ${request.id}`);
-    } else {
-      console.log(`[formatRequestFromDb] ⚠️ Mission JOIN trouvée mais client/name vides pour request ${request.id}`);
+  if (request.mission_id) {
+    try {
+      // Utiliser le service centralisé pour obtenir le nom de mission
+      missionName = await getMissionName(request.mission_id, {
+        fallbackClient: request.missions?.client,
+        fallbackName: request.missions?.name,
+        forceRefresh: false
+      });
+      console.log(`[formatRequestFromDb] ✅ Mission name récupéré via service: "${missionName}" pour request ${request.id}`);
+    } catch (err) {
+      console.error(`[formatRequestFromDb] ❌ Erreur lors de la récupération du nom de mission pour ${request.id}:`, err);
+      
+      // Fallback vers les données JOIN si disponibles
+      if (request.missions) {
+        if (request.missions.client && request.missions.client.trim() !== "") {
+          missionName = request.missions.client.trim();
+          console.log(`[formatRequestFromDb] 🔄 Fallback vers missions.client: "${missionName}"`);
+        } else if (request.missions.name && request.missions.name.trim() !== "") {
+          missionName = request.missions.name.trim();
+          console.log(`[formatRequestFromDb] 🔄 Fallback vers missions.name: "${missionName}"`);
+        }
+      }
     }
-  } else if (request.mission_id) {
-    console.log(`[formatRequestFromDb] ⚠️ mission_id présent (${request.mission_id}) mais pas de données JOIN pour request ${request.id}`);
   } else {
     console.log(`[formatRequestFromDb] ℹ️ Pas de mission_id pour request ${request.id}`);
   }

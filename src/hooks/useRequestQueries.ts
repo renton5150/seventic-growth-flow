@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { diagnoseMissionData } from "@/utils/diagnoseMissionData";
+import { syncKnownMissions, preloadMissionNames } from "@/services/missionNameService";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -13,11 +13,6 @@ export function useRequestQueries(userId: string | undefined) {
   const isAdmin = user?.role === 'admin';
 
   console.log(`[useRequestQueries] 🚀 USER ROLE DEBUG: ${user?.role}, userId: ${userId}`);
-
-  // DIAGNOSTIC IMMÉDIAT
-  if (userId) {
-    diagnoseMissionData();
-  }
 
   // Fonction helper pour récupérer les requêtes avec des informations de mission et profils
   const fetchRequestsWithMissionData = async (filters?: {
@@ -29,6 +24,9 @@ export function useRequestQueries(userId: string | undefined) {
     assignedToIsNotNull?: boolean;
   }) => {
     console.log("🚀 [fetchRequestsWithMissionData] DÉBUT avec filtres:", filters);
+    
+    // SYNCHRONISER LES MISSIONS D'ABORD
+    await syncKnownMissions();
     
     let query = supabase
       .from('requests')
@@ -84,7 +82,16 @@ export function useRequestQueries(userId: string | undefined) {
     }
     
     console.log(`📋 [fetchRequestsWithMissionData] ${data.length} requêtes récupérées`);
-    console.log("🔍 [fetchRequestsWithMissionData] PREMIÈRE REQUÊTE BRUTE:", data[0]);
+    
+    // Précharger les noms de mission pour toutes les requêtes
+    const missionIds = data
+      .map(r => r.mission_id)
+      .filter(Boolean)
+      .filter(id => typeof id === 'string');
+    
+    if (missionIds.length > 0) {
+      await preloadMissionNames(missionIds);
+    }
     
     // Formatter les données
     const formattedRequests = await Promise.all(data.map(async (request: any) => {
@@ -105,8 +112,7 @@ export function useRequestQueries(userId: string | undefined) {
       
       return await fetchRequestsWithMissionData({
         assignedToIsNull: true,
-        workflowStatus: 'pending_assignment',
-        workflowStatusNot: 'completed'
+        workflowStatus: 'pending_assignment'
       });
     },
     enabled: !!userId,
