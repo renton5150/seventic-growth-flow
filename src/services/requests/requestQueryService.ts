@@ -82,13 +82,22 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
     }
     
     console.log(`📋 [fetchRequests] Fallback réussi: ${fallbackResult.data?.length || 0} requests`);
-    data = fallbackResult.data;
+    return processRequestsData(fallbackResult.data, filters);
   } else {
     console.log(`📋 [fetchRequests] ${data?.length || 0} requests récupérées`);
   }
   
   if (!data || data.length === 0) {
     console.log("⚠️ [fetchRequests] Aucune donnée retournée");
+    return [];
+  }
+  
+  return processRequestsData(data, filters);
+};
+
+// Fonction helper pour traiter les données des requests
+const processRequestsData = (data: any[], filters?: RequestFilters): Request[] => {
+  if (!data || data.length === 0) {
     return [];
   }
   
