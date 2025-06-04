@@ -4,8 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMissionsByGrowthId } from "@/services/missions-service/operations/readMissions";
-import { preloadMissionNames, syncKnownMissions } from "@/services/missionNameService";
+import { syncKnownMissions } from "@/services/missionNameService";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -20,15 +19,6 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("🚀 [useRequestQueries] Récupération des requêtes à affecter avec userId:", userId);
-      
-      // SYNCHRONISATION FORCÉE des missions au début
-      try {
-        console.log("🔄 [useRequestQueries] Synchronisation des missions...");
-        await syncKnownMissions();
-        console.log("✅ [useRequestQueries] Synchronisation terminée");
-      } catch (err) {
-        console.error("❌ [useRequestQueries] Erreur lors de la synchronisation:", err);
-      }
       
       // Requête pour les demandes sans assignation
       let query = supabase
@@ -63,17 +53,7 @@ export function useRequestQueries(userId: string | undefined) {
         });
       });
       
-      // Précharger les noms de mission (si nécessaire)
-      const missionIds = data
-        .map(req => req.mission_id)
-        .filter((id): id is string => !!id);
-      
-      if (missionIds.length > 0) {
-        console.log(`🔄 [useRequestQueries] Préchargement de ${missionIds.length} noms de mission`);
-        preloadMissionNames(missionIds);
-      }
-      
-      // Formater les données avec la logique corrigée
+      // Formater les données SANS préchargement inutile
       const formattedRequests = await Promise.all(data.map((request: any) => formatRequestFromDb(request)));
       console.log(`✅ [useRequestQueries] Requêtes formatées: ${formattedRequests.length}`);
       
@@ -90,15 +70,6 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("🚀 [useRequestQueries] Récupération de mes assignations avec userId:", userId);
-      
-      // SYNCHRONISATION FORCÉE des missions
-      try {
-        console.log("🔄 [useRequestQueries] Synchronisation des missions pour mes assignations...");
-        await syncKnownMissions();
-        console.log("✅ [useRequestQueries] Synchronisation terminée pour mes assignations");
-      } catch (err) {
-        console.error("❌ [useRequestQueries] Erreur lors de la synchronisation:", err);
-      }
       
       let query = supabase.from('requests_with_missions')
         .select('*', { count: 'exact' })
@@ -137,17 +108,7 @@ export function useRequestQueries(userId: string | undefined) {
         });
       });
       
-      // Précharger les noms de mission (si nécessaire)
-      const missionIds = data
-        .map(req => req.mission_id)
-        .filter((id): id is string => !!id);
-      
-      if (missionIds.length > 0) {
-        console.log(`🔄 [useRequestQueries] Préchargement de ${missionIds.length} noms de mission pour mes assignations`);
-        preloadMissionNames(missionIds);
-      }
-      
-      // Formater les données avec la logique corrigée
+      // Formater les données SANS préchargement inutile
       const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
       console.log(`✅ [useRequestQueries] Mes assignations formatées: ${formattedRequests.length}`);
       
@@ -165,15 +126,6 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log('🚀 [useRequestQueries] Récupération de TOUTES les requêtes avec rôle:', 
                   isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
-      
-      // SYNCHRONISATION CRITIQUE ET FORCÉE des missions
-      try {
-        console.log("🔄 [useRequestQueries] Synchronisation des missions pour toutes les requêtes...");
-        await syncKnownMissions();
-        console.log("✅ [useRequestQueries] Synchronisation terminée pour toutes les requêtes");
-      } catch (err) {
-        console.error("❌ [useRequestQueries] Erreur lors de la synchronisation:", err);
-      }
       
       let query = supabase.from('requests_with_missions')
         .select('*')
@@ -206,17 +158,7 @@ export function useRequestQueries(userId: string | undefined) {
         });
       });
       
-      // Précharger les noms de mission (si nécessaire)
-      const missionIds = requestsArray
-        .map(req => req.mission_id)
-        .filter((id): id is string => !!id);
-      
-      if (missionIds.length > 0) {
-        console.log(`🔄 [useRequestQueries] Préchargement de ${missionIds.length} noms de mission pour toutes les requêtes`);
-        preloadMissionNames(missionIds);
-      }
-      
-      // Formater les données avec le service centralisé corrigé
+      // Formater les données SANS préchargement inutile
       const formattedRequests = await Promise.all(requestsArray.map(request => formatRequestFromDb(request)));
       
       console.log(`✅ [useRequestQueries] ${formattedRequests.length} requêtes formatées pour l'affichage`);
@@ -266,7 +208,7 @@ export function useRequestQueries(userId: string | undefined) {
         mission_name: data.mission_name
       });
       
-      // Formatage avec le service centralisé corrigé
+      // Formatage SANS appel au service de mission
       const formatted = await formatRequestFromDb(data);
       console.log(`✅ [useRequestQueries] Request Details formatted: ${formatted.id}, missionName="${formatted.missionName}"`);
       

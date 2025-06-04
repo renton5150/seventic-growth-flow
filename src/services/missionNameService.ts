@@ -83,25 +83,17 @@ export const syncKnownMissions = async (): Promise<void> => {
         return;
       }
       
-      // CORRECTION CRITIQUE: Utiliser EXCLUSIVEMENT le champ CLIENT
+      // UTILISER EXCLUSIVEMENT LE CHAMP CLIENT
       let finalName = "Sans mission";
       
       if (mission.client && 
           mission.client.trim() !== "" && 
           mission.client !== "null" && 
-          mission.client !== "undefined" &&
-          !mission.client.startsWith("Mission ")) {
+          mission.client !== "undefined") {
         finalName = mission.client.trim();
         console.log(`[syncKnownMissions] ✅ Mission ${missionId}: CLIENT="${finalName}"`);
-      } else if (mission.name && 
-                 mission.name.trim() !== "" && 
-                 mission.name !== "null" && 
-                 mission.name !== "undefined" &&
-                 !mission.name.startsWith("Mission ")) {
-        finalName = mission.name.trim();
-        console.log(`[syncKnownMissions] ⚠️ Mission ${missionId}: NAME="${finalName}" (fallback)`);
       } else {
-        console.error(`[syncKnownMissions] ❌ Mission ${missionId}: AUCUNE VALEUR VALIDE - client="${mission.client}", name="${mission.name}"`);
+        console.error(`[syncKnownMissions] ❌ Mission ${missionId}: CLIENT VIDE - client="${mission.client}"`);
       }
       
       missionNameCache[missionId] = finalName;
@@ -123,8 +115,8 @@ export const syncKnownMissions = async (): Promise<void> => {
 };
 
 /**
- * Fonction principale TOTALEMENT REVUE pour obtenir un nom de mission
- * PLUS JAMAIS de noms techniques générés automatiquement
+ * Fonction SIMPLIFIÉE pour obtenir un nom de mission
+ * UTILISE EXCLUSIVEMENT LE CHAMP CLIENT de la base de données
  */
 export const getMissionName = async (missionId: string | undefined, options?: {
   fallbackClient?: string;
@@ -139,23 +131,18 @@ export const getMissionName = async (missionId: string | undefined, options?: {
   const missionIdStr = String(missionId).trim();
   console.log(`[getMissionName] DÉBUT - Récupération nom pour: ${missionIdStr}`);
   
-  // FRESHWORKS - retour immédiat, ne jamais interroger la base
+  // FRESHWORKS - retour immédiat
   if (isFreshworksId(missionIdStr)) {
     console.log(`[getMissionName] ✅ FRESHWORKS détecté: ${missionIdStr} => "Freshworks"`);
     missionNameCache[missionIdStr] = "Freshworks";
     return "Freshworks";
   }
   
-  // Vérifier le cache SEULEMENT si pas de force refresh et que la valeur est valide
+  // Vérifier le cache SEULEMENT si pas de force refresh
   const cachedValue = missionNameCache[missionIdStr];
-  if (!options?.forceRefresh && cachedValue) {
-    // Vérifier que la valeur en cache n'est pas technique
-    if (cachedValue !== "Sans mission" && !cachedValue.startsWith("Mission ")) {
-      console.log(`[getMissionName] ✅ CACHE VALIDE pour ${missionIdStr}: "${cachedValue}"`);
-      return cachedValue;
-    } else {
-      console.warn(`[getMissionName] ⚠️ CACHE INVALIDE pour ${missionIdStr}: "${cachedValue}" - Interrogation DB`);
-    }
+  if (!options?.forceRefresh && cachedValue && cachedValue !== "Sans mission") {
+    console.log(`[getMissionName] ✅ CACHE VALIDE pour ${missionIdStr}: "${cachedValue}"`);
+    return cachedValue;
   }
   
   try {
@@ -164,7 +151,7 @@ export const getMissionName = async (missionId: string | undefined, options?: {
     // Interroger la base de données
     const { data, error } = await supabase
       .from('missions')
-      .select('id, name, client')
+      .select('id, client')
       .eq('id', missionIdStr)
       .maybeSingle();
       
@@ -176,56 +163,34 @@ export const getMissionName = async (missionId: string | undefined, options?: {
     
     if (data) {
       console.log(`[getMissionName] 📋 DONNÉES DB pour ${missionIdStr}:`, {
-        client: data.client,
-        name: data.name
+        client: data.client
       });
       
-      // PRIORITÉ ABSOLUE AU CLIENT si ce n'est pas technique
+      // UTILISER EXCLUSIVEMENT LE CHAMP CLIENT
       if (data.client && 
           data.client.trim() !== "" && 
           data.client !== "null" && 
-          data.client !== "undefined" &&
-          !data.client.startsWith("Mission ")) {
+          data.client !== "undefined") {
         finalName = data.client.trim();
         console.log(`[getMissionName] ✅ CLIENT DB pour ${missionIdStr}: "${finalName}"`);
-      }
-      // Sinon NAME si ce n'est pas technique
-      else if (data.name && 
-               data.name.trim() !== "" && 
-               data.name !== "null" && 
-               data.name !== "undefined" &&
-               !data.name.startsWith("Mission ")) {
-        finalName = data.name.trim();
-        console.log(`[getMissionName] ⚠️ NAME DB pour ${missionIdStr}: "${finalName}" (fallback)`);
-      }
-      else {
-        console.error(`[getMissionName] ❌ DONNÉES DB INVALIDES pour ${missionIdStr} - client="${data.client}", name="${data.name}"`);
+      } else {
+        console.error(`[getMissionName] ❌ CLIENT DB VIDE pour ${missionIdStr} - client="${data.client}"`);
       }
     } else {
       console.warn(`[getMissionName] ⚠️ AUCUNE DONNÉE DB pour ${missionIdStr}`);
     }
     
-    // Utiliser les fallbacks SEULEMENT si pas de données DB valides ET que les fallbacks ne sont pas techniques
+    // Utiliser les fallbacks SEULEMENT si pas de données DB valides
     if (finalName === "Sans mission") {
       if (options?.fallbackClient && 
           options.fallbackClient.trim() !== "" &&
           options.fallbackClient !== "null" && 
-          options.fallbackClient !== "undefined" &&
-          !options.fallbackClient.startsWith("Mission ")) {
+          options.fallbackClient !== "undefined") {
         finalName = options.fallbackClient.trim();
         console.log(`[getMissionName] 🔄 FALLBACK CLIENT pour ${missionIdStr}: "${finalName}"`);
       }
-      else if (options?.fallbackName && 
-               options.fallbackName.trim() !== "" &&
-               options.fallbackName !== "null" && 
-               options.fallbackName !== "undefined" &&
-               !options.fallbackName.startsWith("Mission ")) {
-        finalName = options.fallbackName.trim();
-        console.log(`[getMissionName] 🔄 FALLBACK NAME pour ${missionIdStr}: "${finalName}"`);
-      }
     }
     
-    // PLUS JAMAIS de noms techniques générés automatiquement
     console.log(`[getMissionName] ✅ RÉSULTAT FINAL pour ${missionIdStr}: "${finalName}"`);
     missionNameCache[missionIdStr] = finalName;
     return finalName;
@@ -240,15 +205,9 @@ export const getMissionName = async (missionId: string | undefined, options?: {
     
     if (options?.fallbackClient && 
         options.fallbackClient.trim() !== "" &&
-        !options.fallbackClient.startsWith("Mission ")) {
+        options.fallbackClient !== "null") {
       console.log(`[getMissionName] 🔄 EXCEPTION FALLBACK CLIENT: "${options.fallbackClient}"`);
       return options.fallbackClient.trim();
-    }
-    if (options?.fallbackName && 
-        options.fallbackName.trim() !== "" &&
-        !options.fallbackName.startsWith("Mission ")) {
-      console.log(`[getMissionName] 🔄 EXCEPTION FALLBACK NAME: "${options.fallbackName}"`);
-      return options.fallbackName.trim();
     }
     
     console.log(`[getMissionName] ❌ EXCEPTION - RETOUR: "Sans mission"`);
@@ -276,7 +235,7 @@ export const preloadMissionNames = async (missionIds: string[]): Promise<void> =
   const idsToFetch = missionIds.filter(id => {
     if (isFreshworksId(id)) return false;
     const cached = missionNameCache[id];
-    const needsFetch = !cached || cached === "Sans mission" || cached.startsWith("Mission ");
+    const needsFetch = !cached || cached === "Sans mission";
     if (needsFetch) {
       console.log(`[preloadMissionNames] 🔍 À récupérer: ${id} (cache="${cached}")`);
     }
@@ -293,7 +252,7 @@ export const preloadMissionNames = async (missionIds: string[]): Promise<void> =
     
     const { data, error } = await supabase
       .from('missions')
-      .select('id, name, client')
+      .select('id, client')
       .in('id', idsToFetch);
       
     if (error) {
@@ -319,26 +278,15 @@ export const preloadMissionNames = async (missionIds: string[]): Promise<void> =
         
         let finalName = "Sans mission";
         
-        // PRIORITÉ ABSOLUE AU CLIENT si valide
+        // UTILISER EXCLUSIVEMENT LE CHAMP CLIENT
         if (mission.client && 
             mission.client.trim() !== "" && 
             mission.client !== "null" && 
-            mission.client !== "undefined" &&
-            !mission.client.startsWith("Mission ")) {
+            mission.client !== "undefined") {
           finalName = mission.client.trim();
           console.log(`[preloadMissionNames] ✅ CLIENT ${missionId}: "${finalName}"`);
-        }
-        // Sinon NAME si valide
-        else if (mission.name && 
-                mission.name.trim() !== "" && 
-                mission.name !== "null" && 
-                mission.name !== "undefined" &&
-                !mission.name.startsWith("Mission ")) {
-          finalName = mission.name.trim();
-          console.log(`[preloadMissionNames] ⚠️ NAME ${missionId}: "${finalName}" (fallback)`);
-        }
-        else {
-          console.error(`[preloadMissionNames] ❌ DONNÉES INVALIDES ${missionId}: client="${mission.client}", name="${mission.name}"`);
+        } else {
+          console.error(`[preloadMissionNames] ❌ CLIENT VIDE ${missionId}: client="${mission.client}"`);
         }
         
         missionNameCache[missionId] = finalName;

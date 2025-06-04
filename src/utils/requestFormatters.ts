@@ -1,7 +1,6 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
-import { supabase } from "@/integrations/supabase/client";
-import { getMissionName, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
+import { isFreshworksId } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
@@ -20,10 +19,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Force Freshworks dans le cache au cas où
-  forceRefreshFreshworks();
-  
-  // NOUVELLE LOGIQUE TOTALEMENT REVUE pour le nom de mission
+  // LOGIQUE SIMPLIFIÉE POUR LE NOM DE MISSION
   let missionName = "Sans mission";
   
   if (request.mission_id) {
@@ -34,33 +30,24 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
       missionName = "Freshworks";
       console.log(`[formatRequestFromDb] ✅ FRESHWORKS détecté: ${request.mission_id} => "Freshworks"`);
     } 
-    // CAS GÉNÉRAL: Utiliser mission_client de la vue requests_with_missions en priorité
+    // UTILISER DIRECTEMENT mission_client de la vue
     else if (request.mission_client && 
              request.mission_client.trim() !== "" && 
              request.mission_client !== "null" && 
-             request.mission_client !== "undefined" &&
-             !request.mission_client.startsWith("Mission ")) {
+             request.mission_client !== "undefined") {
       missionName = request.mission_client.trim();
-      console.log(`[formatRequestFromDb] ✅ MISSION_CLIENT direct: ${request.mission_id} => "${missionName}"`);
+      console.log(`[formatRequestFromDb] ✅ MISSION_CLIENT utilisé: ${request.mission_id} => "${missionName}"`);
     }
-    // FALLBACK: Utiliser mission_name de la vue si disponible
+    // FALLBACK: mission_name de la vue
     else if (request.mission_name && 
              request.mission_name.trim() !== "" && 
              request.mission_name !== "null" && 
-             request.mission_name !== "undefined" &&
-             !request.mission_name.startsWith("Mission ")) {
+             request.mission_name !== "undefined") {
       missionName = request.mission_name.trim();
       console.log(`[formatRequestFromDb] ⚠️ MISSION_NAME fallback: ${request.mission_id} => "${missionName}"`);
     }
-    // DERNIER RECOURS: Interroger le service (mais normalement pas nécessaire)
     else {
-      console.warn(`[formatRequestFromDb] ⚠️ Données mission insuffisantes, appel service pour: ${request.mission_id}`);
-      missionName = await getMissionName(request.mission_id, {
-        fallbackClient: request.mission_client, 
-        fallbackName: request.mission_name,
-        forceRefresh: false
-      });
-      console.log(`[formatRequestFromDb] 🔄 SERVICE RESULT: ${request.mission_id} => "${missionName}"`);
+      console.warn(`[formatRequestFromDb] ❌ Aucune donnée mission valide pour: ${request.mission_id}`);
     }
   } else {
     console.log(`[formatRequestFromDb] ⚠️ Aucun mission_id fourni`);
