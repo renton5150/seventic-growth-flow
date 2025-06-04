@@ -14,12 +14,12 @@ interface RequestFilters {
 export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]> => {
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
-  // CORRECTION : Revenir aux jointures explicites pour diagnostiquer
+  // CORRECTION : Utiliser une syntaxe de jointure simple
   let query = supabase
     .from('requests')
     .select(`
       *,
-      missions(id, name, client),
+      missions!inner(id, name, client),
       created_by_profile:profiles!requests_created_by_fkey(name),
       assigned_to_profile:profiles!requests_assigned_to_fkey(name)
     `);
@@ -46,19 +46,53 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
   
   query = query.order('due_date', { ascending: true });
   
+  console.log("📋 [fetchRequests] Exécution de la requête Supabase...");
+  
   const { data, error } = await query;
   
   if (error) {
-    console.error("❌ [fetchRequests] Erreur:", error);
-    return [];
+    console.error("❌ [fetchRequests] Erreur Supabase:", error);
+    // Essayer une requête de fallback sans jointures forcées
+    console.log("🔄 [fetchRequests] Tentative avec jointure simple...");
+    
+    const fallbackQuery = supabase
+      .from('requests')
+      .select(`
+        *,
+        missions(id, name, client),
+        created_by_profile:profiles!requests_created_by_fkey(name),
+        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+      `);
+      
+    // Réappliquer les filtres pour la requête de fallback
+    if (filters?.assignedToIsNull) fallbackQuery.is('assigned_to', null);
+    if (filters?.workflowStatus) fallbackQuery.eq('workflow_status', filters.workflowStatus);
+    if (filters?.workflowStatusNot) fallbackQuery.neq('workflow_status', filters.workflowStatusNot);
+    if (filters?.assignedTo) fallbackQuery.eq('assigned_to', filters.assignedTo);
+    if (filters?.createdBy) fallbackQuery.eq('created_by', filters.createdBy);
+    if (filters?.assignedToIsNotNull) fallbackQuery.not('assigned_to', 'is', null);
+    
+    fallbackQuery.order('due_date', { ascending: true });
+    
+    const fallbackResult = await fallbackQuery;
+    
+    if (fallbackResult.error) {
+      console.error("❌ [fetchRequests] Erreur fallback:", fallbackResult.error);
+      return [];
+    }
+    
+    console.log(`📋 [fetchRequests] Fallback réussi: ${fallbackResult.data?.length || 0} requests`);
+    data = fallbackResult.data;
+  } else {
+    console.log(`📋 [fetchRequests] ${data?.length || 0} requests récupérées`);
   }
-  
-  console.log(`📋 [fetchRequests] ${data?.length || 0} requests récupérées`);
-  console.log("🔍 [fetchRequests] Première request brute (avec missions):", data?.[0]);
   
   if (!data || data.length === 0) {
+    console.log("⚠️ [fetchRequests] Aucune donnée retournée");
     return [];
   }
+  
+  console.log("🔍 [fetchRequests] Première request brute:", data[0]);
   
   // Transformation avec logs détaillés pour chaque request
   const requests = data.map((row: any) => {
@@ -120,7 +154,7 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
   try {
     console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
     
-    // Utiliser aussi les jointures explicites pour les détails
+    // Utiliser la même approche simple pour les détails
     const { data, error } = await supabase
       .from('requests')
       .select(`
