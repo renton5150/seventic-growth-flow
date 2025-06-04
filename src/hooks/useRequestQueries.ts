@@ -17,9 +17,9 @@ export function useRequestQueries(userId: string | undefined) {
 
   console.log(`[useRequestQueries] 🚀 USER ROLE DEBUG: ${user?.role}, userId: ${userId}`);
 
-  // Fonction helper pour récupérer les requêtes avec un JOIN direct
+  // Fonction helper pour récupérer les requêtes avec la vue requests_with_missions
   const fetchRequestsWithMissions = async (whereCondition?: string, params?: any[]) => {
-    console.log("🚀 [fetchRequestsWithMissions] UTILISATION DE JOIN DIRECT");
+    console.log("🚀 [fetchRequestsWithMissions] UTILISATION DE LA VUE requests_with_missions");
     
     // Diagnostic une seule fois
     if (!diagnosticDone) {
@@ -28,33 +28,8 @@ export function useRequestQueries(userId: string | undefined) {
     }
     
     let query = supabase
-      .from('requests')
-      .select(`
-        id,
-        title,
-        type,
-        created_by,
-        created_at,
-        mission_id,
-        status,
-        workflow_status,
-        target_role,
-        assigned_to,
-        updated_at,
-        details,
-        last_updated,
-        due_date,
-        missions:mission_id (
-          name,
-          client
-        ),
-        profiles!requests_created_by_fkey (
-          name
-        ),
-        profiles!requests_assigned_to_fkey (
-          name
-        )
-      `);
+      .from('requests_with_missions')
+      .select('*');
       
     if (whereCondition) {
       // Appliquer les conditions WHERE
@@ -92,24 +67,13 @@ export function useRequestQueries(userId: string | undefined) {
     
     // Formatter les données
     const formattedRequests = await Promise.all(data.map((request: any) => {
-      // Transformer les données pour correspondre au format attendu par formatRequestFromDb
-      const createdByProfile = Array.isArray(request.profiles) ? request.profiles[0] : request.profiles;
-      const assignedToProfile = Array.isArray(request.profiles) ? request.profiles[1] : null;
-      
-      const transformedRequest = {
-        ...request,
-        mission_name: request.missions?.name || null,
-        mission_client: request.missions?.client || null,
-        sdr_name: createdByProfile?.name || null,
-        assigned_to_name: assignedToProfile?.name || null
-      };
-      
       console.log(`🔧 [fetchRequestsWithMissions] Transformation de la request ${request.id}:`);
-      console.log(`   - mission original:`, request.missions);
-      console.log(`   - mission_name: "${transformedRequest.mission_name}"`);
-      console.log(`   - mission_client: "${transformedRequest.mission_client}"`);
+      console.log(`   - mission_name: "${request.mission_name}"`);
+      console.log(`   - mission_client: "${request.mission_client}"`);
+      console.log(`   - sdr_name: "${request.sdr_name}"`);
+      console.log(`   - assigned_to_name: "${request.assigned_to_name}"`);
       
-      return formatRequestFromDb(transformedRequest);
+      return formatRequestFromDb(request);
     }));
     
     console.log(`✅ [fetchRequestsWithMissions] ${formattedRequests.length} requêtes formatées`);
@@ -183,36 +147,11 @@ export function useRequestQueries(userId: string | undefined) {
   // Récupération des détails d'une demande spécifique
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
-      console.log("🔍 [useRequestQueries] REQUEST DETAILS - Utilisation de JOIN direct pour:", requestId);
+      console.log("🔍 [useRequestQueries] REQUEST DETAILS - Utilisation de la vue requests_with_missions pour:", requestId);
       
       const { data, error } = await supabase
-        .from('requests')
-        .select(`
-          id,
-          title,
-          type,
-          created_by,
-          created_at,
-          mission_id,
-          status,
-          workflow_status,
-          target_role,
-          assigned_to,
-          updated_at,
-          details,
-          last_updated,
-          due_date,
-          missions:mission_id (
-            name,
-            client
-          ),
-          profiles!requests_created_by_fkey (
-            name
-          ),
-          profiles!requests_assigned_to_fkey (
-            name
-          )
-        `)
+        .from('requests_with_missions')
+        .select('*')
         .eq('id', requestId)
         .maybeSingle();
 
@@ -234,19 +173,7 @@ export function useRequestQueries(userId: string | undefined) {
 
       console.log("📋 [useRequestQueries] REQUEST DETAILS - Données récupérées:", data);
       
-      // Transformer les données
-      const createdByProfile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
-      const assignedToProfile = Array.isArray(data.profiles) ? data.profiles[1] : null;
-      
-      const transformedRequest = {
-        ...data,
-        mission_name: data.missions?.name || null,
-        mission_client: data.missions?.client || null,
-        sdr_name: createdByProfile?.name || null,
-        assigned_to_name: assignedToProfile?.name || null
-      };
-      
-      const formatted = await formatRequestFromDb(transformedRequest);
+      const formatted = await formatRequestFromDb(data);
       console.log(`✅ [useRequestQueries] REQUEST DETAILS - Formaté: ${formatted.id}, missionName="${formatted.missionName}"`);
       
       return formatted;

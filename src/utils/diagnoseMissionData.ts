@@ -31,20 +31,37 @@ export const diagnoseMissionData = async () => {
   console.log("📋 REQUESTS_WITH_MISSIONS VIEW:", requestsWithMissions);
   if (viewError) console.error("❌ ERREUR VIEW:", viewError);
   
-  // 4. Test d'un JOIN manuel pour voir si ça marche
-  const { data: manualJoin, error: joinError } = await supabase
+  // 4. Test spécifique pour vérifier les JOINs
+  const { data: joinTest, error: joinTestError } = await supabase
     .from('requests')
     .select(`
       id,
       title,
       mission_id,
-      missions:mission_id (
+      missions (
         name,
         client
       )
     `)
+    .limit(3);
+    
+  console.log("📋 JOIN TEST SIMPLE:", joinTest);
+  if (joinTestError) console.error("❌ ERREUR JOIN TEST:", joinTestError);
+  
+  // 5. Vérifier s'il y a des requests avec mission_id non null
+  const { data: requestsWithMissionId, error: requestsWithMissionIdError } = await supabase
+    .from('requests')
+    .select('id, title, mission_id')
+    .not('mission_id', 'is', null)
     .limit(5);
     
-  console.log("📋 JOIN MANUEL:", manualJoin);
-  if (joinError) console.error("❌ ERREUR JOIN:", joinError);
+  console.log("📋 REQUESTS AVEC MISSION_ID:", requestsWithMissionId);
+  if (requestsWithMissionIdError) console.error("❌ ERREUR REQUESTS AVEC MISSION_ID:", requestsWithMissionIdError);
+  
+  // 6. Vérifier si la vue existe vraiment
+  const { data: viewExists, error: viewExistsError } = await supabase
+    .rpc('check_if_table_exists', { table_name: 'requests_with_missions' });
+    
+  console.log("📋 VUE EXISTS:", viewExists);
+  if (viewExistsError) console.error("❌ ERREUR CHECK VIEW:", viewExistsError);
 };
