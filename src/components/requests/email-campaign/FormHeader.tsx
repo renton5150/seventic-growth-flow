@@ -1,4 +1,3 @@
-
 import * as React from "react";
 import { User } from "@/types/types";
 import { Control } from "react-hook-form";
@@ -103,7 +102,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             )}
           />
           
-          {/* Mission associée - En mode édition, affiche le nom de la mission en lecture seule */}
+          {/* Mission associée */}
           <FormField
             control={control}
             name="missionId"
@@ -155,25 +154,25 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
               const [dateValue, setDateValue] = React.useState<string>(field.value ?? "");
               const [selectedDate, setSelectedDate] = React.useState<Date | null>(field.value ? new Date(field.value) : null);
               const [selectedTime, setSelectedTime] = React.useState<string>("" + (field.value ? new Date(field.value).toTimeString().slice(0,5) : "12:00"));
-              // Si le composant est réutilisé, on synchronise les props et le state
+              
               React.useEffect(() => {
                 if (field.value) {
                   const dateObj = new Date(field.value);
                   setSelectedDate(dateObj);
-                  setSelectedTime(dateObj.toTimeString().slice(0,5)); // "HH:MM"
+                  setSelectedTime(dateObj.toTimeString().slice(0,5));
                 }
               }, [field.value]);
-              // Gère le changement date+heure
+              
               const handleChangeDateTime = (date: Date | null, time: string) => {
                 if (date && time) {
                   const [hour, minute] = time.split(":").map(Number);
                   const newDate = new Date(date);
                   newDate.setHours(hour || 0);
                   newDate.setMinutes(minute || 0);
-                  // Met à jour le champ du formulaire RHF
                   field.onChange(newDate.toISOString());
                 }
               };
+              
               return (
                 <FormItem>
                   <FormLabel>Date prévue*</FormLabel>
@@ -212,7 +211,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                         setSelectedTime(e.target.value);
                         handleChangeDateTime(selectedDate, e.target.value);
                       }}
-                      step={60} // minutes
+                      step={60}
                     />
                   </div>
                   <FormMessage />
@@ -229,7 +228,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             </div>
           </div>
           
-          {/* Objet de la campagne - placé à côté d'Auteur */}
+          {/* Objet de la campagne */}
           <FormField
             control={control}
             name="subject"
