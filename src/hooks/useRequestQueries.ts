@@ -1,6 +1,6 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -10,10 +10,10 @@ export function useRequestQueries(userId: string | undefined) {
   const isGrowth = user?.role === 'growth';
   const isAdmin = user?.role === 'admin';
 
-  console.log(`[useRequestQueries] 🚀 USER ROLE DEBUG: ${user?.role}, userId: ${userId}`);
+  console.log(`[useRequestQueries] USER ROLE: ${user?.role}, userId: ${userId}`);
 
-  // Fonction helper pour récupérer les requêtes avec des informations de mission et profils
-  const fetchRequestsWithMissionData = async (filters?: {
+  // Fonction simple pour récupérer les requests avec missions
+  const fetchRequests = async (filters?: {
     assignedToIsNull?: boolean;
     workflowStatus?: string;
     workflowStatusNot?: string;
@@ -21,34 +21,33 @@ export function useRequestQueries(userId: string | undefined) {
     createdBy?: string;
     assignedToIsNotNull?: boolean;
   }) => {
-    console.log("🚀 [fetchRequestsWithMissionData] DÉBUT avec filtres:", filters);
+    console.log("🚀 Récupération requests avec filtres:", filters);
     
-    // Utiliser la vue requests_with_missions qui contient déjà toutes les données
     let query = supabase
-      .from('requests_with_missions')
-      .select('*');
+      .from('requests')
+      .select(`
+        *,
+        missions!inner(name, client),
+        created_by_profile:profiles!requests_created_by_fkey(name),
+        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+      `);
       
-    // Appliquer les filtres de manière sécurisée
+    // Appliquer les filtres
     if (filters?.assignedToIsNull) {
       query = query.is('assigned_to', null);
     }
-    
     if (filters?.workflowStatus) {
       query = query.eq('workflow_status', filters.workflowStatus);
     }
-    
     if (filters?.workflowStatusNot) {
       query = query.neq('workflow_status', filters.workflowStatusNot);
     }
-    
     if (filters?.assignedTo) {
       query = query.eq('assigned_to', filters.assignedTo);
     }
-    
     if (filters?.createdBy) {
       query = query.eq('created_by', filters.createdBy);
     }
-    
     if (filters?.assignedToIsNotNull) {
       query = query.not('assigned_to', 'is', null);
     }
@@ -58,25 +57,28 @@ export function useRequestQueries(userId: string | undefined) {
     const { data, error } = await query;
     
     if (error) {
-      console.error("❌ [fetchRequestsWithMissionData] ERREUR:", error);
+      console.error("❌ Erreur:", error);
       return [];
     }
     
-    console.log(`📋 [fetchRequestsWithMissionData] ${data.length} requêtes récupérées`);
-    console.log("🔍 [fetchRequestsWithMissionData] PREMIÈRE REQUÊTE BRUTE:", data[0]);
+    console.log(`📋 ${data.length} requests récupérées`);
     
-    // Transformer les données de la vue en format attendu
-    const formattedRequests = data.map((row: any) => {
-      const request = {
+    // Transformation simple et directe
+    const requests = data.map((row: any) => {
+      const missionName = row.missions?.client || row.missions?.name || "Sans mission";
+      const sdrName = row.created_by_profile?.name || "Non assigné";
+      const assignedToName = row.assigned_to_profile?.name || "Non assigné";
+      
+      return {
         id: row.id,
         title: row.title,
         type: row.type,
         status: row.status,
         createdBy: row.created_by,
         missionId: row.mission_id,
-        missionName: row.mission_client || row.mission_name || "Sans mission",
-        sdrName: row.sdr_name,
-        assignedToName: row.assigned_to_name,
+        missionName: missionName,
+        sdrName: sdrName,
+        assignedToName: assignedToName,
         dueDate: row.due_date,
         details: row.details || {},
         workflow_status: row.workflow_status,
@@ -86,23 +88,20 @@ export function useRequestQueries(userId: string | undefined) {
         lastUpdated: new Date(row.last_updated || row.updated_at),
         target_role: row.target_role
       } as Request;
-      
-      return request;
     });
     
-    console.log(`✅ [fetchRequestsWithMissionData] ${formattedRequests.length} requêtes formatées`);
-    console.log("🔍 [fetchRequestsWithMissionData] PREMIÈRE REQUÊTE FORMATÉE:", formattedRequests[0]);
+    console.log(`✅ ${requests.length} requests formatées`);
+    console.log("🔍 Premier request:", requests[0]);
     
-    return formattedRequests;
+    return requests;
   };
 
   // Requêtes à affecter
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useQuery({
-    queryKey: ['growth-requests-to-assign', userId, isSDR, isGrowth, isAdmin],
+    queryKey: ['requests-to-assign', userId],
     queryFn: async () => {
       if (!userId) return [];
-      
-      return await fetchRequestsWithMissionData({
+      return await fetchRequests({
         assignedToIsNull: true,
         workflowStatus: 'pending_assignment'
       });
@@ -113,27 +112,23 @@ export function useRequestQueries(userId: string | undefined) {
   
   // Mes assignations
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
-    queryKey: ['growth-requests-my-assignments', userId, isSDR, isGrowth, isAdmin],
+    queryKey: ['requests-my-assignments', userId],
     queryFn: async () => {
       if (!userId) return [];
       
-      const baseFilters = {
-        workflowStatusNot: 'completed'
-      };
-      
       if (isGrowth && !isAdmin) {
-        return await fetchRequestsWithMissionData({
-          ...baseFilters,
+        return await fetchRequests({
+          workflowStatusNot: 'completed',
           assignedTo: userId
         });
       } else if (isSDR) {
-        return await fetchRequestsWithMissionData({
-          ...baseFilters,
+        return await fetchRequests({
+          workflowStatusNot: 'completed',
           createdBy: userId
         });
       } else if (isAdmin) {
-        return await fetchRequestsWithMissionData({
-          ...baseFilters,
+        return await fetchRequests({
+          workflowStatusNot: 'completed',
           assignedToIsNotNull: true
         });
       }
@@ -146,19 +141,17 @@ export function useRequestQueries(userId: string | undefined) {
   
   // Toutes les requêtes
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
-    queryKey: ['growth-all-requests', userId, isSDR, isGrowth, isAdmin],
+    queryKey: ['requests-all', userId],
     queryFn: async () => {
       if (!userId) return [];
       
       if (isSDR) {
-        console.log('🔍 [useRequestQueries] ALL REQUESTS - SDR - Filtrage par created_by:', userId);
-        return await fetchRequestsWithMissionData({
+        return await fetchRequests({
           workflowStatusNot: 'completed',
           createdBy: userId
         });
       } else {
-        console.log('🔍 [useRequestQueries] ALL REQUESTS - GROWTH/ADMIN - Toutes les requêtes');
-        return await fetchRequestsWithMissionData({
+        return await fetchRequests({
           workflowStatusNot: 'completed'
         });
       }
@@ -170,30 +163,37 @@ export function useRequestQueries(userId: string | undefined) {
   // Récupération des détails d'une demande spécifique
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
-      console.log("🔍 [useRequestQueries] REQUEST DETAILS - Récupération pour:", requestId);
+      console.log("🔍 Récupération détails pour:", requestId);
       
       const { data, error } = await supabase
-        .from('requests_with_missions')
-        .select('*')
+        .from('requests')
+        .select(`
+          *,
+          missions(name, client),
+          created_by_profile:profiles!requests_created_by_fkey(name),
+          assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+        `)
         .eq('id', requestId)
         .maybeSingle();
 
       if (data && isSDR && data.created_by !== userId) {
-        console.error("❌ [useRequestQueries] REQUEST DETAILS - SDR accès refusé");
+        console.error("❌ SDR accès refusé");
         return null;
       }
 
       if (error) {
-        console.error("❌ [useRequestQueries] REQUEST DETAILS - Erreur:", error);
+        console.error("❌ Erreur:", error);
         return null;
       }
 
       if (!data) {
-        console.log("⚠️ [useRequestQueries] REQUEST DETAILS - Aucune donnée pour:", requestId);
+        console.log("⚠️ Aucune donnée pour:", requestId);
         return null;
       }
 
-      console.log("📋 [useRequestQueries] REQUEST DETAILS - Données récupérées:", data);
+      const missionName = data.missions?.client || data.missions?.name || "Sans mission";
+      const sdrName = data.created_by_profile?.name || "Non assigné";
+      const assignedToName = data.assigned_to_profile?.name || "Non assigné";
       
       const request = {
         id: data.id,
@@ -202,9 +202,9 @@ export function useRequestQueries(userId: string | undefined) {
         status: data.status,
         createdBy: data.created_by,
         missionId: data.mission_id,
-        missionName: data.mission_client || data.mission_name || "Sans mission",
-        sdrName: data.sdr_name,
-        assignedToName: data.assigned_to_name,
+        missionName: missionName,
+        sdrName: sdrName,
+        assignedToName: assignedToName,
         dueDate: data.due_date,
         details: data.details || {},
         workflow_status: data.workflow_status,
@@ -215,11 +215,11 @@ export function useRequestQueries(userId: string | undefined) {
         target_role: data.target_role
       } as Request;
       
-      console.log(`✅ [useRequestQueries] REQUEST DETAILS - Formaté: ${request.id}, missionName="${request.missionName}"`);
+      console.log(`✅ Request détails formaté: ${request.id}, mission="${request.missionName}"`);
       
       return request;
     } catch (err) {
-      console.error("❌ [useRequestQueries] REQUEST DETAILS - Exception:", err);
+      console.error("❌ Exception:", err);
       return null;
     }
   };
