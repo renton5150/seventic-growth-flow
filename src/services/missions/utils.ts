@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType } from "@/types/types";
-import { getMissionName, clearMissionNameCache, forceRefreshFreshworks, KNOWN_MISSIONS, isFreshworksId } from "@/services/missionNameService";
+import { getMissionName, clearMissionNameCache, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
 // Simple function to check if a mission exists by ID
 export const checkMissionExists = async (missionId: string): Promise<boolean> => {
@@ -209,19 +209,15 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
     client: mission.client
   });
 
-  // Vérifier si la mission est dans les missions connues d'abord
+  // Utiliser le service centralisé pour obtenir le nom standardisé
   let displayName: string;
   
   // Cas spécial pour Freshworks - vérification unifiée
   if (isFreshworksId(mission.id)) {
     displayName = "Freshworks";
     console.log(`[mapSupaMissionToMission] Freshworks détecté: ${mission.id} => "${displayName}"`);
-  } 
-  else if (KNOWN_MISSIONS[mission.id]) {
-    displayName = KNOWN_MISSIONS[mission.id];
-    console.log(`[mapSupaMissionToMission] Mission connue: ${mission.id} => "${displayName}"`);
   } else {
-    // Sinon utiliser le service centralisé
+    // Utiliser le service centralisé
     displayName = await getMissionName(mission.id, {
       fallbackClient: mission.client,
       fallbackName: mission.name,

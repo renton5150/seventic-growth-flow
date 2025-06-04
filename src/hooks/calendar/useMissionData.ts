@@ -4,7 +4,7 @@ import { Mission, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { mapSupaMissionToMission } from "@/services/missions/utils";
 import { getAllMissions } from "@/services/missionService";
-import { preloadMissionNames, KNOWN_MISSIONS } from "@/services/missionNameService";
+import { preloadMissionNames } from "@/services/missionNameService";
 
 export const useMissionData = (userId: string | undefined) => {
   const { data: missions = [], isLoading: isLoadingMissions } = useQuery<Mission[]>({
@@ -44,27 +44,7 @@ export const useMissionData = (userId: string | undefined) => {
         // Utiliser le mapSupaMissionToMission pour transformer les données avec cohérence
         const mappedMissions = await Promise.all(data.map(mission => mapSupaMissionToMission(mission)));
         
-        // On garde toujours les missions connues hardcodées comme fallback
-        const knownMissionIds = Object.keys(KNOWN_MISSIONS);
-        const hardcodedMissions: Mission[] = knownMissionIds
-          .filter(id => !mappedMissions.some(m => m.id === id))
-          .map(id => ({
-            id: id,
-            name: KNOWN_MISSIONS[id],
-            sdrId: "unknown",
-            description: "",
-            createdAt: new Date(),
-            sdrName: "System",
-            requests: [],
-            startDate: new Date(),
-            endDate: null,
-            type: "Full" as MissionType,
-            status: "En cours",
-            client: KNOWN_MISSIONS[id]
-          }));
-        
-        // Merge Supabase missions with hardcoded ones to ensure coverage
-        return [...mappedMissions, ...hardcodedMissions];
+        return mappedMissions;
       } catch (err) {
         console.error("[useMissionData] Exception during mission fetch:", err);
         return [];

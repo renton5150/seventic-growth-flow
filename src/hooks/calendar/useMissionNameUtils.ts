@@ -4,7 +4,6 @@ import { Mission } from "@/types/types";
 import { 
   getMissionName, 
   preloadMissionNames, 
-  KNOWN_MISSIONS, 
   syncKnownMissions,
   refreshMissionNameCache
 } from "@/services/missionNameService";
@@ -48,14 +47,6 @@ export const useMissionNameUtils = (missions: Mission[]) => {
         }
       });
     }
-    
-    // Add known mission IDs manually as fallback (if not already in the map)
-    Object.entries(KNOWN_MISSIONS).forEach(([id, name]) => {
-      if (!map[id]) {
-        map[id] = name;
-        console.log(`[useMissionNameUtils] Added known mission fallback: ${id} => ${name}`);
-      }
-    });
     
     console.log("[useMissionNameUtils] Mission name map created with", 
       Object.keys(map).length, "entries");
