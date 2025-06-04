@@ -1,3 +1,4 @@
+
 import * as React from "react";
 import { User } from "@/types/types";
 import { Control } from "react-hook-form";
@@ -26,7 +27,6 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
   
   console.log("EmailFormHeader - Rendu avec editMode:", editMode);
 
-  // Chargement initial du nom de la mission si on est en mode édition
   React.useEffect(() => {
     if (editMode) {
       const loadMissionName = async () => {
@@ -113,11 +113,11 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
               
               return (
                 <FormItem>
-                  <FormLabel>Mission*</FormLabel>
                   <FormControl>
                     {editMode ? (
                       // En mode édition, afficher le nom de la mission en lecture seule
                       <div className="flex flex-col">
+                        <FormLabel>Mission*</FormLabel>
                         <div className="flex items-center gap-2 relative">
                           <Input 
                             value={isLoadingMissionName ? "Chargement..." : missionName || "Mission non trouvée"}
@@ -136,7 +136,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                         <input type="hidden" name="missionId" value={field.value} />
                       </div>
                     ) : (
-                      // En mode création, utiliser le sélecteur
+                      // En mode création, utiliser le sélecteur qui inclut déjà son label
                       <MissionSelect />
                     )}
                   </FormControl>
