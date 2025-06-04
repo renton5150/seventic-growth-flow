@@ -1,4 +1,3 @@
-
 // Re-export all request service functions
 export * from './baseRequestService';
 export * from './emailRequestService';
@@ -6,6 +5,7 @@ export * from './databaseRequestService';
 export * from './linkedinRequestService';
 export * from './cloneRequestService';
 export * from './utils';
+export * from './requestQueryService';
 
 import { Request, RequestStatus, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { updateEmailRequest } from "./emailRequestService";
