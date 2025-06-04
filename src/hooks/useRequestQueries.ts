@@ -1,11 +1,10 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMissionsByGrowthId } from "@/services/missions-service/operations/readMissions";
-import { preloadMissionNames } from "@/services/missionNameService";
+import { preloadMissionNames, syncKnownMissions } from "@/services/missionNameService";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -20,9 +19,14 @@ export function useRequestQueries(userId: string | undefined) {
       if (!userId) return [];
       
       console.log("Récupération des requêtes à affecter avec userId:", userId);
-      console.log("Est-ce un SDR?", isSDR ? "Oui" : "Non");
-      console.log("Est-ce un Growth?", isGrowth ? "Oui" : "Non");
-      console.log("Est-ce un Admin?", isAdmin ? "Oui" : "Non");
+      
+      // AMÉLIORATION : Synchronisation préalable des missions
+      try {
+        await syncKnownMissions();
+        console.log("Synchronisation des missions terminée avant récupération des requêtes");
+      } catch (err) {
+        console.error("Erreur lors de la synchronisation préalable:", err);
+      }
       
       // Requête EXCLUSIVEMENT pour les demandes sans assignation
       let query = supabase
@@ -30,7 +34,7 @@ export function useRequestQueries(userId: string | undefined) {
         .select('*', { count: 'exact' })
         .is('assigned_to', null)
         .eq('workflow_status', 'pending_assignment')
-        .neq('workflow_status', 'completed'); // Exclure les demandes terminées
+        .neq('workflow_status', 'completed');
       
       // Si c'est un SDR, filtrer uniquement ses requêtes
       if (isSDR) {
@@ -54,7 +58,7 @@ export function useRequestQueries(userId: string | undefined) {
         .filter((id): id is string => !!id);
       
       if (missionIds.length > 0) {
-        // Déclencher le préchargement en parallèle
+        console.log(`Préchargement de ${missionIds.length} noms de mission`);
         preloadMissionNames(missionIds);
       }
       
@@ -69,7 +73,6 @@ export function useRequestQueries(userId: string | undefined) {
   });
   
   // Mes assignations - For Growth and Admin, see ALL requests assigned to them
-  // For SDR, see only their own requests
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useQuery({
     queryKey: ['growth-requests-my-assignments', userId, isSDR, isGrowth, isAdmin],
     queryFn: async () => {
@@ -77,9 +80,17 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log("Récupération de mes assignations avec userId:", userId);
       
+      // AMÉLIORATION : Synchronisation préalable des missions
+      try {
+        await syncKnownMissions();
+        console.log("Synchronisation des missions terminée pour mes assignations");
+      } catch (err) {
+        console.error("Erreur lors de la synchronisation préalable:", err);
+      }
+      
       let query = supabase.from('requests_with_missions')
         .select('*', { count: 'exact' })
-        .neq('workflow_status', 'completed'); // Exclure les demandes terminées
+        .neq('workflow_status', 'completed');
       
       // Pour Growth: seulement les requêtes assignées à lui-même
       if (isGrowth && !isAdmin) {
@@ -111,13 +122,13 @@ export function useRequestQueries(userId: string | undefined) {
         .filter((id): id is string => !!id);
       
       if (missionIds.length > 0) {
-        // Déclencher le préchargement en parallèle
+        console.log(`Préchargement de ${missionIds.length} noms de mission pour mes assignations`);
         preloadMissionNames(missionIds);
       }
       
       // Formater les données pour l'affichage
       const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
-      console.log("Requêtes formatées:", formattedRequests.length);
+      console.log("Mes assignations formatées:", formattedRequests.length);
       
       return formattedRequests;
     },
@@ -134,10 +145,18 @@ export function useRequestQueries(userId: string | undefined) {
       console.log('Récupération de TOUTES les requêtes avec rôle:', 
                   isSDR ? 'SDR' : isGrowth ? 'Growth' : 'Admin');
       
+      // AMÉLIORATION CRITIQUE : Synchronisation systématique des missions
+      try {
+        await syncKnownMissions();
+        console.log("Synchronisation des missions terminée pour toutes les requêtes");
+      } catch (err) {
+        console.error("Erreur lors de la synchronisation préalable:", err);
+      }
+      
       // IMPORTANT: Utilisez toujours la même source de données (requests_with_missions)
       let query = supabase.from('requests_with_missions')
         .select('*')
-        .neq('workflow_status', 'completed'); // Exclure les demandes terminées
+        .neq('workflow_status', 'completed');
       
       // Si c'est un SDR, ne récupérer QUE ses demandes créées
       if (isSDR) {
@@ -163,8 +182,7 @@ export function useRequestQueries(userId: string | undefined) {
         .filter((id): id is string => !!id);
       
       if (missionIds.length > 0) {
-        console.log(`Préchargement de ${missionIds.length} noms de mission`);
-        // Déclencher le préchargement en parallèle
+        console.log(`Préchargement de ${missionIds.length} noms de mission pour toutes les requêtes`);
         preloadMissionNames(missionIds);
       }
       

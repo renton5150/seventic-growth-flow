@@ -1,11 +1,11 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
-import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
+import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks, isFreshworksId, syncKnownMissions } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
-  console.log(`[formatRequestFromDb] START Formatting request ${request.id}, raw data:`, JSON.stringify(request, null, 2));
+  console.log(`[formatRequestFromDb] START Formatting request ${request.id}, mission_id: ${request.mission_id}`);
   
   // Convert dates
   const createdAt = new Date(request.created_at);
@@ -19,33 +19,50 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   const isFreshworksMission = isFreshworksId(request.mission_id);
   
   // Forcer le rafraîchissement du cache Freshworks quelle que soit la requête
-  // Cela garantit que Freshworks est toujours correctement identifié
   forceRefreshFreshworks();
   
-  // Déterminer le nom de la mission
+  // AMÉLIORATION MAJEURE : Récupération systématique du nom de mission
   let missionName = "Sans mission";
   
   if (isFreshworksMission) {
     missionName = "Freshworks";
     console.log("[formatRequestFromDb] Mission Freshworks détectée - traitement prioritaire");
   } 
-  else if (request.mission_id && KNOWN_MISSIONS[request.mission_id]) {
-    missionName = KNOWN_MISSIONS[request.mission_id];
-    console.log(`[formatRequestFromDb] Using known mission name: "${missionName}" for ${request.mission_id}`);
-  } 
-  else {
-    // Sinon utiliser le service centralisé
+  else if (request.mission_id) {
+    // TOUJOURS utiliser le service centralisé pour la cohérence
     missionName = await getMissionName(request.mission_id, {
       fallbackClient: request.mission_client, 
       fallbackName: request.mission_name,
-      forceRefresh: true // Force toujours le rafraîchissement pour les autres missions
+      forceRefresh: false // Pas de force refresh systématique pour les performances
     });
+    
+    console.log(`[formatRequestFromDb] Nom de mission récupéré pour ${request.mission_id}: "${missionName}"`);
+    
+    // CORRECTION : Si on obtient un nom technique, forcer une synchronisation et réessayer
+    if (missionName.startsWith("Mission ") && missionName.length < 20) {
+      console.log(`[formatRequestFromDb] Nom technique détecté "${missionName}", tentative de re-synchronisation`);
+      
+      try {
+        // Force une re-synchronisation
+        await syncKnownMissions();
+        
+        // Nouvel essai avec force refresh
+        missionName = await getMissionName(request.mission_id, {
+          fallbackClient: request.mission_client, 
+          fallbackName: request.mission_name,
+          forceRefresh: true
+        });
+        
+        console.log(`[formatRequestFromDb] Après re-sync, nouveau nom: "${missionName}"`);
+      } catch (err) {
+        console.error(`[formatRequestFromDb] Erreur lors de la re-synchronisation:`, err);
+      }
+    }
   }
   
-  console.log(`[formatRequestFromDb] FINAL mission name for request ${request.id}: "${missionName}"`);
+  console.log(`[formatRequestFromDb] FINAL mission name pour request ${request.id}: "${missionName}"`);
 
   // IMPORTANT: Normaliser les détails pour éviter les problèmes de type
-  // Si details est une chaîne, la parser en JSON
   let details: Record<string, any> = {};
   if (typeof request.details === 'string') {
     try {

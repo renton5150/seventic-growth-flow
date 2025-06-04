@@ -45,7 +45,7 @@ export const syncKnownMissions = async (): Promise<void> => {
       console.log(`[syncKnownMissions] Mission fixe dans le cache: ${id} => "${name}"`);
     });
     
-    // Récupérer depuis la base de données
+    // Récupérer depuis la base de données TOUTES les missions
     const { data, error } = await supabase
       .from('missions')
       .select('id, name, client')
@@ -61,9 +61,9 @@ export const syncKnownMissions = async (): Promise<void> => {
       return;
     }
     
-    console.log(`[syncKnownMissions] ${data.length} missions récupérées`);
+    console.log(`[syncKnownMissions] ${data.length} missions récupérées depuis la base`);
     
-    // Mettre à jour le cache avec les données de la base
+    // Mettre à jour le cache avec les données de la base - PRIORITÉ AU CLIENT
     data.forEach(mission => {
       if (!mission.id) return;
       
@@ -76,26 +76,26 @@ export const syncKnownMissions = async (): Promise<void> => {
         return;
       }
       
-      const displayName = mission.client && mission.client.trim() !== "" && 
-                         mission.client !== "null" && mission.client !== "undefined" 
-                         ? mission.client 
-                         : mission.name;
-                         
-      if (displayName && displayName.trim() !== "") {
-        missionNameCache[missionId] = displayName;
-        console.log(`[syncKnownMissions] Mis en cache: ${missionId} => "${displayName}"`);
+      // CORRECTION PRINCIPALE : Prioriser 'client' sur 'name'
+      let displayName = "Sans mission";
+      if (mission.client && mission.client.trim() !== "" && 
+          mission.client !== "null" && mission.client !== "undefined") {
+        displayName = mission.client.trim();
+        console.log(`[syncKnownMissions] Utilisation du client: ${missionId} => "${displayName}"`);
+      } else if (mission.name && mission.name.trim() !== "" && 
+                 mission.name !== "null" && mission.name !== "undefined") {
+        displayName = mission.name.trim();
+        console.log(`[syncKnownMissions] Utilisation du nom: ${missionId} => "${displayName}"`);
+      } else {
+        // En dernier recours seulement
+        displayName = `Mission ${missionId.substring(0, 8)}`;
+        console.log(`[syncKnownMissions] Nom par défaut: ${missionId} => "${displayName}"`);
       }
+      
+      missionNameCache[missionId] = displayName;
     });
     
-    // DOUBLE VÉRIFICATION pour les deux IDs Freshworks - garantie totale
-    if (!isFreshworksId(FRESHWORKS_PRIMARY_ID) || missionNameCache[FRESHWORKS_PRIMARY_ID] !== "Freshworks") {
-      missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
-    }
-    
-    if (!isFreshworksId(FRESHWORKS_SECONDARY_ID) || missionNameCache[FRESHWORKS_SECONDARY_ID] !== "Freshworks") {
-      missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
-    }
-    
+    console.log(`[syncKnownMissions] Cache final: ${Object.keys(missionNameCache).length} missions`);
     console.log("[syncKnownMissions] Synchronisation terminée avec succès");
   } catch (err) {
     console.error("[syncKnownMissions] Erreur lors de la synchronisation:", err);
@@ -107,7 +107,7 @@ export const syncKnownMissions = async (): Promise<void> => {
 
 /**
  * Fonction principale pour obtenir un nom de mission standardisé
- * avec détection PRIORITAIRE de Freshworks (les deux IDs)
+ * CORRECTION MAJEURE : Améliore la priorisation et la récupération des noms
  */
 export const getMissionName = async (missionId: string | undefined, options?: {
   fallbackClient?: string;
@@ -121,25 +121,27 @@ export const getMissionName = async (missionId: string | undefined, options?: {
   // VÉRIFICATION PRIORITAIRE POUR FRESHWORKS (les deux IDs) - retour immédiat
   if (isFreshworksId(missionIdStr)) {
     console.log(`[getMissionName] ID FRESHWORKS DÉTECTÉ: ${missionIdStr}, retourne "Freshworks"`);
-    missionNameCache[missionIdStr] = "Freshworks"; // Mise à jour du cache
+    missionNameCache[missionIdStr] = "Freshworks";
     return "Freshworks";
   }
   
-  // Si pas de force refresh et qu'on a un cache, utiliser le cache
-  if (!options?.forceRefresh && missionNameCache[missionIdStr]) {
-    console.log(`[getMissionName] Cache hit for ${missionIdStr}: "${missionNameCache[missionIdStr]}"`);
+  // Si pas de force refresh et qu'on a un cache valide, utiliser le cache
+  if (!options?.forceRefresh && missionNameCache[missionIdStr] && 
+      missionNameCache[missionIdStr] !== "Sans mission" && 
+      !missionNameCache[missionIdStr].startsWith("Mission ")) {
+    console.log(`[getMissionName] Cache hit valide pour ${missionIdStr}: "${missionNameCache[missionIdStr]}"`);
     return missionNameCache[missionIdStr];
   }
   
   // D'abord vérifier les missions connues - PRIORITAIRES sur la base de données
   if (KNOWN_MISSIONS[missionIdStr]) {
-    console.log(`[getMissionName] Using known mission for ${missionIdStr}: "${KNOWN_MISSIONS[missionIdStr]}"`);
+    console.log(`[getMissionName] Utilisation mission connue pour ${missionIdStr}: "${KNOWN_MISSIONS[missionIdStr]}"`);
     missionNameCache[missionIdStr] = KNOWN_MISSIONS[missionIdStr];
     return KNOWN_MISSIONS[missionIdStr];
   }
   
   try {
-    console.log(`[getMissionName] Fetching mission details for ${missionIdStr}`);
+    console.log(`[getMissionName] Récupération depuis la base pour ${missionIdStr}`);
     
     // Chercher dans la base de données
     const { data, error } = await supabase
@@ -149,48 +151,49 @@ export const getMissionName = async (missionId: string | undefined, options?: {
       .maybeSingle();
       
     if (error) {
-      console.error(`[getMissionName] Error fetching mission ${missionIdStr}:`, error);
-      // Continuer avec les fallbacks
+      console.error(`[getMissionName] Erreur de récupération pour ${missionIdStr}:`, error);
     }
     
-    // PRIORITÉ: client > name > ID court
+    // AMÉLIORATION : Priorisation stricte client > name > fallbacks > ID court
     let missionName = "Sans mission";
     
-    if (data && data.client && data.client.trim() !== "" && 
-        data.client !== "null" && data.client !== "undefined") {
-      missionName = data.client;
-      console.log(`[getMissionName] Using client for ${missionIdStr}: "${missionName}"`);
-    }
-    else if (data && data.name && data.name.trim() !== "" && 
-             data.name !== "null" && data.name !== "undefined") {
-      missionName = data.name;
-      console.log(`[getMissionName] Using name for ${missionIdStr}: "${missionName}"`);
-    }
-    else if (options?.fallbackClient && options.fallbackClient.trim() !== "" &&
-             options.fallbackClient !== "null" && options.fallbackClient !== "undefined") {
-      missionName = options.fallbackClient;
-      console.log(`[getMissionName] Using fallback client for ${missionIdStr}: "${missionName}"`);
-    }
-    else if (options?.fallbackName && options.fallbackName.trim() !== "" &&
-             options.fallbackName !== "null" && options.fallbackName !== "undefined") {
-      missionName = options.fallbackName;
-      console.log(`[getMissionName] Using fallback name for ${missionIdStr}: "${missionName}"`);
-    }
-    else {
-      missionName = `Mission ${missionIdStr.substring(0, 8)}`;
-      console.log(`[getMissionName] Using ID-based name for ${missionIdStr}: "${missionName}"`);
+    if (data) {
+      if (data.client && data.client.trim() !== "" && 
+          data.client !== "null" && data.client !== "undefined") {
+        missionName = data.client.trim();
+        console.log(`[getMissionName] Utilisation client DB pour ${missionIdStr}: "${missionName}"`);
+      }
+      else if (data.name && data.name.trim() !== "" && 
+               data.name !== "null" && data.name !== "undefined") {
+        missionName = data.name.trim();
+        console.log(`[getMissionName] Utilisation name DB pour ${missionIdStr}: "${missionName}"`);
+      }
     }
     
-    // Mettre en cache le résultat - DOUBLE vérification pour Freshworks avant mise en cache
-    if (isFreshworksId(missionIdStr)) {
-      missionNameCache[missionIdStr] = "Freshworks";
-      return "Freshworks";
-    } else {
-      missionNameCache[missionIdStr] = missionName;
-      return missionName;
+    // Fallbacks seulement si pas de données DB valides
+    if (missionName === "Sans mission") {
+      if (options?.fallbackClient && options.fallbackClient.trim() !== "" &&
+           options.fallbackClient !== "null" && options.fallbackClient !== "undefined") {
+        missionName = options.fallbackClient.trim();
+        console.log(`[getMissionName] Utilisation fallback client pour ${missionIdStr}: "${missionName}"`);
+      }
+      else if (options?.fallbackName && options.fallbackName.trim() !== "" &&
+               options.fallbackName !== "null" && options.fallbackName !== "undefined") {
+        missionName = options.fallbackName.trim();
+        console.log(`[getMissionName] Utilisation fallback name pour ${missionIdStr}: "${missionName}"`);
+      }
+      else {
+        // En dernier recours SEULEMENT
+        missionName = `Mission ${missionIdStr.substring(0, 8)}`;
+        console.log(`[getMissionName] Nom par défaut pour ${missionIdStr}: "${missionName}"`);
+      }
     }
+    
+    // Mettre en cache le résultat
+    missionNameCache[missionIdStr] = missionName;
+    return missionName;
   } catch (err) {
-    console.error(`[getMissionName] Exception fetching mission ${missionIdStr}:`, err);
+    console.error(`[getMissionName] Exception pour ${missionIdStr}:`, err);
     
     // Utiliser les fallbacks en cas d'erreur
     if (isFreshworksId(missionIdStr)) {
@@ -198,10 +201,10 @@ export const getMissionName = async (missionId: string | undefined, options?: {
     }
     
     if (options?.fallbackClient && options.fallbackClient.trim() !== "") {
-      return options.fallbackClient;
+      return options.fallbackClient.trim();
     }
     if (options?.fallbackName && options.fallbackName.trim() !== "") {
-      return options.fallbackName;
+      return options.fallbackName.trim();
     }
     
     const shortId = `Mission ${missionIdStr.substring(0, 8)}`;
