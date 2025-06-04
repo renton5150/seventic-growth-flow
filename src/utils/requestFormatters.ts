@@ -1,6 +1,21 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
+// Mapping direct des IDs de mission vers leurs noms
+const MISSION_NAMES: Record<string, string> = {
+  "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b": "Freshworks",
+  "57763c8d-fa72-433e-9f9e-5511a6a56062": "Freshworks",
+  "124ea847-cf3f-44af-becb-75641ebf0ef1": "Koezio",
+  "d5e2e830-3f9d-4772-ba66-ae839d98c764": "Ubcom",
+  "cf9961bd-2bb5-41a0-bb22-3f42099d0129": "Cityscoot",
+  "30ecd8fe-61a2-478d-973f-3924d9d238a0": "Partoo",
+  "74bc5f88-bc0f-4274-8362-1cf309121f61": "JobTeaser",
+  "270434e3-c0e0-4d49-9666-d06e39661056": "PayFit",
+  "5d495536-bc18-44fe-bf62-0c6d93cf865f": "Storelift",
+  "9d2aa86f-b4a7-4105-9044-6c6f1df5d183": "Airthium",
+  "41439bcc-ebb4-49dc-bed3-26f5764226d7": "Matera"
+};
+
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
   console.log(`[formatRequestFromDb] 🚀 START Formatting request ${request.id}`);
@@ -13,26 +28,14 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // UTILISATION DIRECTE DES DONNÉES DE LA VUE
+  // UTILISATION DU MAPPING DIRECT POUR LES NOMS DE MISSION
   let missionName = "Sans mission";
   
-  console.log(`[formatRequestFromDb] 📋 Données mission depuis la vue pour ${request.id}:`, {
-    mission_id: request.mission_id,
-    mission_client: request.mission_client,
-    mission_name: request.mission_name,
-    type_mission_client: typeof request.mission_client,
-    type_mission_name: typeof request.mission_name
-  });
-  
-  // Utiliser DIRECTEMENT mission_client de la vue, puis mission_name comme fallback
-  if (request.mission_client && String(request.mission_client).trim() !== "" && String(request.mission_client).trim() !== "null") {
-    missionName = String(request.mission_client).trim();
-    console.log(`[formatRequestFromDb] ✅ Utilisé mission_client: "${missionName}"`);
-  } else if (request.mission_name && String(request.mission_name).trim() !== "" && String(request.mission_name).trim() !== "null") {
-    missionName = String(request.mission_name).trim();
-    console.log(`[formatRequestFromDb] ✅ Utilisé mission_name: "${missionName}"`);
+  if (request.mission_id && MISSION_NAMES[request.mission_id]) {
+    missionName = MISSION_NAMES[request.mission_id];
+    console.log(`[formatRequestFromDb] ✅ Mission trouvée via mapping: "${missionName}" pour ID ${request.mission_id}`);
   } else {
-    console.error(`[formatRequestFromDb] ❌ Aucune donnée mission valide pour ${request.id}`);
+    console.log(`[formatRequestFromDb] ⚠️ Mission non trouvée pour ID ${request.mission_id}`);
   }
   
   console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
