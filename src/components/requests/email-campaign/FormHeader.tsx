@@ -77,7 +77,22 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             )}
           />
           
-          {/* Type d'emailing - NOUVEAU CHAMP */}
+          {/* Objet de la campagne - NOUVEAU CHAMP */}
+          <FormField
+            control={control}
+            name="subject"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Objet*</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: Découvrez notre nouveau produit" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          {/* Type d'emailing */}
           <FormField
             control={control}
             name="emailType"

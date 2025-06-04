@@ -11,7 +11,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
     console.log("Préparation des données pour la création de la requête:", requestData);
     
     // Assurez-vous que tous les objets imbriqués existent
-    const template = requestData.template || { content: "", fileUrl: "", webLink: "" };
+    const template = requestData.template || { content: "", fileUrl: "", webLink: "", subject: "" };
     const database = requestData.database || { notes: "", fileUrl: "", webLinks: [] };
     const blacklist = requestData.blacklist || {
       accounts: { notes: "", fileUrl: "" },

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -39,7 +38,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       const template = initialData.template || {
         content: "",
         fileUrl: "",
-        webLink: ""
+        webLink: "",
+        subject: ""
       };
       
       const database = initialData.database || {
@@ -68,6 +68,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
 
       return {
         title: initialData.title || "",
+        subject: template.subject || "",
         emailType: initialData.details?.emailType || "Mass email",
         missionId: initialData.missionId || "",
         dueDate: formattedDueDate,
@@ -220,7 +221,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         template: {
           content: data.templateContent || "",
           fileUrl: data.templateFileUrl || "",
-          webLink: data.templateWebLink || ""
+          webLink: data.templateWebLink || "",
+          subject: data.subject || ""
         },
         database: {
           fileUrl: data.databaseFileUrl || "",
