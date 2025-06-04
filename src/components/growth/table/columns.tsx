@@ -31,9 +31,9 @@ const getRequestTypeLabel = (type: string): string => {
   }
 };
 
-// Fonction pour obtenir le nom de la mission directement depuis l'ID
+// Fonction pour obtenir le nom de la mission directement depuis l'ID - MAPPING COMPLET
 const getMissionNameFromId = (missionId: string | undefined): string => {
-  // Mapping direct des IDs de mission vers leurs noms
+  // Mapping COMPLET des IDs de mission vers leurs noms
   const missionNames: Record<string, string> = {
     "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b": "Freshworks",
     "57763c8d-fa72-433e-9f9e-5511a6a56062": "Freshworks",
@@ -45,7 +45,8 @@ const getMissionNameFromId = (missionId: string | undefined): string => {
     "270434e3-c0e0-4d49-9666-d06e39661056": "PayFit",
     "5d495536-bc18-44fe-bf62-0c6d93cf865f": "Storelift",
     "9d2aa86f-b4a7-4105-9044-6c6f1df5d183": "Airthium",
-    "41439bcc-ebb4-49dc-bed3-26f5764226d7": "Matera"
+    "41439bcc-ebb4-49dc-bed3-26f5764226d7": "Matera",
+    "57bb236e-e39f-4b02-a661-c70ecca11ad0": "Watchdog"
   };
   
   if (!missionId) return "Sans mission";
