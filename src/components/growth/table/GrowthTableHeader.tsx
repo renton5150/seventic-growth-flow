@@ -1,9 +1,29 @@
+
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CheckboxColumnFilter } from "../filters/CheckboxColumnFilter";
 import { DateColumnFilter } from "../filters/DateColumnFilter";
-import { Calendar } from "lucide-react";
-import { columns, ColumnDefinition } from "./columns";
-import { TableFilterProps } from "./types";
+
+interface GrowthTableHeaderProps {
+  typeFilter: string[];
+  missionFilter: string[];
+  assigneeFilter: string[];
+  statusFilter: string[];
+  sdrFilter: string[];
+  createdDateFilter: any;
+  dueDateFilter: any;
+  setTypeFilter: (values: string[]) => void;
+  setMissionFilter: (values: string[]) => void;
+  setAssigneeFilter: (values: string[]) => void;
+  setStatusFilter: (values: string[]) => void;
+  setSdrFilter: (values: string[]) => void;
+  handleCreatedDateFilterChange: (type: string, values: any) => void;
+  handleDueDateFilterChange: (type: string, values: any) => void;
+  uniqueTypes: string[];
+  uniqueMissions: string[];
+  uniqueAssignees: string[];
+  uniqueStatuses: string[];
+  uniqueSdrs: string[];
+}
 
 export function GrowthTableHeader({
   typeFilter,
@@ -24,118 +44,69 @@ export function GrowthTableHeader({
   uniqueMissions,
   uniqueAssignees,
   uniqueStatuses,
-  uniqueSdrs,
-}: TableFilterProps) {
+  uniqueSdrs
+}: GrowthTableHeaderProps) {
   return (
     <TableHeader>
       <TableRow>
-        {columns.map((column) => (
-          <TableHead key={column.key} className={column.width}>
-            {column.key === "requestType" ? (
-              <div className="flex items-center justify-between">
-                {column.header}
-                <CheckboxColumnFilter
-                  columnName="Type"
-                  options={uniqueTypes}
-                  selectedValues={typeFilter}
-                  onFilterChange={setTypeFilter}
-                  hasFilter={typeFilter.length > 0}
-                  onClearFilter={() => setTypeFilter([])}
-                />
-              </div>
-            ) : column.key === "mission" ? (
-              <div className="flex items-center justify-between">
-                {column.header}
-                <CheckboxColumnFilter
-                  columnName="Mission"
-                  options={uniqueMissions}
-                  selectedValues={missionFilter}
-                  onFilterChange={setMissionFilter}
-                  hasFilter={missionFilter.length > 0}
-                  onClearFilter={() => setMissionFilter([])}
-                />
-              </div>
-            ) : column.key === "sdr" ? (
-              <div className="flex items-center justify-between">
-                {column.header}
-                <CheckboxColumnFilter
-                  columnName="SDR"
-                  options={uniqueSdrs}
-                  selectedValues={sdrFilter}
-                  onFilterChange={setSdrFilter}
-                  hasFilter={sdrFilter.length > 0}
-                  onClearFilter={() => setSdrFilter([])}
-                />
-              </div>
-            ) : column.key === "assignedTo" ? (
-              <div className="flex items-center justify-between">
-                {column.header}
-                <CheckboxColumnFilter
-                  columnName="Assigné à"
-                  options={uniqueAssignees}
-                  selectedValues={assigneeFilter}
-                  onFilterChange={setAssigneeFilter}
-                  hasFilter={assigneeFilter.length > 0}
-                  onClearFilter={() => setAssigneeFilter([])}
-                />
-              </div>
-            ) : column.key === "emailPlatform" ? (
-              <div className="flex items-center justify-between">
-                {column.header}
-                <CheckboxColumnFilter
-                  columnName="Plateforme d'emailing"
-                  options={["Acelmail", "Brevo", "Mindbaz", "Mailjet", "Postyman", "Mailwizz"]}
-                  selectedValues={[]}
-                  onFilterChange={() => {}} // wiring up filter left for implementation depending on state logic
-                  hasFilter={false}
-                  onClearFilter={() => {}}
-                />
-              </div>
-            ) : column.key === "createdAt" ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                  {column.header}
-                </div>
-                <DateColumnFilter
-                  columnName="Date de création"
-                  hasFilter={!!createdDateFilter}
-                  onFilterChange={handleCreatedDateFilterChange}
-                  onClearFilter={() => handleCreatedDateFilterChange(null, {})}
-                  currentFilter={createdDateFilter || undefined}
-                />
-              </div>
-            ) : column.key === "dueDate" ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                  {column.header}
-                </div>
-                <DateColumnFilter
-                  columnName="Date prévue"
-                  hasFilter={!!dueDateFilter}
-                  onFilterChange={handleDueDateFilterChange}
-                  onClearFilter={() => handleDueDateFilterChange(null, {})}
-                  currentFilter={dueDateFilter || undefined}
-                />
-              </div>
-            ) : column.key === "status" ? (
-              <div className="flex items-center justify-between">
-                {column.header}
-                <CheckboxColumnFilter
-                  columnName="Statut"
-                  options={uniqueStatuses}
-                  selectedValues={statusFilter}
-                  onFilterChange={setStatusFilter}
-                  hasFilter={statusFilter.length > 0}
-                  onClearFilter={() => setStatusFilter([])}
-                />
-              </div>
-            ) : (
-              column.header
-            )}
-          </TableHead>
-        ))}
+        <TableHead className="w-[60px]">
+          <CheckboxColumnFilter
+            title="Type"
+            values={uniqueTypes}
+            selectedValues={typeFilter}
+            onSelectionChange={setTypeFilter}
+          />
+        </TableHead>
+        <TableHead>
+          <CheckboxColumnFilter
+            title="Mission"
+            values={uniqueMissions}
+            selectedValues={missionFilter}
+            onSelectionChange={setMissionFilter}
+          />
+        </TableHead>
+        <TableHead className="w-[150px]">Type de demande</TableHead>
+        {/* NOUVELLE COLONNE: Titre de la demande */}
+        <TableHead>Titre de la demande</TableHead>
+        <TableHead>
+          <CheckboxColumnFilter
+            title="SDR"
+            values={uniqueSdrs}
+            selectedValues={sdrFilter}
+            onSelectionChange={setSdrFilter}
+          />
+        </TableHead>
+        <TableHead>
+          <CheckboxColumnFilter
+            title="Assigné à"
+            values={uniqueAssignees}
+            selectedValues={assigneeFilter}
+            onSelectionChange={setAssigneeFilter}
+          />
+        </TableHead>
+        <TableHead>Plateforme d'emailing</TableHead>
+        <TableHead>
+          <DateColumnFilter
+            title="Créée le"
+            filterValue={createdDateFilter}
+            onFilterChange={handleCreatedDateFilterChange}
+          />
+        </TableHead>
+        <TableHead>
+          <DateColumnFilter
+            title="Date prévue"
+            filterValue={dueDateFilter}
+            onFilterChange={handleDueDateFilterChange}
+          />
+        </TableHead>
+        <TableHead>
+          <CheckboxColumnFilter
+            title="Statut"
+            values={uniqueStatuses}
+            selectedValues={statusFilter}
+            onSelectionChange={setStatusFilter}
+          />
+        </TableHead>
         <TableHead className="text-right">Actions</TableHead>
       </TableRow>
     </TableHeader>

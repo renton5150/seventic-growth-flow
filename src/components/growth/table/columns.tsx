@@ -82,6 +82,16 @@ export const columns: ColumnDefinition[] = [
       </Badge>
     )
   },
+  // NOUVELLE COLONNE: Titre de la demande
+  {
+    header: "Titre de la demande",
+    key: "title",
+    render: (request) => (
+      <div className="font-medium text-sm max-w-[200px] truncate" title={request.title}>
+        {request.title}
+      </div>
+    )
+  },
   // SDR
   {
     header: "SDR",

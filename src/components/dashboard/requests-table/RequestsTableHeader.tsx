@@ -298,6 +298,19 @@ export const RequestsTableHeader = ({
           </div>
         </TableHead>
 
+        {/* NOUVELLE COLONNE: Titre de la demande */}
+        <TableHead>
+          <div className="flex items-center justify-between">
+            <span className="cursor-pointer" onClick={() => handleSort("title")}>
+              Titre de la demande
+              {sortColumn === "title" && (
+                sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4 inline" /> : <ArrowDown className="ml-2 h-4 w-4 inline" />
+              )}
+            </span>
+            {renderFilterButton("title", uniqueValues.title || [])}
+          </div>
+        </TableHead>
+
         {/* SDR (conditionnel) */}
         {showSdr && (
           <TableHead>
