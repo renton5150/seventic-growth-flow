@@ -22,16 +22,7 @@ export const diagnoseMissionData = async () => {
   console.log("📋 MISSIONS:", missions);
   if (missionsError) console.error("❌ ERREUR MISSIONS:", missionsError);
   
-  // 3. Vérifier les données dans la vue requests_with_missions
-  const { data: requestsWithMissions, error: viewError } = await supabase
-    .from('requests_with_missions')
-    .select('id, title, mission_id, mission_name, mission_client')
-    .limit(5);
-    
-  console.log("📋 REQUESTS_WITH_MISSIONS VIEW:", requestsWithMissions);
-  if (viewError) console.error("❌ ERREUR VIEW:", viewError);
-  
-  // 4. Test spécifique pour vérifier les JOINs
+  // 3. Test spécifique d'un JOIN simple
   const { data: joinTest, error: joinTestError } = await supabase
     .from('requests')
     .select(`
@@ -48,7 +39,7 @@ export const diagnoseMissionData = async () => {
   console.log("📋 JOIN TEST SIMPLE:", joinTest);
   if (joinTestError) console.error("❌ ERREUR JOIN TEST:", joinTestError);
   
-  // 5. Vérifier s'il y a des requests avec mission_id non null
+  // 4. Vérifier s'il y a des requests avec mission_id non null
   const { data: requestsWithMissionId, error: requestsWithMissionIdError } = await supabase
     .from('requests')
     .select('id, title, mission_id')
@@ -58,10 +49,12 @@ export const diagnoseMissionData = async () => {
   console.log("📋 REQUESTS AVEC MISSION_ID:", requestsWithMissionId);
   if (requestsWithMissionIdError) console.error("❌ ERREUR REQUESTS AVEC MISSION_ID:", requestsWithMissionIdError);
   
-  // 6. Vérifier si la vue existe vraiment
-  const { data: viewExists, error: viewExistsError } = await supabase
-    .rpc('check_if_table_exists', { table_name: 'requests_with_missions' });
-    
-  console.log("📋 VUE EXISTS:", viewExists);
-  if (viewExistsError) console.error("❌ ERREUR CHECK VIEW:", viewExistsError);
+  // 5. Test manuel de correspondance
+  if (requests && missions && requests.length > 0 && missions.length > 0) {
+    const testRequest = requests[0];
+    if (testRequest.mission_id) {
+      const matchingMission = missions.find(m => m.id === testRequest.mission_id);
+      console.log(`🔍 CORRESPONDANCE MANUELLE - Request ${testRequest.id} (mission_id: ${testRequest.mission_id}):`, matchingMission);
+    }
+  }
 };

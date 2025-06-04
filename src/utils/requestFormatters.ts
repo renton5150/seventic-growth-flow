@@ -1,4 +1,3 @@
-
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
 // Format request data from the database
@@ -14,25 +13,37 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // UTILISATION DES DONNÉES ENRICHIES PAR LE JOIN
+  // DIAGNOSTIC DÉTAILLÉ DES DONNÉES DE MISSION
+  console.log(`[formatRequestFromDb] 🔍 DIAGNOSTIC MISSION pour request ${request.id}:`);
+  console.log(`  - request.missions:`, request.missions);
+  console.log(`  - request.mission_id:`, request.mission_id);
+  
   let missionName = "Sans mission";
   
-  // Utiliser directement les champs enrichis mission_name et mission_client
-  if (request.mission_client && request.mission_client.trim() !== "") {
-    missionName = request.mission_client.trim();
-    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_client enrichi: "${missionName}" pour request ${request.id}`);
-  } else if (request.mission_name && request.mission_name.trim() !== "") {
-    missionName = request.mission_name.trim();
-    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_name enrichi: "${missionName}" pour request ${request.id}`);
+  // Vérifier si on a des données de mission via le JOIN
+  if (request.missions) {
+    console.log(`[formatRequestFromDb] ✅ MISSION TROUVÉE via JOIN pour request ${request.id}:`, request.missions);
+    
+    if (request.missions.client && request.missions.client.trim() !== "") {
+      missionName = request.missions.client.trim();
+      console.log(`[formatRequestFromDb] ✅ Utilisation de missions.client: "${missionName}" pour request ${request.id}`);
+    } else if (request.missions.name && request.missions.name.trim() !== "") {
+      missionName = request.missions.name.trim();
+      console.log(`[formatRequestFromDb] ✅ Utilisation de missions.name: "${missionName}" pour request ${request.id}`);
+    } else {
+      console.log(`[formatRequestFromDb] ⚠️ Mission JOIN trouvée mais client/name vides pour request ${request.id}`);
+    }
+  } else if (request.mission_id) {
+    console.log(`[formatRequestFromDb] ⚠️ mission_id présent (${request.mission_id}) mais pas de données JOIN pour request ${request.id}`);
   } else {
-    console.log(`[formatRequestFromDb] ⚠️ Aucune mission trouvée - mission_client: "${request.mission_client}", mission_name: "${request.mission_name}" pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ℹ️ Pas de mission_id pour request ${request.id}`);
   }
   
   console.log(`[formatRequestFromDb] ✅ MISSION NAME FINAL pour request ${request.id}: "${missionName}"`);
 
-  // Récupération des noms SDR et assigné depuis les données enrichies
-  const sdrName = request.sdr_name || null;
-  const assignedToName = request.assigned_to_name || null;
+  // Récupération des noms SDR et assigné depuis les JOINs
+  const sdrName = request.sdr_profile?.name || null;
+  const assignedToName = request.assigned_profile?.name || null;
 
   console.log(`[formatRequestFromDb] 👥 NOMS pour request ${request.id}: sdr="${sdrName}", assigned="${assignedToName}"`);
 
@@ -57,13 +68,13 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     status: request.status as RequestStatus,
     createdBy: request.created_by,
     missionId: request.mission_id,
-    missionName: missionName, // Utilisation du nom corrigé
+    missionName: missionName,
     sdrName: sdrName,
     assignedToName: assignedToName,
     dueDate: request.due_date,
     details: {
       ...details,
-      missionName: missionName // S'assurer que les détails contiennent aussi le nom correct
+      missionName: missionName
     },
     workflow_status: request.workflow_status as WorkflowStatus,
     assigned_to: request.assigned_to,
@@ -75,7 +86,6 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
 
   // Type-specific processing
   if (request.type === "email") {
-    // Ensure template, database, and blacklist are properly extracted and have default values
     const template = details.template || {};
     const database = details.database || {};
     const blacklist = details.blacklist || {};
@@ -98,7 +108,6 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     return emailRequest;
   } 
   else if (request.type === "database") {
-    // Extract database-specific properties with defaults
     const targeting = details.targeting || { jobTitles: [], industries: [], companySize: [] };
     const blacklist = details.blacklist || {};
     
@@ -115,7 +124,6 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     return databaseRequest;
   } 
   else if (request.type === "linkedin") {
-    // Extract linkedin-specific properties with defaults
     const targeting = details.targeting || { jobTitles: [], industries: [], companySize: [] };
     
     const linkedinRequest: Request = {
