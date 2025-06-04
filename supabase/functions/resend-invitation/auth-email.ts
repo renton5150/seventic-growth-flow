@@ -12,8 +12,11 @@ export async function sendResetLink(
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
   
   try {
-    // Utiliser une URL de redirection simplifiée sans paramètres supplémentaires
-    const simpleRedirectUrl = redirectUrl.split('?')[0] + `?type=recovery&email=${encodeURIComponent(email)}`;
+    // Utiliser une URL de redirection simplifiée pointant vers /reset-password
+    const origin = new URL(redirectUrl).origin;
+    const simpleRedirectUrl = `${origin}/reset-password?type=recovery&email=${encodeURIComponent(email)}`;
+    
+    console.log("URL de redirection pour reset:", simpleRedirectUrl);
     
     const options: any = {
       emailRedirectTo: simpleRedirectUrl,
@@ -80,7 +83,8 @@ export async function sendResetLink(
       debug: {
         emailSettings,
         responseData: resetResult.data,
-        smtpDetails: emailConfig.smtpDetails || "Non disponible"
+        smtpDetails: emailConfig.smtpDetails || "Non disponible",
+        finalRedirectUrl: simpleRedirectUrl
       }
     }), {
       status: 200,
@@ -110,8 +114,11 @@ export async function sendInvitationLink(
   console.log("Nouvel utilisateur, envoi d'une invitation");
   
   try {
-    // Utiliser une URL de redirection simplifiée pour les invitations
-    const simpleRedirectUrl = redirectUrl.split('?')[0] + `?type=invite&email=${encodeURIComponent(email)}`;
+    // Utiliser une URL de redirection simplifiée pointant vers /reset-password pour les invitations
+    const origin = new URL(redirectUrl).origin;
+    const simpleRedirectUrl = `${origin}/reset-password?type=invite&email=${encodeURIComponent(email)}`;
+    
+    console.log("URL de redirection pour invitation:", simpleRedirectUrl);
     
     const options: any = {
       emailRedirectTo: simpleRedirectUrl,
@@ -204,7 +211,8 @@ export async function sendInvitationLink(
       debug: {
         emailSettings,
         responseData: inviteResult?.data,
-        smtpDetails: emailConfig.smtpDetails || "Non disponible"
+        smtpDetails: emailConfig.smtpDetails || "Non disponible",
+        finalRedirectUrl: simpleRedirectUrl
       }
     }), {
       status: 200,

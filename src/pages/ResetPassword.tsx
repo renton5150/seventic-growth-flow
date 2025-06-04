@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,25 +18,24 @@ const ResetPassword = () => {
   const [passwordMatch, setPasswordMatch] = useState(true);
   const [resetSuccessful, setResetSuccessful] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isProcessingHash, setIsProcessingHash] = useState(true);
-  const [expiredLink, setExpiredLink] = useState(false);
-  const [expiredLinkMessage, setExpiredLinkMessage] = useState("");
+  const [isProcessingAuth, setIsProcessingAuth] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [isInvite, setIsInvite] = useState(false);
   const [samePasswordError, setSamePasswordError] = useState(false);
+  const [hasValidSession, setHasValidSession] = useState(false);
 
   useEffect(() => {
-    const processHash = async () => {
+    const handlePasswordReset = async () => {
       try {
-        console.log("Traitement du hash URL pour réinitialisation");
+        console.log("Traitement de la réinitialisation de mot de passe");
         console.log("URL complète:", window.location.href);
+        console.log("Hash:", window.location.hash);
+        console.log("Search params:", window.location.search);
         
         // Extraire les paramètres de l'URL
         const type = searchParams.get("type");
         const emailParam = searchParams.get("email");
-        
-        // Récupérer le hash de l'URL (après #)
-        const hash = window.location.hash;
         
         if (emailParam) {
           console.log("Email trouvé dans les paramètres:", emailParam);
@@ -45,97 +45,97 @@ const ResetPassword = () => {
         if (type === "invite") {
           console.log("Type d'invitation détecté");
           setIsInvite(true);
+        } else if (type === "recovery") {
+          console.log("Type de récupération détecté");
+          setIsInvite(false);
         }
         
-        // Si nous avons un hash dans l'URL, il pourrait contenir un token valide
+        // Traitement du hash s'il est présent
+        const hash = window.location.hash;
         if (hash && hash.length > 1) {
-          console.log("Hash détecté dans l'URL, tentative de récupération du token");
-          console.log("Hash:", hash);
+          console.log("Hash détecté, tentative d'extraction des tokens");
           
-          // Vérifier si le hash contient directement un access_token
-          if (hash.includes('access_token=')) {
-            const hashParams = new URLSearchParams(hash.substring(1));
-            const accessToken = hashParams.get('access_token');
-            const refreshToken = hashParams.get('refresh_token') || '';
+          // Parser le hash pour extraire les tokens
+          const hashParams = new URLSearchParams(hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          const tokenType = hashParams.get('type');
+          const errorParam = hashParams.get('error');
+          
+          if (errorParam) {
+            console.error("Erreur dans l'URL:", errorParam);
+            setAuthError(`Erreur d'authentification: ${errorParam}`);
+            setIsProcessingAuth(false);
+            return;
+          }
+          
+          if (accessToken && refreshToken) {
+            console.log("Tokens trouvés, configuration de la session");
             
-            if (accessToken) {
-              console.log("Access token trouvé dans le hash, configuration de la session");
-              try {
-                const { data, error } = await supabase.auth.setSession({
-                  access_token: accessToken,
-                  refresh_token: refreshToken
-                });
+            try {
+              const { data, error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+              });
+              
+              if (error) {
+                console.error("Erreur lors de la configuration de la session:", error);
+                setAuthError("Lien expiré ou invalide. Veuillez demander un nouveau lien.");
+              } else {
+                console.log("Session configurée avec succès");
+                setHasValidSession(true);
                 
-                if (error) {
-                  console.error("Erreur lors de la configuration de la session:", error);
-                  setExpiredLink(true);
-                  setExpiredLinkMessage("Le lien est expiré ou invalide. Veuillez demander un nouveau lien.");
-                } else {
-                  console.log("Session configurée avec succès");
-                  
-                  if (data?.user?.email && !emailParam) {
-                    setEmail(data.user.email);
-                  }
-                  
-                  setExpiredLink(false);
+                // Récupérer l'email de la session si pas dans les paramètres
+                if (!emailParam && data.session?.user?.email) {
+                  setEmail(data.session.user.email);
                 }
-              } catch (err) {
-                console.error("Exception lors de la configuration de la session:", err);
-                setExpiredLink(true);
-                setExpiredLinkMessage("Erreur lors du traitement du lien d'authentification.");
+                
+                // Déterminer le type basé sur les métadonnées ou le paramètre type
+                if (tokenType === "signup" || type === "invite") {
+                  setIsInvite(true);
+                } else if (tokenType === "recovery" || type === "recovery") {
+                  setIsInvite(false);
+                }
               }
+            } catch (err) {
+              console.error("Exception lors de la configuration de session:", err);
+              setAuthError("Erreur lors du traitement du lien d'authentification.");
             }
           } else {
-            // Essayer d'extraire et de valider le token du hash via getSession
-            const { data, error } = await supabase.auth.getSession();
-            
-            if (error) {
-              console.error("Erreur lors de la récupération du token:", error);
-              setExpiredLink(true);
-              setExpiredLinkMessage("Le lien de réinitialisation est invalide ou a expiré.");
-            } else if (data?.session) {
-              console.log("Session récupérée avec succès du hash");
-              // La session est maintenant stockée, l'utilisateur peut réinitialiser son mot de passe
-              setExpiredLink(false);
-              
-              // Si l'e-mail n'est pas dans les paramètres mais dans la session
-              if (!emailParam && data.session.user?.email) {
-                setEmail(data.session.user.email);
-              }
-            } else {
-              console.warn("Aucune session trouvée dans l'URL");
-              setExpiredLink(true);
-              setExpiredLinkMessage("Le lien de réinitialisation est invalide ou a expiré.");
-            }
+            console.warn("Tokens manquants dans le hash");
+            setAuthError("Lien d'authentification invalide ou incomplet.");
           }
         } else {
-          // Vérifier si nous avons une session active
-          const { data: { session } } = await supabase.auth.getSession();
+          // Pas de hash, vérifier s'il y a une session active
+          console.log("Pas de hash, vérification de la session existante");
           
-          if (session) {
-            console.log("Session active détectée, l'utilisateur peut réinitialiser son mot de passe");
-            setExpiredLink(false);
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error("Erreur lors de la récupération de session:", error);
+            setAuthError("Erreur lors de la vérification de l'authentification.");
+          } else if (session) {
+            console.log("Session active trouvée");
+            setHasValidSession(true);
             
             if (!emailParam && session.user?.email) {
               setEmail(session.user.email);
             }
           } else {
-            console.warn("Aucune session active et pas de hash dans l'URL");
-            setExpiredLink(true);
-            setExpiredLinkMessage("Le lien de réinitialisation est invalide ou a expiré.");
+            console.warn("Aucune session active et pas de tokens dans l'URL");
+            setAuthError("Lien de réinitialisation invalide ou expiré. Veuillez demander un nouveau lien.");
           }
         }
       } catch (error) {
-        console.error("Erreur lors du traitement de l'URL de réinitialisation:", error);
-        setExpiredLink(true);
-        setExpiredLinkMessage("Une erreur s'est produite lors du traitement du lien.");
+        console.error("Erreur lors du traitement de l'authentification:", error);
+        setAuthError("Une erreur s'est produite lors du traitement du lien.");
       } finally {
-        setIsProcessingHash(false);
+        setIsProcessingAuth(false);
       }
     };
     
-    processHash();
-  }, [searchParams, navigate]);
+    handlePasswordReset();
+  }, [searchParams]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -150,7 +150,8 @@ const ResetPassword = () => {
     setSamePasswordError(false);
 
     try {
-      // Utiliser updateUser sans token, car la session est déjà établie
+      console.log("Tentative de mise à jour du mot de passe");
+      
       const { error } = await supabase.auth.updateUser({ 
         password: newPassword 
       });
@@ -158,7 +159,6 @@ const ResetPassword = () => {
       if (error) {
         console.error("Erreur lors de la mise à jour du mot de passe:", error);
         
-        // Détecter spécifiquement l'erreur "same password"
         if (error.message.includes("New password should be different from the old password") || 
             error.message.includes("same_password")) {
           setSamePasswordError(true);
@@ -166,28 +166,28 @@ const ResetPassword = () => {
             description: "Votre nouveau mot de passe doit être différent de l'ancien"
           });
         } else {
-          toast.error("Une erreur s'est produite lors de la réinitialisation du mot de passe.");
+          toast.error("Erreur lors de la réinitialisation", {
+            description: error.message
+          });
         }
       } else {
         setResetSuccessful(true);
         toast.success(isInvite 
-          ? "Votre compte a été créé. Vous pouvez maintenant vous connecter." 
-          : "Votre mot de passe a été réinitialisé avec succès.");
+          ? "Votre compte a été créé avec succès !" 
+          : "Votre mot de passe a été réinitialisé avec succès !");
 
-        // Rediriger l'utilisateur après un court délai
         setTimeout(() => {
           navigate("/login");
         }, 2000);
       }
     } catch (error) {
-      console.error("Erreur inattendue lors de la mise à jour du mot de passe:", error);
+      console.error("Erreur inattendue:", error);
       toast.error("Une erreur inattendue s'est produite.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Fonction pour demander un nouveau lien de réinitialisation
   const handleRequestNewLink = async () => {
     if (!email) {
       toast.error("Email manquant. Veuillez contacter un administrateur.");
@@ -196,38 +196,36 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      // Utilisation du redirectTo avec le type approprié
-      const redirectUrl = isInvite 
-        ? `${window.location.origin}/reset-password?type=invite&email=${encodeURIComponent(email)}`
-        : `${window.location.origin}/reset-password?email=${encodeURIComponent(email)}`;
-        
-      console.log("Demande d'un nouveau lien avec redirection vers:", redirectUrl);
+      const redirectUrl = `${window.location.origin}/reset-password?type=${isInvite ? 'invite' : 'recovery'}&email=${encodeURIComponent(email)}`;
+      
+      console.log("Demande d'un nouveau lien avec URL:", redirectUrl);
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
       });
 
       if (error) {
-        console.error("Erreur lors de l'envoi du lien:", error);
-        toast.error("Impossible d'envoyer un nouveau lien de réinitialisation.");
+        console.error("Erreur lors de l'envoi du nouveau lien:", error);
+        toast.error("Impossible d'envoyer un nouveau lien.");
       } else {
-        toast.success("Un nouveau lien de réinitialisation a été envoyé à votre adresse email.");
+        toast.success("Un nouveau lien a été envoyé à votre adresse email.");
       }
     } catch (err) {
       console.error("Exception lors de l'envoi du lien:", err);
-      toast.error("Une erreur s'est produite lors de l'envoi du lien.");
+      toast.error("Une erreur s'est produite.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (isProcessingHash) {
+  if (isProcessingAuth) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <Card className="w-full max-w-md p-4">
           <CardContent className="flex flex-col items-center py-8">
             <div className="animate-pulse text-center">
               <p className="text-lg font-medium">Traitement du lien de réinitialisation...</p>
+              <p className="text-sm text-gray-500 mt-2">Veuillez patienter</p>
             </div>
           </CardContent>
         </Card>
@@ -249,12 +247,12 @@ const ResetPassword = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {expiredLink ? (
+          {authError ? (
             <>
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Lien d'invitation expiré</AlertTitle>
-                <AlertDescription>{expiredLinkMessage}</AlertDescription>
+                <AlertTitle>Problème d'authentification</AlertTitle>
+                <AlertDescription>{authError}</AlertDescription>
               </Alert>
               {email && (
                 <div className="mt-4 text-center">
@@ -274,71 +272,87 @@ const ResetPassword = () => {
                 </div>
               )}
             </>
-          ) : (
+          ) : hasValidSession ? (
             <>
-              {samePasswordError && (
+              {resetSuccessful ? (
                 <Alert className="mb-4">
                   <Info className="h-4 w-4" />
-                  <AlertTitle>Mot de passe identique</AlertTitle>
+                  <AlertTitle>Succès !</AlertTitle>
                   <AlertDescription>
-                    Votre nouveau mot de passe doit être différent de votre mot de passe actuel. 
-                    Veuillez choisir un mot de passe que vous n'avez jamais utilisé auparavant.
+                    {isInvite 
+                      ? "Votre compte a été créé. Redirection vers la page de connexion..." 
+                      : "Votre mot de passe a été réinitialisé. Redirection vers la page de connexion..."}
                   </AlertDescription>
                 </Alert>
-              )}
-              
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="newPassword">
-                    {samePasswordError ? "Nouveau mot de passe (différent de l'ancien)" : "Nouveau mot de passe"}
-                  </Label>
-                  <Input
-                    type="password"
-                    id="newPassword"
-                    placeholder="Entrez votre nouveau mot de passe"
-                    value={newPassword}
-                    onChange={(e) => {
-                      setNewPassword(e.target.value);
-                      setSamePasswordError(false); // Reset error when user types
-                    }}
-                    required
-                    className={samePasswordError ? "border-orange-300 focus:border-orange-500" : ""}
-                  />
+              ) : (
+                <>
                   {samePasswordError && (
-                    <p className="text-sm text-orange-600 mt-1">
-                      Assurez-vous que ce mot de passe est différent de votre mot de passe précédent
-                    </p>
+                    <Alert className="mb-4">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Mot de passe identique</AlertTitle>
+                      <AlertDescription>
+                        Votre nouveau mot de passe doit être différent de votre mot de passe actuel.
+                      </AlertDescription>
+                    </Alert>
                   )}
-                </div>
-                <div>
-                  <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                  <Input
-                    type="password"
-                    id="confirmPassword"
-                    placeholder="Confirmez votre nouveau mot de passe"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                {!passwordMatch && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Erreur</AlertTitle>
-                    <AlertDescription>
-                      Les mots de passe ne correspondent pas.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading
-                    ? "Chargement..."
-                    : isInvite
-                    ? "Définir le mot de passe"
-                    : "Réinitialiser le mot de passe"}
-                </Button>
-              </form>
+                  
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                      <Label htmlFor="newPassword">
+                        {samePasswordError ? "Nouveau mot de passe (différent de l'ancien)" : "Nouveau mot de passe"}
+                      </Label>
+                      <Input
+                        type="password"
+                        id="newPassword"
+                        placeholder="Entrez votre nouveau mot de passe"
+                        value={newPassword}
+                        onChange={(e) => {
+                          setNewPassword(e.target.value);
+                          setSamePasswordError(false);
+                        }}
+                        required
+                        className={samePasswordError ? "border-orange-300 focus:border-orange-500" : ""}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                      <Input
+                        type="password"
+                        id="confirmPassword"
+                        placeholder="Confirmez votre nouveau mot de passe"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {!passwordMatch && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Erreur</AlertTitle>
+                        <AlertDescription>
+                          Les mots de passe ne correspondent pas.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading
+                        ? "Chargement..."
+                        : isInvite
+                        ? "Définir le mot de passe"
+                        : "Réinitialiser le mot de passe"}
+                    </Button>
+                  </form>
+                </>
+              )}
             </>
+          ) : (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Session invalide</AlertTitle>
+              <AlertDescription>
+                Impossible de valider votre session. Veuillez demander un nouveau lien de réinitialisation.
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
