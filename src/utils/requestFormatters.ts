@@ -1,7 +1,6 @@
-
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
-import { getMissionName, KNOWN_MISSIONS, forceRefreshFreshworks, isFreshworksId, syncKnownMissions } from "@/services/missionNameService";
+import { getMissionName, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
@@ -15,54 +14,37 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // Traitement spécial pour Freshworks - TOUJOURS PRIORITAIRE - Utilise la fonction unifiée
-  const isFreshworksMission = isFreshworksId(request.mission_id);
-  
-  // Forcer le rafraîchissement du cache Freshworks quelle que soit la requête
+  // Force Freshworks dans le cache
   forceRefreshFreshworks();
   
-  // AMÉLIORATION MAJEURE : Récupération systématique du nom de mission
+  // NOUVELLE LOGIQUE SIMPLIFIÉE pour récupérer le nom de mission
   let missionName = "Sans mission";
   
-  if (isFreshworksMission) {
-    missionName = "Freshworks";
-    console.log("[formatRequestFromDb] Mission Freshworks détectée - traitement prioritaire");
-  } 
-  else if (request.mission_id) {
-    // TOUJOURS utiliser le service centralisé pour la cohérence
-    missionName = await getMissionName(request.mission_id, {
-      fallbackClient: request.mission_client, 
-      fallbackName: request.mission_name,
-      forceRefresh: false // Pas de force refresh systématique pour les performances
-    });
-    
-    console.log(`[formatRequestFromDb] Nom de mission récupéré pour ${request.mission_id}: "${missionName}"`);
-    
-    // CORRECTION : Si on obtient un nom technique, forcer une synchronisation et réessayer
-    if (missionName.startsWith("Mission ") && missionName.length < 20) {
-      console.log(`[formatRequestFromDb] Nom technique détecté "${missionName}", tentative de re-synchronisation`);
+  if (request.mission_id) {
+    if (isFreshworksId(request.mission_id)) {
+      missionName = "Freshworks";
+      console.log("[formatRequestFromDb] Mission Freshworks détectée");
+    } else {
+      // Utiliser le service simplifié pour récupérer le nom
+      missionName = await getMissionName(request.mission_id, {
+        fallbackClient: request.mission_client, 
+        fallbackName: request.mission_name,
+        forceRefresh: false
+      });
       
-      try {
-        // Force une re-synchronisation
-        await syncKnownMissions();
-        
-        // Nouvel essai avec force refresh
-        missionName = await getMissionName(request.mission_id, {
-          fallbackClient: request.mission_client, 
-          fallbackName: request.mission_name,
-          forceRefresh: true
-        });
-        
-        console.log(`[formatRequestFromDb] Après re-sync, nouveau nom: "${missionName}"`);
-      } catch (err) {
-        console.error(`[formatRequestFromDb] Erreur lors de la re-synchronisation:`, err);
+      console.log(`[formatRequestFromDb] Nom de mission récupéré pour ${request.mission_id}: "${missionName}"`);
+      
+      // VALIDATION : Si on obtient encore un nom technique, forcer "Sans mission"
+      if (missionName.startsWith("Mission ") && missionName.length < 20) {
+        console.warn(`[formatRequestFromDb] Nom technique détecté "${missionName}", utilisation de "Sans mission"`);
+        missionName = "Sans mission";
       }
     }
   }
   
   console.log(`[formatRequestFromDb] FINAL mission name pour request ${request.id}: "${missionName}"`);
 
-  // IMPORTANT: Normaliser les détails pour éviter les problèmes de type
+  // Normaliser les détails pour éviter les problèmes de type
   let details: Record<string, any> = {};
   if (typeof request.details === 'string') {
     try {

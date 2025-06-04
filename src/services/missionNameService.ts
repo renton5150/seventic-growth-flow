@@ -4,48 +4,56 @@ import { supabase } from "@/integrations/supabase/client";
 // Cache global pour les noms de mission
 const missionNameCache: Record<string, string> = {};
 
-// IDs Freshworks constants pour vérification directe - DEUX IDS POSSIBLES
+// IDs Freshworks constants - SEULE EXCEPTION AUTORISÉE
 const FRESHWORKS_PRIMARY_ID = "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b";
 const FRESHWORKS_SECONDARY_ID = "57763c8d-fa72-433e-9f9e-5511a6a56062";
 
-// Fonction d'aide pour vérifier si un ID correspond à Freshworks (ACCEPTE LES DEUX IDS)
+// Fonction d'aide pour vérifier si un ID correspond à Freshworks
 export const isFreshworksId = (id: string | undefined): boolean => {
   if (!id) return false;
   const missionId = String(id).trim();
   return missionId === FRESHWORKS_PRIMARY_ID || missionId === FRESHWORKS_SECONDARY_ID;
 };
 
-// Constantes pour les ID de missions connues - avec les deux IDs pour Freshworks
-export const KNOWN_MISSIONS: Record<string, string> = {
-  "2180c854-4d88-4d53-88c3-f2efc9d251af": "HSBC",
-  "21042e2b-d591-4b5f-b73d-c5050d53874d": "Capensis",
-  "c033b7b7-9fd1-4970-8834-b5c2bdde12b7": "DFIN",
-  "250d09ee-44b8-4296-a7df-6d9a56269a30": "Axialys",
-  "41a43fba-74e3-46e2-a6a9-6ebeb2d1e5ea": "Eiffage",
-  "bdb6b562-f9ef-49cd-b035-b48d7df054e8": "Seventic",
-  "124ea847-cf3f-44af-becb-75641ebf0ef1": "Datalit",
-  "f34e4f08-34c6-4419-b79e-83b6f519f8cf": "Sames",
-  [FRESHWORKS_PRIMARY_ID]: "Freshworks",   // ID Principal
-  [FRESHWORKS_SECONDARY_ID]: "Freshworks"  // ID Secondaire
+// Fonction pour vider le cache corrompu
+export const clearMissionNameCache = (missionId?: string): void => {
+  if (missionId) {
+    // Ne jamais effacer Freshworks
+    if (isFreshworksId(missionId)) {
+      console.log(`[clearMissionNameCache] Protection de Freshworks, valeur conservée`);
+      return;
+    }
+    delete missionNameCache[missionId];
+    console.log(`[clearMissionNameCache] Cleared cache for mission ${missionId}`);
+  } else {
+    // Sauvegarder Freshworks avant de tout effacer
+    const freshworksValue1 = missionNameCache[FRESHWORKS_PRIMARY_ID]; 
+    const freshworksValue2 = missionNameCache[FRESHWORKS_SECONDARY_ID];
+    
+    Object.keys(missionNameCache).forEach(key => delete missionNameCache[key]);
+    console.log('[clearMissionNameCache] Cache vidé complètement');
+    
+    // Restaurer Freshworks
+    missionNameCache[FRESHWORKS_PRIMARY_ID] = freshworksValue1 || "Freshworks";
+    missionNameCache[FRESHWORKS_SECONDARY_ID] = freshworksValue2 || "Freshworks";
+    console.log(`[clearMissionNameCache] Freshworks restauré`);
+  }
 };
 
-// Fonction pour synchroniser les missions connues avec la base de données
+// Fonction pour synchroniser UNIQUEMENT avec la base de données réelle
 export const syncKnownMissions = async (): Promise<void> => {
   try {
-    console.log("[syncKnownMissions] Synchronisation des missions connues avec la base de données");
+    console.log("[syncKnownMissions] Démarrage synchronisation simplifiée");
     
-    // Force les deux IDs Freshworks dans le cache dès le début - GARANTIE ABSOLUE
+    // Vider complètement le cache corrompu
+    clearMissionNameCache();
+    
+    // Force Freshworks dans le cache
     missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
     missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
-    console.log(`[syncKnownMissions] Freshworks forcé dans le cache avec les deux IDs`);
+    console.log(`[syncKnownMissions] Freshworks forcé dans le cache`);
     
-    // Ajouter toutes les missions connues au cache
-    Object.entries(KNOWN_MISSIONS).forEach(([id, name]) => {
-      missionNameCache[id] = name;
-      console.log(`[syncKnownMissions] Mission fixe dans le cache: ${id} => "${name}"`);
-    });
-    
-    // Récupérer depuis la base de données TOUTES les missions
+    // Récupérer TOUTES les missions depuis la base de données
     const { data, error } = await supabase
       .from('missions')
       .select('id, name, client')
@@ -63,33 +71,31 @@ export const syncKnownMissions = async (): Promise<void> => {
     
     console.log(`[syncKnownMissions] ${data.length} missions récupérées depuis la base`);
     
-    // Mettre à jour le cache avec les données de la base - PRIORITÉ AU CLIENT
+    // Mettre à jour le cache avec PRIORITÉ ABSOLUE au champ CLIENT
     data.forEach(mission => {
       if (!mission.id) return;
       
       const missionId = String(mission.id).trim();
       
-      // Pour Freshworks et autres missions connues, TOUJOURS utiliser le nom fixe
-      if (KNOWN_MISSIONS[missionId] || isFreshworksId(missionId)) {
-        missionNameCache[missionId] = isFreshworksId(missionId) ? "Freshworks" : KNOWN_MISSIONS[missionId];
-        console.log(`[syncKnownMissions] Mission connue ${missionId}: "${missionNameCache[missionId]}" (prioritaire)`);
+      // Freshworks TOUJOURS prioritaire
+      if (isFreshworksId(missionId)) {
+        missionNameCache[missionId] = "Freshworks";
+        console.log(`[syncKnownMissions] Freshworks confirmé: ${missionId}`);
         return;
       }
       
-      // CORRECTION PRINCIPALE : Prioriser 'client' sur 'name'
+      // NOUVELLE LOGIQUE SIMPLIFIÉE : CLIENT en priorité absolue
       let displayName = "Sans mission";
       if (mission.client && mission.client.trim() !== "" && 
           mission.client !== "null" && mission.client !== "undefined") {
         displayName = mission.client.trim();
-        console.log(`[syncKnownMissions] Utilisation du client: ${missionId} => "${displayName}"`);
+        console.log(`[syncKnownMissions] Mission ${missionId}: "${displayName}" (client)`);
       } else if (mission.name && mission.name.trim() !== "" && 
                  mission.name !== "null" && mission.name !== "undefined") {
         displayName = mission.name.trim();
-        console.log(`[syncKnownMissions] Utilisation du nom: ${missionId} => "${displayName}"`);
+        console.log(`[syncKnownMissions] Mission ${missionId}: "${displayName}" (name)`);
       } else {
-        // En dernier recours seulement
-        displayName = `Mission ${missionId.substring(0, 8)}`;
-        console.log(`[syncKnownMissions] Nom par défaut: ${missionId} => "${displayName}"`);
+        console.warn(`[syncKnownMissions] Mission ${missionId}: aucune valeur valide trouvée`);
       }
       
       missionNameCache[missionId] = displayName;
@@ -99,15 +105,14 @@ export const syncKnownMissions = async (): Promise<void> => {
     console.log("[syncKnownMissions] Synchronisation terminée avec succès");
   } catch (err) {
     console.error("[syncKnownMissions] Erreur lors de la synchronisation:", err);
-    // Même en cas d'erreur, assurer Freshworks pour les deux IDs
+    // Même en cas d'erreur, assurer Freshworks
     missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
     missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
   }
 };
 
 /**
- * Fonction principale pour obtenir un nom de mission standardisé
- * CORRECTION MAJEURE : Améliore la priorisation et la récupération des noms
+ * Fonction principale SIMPLIFIÉE pour obtenir un nom de mission
  */
 export const getMissionName = async (missionId: string | undefined, options?: {
   fallbackClient?: string;
@@ -118,32 +123,26 @@ export const getMissionName = async (missionId: string | undefined, options?: {
   
   const missionIdStr = String(missionId).trim();
   
-  // VÉRIFICATION PRIORITAIRE POUR FRESHWORKS (les deux IDs) - retour immédiat
+  // FRESHWORKS - retour immédiat
   if (isFreshworksId(missionIdStr)) {
-    console.log(`[getMissionName] ID FRESHWORKS DÉTECTÉ: ${missionIdStr}, retourne "Freshworks"`);
+    console.log(`[getMissionName] FRESHWORKS détecté: ${missionIdStr}`);
     missionNameCache[missionIdStr] = "Freshworks";
     return "Freshworks";
   }
   
-  // Si pas de force refresh et qu'on a un cache valide, utiliser le cache
-  if (!options?.forceRefresh && missionNameCache[missionIdStr] && 
-      missionNameCache[missionIdStr] !== "Sans mission" && 
-      !missionNameCache[missionIdStr].startsWith("Mission ")) {
-    console.log(`[getMissionName] Cache hit valide pour ${missionIdStr}: "${missionNameCache[missionIdStr]}"`);
-    return missionNameCache[missionIdStr];
-  }
-  
-  // D'abord vérifier les missions connues - PRIORITAIRES sur la base de données
-  if (KNOWN_MISSIONS[missionIdStr]) {
-    console.log(`[getMissionName] Utilisation mission connue pour ${missionIdStr}: "${KNOWN_MISSIONS[missionIdStr]}"`);
-    missionNameCache[missionIdStr] = KNOWN_MISSIONS[missionIdStr];
-    return KNOWN_MISSIONS[missionIdStr];
+  // Si pas de force refresh et qu'on a un cache valide (PAS TECHNIQUE), utiliser le cache
+  const cachedValue = missionNameCache[missionIdStr];
+  if (!options?.forceRefresh && cachedValue && 
+      cachedValue !== "Sans mission" && 
+      !cachedValue.startsWith("Mission ")) {
+    console.log(`[getMissionName] Cache hit valide pour ${missionIdStr}: "${cachedValue}"`);
+    return cachedValue;
   }
   
   try {
-    console.log(`[getMissionName] Récupération depuis la base pour ${missionIdStr}`);
+    console.log(`[getMissionName] Récupération DB pour ${missionIdStr}`);
     
-    // Chercher dans la base de données
+    // Interroger la base de données
     const { data, error } = await supabase
       .from('missions')
       .select('id, name, client')
@@ -151,51 +150,46 @@ export const getMissionName = async (missionId: string | undefined, options?: {
       .maybeSingle();
       
     if (error) {
-      console.error(`[getMissionName] Erreur de récupération pour ${missionIdStr}:`, error);
+      console.error(`[getMissionName] Erreur DB pour ${missionIdStr}:`, error);
     }
     
-    // AMÉLIORATION : Priorisation stricte client > name > fallbacks > ID court
+    // LOGIQUE SIMPLIFIÉE : CLIENT > NAME > FALLBACKS > "Sans mission"
     let missionName = "Sans mission";
     
     if (data) {
       if (data.client && data.client.trim() !== "" && 
           data.client !== "null" && data.client !== "undefined") {
         missionName = data.client.trim();
-        console.log(`[getMissionName] Utilisation client DB pour ${missionIdStr}: "${missionName}"`);
+        console.log(`[getMissionName] CLIENT DB pour ${missionIdStr}: "${missionName}"`);
       }
       else if (data.name && data.name.trim() !== "" && 
                data.name !== "null" && data.name !== "undefined") {
         missionName = data.name.trim();
-        console.log(`[getMissionName] Utilisation name DB pour ${missionIdStr}: "${missionName}"`);
+        console.log(`[getMissionName] NAME DB pour ${missionIdStr}: "${missionName}"`);
       }
     }
     
-    // Fallbacks seulement si pas de données DB valides
+    // Fallbacks SEULEMENT si pas de données DB valides
     if (missionName === "Sans mission") {
       if (options?.fallbackClient && options.fallbackClient.trim() !== "" &&
            options.fallbackClient !== "null" && options.fallbackClient !== "undefined") {
         missionName = options.fallbackClient.trim();
-        console.log(`[getMissionName] Utilisation fallback client pour ${missionIdStr}: "${missionName}"`);
+        console.log(`[getMissionName] Fallback client pour ${missionIdStr}: "${missionName}"`);
       }
       else if (options?.fallbackName && options.fallbackName.trim() !== "" &&
                options.fallbackName !== "null" && options.fallbackName !== "undefined") {
         missionName = options.fallbackName.trim();
-        console.log(`[getMissionName] Utilisation fallback name pour ${missionIdStr}: "${missionName}"`);
-      }
-      else {
-        // En dernier recours SEULEMENT
-        missionName = `Mission ${missionIdStr.substring(0, 8)}`;
-        console.log(`[getMissionName] Nom par défaut pour ${missionIdStr}: "${missionName}"`);
+        console.log(`[getMissionName] Fallback name pour ${missionIdStr}: "${missionName}"`);
       }
     }
     
-    // Mettre en cache le résultat
+    // PLUS DE NOMS TECHNIQUES - on garde "Sans mission" si rien trouvé
     missionNameCache[missionIdStr] = missionName;
     return missionName;
   } catch (err) {
     console.error(`[getMissionName] Exception pour ${missionIdStr}:`, err);
     
-    // Utiliser les fallbacks en cas d'erreur
+    // En cas d'erreur, utiliser les fallbacks ou retourner "Sans mission"
     if (isFreshworksId(missionIdStr)) {
       return "Freshworks";
     }
@@ -207,34 +201,36 @@ export const getMissionName = async (missionId: string | undefined, options?: {
       return options.fallbackName.trim();
     }
     
-    const shortId = `Mission ${missionIdStr.substring(0, 8)}`;
-    missionNameCache[missionIdStr] = shortId;
-    return shortId;
+    // PLUS JAMAIS de nom technique
+    return "Sans mission";
   }
 };
 
 /**
- * Précharge un ensemble d'ID de mission pour des performances optimales
+ * Précharge un ensemble d'ID de mission
  */
 export const preloadMissionNames = async (missionIds: string[]): Promise<void> => {
   if (!missionIds.length) return;
   
   console.log(`[preloadMissionNames] Préchargement de ${missionIds.length} missions`);
   
-  // Traitement spécial pour Freshworks - toujours forcer le nom pour les deux IDs
+  // Traitement spécial pour Freshworks
   const hasFreshworks = missionIds.some(id => isFreshworksId(id));
   if (hasFreshworks) {
     missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
     missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
-    console.log(`[preloadMissionNames] Freshworks détecté et forcé dans le cache: "Freshworks"`);
+    console.log(`[preloadMissionNames] Freshworks détecté et forcé`);
   }
   
-  // Filtrer les IDs déjà en cache et les IDs Freshworks
-  const freshworksFiltered = missionIds.filter(id => !isFreshworksId(id)); 
-  const idsToFetch = freshworksFiltered.filter(id => !missionNameCache[id]);
+  // Filtrer les IDs déjà en cache VALIDE (pas technique)
+  const idsToFetch = missionIds.filter(id => {
+    if (isFreshworksId(id)) return false;
+    const cached = missionNameCache[id];
+    return !cached || cached === "Sans mission" || cached.startsWith("Mission ");
+  });
   
   if (!idsToFetch.length) {
-    console.log('[preloadMissionNames] Toutes les missions sont déjà en cache');
+    console.log('[preloadMissionNames] Toutes les missions sont déjà en cache valide');
     return;
   }
   
@@ -247,30 +243,23 @@ export const preloadMissionNames = async (missionIds: string[]): Promise<void> =
       .in('id', idsToFetch);
       
     if (error) {
-      console.error('[preloadMissionNames] Failed to preload mission names:', error);
+      console.error('[preloadMissionNames] Erreur:', error);
       return;
     }
     
-    // Mettre en cache chaque mission récupérée
+    // Mettre en cache chaque mission avec la logique simplifiée
     if (data && data.length) {
       data.forEach(mission => {
         if (!mission.id) return;
         
-        // Cas spécial pour Freshworks - verification absolue pour les deux IDs
+        // Freshworks check
         if (isFreshworksId(mission.id)) {
           missionNameCache[mission.id] = "Freshworks";
-          console.log(`[preloadMissionNames] Force Freshworks: ${mission.id}: "Freshworks"`);
+          console.log(`[preloadMissionNames] Freshworks: ${mission.id}`);
           return;
         }
         
-        // Missions connues - priorité sur la base de données
-        if (KNOWN_MISSIONS[mission.id]) {
-          missionNameCache[mission.id] = KNOWN_MISSIONS[mission.id];
-          console.log(`[preloadMissionNames] Mission connue: ${mission.id}: "${KNOWN_MISSIONS[mission.id]}"`);
-          return;
-        }
-        
-        // Appliquer la même logique de priorité
+        // LOGIQUE SIMPLIFIÉE : CLIENT prioritaire
         if (mission.client && mission.client.trim() !== "" && 
             mission.client !== "null" && mission.client !== "undefined") {
           missionNameCache[mission.id] = mission.client;
@@ -282,90 +271,25 @@ export const preloadMissionNames = async (missionIds: string[]): Promise<void> =
           console.log(`[preloadMissionNames] Cached (name) ${mission.id}: "${mission.name}"`);
         }
         else {
-          const shortId = `Mission ${mission.id.substring(0, 8)}`;
-          missionNameCache[mission.id] = shortId;
-          console.log(`[preloadMissionNames] Cached (short id) ${mission.id}: "${shortId}"`);
+          missionNameCache[mission.id] = "Sans mission";
+          console.log(`[preloadMissionNames] Cached (sans mission) ${mission.id}`);
         }
       });
       
       console.log(`[preloadMissionNames] Successfully preloaded ${data.length} mission names`);
-    } else {
-      console.log('[preloadMissionNames] No mission data returned from database');
     }
   } catch (err) {
-    console.error('[preloadMissionNames] Error preloading mission names:', err);
+    console.error('[preloadMissionNames] Error:', err);
   }
 };
 
 /**
- * Exécute une vérification périodique du cache des noms de mission
+ * Force Freshworks dans le cache
  */
-export const refreshMissionNameCache = async (forceAll: boolean = false): Promise<void> => {
-  try {
-    console.log(`[refreshMissionNameCache] Rafraîchissement du cache ${forceAll ? 'complet' : 'sélectif'} démarré`);
-    
-    // Si on force tout, on vide le cache SAUF Freshworks (les deux IDs)
-    if (forceAll) {
-      const freshworksValue1 = missionNameCache[FRESHWORKS_PRIMARY_ID]; 
-      const freshworksValue2 = missionNameCache[FRESHWORKS_SECONDARY_ID];
-      clearMissionNameCache();
-      
-      // Restaurer les deux valeurs Freshworks
-      missionNameCache[FRESHWORKS_PRIMARY_ID] = freshworksValue1 || "Freshworks";
-      missionNameCache[FRESHWORKS_SECONDARY_ID] = freshworksValue2 || "Freshworks";
-    }
-    
-    // Force Freshworks dans le cache pour les deux IDs
-    missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
-    missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
-    
-    // Récupérer tous les IDs actuellement dans le cache
-    const cachedIds = Object.keys(missionNameCache);
-    
-    if (cachedIds.length <= 2) { // Si il y a 2 ou moins (juste les IDs Freshworks)
-      // Si le cache est pratiquement vide, on synchronise les missions connues
-      await syncKnownMissions();
-      return;
-    }
-    
-    // Sinon, on rafraîchit les missions en cache
-    await preloadMissionNames(cachedIds);
-    
-    console.log(`[refreshMissionNameCache] Rafraîchissement terminé pour ${cachedIds.length} missions`);
-  } catch (err) {
-    console.error('[refreshMissionNameCache] Erreur lors du rafraîchissement du cache:', err);
-    // Garantir Freshworks même en cas d'erreur pour les deux IDs
-    missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
-    missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
-  }
-};
-
-/**
- * Vide le cache pour une mission spécifique ou tout le cache
- * JAMAIS pour Freshworks (les deux IDs)
- */
-export const clearMissionNameCache = (missionId?: string): void => {
-  if (missionId) {
-    // Ne jamais effacer Freshworks (aucun des deux IDs)
-    if (isFreshworksId(missionId)) {
-      console.log(`[clearMissionNameCache] Protection de Freshworks, valeur conservée`);
-      return;
-    }
-    delete missionNameCache[missionId];
-    console.log(`[clearMissionNameCache] Cleared cache for mission ${missionId}`);
-  } else {
-    // Sauvegarder Freshworks (les deux IDs) avant de tout effacer
-    const freshworksValue1 = missionNameCache[FRESHWORKS_PRIMARY_ID]; 
-    const freshworksValue2 = missionNameCache[FRESHWORKS_SECONDARY_ID];
-    
-    Object.keys(missionNameCache).forEach(key => delete missionNameCache[key]);
-    console.log('[clearMissionNameCache] Cleared all mission name cache');
-    
-    // Restaurer les deux valeurs Freshworks
-    missionNameCache[FRESHWORKS_PRIMARY_ID] = freshworksValue1 || "Freshworks";
-    missionNameCache[FRESHWORKS_SECONDARY_ID] = freshworksValue2 || "Freshworks";
-    console.log(`[clearMissionNameCache] Restauration de Freshworks: "${missionNameCache[FRESHWORKS_PRIMARY_ID]}"`);
-  }
+export const forceRefreshFreshworks = (): void => {
+  missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
+  missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
+  console.log(`[forceRefreshFreshworks] Freshworks forcé`);
 };
 
 /**
@@ -376,11 +300,30 @@ export const getMissionNameCache = (): Record<string, string> => {
 };
 
 /**
- * Fonction pour forcer la valeur de la mission Freshworks dans le cache
- * Appelée partout où les missions sont manipulées
+ * Rafraîchissement périodique du cache
  */
-export const forceRefreshFreshworks = (): void => {
-  missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
-  missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
-  console.log(`[forceRefreshFreshworks] Mission Freshworks forcée dans le cache pour les deux IDs`);
+export const refreshMissionNameCache = async (forceAll: boolean = false): Promise<void> => {
+  try {
+    console.log(`[refreshMissionNameCache] Rafraîchissement ${forceAll ? 'complet' : 'sélectif'} démarré`);
+    
+    if (forceAll) {
+      // Vider le cache et re-synchroniser
+      await syncKnownMissions();
+      return;
+    }
+    
+    // Rafraîchissement sélectif des missions en cache
+    const cachedIds = Object.keys(missionNameCache).filter(id => !isFreshworksId(id));
+    
+    if (cachedIds.length > 0) {
+      await preloadMissionNames(cachedIds);
+    }
+    
+    console.log(`[refreshMissionNameCache] Rafraîchissement terminé`);
+  } catch (err) {
+    console.error('[refreshMissionNameCache] Erreur:', err);
+    // Garantir Freshworks même en cas d'erreur
+    missionNameCache[FRESHWORKS_PRIMARY_ID] = "Freshworks";
+    missionNameCache[FRESHWORKS_SECONDARY_ID] = "Freshworks";
+  }
 };
