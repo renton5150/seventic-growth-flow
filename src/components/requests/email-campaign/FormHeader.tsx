@@ -62,13 +62,13 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
         <h3 className="text-lg font-semibold mb-4">Informations générales</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Titre de la campagne */}
+          {/* Titre de la demande */}
           <FormField
             control={control}
             name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Titre de la campagne*</FormLabel>
+                <FormLabel>Titre de la demande*</FormLabel>
                 <FormControl>
                   <Input placeholder="Ex: Campagne de lancement produit" {...field} />
                 </FormControl>
