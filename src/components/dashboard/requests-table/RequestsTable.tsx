@@ -36,6 +36,10 @@ export const RequestsTable = ({
     emailPlatform: []
   });
 
+  // DIAGNOSTIC - Log des requests reçues
+  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Requests prop:", requests);
+  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Mission names dans requests:", requests.map(r => ({ id: r.id, missionName: r.missionName })));
+
   // Extraire les valeurs uniques des propriétés pour les filtres
   useEffect(() => {
     if (!requests || requests.length === 0) return;
@@ -45,6 +49,8 @@ export const RequestsTable = ({
     
     // Use proper "Sans mission" for null or empty mission names
     const missions = [...new Set(requests.map(r => r.missionName || "Sans mission"))];
+    
+    console.log("[RequestsTable] 🔍 DIAGNOSTIC - Missions extraites pour filtres:", missions);
     
     // Use "Non assigné" for null or empty SDR names
     const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
@@ -97,6 +103,8 @@ export const RequestsTable = ({
   }, [requests]);
 
   const filteredAndSortedRequests = sortRequests(requests, sortColumn, sortDirection, filters, dateFilters);
+
+  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Requests après tri/filtre:", filteredAndSortedRequests.map(r => ({ id: r.id, missionName: r.missionName })));
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {

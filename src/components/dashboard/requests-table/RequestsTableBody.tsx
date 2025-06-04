@@ -18,6 +18,8 @@ export const RequestsTableBody = ({
   isSDR?: boolean;
   onRequestDeleted?: () => void;
 }) => {
+  console.log("[RequestsTableBody] 🔍 DIAGNOSTIC - sortedRequests:", sortedRequests.map(r => ({ id: r.id, missionName: r.missionName })));
+  
   return (
     <TableBody>
       {sortedRequests.length === 0 ? (
@@ -27,16 +29,19 @@ export const RequestsTableBody = ({
           </TableCell>
         </TableRow>
       ) : (
-        sortedRequests.map((request) => (
-          <RequestRow 
-            key={request.id} 
-            request={request} 
-            missionView={missionView} 
-            showSdr={showSdr} 
-            isSDR={isSDR}
-            onDeleted={onRequestDeleted}
-          />
-        ))
+        sortedRequests.map((request) => {
+          console.log(`[RequestsTableBody] 🔍 DIAGNOSTIC - Rendu de request ${request.id} avec missionName: "${request.missionName}"`);
+          return (
+            <RequestRow 
+              key={request.id} 
+              request={request} 
+              missionView={missionView} 
+              showSdr={showSdr} 
+              isSDR={isSDR}
+              onDeleted={onRequestDeleted}
+            />
+          );
+        })
       )}
     </TableBody>
   );

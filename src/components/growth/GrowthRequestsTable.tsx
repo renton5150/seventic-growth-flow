@@ -19,7 +19,8 @@ export function GrowthRequestsTable({
   onRequestDeleted,
   ...otherProps
 }: GrowthRequestsTableProps) {
-  console.log("[GrowthRequestsTable] Utilisation du RequestsTable SDR qui fonctionne pour les missions");
+  console.log("[GrowthRequestsTable] 🔍 DIAGNOSTIC - Requests reçues:", requests);
+  console.log("[GrowthRequestsTable] 🔍 DIAGNOSTIC - Premier request missions:", requests[0]?.missionName);
   
   return (
     <RequestsTable 
