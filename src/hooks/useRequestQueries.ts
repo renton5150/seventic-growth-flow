@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { syncKnownMissions, preloadMissionNames } from "@/services/missionNameService";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -24,9 +23,6 @@ export function useRequestQueries(userId: string | undefined) {
     assignedToIsNotNull?: boolean;
   }) => {
     console.log("🚀 [fetchRequestsWithMissionData] DÉBUT avec filtres:", filters);
-    
-    // SYNCHRONISER LES MISSIONS D'ABORD
-    await syncKnownMissions();
     
     let query = supabase
       .from('requests')
@@ -82,18 +78,9 @@ export function useRequestQueries(userId: string | undefined) {
     }
     
     console.log(`📋 [fetchRequestsWithMissionData] ${data.length} requêtes récupérées`);
+    console.log("🔍 [fetchRequestsWithMissionData] PREMIÈRE REQUÊTE BRUTE:", data[0]);
     
-    // Précharger les noms de mission pour toutes les requêtes
-    const missionIds = data
-      .map(r => r.mission_id)
-      .filter(Boolean)
-      .filter(id => typeof id === 'string');
-    
-    if (missionIds.length > 0) {
-      await preloadMissionNames(missionIds);
-    }
-    
-    // Formatter les données
+    // Formatter les données directement avec les JOINs
     const formattedRequests = await Promise.all(data.map(async (request: any) => {
       return await formatRequestFromDb(request);
     }));

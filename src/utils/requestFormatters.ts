@@ -1,6 +1,5 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
-import { getMissionName } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
@@ -15,36 +14,24 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // RÉCUPÉRATION DU NOM DE MISSION via le service centralisé
-  console.log(`[formatRequestFromDb] 🔍 MISSION ID pour request ${request.id}: ${request.mission_id}`);
+  // RÉCUPÉRATION DU NOM DE MISSION DIRECTEMENT DEPUIS LES JOINs
+  console.log(`[formatRequestFromDb] 🔍 MISSION DATA pour request ${request.id}:`, request.missions);
   
   let missionName = "Sans mission";
   
-  if (request.mission_id) {
-    try {
-      // Utiliser le service centralisé pour obtenir le nom de mission
-      missionName = await getMissionName(request.mission_id, {
-        fallbackClient: request.missions?.client,
-        fallbackName: request.missions?.name,
-        forceRefresh: false
-      });
-      console.log(`[formatRequestFromDb] ✅ Mission name récupéré via service: "${missionName}" pour request ${request.id}`);
-    } catch (err) {
-      console.error(`[formatRequestFromDb] ❌ Erreur lors de la récupération du nom de mission pour ${request.id}:`, err);
-      
-      // Fallback vers les données JOIN si disponibles
-      if (request.missions) {
-        if (request.missions.client && request.missions.client.trim() !== "") {
-          missionName = request.missions.client.trim();
-          console.log(`[formatRequestFromDb] 🔄 Fallback vers missions.client: "${missionName}"`);
-        } else if (request.missions.name && request.missions.name.trim() !== "") {
-          missionName = request.missions.name.trim();
-          console.log(`[formatRequestFromDb] 🔄 Fallback vers missions.name: "${missionName}"`);
-        }
-      }
+  if (request.missions) {
+    // Utiliser directement les données JOIN - priorité au champ client
+    if (request.missions.client && String(request.missions.client).trim() !== "") {
+      missionName = String(request.missions.client).trim();
+      console.log(`[formatRequestFromDb] ✅ Mission client depuis JOIN: "${missionName}" pour request ${request.id}`);
+    } else if (request.missions.name && String(request.missions.name).trim() !== "") {
+      missionName = String(request.missions.name).trim();
+      console.log(`[formatRequestFromDb] ✅ Mission name depuis JOIN: "${missionName}" pour request ${request.id}`);
+    } else {
+      console.log(`[formatRequestFromDb] ⚠️ Données JOIN vides pour request ${request.id}`);
     }
-  } else {
-    console.log(`[formatRequestFromDb] ℹ️ Pas de mission_id pour request ${request.id}`);
+  } else if (request.mission_id) {
+    console.log(`[formatRequestFromDb] ⚠️ Mission ID présent mais pas de données JOIN pour request ${request.id}`);
   }
   
   console.log(`[formatRequestFromDb] ✅ MISSION NAME FINAL pour request ${request.id}: "${missionName}"`);
@@ -160,10 +147,12 @@ export const example = () => {
     last_updated: new Date(),
     due_date: new Date(),
     mission_id: "456",
-    mission_name: "Test Mission",
-    mission_client: "Test Client", 
-    sdr_name: "John Doe",
-    assigned_to_name: "Jane Smith",
+    missions: {
+      client: "Test Client",
+      name: "Test Mission"
+    },
+    sdr_profile: { name: "John Doe" },
+    assigned_profile: { name: "Jane Smith" },
     details: { platform: "Mailchimp" },
     workflow_status: "in_progress",
     assigned_to: "user123",
