@@ -51,18 +51,22 @@ export function GrowthTableHeader({
       <TableRow>
         <TableHead className="w-[60px]">
           <CheckboxColumnFilter
-            title="Type"
-            values={uniqueTypes}
+            columnName="Type"
+            options={uniqueTypes}
             selectedValues={typeFilter}
-            onSelectionChange={setTypeFilter}
+            onFilterChange={setTypeFilter}
+            hasFilter={typeFilter.length > 0}
+            onClearFilter={() => setTypeFilter([])}
           />
         </TableHead>
         <TableHead>
           <CheckboxColumnFilter
-            title="Mission"
-            values={uniqueMissions}
+            columnName="Mission"
+            options={uniqueMissions}
             selectedValues={missionFilter}
-            onSelectionChange={setMissionFilter}
+            onFilterChange={setMissionFilter}
+            hasFilter={missionFilter.length > 0}
+            onClearFilter={() => setMissionFilter([])}
           />
         </TableHead>
         <TableHead className="w-[150px]">Type de demande</TableHead>
@@ -70,41 +74,51 @@ export function GrowthTableHeader({
         <TableHead>Titre de la demande</TableHead>
         <TableHead>
           <CheckboxColumnFilter
-            title="SDR"
-            values={uniqueSdrs}
+            columnName="SDR"
+            options={uniqueSdrs}
             selectedValues={sdrFilter}
-            onSelectionChange={setSdrFilter}
+            onFilterChange={setSdrFilter}
+            hasFilter={sdrFilter.length > 0}
+            onClearFilter={() => setSdrFilter([])}
           />
         </TableHead>
         <TableHead>
           <CheckboxColumnFilter
-            title="Assigné à"
-            values={uniqueAssignees}
+            columnName="Assigné à"
+            options={uniqueAssignees}
             selectedValues={assigneeFilter}
-            onSelectionChange={setAssigneeFilter}
+            onFilterChange={setAssigneeFilter}
+            hasFilter={assigneeFilter.length > 0}
+            onClearFilter={() => setAssigneeFilter([])}
           />
         </TableHead>
         <TableHead>Plateforme d'emailing</TableHead>
         <TableHead>
           <DateColumnFilter
-            title="Créée le"
-            filterValue={createdDateFilter}
+            columnName="Créée le"
+            hasFilter={!!createdDateFilter?.type}
             onFilterChange={handleCreatedDateFilterChange}
+            onClearFilter={() => handleCreatedDateFilterChange("", {})}
+            currentFilter={createdDateFilter}
           />
         </TableHead>
         <TableHead>
           <DateColumnFilter
-            title="Date prévue"
-            filterValue={dueDateFilter}
+            columnName="Date prévue"
+            hasFilter={!!dueDateFilter?.type}
             onFilterChange={handleDueDateFilterChange}
+            onClearFilter={() => handleDueDateFilterChange("", {})}
+            currentFilter={dueDateFilter}
           />
         </TableHead>
         <TableHead>
           <CheckboxColumnFilter
-            title="Statut"
-            values={uniqueStatuses}
+            columnName="Statut"
+            options={uniqueStatuses}
             selectedValues={statusFilter}
-            onSelectionChange={setStatusFilter}
+            onFilterChange={setStatusFilter}
+            hasFilter={statusFilter.length > 0}
+            onClearFilter={() => setStatusFilter([])}
           />
         </TableHead>
         <TableHead className="text-right">Actions</TableHead>
