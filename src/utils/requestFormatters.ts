@@ -13,18 +13,26 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // UTILISATION DIRECTE DES VRAIES DONNÉES DE LA VUE requests_with_missions
+  // DÉTERMINATION DU NOM DE MISSION RÉEL
   let missionName = "Sans mission";
   
-  // Utiliser mission_client en priorité absolue, sinon mission_name
+  console.log(`[formatRequestFromDb] 🔍 DONNÉES MISSION pour request ${request.id}:`, {
+    mission_id: request.mission_id,
+    mission_client: request.mission_client,
+    mission_name: request.mission_name,
+    mission_client_type: typeof request.mission_client,
+    mission_name_type: typeof request.mission_name
+  });
+  
+  // PRIORISER mission_client, sinon mission_name
   if (request.mission_client && String(request.mission_client).trim() !== "" && String(request.mission_client).trim() !== "null") {
     missionName = String(request.mission_client).trim();
-    console.log(`[formatRequestFromDb] ✅ Mission CLIENT trouvée: "${missionName}" pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
   } else if (request.mission_name && String(request.mission_name).trim() !== "" && String(request.mission_name).trim() !== "null") {
     missionName = String(request.mission_name).trim();
-    console.log(`[formatRequestFromDb] ✅ Mission NAME trouvée: "${missionName}" pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
   } else {
-    console.log(`[formatRequestFromDb] ⚠️ Aucune mission valide trouvée pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ⚠️ AUCUNE MISSION VALIDE trouvée pour request ${request.id}, garde "Sans mission"`);
   }
   
   console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
@@ -51,7 +59,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     status: request.status as RequestStatus,
     createdBy: request.created_by,
     missionId: request.mission_id,
-    missionName: missionName,  // UTILISATION DU VRAI NOM RÉCUPÉRÉ
+    missionName: missionName,  // UTILISATION DU VRAI NOM DÉTERMINÉ
     sdrName: request.sdr_name,
     assignedToName: request.assigned_to_name,
     dueDate: request.due_date,
