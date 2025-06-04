@@ -1,7 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Request } from "@/types/types";
+import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function useRequestQueries(userId: string | undefined) {
@@ -12,7 +12,7 @@ export function useRequestQueries(userId: string | undefined) {
 
   console.log(`[useRequestQueries] USER ROLE: ${user?.role}, userId: ${userId}`);
 
-  // Fonction simple pour récupérer les requests
+  // Fonction simple pour récupérer les requests avec JOIN direct
   const fetchRequests = async (filters?: {
     assignedToIsNull?: boolean;
     workflowStatus?: string;
@@ -77,7 +77,7 @@ export function useRequestQueries(userId: string | undefined) {
         id: row.id,
         title: row.title,
         type: row.type,
-        status: row.status,
+        status: row.status as RequestStatus,
         createdBy: row.created_by,
         missionId: row.mission_id,
         missionName: missionName,
@@ -85,7 +85,7 @@ export function useRequestQueries(userId: string | undefined) {
         assignedToName: row.assigned_to_profile?.name || "Non assigné",
         dueDate: row.due_date,
         details: row.details || {},
-        workflow_status: row.workflow_status,
+        workflow_status: row.workflow_status as WorkflowStatus,
         assigned_to: row.assigned_to,
         isLate: new Date(row.due_date) < new Date() && row.workflow_status !== 'completed' && row.workflow_status !== 'canceled',
         createdAt: new Date(row.created_at),
@@ -203,7 +203,7 @@ export function useRequestQueries(userId: string | undefined) {
         id: data.id,
         title: data.title,
         type: data.type,
-        status: data.status,
+        status: data.status as RequestStatus,
         createdBy: data.created_by,
         missionId: data.mission_id,
         missionName: missionName,
@@ -211,7 +211,7 @@ export function useRequestQueries(userId: string | undefined) {
         assignedToName: data.assigned_to_profile?.name || "Non assigné",
         dueDate: data.due_date,
         details: data.details || {},
-        workflow_status: data.workflow_status,
+        workflow_status: data.workflow_status as WorkflowStatus,
         assigned_to: data.assigned_to,
         isLate: new Date(data.due_date) < new Date() && data.workflow_status !== 'completed' && data.workflow_status !== 'canceled',
         createdAt: new Date(data.created_at),
