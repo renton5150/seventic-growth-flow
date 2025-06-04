@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -24,24 +23,10 @@ export function useRequestQueries(userId: string | undefined) {
   }) => {
     console.log("🚀 [fetchRequestsWithMissionData] DÉBUT avec filtres:", filters);
     
+    // Utiliser la vue requests_with_missions qui contient déjà toutes les données
     let query = supabase
-      .from('requests')
-      .select(`
-        *,
-        missions (
-          id,
-          name,
-          client
-        ),
-        sdr_profile:profiles!requests_created_by_fkey (
-          id,
-          name
-        ),
-        assigned_profile:profiles!requests_assigned_to_fkey (
-          id,
-          name
-        )
-      `);
+      .from('requests_with_missions')
+      .select('*');
       
     // Appliquer les filtres de manière sécurisée
     if (filters?.assignedToIsNull) {
@@ -80,10 +65,30 @@ export function useRequestQueries(userId: string | undefined) {
     console.log(`📋 [fetchRequestsWithMissionData] ${data.length} requêtes récupérées`);
     console.log("🔍 [fetchRequestsWithMissionData] PREMIÈRE REQUÊTE BRUTE:", data[0]);
     
-    // Formatter les données directement avec les JOINs
-    const formattedRequests = await Promise.all(data.map(async (request: any) => {
-      return await formatRequestFromDb(request);
-    }));
+    // Transformer les données de la vue en format attendu
+    const formattedRequests = data.map((row: any) => {
+      const request = {
+        id: row.id,
+        title: row.title,
+        type: row.type,
+        status: row.status,
+        createdBy: row.created_by,
+        missionId: row.mission_id,
+        missionName: row.mission_client || row.mission_name || "Sans mission",
+        sdrName: row.sdr_name,
+        assignedToName: row.assigned_to_name,
+        dueDate: row.due_date,
+        details: row.details || {},
+        workflow_status: row.workflow_status,
+        assigned_to: row.assigned_to,
+        isLate: new Date(row.due_date) < new Date() && row.workflow_status !== 'completed' && row.workflow_status !== 'canceled',
+        createdAt: new Date(row.created_at),
+        lastUpdated: new Date(row.last_updated || row.updated_at),
+        target_role: row.target_role
+      } as Request;
+      
+      return request;
+    });
     
     console.log(`✅ [fetchRequestsWithMissionData] ${formattedRequests.length} requêtes formatées`);
     console.log("🔍 [fetchRequestsWithMissionData] PREMIÈRE REQUÊTE FORMATÉE:", formattedRequests[0]);
@@ -168,23 +173,8 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("🔍 [useRequestQueries] REQUEST DETAILS - Récupération pour:", requestId);
       
       const { data, error } = await supabase
-        .from('requests')
-        .select(`
-          *,
-          missions (
-            id,
-            name,
-            client
-          ),
-          sdr_profile:profiles!requests_created_by_fkey (
-            id,
-            name
-          ),
-          assigned_profile:profiles!requests_assigned_to_fkey (
-            id,
-            name
-          )
-        `)
+        .from('requests_with_missions')
+        .select('*')
         .eq('id', requestId)
         .maybeSingle();
 
@@ -205,10 +195,29 @@ export function useRequestQueries(userId: string | undefined) {
 
       console.log("📋 [useRequestQueries] REQUEST DETAILS - Données récupérées:", data);
       
-      const formatted = await formatRequestFromDb(data);
-      console.log(`✅ [useRequestQueries] REQUEST DETAILS - Formaté: ${formatted.id}, missionName="${formatted.missionName}"`);
+      const request = {
+        id: data.id,
+        title: data.title,
+        type: data.type,
+        status: data.status,
+        createdBy: data.created_by,
+        missionId: data.mission_id,
+        missionName: data.mission_client || data.mission_name || "Sans mission",
+        sdrName: data.sdr_name,
+        assignedToName: data.assigned_to_name,
+        dueDate: data.due_date,
+        details: data.details || {},
+        workflow_status: data.workflow_status,
+        assigned_to: data.assigned_to,
+        isLate: new Date(data.due_date) < new Date() && data.workflow_status !== 'completed' && data.workflow_status !== 'canceled',
+        createdAt: new Date(data.created_at),
+        lastUpdated: new Date(data.last_updated || data.updated_at),
+        target_role: data.target_role
+      } as Request;
       
-      return formatted;
+      console.log(`✅ [useRequestQueries] REQUEST DETAILS - Formaté: ${request.id}, missionName="${request.missionName}"`);
+      
+      return request;
     } catch (err) {
       console.error("❌ [useRequestQueries] REQUEST DETAILS - Exception:", err);
       return null;
