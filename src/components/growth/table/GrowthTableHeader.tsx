@@ -70,7 +70,6 @@ export function GrowthTableHeader({
           />
         </TableHead>
         <TableHead className="w-[150px]">Type de demande</TableHead>
-        {/* NOUVELLE COLONNE: Titre de la demande */}
         <TableHead>Titre de la demande</TableHead>
         <TableHead>
           <CheckboxColumnFilter
