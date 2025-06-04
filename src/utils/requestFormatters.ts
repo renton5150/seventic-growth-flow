@@ -13,29 +13,38 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // UTILISER LES VRAIES DONNÉES DE LA VUE requests_with_missions
-  console.log(`[formatRequestFromDb] 🔍 DONNÉES MISSION DIRECTES depuis la vue pour request ${request.id}:`, {
-    mission_id: request.mission_id,
-    mission_client: request.mission_client,
-    mission_name: request.mission_name,
-    sdr_name: request.sdr_name,
-    assigned_to_name: request.assigned_to_name
+  // RÉCUPÉRATION DU NOM DE MISSION DEPUIS LE JOIN EXPLICITE
+  console.log(`[formatRequestFromDb] 🔍 DONNÉES MISSION DEPUIS JOIN pour request ${request.id}:`, {
+    missions_object: request.missions,
+    sdr_object: request.sdr,
+    assigned_user_object: request.assigned_user
   });
   
-  // DÉTERMINATION DU NOM FINAL - utiliser directement les données de la vue
+  // DÉTERMINATION DU NOM FINAL - utiliser directement les données du JOIN
   let missionName = "Sans mission";
   
-  if (request.mission_client && String(request.mission_client).trim() !== "" && String(request.mission_client).trim() !== "null" && String(request.mission_client).trim() !== "undefined") {
-    missionName = String(request.mission_client).trim();
-    console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
-  } else if (request.mission_name && String(request.mission_name).trim() !== "" && String(request.mission_name).trim() !== "null" && String(request.mission_name).trim() !== "undefined") {
-    missionName = String(request.mission_name).trim();
-    console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
+  if (request.missions) {
+    // Priorité au client, sinon au nom
+    if (request.missions.client && String(request.missions.client).trim() !== "") {
+      missionName = String(request.missions.client).trim();
+      console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
+    } else if (request.missions.name && String(request.missions.name).trim() !== "") {
+      missionName = String(request.missions.name).trim();
+      console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
+    } else {
+      console.log(`[formatRequestFromDb] ⚠️ MISSION TROUVÉE MAIS VIDE pour request ${request.id}`);
+    }
   } else {
-    console.log(`[formatRequestFromDb] ⚠️ AUCUNE MISSION VALIDE trouvée pour request ${request.id}, garde "Sans mission"`);
+    console.log(`[formatRequestFromDb] ⚠️ AUCUNE MISSION TROUVÉE pour request ${request.id}`);
   }
   
   console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
+
+  // Récupération des noms SDR et assigné
+  const sdrName = request.sdr?.name || null;
+  const assignedToName = request.assigned_user?.name || null;
+
+  console.log(`[formatRequestFromDb] 👥 NOMS pour request ${request.id}: sdr="${sdrName}", assigned="${assignedToName}"`);
 
   // Normaliser les détails pour éviter les problèmes de type
   let details: Record<string, any> = {};
@@ -60,8 +69,8 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     createdBy: request.created_by,
     missionId: request.mission_id,
     missionName: missionName,  // UTILISATION DU VRAI NOM DÉTERMINÉ
-    sdrName: request.sdr_name,
-    assignedToName: request.assigned_to_name,
+    sdrName: sdrName,
+    assignedToName: assignedToName,
     dueDate: request.due_date,
     details: details,
     workflow_status: request.workflow_status as WorkflowStatus,
@@ -146,9 +155,9 @@ export const example = () => {
     last_updated: new Date(),
     due_date: new Date(),
     mission_id: "456",
-    mission_name: "Test Mission",
-    sdr_name: "John Doe",
-    assigned_to_name: "Jane Smith",
+    missions: { id: "456", name: "Test Mission", client: "Test Client" },
+    sdr: { id: "user1", name: "John Doe" },
+    assigned_user: { id: "user2", name: "Jane Smith" },
     details: { platform: "Mailchimp" },
     workflow_status: "in_progress",
     assigned_to: "user123",
