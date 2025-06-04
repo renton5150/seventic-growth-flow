@@ -1,11 +1,10 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
-import { isFreshworksId } from "@/services/missionNameService";
 
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
   console.log(`[formatRequestFromDb] 🚀 START Formatting request ${request.id}`);
-  console.log(`[formatRequestFromDb] 📋 Mission data:`, {
+  console.log(`[formatRequestFromDb] 📋 Raw mission data:`, {
     mission_id: request.mission_id,
     mission_client: request.mission_client,
     mission_name: request.mission_name
@@ -19,35 +18,36 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // LOGIQUE SIMPLIFIÉE POUR LE NOM DE MISSION
+  // LOGIQUE ULTRA-SIMPLE POUR LE NOM DE MISSION
   let missionName = "Sans mission";
   
   if (request.mission_id) {
     console.log(`[formatRequestFromDb] 🔍 Processing mission ID: ${request.mission_id}`);
     
-    // CAS SPÉCIAL: Freshworks
-    if (isFreshworksId(request.mission_id)) {
+    // CAS SPÉCIAL: Freshworks uniquement
+    const freshworksIds = [
+      "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b",
+      "57763c8d-fa72-433e-9f9e-5511a6a56062"
+    ];
+    
+    if (freshworksIds.includes(request.mission_id)) {
       missionName = "Freshworks";
       console.log(`[formatRequestFromDb] ✅ FRESHWORKS détecté: ${request.mission_id} => "Freshworks"`);
     } 
-    // UTILISER DIRECTEMENT mission_client de la vue
-    else if (request.mission_client && 
-             request.mission_client.trim() !== "" && 
-             request.mission_client !== "null" && 
-             request.mission_client !== "undefined") {
-      missionName = request.mission_client.trim();
-      console.log(`[formatRequestFromDb] ✅ MISSION_CLIENT utilisé: ${request.mission_id} => "${missionName}"`);
+    // UTILISER DIRECTEMENT mission_client de la vue - SANS CONDITION COMPLEXE
+    else if (request.mission_client) {
+      missionName = String(request.mission_client).trim();
+      console.log(`[formatRequestFromDb] ✅ MISSION_CLIENT direct: ${request.mission_id} => "${missionName}"`);
     }
-    // FALLBACK: mission_name de la vue
-    else if (request.mission_name && 
-             request.mission_name.trim() !== "" && 
-             request.mission_name !== "null" && 
-             request.mission_name !== "undefined") {
-      missionName = request.mission_name.trim();
+    // FALLBACK SIMPLE: mission_name de la vue
+    else if (request.mission_name) {
+      missionName = String(request.mission_name).trim();
       console.log(`[formatRequestFromDb] ⚠️ MISSION_NAME fallback: ${request.mission_id} => "${missionName}"`);
     }
     else {
       console.warn(`[formatRequestFromDb] ❌ Aucune donnée mission valide pour: ${request.mission_id}`);
+      console.warn(`[formatRequestFromDb] ❌ mission_client value:`, request.mission_client);
+      console.warn(`[formatRequestFromDb] ❌ mission_name value:`, request.mission_name);
     }
   } else {
     console.log(`[formatRequestFromDb] ⚠️ Aucun mission_id fourni`);

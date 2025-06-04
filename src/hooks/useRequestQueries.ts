@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { syncKnownMissions } from "@/services/missionNameService";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -46,16 +45,18 @@ export function useRequestQueries(userId: string | undefined) {
       
       // Debug: Afficher les données mission pour chaque requête
       data.forEach(req => {
-        console.log(`🔍 [useRequestQueries] Request ${req.id}:`, {
+        console.log(`🔍 [useRequestQueries] TO ASSIGN Request ${req.id}:`, {
           mission_id: req.mission_id,
           mission_client: req.mission_client,
-          mission_name: req.mission_name
+          mission_name: req.mission_name,
+          mission_client_type: typeof req.mission_client,
+          mission_client_value: JSON.stringify(req.mission_client)
         });
       });
       
-      // Formater les données SANS préchargement inutile
+      // Formater les données DIRECTEMENT sans service externe
       const formattedRequests = await Promise.all(data.map((request: any) => formatRequestFromDb(request)));
-      console.log(`✅ [useRequestQueries] Requêtes formatées: ${formattedRequests.length}`);
+      console.log(`✅ [useRequestQueries] Requêtes à affecter formatées: ${formattedRequests.length}`);
       
       return formattedRequests;
     },
@@ -101,14 +102,16 @@ export function useRequestQueries(userId: string | undefined) {
       
       // Debug: Afficher les données mission pour chaque requête
       data.forEach(req => {
-        console.log(`🔍 [useRequestQueries] My Assignment ${req.id}:`, {
+        console.log(`🔍 [useRequestQueries] MY ASSIGNMENTS Request ${req.id}:`, {
           mission_id: req.mission_id,
           mission_client: req.mission_client,
-          mission_name: req.mission_name
+          mission_name: req.mission_name,
+          mission_client_type: typeof req.mission_client,
+          mission_client_value: JSON.stringify(req.mission_client)
         });
       });
       
-      // Formater les données SANS préchargement inutile
+      // Formater les données DIRECTEMENT sans service externe
       const formattedRequests = await Promise.all(data.map(request => formatRequestFromDb(request)));
       console.log(`✅ [useRequestQueries] Mes assignations formatées: ${formattedRequests.length}`);
       
@@ -149,16 +152,20 @@ export function useRequestQueries(userId: string | undefined) {
       const requestsArray = Array.isArray(data) ? data : [];
       console.log(`📋 [useRequestQueries] ${requestsArray.length} requêtes récupérées au total`);
       
-      // Debug: Afficher les données mission pour chaque requête
+      // Debug: Afficher les données mission pour chaque requête avec plus de détails
       requestsArray.forEach(req => {
-        console.log(`🔍 [useRequestQueries] All Request ${req.id}:`, {
+        console.log(`🔍 [useRequestQueries] ALL REQUESTS Request ${req.id}:`, {
           mission_id: req.mission_id,
           mission_client: req.mission_client,
-          mission_name: req.mission_name
+          mission_name: req.mission_name,
+          mission_client_type: typeof req.mission_client,
+          mission_client_value: JSON.stringify(req.mission_client),
+          mission_name_type: typeof req.mission_name,
+          mission_name_value: JSON.stringify(req.mission_name)
         });
       });
       
-      // Formater les données SANS préchargement inutile
+      // Formater les données DIRECTEMENT sans service externe
       const formattedRequests = await Promise.all(requestsArray.map(request => formatRequestFromDb(request)));
       
       console.log(`✅ [useRequestQueries] ${formattedRequests.length} requêtes formatées pour l'affichage`);
@@ -202,13 +209,15 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("📋 [useRequestQueries] Détails de la demande récupérés:", data);
       
       // Debug: Afficher les données mission pour cette requête
-      console.log(`🔍 [useRequestQueries] Request Details ${data.id}:`, {
+      console.log(`🔍 [useRequestQueries] REQUEST DETAILS ${data.id}:`, {
         mission_id: data.mission_id,
         mission_client: data.mission_client,
-        mission_name: data.mission_name
+        mission_name: data.mission_name,
+        mission_client_type: typeof data.mission_client,
+        mission_client_value: JSON.stringify(data.mission_client)
       });
       
-      // Formatage SANS appel au service de mission
+      // Formatage DIRECTEMENT sans service externe
       const formatted = await formatRequestFromDb(data);
       console.log(`✅ [useRequestQueries] Request Details formatted: ${formatted.id}, missionName="${formatted.missionName}"`);
       
