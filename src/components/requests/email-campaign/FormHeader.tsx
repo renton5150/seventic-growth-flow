@@ -77,21 +77,6 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             )}
           />
           
-          {/* Objet de la campagne - NOUVEAU CHAMP */}
-          <FormField
-            control={control}
-            name="subject"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Objet*</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: Découvrez notre nouveau produit" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
           {/* Type d'emailing */}
           <FormField
             control={control}
@@ -243,6 +228,21 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
               {user ? user.email : "Utilisateur inconnu"}
             </div>
           </div>
+          
+          {/* Objet de la campagne - placé à côté d'Auteur */}
+          <FormField
+            control={control}
+            name="subject"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Objet*</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: Découvrez notre nouveau produit" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
       </CardContent>
     </Card>
