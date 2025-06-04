@@ -15,7 +15,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
   try {
-    // Utiliser d'abord une requête simple sans jointures pour tester
+    // Récupérer d'abord les requests de base
     let baseQuery = supabase
       .from('requests')
       .select('*');
@@ -57,25 +57,42 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       console.log("⚠️ [fetchRequests] Aucune donnée retournée de la requête de base");
       return [];
     }
-    
-    // Maintenant enrichir avec les données des missions et profils
+
+    // Enrichir avec les données des missions et profils
     const enrichedRequests = await Promise.all(
       requestsData.map(async (request) => {
         console.log(`🔍 [fetchRequests] Enrichissement de la request ${request.id}`);
         
-        // Récupérer la mission
+        // Récupérer la mission - CORRECTION: utiliser des champs séparés
         let missionName = "Sans mission";
         if (request.mission_id) {
-          const { data: missionData } = await supabase
+          console.log(`🔍 [fetchRequests] Récupération mission pour mission_id: ${request.mission_id}`);
+          
+          const { data: missionData, error: missionError } = await supabase
             .from('missions')
             .select('name, client')
             .eq('id', request.mission_id)
             .single();
           
-          if (missionData) {
-            missionName = missionData.client || missionData.name || "Sans mission";
-            console.log(`✅ [fetchRequests] Mission trouvée pour ${request.id}: "${missionName}"`);
+          console.log(`🔍 [fetchRequests] Mission data récupérée:`, missionData);
+          console.log(`🔍 [fetchRequests] Mission error:`, missionError);
+          
+          if (missionData && !missionError) {
+            // Priorité au client, puis au nom
+            if (missionData.client && missionData.client.trim() !== '') {
+              missionName = missionData.client;
+              console.log(`✅ [fetchRequests] Mission client trouvé: "${missionData.client}"`);
+            } else if (missionData.name && missionData.name.trim() !== '') {
+              missionName = missionData.name;
+              console.log(`✅ [fetchRequests] Mission name trouvé: "${missionData.name}"`);
+            } else {
+              console.log(`⚠️ [fetchRequests] Mission trouvée mais client et name vides`);
+            }
+          } else {
+            console.log(`❌ [fetchRequests] Pas de mission trouvée pour mission_id: ${request.mission_id}`);
           }
+        } else {
+          console.log(`ℹ️ [fetchRequests] Pas de mission_id pour la request ${request.id}`);
         }
         
         // Récupérer le nom du créateur
@@ -87,8 +104,8 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
             .eq('id', request.created_by)
             .single();
           
-          if (creatorData) {
-            sdrName = creatorData.name || "Non assigné";
+          if (creatorData?.name) {
+            sdrName = creatorData.name;
           }
         }
         
@@ -101,8 +118,8 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
             .eq('id', request.assigned_to)
             .single();
           
-          if (assignedData) {
-            assignedToName = assignedData.name || "Non assigné";
+          if (assignedData?.name) {
+            assignedToName = assignedData.name;
           }
         }
         
@@ -133,6 +150,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
     );
     
     console.log(`✅ [fetchRequests] ${enrichedRequests.length} requests enrichies avec missions`);
+    console.log(`🔍 [fetchRequests] Exemple de missions récupérées:`, enrichedRequests.map(r => ({ id: r.id, missionName: r.missionName })));
     
     return enrichedRequests;
     
