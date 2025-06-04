@@ -4,10 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { diagnoseMissionData } from "@/utils/diagnoseMissionData";
-
-// Variable globale pour tracker si le diagnostic a été fait
-let diagnosticDone = false;
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -17,19 +13,28 @@ export function useRequestQueries(userId: string | undefined) {
 
   console.log(`[useRequestQueries] 🚀 USER ROLE DEBUG: ${user?.role}, userId: ${userId}`);
 
-  // Fonction helper pour récupérer les requêtes avec la vue requests_with_missions
-  const fetchRequestsWithMissions = async (whereCondition?: string, params?: any[]) => {
-    console.log("🚀 [fetchRequestsWithMissions] UTILISATION DE LA VUE requests_with_missions");
-    
-    // Diagnostic une seule fois
-    if (!diagnosticDone) {
-      await diagnoseMissionData();
-      diagnosticDone = true;
-    }
+  // Fonction helper pour récupérer les requêtes avec JOIN direct vers missions et profiles
+  const fetchRequestsWithDirectJoin = async (whereCondition?: string, params?: any[]) => {
+    console.log("🚀 [fetchRequestsWithDirectJoin] UTILISATION DE JOINS DIRECTS");
     
     let query = supabase
-      .from('requests_with_missions')
-      .select('*');
+      .from('requests')
+      .select(`
+        *,
+        missions!requests_mission_id_fkey (
+          id,
+          name,
+          client
+        ),
+        sdr_profile:profiles!requests_created_by_fkey (
+          id,
+          name
+        ),
+        assigned_profile:profiles!requests_assigned_to_fkey (
+          id,
+          name
+        )
+      `);
       
     if (whereCondition) {
       // Appliquer les conditions WHERE
@@ -58,25 +63,49 @@ export function useRequestQueries(userId: string | undefined) {
     const { data, error } = await query;
     
     if (error) {
-      console.error("❌ [fetchRequestsWithMissions] ERREUR:", error);
+      console.error("❌ [fetchRequestsWithDirectJoin] ERREUR:", error);
       return [];
     }
     
-    console.log(`📋 [fetchRequestsWithMissions] ${data.length} requêtes récupérées`);
-    console.log("🔍 [fetchRequestsWithMissions] DONNÉES BRUTES:", data);
+    console.log(`📋 [fetchRequestsWithDirectJoin] ${data.length} requêtes récupérées`);
+    console.log("🔍 [fetchRequestsWithDirectJoin] DONNÉES BRUTES:", data);
     
-    // Formatter les données
+    // Formatter les données avec les informations de mission et profiles
     const formattedRequests = await Promise.all(data.map((request: any) => {
-      console.log(`🔧 [fetchRequestsWithMissions] Transformation de la request ${request.id}:`);
-      console.log(`   - mission_name: "${request.mission_name}"`);
-      console.log(`   - mission_client: "${request.mission_client}"`);
-      console.log(`   - sdr_name: "${request.sdr_name}"`);
-      console.log(`   - assigned_to_name: "${request.assigned_to_name}"`);
+      console.log(`🔧 [fetchRequestsWithDirectJoin] Transformation de la request ${request.id}:`);
       
-      return formatRequestFromDb(request);
+      // Extraire les données de mission
+      let missionName = "Sans mission";
+      if (request.missions) {
+        if (request.missions.client && request.missions.client.trim() !== "") {
+          missionName = request.missions.client.trim();
+          console.log(`   - mission client: "${missionName}"`);
+        } else if (request.missions.name && request.missions.name.trim() !== "") {
+          missionName = request.missions.name.trim();
+          console.log(`   - mission name: "${missionName}"`);
+        }
+      }
+      
+      // Extraire les noms des profiles
+      const sdrName = request.sdr_profile?.name || null;
+      const assignedToName = request.assigned_profile?.name || null;
+      
+      console.log(`   - sdr_name: "${sdrName}"`);
+      console.log(`   - assigned_to_name: "${assignedToName}"`);
+      
+      // Enrichir l'objet request avec les données formatées
+      const enrichedRequest = {
+        ...request,
+        mission_name: missionName,
+        mission_client: missionName,
+        sdr_name: sdrName,
+        assigned_to_name: assignedToName
+      };
+      
+      return formatRequestFromDb(enrichedRequest);
     }));
     
-    console.log(`✅ [fetchRequestsWithMissions] ${formattedRequests.length} requêtes formatées`);
+    console.log(`✅ [fetchRequestsWithDirectJoin] ${formattedRequests.length} requêtes formatées`);
     
     return formattedRequests;
   };
@@ -87,7 +116,7 @@ export function useRequestQueries(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      return await fetchRequestsWithMissions(
+      return await fetchRequestsWithDirectJoin(
         'assigned_to IS NULL AND workflow_status = ? AND workflow_status != ?',
         ['pending_assignment', 'completed']
       );
@@ -115,7 +144,7 @@ export function useRequestQueries(userId: string | undefined) {
         whereCondition += ' AND assigned_to IS NOT NULL';
       }
       
-      return await fetchRequestsWithMissions(whereCondition, params);
+      return await fetchRequestsWithDirectJoin(whereCondition, params);
     },
     enabled: !!userId,
     refetchInterval: 10000
@@ -138,7 +167,7 @@ export function useRequestQueries(userId: string | undefined) {
         console.log('🔍 [useRequestQueries] ALL REQUESTS - GROWTH/ADMIN - Toutes les requêtes');
       }
       
-      return await fetchRequestsWithMissions(whereCondition, params);
+      return await fetchRequestsWithDirectJoin(whereCondition, params);
     },
     enabled: !!userId,
     refetchInterval: 10000
@@ -147,11 +176,26 @@ export function useRequestQueries(userId: string | undefined) {
   // Récupération des détails d'une demande spécifique
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
-      console.log("🔍 [useRequestQueries] REQUEST DETAILS - Utilisation de la vue requests_with_missions pour:", requestId);
+      console.log("🔍 [useRequestQueries] REQUEST DETAILS - Utilisation de JOIN direct pour:", requestId);
       
       const { data, error } = await supabase
-        .from('requests_with_missions')
-        .select('*')
+        .from('requests')
+        .select(`
+          *,
+          missions!requests_mission_id_fkey (
+            id,
+            name,
+            client
+          ),
+          sdr_profile:profiles!requests_created_by_fkey (
+            id,
+            name
+          ),
+          assigned_profile:profiles!requests_assigned_to_fkey (
+            id,
+            name
+          )
+        `)
         .eq('id', requestId)
         .maybeSingle();
 
@@ -173,7 +217,25 @@ export function useRequestQueries(userId: string | undefined) {
 
       console.log("📋 [useRequestQueries] REQUEST DETAILS - Données récupérées:", data);
       
-      const formatted = await formatRequestFromDb(data);
+      // Enrichir avec les données de mission et profiles
+      let missionName = "Sans mission";
+      if (data.missions) {
+        if (data.missions.client && data.missions.client.trim() !== "") {
+          missionName = data.missions.client.trim();
+        } else if (data.missions.name && data.missions.name.trim() !== "") {
+          missionName = data.missions.name.trim();
+        }
+      }
+      
+      const enrichedData = {
+        ...data,
+        mission_name: missionName,
+        mission_client: missionName,
+        sdr_name: data.sdr_profile?.name || null,
+        assigned_to_name: data.assigned_profile?.name || null
+      };
+      
+      const formatted = await formatRequestFromDb(enrichedData);
       console.log(`✅ [useRequestQueries] REQUEST DETAILS - Formaté: ${formatted.id}, missionName="${formatted.missionName}"`);
       
       return formatted;

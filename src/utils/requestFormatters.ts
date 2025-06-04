@@ -14,23 +14,23 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // CORRECTION MAJEURE : Utilisation directe des champs de la vue requests_with_missions
+  // UTILISATION DES DONNÉES ENRICHIES PAR LE JOIN
   let missionName = "Sans mission";
   
-  // Utiliser directement mission_client (priorité 1) ou mission_name (priorité 2)
+  // Utiliser directement les champs enrichis mission_name et mission_client
   if (request.mission_client && request.mission_client.trim() !== "") {
     missionName = request.mission_client.trim();
-    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_client: "${missionName}" pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_client enrichi: "${missionName}" pour request ${request.id}`);
   } else if (request.mission_name && request.mission_name.trim() !== "") {
     missionName = request.mission_name.trim();
-    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_name: "${missionName}" pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_name enrichi: "${missionName}" pour request ${request.id}`);
   } else {
     console.log(`[formatRequestFromDb] ⚠️ Aucune mission trouvée - mission_client: "${request.mission_client}", mission_name: "${request.mission_name}" pour request ${request.id}`);
   }
   
   console.log(`[formatRequestFromDb] ✅ MISSION NAME FINAL pour request ${request.id}: "${missionName}"`);
 
-  // Récupération des noms SDR et assigné
+  // Récupération des noms SDR et assigné depuis les données enrichies
   const sdrName = request.sdr_name || null;
   const assignedToName = request.assigned_to_name || null;
 
