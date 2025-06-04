@@ -63,6 +63,14 @@ export const RequestRow = ({
   // Détecter si on est sur la page Growth
   const isGrowthPage = location.pathname.includes('/growth');
 
+  // DIAGNOSTIC COMPLET - Log toutes les données de la request
+  console.log(`[RequestRow] 🚀 DIAGNOSTIC COMPLET pour request ${request.id}:`);
+  console.log(`[RequestRow] - missionName: "${request.missionName}"`);
+  console.log(`[RequestRow] - missionId: "${request.missionId}"`);
+  console.log(`[RequestRow] - title: "${request.title}"`);
+  console.log(`[RequestRow] - details:`, request.details);
+  console.log(`[RequestRow] - OBJET COMPLET:`, request);
+
   const formatDate = (date: Date | string) => {
     const dateObj = date instanceof Date ? date : new Date(date);
     return format(dateObj, "d MMM yyyy", { locale: fr });
@@ -113,8 +121,6 @@ export const RequestRow = ({
 
   const showDeleteButton = user?.role === "admin" || user?.role === "growth" || 
                            (user?.role === "sdr" && user?.id === request.createdBy);
-
-  console.log(`[RequestRow] MISSION DEBUG pour request ${request.id}: missionName="${request.missionName}"`);
 
   return (
     <TableRow>

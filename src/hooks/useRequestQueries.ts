@@ -35,9 +35,10 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log(`📋 [useRequestQueries] TO ASSIGN - ${data.length} requêtes récupérées`);
-      console.log("🔍 [useRequestQueries] TO ASSIGN - Exemple de données:", data[0]);
+      console.log("🔍 [useRequestQueries] TO ASSIGN - DONNÉES BRUTES SUPABASE:", data);
       
       const formattedRequests = await Promise.all(data.map((request: any) => {
+        console.log(`🔧 [useRequestQueries] TO ASSIGN - Formatage de la request ${request.id} avec mission_client="${request.mission_client}", mission_name="${request.mission_name}"`);
         return formatRequestFromDb(request);
       }));
       
@@ -85,9 +86,10 @@ export function useRequestQueries(userId: string | undefined) {
       }
       
       console.log(`📋 [useRequestQueries] MY ASSIGNMENTS - ${data.length} requêtes récupérées`);
-      console.log("🔍 [useRequestQueries] MY ASSIGNMENTS - Exemple de données:", data[0]);
+      console.log("🔍 [useRequestQueries] MY ASSIGNMENTS - DONNÉES BRUTES SUPABASE:", data);
       
       const formattedRequests = await Promise.all(data.map((request: any) => {
+        console.log(`🔧 [useRequestQueries] MY ASSIGNMENTS - Formatage de la request ${request.id} avec mission_client="${request.mission_client}", mission_name="${request.mission_name}"`);
         return formatRequestFromDb(request);
       }));
       
@@ -131,9 +133,10 @@ export function useRequestQueries(userId: string | undefined) {
       
       const requestsArray = Array.isArray(data) ? data : [];
       console.log(`📋 [useRequestQueries] ALL REQUESTS - ${requestsArray.length} requêtes récupérées pour rôle ${user?.role}`);
-      console.log("🔍 [useRequestQueries] ALL REQUESTS - Exemple de données:", requestsArray[0]);
+      console.log("🔍 [useRequestQueries] ALL REQUESTS - DONNÉES BRUTES SUPABASE:", requestsArray);
       
       const formattedRequests = await Promise.all(requestsArray.map((request: any) => {
+        console.log(`🔧 [useRequestQueries] ALL REQUESTS - Formatage de la request ${request.id} avec mission_client="${request.mission_client}", mission_name="${request.mission_name}"`);
         return formatRequestFromDb(request);
       }));
       
