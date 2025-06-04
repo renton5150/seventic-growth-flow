@@ -4,16 +4,6 @@ import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
   console.log(`[formatRequestFromDb] 🚀 START Formatting request ${request.id}`);
-  console.log(`[formatRequestFromDb] 📋 DEBUGGING - Full request object:`, {
-    id: request.id,
-    mission_id: request.mission_id,
-    mission_client: request.mission_client,
-    mission_name: request.mission_name,
-    type_mission_client: typeof request.mission_client,
-    type_mission_name: typeof request.mission_name,
-    value_mission_client: JSON.stringify(request.mission_client),
-    value_mission_name: JSON.stringify(request.mission_name)
-  });
   
   // Convert dates
   const createdAt = new Date(request.created_at);
@@ -23,66 +13,26 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // LOGIQUE ULTRA-SIMPLE POUR LE NOM DE MISSION - VERSION DEBUGGING
+  // UTILISATION DIRECTE DES DONNÉES DE LA VUE
   let missionName = "Sans mission";
   
-  if (request.mission_id) {
-    console.log(`[formatRequestFromDb] 🔍 Processing mission ID: ${request.mission_id}`);
-    
-    // CAS SPÉCIAL: Freshworks uniquement
-    const freshworksIds = [
-      "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b",
-      "57763c8d-fa72-433e-9f9e-5511a6a56062"
-    ];
-    
-    if (freshworksIds.includes(request.mission_id)) {
-      missionName = "Freshworks";
-      console.log(`[formatRequestFromDb] ✅ FRESHWORKS détecté: ${request.mission_id} => "Freshworks"`);
-    } 
-    // NOUVEAU: INTERROGER DIRECTEMENT LA TABLE MISSIONS
-    else {
-      console.log(`[formatRequestFromDb] 🔍 MISSION_CLIENT depuis vue: "${request.mission_client}"`);
-      console.log(`[formatRequestFromDb] 🔍 MISSION_NAME depuis vue: "${request.mission_name}"`);
-      
-      // Si la vue ne retourne pas les bonnes données, on va chercher directement
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        console.log(`[formatRequestFromDb] 🔍 INTERROGATION DIRECTE de la table missions pour ID: ${request.mission_id}`);
-        
-        const { data: missionData, error } = await supabase
-          .from('missions')
-          .select('id, name, client')
-          .eq('id', request.mission_id)
-          .maybeSingle();
-          
-        if (error) {
-          console.error(`[formatRequestFromDb] ❌ ERREUR requête directe missions:`, error);
-        } else if (missionData) {
-          console.log(`[formatRequestFromDb] 📋 DONNÉES DIRECTES missions:`, {
-            id: missionData.id,
-            name: missionData.name,
-            client: missionData.client
-          });
-          
-          // PRIORITÉ AU CHAMP CLIENT, puis NAME
-          if (missionData.client && String(missionData.client).trim() !== "") {
-            missionName = String(missionData.client).trim();
-            console.log(`[formatRequestFromDb] ✅ CLIENT DIRECT: "${missionName}"`);
-          } else if (missionData.name && String(missionData.name).trim() !== "") {
-            missionName = String(missionData.name).trim();
-            console.log(`[formatRequestFromDb] ✅ NAME DIRECT: "${missionName}"`);
-          } else {
-            console.error(`[formatRequestFromDb] ❌ MISSION TROUVÉE MAIS VIDE - client: "${missionData.client}", name: "${missionData.name}"`);
-          }
-        } else {
-          console.error(`[formatRequestFromDb] ❌ MISSION NON TROUVÉE dans la table pour ID: ${request.mission_id}`);
-        }
-      } catch (err) {
-        console.error(`[formatRequestFromDb] ❌ EXCEPTION requête directe:`, err);
-      }
-    }
+  console.log(`[formatRequestFromDb] 📋 Données mission depuis la vue pour ${request.id}:`, {
+    mission_id: request.mission_id,
+    mission_client: request.mission_client,
+    mission_name: request.mission_name,
+    type_mission_client: typeof request.mission_client,
+    type_mission_name: typeof request.mission_name
+  });
+  
+  // Utiliser DIRECTEMENT mission_client de la vue, puis mission_name comme fallback
+  if (request.mission_client && String(request.mission_client).trim() !== "" && String(request.mission_client).trim() !== "null") {
+    missionName = String(request.mission_client).trim();
+    console.log(`[formatRequestFromDb] ✅ Utilisé mission_client: "${missionName}"`);
+  } else if (request.mission_name && String(request.mission_name).trim() !== "" && String(request.mission_name).trim() !== "null") {
+    missionName = String(request.mission_name).trim();
+    console.log(`[formatRequestFromDb] ✅ Utilisé mission_name: "${missionName}"`);
   } else {
-    console.log(`[formatRequestFromDb] ⚠️ Aucun mission_id fourni`);
+    console.error(`[formatRequestFromDb] ❌ Aucune donnée mission valide pour ${request.id}`);
   }
   
   console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
