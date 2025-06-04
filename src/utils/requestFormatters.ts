@@ -14,24 +14,21 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // DÉTERMINATION DU NOM FINAL - PRIORITÉ AUX DONNÉES DE LA VUE requests_with_missions
+  // CORRECTION MAJEURE : Utilisation directe des champs de la vue requests_with_missions
   let missionName = "Sans mission";
   
-  // 1. D'abord essayer mission_client (client de la mission)
-  if (request.mission_client && String(request.mission_client).trim() !== "") {
-    missionName = String(request.mission_client).trim();
-    console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
-  }
-  // 2. Ensuite mission_name (nom de la mission)
-  else if (request.mission_name && String(request.mission_name).trim() !== "") {
-    missionName = String(request.mission_name).trim();
-    console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
-  }
-  else {
-    console.log(`[formatRequestFromDb] ⚠️ AUCUNE MISSION TROUVÉE pour request ${request.id}`);
+  // Utiliser directement mission_client (priorité 1) ou mission_name (priorité 2)
+  if (request.mission_client && request.mission_client.trim() !== "") {
+    missionName = request.mission_client.trim();
+    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_client: "${missionName}" pour request ${request.id}`);
+  } else if (request.mission_name && request.mission_name.trim() !== "") {
+    missionName = request.mission_name.trim();
+    console.log(`[formatRequestFromDb] ✅ Utilisation de mission_name: "${missionName}" pour request ${request.id}`);
+  } else {
+    console.log(`[formatRequestFromDb] ⚠️ Aucune mission trouvée - mission_client: "${request.mission_client}", mission_name: "${request.mission_name}" pour request ${request.id}`);
   }
   
-  console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
+  console.log(`[formatRequestFromDb] ✅ MISSION NAME FINAL pour request ${request.id}: "${missionName}"`);
 
   // Récupération des noms SDR et assigné
   const sdrName = request.sdr_name || null;
@@ -60,13 +57,13 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     status: request.status as RequestStatus,
     createdBy: request.created_by,
     missionId: request.mission_id,
-    missionName: missionName,
+    missionName: missionName, // Utilisation du nom corrigé
     sdrName: sdrName,
     assignedToName: assignedToName,
     dueDate: request.due_date,
     details: {
       ...details,
-      missionName: missionName
+      missionName: missionName // S'assurer que les détails contiennent aussi le nom correct
     },
     workflow_status: request.workflow_status as WorkflowStatus,
     assigned_to: request.assigned_to,
