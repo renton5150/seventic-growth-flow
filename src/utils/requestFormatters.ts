@@ -16,15 +16,15 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // UTILISATION DIRECTE DES VRAIES DONNÉES DE LA VUE requests_with_missions
   let missionName = "Sans mission";
   
-  // Utiliser mission_client en priorité, sinon mission_name
-  if (request.mission_client && String(request.mission_client).trim() !== "") {
+  // Utiliser mission_client en priorité absolue, sinon mission_name
+  if (request.mission_client && String(request.mission_client).trim() !== "" && String(request.mission_client).trim() !== "null") {
     missionName = String(request.mission_client).trim();
-    console.log(`[formatRequestFromDb] ✅ Mission client trouvée: "${missionName}" pour request ${request.id}`);
-  } else if (request.mission_name && String(request.mission_name).trim() !== "") {
+    console.log(`[formatRequestFromDb] ✅ Mission CLIENT trouvée: "${missionName}" pour request ${request.id}`);
+  } else if (request.mission_name && String(request.mission_name).trim() !== "" && String(request.mission_name).trim() !== "null") {
     missionName = String(request.mission_name).trim();
-    console.log(`[formatRequestFromDb] ✅ Mission name trouvée: "${missionName}" pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ✅ Mission NAME trouvée: "${missionName}" pour request ${request.id}`);
   } else {
-    console.log(`[formatRequestFromDb] ⚠️ Aucune mission trouvée pour request ${request.id}`);
+    console.log(`[formatRequestFromDb] ⚠️ Aucune mission valide trouvée pour request ${request.id}`);
   }
   
   console.log(`[formatRequestFromDb] ✅ FINAL mission name pour request ${request.id}: "${missionName}"`);
@@ -51,7 +51,7 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     status: request.status as RequestStatus,
     createdBy: request.created_by,
     missionId: request.mission_id,
-    missionName: missionName,
+    missionName: missionName,  // UTILISATION DU VRAI NOM RÉCUPÉRÉ
     sdrName: request.sdr_name,
     assignedToName: request.assigned_to_name,
     dueDate: request.due_date,

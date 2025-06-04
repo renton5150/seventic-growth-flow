@@ -39,15 +39,24 @@ export const columns: ColumnDefinition[] = [
     width: "w-[50px]",
     render: (request) => <GrowthRequestTypeIcon type={request.type} />
   },
-  // Mission - UTILISATION DES VRAIES DONNÉES DE LA BASE
+  // Mission - UTILISATION DES VRAIES DONNÉES
   {
     header: "Mission",
     key: "mission",
-    render: (request) => (
-      <div className="font-medium text-sm">
-        {request.missionName || "Sans mission"}
-      </div>
-    )
+    render: (request) => {
+      // Utiliser directement le missionName formaté depuis la base de données
+      const displayName = request.missionName && request.missionName !== "Sans mission" 
+        ? request.missionName 
+        : "Sans mission";
+      
+      console.log(`[Column Mission] Request ${request.id}: displaying "${displayName}"`);
+      
+      return (
+        <div className="font-medium text-sm" title={displayName}>
+          {displayName}
+        </div>
+      );
+    }
   },
   // Type de demande
   {

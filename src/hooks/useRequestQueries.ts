@@ -21,10 +21,14 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log("🚀 [useRequestQueries] TO ASSIGN - Récupération avec userId:", userId, "rôle:", user?.role);
       
-      // Requête pour les demandes sans assignation
+      // Utilisation de la vue requests_with_missions qui fait la jointure avec les missions
       let query = supabase
         .from('requests_with_missions')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          mission_client,
+          mission_name
+        `)
         .is('assigned_to', null)
         .eq('workflow_status', 'pending_assignment')
         .neq('workflow_status', 'completed');
@@ -74,7 +78,11 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("🚀 [useRequestQueries] MY ASSIGNMENTS - Récupération avec userId:", userId, "rôle:", user?.role);
       
       let query = supabase.from('requests_with_missions')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          mission_client,
+          mission_name
+        `)
         .neq('workflow_status', 'completed');
       
       // Pour Growth: seulement les requêtes assignées à lui-même
@@ -121,7 +129,7 @@ export function useRequestQueries(userId: string | undefined) {
     refetchInterval: 10000
   });
   
-  // Toutes les requêtes
+  // Toutes les requêtes - RÉCUPÉRATION AVEC JOINTURE MISSIONS
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useQuery({
     queryKey: ['growth-all-requests', userId, isSDR, isGrowth, isAdmin],
     queryFn: async () => {
@@ -129,8 +137,13 @@ export function useRequestQueries(userId: string | undefined) {
       
       console.log('🚀 [useRequestQueries] ALL REQUESTS - Récupération avec rôle:', user?.role, 'userId:', userId);
       
+      // Utilisation de la vue requests_with_missions avec sélection explicite des champs mission
       let query = supabase.from('requests_with_missions')
-        .select('*')
+        .select(`
+          *,
+          mission_client,
+          mission_name
+        `)
         .neq('workflow_status', 'completed');
       
       // Si c'est un SDR, ne récupérer QUE ses demandes créées
@@ -188,7 +201,11 @@ export function useRequestQueries(userId: string | undefined) {
       
       const { data, error } = await supabase
         .from('requests_with_missions')
-        .select('*')
+        .select(`
+          *,
+          mission_client,
+          mission_name
+        `)
         .eq('id', requestId)
         .maybeSingle();
 
