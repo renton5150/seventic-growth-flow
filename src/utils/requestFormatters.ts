@@ -1,26 +1,6 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
-// Fonction helper pour extraire la valeur d'un objet avec _type et value
-const extractValue = (obj: any): string | null => {
-  if (!obj) return null;
-  
-  // Si c'est déjà une chaîne simple
-  if (typeof obj === 'string') {
-    return obj.trim() !== "" && obj !== "null" && obj !== "undefined" ? obj.trim() : null;
-  }
-  
-  // Si c'est un objet avec _type et value
-  if (obj && typeof obj === 'object' && obj.value !== undefined) {
-    const value = obj.value;
-    if (typeof value === 'string' && value.trim() !== "" && value !== "null" && value !== "undefined") {
-      return value.trim();
-    }
-  }
-  
-  return null;
-};
-
 // Format request data from the database
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
   console.log(`[formatRequestFromDb] 🚀 START Formatting request ${request.id}`);
@@ -33,42 +13,24 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
   // Calculate if the request is late
   const isLate = dueDate < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled';
   
-  // EXTRACTION DES VRAIES VALEURS MISSION
-  console.log(`[formatRequestFromDb] 🔍 DONNÉES MISSION RAW pour request ${request.id}:`, {
+  // UTILISER LES VRAIES DONNÉES DE LA VUE requests_with_missions
+  console.log(`[formatRequestFromDb] 🔍 DONNÉES MISSION DIRECTES depuis la vue pour request ${request.id}:`, {
     mission_id: request.mission_id,
-    mission_client_raw: request.mission_client,
-    mission_name_raw: request.mission_name,
-    missions_object: request.missions
+    mission_client: request.mission_client,
+    mission_name: request.mission_name,
+    sdr_name: request.sdr_name,
+    assigned_to_name: request.assigned_to_name
   });
   
-  // Extraire les valeurs avec la fonction helper
-  const missionClientValue = extractValue(request.mission_client);
-  const missionNameValue = extractValue(request.mission_name);
-  const missionsClientValue = request.missions?.client ? extractValue(request.missions.client) : null;
-  const missionsNameValue = request.missions?.name ? extractValue(request.missions.name) : null;
-  
-  console.log(`[formatRequestFromDb] 🔍 VALEURS EXTRAITES pour request ${request.id}:`, {
-    missionClientValue,
-    missionNameValue,
-    missionsClientValue,
-    missionsNameValue
-  });
-  
-  // DÉTERMINATION DU NOM FINAL avec priorité
+  // DÉTERMINATION DU NOM FINAL - utiliser directement les données de la vue
   let missionName = "Sans mission";
   
-  if (missionClientValue) {
-    missionName = missionClientValue;
+  if (request.mission_client && String(request.mission_client).trim() !== "" && String(request.mission_client).trim() !== "null" && String(request.mission_client).trim() !== "undefined") {
+    missionName = String(request.mission_client).trim();
     console.log(`[formatRequestFromDb] ✅ MISSION CLIENT utilisé: "${missionName}" pour request ${request.id}`);
-  } else if (missionsClientValue) {
-    missionName = missionsClientValue;
-    console.log(`[formatRequestFromDb] ✅ MISSIONS.CLIENT utilisé: "${missionName}" pour request ${request.id}`);
-  } else if (missionNameValue) {
-    missionName = missionNameValue;
+  } else if (request.mission_name && String(request.mission_name).trim() !== "" && String(request.mission_name).trim() !== "null" && String(request.mission_name).trim() !== "undefined") {
+    missionName = String(request.mission_name).trim();
     console.log(`[formatRequestFromDb] ✅ MISSION NAME utilisé: "${missionName}" pour request ${request.id}`);
-  } else if (missionsNameValue) {
-    missionName = missionsNameValue;
-    console.log(`[formatRequestFromDb] ✅ MISSIONS.NAME utilisé: "${missionName}" pour request ${request.id}`);
   } else {
     console.log(`[formatRequestFromDb] ⚠️ AUCUNE MISSION VALIDE trouvée pour request ${request.id}, garde "Sans mission"`);
   }
