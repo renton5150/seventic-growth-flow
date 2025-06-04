@@ -48,10 +48,10 @@ export function useRequestQueries(userId: string | undefined) {
           name,
           client
         ),
-        created_by_profile:created_by (
+        profiles!requests_created_by_fkey (
           name
         ),
-        assigned_to_profile:assigned_to (
+        profiles!requests_assigned_to_fkey (
           name
         )
       `);
@@ -93,12 +93,15 @@ export function useRequestQueries(userId: string | undefined) {
     // Formatter les données
     const formattedRequests = await Promise.all(data.map((request: any) => {
       // Transformer les données pour correspondre au format attendu par formatRequestFromDb
+      const createdByProfile = Array.isArray(request.profiles) ? request.profiles[0] : request.profiles;
+      const assignedToProfile = Array.isArray(request.profiles) ? request.profiles[1] : null;
+      
       const transformedRequest = {
         ...request,
         mission_name: request.missions?.name || null,
         mission_client: request.missions?.client || null,
-        sdr_name: request.created_by_profile?.name || null,
-        assigned_to_name: request.assigned_to_profile?.name || null
+        sdr_name: createdByProfile?.name || null,
+        assigned_to_name: assignedToProfile?.name || null
       };
       
       console.log(`🔧 [fetchRequestsWithMissions] Transformation de la request ${request.id}:`);
@@ -203,10 +206,10 @@ export function useRequestQueries(userId: string | undefined) {
             name,
             client
           ),
-          created_by_profile:created_by (
+          profiles!requests_created_by_fkey (
             name
           ),
-          assigned_to_profile:assigned_to (
+          profiles!requests_assigned_to_fkey (
             name
           )
         `)
@@ -232,12 +235,15 @@ export function useRequestQueries(userId: string | undefined) {
       console.log("📋 [useRequestQueries] REQUEST DETAILS - Données récupérées:", data);
       
       // Transformer les données
+      const createdByProfile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+      const assignedToProfile = Array.isArray(data.profiles) ? data.profiles[1] : null;
+      
       const transformedRequest = {
         ...data,
         mission_name: data.missions?.name || null,
         mission_client: data.missions?.client || null,
-        sdr_name: data.created_by_profile?.name || null,
-        assigned_to_name: data.assigned_to_profile?.name || null
+        sdr_name: createdByProfile?.name || null,
+        assigned_to_name: assignedToProfile?.name || null
       };
       
       const formatted = await formatRequestFromDb(transformedRequest);
