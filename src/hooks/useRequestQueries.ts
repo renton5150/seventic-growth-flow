@@ -6,6 +6,9 @@ import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { diagnoseMissionData } from "@/utils/diagnoseMissionData";
 
+// Variable globale pour tracker si le diagnostic a été fait
+let diagnosticDone = false;
+
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
   const isSDR = user?.role === 'sdr';
@@ -19,9 +22,9 @@ export function useRequestQueries(userId: string | undefined) {
     console.log("🚀 [fetchRequestsWithMissions] UTILISATION DE JOIN DIRECT");
     
     // Diagnostic une seule fois
-    if (!fetchRequestsWithMissions.diagnosticDone) {
+    if (!diagnosticDone) {
       await diagnoseMissionData();
-      fetchRequestsWithMissions.diagnosticDone = true;
+      diagnosticDone = true;
     }
     
     let query = supabase
@@ -45,10 +48,10 @@ export function useRequestQueries(userId: string | undefined) {
           name,
           client
         ),
-        sdr:created_by (
+        created_by_profile:created_by (
           name
         ),
-        assigned_user:assigned_to (
+        assigned_to_profile:assigned_to (
           name
         )
       `);
@@ -94,8 +97,8 @@ export function useRequestQueries(userId: string | undefined) {
         ...request,
         mission_name: request.missions?.name || null,
         mission_client: request.missions?.client || null,
-        sdr_name: request.sdr?.name || null,
-        assigned_to_name: request.assigned_user?.name || null
+        sdr_name: request.created_by_profile?.name || null,
+        assigned_to_name: request.assigned_to_profile?.name || null
       };
       
       console.log(`🔧 [fetchRequestsWithMissions] Transformation de la request ${request.id}:`);
@@ -200,10 +203,10 @@ export function useRequestQueries(userId: string | undefined) {
             name,
             client
           ),
-          sdr:created_by (
+          created_by_profile:created_by (
             name
           ),
-          assigned_user:assigned_to (
+          assigned_to_profile:assigned_to (
             name
           )
         `)
@@ -233,8 +236,8 @@ export function useRequestQueries(userId: string | undefined) {
         ...data,
         mission_name: data.missions?.name || null,
         mission_client: data.missions?.client || null,
-        sdr_name: data.sdr?.name || null,
-        assigned_to_name: data.assigned_user?.name || null
+        sdr_name: data.created_by_profile?.name || null,
+        assigned_to_name: data.assigned_to_profile?.name || null
       };
       
       const formatted = await formatRequestFromDb(transformedRequest);
@@ -257,6 +260,3 @@ export function useRequestQueries(userId: string | undefined) {
     getRequestDetails
   };
 }
-
-// Marquer que le diagnostic n'a pas encore été fait
-(fetchRequestsWithMissions as any).diagnosticDone = false;
