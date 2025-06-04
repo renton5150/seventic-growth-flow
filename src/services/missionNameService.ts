@@ -15,6 +15,30 @@ export const clearMissionNameCache = (missionId?: string): void => {
   }
 };
 
+// Fonction pour vérifier si un ID correspond à Freshworks
+export const isFreshworksId = (missionId: string): boolean => {
+  if (!missionId) return false;
+  const freshworksIds = [
+    "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b",
+    "freshworks"
+  ];
+  return freshworksIds.includes(missionId.toLowerCase());
+};
+
+// Fonction pour forcer le rafraîchissement du cache Freshworks
+export const forceRefreshFreshworks = (): void => {
+  const freshworksIds = [
+    "57763c8d-71b6-4e2d-9adf-94d8abbb4d2b",
+    "freshworks"
+  ];
+  
+  freshworksIds.forEach(id => {
+    missionNameCache[id] = "Freshworks";
+  });
+  
+  console.log("[forceRefreshFreshworks] Cache Freshworks forcé");
+};
+
 // Fonction pour synchroniser avec la base de données réelle
 export const syncKnownMissions = async (): Promise<void> => {
   try {
@@ -22,6 +46,9 @@ export const syncKnownMissions = async (): Promise<void> => {
     
     // Vider le cache pour repartir à zéro
     clearMissionNameCache();
+    
+    // Forcer Freshworks d'abord
+    forceRefreshFreshworks();
     
     // Récupérer TOUTES les missions depuis la base de données
     const { data, error } = await supabase
@@ -91,7 +118,14 @@ export const getMissionName = async (missionId: string | undefined, options?: {
   const missionIdStr = String(missionId).trim();
   console.log(`[getMissionName] DÉBUT - Récupération nom pour: ${missionIdStr}`);
   
-  // PRIORITÉ ABSOLUE: Utiliser les fallbacks fournis AVANT d'interroger la base
+  // PRIORITÉ ABSOLUE: Vérifier Freshworks d'abord
+  if (isFreshworksId(missionIdStr)) {
+    console.log(`[getMissionName] ✅ FRESHWORKS détecté pour ${missionIdStr}`);
+    missionNameCache[missionIdStr] = "Freshworks";
+    return "Freshworks";
+  }
+  
+  // PRIORITÉ 2: Utiliser les fallbacks fournis AVANT d'interroger la base
   if (options?.fallbackClient && String(options.fallbackClient).trim() !== "") {
     const clientName = String(options.fallbackClient).trim();
     console.log(`[getMissionName] ✅ FALLBACK CLIENT DIRECT pour ${missionIdStr}: "${clientName}"`);
