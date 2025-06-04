@@ -14,10 +14,15 @@ interface RequestFilters {
 export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]> => {
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
-  // CORRECTION : Utiliser la vue requests_with_missions qui a déjà les jointures
+  // CORRECTION : Revenir aux jointures explicites pour diagnostiquer
   let query = supabase
-    .from('requests_with_missions')
-    .select('*');
+    .from('requests')
+    .select(`
+      *,
+      missions(id, name, client),
+      created_by_profile:profiles!requests_created_by_fkey(name),
+      assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+    `);
     
   // Appliquer les filtres
   if (filters?.assignedToIsNull) {
@@ -55,16 +60,31 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
     return [];
   }
   
-  // Transformation directe et simple - utiliser les champs de la vue
+  // Transformation avec logs détaillés pour chaque request
   const requests = data.map((row: any) => {
     console.log(`🔍 [fetchRequests] Processing request ${row.id}:`, {
-      mission_name: row.mission_name,
-      mission_client: row.mission_client,
+      raw_row: row,
+      missions_object: row.missions,
+      mission_name: row.missions?.name,
+      mission_client: row.missions?.client,
       title: row.title
     });
     
-    // La vue requests_with_missions a déjà mission_name et mission_client
-    const missionName = row.mission_client || row.mission_name || "Sans mission";
+    // DIAGNOSTIC : Tester différentes façons d'accéder au nom de mission
+    let missionName = "Sans mission";
+    if (row.missions) {
+      if (row.missions.client) {
+        missionName = row.missions.client;
+        console.log(`✅ [fetchRequests] Mission trouvée via client: "${missionName}"`);
+      } else if (row.missions.name) {
+        missionName = row.missions.name;
+        console.log(`✅ [fetchRequests] Mission trouvée via name: "${missionName}"`);
+      } else {
+        console.log(`⚠️ [fetchRequests] Mission object exists but no client/name:`, row.missions);
+      }
+    } else {
+      console.log(`❌ [fetchRequests] Pas d'objet missions pour request ${row.id}`);
+    }
     
     const formattedRequest: Request = {
       id: row.id,
@@ -74,8 +94,8 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       createdBy: row.created_by,
       missionId: row.mission_id,
       missionName: missionName,
-      sdrName: row.sdr_name || "Non assigné",
-      assignedToName: row.assigned_to_name || "Non assigné",
+      sdrName: row.created_by_profile?.name || "Non assigné",
+      assignedToName: row.assigned_to_profile?.name || "Non assigné",
       dueDate: row.due_date,
       details: row.details || {},
       workflow_status: row.workflow_status as WorkflowStatus,
@@ -100,10 +120,15 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
   try {
     console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
     
-    // Utiliser aussi la vue pour les détails
+    // Utiliser aussi les jointures explicites pour les détails
     const { data, error } = await supabase
-      .from('requests_with_missions')
-      .select('*')
+      .from('requests')
+      .select(`
+        *,
+        missions(id, name, client),
+        created_by_profile:profiles!requests_created_by_fkey(name),
+        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+      `)
       .eq('id', requestId)
       .maybeSingle();
 
@@ -123,12 +148,13 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
     }
 
     console.log("🔍 [getRequestDetails] Données récupérées:", {
-      mission_name: data.mission_name,
-      mission_client: data.mission_client,
+      missions_object: data.missions,
+      mission_name: data.missions?.name,
+      mission_client: data.missions?.client,
       title: data.title
     });
 
-    const missionName = data.mission_client || data.mission_name || "Sans mission";
+    const missionName = data.missions?.client || data.missions?.name || "Sans mission";
     
     const request: Request = {
       id: data.id,
@@ -138,8 +164,8 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       createdBy: data.created_by,
       missionId: data.mission_id,
       missionName: missionName,
-      sdrName: data.sdr_name || "Non assigné",
-      assignedToName: data.assigned_to_name || "Non assigné",
+      sdrName: data.created_by_profile?.name || "Non assigné",
+      assignedToName: data.assigned_to_profile?.name || "Non assigné",
       dueDate: data.due_date,
       details: data.details || {},
       workflow_status: data.workflow_status as WorkflowStatus,
