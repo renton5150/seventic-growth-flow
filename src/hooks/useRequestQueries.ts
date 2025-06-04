@@ -12,7 +12,7 @@ export function useRequestQueries(userId: string | undefined) {
 
   console.log(`[useRequestQueries] USER ROLE: ${user?.role}, userId: ${userId}`);
 
-  // Fonction simple pour récupérer les requests avec missions
+  // Fonction simple pour récupérer les requests
   const fetchRequests = async (filters?: {
     assignedToIsNull?: boolean;
     workflowStatus?: string;
@@ -21,13 +21,13 @@ export function useRequestQueries(userId: string | undefined) {
     createdBy?: string;
     assignedToIsNotNull?: boolean;
   }) => {
-    console.log("🚀 Récupération requests avec filtres:", filters);
+    console.log("🚀 [fetchRequests] Début avec filtres:", filters);
     
     let query = supabase
       .from('requests')
       .select(`
         *,
-        missions!inner(name, client),
+        missions(name, client),
         created_by_profile:profiles!requests_created_by_fkey(name),
         assigned_to_profile:profiles!requests_assigned_to_fkey(name)
       `);
@@ -57,19 +57,23 @@ export function useRequestQueries(userId: string | undefined) {
     const { data, error } = await query;
     
     if (error) {
-      console.error("❌ Erreur:", error);
+      console.error("❌ [fetchRequests] Erreur:", error);
       return [];
     }
     
-    console.log(`📋 ${data.length} requests récupérées`);
+    console.log(`📋 [fetchRequests] ${data?.length || 0} requests récupérées`);
+    console.log("🔍 [fetchRequests] Première request brute:", data?.[0]);
     
-    // Transformation simple et directe
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
+    // Transformation directe et simple
     const requests = data.map((row: any) => {
+      // Mission name - utiliser client en priorité, puis name
       const missionName = row.missions?.client || row.missions?.name || "Sans mission";
-      const sdrName = row.created_by_profile?.name || "Non assigné";
-      const assignedToName = row.assigned_to_profile?.name || "Non assigné";
       
-      return {
+      const formattedRequest: Request = {
         id: row.id,
         title: row.title,
         type: row.type,
@@ -77,8 +81,8 @@ export function useRequestQueries(userId: string | undefined) {
         createdBy: row.created_by,
         missionId: row.mission_id,
         missionName: missionName,
-        sdrName: sdrName,
-        assignedToName: assignedToName,
+        sdrName: row.created_by_profile?.name || "Non assigné",
+        assignedToName: row.assigned_to_profile?.name || "Non assigné",
         dueDate: row.due_date,
         details: row.details || {},
         workflow_status: row.workflow_status,
@@ -87,11 +91,13 @@ export function useRequestQueries(userId: string | undefined) {
         createdAt: new Date(row.created_at),
         lastUpdated: new Date(row.last_updated || row.updated_at),
         target_role: row.target_role
-      } as Request;
+      };
+      
+      return formattedRequest;
     });
     
-    console.log(`✅ ${requests.length} requests formatées`);
-    console.log("🔍 Premier request:", requests[0]);
+    console.log(`✅ [fetchRequests] ${requests.length} requests formatées`);
+    console.log("🔍 [fetchRequests] Première request formatée:", requests[0]);
     
     return requests;
   };
@@ -163,7 +169,7 @@ export function useRequestQueries(userId: string | undefined) {
   // Récupération des détails d'une demande spécifique
   const getRequestDetails = async (requestId: string): Promise<Request | null> => {
     try {
-      console.log("🔍 Récupération détails pour:", requestId);
+      console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
       
       const { data, error } = await supabase
         .from('requests')
@@ -177,25 +183,23 @@ export function useRequestQueries(userId: string | undefined) {
         .maybeSingle();
 
       if (data && isSDR && data.created_by !== userId) {
-        console.error("❌ SDR accès refusé");
+        console.error("❌ [getRequestDetails] SDR accès refusé");
         return null;
       }
 
       if (error) {
-        console.error("❌ Erreur:", error);
+        console.error("❌ [getRequestDetails] Erreur:", error);
         return null;
       }
 
       if (!data) {
-        console.log("⚠️ Aucune donnée pour:", requestId);
+        console.log("⚠️ [getRequestDetails] Aucune donnée pour:", requestId);
         return null;
       }
 
       const missionName = data.missions?.client || data.missions?.name || "Sans mission";
-      const sdrName = data.created_by_profile?.name || "Non assigné";
-      const assignedToName = data.assigned_to_profile?.name || "Non assigné";
       
-      const request = {
+      const request: Request = {
         id: data.id,
         title: data.title,
         type: data.type,
@@ -203,8 +207,8 @@ export function useRequestQueries(userId: string | undefined) {
         createdBy: data.created_by,
         missionId: data.mission_id,
         missionName: missionName,
-        sdrName: sdrName,
-        assignedToName: assignedToName,
+        sdrName: data.created_by_profile?.name || "Non assigné",
+        assignedToName: data.assigned_to_profile?.name || "Non assigné",
         dueDate: data.due_date,
         details: data.details || {},
         workflow_status: data.workflow_status,
@@ -213,13 +217,13 @@ export function useRequestQueries(userId: string | undefined) {
         createdAt: new Date(data.created_at),
         lastUpdated: new Date(data.last_updated || data.updated_at),
         target_role: data.target_role
-      } as Request;
+      };
       
-      console.log(`✅ Request détails formaté: ${request.id}, mission="${request.missionName}"`);
+      console.log(`✅ [getRequestDetails] Request formaté: ${request.id}, mission="${request.missionName}"`);
       
       return request;
     } catch (err) {
-      console.error("❌ Exception:", err);
+      console.error("❌ [getRequestDetails] Exception:", err);
       return null;
     }
   };

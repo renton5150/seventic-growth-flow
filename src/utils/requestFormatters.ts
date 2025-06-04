@@ -1,7 +1,7 @@
 
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
-// Format request data from the database - VERSION ULTRA SIMPLIFIÉE
+// Format request data from the database - VERSION SIMPLIFIÉE
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
   console.log(`[formatRequestFromDb] 🚀 Formatting request ${request.id}`);
   
@@ -19,6 +19,10 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     missionName = request.missions.client;
   } else if (request.missions?.name) {
     missionName = request.missions.name;
+  } else if (request.mission_client) {
+    missionName = request.mission_client;
+  } else if (request.mission_name) {
+    missionName = request.mission_name;
   }
   
   console.log(`[formatRequestFromDb] ✅ Mission: "${missionName}" pour request ${request.id}`);
@@ -43,8 +47,8 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     createdBy: request.created_by,
     missionId: request.mission_id,
     missionName: missionName,
-    sdrName: request.created_by_profile?.name || "Non assigné",
-    assignedToName: request.assigned_to_profile?.name || "Non assigné",
+    sdrName: request.created_by_profile?.name || request.sdr_name || "Non assigné",
+    assignedToName: request.assigned_to_profile?.name || request.assigned_to_name || "Non assigné",
     dueDate: request.due_date,
     details: details,
     workflow_status: request.workflow_status as WorkflowStatus,
