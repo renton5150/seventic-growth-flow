@@ -57,7 +57,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     const interval = setInterval(async () => {
       await forceRefreshAllData();
       console.log("Growth Dashboard - Automatic refresh triggered");
-    }, 5000); // Refresh every 5 seconds for better reactivity
+    }, 3000); // Refresh every 3 seconds for better reactivity (reduced from 5s)
     
     return () => clearInterval(interval);
   }, [queryClient]);

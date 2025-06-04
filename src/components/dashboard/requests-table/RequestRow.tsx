@@ -23,6 +23,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
+import { GrowthRequestActions } from "../../growth/table/GrowthRequestActions";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "react-router-dom";
 
 interface RequestRowProps {
   request: Request;
@@ -30,6 +33,13 @@ interface RequestRowProps {
   showSdr?: boolean;
   isSDR?: boolean;
   onDeleted?: () => void;
+  // Growth-specific props
+  onEditRequest?: (request: Request) => void;
+  onCompleteRequest?: (request: Request) => void;
+  onViewDetails?: (request: Request) => void;
+  assignRequestToMe?: (requestId: string) => Promise<boolean>;
+  updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
+  activeTab?: string;
 }
 
 export const RequestRow = ({ 
@@ -37,10 +47,21 @@ export const RequestRow = ({
   missionView = false, 
   showSdr = false, 
   isSDR = false,
-  onDeleted 
+  onDeleted,
+  onEditRequest,
+  onCompleteRequest,
+  onViewDetails,
+  assignRequestToMe,
+  updateRequestWorkflowStatus,
+  activeTab
 }: RequestRowProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Détecter si on est sur la page Growth
+  const isGrowthPage = location.pathname.includes('/growth');
 
   const formatDate = (date: Date | string) => {
     const dateObj = date instanceof Date ? date : new Date(date);
@@ -75,12 +96,25 @@ export const RequestRow = ({
   };
 
   const handleView = () => {
-    navigate(`/requests/${request.type}/${request.id}`);
+    if (onViewDetails) {
+      onViewDetails(request);
+    } else {
+      navigate(`/requests/${request.type}/${request.id}`);
+    }
   };
 
   const handleEdit = () => {
-    navigate(`/requests/${request.type}/${request.id}/edit`);
+    if (onEditRequest) {
+      onEditRequest(request);
+    } else {
+      navigate(`/requests/${request.type}/${request.id}/edit`);
+    }
   };
+
+  const showDeleteButton = user?.role === "admin" || user?.role === "growth" || 
+                           (user?.role === "sdr" && user?.id === request.createdBy);
+
+  console.log(`[RequestRow] MISSION DEBUG pour request ${request.id}: missionName="${request.missionName}"`);
 
   return (
     <TableRow>
@@ -91,7 +125,9 @@ export const RequestRow = ({
       
       {/* Mission */}
       <TableCell className="font-medium">
-        {request.missionName || "Sans mission"}
+        <div className="font-medium text-sm" title={request.missionName || "Sans mission"}>
+          {request.missionName || "Sans mission"}
+        </div>
       </TableCell>
       
       {/* Type de demande */}
@@ -101,7 +137,7 @@ export const RequestRow = ({
         </Badge>
       </TableCell>
 
-      {/* NOUVELLE COLONNE: Titre de la demande */}
+      {/* Titre de la demande */}
       <TableCell>
         <div className="font-medium max-w-[200px] truncate" title={request.title}>
           {request.title}
@@ -112,7 +148,7 @@ export const RequestRow = ({
       {showSdr && (
         <TableCell>
           <div className="flex items-center">
-            <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+            <Users className="mr-2 h-4 w-4 text-muted-foreground"  />
             {request.sdrName || "Non assigné"}
           </div>
         </TableCell>
@@ -153,57 +189,73 @@ export const RequestRow = ({
       
       {/* Actions */}
       <TableCell className="text-right">
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleView}
-            className="h-8 w-8"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          
-          {!isSDR && (
+        {isGrowthPage && onEditRequest && onCompleteRequest ? (
+          <GrowthRequestActions
+            request={request}
+            onEditRequest={onEditRequest}
+            onCompleteRequest={onCompleteRequest}
+            onViewDetails={onViewDetails || handleView}
+            onRequestDeleted={onDeleted}
+            assignRequestToMe={assignRequestToMe}
+            updateRequestWorkflowStatus={updateRequestWorkflowStatus}
+            activeTab={activeTab}
+            showDeleteButton={showDeleteButton}
+          />
+        ) : (
+          <div className="flex justify-end gap-2">
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleEdit}
+              onClick={handleView}
               className="h-8 w-8"
             >
-              <Edit className="h-4 w-4" />
+              <Eye className="h-4 w-4" />
             </Button>
-          )}
-          
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+            
+            {!isSDR && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={handleEdit}
+                className="h-8 w-8"
               >
-                <Trash2 className="h-4 w-4" />
+                <Edit className="h-4 w-4" />
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {isDeleting ? "Suppression..." : "Supprimer"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+            )}
+            
+            {showDeleteButton && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {isDeleting ? "Suppression..." : "Supprimer"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        )}
       </TableCell>
     </TableRow>
   );
