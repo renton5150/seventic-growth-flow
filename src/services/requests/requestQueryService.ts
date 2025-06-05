@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
-import { getMissionById } from "@/services/missions/missionService";
+import { getDirectMissionById } from "@/services/missions/directMissionService";
 
 interface RequestFilters {
   assignedToIsNull?: boolean;
@@ -61,13 +61,13 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       return [];
     }
 
-    // Formater les requests avec les noms de mission
+    // Formater les requests avec les noms de mission via le nouveau service direct
     const formattedRequests = await Promise.all(
       requestsData.map(async (request) => {
         console.log(`🔍 [fetchRequests] Formatage request ${request.id} avec mission_id: ${request.mission_id}`);
         
-        // Récupérer le nom de mission via le service dédié
-        const missionName = await getMissionById(request.mission_id);
+        // Utiliser le nouveau service direct pour récupérer le nom de mission
+        const missionName = await getDirectMissionById(request.mission_id);
         
         console.log(`✅ [fetchRequests] Mission "${missionName}" pour request ${request.id}`);
         
@@ -134,8 +134,8 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       return null;
     }
 
-    // Récupérer le nom de mission via le service dédié
-    const missionName = await getMissionById(requestData.mission_id);
+    // Utiliser le nouveau service direct pour récupérer le nom de mission
+    const missionName = await getDirectMissionById(requestData.mission_id);
     
     const request: Request = {
       id: requestData.id,

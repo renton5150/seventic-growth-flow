@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllMissions, getMissionsForUser, getMissionDisplayName, type MissionData } from "@/services/missions/missionService";
+import { getAllDirectMissions, getDirectMissionsForUser, getDirectMissionDisplayName, type MissionData } from "@/services/missions/directMissionService";
 
 export function MissionSelect() {
   const [missions, setMissions] = useState<MissionData[]>([]);
@@ -31,18 +31,18 @@ export function MissionSelect() {
         if (user?.role === 'sdr' && user?.id) {
           // SDR : seulement ses missions
           console.log("MissionSelect - Récupération des missions SDR pour:", user.id);
-          availableMissions = await getMissionsForUser(user.id);
+          availableMissions = await getDirectMissionsForUser(user.id);
           console.log(`MissionSelect - ${availableMissions.length} missions SDR récupérées`);
         } else if (user?.role === 'growth' || user?.role === 'admin') {
           // Growth/Admin : toutes les missions
           console.log("MissionSelect - Récupération de TOUTES les missions pour Growth/Admin");
-          availableMissions = await getAllMissions();
+          availableMissions = await getAllDirectMissions();
           console.log(`MissionSelect - ${availableMissions.length} missions récupérées pour Growth/Admin`);
         }
         
         console.log("MissionSelect - Missions disponibles:", availableMissions.map(m => ({
           id: m.id,
-          displayName: getMissionDisplayName(m)
+          displayName: getDirectMissionDisplayName(m)
         })));
         
         setMissions(availableMissions);
@@ -97,7 +97,7 @@ export function MissionSelect() {
             ) : missions.length > 0 ? (
               missions.map((mission) => (
                 <SelectItem key={mission.id} value={mission.id}>
-                  {getMissionDisplayName(mission)}
+                  {getDirectMissionDisplayName(mission)}
                 </SelectItem>
               ))
             ) : (
