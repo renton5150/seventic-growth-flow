@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,25 +26,26 @@ export function MissionSelect() {
     const fetchMissions = async () => {
       setLoading(true);
       try {
-        console.log("MissionSelect - Démarrage du chargement des missions");
-        console.log(`MissionSelect - Utilisateur: ${user?.role}, isSDR: ${isSDR}, isGrowth: ${isGrowth}, isAdmin: ${isAdmin}`);
+        console.log("MissionSelect - DÉMARRAGE du chargement des missions");
+        console.log(`MissionSelect - Rôle utilisateur: ${user?.role}`);
         
+        // LOGIQUE SIMPLIFIÉE : 
+        // - SDR : seulement ses missions (filtre par sdr_id)
+        // - Growth/Admin : TOUTES les missions (aucun filtre)
         let query = supabase.from("missions").select("id, name, client");
         
-        // CORRECTION CRITIQUE : Filtrage selon le rôle utilisateur
         if (isSDR && user?.id) {
-          console.log("MissionSelect - Filtrage pour SDR avec user.id:", user.id);
+          console.log("MissionSelect - SDR: filtrage par sdr_id =", user.id);
           query = query.eq('sdr_id', user.id);
-        } else if (isGrowth || isAdmin) {
-          console.log("MissionSelect - Utilisateur Growth/Admin: récupération de TOUTES les missions (pas de filtrage)");
-          // IMPORTANT : Pour les utilisateurs Growth et Admin, on ne filtre PAS par sdr_id
-          // Ils doivent voir toutes les missions disponibles
+        } else {
+          console.log("MissionSelect - Growth/Admin: récupération de TOUTES les missions");
+          // PAS DE FILTRE pour Growth et Admin
         }
         
         const { data, error } = await query;
         
         if (error) {
-          console.error("Erreur lors de la récupération des missions:", error);
+          console.error("MissionSelect - Erreur lors de la récupération des missions:", error);
           return;
         }
         
@@ -86,14 +86,14 @@ export function MissionSelect() {
           console.log("MissionSelect - Aucune mission trouvée");
         }
       } catch (error) {
-        console.error("Exception lors de la récupération des missions:", error);
+        console.error("MissionSelect - Exception lors de la récupération des missions:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMissions();
-  }, [isSDR, isGrowth, isAdmin, user?.id]);
+  }, [isSDR, isGrowth, isAdmin, user?.id, user?.role]);
   
   // Effet pour vérifier si la mission sélectionnée existe dans la liste chargée
   useEffect(() => {
@@ -152,15 +152,16 @@ export function MissionSelect() {
   
   const getPlaceholderText = () => {
     if (loading) return "Chargement...";
-    if (isSDR && missions.length === 0) return "Aucune mission ne vous est assignée";
-    if ((isGrowth || isAdmin) && missions.length === 0) return "Aucune mission disponible";
+    if (missions.length === 0) {
+      if (isSDR) return "Aucune mission ne vous est assignée";
+      return "Aucune mission disponible";
+    }
     return "Sélectionner une mission";
   };
 
   const getEmptyStateText = () => {
     if (isSDR) return "Aucune mission ne vous est assignée";
-    if (isGrowth || isAdmin) return "Aucune mission disponible";
-    return "Aucune mission trouvée";
+    return "Aucune mission disponible";
   };
   
   return (

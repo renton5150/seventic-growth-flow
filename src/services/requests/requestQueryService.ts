@@ -15,50 +15,12 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
   try {
-    // DIAGNOSTIC APPROFONDI - D'abord tester la vue requests_with_missions
-    console.log("🔍 [fetchRequests] TEST VUE - Récupération d'un échantillon de requests_with_missions");
-    const { data: sampleData, error: sampleError } = await supabase
-      .from('requests_with_missions')
-      .select('*')
-      .limit(3);
-    
-    if (sampleError) {
-      console.error("❌ [fetchRequests] ERREUR échantillon vue:", sampleError);
-    } else {
-      console.log("📋 [fetchRequests] ÉCHANTILLON VUE:", sampleData);
-      sampleData?.forEach((row, index) => {
-        console.log(`🔍 [fetchRequests] ÉCHANTILLON ${index + 1}:`, {
-          id: row.id,
-          mission_id: row.mission_id,
-          mission_name: row.mission_name,
-          mission_client: row.mission_client,
-          mission_name_type: typeof row.mission_name,
-          mission_client_type: typeof row.mission_client,
-          mission_name_value: JSON.stringify(row.mission_name),
-          mission_client_value: JSON.stringify(row.mission_client)
-        });
-      });
-    }
-
-    // Utiliser une approche alternative : récupérer directement depuis requests avec jointure manuelle
-    console.log("🔄 [fetchRequests] APPROCHE ALTERNATIVE - Récupération depuis requests avec jointure manuelle");
+    // APPROCHE SIMPLIFIÉE - Utilisons la vue requests_with_missions qui fonctionne
+    console.log("🔍 [fetchRequests] Utilisation de la vue requests_with_missions");
     
     let query = supabase
-      .from('requests')
-      .select(`
-        *,
-        missions!requests_mission_id_fkey (
-          id,
-          name,
-          client
-        ),
-        profiles!requests_created_by_fkey (
-          name
-        ),
-        assigned_profiles:profiles!requests_assigned_to_fkey (
-          name
-        )
-      `);
+      .from('requests_with_missions')
+      .select('*');
     
     // Appliquer les filtres
     if (filters?.assignedToIsNull) {
@@ -82,52 +44,72 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
     
     query = query.order('due_date', { ascending: true });
     
-    console.log("📋 [fetchRequests] Exécution de la requête avec jointure manuelle...");
+    console.log("📋 [fetchRequests] Exécution de la requête sur la vue...");
     
     const { data: requestsData, error: requestsError } = await query;
     
     if (requestsError) {
-      console.error("❌ [fetchRequests] Erreur requête avec jointure:", requestsError);
+      console.error("❌ [fetchRequests] Erreur requête vue:", requestsError);
       return [];
     }
     
-    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées avec jointure manuelle`);
+    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées de la vue`);
     
     if (!requestsData || requestsData.length === 0) {
       console.log("⚠️ [fetchRequests] Aucune donnée retournée");
       return [];
     }
 
+    // Diagnostic approfondi des données de la vue
+    console.log("🔍 [fetchRequests] DIAGNOSTIC APPROFONDI des données de la vue:");
+    requestsData.slice(0, 3).forEach((request, index) => {
+      console.log(`🔍 [fetchRequests] REQUEST ${index + 1}:`, {
+        id: request.id,
+        mission_id: request.mission_id,
+        mission_name: request.mission_name,
+        mission_client: request.mission_client,
+        mission_name_type: typeof request.mission_name,
+        mission_client_type: typeof request.mission_client,
+        mission_name_stringified: JSON.stringify(request.mission_name),
+        mission_client_stringified: JSON.stringify(request.mission_client)
+      });
+    });
+
     // Formatter les données récupérées avec diagnostics détaillés
     const formattedRequests = requestsData.map((request) => {
-      console.log(`🔍 [fetchRequests] JOINTURE MANUELLE - DIAGNOSTIC pour request ${request.id}:`);
+      console.log(`🔍 [fetchRequests] FORMATAGE request ${request.id}:`);
       console.log(`  - mission_id: "${request.mission_id}"`);
-      console.log(`  - missions object:`, request.missions);
-      console.log(`  - profiles object:`, request.profiles);
-      console.log(`  - assigned_profiles object:`, request.assigned_profiles);
+      console.log(`  - mission_client RAW:`, request.mission_client);
+      console.log(`  - mission_name RAW:`, request.mission_name);
       
-      // Extraire les données de mission
+      // Extraire les données de mission avec une logique ultra-claire
       let missionName = "Sans mission";
-      const missionData = request.missions;
       
-      if (missionData) {
-        console.log(`  - Mission data found:`, missionData);
-        if (missionData.client && String(missionData.client).trim() !== '') {
-          missionName = String(missionData.client).trim();
-          console.log(`  ✅ Utilisation mission.client: "${missionName}"`);
-        } else if (missionData.name && String(missionData.name).trim() !== '') {
-          missionName = String(missionData.name).trim();
-          console.log(`  ✅ Utilisation mission.name: "${missionName}"`);
-        } else {
-          console.log(`  ⚠️ Mission trouvée mais pas de nom valide`);
+      // Essayer mission_client d'abord
+      if (request.mission_client) {
+        const clientValue = String(request.mission_client).trim();
+        if (clientValue && clientValue !== 'null' && clientValue !== 'undefined' && clientValue !== '') {
+          missionName = clientValue;
+          console.log(`  ✅ Utilisation mission_client: "${missionName}"`);
         }
-      } else {
-        console.log(`  ⚠️ Aucune mission associée`);
+      }
+      
+      // Si pas de client valide, essayer mission_name
+      if (missionName === "Sans mission" && request.mission_name) {
+        const nameValue = String(request.mission_name).trim();
+        if (nameValue && nameValue !== 'null' && nameValue !== 'undefined' && nameValue !== '') {
+          missionName = nameValue;
+          console.log(`  ✅ Utilisation mission_name: "${missionName}"`);
+        }
+      }
+      
+      if (missionName === "Sans mission") {
+        console.log(`  ❌ AUCUNE MISSION VALIDE trouvée pour request ${request.id}`);
       }
       
       // Extraire les noms des utilisateurs
-      const sdrName = request.profiles?.name || "Non assigné";
-      const assignedToName = request.assigned_profiles?.name || "Non assigné";
+      const sdrName = request.sdr_name || "Non assigné";
+      const assignedToName = request.assigned_to_name || "Non assigné";
       
       const formattedRequest: Request = {
         id: request.id,
@@ -149,12 +131,12 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         target_role: request.target_role
       };
       
-      console.log(`✅ [fetchRequests] Request formatée avec jointure: ${formattedRequest.id}, mission finale="${formattedRequest.missionName}"`);
+      console.log(`✅ [fetchRequests] Request formatée: ${formattedRequest.id}, mission finale="${formattedRequest.missionName}"`);
       
       return formattedRequest;
     });
     
-    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions via jointure manuelle`);
+    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions`);
     console.log(`🔍 [fetchRequests] Exemple de missions récupérées:`, formattedRequests.slice(0, 3).map(r => ({ id: r.id, missionName: r.missionName })));
     
     return formattedRequests;
@@ -169,23 +151,10 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
   try {
     console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
     
-    // Utiliser l'approche de jointure manuelle pour plus de fiabilité
+    // Utiliser la vue pour plus de simplicité
     const { data: requestData, error: requestError } = await supabase
-      .from('requests')
-      .select(`
-        *,
-        missions!requests_mission_id_fkey (
-          id,
-          name,
-          client
-        ),
-        profiles!requests_created_by_fkey (
-          name
-        ),
-        assigned_profiles:profiles!requests_assigned_to_fkey (
-          name
-        )
-      `)
+      .from('requests_with_missions')
+      .select('*')
       .eq('id', requestId)
       .single();
 
@@ -201,14 +170,10 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
 
     // Extraire les données de mission
     let missionName = "Sans mission";
-    const missionData = requestData.missions;
-    
-    if (missionData) {
-      if (missionData.client && String(missionData.client).trim() !== '') {
-        missionName = String(missionData.client).trim();
-      } else if (missionData.name && String(missionData.name).trim() !== '') {
-        missionName = String(missionData.name).trim();
-      }
+    if (requestData.mission_client && String(requestData.mission_client).trim() !== '') {
+      missionName = String(requestData.mission_client).trim();
+    } else if (requestData.mission_name && String(requestData.mission_name).trim() !== '') {
+      missionName = String(requestData.mission_name).trim();
     }
     
     const request: Request = {
@@ -219,8 +184,8 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       createdBy: requestData.created_by,
       missionId: requestData.mission_id,
       missionName: missionName,
-      sdrName: requestData.profiles?.name || "Non assigné",
-      assignedToName: requestData.assigned_profiles?.name || "Non assigné",
+      sdrName: requestData.sdr_name || "Non assigné",
+      assignedToName: requestData.assigned_to_name || "Non assigné",
       dueDate: requestData.due_date,
       details: requestData.details || {},
       workflow_status: requestData.workflow_status as WorkflowStatus,
