@@ -33,7 +33,7 @@ export const formatRequestFromDb = (dbRequest: any): Request => {
     createdBy: dbRequest.created_by,
     createdAt: new Date(dbRequest.created_at),
     status: dbRequest.status as RequestStatus,
-    dueDate: new Date(dbRequest.due_date),
+    dueDate: dbRequest.due_date, // Keep as string from database
     lastUpdated: new Date(dbRequest.last_updated),
     isLate: new Date(dbRequest.due_date) < new Date() && dbRequest.status !== "completed",
     sdrName: dbRequest.sdr_name || "Non assigné",

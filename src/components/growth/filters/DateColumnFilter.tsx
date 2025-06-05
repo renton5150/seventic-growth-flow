@@ -23,27 +23,21 @@ interface DateFilterValues {
 }
 
 interface DateColumnFilterProps {
-  columnName: string;
-  hasFilter: boolean;
-  onFilterChange: (type: DateFilterType, values: DateFilterValues) => void;
-  onClearFilter: () => void;
-  currentFilter?: {
+  selectedFilter?: {
     type: DateFilterType;
     values: DateFilterValues;
   };
+  onFilterChange: (type: DateFilterType, values: DateFilterValues) => void;
 }
 
 export function DateColumnFilter({
-  columnName,
-  hasFilter,
+  selectedFilter,
   onFilterChange,
-  onClearFilter,
-  currentFilter
 }: DateColumnFilterProps) {
-  const [filterType, setFilterType] = useState<DateFilterType>(currentFilter?.type || null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(currentFilter?.values.date || null);
-  const [startDate, setStartDate] = useState<Date | null>(currentFilter?.values.startDate || null);
-  const [endDate, setEndDate] = useState<Date | null>(currentFilter?.values.endDate || null);
+  const [filterType, setFilterType] = useState<DateFilterType>(selectedFilter?.type || null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(selectedFilter?.values.date || null);
+  const [startDate, setStartDate] = useState<Date | null>(selectedFilter?.values.startDate || null);
+  const [endDate, setEndDate] = useState<Date | null>(selectedFilter?.values.endDate || null);
   const [open, setOpen] = useState(false);
 
   const handleFilterTypeChange = (value: string) => {
@@ -52,7 +46,7 @@ export function DateColumnFilter({
 
   const handleApplyFilter = () => {
     if (!filterType) {
-      onClearFilter();
+      onFilterChange(null, {});
       setOpen(false);
       return;
     }
@@ -70,36 +64,16 @@ export function DateColumnFilter({
     setOpen(false);
   };
 
-  const formatSelectedFilter = () => {
-    if (!currentFilter || !currentFilter.type) return null;
-
-    const { type, values } = currentFilter;
-    const formatDateValue = (date: Date | null | undefined) => {
-      return date ? format(date, "dd/MM/yyyy", { locale: fr }) : "-";
-    };
-
-    switch (type) {
-      case 'equals':
-        return `= ${formatDateValue(values.date)}`;
-      case 'before':
-        return `< ${formatDateValue(values.date)}`;
-      case 'after':
-        return `> ${formatDateValue(values.date)}`;
-      case 'between':
-        return `${formatDateValue(values.startDate)} - ${formatDateValue(values.endDate)}`;
-      default:
-        return null;
-    }
-  };
-
   const handleClearFilter = () => {
     setFilterType(null);
     setSelectedDate(null);
     setStartDate(null);
     setEndDate(null);
-    onClearFilter();
+    onFilterChange(null, {});
     setOpen(false);
   };
+
+  const hasFilter = selectedFilter && selectedFilter.type;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -116,7 +90,7 @@ export function DateColumnFilter({
       <PopoverContent className="w-auto p-4 min-w-[300px]" align="end">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">Filtrer {columnName}</h4>
+            <h4 className="font-medium">Filtrer par date</h4>
             {hasFilter && (
               <Button 
                 variant="ghost" 

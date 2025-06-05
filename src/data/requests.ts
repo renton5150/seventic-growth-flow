@@ -1,4 +1,3 @@
-
 import { Request, EmailCampaignRequest, LinkedInScrapingRequest, DatabaseRequest } from "../types/types";
 
 // Mock requests
@@ -13,7 +12,7 @@ export const requests: Request[] = [
     createdBy: "user2",
     createdAt: new Date("2025-03-05"),
     status: "completed",
-    dueDate: new Date("2025-03-10"),
+    dueDate: "2025-03-10",
     lastUpdated: new Date("2025-03-08"),
     sdrName: "John Doe",
     assignedToName: "Jane Smith",
@@ -41,7 +40,7 @@ export const requests: Request[] = [
       },
       emailType: "Mass email"
     }
-  } as unknown as EmailCampaignRequest,
+  } as Request,
   {
     id: "request2",
     type: "database",
@@ -52,7 +51,7 @@ export const requests: Request[] = [
     createdBy: "user2",
     createdAt: new Date("2025-03-06"),
     status: "inprogress",
-    dueDate: new Date("2025-03-15"),
+    dueDate: "2025-03-15",
     lastUpdated: new Date("2025-03-12"),
     sdrName: "John Doe",
     assignedToName: "Jane Smith",
@@ -71,7 +70,7 @@ export const requests: Request[] = [
         accounts: { notes: "Exclude direct competitors" },
       },
     }
-  } as DatabaseRequest,
+  } as Request,
   {
     id: "request3",
     type: "linkedin",
@@ -82,7 +81,7 @@ export const requests: Request[] = [
     createdBy: "user2",
     createdAt: new Date("2025-03-16"),
     status: "pending",
-    dueDate: new Date("2025-04-10"),
+    dueDate: "2025-04-10",
     lastUpdated: new Date("2025-03-16"),
     sdrName: "John Doe",
     assignedToName: "Non assigné",
@@ -98,7 +97,7 @@ export const requests: Request[] = [
         companySize: ["1-10", "11-50"],
       },
     }
-  } as LinkedInScrapingRequest,
+  } as Request,
   {
     id: "request4",
     type: "email",
@@ -109,7 +108,7 @@ export const requests: Request[] = [
     createdBy: "user2",
     createdAt: new Date("2025-03-22"),
     status: "pending",
-    dueDate: new Date("2025-03-26"),
+    dueDate: "2025-03-26",
     lastUpdated: new Date("2025-03-22"),
     sdrName: "John Doe",
     assignedToName: "Non assigné",
@@ -136,7 +135,7 @@ export const requests: Request[] = [
       },
       emailType: "Mass email"
     }
-  } as unknown as EmailCampaignRequest,
+  } as Request,
   {
     id: "request5",
     type: "database",
@@ -147,7 +146,7 @@ export const requests: Request[] = [
     createdBy: "user2",
     createdAt: new Date("2025-03-23"),
     status: "completed",
-    dueDate: new Date("2025-03-30"),
+    dueDate: "2025-03-30",
     lastUpdated: new Date("2025-03-28"),
     sdrName: "John Doe",
     assignedToName: "Jane Smith",
@@ -168,7 +167,7 @@ export const requests: Request[] = [
       },
       contactsCreated: 357,
     }
-  } as DatabaseRequest,
+  } as Request,
 ];
 
 // Helper function to get requests by mission ID

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -84,7 +83,9 @@ export function RequestEditDialog({
       
       // Convertir la date en string au format YYYY-MM-DD
       const dueDateString = selectedRequest.dueDate 
-        ? new Date(selectedRequest.dueDate).toISOString().split('T')[0]
+        ? (typeof selectedRequest.dueDate === 'string' 
+            ? selectedRequest.dueDate.split('T')[0]
+            : new Date(selectedRequest.dueDate).toISOString().split('T')[0])
         : "";
       
       form.reset({

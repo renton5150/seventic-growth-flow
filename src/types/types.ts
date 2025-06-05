@@ -22,7 +22,7 @@ export interface Request {
   missionClient: string; // NOUVELLE PROPRIÉTÉ pour le client de mission
   sdrName: string;
   assignedToName: string;
-  dueDate: string;
+  dueDate: string; // CHANGÉ: string au lieu de Date
   details: Record<string, any>;
   workflow_status: WorkflowStatus;
   assigned_to?: string | null;
