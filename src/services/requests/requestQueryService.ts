@@ -78,6 +78,20 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       
       console.log(`✅ [fetchRequests] Request ${request.id} -> Mission: "${missionName}", Client: "${missionClient}"`);
       
+      // Gérer correctement les détails JSON
+      let details: Record<string, any> = {};
+      if (request.details) {
+        if (typeof request.details === 'string') {
+          try {
+            details = JSON.parse(request.details);
+          } catch (e) {
+            details = {};
+          }
+        } else if (typeof request.details === 'object' && request.details !== null) {
+          details = request.details as Record<string, any>;
+        }
+      }
+      
       const formattedRequest: Request = {
         id: request.id,
         title: request.title,
@@ -90,7 +104,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         sdrName: request.created_by_profile?.name || "Non assigné",
         assignedToName: request.assigned_to_profile?.name || "Non assigné",
         dueDate: request.due_date,
-        details: request.details || {},
+        details: details,
         workflow_status: request.workflow_status as WorkflowStatus,
         assigned_to: request.assigned_to,
         isLate: new Date(request.due_date) < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled',
@@ -151,6 +165,20 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       }
     }
     
+    // Gérer correctement les détails JSON
+    let details: Record<string, any> = {};
+    if (requestData.details) {
+      if (typeof requestData.details === 'string') {
+        try {
+          details = JSON.parse(requestData.details);
+        } catch (e) {
+          details = {};
+        }
+      } else if (typeof requestData.details === 'object' && requestData.details !== null) {
+        details = requestData.details as Record<string, any>;
+      }
+    }
+    
     const request: Request = {
       id: requestData.id,
       title: requestData.title,
@@ -163,7 +191,7 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       sdrName: requestData.created_by_profile?.name || "Non assigné",
       assignedToName: requestData.assigned_to_profile?.name || "Non assigné",
       dueDate: requestData.due_date,
-      details: requestData.details || {},
+      details: details,
       workflow_status: requestData.workflow_status as WorkflowStatus,
       assigned_to: requestData.assigned_to,
       isLate: new Date(requestData.due_date) < new Date() && requestData.workflow_status !== 'completed' && requestData.workflow_status !== 'canceled',

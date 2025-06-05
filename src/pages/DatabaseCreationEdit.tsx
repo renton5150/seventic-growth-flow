@@ -78,6 +78,7 @@ const DatabaseCreationEdit = () => {
               createdBy: rawRequest.created_by,
               missionId: rawRequest.mission_id,
               missionName: "Freshworks", // Force le nom
+              missionClient: "Freshworks", // Ajouter le client manquant
               sdrName: rawRequest.sdr_name,
               assignedToName: rawRequest.assigned_to_name,
               dueDate: rawRequest.due_date,
@@ -115,6 +116,7 @@ const DatabaseCreationEdit = () => {
               
             const databaseRequest: DatabaseRequest = {
               ...formattedRequest as any,
+              missionClient: formattedRequest.missionClient || "Sans client", // Assurer la présence
               tool: details.tool || "Hubspot",
               targeting: details.targeting || {},
               blacklist: details.blacklist || {}

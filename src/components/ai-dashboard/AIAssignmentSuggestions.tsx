@@ -67,15 +67,15 @@ export const AIAssignmentSuggestions = ({ requests }: AIAssignmentSuggestionsPro
         return;
       }
       
-      // Prepare request data
+      // Prepare request data - access properties safely from details
       const requestData = {
         id: selectedRequest.id,
         title: selectedRequest.title,
         type: selectedRequest.type,
         missionName: selectedRequest.missionName,
         details: selectedRequest.details || {},
-        targeting: selectedRequest.targeting || {},
-        template: selectedRequest.template || {},
+        targeting: selectedRequest.details?.targeting || {},
+        template: selectedRequest.details?.template || {},
         createdAt: selectedRequest.createdAt
       };
       

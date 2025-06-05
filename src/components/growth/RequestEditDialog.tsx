@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -62,6 +63,18 @@ export function RequestEditDialog({
     }
   }, [open, selectedRequest]);
 
+  const form = useForm<{
+    title: string;
+    dueDate: string;
+    status: RequestStatus;
+  }>({
+    defaultValues: {
+      title: "",
+      dueDate: "",
+      status: "pending" as RequestStatus
+    },
+  });
+
   useEffect(() => {
     if (selectedRequest) {
       console.log("[RequestEditDialog] Mission name info:", {
@@ -69,27 +82,18 @@ export function RequestEditDialog({
         resolved: resolvedMissionName
       });
       
+      // Convertir la date en string au format YYYY-MM-DD
+      const dueDateString = selectedRequest.dueDate 
+        ? new Date(selectedRequest.dueDate).toISOString().split('T')[0]
+        : "";
+      
       form.reset({
         title: selectedRequest.title,
-        dueDate: new Date(selectedRequest.dueDate).toISOString().split('T')[0],
+        dueDate: dueDateString,
         status: selectedRequest.status as RequestStatus
       });
     }
-  }, [selectedRequest]);
-
-  const form = useForm<{
-    title: string;
-    dueDate: string;
-    status: RequestStatus;
-  }>({
-    defaultValues: {
-      title: selectedRequest?.title || "",
-      dueDate: selectedRequest?.dueDate 
-        ? new Date(selectedRequest.dueDate).toISOString().split('T')[0] 
-        : "",
-      status: (selectedRequest?.status as RequestStatus) || "pending"
-    },
-  });
+  }, [selectedRequest, form]);
 
   const handleSaveEdit = (data: { title: string; dueDate: string; status: RequestStatus }) => {
     if (!selectedRequest) return;

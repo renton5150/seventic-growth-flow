@@ -49,7 +49,8 @@ export function EmailCompletionForm({ selectedRequest, onComplete, onCancel }: E
     },
   });
   
-  const emailType = selectedRequest.emailType || selectedRequest.details?.emailType || "Mass email";
+  // Accès sécurisé au type d'email depuis les détails
+  const emailType = selectedRequest.details?.emailType || "Mass email";
   
   const handleComplete = (data: z.infer<typeof emailCompletionSchema>) => {
     try {
