@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -93,7 +94,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
           title: data.title,
           dueDate: data.dueDate, // Keep as string
           targeting: requestData.targeting
-        });
+        } as Partial<LinkedInScrapingRequest>);
 
         if (result) {
           toast.success("Demande de scraping LinkedIn mise à jour avec succès");

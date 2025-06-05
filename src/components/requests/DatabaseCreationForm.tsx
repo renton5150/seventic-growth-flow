@@ -168,7 +168,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
           tool: data.tool,
           targeting: requestData.targeting,
           blacklist: requestData.blacklist
-        });
+        } as Partial<DatabaseRequest>);
         
         if (result) {
           toast.success(editMode ? "Demande mise à jour avec succès" : "Demande créée avec succès");
