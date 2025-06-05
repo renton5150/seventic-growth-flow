@@ -251,7 +251,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
           template: requestData.template,
           database: requestData.database,
           blacklist: requestData.blacklist
-        });
+        } as Partial<EmailCampaignRequest>);
         
         if (result) {
           console.log("Demande mise à jour:", result);

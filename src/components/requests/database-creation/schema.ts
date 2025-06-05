@@ -4,7 +4,7 @@ import { z } from "zod";
 export const formSchema = z.object({
   title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
   missionId: z.string().min(1, "Veuillez sélectionner une mission"),
-  dueDate: z.date({ required_error: "Veuillez sélectionner une date" }),
+  dueDate: z.string().min(1, "Veuillez sélectionner une date"),
   tool: z.enum(["Hubspot", "Apollo"]),
   jobTitles: z.string().optional(),
   industries: z.string().optional(),
@@ -28,7 +28,7 @@ export type FormData = z.infer<typeof formSchema>;
 export const defaultValues: FormData = {
   title: "",
   missionId: "",
-  dueDate: new Date(),
+  dueDate: "",
   tool: "Hubspot" as const,
   jobTitles: "",
   industries: "",
