@@ -1,7 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
-import { getDirectMissionById } from "@/services/missions/directMissionService";
 
 interface RequestFilters {
   assignedToIsNull?: boolean;
@@ -13,16 +12,17 @@ interface RequestFilters {
 }
 
 export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]> => {
-  console.log("🚀 [fetchRequests] Début - Récupération avec résolution COMPLÈTE missions");
+  console.log("🚀 [fetchRequests] Début - Récupération avec résolution missions optimisée");
   
   try {
-    // Récupérer TOUT en une seule requête avec JOIN explicite
+    // Récupérer TOUT en une seule requête avec JOIN explicite pour les missions
     let query = supabase
       .from('requests')
       .select(`
         *,
         created_by_profile:profiles!requests_created_by_fkey(name),
-        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+        assigned_to_profile:profiles!requests_assigned_to_fkey(name),
+        mission:missions!requests_mission_id_fkey(id, name, client)
       `);
     
     // Appliquer les filtres
@@ -54,29 +54,32 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       return [];
     }
     
-    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées`);
+    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées avec missions jointes`);
     
     if (!requestsData || requestsData.length === 0) {
       return [];
     }
 
-    // Résoudre les noms de missions pour chaque requête
-    const formattedRequests = await Promise.all(requestsData.map(async (request) => {
-      // Résoudre le nom de mission ET le client via le service direct
+    // Formater les requêtes avec les missions déjà récupérées
+    const formattedRequests = requestsData.map((request) => {
+      // Utiliser les données de mission jointes directement
       let missionName = "Sans mission";
       let missionClient = "Sans client";
       
-      if (request.mission_id) {
-        try {
-          const missionData = await getDirectMissionById(request.mission_id);
-          missionName = missionData.name;
-          missionClient = missionData.client;
-        } catch (error) {
-          console.error(`Erreur résolution mission ${request.mission_id}:`, error);
+      if (request.mission) {
+        // Priorité au client, puis au nom
+        if (request.mission.client && String(request.mission.client).trim() !== "") {
+          missionName = String(request.mission.client).trim();
+          missionClient = String(request.mission.client).trim();
+        } else if (request.mission.name && String(request.mission.name).trim() !== "") {
+          missionName = String(request.mission.name).trim();
+          missionClient = String(request.mission.name).trim();
         }
+        
+        console.log(`✅ [fetchRequests] Request ${request.id} -> Mission JOIN: "${missionName}", Client: "${missionClient}"`);
+      } else if (request.mission_id) {
+        console.warn(`⚠️ [fetchRequests] Request ${request.id} -> Mission ID ${request.mission_id} mais pas de données jointes`);
       }
-      
-      console.log(`✅ [fetchRequests] Request ${request.id} -> Mission: "${missionName}", Client: "${missionClient}"`);
       
       // Gérer correctement les détails JSON
       let details: Record<string, any> = {};
@@ -100,7 +103,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         createdBy: request.created_by,
         missionId: request.mission_id,
         missionName: missionName,
-        missionClient: missionClient, // AJOUTER le client de mission
+        missionClient: missionClient,
         sdrName: request.created_by_profile?.name || "Non assigné",
         assignedToName: request.assigned_to_profile?.name || "Non assigné",
         dueDate: request.due_date,
@@ -114,9 +117,13 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       };
       
       return formattedRequest;
-    }));
+    });
     
-    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions ET clients résolus`);
+    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions optimisées`);
+    
+    // Log de débogage pour vérifier les missions récupérées
+    const missionsFound = formattedRequests.filter(r => r.missionName !== "Sans mission").length;
+    console.log(`📊 [fetchRequests] RÉSUMÉ: ${missionsFound}/${formattedRequests.length} requêtes avec missions trouvées`);
     
     return formattedRequests;
     
@@ -128,15 +135,16 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
 
 export const getRequestDetails = async (requestId: string, userId?: string, isSDR: boolean = false): Promise<Request | null> => {
   try {
-    console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
+    console.log("🔍 [getRequestDetails] Récupération optimisée pour:", requestId);
     
-    // Récupérer avec JOIN explicite
+    // Récupérer avec JOIN explicite pour la mission
     const { data: requestData, error: requestError } = await supabase
       .from('requests')
       .select(`
         *,
         created_by_profile:profiles!requests_created_by_fkey(name),
-        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+        assigned_to_profile:profiles!requests_assigned_to_fkey(name),
+        mission:missions!requests_mission_id_fkey(id, name, client)
       `)
       .eq('id', requestId)
       .maybeSingle();
@@ -151,18 +159,23 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       return null;
     }
 
-    // Résoudre le nom de mission ET le client via le service direct
+    // Utiliser les données de mission jointes directement
     let missionName = "Sans mission";
     let missionClient = "Sans client";
     
-    if (requestData.mission_id) {
-      try {
-        const missionData = await getDirectMissionById(requestData.mission_id);
-        missionName = missionData.name;
-        missionClient = missionData.client;
-      } catch (error) {
-        console.error(`Erreur résolution mission ${requestData.mission_id}:`, error);
+    if (requestData.mission) {
+      // Priorité au client, puis au nom
+      if (requestData.mission.client && String(requestData.mission.client).trim() !== "") {
+        missionName = String(requestData.mission.client).trim();
+        missionClient = String(requestData.mission.client).trim();
+      } else if (requestData.mission.name && String(requestData.mission.name).trim() !== "") {
+        missionName = String(requestData.mission.name).trim();
+        missionClient = String(requestData.mission.name).trim();
       }
+      
+      console.log(`✅ [getRequestDetails] Mission JOIN: "${missionName}", Client: "${missionClient}"`);
+    } else if (requestData.mission_id) {
+      console.warn(`⚠️ [getRequestDetails] Mission ID ${requestData.mission_id} mais pas de données jointes`);
     }
     
     // Gérer correctement les détails JSON
@@ -187,7 +200,7 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       createdBy: requestData.created_by,
       missionId: requestData.mission_id,
       missionName: missionName,
-      missionClient: missionClient, // AJOUTER le client de mission
+      missionClient: missionClient,
       sdrName: requestData.created_by_profile?.name || "Non assigné",
       assignedToName: requestData.assigned_to_profile?.name || "Non assigné",
       dueDate: requestData.due_date,
@@ -200,7 +213,7 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       target_role: requestData.target_role
     };
     
-    console.log(`✅ [getRequestDetails] Request: ${request.id}, mission="${request.missionName}", client="${request.missionClient}"`);
+    console.log(`✅ [getRequestDetails] Request formatée: ${request.id}, mission="${request.missionName}", client="${request.missionClient}"`);
     
     return request;
   } catch (err) {
