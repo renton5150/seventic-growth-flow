@@ -62,8 +62,9 @@ export const updateRequest = async (requestId: string, updates: Partial<Request>
       }
       
       if ("dueDate" in updates && updates.dueDate !== undefined) {
-        updateData.due_date = typeof updates.dueDate === 'object' && updates.dueDate instanceof Date 
-          ? updates.dueDate.toISOString() 
+        // Handle string dates properly  
+        updateData.due_date = typeof updates.dueDate === 'string' 
+          ? updates.dueDate 
           : updates.dueDate;
       }
       

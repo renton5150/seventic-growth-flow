@@ -1,4 +1,3 @@
-
 import { EmailCampaignRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
@@ -71,9 +70,9 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     if (updates.title) dbUpdates.title = updates.title;
     if (updates.dueDate) {
-      // Convert Date object to string if needed
-      dbUpdates.due_date = typeof updates.dueDate === 'object' && updates.dueDate instanceof Date 
-        ? updates.dueDate.toISOString() 
+      // Handle string dates properly
+      dbUpdates.due_date = typeof updates.dueDate === 'string' 
+        ? updates.dueDate 
         : updates.dueDate;
     }
     if (updates.status) dbUpdates.status = updates.status;

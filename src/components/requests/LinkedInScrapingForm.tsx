@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -35,8 +34,8 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         otherCriteria: ""
       };
 
-      // Convert string date to Date object
-      const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
+      // Convert string date to string format for input (YYYY-MM-DD)
+      const dueDate = initialData.dueDate ? initialData.dueDate.split('T')[0] : "";
 
       return {
         title: initialData.title || "",
@@ -73,13 +72,11 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
 
     try {
-      const dueDate = new Date(data.dueDate);
-
       const requestData = {
         title: data.title,
         missionId: data.missionId,
         createdBy: user.id,
-        dueDate: dueDate,
+        dueDate: data.dueDate, // Keep as string
         targeting: {
           jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()) : [],
           industries: data.industries ? data.industries.split(",").map(item => item.trim()) : [],
@@ -94,7 +91,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
       if (editMode && initialData) {
         result = await updateRequest(initialData.id, {
           title: data.title,
-          dueDate: dueDate,
+          dueDate: data.dueDate, // Keep as string
           targeting: requestData.targeting
         });
 

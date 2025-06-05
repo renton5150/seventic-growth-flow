@@ -44,8 +44,8 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         accounts: { notes: "", fileUrl: "" }
       };
 
-      // Convert string date to Date object
-      const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
+      // Convert string date to string format for input (YYYY-MM-DD)
+      const dueDate = initialData.dueDate ? initialData.dueDate.split('T')[0] : "";
 
       return {
         title: initialData.title || "",
@@ -154,7 +154,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
             notes: data.blacklistContactsNotes || ""
           }
         },
-        dueDate: data.dueDate
+        dueDate: data.dueDate // Keep as string
       };
       
       let result;
@@ -164,7 +164,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         console.log("Mise à jour de la demande avec:", requestData);
         result = await updateRequest(initialData.id, {
           title: data.title,
-          dueDate: data.dueDate,
+          dueDate: data.dueDate, // Keep as string
           tool: data.tool,
           targeting: requestData.targeting,
           blacklist: requestData.blacklist

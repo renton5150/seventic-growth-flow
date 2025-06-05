@@ -61,8 +61,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
       const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "" };
 
-      const dueDate = initialData.dueDate ? new Date(initialData.dueDate) : new Date();
-      const formattedDueDate = dueDate.toISOString().split('T')[0];
+      // Convert string date to string format for input (YYYY-MM-DD)
+      const formattedDueDate = initialData.dueDate ? initialData.dueDate.split('T')[0] : "";
 
       console.log("ID de mission utilisé:", initialData.missionId);
 
@@ -211,8 +211,6 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     try {
       console.log("Données soumises:", data);
       
-      const dueDate = new Date(data.dueDate);
-      
       const requestData = {
         title: data.title,
         emailType: data.emailType,
@@ -239,7 +237,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
             notes: data.blacklistEmailsNotes || ""
           }
         },
-        dueDate: dueDate
+        dueDate: data.dueDate // Keep as string
       };
       
       let result;
@@ -248,7 +246,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         console.log("Mise à jour de la demande avec:", requestData);
         result = await updateRequest(initialData.id, {
           title: data.title,
-          dueDate: dueDate,
+          dueDate: data.dueDate, // Keep as string
           emailType: data.emailType,
           template: requestData.template,
           database: requestData.database,
