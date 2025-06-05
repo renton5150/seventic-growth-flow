@@ -1,3 +1,4 @@
+
 import { DatabaseRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
@@ -7,6 +8,23 @@ import { formatRequestFromDb } from "./utils";
  */
 export const createDatabaseRequest = async (requestData: any): Promise<DatabaseRequest | undefined> => {
   try {
+    console.log("Préparation des données pour la création de la requête de base de données:", requestData);
+    
+    // Convertir correctement la date - elle arrive comme string au format YYYY-MM-DD
+    let dueDateISO: string;
+    if (typeof requestData.dueDate === 'string') {
+      // Si c'est une string, la convertir en Date puis en ISO
+      const dateObj = new Date(requestData.dueDate);
+      dueDateISO = dateObj.toISOString();
+    } else if (requestData.dueDate instanceof Date) {
+      dueDateISO = requestData.dueDate.toISOString();
+    } else {
+      // Fallback: utiliser 7 jours à partir d'aujourd'hui
+      const fallbackDate = new Date();
+      fallbackDate.setDate(fallbackDate.getDate() + 7);
+      dueDateISO = fallbackDate.toISOString();
+    }
+    
     const dbRequest = {
       type: "database",
       title: requestData.title,
@@ -14,7 +32,7 @@ export const createDatabaseRequest = async (requestData: any): Promise<DatabaseR
       created_by: requestData.createdBy,
       created_at: new Date().toISOString(),
       status: "pending", // Utilisons "pending" au lieu de "en attente" pour correspondre à la contrainte de la base de données
-      due_date: requestData.dueDate.toISOString(),
+      due_date: dueDateISO,
       last_updated: new Date().toISOString(),
       details: {
         tool: requestData.tool,
@@ -22,6 +40,8 @@ export const createDatabaseRequest = async (requestData: any): Promise<DatabaseR
         blacklist: requestData.blacklist
       }
     };
+    
+    console.log("Données formatées pour l'insertion:", JSON.stringify(dbRequest, null, 2));
 
     const { data: newRequest, error } = await supabase
       .from('requests')
@@ -31,9 +51,13 @@ export const createDatabaseRequest = async (requestData: any): Promise<DatabaseR
 
     if (error) {
       console.error("Erreur lors de la création de la requête de base de données:", error);
+      console.error("Détails de l'erreur:", error.details);
+      console.error("Message d'erreur:", error.message);
+      console.error("Code d'erreur:", error.code);
       return undefined;
     }
 
+    console.log("Nouvelle requête de base de données créée avec succès:", newRequest);
     return formatRequestFromDb(newRequest) as DatabaseRequest;
   } catch (error) {
     console.error("Erreur inattendue lors de la création de la requête de base de données:", error);

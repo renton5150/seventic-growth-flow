@@ -21,6 +21,21 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
     if (!blacklist.accounts) blacklist.accounts = { notes: "", fileUrl: "" };
     if (!blacklist.emails) blacklist.emails = { notes: "", fileUrl: "" };
     
+    // Convertir correctement la date - elle arrive comme string au format YYYY-MM-DD
+    let dueDateISO: string;
+    if (typeof requestData.dueDate === 'string') {
+      // Si c'est une string, la convertir en Date puis en ISO
+      const dateObj = new Date(requestData.dueDate);
+      dueDateISO = dateObj.toISOString();
+    } else if (requestData.dueDate instanceof Date) {
+      dueDateISO = requestData.dueDate.toISOString();
+    } else {
+      // Fallback: utiliser 7 jours à partir d'aujourd'hui
+      const fallbackDate = new Date();
+      fallbackDate.setDate(fallbackDate.getDate() + 7);
+      dueDateISO = fallbackDate.toISOString();
+    }
+    
     const dbRequest = {
       type: "email",
       title: requestData.title,
@@ -30,7 +45,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       status: "pending", // Utilisons "pending" au lieu de "en attente" pour correspondre à la contrainte de la base de données
       workflow_status: "pending_assignment",
       target_role: "growth",
-      due_date: requestData.dueDate.toISOString(),
+      due_date: dueDateISO,
       last_updated: new Date().toISOString(),
       details: {
         emailType: requestData.emailType || "Mass email",
@@ -50,6 +65,9 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
 
     if (error) {
       console.error("Erreur lors de la création de la requête de campagne email:", error);
+      console.error("Détails de l'erreur:", error.details);
+      console.error("Message d'erreur:", error.message);
+      console.error("Code d'erreur:", error.code);
       return undefined;
     }
 

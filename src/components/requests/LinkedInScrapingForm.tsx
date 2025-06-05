@@ -73,11 +73,13 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
 
     try {
+      console.log("Soumission du formulaire LinkedIn avec les données:", data);
+      
       const requestData = {
         title: data.title,
         missionId: data.missionId,
         createdBy: user.id,
-        dueDate: data.dueDate, // Keep as string
+        dueDate: data.dueDate, // Keep as string - sera converti dans le service
         targeting: {
           jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()) : [],
           industries: data.industries ? data.industries.split(",").map(item => item.trim()) : [],
@@ -87,9 +89,12 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         }
       };
 
+      console.log("Données de requête préparées:", requestData);
+
       let result;
 
       if (editMode && initialData) {
+        console.log("Mode édition - mise à jour de la requête:", initialData.id);
         result = await updateRequest(initialData.id, {
           title: data.title,
           dueDate: data.dueDate, // Keep as string
@@ -97,6 +102,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         } as Partial<LinkedInScrapingRequest>);
 
         if (result) {
+          console.log("Requête mise à jour avec succès");
           toast.success("Demande de scraping LinkedIn mise à jour avec succès");
           if (onSuccess) {
             onSuccess();
@@ -107,9 +113,11 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
           throw new Error("Erreur lors de la mise à jour de la demande");
         }
       } else {
+        console.log("Mode création - nouvelle requête");
         const newRequest = await createLinkedInScrapingRequest(requestData);
 
         if (newRequest) {
+          console.log("Nouvelle requête créée avec succès:", newRequest);
           toast.success("Demande de scraping LinkedIn créée avec succès");
           if (onSuccess) {
             onSuccess();
@@ -126,6 +134,11 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         ? error.message
         : "Erreur inconnue lors de la création/modification de la demande";
       toast.error(`Erreur: ${errorMessage}`);
+      
+      // Log supplémentaire pour le débogage
+      if (error instanceof Error) {
+        console.error("Stack trace:", error.stack);
+      }
     } finally {
       setSubmitting(false);
     }
