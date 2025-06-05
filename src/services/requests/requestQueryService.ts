@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
@@ -14,10 +15,50 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
   try {
-    // Utiliser la vue requests_with_missions qui contient déjà les données enrichies
-    let query = supabase
+    // DIAGNOSTIC APPROFONDI - D'abord tester la vue requests_with_missions
+    console.log("🔍 [fetchRequests] TEST VUE - Récupération d'un échantillon de requests_with_missions");
+    const { data: sampleData, error: sampleError } = await supabase
       .from('requests_with_missions')
-      .select('*');
+      .select('*')
+      .limit(3);
+    
+    if (sampleError) {
+      console.error("❌ [fetchRequests] ERREUR échantillon vue:", sampleError);
+    } else {
+      console.log("📋 [fetchRequests] ÉCHANTILLON VUE:", sampleData);
+      sampleData?.forEach((row, index) => {
+        console.log(`🔍 [fetchRequests] ÉCHANTILLON ${index + 1}:`, {
+          id: row.id,
+          mission_id: row.mission_id,
+          mission_name: row.mission_name,
+          mission_client: row.mission_client,
+          mission_name_type: typeof row.mission_name,
+          mission_client_type: typeof row.mission_client,
+          mission_name_value: JSON.stringify(row.mission_name),
+          mission_client_value: JSON.stringify(row.mission_client)
+        });
+      });
+    }
+
+    // Utiliser une approche alternative : récupérer directement depuis requests avec jointure manuelle
+    console.log("🔄 [fetchRequests] APPROCHE ALTERNATIVE - Récupération depuis requests avec jointure manuelle");
+    
+    let query = supabase
+      .from('requests')
+      .select(`
+        *,
+        missions!requests_mission_id_fkey (
+          id,
+          name,
+          client
+        ),
+        profiles!requests_created_by_fkey (
+          name
+        ),
+        assigned_profiles:profiles!requests_assigned_to_fkey (
+          name
+        )
+      `);
     
     // Appliquer les filtres
     if (filters?.assignedToIsNull) {
@@ -41,19 +82,16 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
     
     query = query.order('due_date', { ascending: true });
     
-    console.log("📋 [fetchRequests] Exécution de la requête sur requests_with_missions...");
+    console.log("📋 [fetchRequests] Exécution de la requête avec jointure manuelle...");
     
     const { data: requestsData, error: requestsError } = await query;
     
     if (requestsError) {
-      console.error("❌ [fetchRequests] Erreur requête requests_with_missions:", requestsError);
-      
-      // Fallback: utiliser la table requests de base si la vue échoue
-      console.log("🔄 [fetchRequests] Fallback vers la table requests de base...");
-      return await fetchRequestsFallback(filters);
+      console.error("❌ [fetchRequests] Erreur requête avec jointure:", requestsError);
+      return [];
     }
     
-    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées depuis requests_with_missions`);
+    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées avec jointure manuelle`);
     
     if (!requestsData || requestsData.length === 0) {
       console.log("⚠️ [fetchRequests] Aucune donnée retournée");
@@ -62,29 +100,34 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
 
     // Formatter les données récupérées avec diagnostics détaillés
     const formattedRequests = requestsData.map((request) => {
-      console.log(`🔍 [fetchRequests] DIAGNOSTIC DÉTAILLÉ pour request ${request.id}:`);
+      console.log(`🔍 [fetchRequests] JOINTURE MANUELLE - DIAGNOSTIC pour request ${request.id}:`);
       console.log(`  - mission_id: "${request.mission_id}"`);
-      console.log(`  - mission_name: "${request.mission_name}"`);
-      console.log(`  - mission_client: "${request.mission_client}"`);
-      console.log(`  - Type mission_name: ${typeof request.mission_name}`);
-      console.log(`  - Type mission_client: ${typeof request.mission_client}`);
-      console.log(`  - Valeur null/undefined mission_name:`, request.mission_name === null || request.mission_name === undefined);
-      console.log(`  - Valeur null/undefined mission_client:`, request.mission_client === null || request.mission_client === undefined);
+      console.log(`  - missions object:`, request.missions);
+      console.log(`  - profiles object:`, request.profiles);
+      console.log(`  - assigned_profiles object:`, request.assigned_profiles);
       
-      // Logique de priorité avec diagnostics
+      // Extraire les données de mission
       let missionName = "Sans mission";
+      const missionData = request.missions;
       
-      if (request.mission_client && request.mission_client.trim() !== '') {
-        missionName = request.mission_client.trim();
-        console.log(`  ✅ Utilisation mission_client: "${missionName}"`);
-      } else if (request.mission_name && request.mission_name.trim() !== '') {
-        missionName = request.mission_name.trim();
-        console.log(`  ✅ Utilisation mission_name: "${missionName}"`);
+      if (missionData) {
+        console.log(`  - Mission data found:`, missionData);
+        if (missionData.client && String(missionData.client).trim() !== '') {
+          missionName = String(missionData.client).trim();
+          console.log(`  ✅ Utilisation mission.client: "${missionName}"`);
+        } else if (missionData.name && String(missionData.name).trim() !== '') {
+          missionName = String(missionData.name).trim();
+          console.log(`  ✅ Utilisation mission.name: "${missionName}"`);
+        } else {
+          console.log(`  ⚠️ Mission trouvée mais pas de nom valide`);
+        }
       } else {
-        console.log(`  ⚠️ Aucun nom de mission valide trouvé - utilisation de "Sans mission"`);
-        console.log(`  - mission_client vide/null:`, !request.mission_client || request.mission_client.trim() === '');
-        console.log(`  - mission_name vide/null:`, !request.mission_name || request.mission_name.trim() === '');
+        console.log(`  ⚠️ Aucune mission associée`);
       }
+      
+      // Extraire les noms des utilisateurs
+      const sdrName = request.profiles?.name || "Non assigné";
+      const assignedToName = request.assigned_profiles?.name || "Non assigné";
       
       const formattedRequest: Request = {
         id: request.id,
@@ -94,8 +137,8 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         createdBy: request.created_by,
         missionId: request.mission_id,
         missionName: missionName,
-        sdrName: request.sdr_name || "Non assigné",
-        assignedToName: request.assigned_to_name || "Non assigné",
+        sdrName: sdrName,
+        assignedToName: assignedToName,
         dueDate: request.due_date,
         details: request.details || {},
         workflow_status: request.workflow_status as WorkflowStatus,
@@ -106,98 +149,18 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         target_role: request.target_role
       };
       
-      console.log(`✅ [fetchRequests] Request formatée: ${formattedRequest.id}, mission finale="${formattedRequest.missionName}"`);
+      console.log(`✅ [fetchRequests] Request formatée avec jointure: ${formattedRequest.id}, mission finale="${formattedRequest.missionName}"`);
       
       return formattedRequest;
     });
     
-    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions`);
+    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions via jointure manuelle`);
     console.log(`🔍 [fetchRequests] Exemple de missions récupérées:`, formattedRequests.slice(0, 3).map(r => ({ id: r.id, missionName: r.missionName })));
     
     return formattedRequests;
     
   } catch (error) {
     console.error("❌ [fetchRequests] Exception:", error);
-    
-    // Fallback en cas d'exception
-    console.log("🔄 [fetchRequests] Fallback vers la méthode de base suite à exception...");
-    return await fetchRequestsFallback(filters);
-  }
-};
-
-// Fonction fallback pour utiliser la table requests de base
-const fetchRequestsFallback = async (filters?: RequestFilters): Promise<Request[]> => {
-  try {
-    console.log("🔄 [fetchRequestsFallback] Utilisation de la table requests de base");
-    
-    let baseQuery = supabase
-      .from('requests')
-      .select('*');
-    
-    // Appliquer les filtres sur la table requests
-    if (filters?.assignedToIsNull) {
-      baseQuery = baseQuery.is('assigned_to', null);
-    }
-    if (filters?.workflowStatus) {
-      baseQuery = baseQuery.eq('workflow_status', filters.workflowStatus);
-    }
-    if (filters?.workflowStatusNot) {
-      baseQuery = baseQuery.neq('workflow_status', filters.workflowStatusNot);
-    }
-    if (filters?.assignedTo) {
-      baseQuery = baseQuery.eq('assigned_to', filters.assignedTo);
-    }
-    if (filters?.createdBy) {
-      baseQuery = baseQuery.eq('created_by', filters.createdBy);
-    }
-    if (filters?.assignedToIsNotNull) {
-      baseQuery = baseQuery.not('assigned_to', 'is', null);
-    }
-    
-    baseQuery = baseQuery.order('due_date', { ascending: true });
-    
-    const { data: requestsData, error: requestsError } = await baseQuery;
-    
-    if (requestsError) {
-      console.error("❌ [fetchRequestsFallback] Erreur requête de base:", requestsError);
-      return [];
-    }
-    
-    if (!requestsData || requestsData.length === 0) {
-      return [];
-    }
-
-    // Formater sans enrichissement complexe pour éviter les erreurs 406
-    const formattedRequests = requestsData.map((request) => {
-      const formattedRequest: Request = {
-        id: request.id,
-        title: request.title,
-        type: request.type,
-        status: request.status as RequestStatus,
-        createdBy: request.created_by,
-        missionId: request.mission_id,
-        missionName: "Sans mission", // Valeur par défaut en cas de fallback
-        sdrName: "Non assigné",
-        assignedToName: "Non assigné",
-        dueDate: request.due_date,
-        details: request.details || {},
-        workflow_status: request.workflow_status as WorkflowStatus,
-        assigned_to: request.assigned_to,
-        isLate: new Date(request.due_date) < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled',
-        createdAt: new Date(request.created_at),
-        lastUpdated: new Date(request.last_updated || request.updated_at),
-        target_role: request.target_role
-      };
-      
-      return formattedRequest;
-    });
-    
-    console.log(`✅ [fetchRequestsFallback] ${formattedRequests.length} requests formatées en mode fallback`);
-    
-    return formattedRequests;
-    
-  } catch (error) {
-    console.error("❌ [fetchRequestsFallback] Exception:", error);
     return [];
   }
 };
@@ -206,86 +169,69 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
   try {
     console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
     
-    // Essayer d'abord avec la vue requests_with_missions
+    // Utiliser l'approche de jointure manuelle pour plus de fiabilité
     const { data: requestData, error: requestError } = await supabase
-      .from('requests_with_missions')
-      .select('*')
-      .eq('id', requestId)
-      .single();
-
-    if (!requestError && requestData) {
-      if (isSDR && requestData.created_by !== userId) {
-        console.error("❌ [getRequestDetails] SDR accès refusé");
-        return null;
-      }
-
-      const missionName = requestData.mission_client || requestData.mission_name || "Sans mission";
-      
-      const request: Request = {
-        id: requestData.id,
-        title: requestData.title,
-        type: requestData.type,
-        status: requestData.status as RequestStatus,
-        createdBy: requestData.created_by,
-        missionId: requestData.mission_id,
-        missionName: missionName,
-        sdrName: requestData.sdr_name || "Non assigné",
-        assignedToName: requestData.assigned_to_name || "Non assigné",
-        dueDate: requestData.due_date,
-        details: requestData.details || {},
-        workflow_status: requestData.workflow_status as WorkflowStatus,
-        assigned_to: requestData.assigned_to,
-        isLate: new Date(requestData.due_date) < new Date() && requestData.workflow_status !== 'completed' && requestData.workflow_status !== 'canceled',
-        createdAt: new Date(requestData.created_at),
-        lastUpdated: new Date(requestData.last_updated || requestData.updated_at),
-        target_role: requestData.target_role
-      };
-      
-      console.log(`✅ [getRequestDetails] Request formaté depuis vue: ${request.id}, mission="${request.missionName}"`);
-      
-      return request;
-    }
-    
-    // Fallback vers la table requests de base
-    console.log("🔄 [getRequestDetails] Fallback vers table requests");
-    
-    const { data: baseRequestData, error: baseRequestError } = await supabase
       .from('requests')
-      .select('*')
+      .select(`
+        *,
+        missions!requests_mission_id_fkey (
+          id,
+          name,
+          client
+        ),
+        profiles!requests_created_by_fkey (
+          name
+        ),
+        assigned_profiles:profiles!requests_assigned_to_fkey (
+          name
+        )
+      `)
       .eq('id', requestId)
       .single();
 
-    if (baseRequestError || !baseRequestData) {
-      console.error("❌ [getRequestDetails] Erreur ou pas de données:", baseRequestError);
+    if (requestError || !requestData) {
+      console.error("❌ [getRequestDetails] Erreur ou pas de données:", requestError);
       return null;
     }
 
-    if (isSDR && baseRequestData.created_by !== userId) {
+    if (isSDR && requestData.created_by !== userId) {
       console.error("❌ [getRequestDetails] SDR accès refusé");
       return null;
     }
+
+    // Extraire les données de mission
+    let missionName = "Sans mission";
+    const missionData = requestData.missions;
+    
+    if (missionData) {
+      if (missionData.client && String(missionData.client).trim() !== '') {
+        missionName = String(missionData.client).trim();
+      } else if (missionData.name && String(missionData.name).trim() !== '') {
+        missionName = String(missionData.name).trim();
+      }
+    }
     
     const request: Request = {
-      id: baseRequestData.id,
-      title: baseRequestData.title,
-      type: baseRequestData.type,
-      status: baseRequestData.status as RequestStatus,
-      createdBy: baseRequestData.created_by,
-      missionId: baseRequestData.mission_id,
-      missionName: "Sans mission", // Valeur par défaut en fallback
-      sdrName: "Non assigné",
-      assignedToName: "Non assigné",
-      dueDate: baseRequestData.due_date,
-      details: baseRequestData.details || {},
-      workflow_status: baseRequestData.workflow_status as WorkflowStatus,
-      assigned_to: baseRequestData.assigned_to,
-      isLate: new Date(baseRequestData.due_date) < new Date() && baseRequestData.workflow_status !== 'completed' && baseRequestData.workflow_status !== 'canceled',
-      createdAt: new Date(baseRequestData.created_at),
-      lastUpdated: new Date(baseRequestData.last_updated || baseRequestData.updated_at),
-      target_role: baseRequestData.target_role
+      id: requestData.id,
+      title: requestData.title,
+      type: requestData.type,
+      status: requestData.status as RequestStatus,
+      createdBy: requestData.created_by,
+      missionId: requestData.mission_id,
+      missionName: missionName,
+      sdrName: requestData.profiles?.name || "Non assigné",
+      assignedToName: requestData.assigned_profiles?.name || "Non assigné",
+      dueDate: requestData.due_date,
+      details: requestData.details || {},
+      workflow_status: requestData.workflow_status as WorkflowStatus,
+      assigned_to: requestData.assigned_to,
+      isLate: new Date(requestData.due_date) < new Date() && requestData.workflow_status !== 'completed' && requestData.workflow_status !== 'canceled',
+      createdAt: new Date(requestData.created_at),
+      lastUpdated: new Date(requestData.last_updated || requestData.updated_at),
+      target_role: requestData.target_role
     };
     
-    console.log(`✅ [getRequestDetails] Request formaté en fallback: ${request.id}`);
+    console.log(`✅ [getRequestDetails] Request formaté: ${request.id}, mission="${request.missionName}"`);
     
     return request;
   } catch (err) {
