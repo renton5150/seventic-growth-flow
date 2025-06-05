@@ -134,13 +134,6 @@ export const RequestRow = ({
           {request.missionName || "Sans mission"}
         </div>
       </TableCell>
-
-      {/* NOUVELLE COLONNE CLIENT */}
-      <TableCell className="font-medium">
-        <div className="font-medium text-sm" title={request.missionClient || "Sans client"}>
-          {request.missionClient || "Sans client"}
-        </div>
-      </TableCell>
       
       {/* Type de demande */}
       <TableCell>

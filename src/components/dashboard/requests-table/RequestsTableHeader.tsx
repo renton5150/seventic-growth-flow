@@ -79,14 +79,6 @@ export const RequestsTableHeader = ({
             {renderFilterButton("mission", uniqueValues.mission || [])}
           </div>
         </TableHead>
-
-        {/* NOUVELLE COLONNE CLIENT */}
-        <TableHead>
-          <div className="flex flex-col space-y-1">
-            {renderSortButton("client", "Client")}
-            {renderFilterButton("client", uniqueValues.client || [])}
-          </div>
-        </TableHead>
         
         {/* Type de demande */}
         <TableHead className="w-[150px]">

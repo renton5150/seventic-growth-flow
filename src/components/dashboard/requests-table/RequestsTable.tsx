@@ -29,7 +29,6 @@ export const RequestsTable = ({
     type: [],
     title: [],
     mission: [],
-    client: [], // NOUVEAU : valeurs uniques pour les clients
     sdr: [],
     status: [],
     assignedTo: [],
@@ -51,11 +50,7 @@ export const RequestsTable = ({
     // Use proper "Sans mission" for null or empty mission names
     const missions = [...new Set(requests.map(r => r.missionName || "Sans mission"))];
     
-    // NOUVEAU : Extraire les clients uniques
-    const clients = [...new Set(requests.map(r => r.missionClient || "Sans client"))];
-    
     console.log("[RequestsTable] 🔍 DIAGNOSTIC - Missions extraites pour filtres:", missions);
-    console.log("[RequestsTable] 🔍 DIAGNOSTIC - Clients extraits pour filtres:", clients);
     
     // Use "Non assigné" for null or empty SDR names
     const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
@@ -91,14 +86,12 @@ export const RequestsTable = ({
     
     console.log("RequestsTable - Valeurs extraites pour les filtres:", {
       requestTypes,
-      assignedToNames,
-      clients
+      assignedToNames
     });
     
     setUniqueValues({
       type: types,
       mission: missions,
-      client: clients, // NOUVEAU : clients pour filtres
       sdr: sdrs,
       status: statuses,
       title: titles,
