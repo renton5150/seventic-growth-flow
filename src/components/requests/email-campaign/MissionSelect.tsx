@@ -11,10 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllDirectMissions, getDirectMissionsForUser, getDirectMissionDisplayName, type MissionData } from "@/services/missions/directMissionService";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Mission {
+  id: string;
+  name: string;
+  client: string;
+  sdr_id: string | null;
+}
 
 export function MissionSelect() {
-  const [missions, setMissions] = useState<MissionData[]>([]);
+  const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
   const { register, setValue, watch } = useFormContext();
   const { user } = useAuth();
@@ -24,30 +31,33 @@ export function MissionSelect() {
     const fetchMissions = async () => {
       setLoading(true);
       try {
-        console.log("MissionSelect - Chargement des missions pour utilisateur:", user?.role);
+        console.log("MissionSelect - ULTRA SIMPLE - Chargement pour:", user?.role);
         
-        let availableMissions: MissionData[] = [];
-        
+        let query = supabase
+          .from('missions')
+          .select('id, name, client, sdr_id')
+          .order('name');
+
+        // Filtrer selon le rôle
         if (user?.role === 'sdr' && user?.id) {
-          // SDR : seulement ses missions
-          console.log("MissionSelect - Récupération des missions SDR pour:", user.id);
-          availableMissions = await getDirectMissionsForUser(user.id);
-          console.log(`MissionSelect - ${availableMissions.length} missions SDR récupérées`);
-        } else if (user?.role === 'growth' || user?.role === 'admin') {
-          // Growth/Admin : toutes les missions
-          console.log("MissionSelect - Récupération de TOUTES les missions pour Growth/Admin");
-          availableMissions = await getAllDirectMissions();
-          console.log(`MissionSelect - ${availableMissions.length} missions récupérées pour Growth/Admin`);
+          query = query.eq('sdr_id', user.id);
         }
+        // Growth et Admin voient tout (pas de filtre)
         
-        console.log("MissionSelect - Missions disponibles:", availableMissions.map(m => ({
-          id: m.id,
-          displayName: getDirectMissionDisplayName(m)
-        })));
+        const { data, error } = await query;
         
-        setMissions(availableMissions);
+        if (error) {
+          console.error("MissionSelect - Erreur Supabase:", error);
+          setMissions([]);
+          return;
+        }
+
+        const missionsData = data || [];
+        console.log(`MissionSelect - ${missionsData.length} missions récupérées:`, missionsData);
+        
+        setMissions(missionsData);
       } catch (error) {
-        console.error("MissionSelect - Erreur lors du chargement des missions:", error);
+        console.error("MissionSelect - Exception:", error);
         setMissions([]);
       } finally {
         setLoading(false);
@@ -60,6 +70,16 @@ export function MissionSelect() {
   const handleMissionChange = (value: string) => {
     console.log(`MissionSelect - Mission sélectionnée: ${value}`);
     setValue("missionId", value, { shouldValidate: true });
+  };
+  
+  const getMissionDisplayName = (mission: Mission): string => {
+    if (mission.client && mission.client.trim()) {
+      return mission.client.trim();
+    }
+    if (mission.name && mission.name.trim()) {
+      return mission.name.trim();
+    }
+    return "Sans nom";
   };
   
   const getPlaceholderText = () => {
@@ -97,7 +117,7 @@ export function MissionSelect() {
             ) : missions.length > 0 ? (
               missions.map((mission) => (
                 <SelectItem key={mission.id} value={mission.id}>
-                  {getDirectMissionDisplayName(mission)}
+                  {getMissionDisplayName(mission)}
                 </SelectItem>
               ))
             ) : (
