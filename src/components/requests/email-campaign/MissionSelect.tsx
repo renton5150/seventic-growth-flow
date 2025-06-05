@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +19,7 @@ export function MissionSelect() {
   const { register, setValue, watch } = useFormContext();
   const { user } = useAuth();
   const isSDR = user?.role === 'sdr';
+  const isGrowth = user?.role === 'growth';
   const selectedMissionId = watch("missionId");
 
   useEffect(() => {
@@ -30,14 +30,20 @@ export function MissionSelect() {
       setLoading(true);
       try {
         console.log("MissionSelect - Démarrage du chargement des missions");
+        console.log(`MissionSelect - Utilisateur: ${user?.role}, isSDR: ${isSDR}, isGrowth: ${isGrowth}`);
         
         // Synchroniser d'abord les missions connues pour s'assurer que le cache est à jour
         await syncKnownMissions();
         
         let query = supabase.from("missions").select("id, name, client");
         
+        // Filtrage selon le rôle utilisateur
         if (isSDR && user?.id) {
+          console.log("MissionSelect - Filtrage pour SDR avec user.id:", user.id);
           query = query.eq('sdr_id', user.id);
+        } else if (isGrowth) {
+          console.log("MissionSelect - Utilisateur Growth: récupération de toutes les missions");
+          // Pour les utilisateurs Growth, on ne filtre pas - ils voient toutes les missions
         }
         
         const { data, error } = await query;
@@ -46,6 +52,8 @@ export function MissionSelect() {
           console.error("Erreur lors de la récupération des missions:", error);
           return;
         }
+        
+        console.log(`MissionSelect - ${data?.length || 0} missions récupérées de la base`);
         
         if (data && data.length) {
           // Précharger les noms de mission
@@ -94,6 +102,8 @@ export function MissionSelect() {
           
           console.log(`MissionSelect - ${uniqueMissions.length} missions uniques chargées`);
           setMissions(uniqueMissions);
+        } else {
+          console.log("MissionSelect - Aucune mission trouvée");
         }
       } catch (error) {
         console.error("Exception lors de la récupération des missions:", error);
@@ -103,7 +113,7 @@ export function MissionSelect() {
     };
 
     fetchMissions();
-  }, [isSDR, user?.id]);
+  }, [isSDR, isGrowth, user?.id]);
   
   // Effet pour vérifier si la mission sélectionnée existe dans la liste chargée
   useEffect(() => {
@@ -165,6 +175,19 @@ export function MissionSelect() {
     }
   };
   
+  const getPlaceholderText = () => {
+    if (loading) return "Chargement...";
+    if (isSDR && missions.length === 0) return "Aucune mission ne vous est assignée";
+    if (isGrowth && missions.length === 0) return "Aucune mission disponible";
+    return "Sélectionner une mission";
+  };
+
+  const getEmptyStateText = () => {
+    if (isSDR) return "Aucune mission ne vous est assignée";
+    if (isGrowth) return "Aucune mission disponible";
+    return "Aucune mission trouvée";
+  };
+  
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
@@ -175,7 +198,7 @@ export function MissionSelect() {
       
       <Select onValueChange={handleMissionChange} value={selectedMissionId || ""}>
         <SelectTrigger className="w-full h-10">
-          <SelectValue placeholder="Sélectionner une mission" />
+          <SelectValue placeholder={getPlaceholderText()} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
@@ -191,9 +214,7 @@ export function MissionSelect() {
               ))
             ) : (
               <SelectItem value="empty" disabled>
-                {isSDR 
-                  ? "Aucune mission ne vous est assignée" 
-                  : "Aucune mission trouvée"}
+                {getEmptyStateText()}
               </SelectItem>
             )}
           </SelectGroup>

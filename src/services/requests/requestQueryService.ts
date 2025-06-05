@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
 
@@ -61,12 +60,31 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       return [];
     }
 
-    // Formatter les données récupérées
+    // Formatter les données récupérées avec diagnostics détaillés
     const formattedRequests = requestsData.map((request) => {
-      console.log(`🔍 [fetchRequests] Formatage request ${request.id} avec mission: "${request.mission_name || request.mission_client || 'Sans mission'}"`);
+      console.log(`🔍 [fetchRequests] DIAGNOSTIC DÉTAILLÉ pour request ${request.id}:`);
+      console.log(`  - mission_id: "${request.mission_id}"`);
+      console.log(`  - mission_name: "${request.mission_name}"`);
+      console.log(`  - mission_client: "${request.mission_client}"`);
+      console.log(`  - Type mission_name: ${typeof request.mission_name}`);
+      console.log(`  - Type mission_client: ${typeof request.mission_client}`);
+      console.log(`  - Valeur null/undefined mission_name:`, request.mission_name === null || request.mission_name === undefined);
+      console.log(`  - Valeur null/undefined mission_client:`, request.mission_client === null || request.mission_client === undefined);
       
-      // Priorité: mission_client > mission_name > "Sans mission"
-      const missionName = request.mission_client || request.mission_name || "Sans mission";
+      // Logique de priorité avec diagnostics
+      let missionName = "Sans mission";
+      
+      if (request.mission_client && request.mission_client.trim() !== '') {
+        missionName = request.mission_client.trim();
+        console.log(`  ✅ Utilisation mission_client: "${missionName}"`);
+      } else if (request.mission_name && request.mission_name.trim() !== '') {
+        missionName = request.mission_name.trim();
+        console.log(`  ✅ Utilisation mission_name: "${missionName}"`);
+      } else {
+        console.log(`  ⚠️ Aucun nom de mission valide trouvé - utilisation de "Sans mission"`);
+        console.log(`  - mission_client vide/null:`, !request.mission_client || request.mission_client.trim() === '');
+        console.log(`  - mission_name vide/null:`, !request.mission_name || request.mission_name.trim() === '');
+      }
       
       const formattedRequest: Request = {
         id: request.id,
@@ -88,7 +106,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         target_role: request.target_role
       };
       
-      console.log(`✅ [fetchRequests] Request formatée: ${formattedRequest.id}, mission="${formattedRequest.missionName}"`);
+      console.log(`✅ [fetchRequests] Request formatée: ${formattedRequest.id}, mission finale="${formattedRequest.missionName}"`);
       
       return formattedRequest;
     });
