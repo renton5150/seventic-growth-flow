@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +30,7 @@ export function MissionSelect() {
         console.log("MissionSelect - DÉMARRAGE du chargement des missions");
         console.log(`MissionSelect - Rôle utilisateur: ${user?.role}`);
         
-        // LOGIQUE SIMPLIFIÉE : 
+        // NOUVELLE LOGIQUE SIMPLIFIÉE : 
         // - SDR : seulement ses missions (filtre par sdr_id)
         // - Growth/Admin : TOUTES les missions (aucun filtre)
         let query = supabase.from("missions").select("id, name, client");
@@ -37,9 +38,9 @@ export function MissionSelect() {
         if (isSDR && user?.id) {
           console.log("MissionSelect - SDR: filtrage par sdr_id =", user.id);
           query = query.eq('sdr_id', user.id);
-        } else {
-          console.log("MissionSelect - Growth/Admin: récupération de TOUTES les missions");
-          // PAS DE FILTRE pour Growth et Admin
+        } else if (isGrowth || isAdmin) {
+          console.log("MissionSelect - Growth/Admin: récupération de TOUTES les missions (AUCUN FILTRE)");
+          // PAS DE FILTRE du tout pour Growth et Admin
         }
         
         const { data, error } = await query;
@@ -50,6 +51,7 @@ export function MissionSelect() {
         }
         
         console.log(`MissionSelect - ${data?.length || 0} missions récupérées de la base`);
+        console.log("MissionSelect - Données brutes:", data);
         
         if (data && data.length) {
           // Préparer les données avec les noms standardisés

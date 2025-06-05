@@ -15,101 +15,102 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
   try {
-    // APPROCHE SIMPLIFIÉE - Utilisons la vue requests_with_missions qui fonctionne
-    console.log("🔍 [fetchRequests] Utilisation de la vue requests_with_missions");
+    console.log("🔍 [fetchRequests] Récupération directe des requests avec jointure manuelle");
     
-    let query = supabase
-      .from('requests_with_missions')
-      .select('*');
+    // 1. D'abord récupérer toutes les requests avec filtres
+    let requestQuery = supabase
+      .from('requests')
+      .select(`
+        *,
+        created_by_profile:profiles!requests_created_by_fkey(name),
+        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+      `);
     
-    // Appliquer les filtres
+    // Appliquer les filtres sur les requests
     if (filters?.assignedToIsNull) {
-      query = query.is('assigned_to', null);
+      requestQuery = requestQuery.is('assigned_to', null);
     }
     if (filters?.workflowStatus) {
-      query = query.eq('workflow_status', filters.workflowStatus);
+      requestQuery = requestQuery.eq('workflow_status', filters.workflowStatus);
     }
     if (filters?.workflowStatusNot) {
-      query = query.neq('workflow_status', filters.workflowStatusNot);
+      requestQuery = requestQuery.neq('workflow_status', filters.workflowStatusNot);
     }
     if (filters?.assignedTo) {
-      query = query.eq('assigned_to', filters.assignedTo);
+      requestQuery = requestQuery.eq('assigned_to', filters.assignedTo);
     }
     if (filters?.createdBy) {
-      query = query.eq('created_by', filters.createdBy);
+      requestQuery = requestQuery.eq('created_by', filters.createdBy);
     }
     if (filters?.assignedToIsNotNull) {
-      query = query.not('assigned_to', 'is', null);
+      requestQuery = requestQuery.not('assigned_to', 'is', null);
     }
     
-    query = query.order('due_date', { ascending: true });
+    requestQuery = requestQuery.order('due_date', { ascending: true });
     
-    console.log("📋 [fetchRequests] Exécution de la requête sur la vue...");
-    
-    const { data: requestsData, error: requestsError } = await query;
+    const { data: requestsData, error: requestsError } = await requestQuery;
     
     if (requestsError) {
-      console.error("❌ [fetchRequests] Erreur requête vue:", requestsError);
+      console.error("❌ [fetchRequests] Erreur requête requests:", requestsError);
       return [];
     }
     
-    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées de la vue`);
+    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées`);
     
     if (!requestsData || requestsData.length === 0) {
-      console.log("⚠️ [fetchRequests] Aucune donnée retournée");
+      console.log("⚠️ [fetchRequests] Aucune request trouvée");
       return [];
     }
 
-    // Diagnostic approfondi des données de la vue
-    console.log("🔍 [fetchRequests] DIAGNOSTIC APPROFONDI des données de la vue:");
-    requestsData.slice(0, 3).forEach((request, index) => {
-      console.log(`🔍 [fetchRequests] REQUEST ${index + 1}:`, {
-        id: request.id,
-        mission_id: request.mission_id,
-        mission_name: request.mission_name,
-        mission_client: request.mission_client,
-        mission_name_type: typeof request.mission_name,
-        mission_client_type: typeof request.mission_client,
-        mission_name_stringified: JSON.stringify(request.mission_name),
-        mission_client_stringified: JSON.stringify(request.mission_client)
-      });
-    });
-
-    // Formatter les données récupérées avec diagnostics détaillés
-    const formattedRequests = requestsData.map((request) => {
-      console.log(`🔍 [fetchRequests] FORMATAGE request ${request.id}:`);
-      console.log(`  - mission_id: "${request.mission_id}"`);
-      console.log(`  - mission_client RAW:`, request.mission_client);
-      console.log(`  - mission_name RAW:`, request.mission_name);
+    // 2. Récupérer toutes les missions d'un coup
+    const missionIds = [...new Set(requestsData.map(r => r.mission_id).filter(Boolean))];
+    console.log(`🔍 [fetchRequests] Mission IDs à récupérer:`, missionIds);
+    
+    let missionsMap = new Map();
+    
+    if (missionIds.length > 0) {
+      const { data: missionsData, error: missionsError } = await supabase
+        .from('missions')
+        .select('id, name, client')
+        .in('id', missionIds);
       
-      // Extraire les données de mission avec une logique ultra-claire
+      if (missionsError) {
+        console.error("❌ [fetchRequests] Erreur récupération missions:", missionsError);
+      } else {
+        console.log(`✅ [fetchRequests] ${missionsData?.length || 0} missions récupérées:`, missionsData);
+        missionsData?.forEach(mission => {
+          console.log(`🎯 [fetchRequests] Mission ${mission.id}: client="${mission.client}", name="${mission.name}"`);
+          missionsMap.set(mission.id, mission);
+        });
+      }
+    }
+
+    // 3. Formatter les données avec les missions
+    const formattedRequests = requestsData.map((request) => {
+      console.log(`🔍 [fetchRequests] FORMATAGE request ${request.id} avec mission_id: ${request.mission_id}`);
+      
+      // Récupérer la mission depuis notre Map
+      const mission = missionsMap.get(request.mission_id);
       let missionName = "Sans mission";
       
-      // Essayer mission_client d'abord
-      if (request.mission_client) {
-        const clientValue = String(request.mission_client).trim();
-        if (clientValue && clientValue !== 'null' && clientValue !== 'undefined' && clientValue !== '') {
-          missionName = clientValue;
-          console.log(`  ✅ Utilisation mission_client: "${missionName}"`);
+      if (mission) {
+        // PRIORITÉ: client d'abord, puis name
+        if (mission.client && String(mission.client).trim() !== '') {
+          missionName = String(mission.client).trim();
+          console.log(`  ✅ Mission trouvée - CLIENT: "${missionName}"`);
+        } else if (mission.name && String(mission.name).trim() !== '') {
+          missionName = String(mission.name).trim();
+          console.log(`  ✅ Mission trouvée - NAME: "${missionName}"`);
+        } else {
+          console.log(`  ❌ Mission ${mission.id} trouvée mais sans nom valide`);
         }
-      }
-      
-      // Si pas de client valide, essayer mission_name
-      if (missionName === "Sans mission" && request.mission_name) {
-        const nameValue = String(request.mission_name).trim();
-        if (nameValue && nameValue !== 'null' && nameValue !== 'undefined' && nameValue !== '') {
-          missionName = nameValue;
-          console.log(`  ✅ Utilisation mission_name: "${missionName}"`);
-        }
-      }
-      
-      if (missionName === "Sans mission") {
-        console.log(`  ❌ AUCUNE MISSION VALIDE trouvée pour request ${request.id}`);
+      } else {
+        console.log(`  ❌ AUCUNE MISSION trouvée pour ID: ${request.mission_id}`);
       }
       
       // Extraire les noms des utilisateurs
-      const sdrName = request.sdr_name || "Non assigné";
-      const assignedToName = request.assigned_to_name || "Non assigné";
+      const sdrName = request.created_by_profile?.name || "Non assigné";
+      const assignedToName = request.assigned_to_profile?.name || "Non assigné";
       
       const formattedRequest: Request = {
         id: request.id,
@@ -137,7 +138,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
     });
     
     console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions`);
-    console.log(`🔍 [fetchRequests] Exemple de missions récupérées:`, formattedRequests.slice(0, 3).map(r => ({ id: r.id, missionName: r.missionName })));
+    console.log(`🔍 [fetchRequests] Exemple de missions finales:`, formattedRequests.slice(0, 3).map(r => ({ id: r.id, missionName: r.missionName })));
     
     return formattedRequests;
     
@@ -151,10 +152,14 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
   try {
     console.log("🔍 [getRequestDetails] Récupération pour:", requestId);
     
-    // Utiliser la vue pour plus de simplicité
+    // Récupérer la request avec les profils
     const { data: requestData, error: requestError } = await supabase
-      .from('requests_with_missions')
-      .select('*')
+      .from('requests')
+      .select(`
+        *,
+        created_by_profile:profiles!requests_created_by_fkey(name),
+        assigned_to_profile:profiles!requests_assigned_to_fkey(name)
+      `)
       .eq('id', requestId)
       .single();
 
@@ -168,12 +173,23 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       return null;
     }
 
-    // Extraire les données de mission
+    // Récupérer la mission séparément si elle existe
     let missionName = "Sans mission";
-    if (requestData.mission_client && String(requestData.mission_client).trim() !== '') {
-      missionName = String(requestData.mission_client).trim();
-    } else if (requestData.mission_name && String(requestData.mission_name).trim() !== '') {
-      missionName = String(requestData.mission_name).trim();
+    if (requestData.mission_id) {
+      const { data: missionData, error: missionError } = await supabase
+        .from('missions')
+        .select('id, name, client')
+        .eq('id', requestData.mission_id)
+        .single();
+      
+      if (!missionError && missionData) {
+        if (missionData.client && String(missionData.client).trim() !== '') {
+          missionName = String(missionData.client).trim();
+        } else if (missionData.name && String(missionData.name).trim() !== '') {
+          missionName = String(missionData.name).trim();
+        }
+        console.log(`✅ [getRequestDetails] Mission trouvée: "${missionName}"`);
+      }
     }
     
     const request: Request = {
@@ -184,8 +200,8 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       createdBy: requestData.created_by,
       missionId: requestData.mission_id,
       missionName: missionName,
-      sdrName: requestData.sdr_name || "Non assigné",
-      assignedToName: requestData.assigned_to_name || "Non assigné",
+      sdrName: requestData.created_by_profile?.name || "Non assigné",
+      assignedToName: requestData.assigned_to_profile?.name || "Non assigné",
       dueDate: requestData.due_date,
       details: requestData.details || {},
       workflow_status: requestData.workflow_status as WorkflowStatus,
