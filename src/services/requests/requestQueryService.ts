@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
+import { getMissionById } from "@/services/missions/missionService";
 
 interface RequestFilters {
   assignedToIsNull?: boolean;
@@ -15,9 +16,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
   console.log("🚀 [fetchRequests] Début avec filtres:", filters);
   
   try {
-    console.log("🔍 [fetchRequests] Récupération directe des requests avec jointure manuelle");
-    
-    // 1. D'abord récupérer toutes les requests avec filtres
+    // Récupérer directement depuis la table requests avec les profils
     let requestQuery = supabase
       .from('requests')
       .select(`
@@ -26,7 +25,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         assigned_to_profile:profiles!requests_assigned_to_fkey(name)
       `);
     
-    // Appliquer les filtres sur les requests
+    // Appliquer les filtres
     if (filters?.assignedToIsNull) {
       requestQuery = requestQuery.is('assigned_to', null);
     }
@@ -62,83 +61,45 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       return [];
     }
 
-    // 2. Récupérer toutes les missions d'un coup
-    const missionIds = [...new Set(requestsData.map(r => r.mission_id).filter(Boolean))];
-    console.log(`🔍 [fetchRequests] Mission IDs à récupérer:`, missionIds);
-    
-    let missionsMap = new Map();
-    
-    if (missionIds.length > 0) {
-      const { data: missionsData, error: missionsError } = await supabase
-        .from('missions')
-        .select('id, name, client')
-        .in('id', missionIds);
-      
-      if (missionsError) {
-        console.error("❌ [fetchRequests] Erreur récupération missions:", missionsError);
-      } else {
-        console.log(`✅ [fetchRequests] ${missionsData?.length || 0} missions récupérées:`, missionsData);
-        missionsData?.forEach(mission => {
-          console.log(`🎯 [fetchRequests] Mission ${mission.id}: client="${mission.client}", name="${mission.name}"`);
-          missionsMap.set(mission.id, mission);
-        });
-      }
-    }
-
-    // 3. Formatter les données avec les missions
-    const formattedRequests = requestsData.map((request) => {
-      console.log(`🔍 [fetchRequests] FORMATAGE request ${request.id} avec mission_id: ${request.mission_id}`);
-      
-      // Récupérer la mission depuis notre Map
-      const mission = missionsMap.get(request.mission_id);
-      let missionName = "Sans mission";
-      
-      if (mission) {
-        // PRIORITÉ: client d'abord, puis name
-        if (mission.client && String(mission.client).trim() !== '') {
-          missionName = String(mission.client).trim();
-          console.log(`  ✅ Mission trouvée - CLIENT: "${missionName}"`);
-        } else if (mission.name && String(mission.name).trim() !== '') {
-          missionName = String(mission.name).trim();
-          console.log(`  ✅ Mission trouvée - NAME: "${missionName}"`);
-        } else {
-          console.log(`  ❌ Mission ${mission.id} trouvée mais sans nom valide`);
-        }
-      } else {
-        console.log(`  ❌ AUCUNE MISSION trouvée pour ID: ${request.mission_id}`);
-      }
-      
-      // Extraire les noms des utilisateurs
-      const sdrName = request.created_by_profile?.name || "Non assigné";
-      const assignedToName = request.assigned_to_profile?.name || "Non assigné";
-      
-      const formattedRequest: Request = {
-        id: request.id,
-        title: request.title,
-        type: request.type,
-        status: request.status as RequestStatus,
-        createdBy: request.created_by,
-        missionId: request.mission_id,
-        missionName: missionName,
-        sdrName: sdrName,
-        assignedToName: assignedToName,
-        dueDate: request.due_date,
-        details: request.details || {},
-        workflow_status: request.workflow_status as WorkflowStatus,
-        assigned_to: request.assigned_to,
-        isLate: new Date(request.due_date) < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled',
-        createdAt: new Date(request.created_at),
-        lastUpdated: new Date(request.last_updated || request.updated_at),
-        target_role: request.target_role
-      };
-      
-      console.log(`✅ [fetchRequests] Request formatée: ${formattedRequest.id}, mission finale="${formattedRequest.missionName}"`);
-      
-      return formattedRequest;
-    });
+    // Formater les requests avec les noms de mission
+    const formattedRequests = await Promise.all(
+      requestsData.map(async (request) => {
+        console.log(`🔍 [fetchRequests] Formatage request ${request.id} avec mission_id: ${request.mission_id}`);
+        
+        // Récupérer le nom de mission via le service dédié
+        const missionName = await getMissionById(request.mission_id);
+        
+        console.log(`✅ [fetchRequests] Mission "${missionName}" pour request ${request.id}`);
+        
+        // Extraire les noms des utilisateurs
+        const sdrName = request.created_by_profile?.name || "Non assigné";
+        const assignedToName = request.assigned_to_profile?.name || "Non assigné";
+        
+        const formattedRequest: Request = {
+          id: request.id,
+          title: request.title,
+          type: request.type,
+          status: request.status as RequestStatus,
+          createdBy: request.created_by,
+          missionId: request.mission_id,
+          missionName: missionName,
+          sdrName: sdrName,
+          assignedToName: assignedToName,
+          dueDate: request.due_date,
+          details: request.details || {},
+          workflow_status: request.workflow_status as WorkflowStatus,
+          assigned_to: request.assigned_to,
+          isLate: new Date(request.due_date) < new Date() && request.workflow_status !== 'completed' && request.workflow_status !== 'canceled',
+          createdAt: new Date(request.created_at),
+          lastUpdated: new Date(request.last_updated || request.updated_at),
+          target_role: request.target_role
+        };
+        
+        return formattedRequest;
+      })
+    );
     
     console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions`);
-    console.log(`🔍 [fetchRequests] Exemple de missions finales:`, formattedRequests.slice(0, 3).map(r => ({ id: r.id, missionName: r.missionName })));
     
     return formattedRequests;
     
@@ -173,24 +134,8 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       return null;
     }
 
-    // Récupérer la mission séparément si elle existe
-    let missionName = "Sans mission";
-    if (requestData.mission_id) {
-      const { data: missionData, error: missionError } = await supabase
-        .from('missions')
-        .select('id, name, client')
-        .eq('id', requestData.mission_id)
-        .single();
-      
-      if (!missionError && missionData) {
-        if (missionData.client && String(missionData.client).trim() !== '') {
-          missionName = String(missionData.client).trim();
-        } else if (missionData.name && String(missionData.name).trim() !== '') {
-          missionName = String(missionData.name).trim();
-        }
-        console.log(`✅ [getRequestDetails] Mission trouvée: "${missionName}"`);
-      }
-    }
+    // Récupérer le nom de mission via le service dédié
+    const missionName = await getMissionById(requestData.mission_id);
     
     const request: Request = {
       id: requestData.id,
