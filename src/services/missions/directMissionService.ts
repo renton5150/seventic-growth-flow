@@ -8,47 +8,42 @@ export interface MissionData {
   sdr_id: string | null;
 }
 
-// Service direct et simple - pas de cache, pas de complexité
-export const getDirectMissionById = async (missionId: string): Promise<string> => {
+// Service ULTRA SIMPLE et direct pour résoudre les problèmes de format
+export const getDirectMissionById = async (missionId: string): Promise<{ name: string; client: string }> => {
   if (!missionId) {
     console.log("[getDirectMissionById] Mission ID vide");
-    return "Sans mission";
+    return { name: "Sans mission", client: "Sans client" };
   }
 
   try {
-    console.log(`[getDirectMissionById] Récupération directe mission ${missionId}`);
+    console.log(`[getDirectMissionById] Récupération DIRECTE mission ${missionId}`);
     
     const { data, error } = await supabase
       .from('missions')
       .select('id, name, client, sdr_id')
       .eq('id', missionId)
-      .single();
+      .maybeSingle(); // Utiliser maybeSingle au lieu de single pour éviter les erreurs
 
     if (error) {
       console.error(`[getDirectMissionById] Erreur Supabase pour ${missionId}:`, error);
-      return "Sans mission";
+      return { name: "Sans mission", client: "Sans client" };
     }
 
     if (!data) {
       console.warn(`[getDirectMissionById] Aucune mission trouvée pour ${missionId}`);
-      return "Sans mission";
+      return { name: "Sans mission", client: "Sans client" };
     }
 
-    // Logique de nom simple et directe
-    let displayName = "Sans mission";
-    
-    if (data.client && data.client.trim() !== '') {
-      displayName = data.client.trim();
-    } else if (data.name && data.name.trim() !== '') {
-      displayName = data.name.trim();
-    }
+    // Retourner à la fois le nom et le client
+    const missionName = data.name && data.name.trim() !== '' ? data.name.trim() : "Sans nom";
+    const missionClient = data.client && data.client.trim() !== '' ? data.client.trim() : "Sans client";
 
-    console.log(`[getDirectMissionById] Mission ${missionId} -> "${displayName}"`);
-    return displayName;
+    console.log(`[getDirectMissionById] Mission ${missionId} -> nom: "${missionName}", client: "${missionClient}"`);
+    return { name: missionName, client: missionClient };
     
   } catch (error) {
     console.error(`[getDirectMissionById] Exception pour ${missionId}:`, error);
-    return "Sans mission";
+    return { name: "Sans mission", client: "Sans client" };
   }
 };
 
@@ -94,7 +89,7 @@ export const getDirectMissionsForUser = async (userId: string): Promise<MissionD
   return allMissions.filter(mission => mission.sdr_id === userId);
 };
 
-// Fonction pour obtenir le nom d'affichage d'une mission
+// Fonction pour obtenir le nom d'affichage d'une mission (priorité au client)
 export const getDirectMissionDisplayName = (mission: MissionData): string => {
   if (mission.client && mission.client.trim() !== '') {
     return mission.client.trim();

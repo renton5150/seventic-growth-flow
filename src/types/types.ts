@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -17,31 +16,20 @@ export interface Request {
   title: string;
   type: string;
   status: RequestStatus;
-  createdBy?: string;
-  missionId?: string;
-  missionName?: string;
-  sdrName?: string;
-  dueDate: string | Date;
-  details?: any;
-  workflow_status?: WorkflowStatus;
-  assigned_to?: string;
-  assignedToName?: string;
-  isLate?: boolean;
-  createdAt: Date | string;
-  lastUpdated: Date | string;
-  target_role?: string;
-  // Type-specific properties
-  template?: EmailTemplate;
-  database?: DatabaseDetails;
-  blacklist?: Blacklist;
-  platform?: string;
-  statistics?: EmailCampaignStatistics;
-  tool?: string;
-  targeting?: TargetingCriteria;
-  contactsCreated?: number;
-  profilesScraped?: number;
-  resultFileUrl?: string;
-  emailType?: "Mass email" | "Cold email";
+  createdBy?: string | null;
+  missionId?: string | null;
+  missionName: string;
+  missionClient: string; // NOUVELLE PROPRIÉTÉ pour le client de mission
+  sdrName: string;
+  assignedToName: string;
+  dueDate: string;
+  details: Record<string, any>;
+  workflow_status: WorkflowStatus;
+  assigned_to?: string | null;
+  isLate: boolean;
+  createdAt: Date;
+  lastUpdated: Date;
+  target_role?: string | null;
 }
 
 export interface EmailCampaignRequest extends Request {

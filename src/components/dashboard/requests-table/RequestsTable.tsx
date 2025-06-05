@@ -29,16 +29,17 @@ export const RequestsTable = ({
     type: [],
     title: [],
     mission: [],
+    client: [], // NOUVEAU : valeurs uniques pour les clients
     sdr: [],
     status: [],
-    assignedTo: [], // Ajout explicite de assignedTo
-    requestType: [], // Ajout explicite de requestType
+    assignedTo: [],
+    requestType: [],
     emailPlatform: []
   });
 
   // DIAGNOSTIC - Log des requests reçues
   console.log("[RequestsTable] 🔍 DIAGNOSTIC - Requests prop:", requests);
-  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Mission names dans requests:", requests.map(r => ({ id: r.id, missionName: r.missionName })));
+  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Mission names dans requests:", requests.map(r => ({ id: r.id, missionName: r.missionName, missionClient: r.missionClient })));
 
   // Extraire les valeurs uniques des propriétés pour les filtres
   useEffect(() => {
@@ -50,7 +51,11 @@ export const RequestsTable = ({
     // Use proper "Sans mission" for null or empty mission names
     const missions = [...new Set(requests.map(r => r.missionName || "Sans mission"))];
     
+    // NOUVEAU : Extraire les clients uniques
+    const clients = [...new Set(requests.map(r => r.missionClient || "Sans client"))];
+    
     console.log("[RequestsTable] 🔍 DIAGNOSTIC - Missions extraites pour filtres:", missions);
+    console.log("[RequestsTable] 🔍 DIAGNOSTIC - Clients extraits pour filtres:", clients);
     
     // Use "Non assigné" for null or empty SDR names
     const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
@@ -71,7 +76,7 @@ export const RequestsTable = ({
       return "Non spécifié";
     }))];
     
-    // CORRECTION: Extraire les types de demande formatés avec les labels français
+    // Extraire les types de demande formatés avec les labels français
     const requestTypes = [...new Set(requests.map(r => {
       switch(r.type) {
         case "email": return "Campagne Email";
@@ -81,30 +86,31 @@ export const RequestsTable = ({
       }
     }))];
     
-    // CORRECTION: Extraire les valeurs uniques pour assignedTo
+    // Extraire les valeurs uniques pour assignedTo
     const assignedToNames = [...new Set(requests.map(r => r.assignedToName || "Non assigné"))];
     
-    // Ajouter des logs pour déboguer l'extraction des valeurs de filtre
     console.log("RequestsTable - Valeurs extraites pour les filtres:", {
       requestTypes,
-      assignedToNames
+      assignedToNames,
+      clients
     });
     
     setUniqueValues({
       type: types,
       mission: missions,
+      client: clients, // NOUVEAU : clients pour filtres
       sdr: sdrs,
       status: statuses,
       title: titles,
       emailPlatform: emailPlatforms,
-      requestType: requestTypes, // Ajouter les types de demande formatés
-      assignedTo: assignedToNames // Ajouter les noms des personnes assignées
+      requestType: requestTypes,
+      assignedTo: assignedToNames
     });
   }, [requests]);
 
   const filteredAndSortedRequests = sortRequests(requests, sortColumn, sortDirection, filters, dateFilters);
 
-  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Requests après tri/filtre:", filteredAndSortedRequests.map(r => ({ id: r.id, missionName: r.missionName })));
+  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Requests après tri/filtre:", filteredAndSortedRequests.map(r => ({ id: r.id, missionName: r.missionName, missionClient: r.missionClient })));
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {

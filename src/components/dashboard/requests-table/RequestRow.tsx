@@ -66,10 +66,9 @@ export const RequestRow = ({
   // DIAGNOSTIC COMPLET - Log toutes les données de la request
   console.log(`[RequestRow] 🚀 DIAGNOSTIC COMPLET pour request ${request.id}:`);
   console.log(`[RequestRow] - missionName: "${request.missionName}"`);
+  console.log(`[RequestRow] - missionClient: "${request.missionClient}"`);
   console.log(`[RequestRow] - missionId: "${request.missionId}"`);
   console.log(`[RequestRow] - title: "${request.title}"`);
-  console.log(`[RequestRow] - details:`, request.details);
-  console.log(`[RequestRow] - OBJET COMPLET:`, request);
 
   const formatDate = (date: Date | string) => {
     const dateObj = date instanceof Date ? date : new Date(date);
@@ -133,6 +132,13 @@ export const RequestRow = ({
       <TableCell className="font-medium">
         <div className="font-medium text-sm" title={request.missionName || "Sans mission"}>
           {request.missionName || "Sans mission"}
+        </div>
+      </TableCell>
+
+      {/* NOUVELLE COLONNE CLIENT */}
+      <TableCell className="font-medium">
+        <div className="font-medium text-sm" title={request.missionClient || "Sans client"}>
+          {request.missionClient || "Sans client"}
         </div>
       </TableCell>
       

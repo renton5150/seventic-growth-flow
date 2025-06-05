@@ -13,7 +13,7 @@ interface RequestFilters {
 }
 
 export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]> => {
-  console.log("🚀 [fetchRequests] Début - Récupération avec résolution missions");
+  console.log("🚀 [fetchRequests] Début - Récupération avec résolution COMPLÈTE missions");
   
   try {
     // Récupérer TOUT en une seule requête avec JOIN explicite
@@ -62,17 +62,21 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
 
     // Résoudre les noms de missions pour chaque requête
     const formattedRequests = await Promise.all(requestsData.map(async (request) => {
-      // Résoudre le nom de mission via le service direct
+      // Résoudre le nom de mission ET le client via le service direct
       let missionName = "Sans mission";
+      let missionClient = "Sans client";
+      
       if (request.mission_id) {
         try {
-          missionName = await getDirectMissionById(request.mission_id);
+          const missionData = await getDirectMissionById(request.mission_id);
+          missionName = missionData.name;
+          missionClient = missionData.client;
         } catch (error) {
           console.error(`Erreur résolution mission ${request.mission_id}:`, error);
         }
       }
       
-      console.log(`✅ [fetchRequests] Request ${request.id} -> Mission: "${missionName}"`);
+      console.log(`✅ [fetchRequests] Request ${request.id} -> Mission: "${missionName}", Client: "${missionClient}"`);
       
       const formattedRequest: Request = {
         id: request.id,
@@ -82,6 +86,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
         createdBy: request.created_by,
         missionId: request.mission_id,
         missionName: missionName,
+        missionClient: missionClient, // AJOUTER le client de mission
         sdrName: request.created_by_profile?.name || "Non assigné",
         assignedToName: request.assigned_to_profile?.name || "Non assigné",
         dueDate: request.due_date,
@@ -97,7 +102,7 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       return formattedRequest;
     }));
     
-    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions résolues`);
+    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions ET clients résolus`);
     
     return formattedRequests;
     
@@ -132,11 +137,15 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       return null;
     }
 
-    // Résoudre le nom de mission via le service direct
+    // Résoudre le nom de mission ET le client via le service direct
     let missionName = "Sans mission";
+    let missionClient = "Sans client";
+    
     if (requestData.mission_id) {
       try {
-        missionName = await getDirectMissionById(requestData.mission_id);
+        const missionData = await getDirectMissionById(requestData.mission_id);
+        missionName = missionData.name;
+        missionClient = missionData.client;
       } catch (error) {
         console.error(`Erreur résolution mission ${requestData.mission_id}:`, error);
       }
@@ -150,6 +159,7 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       createdBy: requestData.created_by,
       missionId: requestData.mission_id,
       missionName: missionName,
+      missionClient: missionClient, // AJOUTER le client de mission
       sdrName: requestData.created_by_profile?.name || "Non assigné",
       assignedToName: requestData.assigned_to_profile?.name || "Non assigné",
       dueDate: requestData.due_date,
@@ -162,7 +172,7 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       target_role: requestData.target_role
     };
     
-    console.log(`✅ [getRequestDetails] Request: ${request.id}, mission="${request.missionName}"`);
+    console.log(`✅ [getRequestDetails] Request: ${request.id}, mission="${request.missionName}", client="${request.missionClient}"`);
     
     return request;
   } catch (err) {
