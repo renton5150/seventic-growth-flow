@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Request, RequestStatus, WorkflowStatus } from "@/types/types";
+import { getDirectMissionById } from "@/services/missions/directMissionService";
 
 interface RequestFilters {
   assignedToIsNull?: boolean;
@@ -12,7 +13,7 @@ interface RequestFilters {
 }
 
 export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]> => {
-  console.log("🚀 [fetchRequests] Début - VERSION ULTRA SIMPLE");
+  console.log("🚀 [fetchRequests] Début - Récupération avec résolution missions");
   
   try {
     // Récupérer TOUT en une seule requête avec JOIN explicite
@@ -20,7 +21,6 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       .from('requests')
       .select(`
         *,
-        missions!inner(id, name, client),
         created_by_profile:profiles!requests_created_by_fkey(name),
         assigned_to_profile:profiles!requests_assigned_to_fkey(name)
       `);
@@ -54,21 +54,21 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       return [];
     }
     
-    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées avec missions`);
+    console.log(`📋 [fetchRequests] ${requestsData?.length || 0} requests récupérées`);
     
     if (!requestsData || requestsData.length === 0) {
       return [];
     }
 
-    // Formater simplement
-    const formattedRequests = requestsData.map((request) => {
-      // Mission name - logique ultra simple
+    // Résoudre les noms de missions pour chaque requête
+    const formattedRequests = await Promise.all(requestsData.map(async (request) => {
+      // Résoudre le nom de mission via le service direct
       let missionName = "Sans mission";
-      if (request.missions) {
-        if (request.missions.client && request.missions.client.trim()) {
-          missionName = request.missions.client.trim();
-        } else if (request.missions.name && request.missions.name.trim()) {
-          missionName = request.missions.name.trim();
+      if (request.mission_id) {
+        try {
+          missionName = await getDirectMissionById(request.mission_id);
+        } catch (error) {
+          console.error(`Erreur résolution mission ${request.mission_id}:`, error);
         }
       }
       
@@ -95,9 +95,9 @@ export const fetchRequests = async (filters?: RequestFilters): Promise<Request[]
       };
       
       return formattedRequest;
-    });
+    }));
     
-    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées - TERMINÉ`);
+    console.log(`✅ [fetchRequests] ${formattedRequests.length} requests formatées avec missions résolues`);
     
     return formattedRequests;
     
@@ -116,7 +116,6 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       .from('requests')
       .select(`
         *,
-        missions!inner(id, name, client),
         created_by_profile:profiles!requests_created_by_fkey(name),
         assigned_to_profile:profiles!requests_assigned_to_fkey(name)
       `)
@@ -133,13 +132,13 @@ export const getRequestDetails = async (requestId: string, userId?: string, isSD
       return null;
     }
 
-    // Mission name - même logique simple
+    // Résoudre le nom de mission via le service direct
     let missionName = "Sans mission";
-    if (requestData.missions) {
-      if (requestData.missions.client && requestData.missions.client.trim()) {
-        missionName = requestData.missions.client.trim();
-      } else if (requestData.missions.name && requestData.missions.name.trim()) {
-        missionName = requestData.missions.name.trim();
+    if (requestData.mission_id) {
+      try {
+        missionName = await getDirectMissionById(requestData.mission_id);
+      } catch (error) {
+        console.error(`Erreur résolution mission ${requestData.mission_id}:`, error);
       }
     }
     
