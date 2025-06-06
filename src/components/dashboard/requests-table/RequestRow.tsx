@@ -62,6 +62,7 @@ export const RequestRow = ({
   
   // Détecter si on est sur la page Growth
   const isGrowthPage = location.pathname.includes('/growth');
+  const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
 
   // DIAGNOSTIC COMPLET - Log toutes les données de la request
   console.log(`[RequestRow] 🚀 DIAGNOSTIC COMPLET pour request ${request.id}:`);
@@ -194,11 +195,12 @@ export const RequestRow = ({
       
       {/* Actions */}
       <TableCell className="text-right">
-        {isGrowthPage && onEditRequest && onCompleteRequest ? (
+        {/* TOUJOURS utiliser GrowthRequestActions pour Growth et Admin */}
+        {isGrowthOrAdmin ? (
           <GrowthRequestActions
             request={request}
-            onEditRequest={onEditRequest}
-            onCompleteRequest={onCompleteRequest}
+            onEditRequest={onEditRequest || handleEdit}
+            onCompleteRequest={onCompleteRequest || (() => {})}
             onViewDetails={onViewDetails || handleView}
             onRequestDeleted={onDeleted}
             assignRequestToMe={assignRequestToMe}
