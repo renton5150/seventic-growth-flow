@@ -29,23 +29,26 @@ const Missions = () => {
   
   // Admin, SDR et Growth peuvent créer des missions
   const canCreateMission = isAdmin || isSdr || isGrowth;
+  
+  // Admin et Growth voient toutes les missions, SDR ne voit que les siennes
+  const canViewAllMissions = isAdmin || isGrowth;
 
-  console.log("Page Missions - utilisateur:", user);
+  console.log("Page Missions - utilisateur:", user, "canViewAllMissions:", canViewAllMissions);
 
   const handleRefreshMissions = useCallback(() => {
     console.log("Rafraîchissement des missions");
     queryClient.invalidateQueries({ 
-      queryKey: ['missions', user?.id, isAdmin],
+      queryKey: ['missions', user?.id, canViewAllMissions],
     });
     setRefreshKey(prev => prev + 1);
-  }, [queryClient, user?.id, isAdmin]);
+  }, [queryClient, user?.id, canViewAllMissions]);
 
   const { data: missions = [], isLoading } = useQuery({
-    queryKey: ['missions', user?.id, isAdmin, refreshKey],
+    queryKey: ['missions', user?.id, canViewAllMissions, refreshKey],
     queryFn: async () => {
       try {
-        console.log("Chargement des missions pour", isAdmin ? "admin" : "sdr", "avec ID:", user?.id);
-        if (isAdmin) {
+        console.log("Chargement des missions pour", canViewAllMissions ? "admin/growth" : "sdr", "avec ID:", user?.id);
+        if (canViewAllMissions) {
           return await getAllMissions();
         } else if (user?.id) {
           return await getMissionsByUserId(user.id);
@@ -115,7 +118,7 @@ const Missions = () => {
         ) : (
           <MissionsTable 
             missions={missions} 
-            isAdmin={isAdmin} 
+            isAdmin={canViewAllMissions} 
             onViewMission={handleViewMission}
             onEditMission={canCreateMission ? handleEditMission : undefined}
           />
