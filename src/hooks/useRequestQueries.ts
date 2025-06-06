@@ -1,10 +1,11 @@
+
 import { useAuth } from "@/contexts/AuthContext";
 import { useToAssignRequests } from "@/hooks/requests/useToAssignRequests";
 import { useMyAssignmentRequests } from "@/hooks/requests/useMyAssignmentRequests";
 import { useAllRequests } from "@/hooks/requests/useAllRequests";
 import { getRequestDetails } from "@/services/requests/requestQueryService";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/services/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
