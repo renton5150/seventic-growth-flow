@@ -101,14 +101,15 @@ export default function EmailPlatforms() {
       <PageHeader
         title="Comptes Plateformes d'Emailing"
         description="Gérez et suivez vos comptes sur les différentes plateformes d'emailing"
-      >
-        {canCreateAccount && (
-          <Button onClick={handleCreateAccount}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nouveau compte
-          </Button>
-        )}
-      </PageHeader>
+        action={
+          canCreateAccount ? (
+            <Button onClick={handleCreateAccount}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nouveau compte
+            </Button>
+          ) : undefined
+        }
+      />
 
       <div className="space-y-6">
         <EmailPlatformAccountFilters 

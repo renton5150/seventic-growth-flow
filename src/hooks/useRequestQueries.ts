@@ -1,9 +1,10 @@
-
 import { useAuth } from "@/contexts/AuthContext";
 import { useToAssignRequests } from "@/hooks/requests/useToAssignRequests";
 import { useMyAssignmentRequests } from "@/hooks/requests/useMyAssignmentRequests";
 import { useAllRequests } from "@/hooks/requests/useAllRequests";
 import { getRequestDetails } from "@/services/requests/requestQueryService";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/services/supabase";
 
 export function useRequestQueries(userId: string | undefined) {
   const { user } = useAuth();
@@ -33,3 +34,22 @@ export function useRequestQueries(userId: string | undefined) {
     getRequestDetails: getRequestDetailsWithContext
   };
 }
+
+export const useMissionsQuery = () => {
+  return useQuery({
+    queryKey: ['missions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('missions')
+        .select('id, name, client')
+        .order('name');
+
+      if (error) {
+        console.error('Erreur lors de la récupération des missions:', error);
+        throw error;
+      }
+
+      return data || [];
+    },
+  });
+};

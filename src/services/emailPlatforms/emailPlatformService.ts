@@ -95,7 +95,7 @@ export const getEmailPlatformAccounts = async (filters?: EmailPlatformAccountFil
       return {
         ...account,
         front_offices: frontOfficeData?.map(item => item.front_office).filter(Boolean) || []
-      };
+      } as EmailPlatformAccount;
     })
   );
 
@@ -142,14 +142,14 @@ export const createEmailPlatformAccount = async (data: EmailPlatformAccountFormD
     }
   }
 
-  return newAccount;
+  return newAccount as EmailPlatformAccount;
 };
 
 // Mettre à jour un compte
 export const updateEmailPlatformAccount = async (id: string, data: Partial<EmailPlatformAccountFormData>): Promise<EmailPlatformAccount> => {
   const { front_office_ids, password, ...accountData } = data;
 
-  let updateData = { ...accountData };
+  let updateData: any = { ...accountData };
 
   // Chiffrer le nouveau mot de passe si fourni
   if (password) {
@@ -191,7 +191,7 @@ export const updateEmailPlatformAccount = async (id: string, data: Partial<Email
     }
   }
 
-  return updatedAccount;
+  return updatedAccount as EmailPlatformAccount;
 };
 
 // Supprimer un compte

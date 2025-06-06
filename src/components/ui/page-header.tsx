@@ -6,6 +6,7 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   action?: ReactNode;
+  children?: ReactNode;
   className?: string;
 }
 
@@ -13,6 +14,7 @@ export const PageHeader = ({
   title,
   description,
   action,
+  children,
   className
 }: PageHeaderProps) => {
   return (
@@ -23,8 +25,8 @@ export const PageHeader = ({
           <p className="text-muted-foreground mt-1">{description}</p>
         )}
       </div>
-      {action && (
-        <div className="mt-2 sm:mt-0">{action}</div>
+      {(action || children) && (
+        <div className="mt-2 sm:mt-0">{action || children}</div>
       )}
     </div>
   );

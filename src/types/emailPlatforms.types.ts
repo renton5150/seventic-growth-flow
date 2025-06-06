@@ -19,16 +19,16 @@ export interface EmailPlatformAccount {
   platform_id: string;
   login: string;
   password_encrypted: string;
-  phone_number?: string;
-  credit_card_name?: string;
-  credit_card_last_four?: string;
-  backup_email?: string;
-  status: 'Actif' | 'Suspendu';
-  spf_dkim_status: 'Oui' | 'Non' | 'En cours';
+  phone_number?: string | null;
+  credit_card_name?: string | null;
+  credit_card_last_four?: string | null;
+  backup_email?: string | null;
+  status: string; // Changed from strict union to allow Supabase string
+  spf_dkim_status: string; // Changed from strict union to allow Supabase string
   dedicated_ip: boolean;
-  dedicated_ip_address?: string;
+  dedicated_ip_address?: string | null;
   routing_interfaces: string[];
-  created_by?: string;
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
   

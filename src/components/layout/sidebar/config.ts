@@ -58,7 +58,7 @@ export const sidebarConfig = [
     icon: Database,
   },
   {
-    title: "Email Platforms", // Nouvelle section
+    title: "Email Platforms",
     url: "/email-platforms",
     icon: Mail,
   },
@@ -99,5 +99,60 @@ export const sidebarConfig = [
         url: "/admin/missions",
       },
     ],
+  },
+];
+
+// Exports pour différents rôles
+export const sdrMenuItems = [
+  {
+    title: "Missions",
+    path: "/missions",
+    icon: Target,
+  },
+  {
+    title: "Base de données",
+    path: "/databases", 
+    icon: Database,
+  },
+  {
+    title: "Email Platforms",
+    path: "/email-platforms",
+    icon: Mail,
+  },
+];
+
+export const growthMenuItems = [
+  {
+    title: "Demandes Growth",
+    path: "/growth",
+    icon: BarChart3,
+  },
+  {
+    title: "Email Platforms",
+    path: "/email-platforms",
+    icon: Mail,
+  },
+];
+
+export const adminMenuItems = [
+  {
+    title: "Utilisateurs",
+    path: "/admin/users",
+    icon: Users,
+  },
+  {
+    title: "Missions Admin",
+    path: "/admin/missions",
+    icon: Briefcase,
+  },
+  {
+    title: "Campagnes Acelle",
+    path: "/acelle-campaigns",
+    icon: Mail,
+  },
+  {
+    title: "AI Dashboard",
+    path: "/ai-dashboard",
+    icon: Bot,
   },
 ];

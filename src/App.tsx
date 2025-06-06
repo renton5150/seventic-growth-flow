@@ -26,14 +26,14 @@ import Archives from "./pages/Archives";
 import Databases from "./pages/Databases";
 import AcelleEmailCampaigns from "./pages/AcelleEmailCampaigns";
 import AIDashboard from "./pages/AIDashboard";
-import EmailPlatforms from "./pages/EmailPlatforms"; // Nouvelle page
+import EmailPlatforms from "./pages/EmailPlatforms";
 import AuthCallback from "./pages/AuthCallback";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import PermissionsDebug from "./pages/PermissionsDebug";
-import ProtectedRoute from "./components/layout/ProtectedRoute";
+import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -68,16 +68,16 @@ function App() {
               <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
               <Route path="/missions" element={<ProtectedRoute><Missions /></ProtectedRoute>} />
               <Route path="/databases" element={<ProtectedRoute><Databases /></ProtectedRoute>} />
-              <Route path="/email-platforms" element={<ProtectedRoute><EmailPlatforms /></ProtectedRoute>} /> {/* Nouvelle route */}
+              <Route path="/email-platforms" element={<ProtectedRoute><EmailPlatforms /></ProtectedRoute>} />
               <Route path="/archives" element={<ProtectedRoute><Archives /></ProtectedRoute>} />
               
               {/* Routes administrateur */}
-              <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
-              <Route path="/admin/missions" element={<ProtectedRoute requiredRole="admin"><AdminMissions /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
-              <Route path="/growth" element={<ProtectedRoute requiredRoles={["admin", "growth"]}><GrowthDashboard /></ProtectedRoute>} />
-              <Route path="/acelle-campaigns" element={<ProtectedRoute requiredRole="admin"><AcelleEmailCampaigns /></ProtectedRoute>} />
-              <Route path="/ai-dashboard" element={<ProtectedRoute requiredRole="admin"><AIDashboard /></ProtectedRoute>} />
+              <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsers /></ProtectedRoute>} />
+              <Route path="/admin/missions" element={<ProtectedRoute allowedRoles={["admin"]}><AdminMissions /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/growth" element={<ProtectedRoute allowedRoles={["admin", "growth"]}><GrowthDashboard /></ProtectedRoute>} />
+              <Route path="/acelle-campaigns" element={<ProtectedRoute allowedRoles={["admin"]}><AcelleEmailCampaigns /></ProtectedRoute>} />
+              <Route path="/ai-dashboard" element={<ProtectedRoute allowedRoles={["admin"]}><AIDashboard /></ProtectedRoute>} />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
