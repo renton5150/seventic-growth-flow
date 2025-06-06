@@ -31,8 +31,10 @@ export const UserStatsTable = () => {
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
     queryKey: ['admin-requests-user-stats'],
     queryFn: async () => {
-      console.log("[UserStatsTable] Récupération des demandes pour les statistiques utilisateur");
-      return await fetchRequests();
+      console.log("[UserStatsTable] 🔄 Récupération des demandes pour statistiques utilisateur");
+      const allRequests = await fetchRequests();
+      console.log(`[UserStatsTable] 📊 Total demandes: ${allRequests.length}`);
+      return allRequests;
     },
     refetchInterval: 5000
   });
@@ -40,8 +42,10 @@ export const UserStatsTable = () => {
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['admin-users-for-stats'],
     queryFn: async () => {
-      console.log("[UserStatsTable] Récupération des utilisateurs");
-      return await getAllUsers();
+      console.log("[UserStatsTable] 👥 Récupération des utilisateurs");
+      const allUsers = await getAllUsers();
+      console.log(`[UserStatsTable] 👤 Total utilisateurs: ${allUsers.length}`);
+      return allUsers;
     },
     refetchInterval: 10000
   });
@@ -56,32 +60,46 @@ export const UserStatsTable = () => {
   };
 
   const getUserStats = (userId: string) => {
+    console.log(`[UserStatsTable] 🧮 Calcul stats pour ${activeTab} ${userId}`);
+    
     let userRequests;
     
     if (activeTab === "sdr") {
       // Pour les SDR, compter les demandes qu'ils ont créées
       userRequests = requests.filter(r => r.createdBy === userId);
+      console.log(`[UserStatsTable] 📋 SDR ${userId}: ${userRequests.length} demandes créées`);
     } else {
       // Pour les Growth, compter les demandes qui leur sont assignées
       userRequests = requests.filter(r => r.assigned_to === userId);
+      console.log(`[UserStatsTable] 📋 Growth ${userId}: ${userRequests.length} demandes assignées`);
     }
+    
+    const now = new Date();
     
     const stats = {
       total: userRequests.length,
-      pending: userRequests.filter(r => 
-        r.workflow_status === "pending_assignment" || r.status === "pending"
-      ).length,
-      completed: userRequests.filter(r => r.workflow_status === "completed").length,
-      late: userRequests.filter(r => r.isLate && 
-        r.workflow_status !== 'completed' && r.workflow_status !== 'canceled'
-      ).length,
+      pending: userRequests.filter(r => {
+        const isPending = r.workflow_status === "pending_assignment" || r.status === "pending";
+        return isPending;
+      }).length,
+      completed: userRequests.filter(r => {
+        const isCompleted = r.workflow_status === "completed";
+        return isCompleted;
+      }).length,
+      late: userRequests.filter(r => {
+        const isActive = r.workflow_status !== 'completed' && r.workflow_status !== 'canceled';
+        const isLate = r.isLate || (r.dueDate && new Date(r.dueDate) < now);
+        return isActive && isLate;
+      }).length,
     };
 
-    console.log(`[UserStatsTable] Stats pour ${activeTab} ${userId}:`, stats);
+    console.log(`[UserStatsTable] 📊 Stats ${activeTab} ${userId}:`, stats);
     return stats;
   };
 
   const handleUserClick = (user: User) => {
+    console.log(`[UserStatsTable] 🖱️ Clic sur utilisateur ${activeTab}: ${user.name}`);
+    
     if (activeTab === "sdr") {
       // Rediriger vers les demandes créées par ce SDR
       navigate("/growth", { state: { createdBy: user.id, userName: user.name } });

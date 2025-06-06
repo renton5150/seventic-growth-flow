@@ -1,278 +1,58 @@
 
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Request, Mission, WorkflowStatus } from "@/types/types";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { formatRequestFromDb } from "@/utils/requestFormatters";
-import { syncKnownMissions, getMissionName, preloadMissionNames } from "@/services/missionNameService";
-import { cloneRequest } from "@/services/requests/cloneRequestService";
+import { useParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { getRequestDetails } from "@/services/requests/requestQueryService";
+import { Request } from "@/types/types";
 
 export const useRequestDetails = () => {
-  const { type, id } = useParams<{ type: string; id: string }>();
-  const navigate = useNavigate();
+  const { requestId } = useParams<{ requestId: string }>();
+  const { user } = useAuth();
   const [request, setRequest] = useState<Request | null>(null);
-  const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
-  const [comment, setComment] = useState("");
-  const [commentLoading, setCommentLoading] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("pending_assignment");
-  const [emailPlatform, setEmailPlatform] = useState<string>("");
-  const [isCloning, setIsCloning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Synchroniser les missions connues au chargement
   useEffect(() => {
-    syncKnownMissions().then(() => {
-      console.log("[useRequestDetails] Missions connues synchronisées");
-    });
-  }, []);
+    const fetchRequest = async () => {
+      // Ne pas essayer de récupérer les détails si l'ID est "new" - c'est pour la création
+      if (!requestId || requestId === "new" || !user) {
+        setLoading(false);
+        return;
+      }
 
-  const fetchRequestDetails = async () => {
-    if (id) {
+      // Vérifier que l'ID est un UUID valide avant de faire la requête
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(requestId)) {
+        console.warn(`[useRequestDetails] ID invalide: ${requestId}`);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('requests_with_missions')
-          .select('*', { count: 'exact' })
-          .eq('id', id)
-          .single();
-          
-        if (error) {
-          console.error("Erreur lors de la récupération des détails de la demande:", error);
-          toast.error("Erreur lors de la récupération des détails de la demande");
-          navigate(-1);
-          return;
+        setError(null);
+        console.log(`[useRequestDetails] Récupération des détails pour: ${requestId}`);
+        
+        const isSDR = user.role === 'sdr';
+        const details = await getRequestDetails(requestId, user.id, isSDR);
+        
+        if (details) {
+          setRequest(details);
+          console.log(`[useRequestDetails] Détails récupérés:`, details);
+        } else {
+          setError("Demande non trouvée");
+          console.warn(`[useRequestDetails] Aucun détail trouvé pour: ${requestId}`);
         }
-        
-        console.log("[useRequestDetails] Données brutes de la requête récupérée:", data);
-        
-        // Attendre la résolution de la promesse retournée par formatRequestFromDb
-        const formattedRequest = await formatRequestFromDb(data);
-        console.log("[useRequestDetails] Demande formatée:", formattedRequest);
-        setRequest(formattedRequest);
-        
-        if (formattedRequest.workflow_status) {
-          setWorkflowStatus(formattedRequest.workflow_status as WorkflowStatus);
-        }
-        
-        if (formattedRequest.type === "email" && formattedRequest.details) {
-          setEmailPlatform(formattedRequest.details.emailPlatform || "");
-        }
-        
-        if (data.mission_id) {
-          // Utiliser getMissionName pour obtenir le nom correct de la mission
-          const missionName = await getMissionName(data.mission_id, {
-            fallbackClient: data.mission_client,
-            fallbackName: data.mission_name
-          });
-          
-          console.log(`[useRequestDetails] Nom de mission récupéré pour ${data.mission_id}: "${missionName}"`);
-          
-          setMission({
-            id: data.mission_id,
-            name: missionName, // Utiliser le nom standardisé
-            description: data.mission_client ? `Client: ${data.mission_client}` : "",
-            sdrId: data.created_by,
-            sdrName: data.sdr_name,
-            createdAt: new Date(data.created_at),
-            startDate: null,
-            endDate: null,
-            type: "Full",
-            status: "En cours",
-            requests: []
-          });
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération des détails de la demande:", error);
-        toast.error("Erreur lors de la récupération des détails de la demande");
+      } catch (err) {
+        console.error(`[useRequestDetails] Erreur lors de la récupération:`, err);
+        setError("Erreur lors de la récupération des détails de la demande");
       } finally {
         setLoading(false);
       }
-    }
-  };
+    };
 
-  useEffect(() => {
-    fetchRequestDetails();
-  }, [id, navigate]);
+    fetchRequest();
+  }, [requestId, user]);
 
-  const updateWorkflowStatus = async (status: WorkflowStatus) => {
-    if (!request) return;
-    
-    try {
-      const { error } = await supabase
-        .from('requests')
-        .update({
-          workflow_status: status,
-          last_updated: new Date().toISOString()
-        })
-        .eq('id', request.id);
-      
-      if (error) {
-        console.error("Erreur lors de la mise à jour du statut:", error);
-        toast.error("Erreur lors de la mise à jour du statut");
-        return;
-      }
-      
-      setRequest({
-        ...request,
-        workflow_status: status,
-        lastUpdated: new Date()
-      });
-      
-      toast.success(`Statut mis à jour: ${
-        status === "pending_assignment" ? "En attente" :
-        status === "in_progress" ? "En cours" :
-        status === "completed" ? "Terminée" :
-        "Annulée"
-      }`);
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour du statut:", error);
-      toast.error("Erreur lors de la mise à jour du statut");
-    }
-  };
-
-  const updateEmailPlatform = async (platform: string) => {
-    if (!request || request.type !== "email") return;
-    
-    try {
-      const currentDetails = request.details || {};
-      
-      const { error } = await supabase
-        .from('requests')
-        .update({
-          details: {
-            ...currentDetails,
-            emailPlatform: platform
-          },
-          last_updated: new Date().toISOString()
-        })
-        .eq('id', request.id);
-      
-      if (error) {
-        console.error("Erreur lors de la mise à jour de la plateforme d'emailing:", error);
-        toast.error("Erreur lors de la mise à jour de la plateforme d'emailing");
-        return;
-      }
-      
-      setRequest({
-        ...request,
-        details: {
-          ...request.details,
-          emailPlatform: platform
-        },
-        lastUpdated: new Date()
-      });
-      
-      toast.success(`Plateforme d'emailing mise à jour: ${platform}`);
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour de la plateforme d'emailing:", error);
-      toast.error("Erreur lors de la mise à jour de la plateforme d'emailing");
-    }
-  };
-
-  const addComment = async () => {
-    if (!comment.trim() || !request) return;
-
-    try {
-      setCommentLoading(true);
-      
-      const currentDetails = request.details || {};
-      const currentComments = currentDetails.comments || [];
-      
-      const newComment = {
-        id: Date.now().toString(),
-        text: comment,
-        user: request.sdrName || "Utilisateur",
-        timestamp: new Date().toISOString(),
-        userId: request.createdBy
-      };
-      
-      const newComments = [...currentComments, newComment];
-      
-      const { error } = await supabase
-        .from('requests')
-        .update({
-          details: {
-            ...currentDetails,
-            comments: newComments
-          },
-          last_updated: new Date().toISOString()
-        })
-        .eq('id', request.id);
-      
-      if (error) {
-        console.error("Erreur lors de l'ajout du commentaire:", error);
-        toast.error("Erreur lors de l'ajout du commentaire");
-        return;
-      }
-      
-      setRequest({
-        ...request,
-        details: {
-          ...request.details,
-          comments: newComments
-        },
-        lastUpdated: new Date()
-      });
-      
-      setComment("");
-      toast.success("Commentaire ajouté avec succès");
-    } catch (error) {
-      console.error("Erreur lors de l'ajout du commentaire:", error);
-      toast.error("Erreur lors de l'ajout du commentaire");
-    } finally {
-      setCommentLoading(false);
-    }
-  };
-
-  /**
-   * Fonction pour cloner la demande actuelle
-   */
-  const handleCloneRequest = async () => {
-    if (!request || !request.id || isCloning) return;
-    
-    try {
-      setIsCloning(true);
-      toast.loading("Clonage de la demande en cours...");
-      
-      const clonedRequest = await cloneRequest(request.id);
-      
-      if (clonedRequest) {
-        toast.dismiss();
-        toast.success("Demande clonée avec succès");
-        
-        // Corriger le chemin de redirection pour utiliser /requests/ au lieu de /request/
-        navigate(`/requests/${clonedRequest.type}/${clonedRequest.id}`);
-      } else {
-        toast.dismiss();
-        toast.error("Erreur lors du clonage de la demande");
-      }
-    } catch (error) {
-      console.error("Erreur lors du clonage de la demande:", error);
-      toast.dismiss();
-      toast.error("Erreur lors du clonage de la demande");
-    } finally {
-      setIsCloning(false);
-    }
-  };
-
-  return {
-    request,
-    mission,
-    loading,
-    comment,
-    commentLoading,
-    isEditDialogOpen,
-    workflowStatus,
-    emailPlatform,
-    isCloning,
-    setComment,
-    setIsEditDialogOpen,
-    updateWorkflowStatus,
-    updateEmailPlatform,
-    addComment,
-    fetchRequestDetails,
-    handleCloneRequest,
-  };
+  return { request, loading, error, refetch: () => window.location.reload() };
 };
