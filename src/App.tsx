@@ -74,6 +74,7 @@ function App() {
               {/* Routes administrateur */}
               <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsers /></ProtectedRoute>} />
               <Route path="/admin/missions" element={<ProtectedRoute allowedRoles={["admin"]}><AdminMissions /></ProtectedRoute>} />
+              <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/growth" element={<ProtectedRoute allowedRoles={["admin", "growth"]}><GrowthDashboard /></ProtectedRoute>} />
               <Route path="/acelle-campaigns" element={<ProtectedRoute allowedRoles={["admin"]}><AcelleEmailCampaigns /></ProtectedRoute>} />
