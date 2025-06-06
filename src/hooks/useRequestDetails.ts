@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,9 +22,9 @@ export const useRequestDetails = () => {
   const fetchRequestDetails = async () => {
     console.log(`[useRequestDetails] 🔄 Début fetchRequestDetails pour requestId: ${requestId}`);
     
-    // Ne pas essayer de récupérer les détails si l'ID est "new" - c'est pour la création
+    // CORRECTION: Ne pas essayer de récupérer les détails si l'ID est "new" ou undefined - c'est pour la création
     if (!requestId || requestId === "new" || !user) {
-      console.log(`[useRequestDetails] ⏭️ Skipping fetch - requestId: ${requestId}, user: ${!!user}`);
+      console.log(`[useRequestDetails] ⏭️ Skipping fetch - Mode création détecté (requestId: ${requestId}), user: ${!!user}`);
       setLoading(false);
       return;
     }
@@ -181,6 +180,7 @@ export const useRequestDetails = () => {
   };
 
   useEffect(() => {
+    console.log(`[useRequestDetails] 🎯 Initialisation du hook - requestId: ${requestId}, user role: ${user?.role}`);
     fetchRequestDetails();
   }, [requestId, user]);
 

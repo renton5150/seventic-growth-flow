@@ -56,9 +56,13 @@ function App() {
               
               {/* Routes protégées */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/requests/email-campaign" element={<ProtectedRoute><EmailCampaignRequest /></ProtectedRoute>} />
-              <Route path="/requests/linkedin-scraping" element={<ProtectedRoute><LinkedInScrapingRequest /></ProtectedRoute>} />
-              <Route path="/requests/database-creation" element={<ProtectedRoute><DatabaseCreationRequest /></ProtectedRoute>} />
+              
+              {/* CORRECTION: Routes de création avec paramètre requestId="new" */}
+              <Route path="/requests/email/new" element={<ProtectedRoute><EmailCampaignRequest /></ProtectedRoute>} />
+              <Route path="/requests/linkedin/new" element={<ProtectedRoute><LinkedInScrapingRequest /></ProtectedRoute>} />
+              <Route path="/requests/database/new" element={<ProtectedRoute><DatabaseCreationRequest /></ProtectedRoute>} />
+              
+              {/* Routes de détails et d'édition avec des IDs réels */}
               <Route path="/requests/:type/:id" element={<ProtectedRoute><RequestDetails /></ProtectedRoute>} />
               <Route path="/requests/email/:id/edit" element={<ProtectedRoute><EmailCampaignEdit /></ProtectedRoute>} />
               <Route path="/requests/linkedin/:id/edit" element={<ProtectedRoute><LinkedInScrapingEdit /></ProtectedRoute>} />

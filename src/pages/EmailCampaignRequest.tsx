@@ -20,7 +20,7 @@ const EmailCampaignRequest = () => {
   useEffect(() => {
     if (loading) return;
 
-    console.log(`[EmailCampaignRequest] Mode: ${isCreationMode ? 'création' : 'édition'} - User:`, user?.role);
+    console.log(`[EmailCampaignRequest] 🎯 Mode: ${isCreationMode ? 'création' : 'édition'} - User:`, user?.role, "- requestId:", requestId);
 
     if (!user) {
       console.log("[EmailCampaignRequest] Utilisateur non connecté");
@@ -29,22 +29,22 @@ const EmailCampaignRequest = () => {
       return;
     }
 
-    // Pour la création, vérifier les permissions
+    // CORRECTION: Vérifier les permissions pour TOUS les utilisateurs en mode création
     if (isCreationMode) {
       const canCreateRequests = ['sdr', 'growth', 'admin'].includes(user.role || '');
-      console.log("[EmailCampaignRequest] Peut créer des demandes:", canCreateRequests, "- Rôle:", user.role);
+      console.log("[EmailCampaignRequest] ✅ Vérification permissions - Peut créer des demandes:", canCreateRequests, "- Rôle:", user.role);
 
       if (!canCreateRequests) {
-        console.log("[EmailCampaignRequest] Permissions insuffisantes pour le rôle:", user.role);
+        console.log("[EmailCampaignRequest] ❌ Permissions insuffisantes pour le rôle:", user.role);
         toast.error(`Vous n'avez pas les permissions pour créer des demandes (rôle: ${user.role})`);
         navigate("/dashboard");
         return;
       }
     }
 
-    console.log("[EmailCampaignRequest] Permissions OK pour le rôle:", user.role);
+    console.log("[EmailCampaignRequest] ✅ Permissions OK pour le rôle:", user.role, "- Mode:", isCreationMode ? 'création' : 'édition');
     setPermissionChecked(true);
-  }, [user, loading, navigate, isCreationMode]);
+  }, [user, loading, navigate, isCreationMode, requestId]);
 
   if (loading || !permissionChecked) {
     return (
