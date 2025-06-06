@@ -200,7 +200,7 @@ export function GrowthRequestActions({
         </Button>
       )}
 
-      {/* Menu d'assignation - toujours affiché pour les Growth et Admin */}
+      {/* Menu d'assignation - TOUJOURS affiché pour les Growth et Admin */}
       {isGrowthOrAdmin && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -208,22 +208,30 @@ export function GrowthRequestActions({
               variant="outline" 
               size="sm"
               disabled={isAssigning}
+              className="bg-blue-50 border-blue-200 hover:bg-blue-100"
             >
-              <Users className="mr-2 h-4 w-4" /> 
+              <Users className="mr-2 h-4 w-4 text-blue-600" /> 
               {request.assigned_to ? "Réassigner" : "Assigner"}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            {growthUsers.map((user) => (
-              <DropdownMenuItem
-                key={user.id}
-                onClick={() => assignToUser(user.id)}
-                disabled={isAssigning}
-              >
-                {user.name || user.email}
-                {request.assigned_to === user.id && " (Assigné)"}
+            {growthUsers.length > 0 ? (
+              growthUsers.map((user) => (
+                <DropdownMenuItem
+                  key={user.id}
+                  onClick={() => assignToUser(user.id)}
+                  disabled={isAssigning}
+                  className={request.assigned_to === user.id ? "bg-blue-50" : ""}
+                >
+                  {user.name || user.email}
+                  {request.assigned_to === user.id && " (Assigné)"}
+                </DropdownMenuItem>
+              ))
+            ) : (
+              <DropdownMenuItem disabled>
+                Aucun utilisateur Growth disponible
               </DropdownMenuItem>
-            ))}
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
@@ -235,9 +243,9 @@ export function GrowthRequestActions({
             <Button 
               variant="outline"
               size="sm"
-              className="bg-blue-50 border-blue-200"
+              className="bg-green-50 border-green-200 hover:bg-green-100"
             >
-              <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-500" /> Statut
+              <ArrowRightLeft className="mr-2 h-4 w-4 text-green-600" /> Statut
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
