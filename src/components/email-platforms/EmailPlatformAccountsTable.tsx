@@ -96,15 +96,17 @@ export const EmailPlatformAccountsTable = ({
       (!filters.mission || account.mission?.name?.toLowerCase().includes(filters.mission.toLowerCase())) &&
       (!filters.platform || account.platform?.name?.toLowerCase().includes(filters.platform.toLowerCase())) &&
       (!filters.login || account.login.toLowerCase().includes(filters.login.toLowerCase())) &&
-      (!filters.status || account.status === filters.status) &&
-      (!filters.spfDkim || account.spf_dkim_status === filters.spfDkim) &&
-      (!filters.dedicatedIp || (filters.dedicatedIp === "Oui" ? account.dedicated_ip : !account.dedicated_ip)) &&
+      (!filters.status || filters.status === "all" || account.status === filters.status) &&
+      (!filters.spfDkim || filters.spfDkim === "all" || account.spf_dkim_status === filters.spfDkim) &&
+      (!filters.dedicatedIp || filters.dedicatedIp === "all" || (filters.dedicatedIp === "Oui" ? account.dedicated_ip : !account.dedicated_ip)) &&
       (!filters.interfaces || account.routing_interfaces?.some(int => int.toLowerCase().includes(filters.interfaces.toLowerCase())))
     );
   });
 
   const updateFilter = (key: keyof ColumnFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    // Convert "all" back to empty string for internal state
+    const filterValue = value === "all" ? "" : value;
+    setFilters(prev => ({ ...prev, [key]: filterValue }));
   };
 
   const clearAllFilters = () => {
@@ -138,12 +140,12 @@ export const EmailPlatformAccountsTable = ({
         <div className="space-y-2">
           <h4 className="font-medium leading-none">{title}</h4>
           {options ? (
-            <Select value={filters[filterKey]} onValueChange={(value) => updateFilter(filterKey, value)}>
+            <Select value={filters[filterKey] || "all"} onValueChange={(value) => updateFilter(filterKey, value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Sélectionner..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous</SelectItem>
+                <SelectItem value="all">Tous</SelectItem>
                 {options.map(option => (
                   <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
