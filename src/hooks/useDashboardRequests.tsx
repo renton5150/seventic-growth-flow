@@ -30,7 +30,7 @@ export const useDashboardRequests = () => {
         // Utilisation de la vue requests_with_missions
         let query = supabase.from('requests_with_missions')
           .select('*')
-          .neq('workflow_status', 'completed'); // Exclure les demandes terminées
+          .not('workflow_status', 'in', '(completed,canceled)'); // Exclure les demandes terminées ET annulées
         
         // Si c'est un SDR, filtrer pour ne montrer que ses propres requêtes
         if (isSDR) {

@@ -59,8 +59,10 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     const isSDR = user?.role === 'sdr';
     const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
 
-    // Filtrer d'abord pour exclure les demandes terminées qui ne devraient pas apparaître ici
-    const nonCompletedRequests = allRequests.filter(req => req.workflow_status !== 'completed');
+    // Filtrer d'abord pour exclure les demandes terminées ET annulées qui ne devraient pas apparaître ici
+    const nonCompletedRequests = allRequests.filter(req => 
+      req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
+    );
 
     if (location.pathname.includes("/my-requests")) {
       if (isSDR) {
@@ -100,7 +102,9 @@ export const useGrowthDashboard = (defaultTab?: string) => {
         } else if (isGrowthOrAdmin) {
           return nonCompletedRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
         }
-        return myAssignmentsRequests.filter(req => req.workflow_status !== 'completed');
+        return myAssignmentsRequests.filter(req => 
+          req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
+        );
       case "inprogress":
         return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
       case "email":
