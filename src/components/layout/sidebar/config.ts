@@ -146,6 +146,11 @@ export const adminMenuItems = [
     icon: Briefcase,
   },
   {
+    title: "Email Platforms",
+    path: "/email-platforms",
+    icon: Mail,
+  },
+  {
     title: "Campagnes Acelle",
     path: "/acelle-campaigns",
     icon: Mail,
