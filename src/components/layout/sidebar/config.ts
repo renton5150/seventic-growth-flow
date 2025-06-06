@@ -102,7 +102,7 @@ export const sidebarConfig = [
   },
 ];
 
-// Exports pour différents rôles
+// Exports pour différents rôles - RESTAURATION du menu Growth original avec ajout de Missions
 export const sdrMenuItems = [
   {
     title: "Missions",
@@ -123,9 +123,29 @@ export const sdrMenuItems = [
 
 export const growthMenuItems = [
   {
-    title: "Demandes Growth",
+    title: "Toutes les demandes",
     path: "/growth",
     icon: BarChart3,
+  },
+  {
+    title: "À assigner", 
+    path: "/growth/to-assign",
+    icon: FileText,
+  },
+  {
+    title: "Mes demandes",
+    path: "/growth/my-requests", 
+    icon: Users,
+  },
+  {
+    title: "Missions",
+    path: "/missions",
+    icon: Target,
+  },
+  {
+    title: "Archives",
+    path: "/archives",
+    icon: FolderOpen,
   },
   {
     title: "Email Platforms",
