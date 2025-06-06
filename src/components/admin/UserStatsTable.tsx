@@ -31,6 +31,7 @@ export const UserStatsTable = () => {
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
     queryKey: ['admin-requests-user-stats'],
     queryFn: async () => {
+      console.log("[UserStatsTable] Récupération des demandes pour les statistiques utilisateur");
       return await fetchRequests();
     },
     refetchInterval: 5000
@@ -38,7 +39,10 @@ export const UserStatsTable = () => {
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['admin-users-for-stats'],
-    queryFn: getAllUsers,
+    queryFn: async () => {
+      console.log("[UserStatsTable] Récupération des utilisateurs");
+      return await getAllUsers();
+    },
     refetchInterval: 10000
   });
 
@@ -62,7 +66,7 @@ export const UserStatsTable = () => {
       userRequests = requests.filter(r => r.assigned_to === userId);
     }
     
-    return {
+    const stats = {
       total: userRequests.length,
       pending: userRequests.filter(r => 
         r.workflow_status === "pending_assignment" || r.status === "pending"
@@ -72,6 +76,9 @@ export const UserStatsTable = () => {
         r.workflow_status !== 'completed' && r.workflow_status !== 'canceled'
       ).length,
     };
+
+    console.log(`[UserStatsTable] Stats pour ${activeTab} ${userId}:`, stats);
+    return stats;
   };
 
   const handleUserClick = (user: User) => {
@@ -85,7 +92,7 @@ export const UserStatsTable = () => {
   };
 
   const filteredUsers = useMemo(() => {
-    return users
+    const filtered = users
       .filter(user => 
         user.role === activeTab && 
         (
@@ -106,6 +113,9 @@ export const UserStatsTable = () => {
             (bValue as number) - (aValue as number);
         }
       });
+
+    console.log(`[UserStatsTable] Utilisateurs filtrés (${activeTab}):`, filtered.length);
+    return filtered;
   }, [users, activeTab, search, sortColumn, sortDirection, requests]);
 
   const getSortIcon = (column: string) => {

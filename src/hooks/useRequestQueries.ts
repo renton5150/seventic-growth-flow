@@ -15,13 +15,21 @@ export function useRequestQueries(userId: string | undefined) {
 
   console.log(`[useRequestQueries] USER ROLE: ${user?.role}, userId: ${userId}`);
 
-  // Utilisation des hooks spécialisés avec des intervals plus courts pour une meilleure réactivité
-  const { data: toAssignRequests = [], refetch: refetchToAssign } = useToAssignRequests(userId);
-  const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useMyAssignmentRequests(userId, isGrowth, isSDR, isAdmin);
-  const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useAllRequests(userId, isSDR);
+  // Désactiver les hooks s'il n'y a pas d'userId pour éviter les erreurs
+  const shouldFetch = !!userId && !!user;
 
-  // Wrapper pour getRequestDetails avec les paramètres du contexte
+  // Utilisation des hooks spécialisés avec des intervals plus courts pour une meilleure réactivité
+  const { data: toAssignRequests = [], refetch: refetchToAssign } = useToAssignRequests(shouldFetch ? userId : undefined);
+  const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useMyAssignmentRequests(shouldFetch ? userId : undefined, isGrowth, isSDR, isAdmin);
+  const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useAllRequests(shouldFetch ? userId : undefined, isSDR);
+
+  // Wrapper pour getRequestDetails avec les paramètres du contexte et gestion d'erreurs
   const getRequestDetailsWithContext = async (requestId: string) => {
+    if (!requestId || !userId || !user) {
+      console.warn(`[useRequestQueries] Paramètres manquants: requestId=${requestId}, userId=${userId}, user=${!!user}`);
+      return null;
+    }
+
     try {
       console.log(`[useRequestQueries] Récupération des détails pour la demande: ${requestId}`);
       const result = await getRequestDetails(requestId, userId, isSDR);

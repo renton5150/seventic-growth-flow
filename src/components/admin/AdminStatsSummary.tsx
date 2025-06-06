@@ -13,6 +13,7 @@ export const AdminStatsSummary = () => {
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
     queryKey: ['admin-requests-summary'],
     queryFn: async () => {
+      console.log("[AdminStatsSummary] Récupération des demandes pour les statistiques");
       return await fetchRequests();
     },
     refetchInterval: 5000
@@ -20,27 +21,41 @@ export const AdminStatsSummary = () => {
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['admin-users-stats'],
-    queryFn: getAllUsers,
+    queryFn: async () => {
+      console.log("[AdminStatsSummary] Récupération des utilisateurs pour les statistiques");
+      return await getAllUsers();
+    },
     refetchInterval: 10000
   });
 
-  // Filtrer pour exclure les demandes archivées
-  const activeRequests = requests.filter(r => 
-    r.workflow_status !== 'completed' && r.workflow_status !== 'canceled'
-  );
-
-  const pendingRequests = activeRequests.filter(r => 
-    r.workflow_status === "pending_assignment"
+  // Calculer les statistiques correctement
+  const pendingRequests = requests.filter(r => 
+    r.workflow_status === "pending_assignment" || r.status === "pending"
   ).length;
   
   const completedRequests = requests.filter(r => 
     r.workflow_status === "completed"
   ).length;
   
-  const lateRequests = activeRequests.filter(r => r.isLate).length;
+  // En retard = demandes actives avec due_date dépassée
+  const lateRequests = requests.filter(r => 
+    r.isLate && 
+    r.workflow_status !== 'completed' && 
+    r.workflow_status !== 'canceled'
+  ).length;
   
   const sdrCount = users.filter(u => u.role === "sdr").length;
   const growthCount = users.filter(u => u.role === "growth").length;
+
+  console.log(`[AdminStatsSummary] Statistiques calculées:`, {
+    totalRequests: requests.length,
+    pendingRequests,
+    completedRequests,
+    lateRequests,
+    totalUsers: users.length,
+    sdrCount,
+    growthCount
+  });
 
   const handleStatClick = (filterType: string) => {
     switch (filterType) {

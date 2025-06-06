@@ -27,18 +27,18 @@ const LinkedInScrapingRequest = () => {
       return;
     }
 
-    // Vérifier les permissions pour créer des demandes
-    const canCreateRequests = user.role === 'sdr' || user.role === 'growth' || user.role === 'admin';
+    // Vérifier les permissions pour créer des demandes - INCLURE EXPLICITEMENT GROWTH
+    const canCreateRequests = ['sdr', 'growth', 'admin'].includes(user.role || '');
     console.log("[LinkedInScrapingRequest] Peut créer des demandes:", canCreateRequests, "- Rôle:", user.role);
 
     if (!canCreateRequests) {
-      console.log("[LinkedInScrapingRequest] Permissions insuffisantes");
-      toast.error("Vous n'avez pas les permissions pour créer des demandes");
+      console.log("[LinkedInScrapingRequest] Permissions insuffisantes pour le rôle:", user.role);
+      toast.error(`Vous n'avez pas les permissions pour créer des demandes (rôle: ${user.role})`);
       navigate("/dashboard");
       return;
     }
 
-    console.log("[LinkedInScrapingRequest] Permissions OK");
+    console.log("[LinkedInScrapingRequest] Permissions OK pour le rôle:", user.role);
     setPermissionChecked(true);
   }, [user, loading, navigate]);
 
