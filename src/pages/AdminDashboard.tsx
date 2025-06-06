@@ -1,7 +1,8 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminStatsSummary } from "@/components/admin/AdminStatsSummary";
-import { UserStatsTable } from "@/components/admin/UserStatsTable";
+import { UserStatsTableFixed } from "@/components/admin/UserStatsTableFixed";
+import { AdminStatsSummaryDebug } from "@/components/admin/AdminStatsSummaryDebug";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
@@ -56,9 +57,12 @@ const AdminDashboard = () => {
         
         <AdminStatsSummary />
         
+        {/* Composant de debug - à supprimer après résolution */}
+        <AdminStatsSummaryDebug />
+        
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Statistiques par utilisateur</h2>
-          <UserStatsTable />
+          <UserStatsTableFixed />
         </div>
       </div>
     </AppLayout>

@@ -1,85 +1,37 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
-import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
+import { RequestsTable } from "@/components/dashboard/requests-table/RequestsTable";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { useDashboardRequests } from "@/hooks/useDashboardRequests";
-import { useState, useEffect } from "react";
-import { Toaster } from "sonner";
-import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
-import { useQueryClient } from "@tanstack/react-query";
 
 const Dashboard = () => {
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const { user } = useAuth();
-  const isSDR = user?.role === 'sdr';
-  const queryClient = useQueryClient();
-  
-  const { 
-    filteredRequests, 
+  const {
+    filteredRequests,
     activeTab,
-    setActiveTab, 
-    isAdmin, 
-    requests,
-    refetch,
-    handleStatCardClick
+    setActiveTab,
+    loading,
+    handleStatCardClick,
   } = useDashboardRequests();
 
-  const handleRequestDeleted = () => {
-    refetch();
-  };
-
-  // Force refresh data more frequently for better real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
-      console.log("Dashboard - Automatic refresh triggered");
-    }, 3000); // Refresh every 3 seconds for better reactivity
-    
-    return () => clearInterval(interval);
-  }, [queryClient]);
-
-  const handleFilterClick = (filterType: "all" | "pending" | "inprogress" | "completed" | "late") => {
-    console.log("[DEBUG] Dashboard - Filter clicked:", filterType);
-    
-    if (activeFilter === filterType) {
-      setActiveFilter(null);
-      setActiveTab("all");
-      toast.success("Filtres réinitialisés");
-    } else {
-      setActiveFilter(filterType);
-      setActiveTab(filterType);
-      toast.success(`Filtrage par ${
-        filterType === "all" ? "toutes les demandes" :
-        filterType === "pending" ? "demandes en attente" :
-        filterType === "inprogress" ? "demandes en cours" :
-        filterType === "completed" ? "demandes terminées" :
-        "demandes en retard"
-      }`);
-    }
-  };
-
-  // Log pour le débogage des permissions
-  console.log("Dashboard - User Role:", user?.role, "isSDR:", isSDR, "Requests visible count:", filteredRequests?.length || 0);
+  console.log(`[Dashboard] 📊 Rendu avec ${filteredRequests.length} demandes filtrées`);
 
   return (
     <AppLayout>
-      <Toaster position="top-center" />
       <div className="space-y-6">
-        <DashboardHeader isSDR={isSDR} />
+        <DashboardHeader />
+        
         <DashboardStats 
-          requests={requests} 
-          onStatClick={handleFilterClick}
-          activeFilter={activeFilter}
+          requests={filteredRequests} 
+          onStatClick={handleStatCardClick}
+          activeFilter={activeTab}
         />
-        <DashboardTabs 
+        
+        <RequestsTable 
+          requests={filteredRequests} 
+          loading={loading}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          filteredRequests={filteredRequests}
-          isAdmin={isAdmin}
-          isSDR={isSDR}
-          onRequestDeleted={handleRequestDeleted}
         />
       </div>
     </AppLayout>
