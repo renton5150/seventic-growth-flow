@@ -7,9 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Pencil, CheckCircle, XCircle, ArrowRightLeft, Eye, Trash2, Loader2 } from "lucide-react";
+import { Pencil, CheckCircle, XCircle, ArrowRightLeft, Eye, Trash2, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
-import { GrowthRequestAssignMenu } from "./GrowthRequestAssignMenu";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -24,6 +23,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useQuery } from "@tanstack/react-query";
+import { getAllUsers } from "@/services/user/userQueries";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GrowthRequestActionsProps {
   request: Request;
@@ -54,6 +56,42 @@ export function GrowthRequestActions({
   const isSdrCreator = user?.role === 'sdr' && user?.id === request.createdBy;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
+  
+  const { data: users = [] } = useQuery({
+    queryKey: ['users-growth'],
+    queryFn: getAllUsers,
+  });
+
+  // Filter only growth team members
+  const growthUsers = users.filter(user => user.role === 'growth');
+
+  const assignToUser = async (userId: string) => {
+    try {
+      setIsAssigning(true);
+      
+      const { data, error } = await supabase
+        .from('requests')
+        .update({
+          assigned_to: userId,
+          workflow_status: 'in_progress',
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', request.id);
+
+      if (error) throw error;
+
+      toast.success("Requête assignée avec succès");
+      if (onRequestDeleted) {
+        onRequestDeleted();
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'assignation:", error);
+      toast.error("Erreur lors de l'assignation de la requête");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
   
   const handleStatusChange = async (newStatus: string) => {
     if (!updateRequestWorkflowStatus) return;
@@ -164,14 +202,30 @@ export function GrowthRequestActions({
 
       {/* Menu d'assignation - toujours affiché pour les Growth et Admin */}
       {isGrowthOrAdmin && (
-        <GrowthRequestAssignMenu 
-          request={request}
-          onRequestUpdated={() => {
-            if (updateRequestWorkflowStatus) {
-              updateRequestWorkflowStatus(request.id, "in_progress");
-            }
-          }}
-        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              disabled={isAssigning}
+            >
+              <Users className="mr-2 h-4 w-4" /> 
+              {request.assigned_to ? "Réassigner" : "Assigner"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {growthUsers.map((user) => (
+              <DropdownMenuItem
+                key={user.id}
+                onClick={() => assignToUser(user.id)}
+                disabled={isAssigning}
+              >
+                {user.name || user.email}
+                {request.assigned_to === user.id && " (Assigné)"}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       
       {/* Menu de gestion du statut - affiché si la demande est assignée */}

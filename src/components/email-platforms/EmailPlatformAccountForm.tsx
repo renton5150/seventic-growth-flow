@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -467,42 +466,44 @@ export const EmailPlatformAccountForm = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Nom de domaine</h3>
           
-          <FormField
-            control={form.control}
-            name="domain_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nom de domaine</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="exemple.com" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="domain_hosting_provider"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Hébergeur</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="domain_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nom de domaine</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez un hébergeur" />
-                    </SelectTrigger>
+                    <Input {...field} placeholder="exemple.com" />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="OVH">OVH</SelectItem>
-                    <SelectItem value="Gandhi">Gandhi</SelectItem>
-                    <SelectItem value="Ionos">Ionos</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="domain_hosting_provider"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hébergeur</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez un hébergeur" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="OVH">OVH</SelectItem>
+                      <SelectItem value="Gandhi">Gandhi</SelectItem>
+                      <SelectItem value="Ionos">Ionos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
