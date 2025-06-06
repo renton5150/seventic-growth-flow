@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,7 +60,22 @@ export const useRequestDetails = () => {
             .single();
           
           if (missionData) {
-            setMission(missionData);
+            // Transformer les données Supabase au format Mission TypeScript
+            const transformedMission: Mission = {
+              id: missionData.id,
+              name: missionData.name,
+              sdrId: missionData.sdr_id,
+              description: missionData.description,
+              createdAt: new Date(missionData.created_at),
+              startDate: missionData.start_date ? new Date(missionData.start_date) : null,
+              endDate: missionData.end_date ? new Date(missionData.end_date) : null,
+              type: missionData.type,
+              status: missionData.status,
+              requests: [], // Sera rempli si nécessaire
+              client: missionData.client
+            };
+            
+            setMission(transformedMission);
           }
         }
         
