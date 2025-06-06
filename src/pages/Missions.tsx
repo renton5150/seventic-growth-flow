@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,10 @@ const Missions = () => {
   
   const isAdmin = user?.role === "admin";
   const isSdr = user?.role === "sdr";
+  const isGrowth = user?.role === "growth";
+  
+  // Admin, SDR et Growth peuvent créer des missions
+  const canCreateMission = isAdmin || isSdr || isGrowth;
 
   console.log("Page Missions - utilisateur:", user);
 
@@ -95,7 +100,7 @@ const Missions = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Missions</h1>
-          {isSdr && (
+          {canCreateMission && (
             <Button onClick={handleCreateMissionClick}>
               <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
             </Button>
@@ -104,7 +109,7 @@ const Missions = () => {
         
         {missions.length === 0 ? (
           <EmptyMissionState 
-            isSdr={isSdr} 
+            isSdr={canCreateMission} 
             onCreateMission={handleCreateMissionClick} 
           />
         ) : (
@@ -112,7 +117,7 @@ const Missions = () => {
             missions={missions} 
             isAdmin={isAdmin} 
             onViewMission={handleViewMission}
-            onEditMission={isSdr ? handleEditMission : undefined}
+            onEditMission={canCreateMission ? handleEditMission : undefined}
           />
         )}
         
@@ -126,7 +131,7 @@ const Missions = () => {
           mission={selectedMission} 
           open={!!selectedMission && !isEditModalOpen} 
           onOpenChange={(open) => !open && setSelectedMission(null)} 
-          isSdr={isSdr} 
+          isSdr={canCreateMission} 
         />
 
         <EditMissionDialog

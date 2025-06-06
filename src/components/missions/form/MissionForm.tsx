@@ -35,7 +35,10 @@ export function MissionForm({
   onCancel 
 }: MissionFormProps) {
   const [formInitialized, setFormInitialized] = useState(false);
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  
+  // Admin, Growth et SDR peuvent tous modifier les missions
+  const canEditMission = isAdmin || user?.role === "growth" || user?.role === "sdr";
   
   const form = useForm<MissionFormValues>({
     resolver: zodResolver(missionFormSchema),
@@ -129,7 +132,10 @@ export function MissionForm({
           minDate={startDate}
         />
 
-        <MissionTypeSelector control={form.control} disabled={isSubmitting} />
+        <MissionTypeSelector 
+          control={form.control} 
+          disabled={isSubmitting} 
+        />
 
         <FormField
           control={form.control}
@@ -193,10 +199,10 @@ export function MissionForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Mise à jour...
+                {mission ? "Mise à jour..." : "Création..."}
               </>
             ) : (
-              "Mettre à jour"
+              mission ? "Mettre à jour" : "Créer"
             )}
           </Button>
         </div>

@@ -45,6 +45,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       return "Le nom de la mission est obligatoire";
     }
     
+    // Vérification des doublons avec une comparaison insensible à la casse et aux espaces
     const exists = existingMissions.some(mission => 
       mission.name.trim().toLowerCase() === trimmedName.toLowerCase()
     );
@@ -64,6 +65,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
         type: "manual", 
         message: nameValidation 
       });
+      toast.error(nameValidation);
       return;
     }
 
@@ -77,7 +79,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       console.log("SDR ID qui sera utilisé:", sdrId);
       
       const createdMission = await createMission({
-        name: data.name,
+        name: data.name.trim(), // S'assurer que le nom est nettoyé
         sdrId: sdrId,
         description: data.description,
         startDate: data.startDate,
@@ -102,7 +104,18 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       }
     } catch (error) {
       console.error('Erreur lors de la création de la mission:', error);
-      toast.error('Erreur lors de la création de la mission');
+      
+      // Gestion spécifique des erreurs de doublon au niveau base de données
+      if (error instanceof Error && error.message.includes('duplicate') || 
+          error instanceof Error && error.message.includes('unique')) {
+        form.setError("name", { 
+          type: "manual", 
+          message: "Une mission avec ce nom existe déjà" 
+        });
+        toast.error('Une mission avec ce nom existe déjà');
+      } else {
+        toast.error('Erreur lors de la création de la mission');
+      }
     } finally {
       setIsSubmitting(false);
     }

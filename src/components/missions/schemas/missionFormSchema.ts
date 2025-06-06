@@ -4,7 +4,10 @@ import { MissionType } from "@/types/types";
 
 // Définir le schéma de validation pour les formulaires de mission
 export const missionFormSchema = z.object({
-  name: z.string().min(1, "Le nom de la mission est requis"),
+  name: z.string()
+    .min(1, "Le nom de la mission est requis")
+    .trim()
+    .refine((name) => name.length > 0, "Le nom ne peut pas être vide"),
   sdrId: z.string().min(1, "Vous devez sélectionner un SDR"),
   description: z.string().optional(),
   startDate: z.date().nullable(),

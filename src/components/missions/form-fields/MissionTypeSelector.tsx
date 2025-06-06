@@ -13,6 +13,10 @@ interface MissionTypeSelectorProps {
 export function MissionTypeSelector({ control, disabled = false }: MissionTypeSelectorProps) {
   const { isAdmin } = useAuth();
   
+  // Les admins, SDR et growth peuvent tous modifier le type de mission
+  // Seuls les autres rôles ne peuvent pas
+  const canEditType = isAdmin || disabled === false;
+  
   return (
     <FormField
       control={control}
@@ -26,10 +30,10 @@ export function MissionTypeSelector({ control, disabled = false }: MissionTypeSe
             onValueChange={field.onChange}
             value={field.value}
             defaultValue={field.value}
-            disabled={!isAdmin || disabled}
+            disabled={disabled}
           >
             <FormControl>
-              <SelectTrigger className={!isAdmin ? "bg-gray-100" : ""}>
+              <SelectTrigger>
                 <SelectValue placeholder="Sélectionner un type" />
               </SelectTrigger>
             </FormControl>
