@@ -32,6 +32,12 @@ export interface EmailPlatformAccount {
   created_at: string;
   updated_at: string;
   
+  // Nouveaux champs domaine
+  domain_name?: string | null;
+  domain_hosting_provider?: string | null;
+  domain_login?: string | null;
+  domain_password?: string | null;
+  
   // Relations populées
   platform?: EmailPlatform;
   mission?: {
@@ -57,6 +63,12 @@ export interface EmailPlatformAccountFormData {
   dedicated_ip_address?: string;
   routing_interfaces: string[];
   front_office_ids?: string[];
+  
+  // Nouveaux champs domaine
+  domain_name?: string;
+  domain_hosting_provider?: 'OVH' | 'Gandhi' | 'Ionos';
+  domain_login?: string;
+  domain_password?: string;
 }
 
 export interface EmailPlatformAccountFilters {

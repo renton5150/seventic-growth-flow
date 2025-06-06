@@ -39,6 +39,11 @@ const formSchema = z.object({
   dedicated_ip_address: z.string().optional(),
   routing_interfaces: z.array(z.string()).min(1, "Sélectionnez au moins une interface"),
   front_office_ids: z.array(z.string()).optional(),
+  // Nouveaux champs pour le domaine
+  domain_name: z.string().optional(),
+  domain_hosting_provider: z.enum(['OVH', 'Gandhi', 'Ionos']).optional(),
+  domain_login: z.string().optional(),
+  domain_password: z.string().optional(),
 }).refine((data) => {
   if (data.dedicated_ip && !data.dedicated_ip_address) {
     return false;
@@ -85,6 +90,11 @@ export const EmailPlatformAccountForm = ({
       dedicated_ip_address: account?.dedicated_ip_address || "",
       routing_interfaces: account?.routing_interfaces || [],
       front_office_ids: account?.front_offices?.map(fo => fo.id) || [],
+      // Valeurs par défaut pour les nouveaux champs domaine
+      domain_name: (account as any)?.domain_name || "",
+      domain_hosting_provider: (account as any)?.domain_hosting_provider || undefined,
+      domain_login: (account as any)?.domain_login || "",
+      domain_password: (account as any)?.domain_password || "",
     },
   });
 
@@ -112,6 +122,9 @@ export const EmailPlatformAccountForm = ({
       credit_card_last_four: data.credit_card_last_four?.trim() || undefined,
       backup_email: data.backup_email?.trim() || undefined,
       dedicated_ip_address: data.dedicated_ip_address?.trim() || undefined,
+      domain_name: data.domain_name?.trim() || undefined,
+      domain_login: data.domain_login?.trim() || undefined,
+      domain_password: data.domain_password?.trim() || undefined,
     };
 
     console.log("Cleaned form data:", cleanedData);
@@ -449,6 +462,78 @@ export const EmailPlatformAccountForm = ({
             )}
           />
         )}
+
+        {/* Nouvelle section Nom de domaine */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Nom de domaine</h3>
+          
+          <FormField
+            control={form.control}
+            name="domain_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nom de domaine</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="exemple.com" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="domain_hosting_provider"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Hébergeur</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un hébergeur" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="OVH">OVH</SelectItem>
+                    <SelectItem value="Gandhi">Gandhi</SelectItem>
+                    <SelectItem value="Ionos">Ionos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="domain_login"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Login</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Login hébergeur" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="domain_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="text" placeholder="Mot de passe en clair" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
 
         {/* Actions */}
         <div className="flex justify-end gap-4">

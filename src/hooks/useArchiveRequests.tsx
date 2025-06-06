@@ -16,7 +16,7 @@ export const useArchiveRequests = () => {
   const isGrowth = user?.role === "growth";
   const isAdmin = user?.role === "admin";
 
-  // Récupérer uniquement les requêtes terminées
+  // Récupérer uniquement les requêtes terminées (pas annulées)
   const { data: archivedRequests = [], isLoading, refetch } = useQuery({
     queryKey: ['archives-requests', user?.id, isSDR],
     queryFn: async () => {
@@ -28,7 +28,7 @@ export const useArchiveRequests = () => {
         let query = supabase
           .from('requests_with_missions')
           .select('*')
-          .eq('workflow_status', 'completed'); // Uniquement les demandes terminées
+          .eq('workflow_status', 'completed'); // Uniquement les demandes terminées (pas annulées)
         
         // Si c'est un SDR, filtrer pour ne montrer que ses propres requêtes
         if (isSDR) {

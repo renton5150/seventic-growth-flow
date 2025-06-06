@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { EmailPlatform, FrontOffice, EmailPlatformAccount, EmailPlatformAccountFormData, EmailPlatformAccountFilters } from "@/types/emailPlatforms.types";
 
@@ -145,7 +144,12 @@ export const createEmailPlatformAccount = async (data: EmailPlatformAccountFormD
     spf_dkim_status: accountData.spf_dkim_status,
     dedicated_ip: accountData.dedicated_ip,
     dedicated_ip_address: dedicatedIpAddress,
-    routing_interfaces: accountData.routing_interfaces
+    routing_interfaces: accountData.routing_interfaces,
+    // Nouveaux champs domaine
+    domain_name: accountData.domain_name || null,
+    domain_hosting_provider: accountData.domain_hosting_provider || null,
+    domain_login: accountData.domain_login || null,
+    domain_password: accountData.domain_password || null, // Stocké en clair comme demandé
   };
 
   console.log('Insert data:', insertData);
@@ -199,6 +203,20 @@ export const updateEmailPlatformAccount = async (id: string, data: Partial<Email
     // Garder l'adresse IP
   } else if (!updateData.dedicated_ip) {
     updateData.dedicated_ip_address = null;
+  }
+
+  // Gérer les champs domaine
+  if (updateData.domain_name !== undefined) {
+    updateData.domain_name = updateData.domain_name || null;
+  }
+  if (updateData.domain_hosting_provider !== undefined) {
+    updateData.domain_hosting_provider = updateData.domain_hosting_provider || null;
+  }
+  if (updateData.domain_login !== undefined) {
+    updateData.domain_login = updateData.domain_login || null;
+  }
+  if (updateData.domain_password !== undefined) {
+    updateData.domain_password = updateData.domain_password || null; // Stocké en clair
   }
 
   const { data: updatedAccount, error } = await supabase
