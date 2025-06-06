@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmailPlatformAccountForm } from "@/components/email-platforms/EmailPlatformAccountForm";
-import { EmailPlatformAccountFilters } from "@/components/email-platforms/EmailPlatformAccountFilters";
 import { EmailPlatformAccountsTable } from "@/components/email-platforms/EmailPlatformAccountsTable";
 import { useEmailPlatformAccounts } from "@/hooks/emailPlatforms/useEmailPlatforms";
 import { 
@@ -15,17 +14,16 @@ import {
   useDeleteEmailPlatformAccount 
 } from "@/hooks/emailPlatforms/useEmailPlatformMutations";
 import { useAuth } from "@/contexts/AuthContext";
-import { EmailPlatformAccount, EmailPlatformAccountFilters as FiltersType, EmailPlatformAccountFormData } from "@/types/emailPlatforms.types";
+import { EmailPlatformAccount, EmailPlatformAccountFormData } from "@/types/emailPlatforms.types";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 function EmailPlatformsContent() {
   const { user } = useAuth();
-  const [filters, setFilters] = useState<FiltersType>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<EmailPlatformAccount | undefined>();
   const [accountToDelete, setAccountToDelete] = useState<string | undefined>();
 
-  const { data: accounts, isLoading } = useEmailPlatformAccounts(filters);
+  const { data: accounts, isLoading } = useEmailPlatformAccounts();
   const createMutation = useCreateEmailPlatformAccount();
   const updateMutation = useUpdateEmailPlatformAccount();
   const deleteMutation = useDeleteEmailPlatformAccount();
@@ -91,19 +89,6 @@ function EmailPlatformsContent() {
     setEditingAccount(undefined);
   };
 
-  const filteredAccounts = accounts?.filter(account => {
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      return (
-        account.login.toLowerCase().includes(searchLower) ||
-        account.platform?.name.toLowerCase().includes(searchLower) ||
-        account.mission?.name.toLowerCase().includes(searchLower) ||
-        account.mission?.client.toLowerCase().includes(searchLower)
-      );
-    }
-    return true;
-  });
-
   return (
     <div className="container mx-auto p-6">
       <PageHeader
@@ -120,30 +105,20 @@ function EmailPlatformsContent() {
       />
 
       <div className="space-y-6">
-        <EmailPlatformAccountFilters 
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
-
         {isLoading ? (
           <div className="text-center py-12">
             <p>Chargement des comptes...</p>
           </div>
-        ) : filteredAccounts && filteredAccounts.length > 0 ? (
+        ) : accounts && accounts.length > 0 ? (
           <EmailPlatformAccountsTable
-            accounts={filteredAccounts}
+            accounts={accounts}
             onEdit={handleEditAccount}
             onDelete={handleDeleteAccount}
           />
         ) : (
           <div className="text-center py-12">
-            <p className="text-gray-500">
-              {accounts?.length === 0 
-                ? "Aucun compte créé pour le moment" 
-                : "Aucun compte ne correspond aux filtres appliqués"
-              }
-            </p>
-            {canCreateAccount && accounts?.length === 0 && (
+            <p className="text-gray-500">Aucun compte créé pour le moment</p>
+            {canCreateAccount && (
               <Button onClick={handleCreateAccount} className="mt-4">
                 <Plus className="h-4 w-4 mr-2" />
                 Créer le premier compte
