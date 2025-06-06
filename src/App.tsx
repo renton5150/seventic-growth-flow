@@ -77,6 +77,8 @@ function App() {
               <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/growth" element={<ProtectedRoute allowedRoles={["admin", "growth"]}><GrowthDashboard /></ProtectedRoute>} />
+              <Route path="/growth/to-assign" element={<ProtectedRoute allowedRoles={["admin", "growth"]}><GrowthDashboard defaultTab="to_assign" /></ProtectedRoute>} />
+              <Route path="/growth/my-requests" element={<ProtectedRoute allowedRoles={["admin", "growth"]}><GrowthDashboard defaultTab="my_assignments" /></ProtectedRoute>} />
               <Route path="/acelle-campaigns" element={<ProtectedRoute allowedRoles={["admin"]}><AcelleEmailCampaigns /></ProtectedRoute>} />
               <Route path="/ai-dashboard" element={<ProtectedRoute allowedRoles={["admin"]}><AIDashboard /></ProtectedRoute>} />
               
