@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Request } from "@/types/types";
 import {
@@ -161,7 +162,8 @@ export function GrowthRequestActions({
         </Button>
       )}
 
-      {!request.assigned_to && (
+      {/* Menu d'assignation - toujours affiché pour les Growth et Admin */}
+      {isGrowthOrAdmin && (
         <GrowthRequestAssignMenu 
           request={request}
           onRequestUpdated={() => {
@@ -172,6 +174,7 @@ export function GrowthRequestActions({
         />
       )}
       
+      {/* Menu de gestion du statut - affiché si la demande est assignée */}
       {request.assigned_to && updateRequestWorkflowStatus && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
