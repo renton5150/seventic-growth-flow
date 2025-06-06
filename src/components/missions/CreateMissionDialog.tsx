@@ -31,7 +31,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
     resolver: zodResolver(missionFormSchema),
     defaultValues: {
       name: "",
-      sdrId: "",
+      sdrId: "unassigned",
       description: "",
       startDate: null,
       endDate: null,
@@ -74,7 +74,7 @@ export const CreateMissionDialog = ({ open, onOpenChange, onSuccess }: CreateMis
       // Log pour débogage
       console.log("Données du formulaire:", data);
       
-      // Utilisez une chaîne vide au lieu de 'unassigned' pour un SDR non attribué
+      // Convertir 'unassigned' en chaîne vide pour la base de données
       const sdrId = data.sdrId === 'unassigned' ? '' : (data.sdrId || '');
       console.log("SDR ID qui sera utilisé:", sdrId);
       

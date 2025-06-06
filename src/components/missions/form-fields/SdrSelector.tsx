@@ -73,7 +73,7 @@ export function SdrSelector({ control, disabled = false, initialSdrName }: SdrSe
               </SelectTrigger>
             </FormControl>
             <SelectContent>
-              <SelectItem value="">Non assigné</SelectItem>
+              <SelectItem value="unassigned">Non assigné</SelectItem>
               {sdrAndGrowthUsers.map((user) => (
                 <SelectItem key={user.id} value={user.id}>
                   {user.name || user.email} ({user.role?.toUpperCase()})
