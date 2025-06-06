@@ -12,31 +12,36 @@ import { Mail, Database, User } from "lucide-react";
 
 interface DashboardHeaderProps {
   isSDR: boolean;
+  isGrowth?: boolean;
+  isAdmin?: boolean;
 }
 
-export const DashboardHeader = ({ isSDR }: DashboardHeaderProps) => {
+export const DashboardHeader = ({ isSDR, isGrowth, isAdmin }: DashboardHeaderProps) => {
   const navigate = useNavigate();
 
   const handleCreateRequest = (type: string) => {
     switch (type) {
       case "email":
-        navigate("/requests/email/new");
+        navigate("/requests/email-campaign");
         break;
       case "database":
-        navigate("/requests/database/new");
+        navigate("/requests/database-creation");
         break;
       case "linkedin":
-        navigate("/requests/linkedin/new");
+        navigate("/requests/linkedin-scraping");
         break;
       default:
         break;
     }
   };
 
+  // Les profils SDR, Growth et Admin peuvent créer des demandes
+  const canCreateRequests = isSDR || isGrowth || isAdmin;
+
   return (
     <div className="flex justify-between items-center">
       <h1 className="text-2xl font-bold">Tableau de bord</h1>
-      {isSDR && (
+      {canCreateRequests && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button className="bg-seventic-500 hover:bg-seventic-600">

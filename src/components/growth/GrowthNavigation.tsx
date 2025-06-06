@@ -8,8 +8,8 @@ export const GrowthNavigation = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  // Les profils Growth ne peuvent pas créer de nouvelles demandes
-  const canCreateRequests = user?.role !== 'growth';
+  // Les profils Growth, SDR et Admin peuvent créer de nouvelles demandes
+  const canCreateRequests = user?.role === 'growth' || user?.role === 'sdr' || user?.role === 'admin';
 
   return (
     <div className="flex justify-between items-center mb-6">
@@ -20,7 +20,7 @@ export const GrowthNavigation = () => {
         </p>
       </div>
       
-      {/* Bouton "Nouvelle demande" uniquement pour SDR et Admin */}
+      {/* Bouton "Nouvelle demande" pour Growth, SDR et Admin */}
       {canCreateRequests && (
         <div className="relative">
           <select
