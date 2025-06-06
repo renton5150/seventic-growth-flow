@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRequestDetails } from "@/services/requests/requestQueryService";
-import { Request, Mission, WorkflowStatus } from "@/types/types";
+import { Request, Mission, WorkflowStatus, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -69,8 +70,8 @@ export const useRequestDetails = () => {
               createdAt: new Date(missionData.created_at),
               startDate: missionData.start_date ? new Date(missionData.start_date) : null,
               endDate: missionData.end_date ? new Date(missionData.end_date) : null,
-              type: missionData.type,
-              status: missionData.status,
+              type: missionData.type as MissionType,
+              status: missionData.status as "En cours" | "Fin",
               requests: [], // Sera rempli si nécessaire
               client: missionData.client
             };
