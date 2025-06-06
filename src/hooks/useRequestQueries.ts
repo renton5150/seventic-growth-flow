@@ -15,14 +15,24 @@ export function useRequestQueries(userId: string | undefined) {
 
   console.log(`[useRequestQueries] USER ROLE: ${user?.role}, userId: ${userId}`);
 
-  // Utilisation des hooks spécialisés
+  // Utilisation des hooks spécialisés avec des intervals plus courts pour une meilleure réactivité
   const { data: toAssignRequests = [], refetch: refetchToAssign } = useToAssignRequests(userId);
   const { data: myAssignmentsRequests = [], refetch: refetchMyAssignments } = useMyAssignmentRequests(userId, isGrowth, isSDR, isAdmin);
   const { data: allGrowthRequests = [], refetch: refetchAllRequests } = useAllRequests(userId, isSDR);
 
   // Wrapper pour getRequestDetails avec les paramètres du contexte
   const getRequestDetailsWithContext = async (requestId: string) => {
-    return await getRequestDetails(requestId, userId, isSDR);
+    try {
+      console.log(`[useRequestQueries] Récupération des détails pour la demande: ${requestId}`);
+      const result = await getRequestDetails(requestId, userId, isSDR);
+      if (!result) {
+        console.error(`[useRequestQueries] Aucun détail trouvé pour la demande: ${requestId}`);
+      }
+      return result;
+    } catch (error) {
+      console.error(`[useRequestQueries] Erreur lors de la récupération des détails de la demande ${requestId}:`, error);
+      return null;
+    }
   };
 
   return {
@@ -40,17 +50,23 @@ export const useMissionsQuery = () => {
   return useQuery({
     queryKey: ['missions'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('missions')
-        .select('id, name, client')
-        .order('name');
+      try {
+        const { data, error } = await supabase
+          .from('missions')
+          .select('id, name, client')
+          .order('name');
 
-      if (error) {
-        console.error('Erreur lors de la récupération des missions:', error);
-        throw error;
+        if (error) {
+          console.error('Erreur lors de la récupération des missions:', error);
+          throw error;
+        }
+
+        return data || [];
+      } catch (error) {
+        console.error('Exception lors de la récupération des missions:', error);
+        return [];
       }
-
-      return data || [];
     },
+    refetchInterval: 30000, // Rafraîchir toutes les 30 secondes
   });
 };

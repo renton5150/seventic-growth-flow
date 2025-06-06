@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,25 +15,31 @@ import {
 } from "lucide-react";
 import { User } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";
-import { getAllRequests } from "@/services/requestService";
+import { fetchRequests } from "@/services/requests/requestQueryService";
 import { getAllUsers } from "@/services/userService";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
 
 export const UserStatsTable = () => {
   const [activeTab, setActiveTab] = useState<"sdr" | "growth">("sdr");
   const [sortColumn, setSortColumn] = useState<string>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
 
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
-    queryKey: ['admin-requests-stats'],
-    queryFn: getAllRequests
+    queryKey: ['admin-requests-user-stats'],
+    queryFn: async () => {
+      return await fetchRequests();
+    },
+    refetchInterval: 5000
   });
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['admin-users-for-stats'],
-    queryFn: getAllUsers
+    queryFn: getAllUsers,
+    refetchInterval: 10000
   });
 
   const handleSort = (column: string) => {
@@ -45,13 +52,36 @@ export const UserStatsTable = () => {
   };
 
   const getUserStats = (userId: string) => {
-    const userRequests = requests.filter(r => r.createdBy === userId);
+    let userRequests;
+    
+    if (activeTab === "sdr") {
+      // Pour les SDR, compter les demandes qu'ils ont créées
+      userRequests = requests.filter(r => r.createdBy === userId);
+    } else {
+      // Pour les Growth, compter les demandes qui leur sont assignées
+      userRequests = requests.filter(r => r.assigned_to === userId);
+    }
+    
     return {
       total: userRequests.length,
-      pending: userRequests.filter(r => r.status === "pending").length,
-      completed: userRequests.filter(r => r.status === "completed").length,
-      late: userRequests.filter(r => r.isLate).length,
+      pending: userRequests.filter(r => 
+        r.workflow_status === "pending_assignment" || r.status === "pending"
+      ).length,
+      completed: userRequests.filter(r => r.workflow_status === "completed").length,
+      late: userRequests.filter(r => r.isLate && 
+        r.workflow_status !== 'completed' && r.workflow_status !== 'canceled'
+      ).length,
     };
+  };
+
+  const handleUserClick = (user: User) => {
+    if (activeTab === "sdr") {
+      // Rediriger vers les demandes créées par ce SDR
+      navigate("/growth", { state: { createdBy: user.id, userName: user.name } });
+    } else {
+      // Rediriger vers les demandes assignées à ce Growth
+      navigate("/growth", { state: { assignedTo: user.id, userName: user.name } });
+    }
   };
 
   const filteredUsers = useMemo(() => {
@@ -155,7 +185,11 @@ export const UserStatsTable = () => {
               filteredUsers.map((user) => {
                 const stats = getUserStats(user.id);
                 return (
-                  <TableRow key={user.id}>
+                  <TableRow 
+                    key={user.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleUserClick(user)}
+                  >
                     <TableCell className="flex items-center space-x-3">
                       <Avatar>
                         <AvatarImage src={user.avatar} alt={user.name} />
@@ -166,10 +200,10 @@ export const UserStatsTable = () => {
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{stats.total}</TableCell>
-                    <TableCell>{stats.pending}</TableCell>
-                    <TableCell>{stats.completed}</TableCell>
-                    <TableCell>{stats.late}</TableCell>
+                    <TableCell className="font-medium">{stats.total}</TableCell>
+                    <TableCell className="font-medium">{stats.pending}</TableCell>
+                    <TableCell className="font-medium">{stats.completed}</TableCell>
+                    <TableCell className="font-medium">{stats.late}</TableCell>
                   </TableRow>
                 );
               })

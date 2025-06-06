@@ -2,27 +2,62 @@
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getAllRequests } from "@/services/requestService";
+import { fetchRequests } from "@/services/requests/requestQueryService";
 import { getAllUsers } from "@/services/userService";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
 
 export const AdminStatsSummary = () => {
+  const navigate = useNavigate();
+  
   const { data: requests = [], isLoading: isLoadingRequests } = useQuery({
-    queryKey: ['admin-requests'],
-    queryFn: getAllRequests
+    queryKey: ['admin-requests-summary'],
+    queryFn: async () => {
+      return await fetchRequests();
+    },
+    refetchInterval: 5000
   });
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['admin-users-stats'],
-    queryFn: getAllUsers
+    queryFn: getAllUsers,
+    refetchInterval: 10000
   });
 
-  const pendingRequests = requests.filter(r => r.status === "pending").length;
-  const completedRequests = requests.filter(r => r.status === "completed").length;
-  const lateRequests = requests.filter(r => r.isLate).length;
+  // Filtrer pour exclure les demandes archivées
+  const activeRequests = requests.filter(r => 
+    r.workflow_status !== 'completed' && r.workflow_status !== 'canceled'
+  );
+
+  const pendingRequests = activeRequests.filter(r => 
+    r.workflow_status === "pending_assignment"
+  ).length;
+  
+  const completedRequests = requests.filter(r => 
+    r.workflow_status === "completed"
+  ).length;
+  
+  const lateRequests = activeRequests.filter(r => r.isLate).length;
   
   const sdrCount = users.filter(u => u.role === "sdr").length;
   const growthCount = users.filter(u => u.role === "growth").length;
+
+  const handleStatClick = (filterType: string) => {
+    switch (filterType) {
+      case "users":
+        navigate("/admin/users");
+        break;
+      case "pending":
+        navigate("/growth", { state: { filter: "pending" } });
+        break;
+      case "completed":
+        navigate("/archives");
+        break;
+      case "late":
+        navigate("/growth", { state: { filter: "late" } });
+        break;
+    }
+  };
 
   if (isLoadingRequests || isLoadingUsers) {
     return (
@@ -41,21 +76,25 @@ export const AdminStatsSummary = () => {
         value={users.length}
         icon={<Users size={24} className="text-blue-500" />}
         details={`${sdrCount} SDR, ${growthCount} Growth`}
+        onClick={() => handleStatClick("users")}
       />
       <StatCard
         title="En attente"
         value={pendingRequests}
         icon={<Clock size={24} className="text-status-pending" />}
+        onClick={() => handleStatClick("pending")}
       />
       <StatCard
         title="Terminées"
         value={completedRequests}
         icon={<CheckCircle size={24} className="text-status-completed" />}
+        onClick={() => handleStatClick("completed")}
       />
       <StatCard
         title="En retard"
         value={lateRequests}
         icon={<AlertCircle size={24} className="text-status-late" />}
+        onClick={() => handleStatClick("late")}
       />
     </div>
   );

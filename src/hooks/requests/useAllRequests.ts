@@ -7,22 +7,38 @@ export const useAllRequests = (
   isSDR: boolean
 ) => {
   return useQuery({
-    queryKey: ['requests-all', userId],
+    queryKey: ['requests-all', userId, isSDR],
     queryFn: async () => {
-      if (!userId) return [];
+      if (!userId) {
+        console.log("[useAllRequests] Pas d'userId fourni");
+        return [];
+      }
       
-      if (isSDR) {
-        return await fetchRequests({
-          workflowStatusNot: 'completed',
-          createdBy: userId
-        });
-      } else {
-        return await fetchRequests({
-          workflowStatusNot: 'completed'
-        });
+      try {
+        console.log(`[useAllRequests] Récupération de toutes les demandes, isSDR: ${isSDR}`);
+        
+        if (isSDR) {
+          const requests = await fetchRequests({
+            workflowStatusNot: 'completed',
+            createdBy: userId
+          });
+          console.log(`[useAllRequests] ${requests.length} demandes SDR récupérées`);
+          return requests;
+        } else {
+          const requests = await fetchRequests({
+            workflowStatusNot: 'completed'
+          });
+          console.log(`[useAllRequests] ${requests.length} demandes récupérées`);
+          return requests;
+        }
+      } catch (error) {
+        console.error("[useAllRequests] Erreur:", error);
+        return [];
       }
     },
     enabled: !!userId,
-    refetchInterval: 10000
+    refetchInterval: 5000, // Réduire l'intervalle pour une meilleure réactivité
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };
