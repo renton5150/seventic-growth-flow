@@ -120,12 +120,10 @@ export const EmailPlatformAccountsTable = ({
   };
 
   const FilterPopover = ({ 
-    children, 
     title, 
     filterKey, 
     options 
   }: { 
-    children: React.ReactNode;
     title: string;
     filterKey: keyof ColumnFilters;
     options?: string[];
