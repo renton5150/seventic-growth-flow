@@ -29,7 +29,6 @@ const Dashboard = () => {
         
         <RequestsTable 
           requests={filteredRequests} 
-          loading={loading}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />
