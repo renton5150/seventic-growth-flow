@@ -56,6 +56,8 @@ export default function EmailPlatforms() {
   };
 
   const handleFormSubmit = (data: EmailPlatformAccountFormData) => {
+    console.log('Form submission data:', data);
+    
     if (editingAccount) {
       // Mise à jour
       const updateData = { ...data };
@@ -83,6 +85,11 @@ export default function EmailPlatforms() {
     }
   };
 
+  const handleFormCancel = () => {
+    setIsFormOpen(false);
+    setEditingAccount(undefined);
+  };
+
   const filteredAccounts = accounts?.filter(account => {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
@@ -100,7 +107,7 @@ export default function EmailPlatforms() {
     <div className="container mx-auto p-6">
       <PageHeader
         title="Comptes Plateformes d'Emailing"
-        description="Gérez et suivez vos comptes sur les différentes plateformes d'emailing"
+        description="Gérez et suivez vos comptes sur les différentes plateformes d'emailing. Une mission peut avoir plusieurs plateformes, et chaque plateforme a son propre statut."
         action={
           canCreateAccount ? (
             <Button onClick={handleCreateAccount}>
@@ -161,7 +168,7 @@ export default function EmailPlatforms() {
           <EmailPlatformAccountForm
             account={editingAccount}
             onSubmit={handleFormSubmit}
-            onCancel={() => setIsFormOpen(false)}
+            onCancel={handleFormCancel}
             isLoading={createMutation.isPending || updateMutation.isPending}
           />
         </DialogContent>

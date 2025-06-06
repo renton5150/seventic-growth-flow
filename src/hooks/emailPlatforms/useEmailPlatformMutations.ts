@@ -19,7 +19,8 @@ export const useCreateEmailPlatformAccount = () => {
     },
     onError: (error: any) => {
       console.error('Erreur lors de la création:', error);
-      toast.error('Erreur lors de la création du compte');
+      const errorMessage = error?.message || 'Erreur lors de la création du compte';
+      toast.error(errorMessage);
     },
   });
 };
@@ -36,7 +37,8 @@ export const useUpdateEmailPlatformAccount = () => {
     },
     onError: (error: any) => {
       console.error('Erreur lors de la mise à jour:', error);
-      toast.error('Erreur lors de la mise à jour du compte');
+      const errorMessage = error?.message || 'Erreur lors de la mise à jour du compte';
+      toast.error(errorMessage);
     },
   });
 };
@@ -52,7 +54,8 @@ export const useDeleteEmailPlatformAccount = () => {
     },
     onError: (error: any) => {
       console.error('Erreur lors de la suppression:', error);
-      toast.error('Erreur lors de la suppression du compte');
+      const errorMessage = error?.message || 'Erreur lors de la suppression du compte';
+      toast.error(errorMessage);
     },
   });
 };

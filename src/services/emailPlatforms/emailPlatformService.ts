@@ -104,23 +104,61 @@ export const getEmailPlatformAccounts = async (filters?: EmailPlatformAccountFil
 
 // Créer un nouveau compte
 export const createEmailPlatformAccount = async (data: EmailPlatformAccountFormData): Promise<EmailPlatformAccount> => {
+  console.log('Creating email platform account with data:', data);
+  
   const { front_office_ids, password, ...accountData } = data;
+
+  // Validation des données
+  if (!accountData.mission_id) {
+    throw new Error('Mission is required');
+  }
+  if (!accountData.platform_id) {
+    throw new Error('Email platform is required');
+  }
+  if (!accountData.login) {
+    throw new Error('Login is required');
+  }
+  if (!password) {
+    throw new Error('Password is required');
+  }
+
+  // Gérer l'adresse IP dédiée
+  let dedicatedIpAddress = null;
+  if (accountData.dedicated_ip && accountData.dedicated_ip_address) {
+    dedicatedIpAddress = accountData.dedicated_ip_address;
+  }
 
   // Chiffrer le mot de passe
   const encryptedPassword = encryptPassword(password);
 
+  // Préparer les données pour l'insertion
+  const insertData = {
+    mission_id: accountData.mission_id,
+    platform_id: accountData.platform_id,
+    login: accountData.login,
+    password_encrypted: encryptedPassword,
+    phone_number: accountData.phone_number || null,
+    credit_card_name: accountData.credit_card_name || null,
+    credit_card_last_four: accountData.credit_card_last_four || null,
+    backup_email: accountData.backup_email || null,
+    status: accountData.status,
+    spf_dkim_status: accountData.spf_dkim_status,
+    dedicated_ip: accountData.dedicated_ip,
+    dedicated_ip_address: dedicatedIpAddress,
+    routing_interfaces: accountData.routing_interfaces
+  };
+
+  console.log('Insert data:', insertData);
+
   const { data: newAccount, error } = await supabase
     .from('email_platform_accounts')
-    .insert({
-      ...accountData,
-      password_encrypted: encryptedPassword
-    })
+    .insert(insertData)
     .select()
     .single();
 
   if (error) {
     console.error('Erreur lors de la création du compte:', error);
-    throw error;
+    throw new Error(`Erreur lors de la création: ${error.message}`);
   }
 
   // Associer les front offices si SMTP est sélectionné
@@ -156,6 +194,13 @@ export const updateEmailPlatformAccount = async (id: string, data: Partial<Email
     updateData.password_encrypted = encryptPassword(password);
   }
 
+  // Gérer l'adresse IP dédiée
+  if (updateData.dedicated_ip && updateData.dedicated_ip_address) {
+    // Garder l'adresse IP
+  } else if (!updateData.dedicated_ip) {
+    updateData.dedicated_ip_address = null;
+  }
+
   const { data: updatedAccount, error } = await supabase
     .from('email_platform_accounts')
     .update(updateData)
@@ -165,7 +210,7 @@ export const updateEmailPlatformAccount = async (id: string, data: Partial<Email
 
   if (error) {
     console.error('Erreur lors de la mise à jour du compte:', error);
-    throw error;
+    throw new Error(`Erreur lors de la mise à jour: ${error.message}`);
   }
 
   // Mettre à jour les associations front offices si nécessaire

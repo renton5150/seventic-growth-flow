@@ -93,9 +93,35 @@ export const EmailPlatformAccountForm = ({
   const watchRoutingInterfaces = form.watch("routing_interfaces");
   const showFrontOffices = watchRoutingInterfaces.includes("SMTP") || watchRoutingInterfaces.includes("Les deux");
 
+  const handleSubmit = (data: FormData) => {
+    console.log("Form data before submission:", data);
+    
+    // Validation supplémentaire
+    if (data.dedicated_ip && !data.dedicated_ip_address?.trim()) {
+      form.setError("dedicated_ip_address", {
+        type: "manual",
+        message: "L'adresse IP est requise si IP dédiée est activée"
+      });
+      return;
+    }
+
+    // Nettoyer les données avant envoi
+    const cleanedData = {
+      ...data,
+      phone_number: data.phone_number?.trim() || undefined,
+      credit_card_name: data.credit_card_name?.trim() || undefined,
+      credit_card_last_four: data.credit_card_last_four?.trim() || undefined,
+      backup_email: data.backup_email?.trim() || undefined,
+      dedicated_ip_address: data.dedicated_ip_address?.trim() || undefined,
+    };
+
+    console.log("Cleaned form data:", cleanedData);
+    onSubmit(cleanedData);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Mission */}
           <FormField
@@ -104,7 +130,7 @@ export const EmailPlatformAccountForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Mission *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionnez une mission" />
@@ -130,7 +156,7 @@ export const EmailPlatformAccountForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Plateforme d'emailing *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionnez une plateforme" />
@@ -252,7 +278,7 @@ export const EmailPlatformAccountForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Statut du compte</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
@@ -274,7 +300,7 @@ export const EmailPlatformAccountForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>SPF/DKIM</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
