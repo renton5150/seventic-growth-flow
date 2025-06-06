@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/ui/page-header";
-import { EmailPlatformAccountCard } from "@/components/email-platforms/EmailPlatformAccountCard";
 import { EmailPlatformAccountForm } from "@/components/email-platforms/EmailPlatformAccountForm";
 import { EmailPlatformAccountFilters } from "@/components/email-platforms/EmailPlatformAccountFilters";
+import { EmailPlatformAccountsTable } from "@/components/email-platforms/EmailPlatformAccountsTable";
 import { useEmailPlatformAccounts } from "@/hooks/emailPlatforms/useEmailPlatforms";
 import { 
   useCreateEmailPlatformAccount, 
@@ -16,8 +16,9 @@ import {
 } from "@/hooks/emailPlatforms/useEmailPlatformMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmailPlatformAccount, EmailPlatformAccountFilters as FiltersType, EmailPlatformAccountFormData } from "@/types/emailPlatforms.types";
+import { AppLayout } from "@/components/layout/AppLayout";
 
-export default function EmailPlatforms() {
+function EmailPlatformsContent() {
   const { user } = useAuth();
   const [filters, setFilters] = useState<FiltersType>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -129,16 +130,11 @@ export default function EmailPlatforms() {
             <p>Chargement des comptes...</p>
           </div>
         ) : filteredAccounts && filteredAccounts.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredAccounts.map((account) => (
-              <EmailPlatformAccountCard
-                key={account.id}
-                account={account}
-                onEdit={handleEditAccount}
-                onDelete={handleDeleteAccount}
-              />
-            ))}
-          </div>
+          <EmailPlatformAccountsTable
+            accounts={filteredAccounts}
+            onEdit={handleEditAccount}
+            onDelete={handleDeleteAccount}
+          />
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-500">
@@ -195,5 +191,13 @@ export default function EmailPlatforms() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function EmailPlatforms() {
+  return (
+    <AppLayout>
+      <EmailPlatformsContent />
+    </AppLayout>
   );
 }

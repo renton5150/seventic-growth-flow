@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Form, 
@@ -201,7 +200,7 @@ export const EmailPlatformAccountForm = ({
                 <FormControl>
                   <Input 
                     {...field} 
-                    type="password" 
+                    type="text"
                     placeholder={account ? "Laisser vide pour conserver" : "Mot de passe"} 
                   />
                 </FormControl>
