@@ -1,0 +1,77 @@
+
+export interface EmailPlatform {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FrontOffice {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailPlatformAccount {
+  id: string;
+  mission_id: string;
+  platform_id: string;
+  login: string;
+  password_encrypted: string;
+  phone_number?: string;
+  credit_card_name?: string;
+  credit_card_last_four?: string;
+  backup_email?: string;
+  status: 'Actif' | 'Suspendu';
+  spf_dkim_status: 'Oui' | 'Non' | 'En cours';
+  dedicated_ip: boolean;
+  dedicated_ip_address?: string;
+  routing_interfaces: string[];
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  
+  // Relations populées
+  platform?: EmailPlatform;
+  mission?: {
+    id: string;
+    name: string;
+    client: string;
+  };
+  front_offices?: FrontOffice[];
+}
+
+export interface EmailPlatformAccountFormData {
+  mission_id: string;
+  platform_id: string;
+  login: string;
+  password: string;
+  phone_number?: string;
+  credit_card_name?: string;
+  credit_card_last_four?: string;
+  backup_email?: string;
+  status: 'Actif' | 'Suspendu';
+  spf_dkim_status: 'Oui' | 'Non' | 'En cours';
+  dedicated_ip: boolean;
+  dedicated_ip_address?: string;
+  routing_interfaces: string[];
+  front_office_ids?: string[];
+}
+
+export interface EmailPlatformAccountFilters {
+  platform_id?: string;
+  mission_id?: string;
+  status?: 'Actif' | 'Suspendu';
+  spf_dkim_status?: 'Oui' | 'Non' | 'En cours';
+  dedicated_ip?: boolean;
+  search?: string;
+}
+
+export const ROUTING_INTERFACES = [
+  'SMTP',
+  'Plateforme native',
+  'Les deux'
+] as const;
+
+export type RoutingInterface = typeof ROUTING_INTERFACES[number];

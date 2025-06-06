@@ -252,6 +252,145 @@ export type Database = {
         }
         Relationships: []
       }
+      email_platform_account_front_offices: {
+        Row: {
+          account_id: string
+          created_at: string
+          front_office_id: string
+          id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          front_office_id: string
+          id?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          front_office_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_platform_account_front_offices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_platform_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_platform_account_front_offices_front_office_id_fkey"
+            columns: ["front_office_id"]
+            isOneToOne: false
+            referencedRelation: "front_offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_platform_accounts: {
+        Row: {
+          backup_email: string | null
+          created_at: string
+          created_by: string | null
+          credit_card_last_four: string | null
+          credit_card_name: string | null
+          dedicated_ip: boolean
+          dedicated_ip_address: unknown | null
+          id: string
+          login: string
+          mission_id: string
+          password_encrypted: string
+          phone_number: string | null
+          platform_id: string
+          routing_interfaces: string[]
+          spf_dkim_status: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          backup_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_last_four?: string | null
+          credit_card_name?: string | null
+          dedicated_ip?: boolean
+          dedicated_ip_address?: unknown | null
+          id?: string
+          login: string
+          mission_id: string
+          password_encrypted: string
+          phone_number?: string | null
+          platform_id: string
+          routing_interfaces?: string[]
+          spf_dkim_status?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          backup_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_last_four?: string | null
+          credit_card_name?: string | null
+          dedicated_ip?: boolean
+          dedicated_ip_address?: unknown | null
+          id?: string
+          login?: string
+          mission_id?: string
+          password_encrypted?: string
+          phone_number?: string | null
+          platform_id?: string
+          routing_interfaces?: string[]
+          spf_dkim_status?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_platform_accounts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_platform_accounts_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_platform_accounts_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "email_platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_platforms: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       enriched_contacts: {
         Row: {
           civilite: string | null
@@ -308,6 +447,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      front_offices: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       imported_contacts: {
         Row: {

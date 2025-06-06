@@ -1,253 +1,90 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./contexts/auth";
-import { ProtectedRoute } from "./components/layout/ProtectedRoute";
-import ErrorBoundary from "./components/auth/ErrorBoundary";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/auth/AuthProviderComponent";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
-import NotFound from "./pages/NotFound";
-import Unauthorized from "./pages/Unauthorized";
 import EmailCampaignRequest from "./pages/EmailCampaignRequest";
-import EmailCampaignEdit from "./pages/EmailCampaignEdit";
-import DatabaseCreationRequest from "./pages/DatabaseCreationRequest";
-import DatabaseCreationEdit from "./pages/DatabaseCreationEdit";
 import LinkedInScrapingRequest from "./pages/LinkedInScrapingRequest";
-import LinkedInScrapingEdit from "./pages/LinkedInScrapingEdit";
+import DatabaseCreationRequest from "./pages/DatabaseCreationRequest";
 import RequestDetails from "./pages/RequestDetails";
+import EmailCampaignEdit from "./pages/EmailCampaignEdit";
+import LinkedInScrapingEdit from "./pages/LinkedInScrapingEdit";
+import DatabaseCreationEdit from "./pages/DatabaseCreationEdit";
 import Calendar from "./pages/Calendar";
+import Planning from "./pages/Planning";
 import Missions from "./pages/Missions";
-import GrowthDashboard from "./pages/GrowthDashboard";
-import Databases from "./pages/Databases";
-import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminMissions from "./pages/AdminMissions";
-import PermissionsDebug from "./pages/PermissionsDebug";
-import { DashboardWithRedirect } from "./components/dashboard/DashboardWithRedirect";
-import AIDashboard from "./pages/AIDashboard";
-import Planning from "./pages/Planning";
-import AcelleEmailCampaigns from "./pages/AcelleEmailCampaigns";
+import AdminDashboard from "./pages/AdminDashboard";
+import GrowthDashboard from "./pages/GrowthDashboard";
 import Archives from "./pages/Archives";
+import Databases from "./pages/Databases";
+import AcelleEmailCampaigns from "./pages/AcelleEmailCampaigns";
+import AIDashboard from "./pages/AIDashboard";
+import EmailPlatforms from "./pages/EmailPlatforms"; // Nouvelle page
+import AuthCallback from "./pages/AuthCallback";
+import ResetPassword from "./pages/ResetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
+import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
+import PermissionsDebug from "./pages/PermissionsDebug";
+import ProtectedRoute from "./components/layout/ProtectedRoute";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 30000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 function App() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
           <AuthProvider>
-            <Toaster />
-            <Sonner />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/auth-callback" element={<AuthCallback />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
+              <Route path="/permissions-debug" element={<PermissionsDebug />} />
               
-              <Route 
-                path="/dashboard" 
-                element={
-                  <ProtectedRoute>
-                    <DashboardWithRedirect />
-                  </ProtectedRoute>
-                } 
-              />
+              {/* Routes protégées */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/requests/email-campaign" element={<ProtectedRoute><EmailCampaignRequest /></ProtectedRoute>} />
+              <Route path="/requests/linkedin-scraping" element={<ProtectedRoute><LinkedInScrapingRequest /></ProtectedRoute>} />
+              <Route path="/requests/database-creation" element={<ProtectedRoute><DatabaseCreationRequest /></ProtectedRoute>} />
+              <Route path="/requests/:type/:id" element={<ProtectedRoute><RequestDetails /></ProtectedRoute>} />
+              <Route path="/requests/email/:id/edit" element={<ProtectedRoute><EmailCampaignEdit /></ProtectedRoute>} />
+              <Route path="/requests/linkedin/:id/edit" element={<ProtectedRoute><LinkedInScrapingEdit /></ProtectedRoute>} />
+              <Route path="/requests/database/:id/edit" element={<ProtectedRoute><DatabaseCreationEdit /></ProtectedRoute>} />
               
-              <Route 
-                path="/requests/email/new" 
-                element={
-                  <ProtectedRoute>
-                    <EmailCampaignRequest />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/requests/email/:id/edit" 
-                element={
-                  <ProtectedRoute>
-                    <EmailCampaignEdit />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/requests/database/new" 
-                element={
-                  <ProtectedRoute>
-                    <DatabaseCreationRequest />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/requests/database/:id/edit" 
-                element={
-                  <ProtectedRoute>
-                    <DatabaseCreationEdit />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/requests/linkedin/new" 
-                element={
-                  <ProtectedRoute>
-                    <LinkedInScrapingRequest />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/requests/linkedin/:id/edit" 
-                element={
-                  <ProtectedRoute>
-                    <LinkedInScrapingEdit />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/requests/:type/:id" 
-                element={
-                  <ProtectedRoute>
-                    <RequestDetails />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/calendar" 
-                element={
-                  <ProtectedRoute>
-                    <Calendar />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/missions" 
-                element={
-                  <ProtectedRoute>
-                    <Missions />
-                  </ProtectedRoute>
-                } 
-              />
+              <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+              <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
+              <Route path="/missions" element={<ProtectedRoute><Missions /></ProtectedRoute>} />
+              <Route path="/databases" element={<ProtectedRoute><Databases /></ProtectedRoute>} />
+              <Route path="/email-platforms" element={<ProtectedRoute><EmailPlatforms /></ProtectedRoute>} /> {/* Nouvelle route */}
+              <Route path="/archives" element={<ProtectedRoute><Archives /></ProtectedRoute>} />
               
-              <Route 
-                path="/planning" 
-                element={
-                  <ProtectedRoute>
-                    <Planning />
-                  </ProtectedRoute>
-                } 
-              />
+              {/* Routes administrateur */}
+              <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
+              <Route path="/admin/missions" element={<ProtectedRoute requiredRole="admin"><AdminMissions /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/growth" element={<ProtectedRoute requiredRoles={["admin", "growth"]}><GrowthDashboard /></ProtectedRoute>} />
+              <Route path="/acelle-campaigns" element={<ProtectedRoute requiredRole="admin"><AcelleEmailCampaigns /></ProtectedRoute>} />
+              <Route path="/ai-dashboard" element={<ProtectedRoute requiredRole="admin"><AIDashboard /></ProtectedRoute>} />
               
-              <Route
-                path="/archives"
-                element={
-                  <ProtectedRoute>
-                    <Archives />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/growth"
-                element={
-                  <ProtectedRoute allowedRoles={["admin", "growth"]}>
-                    <GrowthDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route 
-                path="/growth/to-assign" 
-                element={
-                  <ProtectedRoute allowedRoles={["admin", "growth"]}>
-                    <GrowthDashboard defaultTab="to_assign" />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/growth/my-requests" 
-                element={
-                  <ProtectedRoute allowedRoles={["admin", "growth"]}>
-                    <GrowthDashboard defaultTab="my_assignments" />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/databases" 
-                element={
-                  <ProtectedRoute>
-                    <Databases />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/dashboard" 
-                element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/users" 
-                element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
-                    <AdminUsers />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/missions" 
-                element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
-                    <AdminMissions />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route
-                path="/admin/ai-dashboard"
-                element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
-                    <AIDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/email-campaigns"
-                element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
-                    <AcelleEmailCampaigns />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/debug/permissions"
-                element={
-                  <ProtectedRoute>
-                    <PermissionsDebug />
-                  </ProtectedRoute>
-                }
-              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

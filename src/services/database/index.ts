@@ -8,3 +8,6 @@ export * from './config';
 
 // Export the downloadFile from downloadService
 export { downloadFile, downloadDatabaseFile } from './downloadService';
+
+// Export email platforms services
+export * from '../emailPlatforms/emailPlatformService';
