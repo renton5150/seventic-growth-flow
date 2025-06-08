@@ -17,7 +17,7 @@ export const CRADashboard = () => {
   const { user, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("form");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedSDR, setSelectedSDR] = useState<string>("");
+  const [selectedSDR, setSelectedSDR] = useState<string>("all");
   const [sdrList, setSdrList] = useState<any[]>([]);
   const [missingCRAs, setMissingCRAs] = useState<any[]>([]);
 
@@ -54,7 +54,7 @@ export const CRADashboard = () => {
     }
   };
 
-  const targetSDR = selectedSDR || user?.id;
+  const targetSDR = selectedSDR === "all" ? undefined : selectedSDR || user?.id;
 
   return (
     <div className="space-y-6">
@@ -72,10 +72,10 @@ export const CRADashboard = () => {
           <div className="flex items-center gap-4">
             <Select value={selectedSDR} onValueChange={setSelectedSDR}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Tous les SDR" />
+                <SelectValue placeholder="Sélectionner un SDR" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les SDR</SelectItem>
+                <SelectItem value="all">Tous les SDR</SelectItem>
                 {sdrList.map(sdr => (
                   <SelectItem key={sdr.id} value={sdr.id}>
                     {sdr.name}
@@ -145,7 +145,7 @@ export const CRADashboard = () => {
             </CardContent>
           </Card>
 
-          {!isAdmin || selectedSDR ? (
+          {!isAdmin || selectedSDR !== "all" ? (
             <CRATableForm 
               selectedDate={selectedDate} 
               onSave={handleCRASaved}
