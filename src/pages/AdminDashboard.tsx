@@ -19,7 +19,7 @@ const AdminDashboard = () => {
     // Setup interval for periodic refresh
     const interval = setInterval(() => {
       refreshData();
-    }, 30000); // Every 30 seconds (réduit la fréquence)
+    }, 30000); // Every 30 seconds
     
     return () => clearInterval(interval);
   }, [queryClient]);
@@ -27,12 +27,16 @@ const AdminDashboard = () => {
   // Function to refresh all relevant data
   const refreshData = async () => {
     try {
-      // Invalidate all request-related queries
+      // Invalidate all admin-related queries
+      await queryClient.invalidateQueries({ queryKey: ['admin-stats-summary'] });
+      await queryClient.invalidateQueries({ queryKey: ['user-statistics'] });
       await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       
       // Force explicit refetch
       await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['admin-stats-summary'] }),
+        queryClient.refetchQueries({ queryKey: ['user-statistics'] }),
         queryClient.refetchQueries({ queryKey: ['growth-all-requests'] }),
         queryClient.refetchQueries({ queryKey: ['users'] })
       ]);

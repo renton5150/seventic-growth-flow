@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { getAllUsers } from "@/services/userService";
+import { getAllUsers } from "@/services/user/userQueries";
 import { fetchRequests } from "@/services/requests/requestQueryService";
 
 // Interface pour les statistiques utilisateur
@@ -29,7 +29,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
     const users = await getAllUsers();
     console.log("Utilisateurs récupérés:", users.length, users);
     
-    // Récupère toutes les demandes
+    // Récupère toutes les demandes depuis la vue requests_with_missions
     const requests = await fetchRequests();
     console.log("Demandes récupérées:", requests.length, requests);
     
@@ -70,14 +70,16 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
       
       // Log des demandes filtrées
       userRequests.forEach((req, idx) => {
-        console.log(`  Demande ${idx + 1}: ${req.title} (${req.workflow_status})`);
+        console.log(`  Demande ${idx + 1}: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
       });
       
       const now = new Date();
       
       // Calcule les statistiques avec logs détaillés
       const pendingRequests = userRequests.filter(req => {
-        const isPending = req.workflow_status === "pending_assignment" || req.status === "pending";
+        const isPending = req.workflow_status === "pending_assignment" || 
+                         req.workflow_status === "in_progress" ||
+                         req.status === "pending";
         if (isPending) {
           console.log(`  📋 Pending: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
         }
