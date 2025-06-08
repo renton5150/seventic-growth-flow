@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { DailyActivityReport, DailyMissionTime, DailyOpportunity, CreateCRARequest, CRAStatistics } from "@/types/cra.types";
 
@@ -134,7 +133,8 @@ export const craService = {
       })) || [],
       opportunities: opportunities?.map(opp => ({
         ...opp,
-        mission_name: opp.missions?.name
+        mission_name: opp.missions?.name,
+        opportunity_value: opp.opportunity_value as 5 | 10 | 20
       })) || []
     };
   },

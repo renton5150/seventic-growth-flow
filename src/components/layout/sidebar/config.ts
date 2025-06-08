@@ -127,3 +127,53 @@ export const menuConfig: MenuSection[] = [
     ]
   }
 ];
+
+// Exports pour compatibilité avec AppSidebar
+export const sdrMenuItems = [
+  {
+    title: "CRA",
+    path: "/cra",
+    icon: ClipboardCheck
+  },
+  {
+    title: "Missions",
+    path: "/missions", 
+    icon: FolderOpen
+  }
+];
+
+export const growthMenuItems = [
+  {
+    title: "Growth Dashboard",
+    path: "/growth-dashboard",
+    icon: BarChart3
+  }
+];
+
+export const adminMenuItems = [
+  {
+    title: "Utilisateurs",
+    path: "/admin/users",
+    icon: Users
+  },
+  {
+    title: "Dashboard Admin",
+    path: "/admin/dashboard",
+    icon: BarChart3
+  },
+  {
+    title: "Missions Admin",
+    path: "/admin/missions",
+    icon: Settings
+  },
+  {
+    title: "Email Platforms",
+    path: "/email-platforms",
+    icon: Mail
+  },
+  {
+    title: "Campagnes Acelle",
+    path: "/acelle-campaigns",
+    icon: Mail
+  }
+];

@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -18,17 +19,20 @@ import AdminUsers from './pages/AdminUsers';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminMissions from './pages/AdminMissions';
 import EmailPlatforms from './pages/EmailPlatforms';
-import AcelleCampaigns from './pages/AcelleCampaigns';
+import AcelleEmailCampaigns from './pages/AcelleEmailCampaigns';
 import AIDashboard from './pages/AIDashboard';
 import GrowthDashboard from './pages/GrowthDashboard';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary } from 'react-error-boundary';
 import CRA from "@/pages/CRA";
+
+// Créer une instance QueryClient
+const queryClient = new QueryClient();
 
 function App() {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
       <Router>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
@@ -53,7 +57,7 @@ function App() {
               <Route path="/admin/missions" element={<ProtectedRoute><AdminMissions /></ProtectedRoute>} />
               
               <Route path="/email-platforms" element={<ProtectedRoute><EmailPlatforms /></ProtectedRoute>} />
-              <Route path="/acelle-campaigns" element={<ProtectedRoute><AcelleCampaigns /></ProtectedRoute>} />
+              <Route path="/acelle-campaigns" element={<ProtectedRoute><AcelleEmailCampaigns /></ProtectedRoute>} />
               <Route path="/ai-dashboard" element={<ProtectedRoute><AIDashboard /></ProtectedRoute>} />
               <Route path="/growth-dashboard" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
               <Route path="/growth/:defaultTab" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
