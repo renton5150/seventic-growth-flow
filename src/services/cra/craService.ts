@@ -253,8 +253,24 @@ export const craService = {
 
   // Vérifier les CRA manquants
   async getMissingCRAReports(): Promise<any[]> {
-    const { data, error } = await supabase.rpc('check_missing_cra_reports');
-    if (error) throw error;
-    return data || [];
+    console.log("🔍 Appel de getMissingCRAReports dans craService");
+    
+    try {
+      console.log("📞 Appel de la fonction RPC check_missing_cra_reports");
+      const { data, error } = await supabase.rpc('check_missing_cra_reports');
+      
+      if (error) {
+        console.error("❌ Erreur RPC:", error);
+        throw error;
+      }
+      
+      console.log("✅ Données reçues de la RPC:", data);
+      console.log("📊 Nombre de CRA manquants:", data?.length || 0);
+      
+      return data || [];
+    } catch (error) {
+      console.error("💥 Erreur complète dans getMissingCRAReports:", error);
+      throw error;
+    }
   }
 };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,21 +52,26 @@ export const CRADashboard = () => {
   const loadMissingCRAs = async () => {
     setIsLoadingMissingCRAs(true);
     try {
-      console.log("Chargement des CRA manquants...");
+      console.log("🚀 Début du chargement des CRA manquants...");
       const missing = await craService.getMissingCRAReports();
-      console.log("CRA manquants récupérés:", missing);
+      console.log("📋 CRA manquants récupérés:", missing);
+      console.log("🔢 Nombre:", missing.length);
+      
       setMissingCRAs(missing);
       
       if (missing.length === 0) {
-        toast.success("Aucun CRA manquant pour les jours ouvrables !");
+        toast.success("✅ Aucun CRA manquant pour les jours ouvrables !");
+        console.log("✅ Aucun CRA manquant trouvé");
       } else {
-        toast.info(`${missing.length} CRA manquant(s) pour les jours ouvrables`);
+        toast.info(`⚠️ ${missing.length} CRA manquant(s) pour les jours ouvrables`);
+        console.log(`⚠️ ${missing.length} CRA manquants trouvés:`, missing);
       }
     } catch (error) {
-      console.error("Erreur lors du chargement des CRA manquants:", error);
-      toast.error("Erreur lors du chargement des CRA manquants");
+      console.error("💥 Erreur lors du chargement des CRA manquants:", error);
+      toast.error("❌ Erreur lors du chargement des CRA manquants: " + (error as Error).message);
     } finally {
       setIsLoadingMissingCRAs(false);
+      console.log("🏁 Fin du chargement des CRA manquants");
     }
   };
 
