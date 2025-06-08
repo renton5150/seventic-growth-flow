@@ -9,7 +9,7 @@ export interface UserStatistics {
   pending: number;
   completed: number;
   late: number;
-  unassigned?: number; // Nouveau champ pour les demandes non assignées
+  unassigned?: number; // Pour les Growth - demandes non assignées
 }
 
 export interface UserWithStats {
@@ -24,7 +24,7 @@ export interface UserWithStats {
 // Fonction principale pour récupérer les statistiques utilisateur - LOGIQUE FINALE CORRIGÉE
 export async function fetchUserStatistics(): Promise<UserWithStats[]> {
   try {
-    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - LOGIQUE FINALE CORRIGÉE 🔍");
+    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - LOGIQUE FINALE CORRIGÉE V2 🔍");
     
     // Récupère tous les utilisateurs
     const users = await getAllUsers();
@@ -34,9 +34,13 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
     const requests = await fetchRequests();
     console.log("✅ Demandes récupérées:", requests.length, requests);
     
+    // Pour Growth : calculer les demandes non assignées une seule fois
+    const unassignedRequests = requests.filter(req => !req.assigned_to || req.assigned_to === null);
+    console.log(`📋 Demandes non assignées globales: ${unassignedRequests.length}`);
+    
     // Calcule les statistiques pour chaque utilisateur avec la LOGIQUE FINALE CORRIGÉE
     const usersWithStats = users.map(user => {
-      console.log(`\n📊 CALCUL STATS FINAL CORRIGÉ POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
+      console.log(`\n📊 CALCUL STATS FINAL CORRIGÉ V2 POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
       
       let userRequests;
       
@@ -49,12 +53,6 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         // Pour les Growth et Admin, compter UNIQUEMENT les demandes qui leur sont assignées
         userRequests = requests.filter(req => req.assigned_to === user.id);
         console.log(`✅ ${user.role.toUpperCase()} ${user.name}: ${userRequests.length} demandes assignées à lui`);
-        
-        // Pour Growth, calculer aussi les demandes non assignées
-        if (user.role === "growth") {
-          const unassignedRequests = requests.filter(req => !req.assigned_to || req.assigned_to === null);
-          console.log(`📋 Growth ${user.name}: ${unassignedRequests.length} demandes non assignées`);
-        }
       } else {
         userRequests = [];
         console.log(`⚠️ Rôle non reconnu pour ${user.name}: ${user.role}`);
@@ -105,14 +103,14 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         late: lateRequests.length,
       };
 
-      // Pour les Growth, ajouter les demandes non assignées
+      // Pour TOUS les Growth (pas seulement le premier), ajouter les demandes non assignées
       if (user.role === "growth") {
-        const unassignedRequests = requests.filter(req => !req.assigned_to || req.assigned_to === null);
         stats.unassigned = unassignedRequests.length;
+        console.log(`📋 Growth ${user.name}: ${unassignedRequests.length} demandes non assignées ajoutées`);
       }
 
-      console.log(`📊 STATISTIQUES FINALES CORRIGÉES pour ${user.name}:`, stats);
-      console.log(`📊 VÉRIFICATION: Total=${stats.total}, Pending=${stats.pending}, Completed=${stats.completed}, Late=${stats.late}${stats.unassigned ? `, Unassigned=${stats.unassigned}` : ''}`);
+      console.log(`📊 STATISTIQUES FINALES CORRIGÉES V2 pour ${user.name}:`, stats);
+      console.log(`📊 VÉRIFICATION: Total=${stats.total}, Pending=${stats.pending}, Completed=${stats.completed}, Late=${stats.late}${stats.unassigned !== undefined ? `, Unassigned=${stats.unassigned}` : ''}`);
       
       return {
         ...user,
@@ -120,7 +118,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
       };
     });
     
-    console.log("🎯 STATISTIQUES FINALES CORRIGÉES:", usersWithStats);
+    console.log("🎯 STATISTIQUES FINALES CORRIGÉES V2:", usersWithStats);
     return usersWithStats;
     
   } catch (error) {
@@ -132,7 +130,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
 // Fonction pour récupérer les statistiques globales CORRIGÉES
 export async function fetchGlobalStatistics() {
   try {
-    console.log("🌍 CALCUL STATISTIQUES GLOBALES CORRIGÉES");
+    console.log("🌍 CALCUL STATISTIQUES GLOBALES CORRIGÉES V2");
     
     const users = await getAllUsers();
     const requests = await fetchRequests();
@@ -163,7 +161,7 @@ export async function fetchGlobalStatistics() {
       totalLate: lateRequests.length,
     };
     
-    console.log("🌍 STATISTIQUES GLOBALES CORRIGÉES:", stats);
+    console.log("🌍 STATISTIQUES GLOBALES CORRIGÉES V2:", stats);
     return stats;
     
   } catch (error) {
@@ -174,7 +172,7 @@ export async function fetchGlobalStatistics() {
 
 // Fonction de debug pour vérifier les données brutes
 export async function debugUserStatistics() {
-  console.log("🔧 DÉBUT DEBUG MANUEL DES STATISTIQUES CORRIGÉES 🔧");
+  console.log("🔧 DÉBUT DEBUG MANUEL DES STATISTIQUES CORRIGÉES V2 🔧");
   
   try {
     const users = await getAllUsers();
@@ -183,6 +181,13 @@ export async function debugUserStatistics() {
     console.log("=== DONNÉES BRUTES ===");
     console.log("Utilisateurs:", users);
     console.log("Demandes:", requests);
+    
+    // Analyse des demandes non assignées
+    const unassignedRequests = requests.filter(req => !req.assigned_to || req.assigned_to === null);
+    console.log(`\n=== DEMANDES NON ASSIGNÉES: ${unassignedRequests.length} ===`);
+    unassignedRequests.forEach(req => {
+      console.log(`- ${req.title} (workflow: ${req.workflow_status}, assigned_to: ${req.assigned_to})`);
+    });
     
     console.log("=== ANALYSE DÉTAILLÉE PAR UTILISATEUR ===");
     users.forEach(user => {
@@ -220,8 +225,7 @@ export async function debugUserStatistics() {
         console.log(`  - Late: ${lateAssigned.length}`);
         
         if (user.role === "growth") {
-          const unassignedRequests = requests.filter(req => !req.assigned_to || req.assigned_to === null);
-          console.log(`  - Non assignées: ${unassignedRequests.length}`);
+          console.log(`  - Non assignées (pour tous Growth): ${unassignedRequests.length}`);
         }
         
         assignedRequests.forEach(req => {

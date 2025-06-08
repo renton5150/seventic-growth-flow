@@ -41,24 +41,94 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
       if (createdBy && filterType === 'sdr') {
         // Filtre pour SDR (par créateur)
         console.log(`[GrowthDashboard] 📋 Application filtre SDR pour ${userName} (${userId})`);
-        setAppliedFilters(prev => ({
-          ...prev,
+        setAppliedFilters({
           createdBy: userId,
           sdrName: userName
-        }));
+        });
         setActiveTab("all");
       } else if (assignedTo && filterType === 'growth') {
         // Filtre pour Growth (par assigné)
         console.log(`[GrowthDashboard] 📋 Application filtre Growth pour ${userName} (${userId})`);
-        setAppliedFilters(prev => ({
-          ...prev,
+        setAppliedFilters({
           assignedTo: userId,
           assignedToName: userName
-        }));
+        });
         setActiveTab("all");
       }
     }
   }, [location.state, setActiveTab]);
+
+  // Filtrer les demandes selon les filtres appliqués
+  const getFilteredRequestsWithAppliedFilters = () => {
+    let requests = filteredRequests;
+    
+    if (appliedFilters.createdBy) {
+      // Filtrer par créateur (pour SDR)
+      console.log(`[GrowthDashboard] 🔍 Filtrage par createdBy: ${appliedFilters.createdBy}`);
+      requests = requests.filter(req => req.createdBy === appliedFilters.createdBy);
+      console.log(`[GrowthDashboard] ✅ ${requests.length} demandes après filtrage SDR`);
+    } else if (appliedFilters.assignedTo) {
+      // Filtrer par assigné (pour Growth)
+      console.log(`[GrowthDashboard] 🔍 Filtrage par assignedTo: ${appliedFilters.assignedTo}`);
+      requests = requests.filter(req => req.assigned_to === appliedFilters.assignedTo);
+      console.log(`[GrowthDashboard] ✅ ${requests.length} demandes après filtrage Growth`);
+    }
+    
+    return requests;
+  };
+
+  const finalFilteredRequests = getFilteredRequestsWithAppliedFilters();
+
+  // Afficher un en-tête de filtrage si des filtres sont appliqués
+  const renderFilterHeader = () => {
+    if (appliedFilters.sdrName) {
+      return (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-blue-900">
+                Demandes créées par {appliedFilters.sdrName}
+              </h3>
+              <p className="text-sm text-blue-700">
+                Affichage des demandes créées par ce SDR uniquement
+              </p>
+            </div>
+            <button 
+              onClick={() => setAppliedFilters({})}
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Supprimer le filtre
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    if (appliedFilters.assignedToName) {
+      return (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-green-900">
+                Demandes assignées à {appliedFilters.assignedToName}
+              </h3>
+              <p className="text-sm text-green-700">
+                Affichage des demandes assignées à cette personne Growth uniquement
+              </p>
+            </div>
+            <button 
+              onClick={() => setAppliedFilters({})}
+              className="text-green-600 hover:text-green-800 underline"
+            >
+              Supprimer le filtre
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
+  };
 
   return (
     <AppLayout>
@@ -67,9 +137,11 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           <h1 className="text-2xl font-bold">Tableau de bord</h1>
         </div>
         
+        {renderFilterHeader()}
+        
         <GrowthDashboardContent
           allRequests={allGrowthRequests}
-          filteredRequests={filteredRequests}
+          filteredRequests={finalFilteredRequests}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onEditRequest={onEditRequest}
