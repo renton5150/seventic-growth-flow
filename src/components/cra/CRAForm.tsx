@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -316,13 +315,12 @@ export const CRAForm = ({ selectedDate, onSave }: CRAFormProps) => {
                         value={opportunity.opportunity_name}
                         onChange={(e) => updateOpportunity(missionIndex, oppIndex, 'opportunity_name', e.target.value)}
                         placeholder="Nom de l'opportunité..."
-                        size="sm"
                       />
                     </div>
                     
                     <div className="col-span-3">
                       <Select 
-                        value={opportunity.opportunity_value.toString()} 
+                        value={String(opportunity.opportunity_value)} 
                         onValueChange={(value) => updateOpportunity(missionIndex, oppIndex, 'opportunity_value', value)}
                       >
                         <SelectTrigger>
