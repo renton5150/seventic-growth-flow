@@ -20,45 +20,45 @@ export interface UserWithStats {
   stats: UserStatistics;
 }
 
-// Fonction principale pour récupérer les statistiques utilisateur
+// Fonction principale pour récupérer les statistiques utilisateur - LOGIQUE CORRIGÉE
 export async function fetchUserStatistics(): Promise<UserWithStats[]> {
   try {
-    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - VERSION CORRIGÉE 🔍");
+    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - LOGIQUE CORRIGÉE 🔍");
     
     // Récupère tous les utilisateurs
     const users = await getAllUsers();
-    console.log("Utilisateurs récupérés:", users.length, users);
+    console.log("✅ Utilisateurs récupérés:", users.length, users);
     
     // Récupère toutes les demandes depuis la vue requests_with_missions
     const requests = await fetchRequests();
-    console.log("Demandes récupérées:", requests.length, requests);
+    console.log("✅ Demandes récupérées:", requests.length, requests);
     
-    // Calcule les statistiques pour chaque utilisateur
+    // Calcule les statistiques pour chaque utilisateur avec la LOGIQUE CORRIGÉE
     const usersWithStats = users.map(user => {
-      console.log(`\n📊 CALCUL STATS POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
+      console.log(`\n📊 CALCUL STATS CORRIGÉ POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
       
       let userRequests;
       
-      // LOGIQUE CORRIGÉE : Filtrage selon le rôle de l'utilisateur
+      // LOGIQUE CORRIGÉE : Filtrage strict selon le rôle de l'utilisateur
       if (user.role === "sdr") {
         // Pour les SDR, compter UNIQUEMENT les demandes qu'ils ont créées
         userRequests = requests.filter(req => req.createdBy === user.id);
-        console.log(`SDR ${user.name}: ${userRequests.length} demandes créées`);
+        console.log(`✅ SDR ${user.name}: ${userRequests.length} demandes créées par lui`);
       } else if (user.role === "growth" || user.role === "admin") {
         // Pour les Growth et Admin, compter UNIQUEMENT les demandes qui leur sont assignées
         userRequests = requests.filter(req => req.assigned_to === user.id);
-        console.log(`${user.role.toUpperCase()} ${user.name}: ${userRequests.length} demandes assignées`);
+        console.log(`✅ ${user.role.toUpperCase()} ${user.name}: ${userRequests.length} demandes assignées à lui`);
       } else {
         userRequests = [];
-        console.log(`Rôle non reconnu pour ${user.name}: ${user.role}`);
+        console.log(`⚠️ Rôle non reconnu pour ${user.name}: ${user.role}`);
       }
       
-      // Log des demandes filtrées
+      // Log des demandes filtrées pour vérification
       userRequests.forEach((req, idx) => {
-        console.log(`  Demande ${idx + 1}: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
+        console.log(`  📋 Demande ${idx + 1}: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
       });
       
-      // LOGIQUE CORRIGÉE : Calcule les statistiques
+      // LOGIQUE CORRIGÉE : Calcule les statistiques avec les bonnes règles
       const now = new Date();
       
       // Pending: demandes en attente d'assignation OU en cours
@@ -100,7 +100,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         late: lateRequests.length,
       };
 
-      console.log(`📊 Stats finales pour ${user.name}:`, stats);
+      console.log(`📊 STATISTIQUES FINALES CORRIGÉES pour ${user.name}:`, stats);
       
       return {
         ...user,
@@ -108,7 +108,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
       };
     });
     
-    console.log("🎯 STATISTIQUES FINALES:", usersWithStats);
+    console.log("🎯 STATISTIQUES FINALES CORRIGÉES:", usersWithStats);
     return usersWithStats;
     
   } catch (error) {

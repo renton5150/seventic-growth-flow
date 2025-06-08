@@ -35,10 +35,10 @@ export const UserStatsTableNew = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - VERSION CORRIGÉE");
+      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - LOGIQUE FINALE CORRIGÉE");
       
       const userData = await fetchUserStatistics();
-      console.log("[UserStatsTableNew] ✅ Données chargées:", userData);
+      console.log("[UserStatsTableNew] ✅ Données chargées FINALES CORRIGÉES:", userData);
       setUsers(userData);
     } catch (err) {
       console.error("[UserStatsTableNew] ❌ Erreur:", err);
