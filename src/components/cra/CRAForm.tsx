@@ -126,10 +126,17 @@ export const CRAForm = ({ selectedDate, onSave }: CRAFormProps) => {
 
   const updateOpportunity = (missionIndex: number, oppIndex: number, field: keyof OpportunityEntry, value: any) => {
     const updated = [...missionEntries];
-    updated[missionIndex].opportunities[oppIndex] = {
-      ...updated[missionIndex].opportunities[oppIndex],
-      [field]: value
-    };
+    if (field === 'opportunity_value') {
+      updated[missionIndex].opportunities[oppIndex] = {
+        ...updated[missionIndex].opportunities[oppIndex],
+        [field]: parseInt(value) as 5 | 10 | 20
+      };
+    } else {
+      updated[missionIndex].opportunities[oppIndex] = {
+        ...updated[missionIndex].opportunities[oppIndex],
+        [field]: value
+      };
+    }
     setMissionEntries(updated);
   };
 
@@ -316,9 +323,9 @@ export const CRAForm = ({ selectedDate, onSave }: CRAFormProps) => {
                     <div className="col-span-3">
                       <Select 
                         value={opportunity.opportunity_value.toString()} 
-                        onValueChange={(value) => updateOpportunity(missionIndex, oppIndex, 'opportunity_value', parseInt(value) as 5 | 10 | 20)}
+                        onValueChange={(value) => updateOpportunity(missionIndex, oppIndex, 'opportunity_value', value)}
                       >
-                        <SelectTrigger size="sm">
+                        <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
