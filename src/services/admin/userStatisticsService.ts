@@ -23,7 +23,7 @@ export interface UserWithStats {
 // Fonction principale pour récupérer les statistiques utilisateur
 export async function fetchUserStatistics(): Promise<UserWithStats[]> {
   try {
-    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR 🔍");
+    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - VERSION CORRIGÉE 🔍");
     
     // Récupère tous les utilisateurs
     const users = await getAllUsers();
@@ -33,39 +33,24 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
     const requests = await fetchRequests();
     console.log("Demandes récupérées:", requests.length, requests);
     
-    // Log détaillé des demandes pour debug
-    requests.forEach((req, index) => {
-      console.log(`Demande ${index + 1}:`, {
-        id: req.id.slice(0, 8),
-        title: req.title,
-        status: req.status,
-        workflow_status: req.workflow_status,
-        created_by: req.createdBy?.slice(0, 8) || 'null',
-        assigned_to: req.assigned_to?.slice(0, 8) || 'null',
-        due_date: req.dueDate,
-        is_late: req.isLate
-      });
-    });
-    
     // Calcule les statistiques pour chaque utilisateur
     const usersWithStats = users.map(user => {
       console.log(`\n📊 CALCUL STATS POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
       
       let userRequests;
       
-      // Filtre les demandes selon le rôle de l'utilisateur
+      // LOGIQUE CORRIGÉE : Filtrage selon le rôle de l'utilisateur
       if (user.role === "sdr") {
-        // Pour les SDR, compter les demandes qu'ils ont créées
+        // Pour les SDR, compter UNIQUEMENT les demandes qu'ils ont créées
         userRequests = requests.filter(req => req.createdBy === user.id);
         console.log(`SDR ${user.name}: ${userRequests.length} demandes créées`);
-      } else if (user.role === "growth") {
-        // Pour les Growth, compter les demandes qui leur sont assignées
+      } else if (user.role === "growth" || user.role === "admin") {
+        // Pour les Growth et Admin, compter UNIQUEMENT les demandes qui leur sont assignées
         userRequests = requests.filter(req => req.assigned_to === user.id);
-        console.log(`Growth ${user.name}: ${userRequests.length} demandes assignées`);
+        console.log(`${user.role.toUpperCase()} ${user.name}: ${userRequests.length} demandes assignées`);
       } else {
-        // Pour les autres (admin), compter toutes les demandes assignées
-        userRequests = requests.filter(req => req.assigned_to === user.id);
-        console.log(`Admin ${user.name}: ${userRequests.length} demandes assignées`);
+        userRequests = [];
+        console.log(`Rôle non reconnu pour ${user.name}: ${user.role}`);
       }
       
       // Log des demandes filtrées
@@ -73,9 +58,10 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         console.log(`  Demande ${idx + 1}: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
       });
       
+      // LOGIQUE CORRIGÉE : Calcule les statistiques
       const now = new Date();
       
-      // Calcule les statistiques avec logs détaillés
+      // Pending: demandes en attente d'assignation OU en cours
       const pendingRequests = userRequests.filter(req => {
         const isPending = req.workflow_status === "pending_assignment" || 
                          req.workflow_status === "in_progress" ||
@@ -86,6 +72,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         return isPending;
       });
       
+      // Completed: demandes terminées
       const completedRequests = userRequests.filter(req => {
         const isCompleted = req.workflow_status === "completed";
         if (isCompleted) {
@@ -94,6 +81,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         return isCompleted;
       });
       
+      // Late: demandes en retard (actives avec due_date dépassée)
       const lateRequests = userRequests.filter(req => {
         const isActive = req.workflow_status !== 'completed' && req.workflow_status !== 'canceled';
         const isLate = req.isLate || (req.dueDate && new Date(req.dueDate) < now);
@@ -145,19 +133,21 @@ export async function debugUserStatistics() {
     users.forEach(user => {
       console.log(`\n--- ${user.name} (${user.role}) ---`);
       
-      // Demandes créées par l'utilisateur
-      const createdRequests = requests.filter(req => req.createdBy === user.id);
-      console.log(`Demandes créées: ${createdRequests.length}`);
-      createdRequests.forEach(req => {
-        console.log(`  - ${req.title} (${req.workflow_status})`);
-      });
-      
-      // Demandes assignées à l'utilisateur
-      const assignedRequests = requests.filter(req => req.assigned_to === user.id);
-      console.log(`Demandes assignées: ${assignedRequests.length}`);
-      assignedRequests.forEach(req => {
-        console.log(`  - ${req.title} (${req.workflow_status})`);
-      });
+      if (user.role === "sdr") {
+        // Demandes créées par l'utilisateur
+        const createdRequests = requests.filter(req => req.createdBy === user.id);
+        console.log(`Demandes créées: ${createdRequests.length}`);
+        createdRequests.forEach(req => {
+          console.log(`  - ${req.title} (${req.workflow_status})`);
+        });
+      } else if (user.role === "growth" || user.role === "admin") {
+        // Demandes assignées à l'utilisateur
+        const assignedRequests = requests.filter(req => req.assigned_to === user.id);
+        console.log(`Demandes assignées: ${assignedRequests.length}`);
+        assignedRequests.forEach(req => {
+          console.log(`  - ${req.title} (${req.workflow_status})`);
+        });
+      }
     });
     
   } catch (error) {

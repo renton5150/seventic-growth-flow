@@ -35,7 +35,7 @@ export const UserStatsTableNew = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur");
+      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - VERSION CORRIGÉE");
       
       const userData = await fetchUserStatistics();
       console.log("[UserStatsTableNew] ✅ Données chargées:", userData);
@@ -143,7 +143,7 @@ export const UserStatsTableNew = () => {
           
           <Button onClick={handleDebug} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Debug
+            Debug & Refresh
           </Button>
         </div>
 

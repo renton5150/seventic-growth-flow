@@ -6,12 +6,12 @@ import { fetchUserStatistics } from "@/services/admin/userStatisticsService";
 
 export const AdminStatsSummary = () => {
   const { data: usersWithStats = [], isLoading, error } = useQuery({
-    queryKey: ['admin-stats-summary'],
+    queryKey: ['admin-stats-summary-corrected'],
     queryFn: fetchUserStatistics,
     refetchInterval: 30000,
   });
 
-  console.log("[AdminStatsSummary] 🔄 Données des statistiques:", usersWithStats);
+  console.log("[AdminStatsSummary] 🔄 Données des statistiques CORRIGÉES:", usersWithStats);
 
   if (isLoading) {
     return (
@@ -37,13 +37,13 @@ export const AdminStatsSummary = () => {
     );
   }
 
-  // Calcul des totaux à partir des données utilisateur
+  // Calcul des totaux à partir des données utilisateur CORRIGÉES
   const totalUsers = usersWithStats.length;
   const totalPending = usersWithStats.reduce((sum, user) => sum + user.stats.pending, 0);
   const totalCompleted = usersWithStats.reduce((sum, user) => sum + user.stats.completed, 0);
   const totalLate = usersWithStats.reduce((sum, user) => sum + user.stats.late, 0);
 
-  console.log("[AdminStatsSummary] 📊 Totaux calculés:", {
+  console.log("[AdminStatsSummary] 📊 Totaux calculés CORRIGÉS:", {
     totalUsers,
     totalPending,
     totalCompleted,
