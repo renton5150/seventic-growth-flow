@@ -3,28 +3,33 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthDashboardContent } from "@/components/growth/dashboard/GrowthDashboardContent";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
 import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-const GrowthDashboard = () => {
+interface GrowthDashboardProps {
+  defaultTab?: string;
+}
+
+const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   const location = useLocation();
   const {
     filteredRequests,
-    allGrowthRequests,
+    allRequests: allGrowthRequests,
     activeTab,
     setActiveTab,
-    onEditRequest,
-    onCompleteRequest,
-    onViewDetails,
-    onRequestUpdated,
-    onRequestDeleted,
+    handleOpenEditDialog: onEditRequest,
+    handleOpenCompletionDialog: onCompleteRequest,
+    handleViewDetails: onViewDetails,
+    handleRequestUpdated: onRequestUpdated,
+    handleRequestDeleted: onRequestDeleted,
     assignRequestToMe,
     updateRequestWorkflowStatus,
     activeFilter,
     setActiveFilter,
-    handleStatCardClick,
-    appliedFilters,
-    setAppliedFilters
-  } = useGrowthDashboard();
+    handleStatCardClick
+  } = useGrowthDashboard(defaultTab);
+
+  // State for applied filters (since it's not in the hook)
+  const [appliedFilters, setAppliedFilters] = useState<any>({});
 
   // Gérer les filtres venant de la navigation admin
   useEffect(() => {
@@ -41,7 +46,7 @@ const GrowthDashboard = () => {
           createdBy: userId,
           sdrName: userName
         }));
-        setActiveTab("toutes");
+        setActiveTab("all");
       } else if (assignedTo && filterType === 'growth') {
         // Filtre pour Growth (par assigné)
         console.log(`[GrowthDashboard] 📋 Application filtre Growth pour ${userName} (${userId})`);
@@ -50,10 +55,10 @@ const GrowthDashboard = () => {
           assignedTo: userId,
           assignedToName: userName
         }));
-        setActiveTab("toutes");
+        setActiveTab("all");
       }
     }
-  }, [location.state, setAppliedFilters, setActiveTab]);
+  }, [location.state, setActiveTab]);
 
   return (
     <AppLayout>
