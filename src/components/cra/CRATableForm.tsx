@@ -101,15 +101,22 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
           };
         });
 
-        // Load opportunities
+        // Load opportunities and group them by value
         opportunities.forEach(opp => {
           if (existingData[opp.mission_id]) {
+            const currentValue = existingData[opp.mission_id];
             if (opp.opportunity_value === 5) {
-              existingData[opp.mission_id].opportunity_5 = opp.opportunity_name;
+              currentValue.opportunity_5 = currentValue.opportunity_5 
+                ? currentValue.opportunity_5 + "\n" + opp.opportunity_name 
+                : opp.opportunity_name;
             } else if (opp.opportunity_value === 10) {
-              existingData[opp.mission_id].opportunity_10 = opp.opportunity_name;
+              currentValue.opportunity_10 = currentValue.opportunity_10 
+                ? currentValue.opportunity_10 + "\n" + opp.opportunity_name 
+                : opp.opportunity_name;
             } else if (opp.opportunity_value === 20) {
-              existingData[opp.mission_id].opportunity_20 = opp.opportunity_name;
+              currentValue.opportunity_20 = currentValue.opportunity_20 
+                ? currentValue.opportunity_20 + "\n" + opp.opportunity_name 
+                : opp.opportunity_name;
             }
           }
         });
@@ -155,27 +162,41 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
         })),
         opportunities: activeMissions.flatMap(data => {
           const opps = [];
+          
+          // Split each opportunity field by newlines and create separate entries
           if (data.opportunity_5.trim()) {
-            opps.push({
-              mission_id: data.mission_id,
-              opportunity_name: data.opportunity_5,
-              opportunity_value: 5 as 5 | 10 | 20
+            const opportunities5 = data.opportunity_5.split('\n').filter(opp => opp.trim());
+            opportunities5.forEach(opp => {
+              opps.push({
+                mission_id: data.mission_id,
+                opportunity_name: opp.trim(),
+                opportunity_value: 5 as 5 | 10 | 20
+              });
             });
           }
+          
           if (data.opportunity_10.trim()) {
-            opps.push({
-              mission_id: data.mission_id,
-              opportunity_name: data.opportunity_10,
-              opportunity_value: 10 as 5 | 10 | 20
+            const opportunities10 = data.opportunity_10.split('\n').filter(opp => opp.trim());
+            opportunities10.forEach(opp => {
+              opps.push({
+                mission_id: data.mission_id,
+                opportunity_name: opp.trim(),
+                opportunity_value: 10 as 5 | 10 | 20
+              });
             });
           }
+          
           if (data.opportunity_20.trim()) {
-            opps.push({
-              mission_id: data.mission_id,
-              opportunity_name: data.opportunity_20,
-              opportunity_value: 20 as 5 | 10 | 20
+            const opportunities20 = data.opportunity_20.split('\n').filter(opp => opp.trim());
+            opportunities20.forEach(opp => {
+              opps.push({
+                mission_id: data.mission_id,
+                opportunity_name: opp.trim(),
+                opportunity_value: 20 as 5 | 10 | 20
+              });
             });
           }
+          
           return opps;
         }),
         comments
@@ -231,9 +252,9 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
               <TableRow>
                 <TableHead className="w-[200px]">Mission</TableHead>
                 <TableHead className="w-[120px]">Temps passé (%)</TableHead>
-                <TableHead className="w-[150px]">5%</TableHead>
-                <TableHead className="w-[150px]">10%</TableHead>
-                <TableHead className="w-[150px]">20%</TableHead>
+                <TableHead className="w-[200px]">5%</TableHead>
+                <TableHead className="w-[200px]">10%</TableHead>
+                <TableHead className="w-[200px]">20%</TableHead>
                 <TableHead>Activités</TableHead>
               </TableRow>
             </TableHeader>
@@ -267,35 +288,43 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Input
+                      <Textarea
                         value={data.opportunity_5}
                         onChange={(e) => updateMissionData(mission.id, 'opportunity_5', e.target.value)}
-                        placeholder="Opportunité 5%"
+                        placeholder="Opportunité 5%&#10;(une par ligne)"
                         disabled={data.time_percentage === 0}
+                        rows={3}
+                        className="min-h-[80px] resize-none"
                       />
                     </TableCell>
                     <TableCell>
-                      <Input
+                      <Textarea
                         value={data.opportunity_10}
                         onChange={(e) => updateMissionData(mission.id, 'opportunity_10', e.target.value)}
-                        placeholder="Opportunité 10%"
+                        placeholder="Opportunité 10%&#10;(une par ligne)"
                         disabled={data.time_percentage === 0}
+                        rows={3}
+                        className="min-h-[80px] resize-none"
                       />
                     </TableCell>
                     <TableCell>
-                      <Input
+                      <Textarea
                         value={data.opportunity_20}
                         onChange={(e) => updateMissionData(mission.id, 'opportunity_20', e.target.value)}
-                        placeholder="Opportunité 20%"
+                        placeholder="Opportunité 20%&#10;(une par ligne)"
                         disabled={data.time_percentage === 0}
+                        rows={3}
+                        className="min-h-[80px] resize-none"
                       />
                     </TableCell>
                     <TableCell>
-                      <Input
+                      <Textarea
                         value={data.mission_comment}
                         onChange={(e) => updateMissionData(mission.id, 'mission_comment', e.target.value)}
                         placeholder="Commentaire sur cette mission..."
                         disabled={data.time_percentage === 0}
+                        rows={3}
+                        className="min-h-[80px] resize-none"
                       />
                     </TableCell>
                   </TableRow>
