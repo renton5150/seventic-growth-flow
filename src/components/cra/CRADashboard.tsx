@@ -12,6 +12,7 @@ import { CRACalendar } from "./CRACalendar";
 import { useAuth } from "@/contexts/AuthContext";
 import { craService } from "@/services/cra/craService";
 import { getAllUsers } from "@/services/user/userQueries";
+import { toast } from "sonner";
 
 export const CRADashboard = () => {
   const { user, isAdmin } = useAuth();
@@ -20,6 +21,7 @@ export const CRADashboard = () => {
   const [selectedSDR, setSelectedSDR] = useState<string>(isAdmin ? "" : user?.id || "");
   const [sdrList, setSdrList] = useState<any[]>([]);
   const [missingCRAs, setMissingCRAs] = useState<any[]>([]);
+  const [isLoadingMissingCRAs, setIsLoadingMissingCRAs] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -49,12 +51,23 @@ export const CRADashboard = () => {
   };
 
   const loadMissingCRAs = async () => {
+    setIsLoadingMissingCRAs(true);
     try {
+      console.log("Chargement des CRA manquants...");
       const missing = await craService.getMissingCRAReports();
+      console.log("CRA manquants récupérés:", missing);
       setMissingCRAs(missing);
-      console.log("CRA manquants:", missing);
+      
+      if (missing.length === 0) {
+        toast.success("Aucun CRA manquant pour les jours ouvrables !");
+      } else {
+        toast.info(`${missing.length} CRA manquant(s) pour les jours ouvrables`);
+      }
     } catch (error) {
       console.error("Erreur lors du chargement des CRA manquants:", error);
+      toast.error("Erreur lors du chargement des CRA manquants");
+    } finally {
+      setIsLoadingMissingCRAs(false);
     }
   };
 
@@ -202,8 +215,12 @@ export const CRADashboard = () => {
                   <div>
                     <h3 className="font-semibold mb-2">Actions administratives</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Button onClick={loadMissingCRAs} variant="outline">
-                        Rafraîchir les CRA manquants
+                      <Button 
+                        onClick={loadMissingCRAs} 
+                        variant="outline"
+                        disabled={isLoadingMissingCRAs}
+                      >
+                        {isLoadingMissingCRAs ? "Rafraîchissement..." : "Rafraîchir les CRA manquants"}
                       </Button>
                       <Button variant="outline" disabled>
                         Envoyer rappels email (à venir)
