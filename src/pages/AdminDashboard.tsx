@@ -1,8 +1,7 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminStatsSummary } from "@/components/admin/AdminStatsSummary";
-import { UserStatsTableFixed } from "@/components/admin/UserStatsTableFixed";
-import { AdminStatsSummaryDebug } from "@/components/admin/AdminStatsSummaryDebug";
+import { UserStatsTableNew } from "@/components/admin/UserStatsTableNew";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
@@ -20,7 +19,7 @@ const AdminDashboard = () => {
     // Setup interval for periodic refresh
     const interval = setInterval(() => {
       refreshData();
-    }, 10000); // Every 10 seconds
+    }, 30000); // Every 30 seconds (réduit la fréquence)
     
     return () => clearInterval(interval);
   }, [queryClient]);
@@ -57,12 +56,9 @@ const AdminDashboard = () => {
         
         <AdminStatsSummary />
         
-        {/* Composant de debug - à supprimer après résolution */}
-        <AdminStatsSummaryDebug />
-        
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Statistiques par utilisateur</h2>
-          <UserStatsTableFixed />
+          <UserStatsTableNew />
         </div>
       </div>
     </AppLayout>
