@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -74,9 +73,9 @@ export const UserStatsTableNew = () => {
     console.log(`[UserStatsTableNew] 🖱️ Clic sur utilisateur ${activeTab}: ${user.name} (ID: ${user.id})`);
     
     if (activeTab === "sdr") {
-      // Pour les SDR, filtrer par createdBy
+      // Pour les SDR, filtrer par createdBy - ROUTE CORRIGÉE
       console.log(`[UserStatsTableNew] 📋 Navigation SDR - Filtrage par createdBy: ${user.id}`);
-      navigate("/growth", { 
+      navigate("/growth-dashboard", { 
         state: { 
           createdBy: user.id, 
           userName: user.name,
@@ -85,9 +84,9 @@ export const UserStatsTableNew = () => {
         } 
       });
     } else {
-      // Pour les Growth, filtrer par assignedTo
+      // Pour les Growth, filtrer par assignedTo - ROUTE CORRIGÉE
       console.log(`[UserStatsTableNew] 📋 Navigation Growth - Filtrage par assignedTo: ${user.id}`);
-      navigate("/growth", { 
+      navigate("/growth-dashboard", { 
         state: { 
           assignedTo: user.id, 
           userName: user.name,

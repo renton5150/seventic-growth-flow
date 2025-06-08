@@ -59,7 +59,11 @@ function App() {
               <Route path="/email-platforms" element={<ProtectedRoute><EmailPlatforms /></ProtectedRoute>} />
               <Route path="/acelle-campaigns" element={<ProtectedRoute><AcelleEmailCampaigns /></ProtectedRoute>} />
               <Route path="/ai-dashboard" element={<ProtectedRoute><AIDashboard /></ProtectedRoute>} />
+              
+              {/* Growth Dashboard routes - AJOUT DE LA ROUTE /growth pour la rétrocompatibilité */}
               <Route path="/growth-dashboard" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
+              <Route path="/growth-dashboard/:defaultTab" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
+              <Route path="/growth" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
               <Route path="/growth/:defaultTab" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
               
               <Route path="/unauthorized" element={<Unauthorized />} />
