@@ -36,9 +36,10 @@ interface MissionData {
 interface CRATableFormProps {
   selectedDate: string;
   onSave: () => void;
+  sdrId?: string; // Pour permettre aux admins de voir les CRA d'autres SDR
 }
 
-export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
+export const CRATableForm = ({ selectedDate, onSave, sdrId }: CRATableFormProps) => {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [missionData, setMissionData] = useState<{ [key: string]: MissionData }>({});
   const [comments, setComments] = useState("");
@@ -48,7 +49,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
   useEffect(() => {
     loadMissions();
     loadExistingCRA();
-  }, [selectedDate]);
+  }, [selectedDate, sdrId]);
 
   useEffect(() => {
     const total = Object.values(missionData).reduce((sum, data) => sum + (data.time_percentage || 0), 0);
@@ -82,7 +83,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
   const loadExistingCRA = async () => {
     try {
       const { report, missionTimes, opportunities } = 
-        await craService.getCRAByDate(selectedDate);
+        await craService.getCRAByDate(selectedDate, sdrId);
       
       if (report) {
         setComments(report.comments || "");
@@ -139,6 +140,11 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
   };
 
   const handleSave = async () => {
+    if (sdrId) {
+      toast.error("Vous ne pouvez pas modifier le CRA d'un autre utilisateur");
+      return;
+    }
+
     if (totalPercentage > 100) {
       toast.error("Le total des pourcentages ne peut pas dépasser 100%");
       return;
@@ -219,6 +225,8 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
     return "text-orange-600";
   };
 
+  const isReadOnly = !!sdrId; // Mode lecture seule pour les admins regardant les CRA d'autres SDR
+
   return (
     <div className="space-y-6">
       {/* En-tête avec indicateur de statut */}
@@ -228,6 +236,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               CRA du {new Date(selectedDate).toLocaleDateString('fr-FR')}
+              {isReadOnly && <span className="text-sm text-muted-foreground">(Lecture seule)</span>}
             </CardTitle>
             <div className={`flex items-center gap-2 font-semibold ${getPercentageColor()}`}>
               {totalPercentage === 100 ? (
@@ -285,6 +294,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
                         value={data.time_percentage || ""}
                         onChange={(e) => updateMissionData(mission.id, 'time_percentage', parseInt(e.target.value) || 0)}
                         className="w-20"
+                        disabled={isReadOnly}
                       />
                     </TableCell>
                     <TableCell>
@@ -292,7 +302,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
                         value={data.opportunity_5}
                         onChange={(e) => updateMissionData(mission.id, 'opportunity_5', e.target.value)}
                         placeholder="Opportunité 5%&#10;(une par ligne)"
-                        disabled={data.time_percentage === 0}
+                        disabled={data.time_percentage === 0 || isReadOnly}
                         rows={3}
                         className="min-h-[80px] resize-none"
                       />
@@ -302,7 +312,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
                         value={data.opportunity_10}
                         onChange={(e) => updateMissionData(mission.id, 'opportunity_10', e.target.value)}
                         placeholder="Opportunité 10%&#10;(une par ligne)"
-                        disabled={data.time_percentage === 0}
+                        disabled={data.time_percentage === 0 || isReadOnly}
                         rows={3}
                         className="min-h-[80px] resize-none"
                       />
@@ -312,7 +322,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
                         value={data.opportunity_20}
                         onChange={(e) => updateMissionData(mission.id, 'opportunity_20', e.target.value)}
                         placeholder="Opportunité 20%&#10;(une par ligne)"
-                        disabled={data.time_percentage === 0}
+                        disabled={data.time_percentage === 0 || isReadOnly}
                         rows={3}
                         className="min-h-[80px] resize-none"
                       />
@@ -322,7 +332,7 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
                         value={data.mission_comment}
                         onChange={(e) => updateMissionData(mission.id, 'mission_comment', e.target.value)}
                         placeholder="Commentaire sur cette mission..."
-                        disabled={data.time_percentage === 0}
+                        disabled={data.time_percentage === 0 || isReadOnly}
                         rows={3}
                         className="min-h-[80px] resize-none"
                       />
@@ -346,20 +356,23 @@ export const CRATableForm = ({ selectedDate, onSave }: CRATableFormProps) => {
             onChange={(e) => setComments(e.target.value)}
             placeholder="Commentaires généraux sur cette journée..."
             rows={3}
+            disabled={isReadOnly}
           />
         </CardContent>
       </Card>
 
       {/* Actions */}
-      <div className="flex justify-end gap-4">
-        <Button 
-          onClick={handleSave} 
-          disabled={isLoading}
-          className="min-w-32"
-        >
-          {isLoading ? "Sauvegarde..." : "Sauvegarder"}
-        </Button>
-      </div>
+      {!isReadOnly && (
+        <div className="flex justify-end gap-4">
+          <Button 
+            onClick={handleSave} 
+            disabled={isLoading}
+            className="min-w-32"
+          >
+            {isLoading ? "Sauvegarde..." : "Sauvegarder"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

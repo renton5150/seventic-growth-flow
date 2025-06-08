@@ -17,7 +17,7 @@ export const CRADashboard = () => {
   const { user, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("form");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedSDR, setSelectedSDR] = useState<string>("all");
+  const [selectedSDR, setSelectedSDR] = useState<string>(isAdmin ? "" : user?.id || "");
   const [sdrList, setSdrList] = useState<any[]>([]);
   const [missingCRAs, setMissingCRAs] = useState<any[]>([]);
 
@@ -28,11 +28,21 @@ export const CRADashboard = () => {
     }
   }, [isAdmin]);
 
+  // Initialiser selectedSDR quand les données sont chargées
+  useEffect(() => {
+    if (isAdmin && sdrList.length > 0 && !selectedSDR) {
+      setSelectedSDR(sdrList[0]?.id || "");
+    } else if (!isAdmin && user?.id && !selectedSDR) {
+      setSelectedSDR(user.id);
+    }
+  }, [isAdmin, sdrList, user?.id, selectedSDR]);
+
   const loadSDRList = async () => {
     try {
       const users = await getAllUsers();
       const sdrs = users.filter(u => u.role === 'sdr');
       setSdrList(sdrs);
+      console.log("SDRs chargés:", sdrs);
     } catch (error) {
       console.error("Erreur lors du chargement des SDR:", error);
     }
@@ -42,6 +52,7 @@ export const CRADashboard = () => {
     try {
       const missing = await craService.getMissingCRAReports();
       setMissingCRAs(missing);
+      console.log("CRA manquants:", missing);
     } catch (error) {
       console.error("Erreur lors du chargement des CRA manquants:", error);
     }
@@ -54,7 +65,7 @@ export const CRADashboard = () => {
     }
   };
 
-  const targetSDR = selectedSDR === "all" ? undefined : selectedSDR || user?.id;
+  const targetSDR = selectedSDR || user?.id;
 
   return (
     <div className="space-y-6">
@@ -75,7 +86,6 @@ export const CRADashboard = () => {
                 <SelectValue placeholder="Sélectionner un SDR" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les SDR</SelectItem>
                 {sdrList.map(sdr => (
                   <SelectItem key={sdr.id} value={sdr.id}>
                     {sdr.name}
@@ -145,16 +155,25 @@ export const CRADashboard = () => {
             </CardContent>
           </Card>
 
-          {!isAdmin || selectedSDR !== "all" ? (
+          {selectedSDR ? (
             <CRATableForm 
               selectedDate={selectedDate} 
               onSave={handleCRASaved}
+              sdrId={isAdmin ? selectedSDR : undefined}
             />
-          ) : (
+          ) : isAdmin ? (
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center text-muted-foreground">
                   Sélectionnez un SDR pour voir ou éditer son CRA
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center text-muted-foreground">
+                  Chargement...
                 </div>
               </CardContent>
             </Card>
@@ -189,6 +208,18 @@ export const CRADashboard = () => {
                       <Button variant="outline" disabled>
                         Envoyer rappels email (à venir)
                       </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Informations sur les SDR */}
+                  <div>
+                    <h3 className="font-semibold mb-2">SDR actifs ({sdrList.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {sdrList.map(sdr => (
+                        <div key={sdr.id} className="text-sm p-2 bg-gray-50 rounded">
+                          {sdr.name} ({sdr.email})
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
