@@ -1,20 +1,20 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { getAllRequests } from "@/services/requestService";
-import { Request } from "@/types/types";
 import { AIRequestAnalysis } from "@/components/ai-dashboard/request-analysis";
 import { AIActivitySummary } from "@/components/ai-dashboard/AIActivitySummary";
 import { AIAssignmentSuggestions } from "@/components/ai-dashboard/AIAssignmentSuggestions";
 import { AISimilarityFinder } from "@/components/ai-dashboard/AISimilarityFinder";
+import { AIChat } from "@/components/ai-dashboard/AIChat";
 
 const AIDashboard = () => {
-  const [activeTab, setActiveTab] = useState("analyze");
+  const [activeTab, setActiveTab] = useState("chat");
 
-  // Fetch all requests for analysis
+  // Fetch all requests for analysis tools
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['ai-dashboard-requests'],
     queryFn: getAllRequests,
@@ -26,17 +26,22 @@ const AIDashboard = () => {
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-2">AI Insights Dashboard</h1>
           <p className="text-muted-foreground">
-            Powered by Claude 3 Opus from Anthropic - Advanced analytics and insights for your data
+            Powered by Claude 3 Haiku from Anthropic - Chat intelligent et analyses avancées pour vos données
           </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
+            <TabsTrigger value="chat">Chat IA</TabsTrigger>
             <TabsTrigger value="analyze">Request Analysis</TabsTrigger>
             <TabsTrigger value="summary">Activity Summary</TabsTrigger>
             <TabsTrigger value="assignments">Assignment Suggestions</TabsTrigger>
             <TabsTrigger value="similarities">Similarity Finder</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="chat">
+            <AIChat />
+          </TabsContent>
 
           {isLoading ? (
             <Card>
