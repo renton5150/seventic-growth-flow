@@ -20,10 +20,10 @@ export interface UserWithStats {
   stats: UserStatistics;
 }
 
-// Fonction principale pour récupérer les statistiques utilisateur - LOGIQUE VRAIMENT CORRIGÉE
+// Fonction principale pour récupérer les statistiques utilisateur - LOGIQUE CORRIGÉE
 export async function fetchUserStatistics(): Promise<UserWithStats[]> {
   try {
-    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - LOGIQUE VRAIMENT CORRIGÉE 🔍");
+    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - LOGIQUE CORRIGÉE 🔍");
     
     // Récupère tous les utilisateurs
     const users = await getAllUsers();
@@ -33,13 +33,13 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
     const requests = await fetchRequests();
     console.log("✅ Demandes récupérées:", requests.length, requests);
     
-    // Calcule les statistiques pour chaque utilisateur avec la LOGIQUE VRAIMENT CORRIGÉE
+    // Calcule les statistiques pour chaque utilisateur avec la LOGIQUE CORRIGÉE
     const usersWithStats = users.map(user => {
-      console.log(`\n📊 CALCUL STATS VRAIMENT CORRIGÉ POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
+      console.log(`\n📊 CALCUL STATS CORRIGÉ POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
       
       let userRequests;
       
-      // LOGIQUE VRAIMENT CORRIGÉE : Filtrage strict selon le rôle de l'utilisateur
+      // LOGIQUE CORRIGÉE : Filtrage strict selon le rôle de l'utilisateur
       if (user.role === "sdr") {
         // Pour les SDR, compter UNIQUEMENT les demandes qu'ils ont créées
         userRequests = requests.filter(req => req.createdBy === user.id);
@@ -58,7 +58,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         console.log(`  📋 Demande ${idx + 1}: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
       });
       
-      // LOGIQUE VRAIMENT CORRIGÉE : Calcule les statistiques avec les VRAIES règles
+      // LOGIQUE CORRIGÉE : Calcule les statistiques avec les VRAIES règles
       const now = new Date();
       
       // Completed: demandes avec workflow_status "completed" UNIQUEMENT
@@ -70,9 +70,9 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         return isCompleted;
       });
       
-      // Pending: demandes avec workflow_status "pending_assignment" OU "in_progress" MAIS PAS "completed"
+      // Pending: demandes avec workflow_status "pending_assignment" OU "in_progress" (pas besoin de vérifier !== completed)
       const pendingRequests = userRequests.filter(req => {
-        const isPending = (req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress") && req.workflow_status !== "completed";
+        const isPending = req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress";
         if (isPending) {
           console.log(`  📋 Pending: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
         }
@@ -98,7 +98,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
         late: lateRequests.length,
       };
 
-      console.log(`📊 STATISTIQUES VRAIMENT CORRIGÉES pour ${user.name}:`, stats);
+      console.log(`📊 STATISTIQUES CORRIGÉES pour ${user.name}:`, stats);
       console.log(`📊 VÉRIFICATION: Total=${stats.total}, Pending=${stats.pending}, Completed=${stats.completed}, Late=${stats.late}`);
       
       return {
@@ -107,7 +107,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
       };
     });
     
-    console.log("🎯 STATISTIQUES VRAIMENT CORRIGÉES:", usersWithStats);
+    console.log("🎯 STATISTIQUES CORRIGÉES:", usersWithStats);
     return usersWithStats;
     
   } catch (error) {
@@ -118,7 +118,7 @@ export async function fetchUserStatistics(): Promise<UserWithStats[]> {
 
 // Fonction de debug pour vérifier les données brutes
 export async function debugUserStatistics() {
-  console.log("🔧 DÉBUT DEBUG MANUEL DES STATISTIQUES VRAIMENT CORRIGÉES 🔧");
+  console.log("🔧 DÉBUT DEBUG MANUEL DES STATISTIQUES CORRIGÉES 🔧");
   
   try {
     const users = await getAllUsers();
@@ -138,7 +138,7 @@ export async function debugUserStatistics() {
         console.log(`Demandes créées: ${createdRequests.length}`);
         
         // Analyse par statut
-        const pendingCreated = createdRequests.filter(req => (req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress") && req.workflow_status !== "completed");
+        const pendingCreated = createdRequests.filter(req => req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress");
         const completedCreated = createdRequests.filter(req => req.workflow_status === "completed");
         const lateCreated = createdRequests.filter(req => req.workflow_status !== 'completed' && req.workflow_status !== 'canceled' && (req.isLate || (req.dueDate && new Date(req.dueDate) < new Date())));
         
@@ -155,7 +155,7 @@ export async function debugUserStatistics() {
         console.log(`Demandes assignées: ${assignedRequests.length}`);
         
         // Analyse par statut
-        const pendingAssigned = assignedRequests.filter(req => (req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress") && req.workflow_status !== "completed");
+        const pendingAssigned = assignedRequests.filter(req => req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress");
         const completedAssigned = assignedRequests.filter(req => req.workflow_status === "completed");
         const lateAssigned = assignedRequests.filter(req => req.workflow_status !== 'completed' && req.workflow_status !== 'canceled' && (req.isLate || (req.dueDate && new Date(req.dueDate) < new Date())));
         
