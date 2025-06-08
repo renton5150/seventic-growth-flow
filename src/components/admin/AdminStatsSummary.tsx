@@ -2,16 +2,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
-import { fetchUserStatistics } from "@/services/admin/userStatisticsService";
+import { fetchGlobalStatistics } from "@/services/admin/userStatisticsService";
 
 export const AdminStatsSummary = () => {
-  const { data: usersWithStats = [], isLoading, error } = useQuery({
-    queryKey: ['admin-stats-summary-vraiment-corrigee'],
-    queryFn: fetchUserStatistics,
+  const { data: globalStats, isLoading, error } = useQuery({
+    queryKey: ['admin-global-stats-corrigees'],
+    queryFn: fetchGlobalStatistics,
     refetchInterval: 30000,
   });
 
-  console.log("[AdminStatsSummary] 🔄 Données des statistiques VRAIMENT CORRIGÉES:", usersWithStats);
+  console.log("[AdminStatsSummary] 🔄 Statistiques globales CORRIGÉES:", globalStats);
 
   if (isLoading) {
     return (
@@ -37,44 +37,31 @@ export const AdminStatsSummary = () => {
     );
   }
 
-  // Calcul des totaux à partir des données utilisateur VRAIMENT CORRIGÉES
-  const totalUsers = usersWithStats.length;
-  const totalPending = usersWithStats.reduce((sum, user) => sum + user.stats.pending, 0);
-  const totalCompleted = usersWithStats.reduce((sum, user) => sum + user.stats.completed, 0);
-  const totalLate = usersWithStats.reduce((sum, user) => sum + user.stats.late, 0);
-
-  console.log("[AdminStatsSummary] 📊 TOTAUX CALCULÉS VRAIMENT CORRIGÉS:", {
-    totalUsers,
-    totalPending,
-    totalCompleted,
-    totalLate
-  });
-
   const stats = [
     {
       title: "Utilisateurs",
-      value: totalUsers,
-      description: `${usersWithStats.filter(u => u.role === 'sdr').length} SDR, ${usersWithStats.filter(u => u.role === 'growth').length} Growth`,
+      value: globalStats?.totalUsers || 0,
+      description: "Utilisateurs actifs",
       icon: Users,
       color: "text-blue-600"
     },
     {
       title: "En attente",
-      value: totalPending,
+      value: globalStats?.totalPending || 0,
       description: "Demandes à traiter",
       icon: Clock,
       color: "text-orange-600"
     },
     {
       title: "Terminées",
-      value: totalCompleted,
+      value: globalStats?.totalCompleted || 0,
       description: "Demandes complétées",
       icon: CheckCircle,
       color: "text-green-600"
     },
     {
       title: "En retard",
-      value: totalLate,
+      value: globalStats?.totalLate || 0,
       description: "Demandes en retard",
       icon: AlertCircle,
       color: "text-red-600"

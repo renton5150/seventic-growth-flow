@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,7 +13,8 @@ import {
   CheckCircle, 
   AlertCircle, 
   Search,
-  RefreshCw
+  RefreshCw,
+  UserX
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,15 +31,15 @@ export const UserStatsTableNew = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Fonction pour charger les données VRAIMENT CORRIGÉES
+  // Fonction pour charger les données FINALES CORRIGÉES
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - LOGIQUE VRAIMENT CORRIGÉE");
+      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - LOGIQUE FINALE CORRIGÉE");
       
       const userData = await fetchUserStatistics();
-      console.log("[UserStatsTableNew] ✅ Données chargées VRAIMENT CORRIGÉES:", userData);
+      console.log("[UserStatsTableNew] ✅ Données chargées FINALES CORRIGÉES:", userData);
       setUsers(userData);
     } catch (err) {
       console.error("[UserStatsTableNew] ❌ Erreur:", err);
@@ -52,9 +54,9 @@ export const UserStatsTableNew = () => {
     loadData();
   }, []);
 
-  // Fonction de debug VRAIMENT CORRIGÉE
+  // Fonction de debug FINALE CORRIGÉE
   const handleDebug = async () => {
-    console.log("🔧 DÉCLENCHEMENT DEBUG MANUEL VRAIMENT CORRIGÉ");
+    console.log("🔧 DÉCLENCHEMENT DEBUG MANUEL FINAL CORRIGÉ");
     await debugUserStatistics();
     await loadData();
   };
@@ -69,12 +71,30 @@ export const UserStatsTableNew = () => {
   };
 
   const handleUserClick = (user: UserWithStats) => {
-    console.log(`[UserStatsTableNew] 🖱️ Clic sur utilisateur ${activeTab}: ${user.name}`);
+    console.log(`[UserStatsTableNew] 🖱️ Clic sur utilisateur ${activeTab}: ${user.name} (ID: ${user.id})`);
     
     if (activeTab === "sdr") {
-      navigate("/growth", { state: { createdBy: user.id, userName: user.name } });
+      // Pour les SDR, filtrer par createdBy
+      console.log(`[UserStatsTableNew] 📋 Navigation SDR - Filtrage par createdBy: ${user.id}`);
+      navigate("/growth", { 
+        state: { 
+          createdBy: user.id, 
+          userName: user.name,
+          filterType: 'sdr',
+          userId: user.id
+        } 
+      });
     } else {
-      navigate("/growth", { state: { assignedTo: user.id, userName: user.name } });
+      // Pour les Growth, filtrer par assignedTo
+      console.log(`[UserStatsTableNew] 📋 Navigation Growth - Filtrage par assignedTo: ${user.id}`);
+      navigate("/growth", { 
+        state: { 
+          assignedTo: user.id, 
+          userName: user.name,
+          filterType: 'growth',
+          userId: user.id
+        } 
+      });
     }
   };
 
@@ -142,7 +162,7 @@ export const UserStatsTableNew = () => {
           
           <Button onClick={handleDebug} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Debug & Refresh VRAIMENT CORRIGÉ
+            Debug & Refresh FINAL CORRIGÉ
           </Button>
         </div>
 
@@ -190,6 +210,15 @@ export const UserStatsTableNew = () => {
                   En retard {getSortIcon("late")}
                 </div>
               </TableHead>
+              {/* Colonne "Non assigné" uniquement pour Growth */}
+              {activeTab === "growth" && (
+                <TableHead onClick={() => handleSort("unassigned")} className="cursor-pointer">
+                  <div className="flex items-center">
+                    <UserX className="mr-2 h-4 w-4 text-gray-500" />
+                    Non assigné {getSortIcon("unassigned")}
+                  </div>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -214,11 +243,15 @@ export const UserStatsTableNew = () => {
                   <TableCell className="font-medium">{user.stats.pending}</TableCell>
                   <TableCell className="font-medium">{user.stats.completed}</TableCell>
                   <TableCell className="font-medium">{user.stats.late}</TableCell>
+                  {/* Cellule "Non assigné" uniquement pour Growth */}
+                  {activeTab === "growth" && (
+                    <TableCell className="font-medium">{user.stats.unassigned || 0}</TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={activeTab === "growth" ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   Aucun utilisateur trouvé
                 </TableCell>
               </TableRow>

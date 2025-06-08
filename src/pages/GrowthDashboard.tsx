@@ -1,120 +1,77 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
-import { RequestEditDialog } from "@/components/growth/RequestEditDialog";
-import { RequestCompletionDialog } from "@/components/growth/RequestCompletionDialog";
-import { useEffect } from "react";
-import { GrowthDashboardHeader } from "@/components/growth/dashboard/GrowthDashboardHeader";
 import { GrowthDashboardContent } from "@/components/growth/dashboard/GrowthDashboardContent";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
+import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
 
-interface GrowthDashboardProps {
-  defaultTab?: string;
-}
-
-const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
-  const queryClient = useQueryClient();
+const GrowthDashboard = () => {
+  const location = useLocation();
   const {
     filteredRequests,
-    allRequests,
+    allGrowthRequests,
     activeTab,
     setActiveTab,
-    selectedRequest,
-    isEditDialogOpen,
-    setIsEditDialogOpen,
-    isCompletionDialogOpen,
-    setIsCompletionDialogOpen,
-    handleOpenEditDialog,
-    handleOpenCompletionDialog,
-    handleViewDetails,
-    handleRequestUpdated,
+    onEditRequest,
+    onCompleteRequest,
+    onViewDetails,
+    onRequestUpdated,
+    onRequestDeleted,
     assignRequestToMe,
     updateRequestWorkflowStatus,
-    handleStatCardClick,
     activeFilter,
-    setActiveFilter
-  } = useGrowthDashboard(defaultTab);
+    setActiveFilter,
+    handleStatCardClick,
+    appliedFilters,
+    setAppliedFilters
+  } = useGrowthDashboard();
 
-  // Assure que le tableau de bord revienne par défaut sur "Toutes"
+  // Gérer les filtres venant de la navigation admin
   useEffect(() => {
-    if (!defaultTab && activeTab !== "all") {
-      setActiveTab("all");
+    if (location.state) {
+      console.log("[GrowthDashboard] 🔄 État de navigation reçu:", location.state);
+      
+      const { createdBy, assignedTo, userName, filterType, userId } = location.state;
+      
+      if (createdBy && filterType === 'sdr') {
+        // Filtre pour SDR (par créateur)
+        console.log(`[GrowthDashboard] 📋 Application filtre SDR pour ${userName} (${userId})`);
+        setAppliedFilters(prev => ({
+          ...prev,
+          createdBy: userId,
+          sdrName: userName
+        }));
+        setActiveTab("toutes");
+      } else if (assignedTo && filterType === 'growth') {
+        // Filtre pour Growth (par assigné)
+        console.log(`[GrowthDashboard] 📋 Application filtre Growth pour ${userName} (${userId})`);
+        setAppliedFilters(prev => ({
+          ...prev,
+          assignedTo: userId,
+          assignedToName: userName
+        }));
+        setActiveTab("toutes");
+      }
     }
-  }, [defaultTab, activeTab, setActiveTab]);
-
-  // Force refresh data more frequently for better real-time updates
-  useEffect(() => {
-    // Initial fetch when component mounts
-    const initialRefresh = async () => {
-      await forceRefreshAllData();
-      console.log("Growth Dashboard - Initial refresh triggered");
-    };
-    
-    initialRefresh();
-    
-    // Set up the interval for regular refreshes
-    const interval = setInterval(async () => {
-      await forceRefreshAllData();
-      console.log("Growth Dashboard - Automatic refresh triggered");
-    }, 3000); // Refresh every 3 seconds for better reactivity (reduced from 5s)
-    
-    return () => clearInterval(interval);
-  }, [queryClient]);
-  
-  // Fonction pour forcer le rafraîchissement de toutes les données pertinentes
-  const forceRefreshAllData = async () => {
-    try {
-      console.log("Invalidating and refreshing all request queries...");
-      
-      await queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-      await queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
-      
-      // Forcer un refetch explicite après l'invalidation
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['growth-all-requests'] }),
-        queryClient.refetchQueries({ queryKey: ['growth-requests-to-assign'] }),
-        queryClient.refetchQueries({ queryKey: ['growth-requests-my-assignments'] }),
-        queryClient.refetchQueries({ queryKey: ['dashboard-requests-with-missions'] })
-      ]);
-      
-      console.log("All request queries refreshed successfully");
-    } catch (error) {
-      console.error("Erreur lors du refetch des données:", error);
-    }
-  };
-  
-  // Handler for when a request is deleted
-  const handleRequestDeleted = async () => {
-    console.log("Request deleted callback triggered, refreshing data...");
-    toast.success("Liste des demandes mise à jour");
-    
-    // Force refresh of all relevant queries immediately 
-    await forceRefreshAllData();
-    
-    // Schedule another refresh after a short delay to ensure consistency
-    setTimeout(() => {
-      forceRefreshAllData();
-    }, 1000);
-  };
+  }, [location.state, setAppliedFilters, setActiveTab]);
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <GrowthDashboardHeader totalRequests={allRequests.length} />
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Tableau de bord</h1>
+        </div>
         
         <GrowthDashboardContent
-          allRequests={allRequests}
+          allRequests={allGrowthRequests}
           filteredRequests={filteredRequests}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onEditRequest={handleOpenEditDialog}
-          onCompleteRequest={handleOpenCompletionDialog}
-          onViewDetails={handleViewDetails}
-          onRequestUpdated={handleRequestUpdated}
-          onRequestDeleted={handleRequestDeleted}
+          onEditRequest={onEditRequest}
+          onCompleteRequest={onCompleteRequest}
+          onViewDetails={onViewDetails}
+          onRequestUpdated={onRequestUpdated}
+          onRequestDeleted={onRequestDeleted}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeFilter={activeFilter}
@@ -122,20 +79,6 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           handleStatCardClick={handleStatCardClick}
         />
       </div>
-      
-      <RequestEditDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        selectedRequest={selectedRequest}
-        onRequestUpdated={handleRequestUpdated}
-      />
-      
-      <RequestCompletionDialog
-        open={isCompletionDialogOpen}
-        onOpenChange={setIsCompletionDialogOpen}
-        selectedRequest={selectedRequest}
-        onRequestUpdated={handleRequestUpdated}
-      />
     </AppLayout>
   );
 };
