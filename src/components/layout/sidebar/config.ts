@@ -1,183 +1,129 @@
 
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Calendar, 
-  Users, 
+import {
+  Home,
+  Calendar,
+  Users,
   Database,
-  FolderOpen,
   Mail,
   BarChart3,
+  FolderOpen,
+  Shield,
   Settings,
-  Target,
-  Bot,
-  Briefcase
+  Brain,
+  FileText,
+  ClipboardCheck
 } from "lucide-react";
 
-export const sidebarConfig = [
+export interface MenuItem {
+  label: string;
+  href: string;
+  icon: any;
+  roles?: string[];
+  description?: string;
+}
+
+export interface MenuSection {
+  title: string;
+  items: MenuItem[];
+}
+
+export const menuConfig: MenuSection[] = [
   {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Demandes",
-    icon: FileText,
+    title: "Principal",
     items: [
       {
-        title: "Toutes les demandes",
-        url: "/dashboard",
+        label: "Tableau de bord",
+        href: "/",
+        icon: Home,
+        description: "Vue d'ensemble de vos demandes et missions"
       },
       {
-        title: "Campagne Email",
-        url: "/requests/email-campaign",
+        label: "CRA",
+        href: "/cra",
+        icon: ClipboardCheck,
+        roles: ["sdr", "admin"],
+        description: "Compte rendu d'activité quotidien"
       },
       {
-        title: "Scraping LinkedIn",
-        url: "/requests/linkedin-scraping",
-      },
-      {
-        title: "Création de BDD",
-        url: "/requests/database-creation",
-      },
-    ],
+        label: "Planning",
+        href: "/planning",
+        icon: Calendar,
+        description: "Calendrier des missions et événements"
+      }
+    ]
   },
   {
-    title: "Missions",
-    url: "/missions",
-    icon: Target,
-  },
-  {
-    title: "Planning",
-    url: "/planning",
-    icon: Calendar,
-  },
-  {
-    title: "Base de données",
-    url: "/databases",
-    icon: Database,
-  },
-  {
-    title: "Email Platforms",
-    url: "/email-platforms",
-    icon: Mail,
-  },
-  {
-    title: "Archives",
-    url: "/archives",
-    icon: FolderOpen,
-  },
-  {
-    title: "Growth",
-    url: "/growth",
-    icon: BarChart3,
-    adminOnly: true,
-  },
-  {
-    title: "Campagnes Acelle",
-    url: "/acelle-campaigns",
-    icon: Mail,
-    adminOnly: true,
-  },
-  {
-    title: "AI Dashboard",
-    url: "/ai-dashboard",
-    icon: Bot,
-    adminOnly: true,
-  },
-  {
-    title: "Admin",
-    icon: Settings,
-    adminOnly: true,
+    title: "Gestion",
     items: [
       {
-        title: "Utilisateurs",
-        url: "/admin/users",
+        label: "Missions",
+        href: "/missions",
+        icon: FolderOpen,
+        description: "Gérer les missions et projets"
       },
       {
-        title: "Missions Admin",
-        url: "/admin/missions",
+        label: "Base de données",
+        href: "/databases",
+        icon: Database,
+        description: "Fichiers et bases de données"
       },
-    ],
-  },
-];
-
-// Exports pour différents rôles - RESTAURATION du menu Growth original avec ajout de Missions
-export const sdrMenuItems = [
-  {
-    title: "Missions",
-    path: "/missions",
-    icon: Target,
+      {
+        label: "Archives",
+        href: "/archives",
+        icon: FileText,
+        description: "Demandes terminées et archivées"
+      }
+    ]
   },
   {
-    title: "Base de données",
-    path: "/databases", 
-    icon: Database,
+    title: "Administration",
+    items: [
+      {
+        label: "Utilisateurs",
+        href: "/admin/users",
+        icon: Users,
+        roles: ["admin"],
+        description: "Gestion des utilisateurs et permissions"
+      },
+      {
+        label: "Statistiques",
+        href: "/admin/dashboard",
+        icon: BarChart3,
+        roles: ["admin"],
+        description: "Tableaux de bord et analyses"
+      },
+      {
+        label: "Missions Admin",
+        href: "/admin/missions",
+        icon: Settings,
+        roles: ["admin"],
+        description: "Administration des missions"
+      },
+      {
+        label: "Plateformes Email",
+        href: "/email-platforms",
+        icon: Mail,
+        roles: ["admin"],
+        description: "Configuration des plateformes email"
+      },
+      {
+        label: "Campagnes Acelle",
+        href: "/acelle-campaigns",
+        icon: Mail,
+        roles: ["admin"],
+        description: "Gestion des campagnes Acelle"
+      }
+    ]
   },
   {
-    title: "Email Platforms",
-    path: "/email-platforms",
-    icon: Mail,
-  },
-];
-
-export const growthMenuItems = [
-  {
-    title: "Toutes les demandes",
-    path: "/growth",
-    icon: BarChart3,
-  },
-  {
-    title: "À assigner", 
-    path: "/growth/to-assign",
-    icon: FileText,
-  },
-  {
-    title: "Mes demandes",
-    path: "/growth/my-requests", 
-    icon: Users,
-  },
-  {
-    title: "Missions",
-    path: "/missions",
-    icon: Target,
-  },
-  {
-    title: "Archives",
-    path: "/archives",
-    icon: FolderOpen,
-  },
-  {
-    title: "Email Platforms",
-    path: "/email-platforms",
-    icon: Mail,
-  },
-];
-
-export const adminMenuItems = [
-  {
-    title: "Utilisateurs",
-    path: "/admin/users",
-    icon: Users,
-  },
-  {
-    title: "Missions Admin",
-    path: "/admin/missions",
-    icon: Briefcase,
-  },
-  {
-    title: "Email Platforms",
-    path: "/email-platforms",
-    icon: Mail,
-  },
-  {
-    title: "Campagnes Acelle",
-    path: "/acelle-campaigns",
-    icon: Mail,
-  },
-  {
-    title: "AI Dashboard",
-    path: "/ai-dashboard",
-    icon: Bot,
-  },
+    title: "Outils",
+    items: [
+      {
+        label: "IA Dashboard",
+        href: "/ai-dashboard",
+        icon: Brain,
+        description: "Assistant IA et analyses avancées"
+      }
+    ]
+  }
 ];

@@ -113,6 +113,183 @@ export type Database = {
         }
         Relationships: []
       }
+      cra_reminders: {
+        Row: {
+          email_sent: boolean
+          id: string
+          missing_date: string
+          reminder_sent_at: string
+          sdr_id: string
+        }
+        Insert: {
+          email_sent?: boolean
+          id?: string
+          missing_date: string
+          reminder_sent_at?: string
+          sdr_id: string
+        }
+        Update: {
+          email_sent?: boolean
+          id?: string
+          missing_date?: string
+          reminder_sent_at?: string
+          sdr_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cra_reminders_sdr_id_fkey"
+            columns: ["sdr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_activity_reports: {
+        Row: {
+          comments: string | null
+          created_at: string
+          id: string
+          is_completed: boolean
+          report_date: string
+          sdr_id: string
+          total_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          report_date: string
+          sdr_id: string
+          total_percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          report_date?: string
+          sdr_id?: string
+          total_percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_activity_reports_sdr_id_fkey"
+            columns: ["sdr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_mission_time: {
+        Row: {
+          created_at: string
+          id: string
+          mission_comment: string | null
+          mission_id: string
+          report_id: string
+          time_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mission_comment?: string | null
+          mission_id: string
+          report_id: string
+          time_percentage: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mission_comment?: string | null
+          mission_id?: string
+          report_id?: string
+          time_percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_mission_time_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_mission_time_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "cra_reports_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_mission_time_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "daily_activity_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_opportunities: {
+        Row: {
+          created_at: string
+          id: string
+          mission_id: string
+          opportunity_name: string
+          opportunity_value: number
+          report_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mission_id: string
+          opportunity_name: string
+          opportunity_value: number
+          report_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mission_id?: string
+          opportunity_name?: string
+          opportunity_value?: number
+          report_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_opportunities_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_opportunities_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "cra_reports_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_opportunities_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "daily_activity_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       database_files: {
         Row: {
           created_at: string
@@ -897,6 +1074,29 @@ export type Database = {
       }
     }
     Views: {
+      cra_reports_with_details: {
+        Row: {
+          comments: string | null
+          created_at: string | null
+          id: string | null
+          is_completed: boolean | null
+          report_date: string | null
+          sdr_email: string | null
+          sdr_id: string | null
+          sdr_name: string | null
+          total_percentage: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_activity_reports_sdr_id_fkey"
+            columns: ["sdr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_campaigns_stats: {
         Row: {
           account_id: string | null
@@ -1013,6 +1213,15 @@ export type Database = {
       check_if_table_exists: {
         Args: { table_name: string }
         Returns: boolean
+      }
+      check_missing_cra_reports: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          sdr_id: string
+          sdr_name: string
+          sdr_email: string
+          missing_date: string
+        }[]
       }
       create_checkpoint_table: {
         Args: Record<PropertyKey, never>
