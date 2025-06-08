@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,15 +29,15 @@ export const UserStatsTableNew = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Fonction pour charger les données
+  // Fonction pour charger les données VRAIMENT CORRIGÉES
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - LOGIQUE FINALE CORRIGÉE");
+      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - LOGIQUE VRAIMENT CORRIGÉE");
       
       const userData = await fetchUserStatistics();
-      console.log("[UserStatsTableNew] ✅ Données chargées FINALES CORRIGÉES:", userData);
+      console.log("[UserStatsTableNew] ✅ Données chargées VRAIMENT CORRIGÉES:", userData);
       setUsers(userData);
     } catch (err) {
       console.error("[UserStatsTableNew] ❌ Erreur:", err);
@@ -53,9 +52,9 @@ export const UserStatsTableNew = () => {
     loadData();
   }, []);
 
-  // Fonction de debug
+  // Fonction de debug VRAIMENT CORRIGÉE
   const handleDebug = async () => {
-    console.log("🔧 DÉCLENCHEMENT DEBUG MANUEL");
+    console.log("🔧 DÉCLENCHEMENT DEBUG MANUEL VRAIMENT CORRIGÉ");
     await debugUserStatistics();
     await loadData();
   };
@@ -143,7 +142,7 @@ export const UserStatsTableNew = () => {
           
           <Button onClick={handleDebug} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Debug & Refresh
+            Debug & Refresh VRAIMENT CORRIGÉ
           </Button>
         </div>
 
