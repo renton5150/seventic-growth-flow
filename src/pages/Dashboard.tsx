@@ -29,8 +29,6 @@ const Dashboard = () => {
         
         <RequestsTable 
           requests={filteredRequests} 
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
         />
       </div>
     </AppLayout>
