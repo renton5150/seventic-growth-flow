@@ -152,6 +152,11 @@ export const growthMenuItems = [
 
 export const adminMenuItems = [
   {
+    title: "CRA",
+    path: "/cra",
+    icon: ClipboardCheck
+  },
+  {
     title: "Utilisateurs",
     path: "/admin/users",
     icon: Users
