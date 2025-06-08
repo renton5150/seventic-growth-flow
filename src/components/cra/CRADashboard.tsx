@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, BarChart3, Users, AlertTriangle } from "lucide-react";
-import { CRAForm } from "./CRAForm";
+import { CRATableForm } from "./CRATableForm";
 import { CRAStatistics } from "./CRAStatistics";
 import { CRACalendar } from "./CRACalendar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -146,7 +146,7 @@ export const CRADashboard = () => {
           </Card>
 
           {!isAdmin || selectedSDR ? (
-            <CRAForm 
+            <CRATableForm 
               selectedDate={selectedDate} 
               onSave={handleCRASaved}
             />
