@@ -215,30 +215,4 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
       </CardContent>
     </Card>
   );
-
-  function getDateStatus(date: Date) {
-    const report = getReportForDate(date);
-    const today = new Date();
-    const isToday = date.toDateString() === today.toDateString();
-    const isPast = date < today && !isToday;
-    const isWeekendDay = isWeekend(date);
-    
-    if (isWeekendDay) {
-      return { status: 'weekend', color: 'bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed' };
-    }
-    
-    if (!report && isPast) {
-      return { status: 'missing', color: 'bg-red-100 border-red-300 text-red-700 cursor-pointer hover:bg-red-200' };
-    }
-    if (report?.is_completed) {
-      return { status: 'completed', color: 'bg-green-100 border-green-300 text-green-700 cursor-pointer hover:bg-green-200' };
-    }
-    if (report && !report.is_completed) {
-      return { status: 'partial', color: 'bg-orange-100 border-orange-300 text-orange-700 cursor-pointer hover:bg-orange-200' };
-    }
-    if (isToday) {
-      return { status: 'today', color: 'bg-blue-100 border-blue-300 text-blue-700 cursor-pointer hover:bg-blue-200' };
-    }
-    return { status: 'future', color: 'bg-gray-50 border-gray-200 text-gray-500 cursor-pointer hover:bg-gray-100' };
-  }
 };
