@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
@@ -26,13 +25,15 @@ interface MissionFormProps {
   isSubmitting: boolean;
   onSubmit: (values: MissionFormValues) => void;
   onCancel: () => void;
+  defaultStartDate?: Date | null;
 }
 
 export function MissionForm({ 
   mission, 
   isSubmitting, 
   onSubmit, 
-  onCancel 
+  onCancel,
+  defaultStartDate
 }: MissionFormProps) {
   const [formInitialized, setFormInitialized] = useState(false);
   const { isAdmin, user } = useAuth();
@@ -46,7 +47,7 @@ export function MissionForm({
       name: "",
       sdrId: "",
       description: "",
-      startDate: null,
+      startDate: defaultStartDate || null,
       endDate: null,
       type: "Full",
       status: "En cours",
@@ -72,8 +73,22 @@ export function MissionForm({
       } catch (error) {
         console.error("Erreur lors de l'initialisation du formulaire:", error);
       }
+    } else if (defaultStartDate) {
+      // Pour une nouvelle mission avec une date par défaut
+      form.reset({
+        name: "",
+        sdrId: "",
+        description: "",
+        startDate: defaultStartDate,
+        endDate: null,
+        type: "Full",
+        status: "En cours",
+      });
+      setFormInitialized(true);
+    } else {
+      setFormInitialized(true);
     }
-  }, [mission, form]);
+  }, [mission, defaultStartDate, form]);
 
   const startDate = form.watch("startDate");
   const currentStatus = form.watch("status");
@@ -129,7 +144,7 @@ export function MissionForm({
           name="endDate"
           label="Date de fin"
           disabled={isSubmitting}
-          minDate={startDate}
+          minDate={form.watch("startDate")}
         />
 
         <MissionTypeSelector 

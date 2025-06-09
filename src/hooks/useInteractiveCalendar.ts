@@ -121,7 +121,7 @@ export const useInteractiveCalendar = () => {
           null
       };
 
-      await updateSupaMission(draggedMission.mission.id, updatedMission);
+      await updateSupaMission(updatedMission);
       await refetch();
       
       toast.success(`Mission "${draggedMission.mission.name}" déplacée avec succès`);
