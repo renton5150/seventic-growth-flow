@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -104,6 +105,7 @@ export interface EmailCampaignStatistics {
 }
 
 export type MissionType = "Full" | "Part";
+export type TypePrestation = "Call" | "Email marketing" | "Cold email" | "Social selling";
 
 export interface Mission {
   id: string;
@@ -118,6 +120,12 @@ export interface Mission {
   status: "En cours" | "Fin";
   requests: Request[];
   client?: string; // Added client property as it's used in the code but wasn't in the type
+  // Nouveaux champs
+  objectifMensuelRdv?: string;
+  typesPrestation?: TypePrestation[];
+  criteresQualification?: string;
+  interlocuteursCibles?: string;
+  loginConnexion?: string;
 }
 
 export interface AppData {

@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
@@ -5,8 +6,9 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
-import { Mission } from "@/types/types";
+import { Mission, TypePrestation } from "@/types/types";
 import { MissionFormValues, missionFormSchema } from "../schemas/missionFormSchema";
 import { DateField } from "../form-fields/DateField";
 import { SdrSelector } from "../form-fields/SdrSelector";
@@ -27,6 +29,8 @@ interface MissionFormProps {
   onCancel: () => void;
   defaultStartDate?: Date | null;
 }
+
+const typesPrestation: TypePrestation[] = ["Call", "Email marketing", "Cold email", "Social selling"];
 
 export function MissionForm({ 
   mission, 
@@ -51,6 +55,11 @@ export function MissionForm({
       endDate: null,
       type: "Full",
       status: "En cours",
+      objectifMensuelRdv: "",
+      typesPrestation: [],
+      criteresQualification: "",
+      interlocuteursCibles: "",
+      loginConnexion: "",
     },
   });
 
@@ -68,6 +77,11 @@ export function MissionForm({
           endDate: mission.endDate ? new Date(mission.endDate) : null,
           type: mission.type,
           status: mission.status || "En cours",
+          objectifMensuelRdv: mission.objectifMensuelRdv || "",
+          typesPrestation: mission.typesPrestation || [],
+          criteresQualification: mission.criteresQualification || "",
+          interlocuteursCibles: mission.interlocuteursCibles || "",
+          loginConnexion: mission.loginConnexion || "",
         });
         setFormInitialized(true);
       } catch (error) {
@@ -83,6 +97,11 @@ export function MissionForm({
         endDate: null,
         type: "Full",
         status: "En cours",
+        objectifMensuelRdv: "",
+        typesPrestation: [],
+        criteresQualification: "",
+        interlocuteursCibles: "",
+        loginConnexion: "",
       });
       setFormInitialized(true);
     } else {
@@ -177,6 +196,125 @@ export function MissionForm({
                   <SelectItem value="Fin">Terminée</SelectItem>
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="objectifMensuelRdv"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Objectif mensuel RDV</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Nombre de RDV mensuels"
+                  disabled={isSubmitting}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="typesPrestation"
+          render={() => (
+            <FormItem>
+              <FormLabel>Type de prestation vendue</FormLabel>
+              <div className="grid grid-cols-2 gap-4">
+                {typesPrestation.map((type) => (
+                  <FormField
+                    key={type}
+                    control={form.control}
+                    name="typesPrestation"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={type}
+                          className="flex flex-row items-start space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(type)}
+                              onCheckedChange={(checked) => {
+                                const value = field.value || [];
+                                return checked
+                                  ? field.onChange([...value, type])
+                                  : field.onChange(value.filter((val) => val !== type));
+                              }}
+                              disabled={isSubmitting}
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            {type}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="criteresQualification"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Critères de qualification</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  placeholder="Définir les critères de qualification d'un rendez-vous"
+                  className="resize-none"
+                  disabled={isSubmitting}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="interlocuteursCibles"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Interlocuteurs cibles</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  placeholder="Indiquer les interlocuteurs que l'on doit toucher dans l'opération"
+                  className="resize-none"
+                  disabled={isSubmitting}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="loginConnexion"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Login de connexion</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  placeholder="Ensemble des logins et passwords de connexion aux différents comptes de la mission"
+                  className="resize-none"
+                  disabled={isSubmitting}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
