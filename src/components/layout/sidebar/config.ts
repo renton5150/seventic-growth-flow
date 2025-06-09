@@ -1,4 +1,3 @@
-
 import {
   Home,
   Calendar,
@@ -49,6 +48,13 @@ export const menuConfig: MenuSection[] = [
         href: "/planning",
         icon: Calendar,
         description: "Calendrier interactif des missions"
+      },
+      {
+        label: "Télétravail",
+        href: "/work-schedule",
+        icon: Calendar,
+        roles: ["sdr", "growth", "admin"],
+        description: "Planning télétravail et congés"
       }
     ]
   },
@@ -141,6 +147,11 @@ export const sdrMenuItems = [
     icon: Calendar
   },
   {
+    title: "Télétravail",
+    path: "/work-schedule",
+    icon: Calendar
+  },
+  {
     title: "Missions",
     path: "/missions", 
     icon: FolderOpen
@@ -157,6 +168,11 @@ export const growthMenuItems = [
     title: "Planning",
     path: "/planning",
     icon: Calendar
+  },
+  {
+    title: "Télétravail",
+    path: "/work-schedule",
+    icon: Calendar
   }
 ];
 
@@ -169,6 +185,11 @@ export const adminMenuItems = [
   {
     title: "Planning",
     path: "/planning",
+    icon: Calendar
+  },
+  {
+    title: "Télétravail",
+    path: "/work-schedule",
     icon: Calendar
   },
   {
