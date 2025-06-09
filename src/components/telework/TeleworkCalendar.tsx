@@ -62,16 +62,6 @@ export const TeleworkCalendar: React.FC<TeleworkCalendarProps> = ({
     }
   };
 
-  // Gérer la suppression directe
-  const handleDirectDelete = (date: Date, event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (isProcessing) return;
-    
-    if (window.confirm("Supprimer ce jour de télétravail ?")) {
-      onDayClick(date);
-    }
-  };
-
   return (
     <div className="bg-white rounded-lg border">
       {/* En-tête des jours */}
@@ -116,22 +106,10 @@ export const TeleworkCalendar: React.FC<TeleworkCalendarProps> = ({
                 {format(day, 'd')}
               </div>
 
-              {/* Badge télétravail */}
+              {/* Badge télétravail - Sans bouton de suppression */}
               {hasTelework && (
-                <div className="relative">
-                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold">
-                    Télétravail
-                  </div>
-                  
-                  {/* Bouton de suppression */}
-                  <button 
-                    className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs z-10"
-                    onClick={(e) => handleDirectDelete(day, e)}
-                    disabled={isProcessing}
-                    title="Supprimer"
-                  >
-                    ✕
-                  </button>
+                <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold">
+                  Télétravail
                 </div>
               )}
 
