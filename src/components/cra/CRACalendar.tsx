@@ -85,7 +85,12 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
       return;
     }
     
-    const dateStr = date.toISOString().split('T')[0];
+    // Créer la date string au format YYYY-MM-DD sans problème de fuseau horaire
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
     console.log("Date sélectionnée dans le calendrier:", dateStr);
     setSelectedDate(dateStr);
     onDateSelect(dateStr);
@@ -162,7 +167,11 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
             
             const dateStatus = getDateStatus(date);
             const report = getReportForDate(date);
-            const isSelected = selectedDate === date.toISOString().split('T')[0];
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+            const isSelected = selectedDate === dateStr;
             const isWeekendDay = isWeekend(date);
             
             return (
