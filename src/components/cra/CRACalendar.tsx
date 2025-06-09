@@ -6,7 +6,7 @@ import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { craService } from "@/services/cra/craService";
 import { DailyActivityReport } from "@/types/cra.types";
-import { isWeekend } from "date-fns";
+import { isWeekend, format } from "date-fns";
 
 interface CRACalendarProps {
   sdrId?: string;
@@ -61,7 +61,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay();
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Convertir dimanche=0 en lundi=0
 
     const days: (Date | null)[] = [];
     
@@ -81,10 +81,12 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
   const handleDateClick = (date: Date) => {
     // Empêcher la sélection des weekends
     if (isWeekend(date)) {
+      console.log("Weekend sélectionné, ignoré:", format(date, 'yyyy-MM-dd'));
       return;
     }
     
     const dateStr = date.toISOString().split('T')[0];
+    console.log("Date sélectionnée dans le calendrier:", dateStr);
     setSelectedDate(dateStr);
     onDateSelect(dateStr);
   };
@@ -120,7 +122,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
   ];
-  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   return (
     <Card>
@@ -172,7 +174,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
                   ${isSelected && !isWeekendDay ? 'ring-2 ring-primary' : ''}
                   ${!isWeekendDay ? 'hover:shadow-md' : ''}
                 `}
-                onClick={() => handleDateClick(date)}
+                onClick={() => !isWeekendDay && handleDateClick(date)}
               >
                 <div className="text-sm font-semibold">
                   {date.getDate()}
@@ -213,4 +215,30 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
       </CardContent>
     </Card>
   );
+
+  function getDateStatus(date: Date) {
+    const report = getReportForDate(date);
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+    const isPast = date < today && !isToday;
+    const isWeekendDay = isWeekend(date);
+    
+    if (isWeekendDay) {
+      return { status: 'weekend', color: 'bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed' };
+    }
+    
+    if (!report && isPast) {
+      return { status: 'missing', color: 'bg-red-100 border-red-300 text-red-700 cursor-pointer hover:bg-red-200' };
+    }
+    if (report?.is_completed) {
+      return { status: 'completed', color: 'bg-green-100 border-green-300 text-green-700 cursor-pointer hover:bg-green-200' };
+    }
+    if (report && !report.is_completed) {
+      return { status: 'partial', color: 'bg-orange-100 border-orange-300 text-orange-700 cursor-pointer hover:bg-orange-200' };
+    }
+    if (isToday) {
+      return { status: 'today', color: 'bg-blue-100 border-blue-300 text-blue-700 cursor-pointer hover:bg-blue-200' };
+    }
+    return { status: 'future', color: 'bg-gray-50 border-gray-200 text-gray-500 cursor-pointer hover:bg-gray-100' };
+  }
 };

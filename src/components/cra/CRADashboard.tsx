@@ -32,13 +32,16 @@ export const CRADashboard = () => {
   const [activeTab, setActiveTab] = useState("form");
 
   const handleDateSelect = (dateString: string) => {
-    const date = new Date(dateString);
+    console.log("handleDateSelect appelé avec:", dateString);
+    const date = new Date(dateString + 'T12:00:00'); // Ajouter l'heure pour éviter les problèmes de timezone
     
     // Vérifier si c'est un weekend
     if (isWeekend(date)) {
+      console.log("Date weekend ignorée:", dateString);
       return; // Ne pas permettre la sélection des weekends
     }
     
+    console.log("Changement de date vers:", date);
     setSelectedDate(date);
     setActiveTab("form");
   };
@@ -92,7 +95,25 @@ export const CRADashboard = () => {
         </TabsContent>
 
         <TabsContent value="statistics" className="space-y-4">
-          <CRAStatistics />
+          <Card>
+            <CardHeader>
+              <CardTitle>Statistiques CRA</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600 mb-4">
+                  <p><strong>Comment lire ces statistiques :</strong></p>
+                  <ul className="list-disc list-inside space-y-1 mt-2">
+                    <li><strong>Taux de complétion :</strong> Pourcentage de CRA complétés sur la période</li>
+                    <li><strong>Répartition des missions :</strong> Temps passé sur chaque mission en pourcentage</li>
+                    <li><strong>Évolution :</strong> Progression du nombre de CRA remplis par semaine</li>
+                    <li><strong>Projets par catégorie :</strong> Nombre de projets dans chaque catégorie (5%, 10%, 20%)</li>
+                  </ul>
+                </div>
+                <CRAStatistics />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

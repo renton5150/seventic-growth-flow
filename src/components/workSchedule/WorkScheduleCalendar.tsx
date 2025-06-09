@@ -17,14 +17,6 @@ interface WorkScheduleCalendarProps {
   onDirectTeleworkAdd?: (date: Date) => void;
 }
 
-const getRequestColor = (request: WorkScheduleRequest) => {
-  return 'bg-blue-500 opacity-100';
-};
-
-const getRequestLabel = (request: WorkScheduleRequest) => {
-  return 'TT';
-};
-
 export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
   calendarData,
   onDayClick,
@@ -37,13 +29,17 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 
   const handleDayClick = (date: Date, dayRequests: WorkScheduleRequest[]) => {
     // Si c'est un weekend, ne rien faire
-    if (isWeekend(date)) return;
+    if (isWeekend(date)) {
+      console.log("Clic weekend ignoré");
+      return;
+    }
 
     // Vérifier s'il y a déjà une demande de télétravail pour ce jour
-    const existingTelework = dayRequests.find(r => r.request_type === 'telework');
+    const existingTelework = dayRequests.find(r => r.request_type === 'telework' && r.user_id === userId);
     
     if (existingTelework) {
-      // Si télétravail existe déjà, on peut le supprimer
+      // Si télétravail existe déjà, on le supprime
+      console.log("Suppression télétravail existant:", existingTelework.id);
       onRequestClick(existingTelework);
     } else {
       // Vérifier la limite de 2 jours par semaine
@@ -62,6 +58,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 
       // Ajouter directement le télétravail
       if (onDirectTeleworkAdd) {
+        console.log("Ajout télétravail pour:", format(date, 'yyyy-MM-dd'));
         onDirectTeleworkAdd(date);
       }
     }
@@ -90,7 +87,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
               ).length;
             
             const canAddTelework = !isWeekend(day.date) && teleworkCount < 2;
-            const hasTelework = day.requests.some(r => r.request_type === 'telework');
+            const hasTelework = day.requests.some(r => r.request_type === 'telework' && r.user_id === userId);
             
             return (
               <div
@@ -115,33 +112,32 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 
                 {/* Demandes du jour - seulement télétravail */}
                 <div className="space-y-1">
-                  {day.requests.filter(r => r.request_type === 'telework').map((request) => (
+                  {day.requests.filter(r => r.request_type === 'telework' && r.user_id === userId).map((request) => (
                     <div
                       key={request.id}
-                      className={cn(
-                        "text-xs px-2 py-1 rounded text-white cursor-pointer hover:scale-105 transition-transform",
-                        getRequestColor(request)
-                      )}
+                      className="text-xs px-2 py-1 rounded text-white cursor-pointer hover:scale-105 transition-transform bg-blue-500"
                       onClick={(e) => {
                         e.stopPropagation();
                         onRequestClick(request);
                       }}
-                      title={`${request.user_name || 'Utilisateur'} - Télétravail`}
+                      title="Télétravail - Cliquer pour supprimer"
                     >
-                      {getRequestLabel(request)}
-                      {request.user_name && (
-                        <div className="text-xs opacity-90 truncate">
-                          {request.user_name.split(' ')[0]}
-                        </div>
-                      )}
+                      Télétravail
                     </div>
                   ))}
                 </div>
 
-                {/* Indicateur si on peut ajouter du télétravail - SUPPRIMÉ LE +TT */}
+                {/* Indicateur si on peut ajouter du télétravail */}
                 {!isWeekend(day.date) && !hasTelework && canAddTelework && (
                   <div className="text-xs text-gray-400 mt-1 opacity-60">
                     Cliquer pour télétravail
+                  </div>
+                )}
+                
+                {/* Message si limite atteinte */}
+                {!isWeekend(day.date) && !hasTelework && !canAddTelework && (
+                  <div className="text-xs text-red-400 mt-1">
+                    Limite 2j/semaine
                   </div>
                 )}
               </div>

@@ -1,9 +1,6 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 
 interface WorkScheduleFiltersProps {
   isAdmin: boolean;
@@ -26,74 +23,27 @@ export const WorkScheduleFilters: React.FC<WorkScheduleFiltersProps> = ({
   onRequestTypesChange,
   onStatusesChange
 }) => {
-  const handleRequestTypeToggle = (type: string) => {
-    const newTypes = selectedRequestTypes.includes(type)
-      ? selectedRequestTypes.filter(t => t !== type)
-      : [...selectedRequestTypes, type];
-    onRequestTypesChange(newTypes);
-  };
-
-  const handleStatusToggle = (status: string) => {
-    const newStatuses = selectedStatuses.includes(status)
-      ? selectedStatuses.filter(s => s !== status)
-      : [...selectedStatuses, status];
-    onStatusesChange(newStatuses);
-  };
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Filtres</CardTitle>
+        <CardTitle>Planning Télétravail</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Filtre utilisateur pour admin */}
-        {isAdmin && (
-          <div>
-            <Label htmlFor="user-filter">Utilisateur</Label>
-            <Select value={selectedUserId} onValueChange={onUserChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les utilisateurs" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Tous les utilisateurs</SelectItem>
-                {availableUsers.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.name || user.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Type de demande - Seulement télétravail */}
-        <div>
-          <Label>Type de demande</Label>
-          <div className="space-y-2 mt-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="telework"
-                checked={selectedRequestTypes.includes('telework')}
-                onCheckedChange={() => handleRequestTypeToggle('telework')}
-              />
-              <Label htmlFor="telework">Télétravail</Label>
-            </div>
-          </div>
+        <div className="text-sm text-gray-600">
+          <p><strong>Instructions :</strong></p>
+          <ul className="list-disc list-inside space-y-1 mt-2">
+            <li>Cliquez sur une date pour sélectionner/désélectionner un jour de télétravail</li>
+            <li>Maximum 2 jours de télétravail par semaine</li>
+            <li>Les weekends sont automatiquement exclus</li>
+            <li>Cliquez sur un jour déjà sélectionné pour l'annuler</li>
+          </ul>
         </div>
-
-        {/* Statut - Seulement approuvé */}
-        <div>
-          <Label>Statut</Label>
-          <div className="space-y-2 mt-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="approved"
-                checked={selectedStatuses.includes('approved')}
-                onCheckedChange={() => handleStatusToggle('approved')}
-              />
-              <Label htmlFor="approved">Approuvé</Label>
-            </div>
-          </div>
+        
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+          <h4 className="font-medium text-blue-800">Règles simplifiées</h4>
+          <p className="text-sm text-blue-700 mt-1">
+            Plus de validation nécessaire. Votre sélection est automatiquement approuvée.
+          </p>
         </div>
       </CardContent>
     </Card>

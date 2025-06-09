@@ -26,20 +26,15 @@ export const useWorkSchedule = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedRequestTypes, setSelectedRequestTypes] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   
   const isAdmin = user?.role === "admin";
 
   // Récupération des demandes avec gestion d'erreur
   const { data: allRequests = [], isLoading, refetch } = useQuery({
-    queryKey: ['work-schedule-requests', user?.id, isAdmin],
+    queryKey: ['work-schedule-requests', user?.id],
     queryFn: async () => {
       try {
-        if (isAdmin) {
-          return await workScheduleService.getRequests();
-        } else if (user?.id) {
+        if (user?.id) {
           return await workScheduleService.getRequests(user.id);
         }
         return [];
@@ -51,57 +46,14 @@ export const useWorkSchedule = () => {
     enabled: !!user
   });
 
-  // Récupération de tous les utilisateurs SDR et Growth pour les admins
+  // Récupération de tous les utilisateurs SDR et Growth pour les admins (simplifié)
   const { data: allUsers = [] } = useQuery({
     queryKey: ['work-schedule-users'],
-    queryFn: async () => {
-      if (!isAdmin) return [];
-      
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, name, email, role')
-          .in('role', ['sdr', 'growth'])
-          .order('name');
-
-        if (error) {
-          console.error('Erreur lors du chargement des utilisateurs:', error);
-          return [];
-        }
-
-        console.log('Utilisateurs récupérés pour admin:', data);
-        return data || [];
-      } catch (error) {
-        console.error('Erreur lors du chargement des utilisateurs:', error);
-        return [];
-      }
-    },
-    enabled: isAdmin
+    queryFn: async () => [],
+    enabled: false // Désactivé pour l'instant
   });
 
-  // Filtrage des demandes
-  const filteredRequests = useMemo(() => {
-    let filtered = allRequests;
-
-    // Filtre par utilisateur (admin uniquement)
-    if (isAdmin && selectedUserId) {
-      filtered = filtered.filter(request => request.user_id === selectedUserId);
-    }
-
-    // Filtre par type de demande
-    if (selectedRequestTypes.length > 0) {
-      filtered = filtered.filter(request => selectedRequestTypes.includes(request.request_type));
-    }
-
-    // Filtre par statut
-    if (selectedStatuses.length > 0) {
-      filtered = filtered.filter(request => selectedStatuses.includes(request.status));
-    }
-
-    return filtered;
-  }, [allRequests, isAdmin, selectedUserId, selectedRequestTypes, selectedStatuses]);
-
-  // Construction du calendrier
+  // Construction du calendrier (simplifié pour télétravail uniquement)
   const calendarData = useMemo((): WorkScheduleCalendarMonth => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
@@ -113,10 +65,10 @@ export const useWorkSchedule = () => {
     const weeks: WorkScheduleCalendarWeek[] = [];
     for (let i = 0; i < allDays.length; i += 7) {
       const weekDays = allDays.slice(i, i + 7).map((date): WorkScheduleCalendarDay => {
-        const dayRequests = filteredRequests.filter(request => {
+        const dayRequests = allRequests.filter(request => {
           const startDate = new Date(request.start_date);
           const endDate = new Date(request.end_date);
-          return date >= startDate && date <= endDate;
+          return date >= startDate && date <= endDate && request.request_type === 'telework';
         });
 
         return {
@@ -132,7 +84,7 @@ export const useWorkSchedule = () => {
     }
 
     return { weeks, currentDate };
-  }, [currentDate, filteredRequests]);
+  }, [currentDate, allRequests]);
 
   // Navigation du calendrier
   const goToPreviousMonth = () => {
@@ -152,23 +104,10 @@ export const useWorkSchedule = () => {
     mutationFn: workScheduleService.createRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
-      toast.success("Demande créée avec succès");
+      toast.success("Jour de télétravail ajouté");
     },
     onError: (error) => {
-      toast.error("Erreur lors de la création de la demande");
-      console.error(error);
-    }
-  });
-
-  const updateRequestMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<WorkScheduleRequest> }) =>
-      workScheduleService.updateRequest(id, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
-      toast.success("Demande mise à jour avec succès");
-    },
-    onError: (error) => {
-      toast.error("Erreur lors de la mise à jour de la demande");
+      toast.error("Erreur lors de l'ajout du télétravail");
       console.error(error);
     }
   });
@@ -177,19 +116,13 @@ export const useWorkSchedule = () => {
     mutationFn: workScheduleService.deleteRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
-      toast.success("Demande supprimée avec succès");
+      toast.success("Jour de télétravail supprimé");
     },
     onError: (error) => {
-      toast.error("Erreur lors de la suppression de la demande");
+      toast.error("Erreur lors de la suppression");
       console.error(error);
     }
   });
-
-  // Utilisateurs disponibles pour les filtres (admin uniquement)
-  const availableUsers = useMemo(() => {
-    if (!isAdmin) return [];
-    return allUsers;
-  }, [allUsers, isAdmin]);
 
   // Format d'affichage du mois
   const monthLabel = useMemo(() => {
@@ -201,17 +134,17 @@ export const useWorkSchedule = () => {
     calendarData,
     currentDate,
     monthLabel,
-    allRequests: filteredRequests,
-    availableUsers,
+    allRequests,
+    availableUsers: [],
     isLoading,
     
-    // Filters
-    selectedUserId,
-    selectedRequestTypes,
-    selectedStatuses,
-    setSelectedUserId,
-    setSelectedRequestTypes,
-    setSelectedStatuses,
+    // Filters (simplifiés)
+    selectedUserId: '',
+    selectedRequestTypes: ['telework'],
+    selectedStatuses: ['approved'],
+    setSelectedUserId: () => {},
+    setSelectedRequestTypes: () => {},
+    setSelectedStatuses: () => {},
     
     // Navigation
     goToPreviousMonth,
@@ -220,12 +153,12 @@ export const useWorkSchedule = () => {
     
     // Mutations
     createRequest: createRequestMutation.mutate,
-    updateRequest: updateRequestMutation.mutate,
+    updateRequest: () => {},
     deleteRequest: deleteRequestMutation.mutate,
     
     // States
     isCreating: createRequestMutation.isPending,
-    isUpdating: updateRequestMutation.isPending,
+    isUpdating: false,
     isDeleting: deleteRequestMutation.isPending,
     
     // Permissions
