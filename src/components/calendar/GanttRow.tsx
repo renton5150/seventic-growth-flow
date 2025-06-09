@@ -8,6 +8,7 @@ interface GanttRowProps {
   sdrName: string;
   missions: Mission[];
   onMissionClick: (mission: Mission) => void;
+  currentDate: Date;
 }
 
 // Couleurs distinctes pour les missions
@@ -27,9 +28,9 @@ const MISSION_COLORS = [
 export const GanttRow: React.FC<GanttRowProps> = ({
   sdrName,
   missions,
-  onMissionClick
+  onMissionClick,
+  currentDate
 }) => {
-  const currentDate = new Date();
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const totalDays = differenceInDays(monthEnd, monthStart) + 1;

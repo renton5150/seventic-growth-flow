@@ -12,6 +12,7 @@ import { GanttHeader } from "./GanttHeader";
 
 export const GanttCalendar = () => {
   const {
+    currentDate,
     selectedDate,
     selectedMission,
     isEditDialogOpen,
@@ -161,7 +162,7 @@ export const GanttCalendar = () => {
         </CardHeader>
         <CardContent className="p-0">
           <div className="border rounded-lg overflow-hidden">
-            <GanttHeader />
+            <GanttHeader currentDate={currentDate} />
             <div className="max-h-[600px] overflow-y-auto">
               {missionRows.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
@@ -177,6 +178,7 @@ export const GanttCalendar = () => {
                     sdrName={row.sdrName}
                     missions={[row.mission]}
                     onMissionClick={handleMissionClick}
+                    currentDate={currentDate}
                   />
                 ))
               )}

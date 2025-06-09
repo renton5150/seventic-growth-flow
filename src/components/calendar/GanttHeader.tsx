@@ -3,8 +3,11 @@ import React from "react";
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isWeekend } from "date-fns";
 import { fr } from "date-fns/locale";
 
-export const GanttHeader = () => {
-  const currentDate = new Date();
+interface GanttHeaderProps {
+  currentDate: Date;
+}
+
+export const GanttHeader: React.FC<GanttHeaderProps> = ({ currentDate }) => {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
