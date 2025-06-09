@@ -48,14 +48,19 @@ export const useWorkScheduleNew = () => {
     queryKey: ['telework-requests-new', user?.id, refreshKey],
     queryFn: async () => {
       if (!user?.id) return [];
-      return await workScheduleNewService.getTeleworkRequests(user.id);
+      console.log("🔄 [useWorkScheduleNew] Chargement des demandes pour:", user.id);
+      const requests = await workScheduleNewService.getTeleworkRequests(user.id);
+      console.log("📋 [useWorkScheduleNew] Demandes chargées:", requests.length);
+      return requests;
     },
     enabled: !!user?.id
   });
 
   // Extraction des dates de télétravail
   const teleworkDates = useMemo(() => {
-    return teleworkRequests.map(request => request.start_date);
+    const dates = teleworkRequests.map(request => request.start_date);
+    console.log("📅 [useWorkScheduleNew] Dates télétravail:", dates);
+    return dates;
   }, [teleworkRequests]);
 
   // Construction du calendrier
@@ -101,26 +106,36 @@ export const useWorkScheduleNew = () => {
     setCurrentDate(new Date());
   };
 
-  // Force refresh
-  const forceRefresh = () => {
-    console.log("🔄 [useWorkScheduleNew] Force refresh");
+  // Force refresh avec invalidation immédiate
+  const forceRefresh = async () => {
+    console.log("🔄 [useWorkScheduleNew] Force refresh complet");
+    
+    // Invalider immédiatement le cache
+    await queryClient.invalidateQueries({ queryKey: ['telework-requests-new'] });
+    
+    // Incrémenter la clé de refresh
     setRefreshKey(prev => prev + 1);
+    
+    // Forcer un refetch
+    await refetch();
   };
 
   // Mutation pour ajouter un jour de télétravail
   const addTeleworkMutation = useMutation({
     mutationFn: async (date: Date) => {
       if (!user?.id) throw new Error("Utilisateur non connecté");
-      return await workScheduleNewService.addTeleworkDay(user.id, date);
+      const dateString = format(date, 'yyyy-MM-dd');
+      console.log("➕ [useWorkScheduleNew] Début ajout pour:", dateString);
+      
+      const result = await workScheduleNewService.addTeleworkDay(user.id, date);
+      console.log("✅ [useWorkScheduleNew] Résultat ajout:", result);
+      return result;
     },
     onSuccess: async (result) => {
-      console.log("✅ [useWorkScheduleNew] Télétravail ajouté:", result);
+      console.log("✅ [useWorkScheduleNew] Télétravail ajouté avec succès:", result);
       
-      // Force refresh immédiat
-      forceRefresh();
-      
-      // Invalidation du cache
-      await queryClient.invalidateQueries({ queryKey: ['telework-requests-new'] });
+      // Refresh immédiat et complet
+      await forceRefresh();
       
       toast.success("Jour de télétravail ajouté avec succès");
     },
@@ -130,26 +145,41 @@ export const useWorkScheduleNew = () => {
     }
   });
 
-  // Mutation pour supprimer un jour de télétravail
+  // Mutation pour supprimer un jour de télétravail avec traces détaillées
   const removeTeleworkMutation = useMutation({
     mutationFn: async (date: Date) => {
       if (!user?.id) throw new Error("Utilisateur non connecté");
-      return await workScheduleNewService.removeTeleworkDay(user.id, date);
+      const dateString = format(date, 'yyyy-MM-dd');
+      console.log("🗑️ [useWorkScheduleNew] Début suppression pour:", dateString);
+      
+      // Vérifier que la date existe avant suppression
+      const existsBefore = teleworkDates.includes(dateString);
+      console.log("🔍 [useWorkScheduleNew] Date existe avant suppression:", existsBefore);
+      
+      if (!existsBefore) {
+        console.log("⚠️ [useWorkScheduleNew] Date non trouvée, annulation");
+        throw new Error("Ce jour n'est pas en télétravail");
+      }
+      
+      const result = await workScheduleNewService.removeTeleworkDay(user.id, date);
+      console.log("✅ [useWorkScheduleNew] Résultat suppression:", result);
+      
+      return result;
     },
     onSuccess: async (result) => {
-      console.log("✅ [useWorkScheduleNew] Télétravail supprimé:", result);
+      console.log("✅ [useWorkScheduleNew] Télétravail supprimé avec succès:", result);
       
-      // Force refresh immédiat
-      forceRefresh();
-      
-      // Invalidation du cache
-      await queryClient.invalidateQueries({ queryKey: ['telework-requests-new'] });
+      // Refresh immédiat et complet
+      await forceRefresh();
       
       toast.success("Jour de télétravail supprimé avec succès");
     },
     onError: (error: any) => {
       console.error("❌ [useWorkScheduleNew] Erreur suppression:", error);
       toast.error(error.message || "Erreur lors de la suppression du télétravail");
+      
+      // En cas d'erreur, forcer quand même un refresh pour s'assurer de la cohérence
+      forceRefresh();
     }
   });
 
@@ -157,16 +187,17 @@ export const useWorkScheduleNew = () => {
   const resetTeleworkMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("Utilisateur non connecté");
-      return await workScheduleNewService.resetAllTelework(user.id);
+      console.log("🔄 [useWorkScheduleNew] Début réinitialisation");
+      
+      const result = await workScheduleNewService.resetAllTelework(user.id);
+      console.log("✅ [useWorkScheduleNew] Résultat réinitialisation:", result);
+      return result;
     },
     onSuccess: async (result) => {
       console.log("✅ [useWorkScheduleNew] Calendrier réinitialisé:", result);
       
-      // Force refresh immédiat
-      forceRefresh();
-      
-      // Invalidation du cache
-      await queryClient.invalidateQueries({ queryKey: ['telework-requests-new'] });
+      // Refresh immédiat et complet
+      await forceRefresh();
       
       toast.success("Calendrier de télétravail réinitialisé avec succès");
     },

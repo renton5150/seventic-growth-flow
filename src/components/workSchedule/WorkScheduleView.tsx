@@ -6,7 +6,7 @@ import { WorkScheduleCalendarNew } from "./WorkScheduleCalendarNew";
 import { WorkScheduleFilters } from "./WorkScheduleFilters";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Trash2 } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 export const WorkScheduleView = () => {
   const { user } = useAuth();
@@ -37,11 +37,9 @@ export const WorkScheduleView = () => {
     console.log("🎯 [WorkScheduleView] Clic sur:", dateString, "hasTelework:", hasTelework);
     
     if (hasTelework) {
-      // Confirmer la suppression
-      if (window.confirm("Supprimer ce jour de télétravail ?")) {
-        console.log("🗑️ [WorkScheduleView] Suppression confirmée");
-        removeTelework(date);
-      }
+      // Supprimer directement - la confirmation est déjà gérée dans le calendrier
+      console.log("🗑️ [WorkScheduleView] Suppression télétravail");
+      removeTelework(date);
     } else {
       // Vérifier la limite avant d'ajouter
       if (!canAddTelework(date)) {
@@ -136,13 +134,19 @@ export const WorkScheduleView = () => {
               <div>Jours de télétravail programmés: <span className="font-medium">{teleworkDates.length}</span></div>
               <div className="text-green-600">✅ Nouveau système avec contraintes strictes</div>
               <div className="text-blue-600">🔒 Protection contre les doublons</div>
+              <div className="text-purple-600">🗑️ Suppression fiable avec bouton dédié</div>
             </div>
           </div>
           
           {/* Légende */}
           <div>
-            <h4 className="font-medium text-sm text-gray-700 mb-2">Légende</h4>
-            <div className="flex flex-wrap gap-4">
+            <h4 className="font-medium text-sm text-gray-700 mb-2">Instructions</h4>
+            <div className="space-y-1 text-sm">
+              <div>• Cliquez sur un jour libre pour ajouter du télétravail</div>
+              <div>• Cliquez sur le bouton ✕ rouge pour supprimer</div>
+              <div>• Maximum 2 jours de télétravail par semaine</div>
+            </div>
+            <div className="flex flex-wrap gap-4 mt-2">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-600 rounded"></div>
                 <span className="text-sm">Télétravail</span>
@@ -151,9 +155,6 @@ export const WorkScheduleView = () => {
                 <div className="w-4 h-4 bg-gray-200 rounded"></div>
                 <span className="text-sm">Weekend</span>
               </div>
-            </div>
-            <div className="mt-2 text-sm text-gray-600">
-              💡 <strong>Règle :</strong> Maximum 2 jours de télétravail par semaine
             </div>
           </div>
         </div>

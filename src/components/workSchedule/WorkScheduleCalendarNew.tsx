@@ -1,6 +1,6 @@
 
 import React from "react";
-import { format, isWeekend, isSameWeek } from "date-fns";
+import { format, isWeekend } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,12 @@ export const WorkScheduleCalendarNew: React.FC<WorkScheduleCalendarNewProps> = (
 }) => {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-  const handleDayClick = (date: Date, day: CalendarDay) => {
+  const handleDayClick = async (date: Date, day: CalendarDay, event: React.MouseEvent) => {
+    // Empêcher la propagation si on clique sur le bouton de suppression
+    if ((event.target as HTMLElement).closest('.delete-button')) {
+      return;
+    }
+
     if (isProcessing) {
       console.log("[CalendarNew] Traitement en cours, clic ignoré");
       return;
@@ -51,6 +56,24 @@ export const WorkScheduleCalendarNew: React.FC<WorkScheduleCalendarNewProps> = (
     console.log("[CalendarNew] Clic sur date:", dateString, "hasTelework:", day.hasTelework);
     
     onDayClick(date);
+  };
+
+  const handleDirectDelete = async (date: Date, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    if (isProcessing) {
+      console.log("[CalendarNew] Suppression ignorée - traitement en cours");
+      return;
+    }
+
+    const dateString = format(date, 'yyyy-MM-dd');
+    console.log("[CalendarNew] Suppression directe pour:", dateString);
+    
+    if (window.confirm("Supprimer ce jour de télétravail ?")) {
+      console.log("[CalendarNew] Suppression confirmée pour:", dateString);
+      onDayClick(date);
+    }
   };
 
   return (
@@ -83,7 +106,7 @@ export const WorkScheduleCalendarNew: React.FC<WorkScheduleCalendarNewProps> = (
                   !canAdd && !day.hasTelework && !isWeekend(day.date) && "opacity-50",
                   isProcessing && "pointer-events-none opacity-70"
                 )}
-                onClick={() => handleDayClick(day.date, day)}
+                onClick={(e) => handleDayClick(day.date, day, e)}
               >
                 {/* Numéro du jour */}
                 <div className={cn(
@@ -94,23 +117,35 @@ export const WorkScheduleCalendarNew: React.FC<WorkScheduleCalendarNewProps> = (
                   {format(day.date, 'd')}
                 </div>
 
-                {/* Badge télétravail */}
+                {/* Badge télétravail avec bouton de suppression */}
                 {day.hasTelework && (
-                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold shadow-sm">
-                    Télétravail
+                  <div className="relative">
+                    <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold shadow-sm pointer-events-none">
+                      Télétravail
+                    </div>
+                    
+                    {/* Bouton de suppression explicite */}
+                    <button 
+                      className="delete-button absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white border-none rounded-full w-5 h-5 flex items-center justify-center text-xs cursor-pointer z-10 shadow-sm"
+                      onClick={(e) => handleDirectDelete(day.date, e)}
+                      disabled={isProcessing}
+                      title="Supprimer ce jour de télétravail"
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
 
                 {/* Indicateur ajout possible */}
                 {!isWeekend(day.date) && !day.hasTelework && canAdd && (
-                  <div className="text-xs text-gray-500 mt-1 hover:text-blue-600">
+                  <div className="text-xs text-gray-500 mt-1 hover:text-blue-600 pointer-events-none">
                     + Télétravail
                   </div>
                 )}
                 
                 {/* Message limite atteinte */}
                 {!isWeekend(day.date) && !day.hasTelework && !canAdd && (
-                  <div className="text-xs text-red-500 mt-1">
+                  <div className="text-xs text-red-500 mt-1 pointer-events-none">
                     Limite 2j/sem
                   </div>
                 )}
