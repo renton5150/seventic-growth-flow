@@ -34,11 +34,11 @@ export const GanttRow: React.FC<GanttRowProps> = ({
   const monthEnd = endOfMonth(currentDate);
   const totalDays = differenceInDays(monthEnd, monthStart) + 1;
 
-  // Créer une map des couleurs par mission
-  const missionColors = new Map();
-  missions.forEach((mission, index) => {
-    missionColors.set(mission.id, MISSION_COLORS[index % MISSION_COLORS.length]);
-  });
+  const mission = missions[0]; // Une seule mission par ligne maintenant
+  
+  // Utiliser l'ID de la mission pour déterminer la couleur de façon consistante
+  const colorIndex = mission.id ? parseInt(mission.id.slice(-2), 16) % MISSION_COLORS.length : 0;
+  const missionColor = MISSION_COLORS[colorIndex];
 
   const getMissionPosition = (mission: Mission) => {
     if (!mission.startDate) return null;
@@ -63,46 +63,41 @@ export const GanttRow: React.FC<GanttRowProps> = ({
     };
   };
 
+  const position = getMissionPosition(mission);
+
   return (
     <div className="flex border-b hover:bg-gray-50">
       {/* Colonne SDR */}
-      <div className="w-48 p-3 border-r bg-white font-medium">
-        {sdrName}
+      <div className="w-48 p-3 border-r bg-white">
+        <div className="font-medium text-sm">{sdrName}</div>
+        <div className="text-xs text-gray-600 mt-1">{mission.name}</div>
       </div>
       
-      {/* Zone des missions */}
+      {/* Zone de la mission */}
       <div className="flex-1 relative h-16 bg-white">
-        {missions.map((mission) => {
-          const position = getMissionPosition(mission);
-          if (!position) return null;
-          
-          const color = missionColors.get(mission.id);
-          
-          return (
-            <div
-              key={mission.id}
-              className={`
-                absolute top-2 h-12 ${color} rounded-md cursor-pointer
-                flex items-center justify-center text-white text-xs font-medium
-                hover:opacity-80 transition-opacity shadow-sm
-              `}
-              style={{
-                left: position.left,
-                width: position.width,
-                minWidth: '60px'
-              }}
-              onClick={() => onMissionClick(mission)}
-              title={`${mission.name} - ${mission.client}
+        {position && (
+          <div
+            className={`
+              absolute top-2 h-12 ${missionColor} rounded-md cursor-pointer
+              flex items-center justify-center text-white text-xs font-medium
+              hover:opacity-80 transition-opacity shadow-sm
+            `}
+            style={{
+              left: position.left,
+              width: position.width,
+              minWidth: '60px'
+            }}
+            onClick={() => onMissionClick(mission)}
+            title={`${mission.name} - ${mission.client}
 Début: ${mission.startDate ? format(new Date(mission.startDate), 'dd/MM/yyyy', { locale: fr }) : 'Non défini'}
 Fin: ${mission.endDate ? format(new Date(mission.endDate), 'dd/MM/yyyy', { locale: fr }) : 'Non défini'}
 Type: ${mission.type}`}
-            >
-              <span className="truncate px-2">
-                {mission.name}
-              </span>
-            </div>
-          );
-        })}
+          >
+            <span className="truncate px-2">
+              {mission.client || mission.name}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

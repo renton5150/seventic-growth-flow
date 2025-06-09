@@ -55,8 +55,25 @@ export const GanttCalendar = () => {
   console.log("SDRs disponibles:", availableSdrs);
   console.log("Filtres SDR sélectionnés:", selectedSdrIds);
 
-  // Organiser les missions par SDR - AVANT filtrage
-  const allMissionsBySdr = missions.reduce((acc, mission) => {
+  // Appliquer les filtres aux missions
+  let filteredMissions = missions;
+
+  // Filtre par SDR (admin uniquement)
+  if (isAdmin && selectedSdrIds.length > 0) {
+    filteredMissions = filteredMissions.filter(mission => 
+      mission.sdrId && selectedSdrIds.includes(mission.sdrId)
+    );
+  }
+
+  // Filtre par type de mission
+  if (selectedMissionTypes.length > 0) {
+    filteredMissions = filteredMissions.filter(mission => 
+      selectedMissionTypes.includes(mission.type)
+    );
+  }
+
+  // Organiser les missions par SDR pour l'affichage
+  const missionsBySdr = filteredMissions.reduce((acc, mission) => {
     const sdrId = mission.sdrId || 'unassigned';
     const sdrName = mission.sdrName || 'Non assigné';
     
@@ -71,27 +88,15 @@ export const GanttCalendar = () => {
     return acc;
   }, {} as Record<string, { sdrId: string; sdrName: string; missions: any[] }>);
 
-  // Appliquer les filtres APRÈS le regroupement
-  let filteredSdrRows = Object.values(allMissionsBySdr);
+  // Créer une liste plate de missions avec informations SDR
+  const missionRows = Object.values(missionsBySdr).flatMap(sdrGroup => 
+    sdrGroup.missions.map(mission => ({
+      mission,
+      sdrName: sdrGroup.sdrName
+    }))
+  );
 
-  // Filtre par SDR (admin uniquement)
-  if (isAdmin && selectedSdrIds.length > 0) {
-    filteredSdrRows = filteredSdrRows.filter(sdrRow => 
-      selectedSdrIds.includes(sdrRow.sdrId)
-    );
-  }
-
-  // Filtre par type de mission
-  if (selectedMissionTypes.length > 0) {
-    filteredSdrRows = filteredSdrRows.map(sdrRow => ({
-      ...sdrRow,
-      missions: sdrRow.missions.filter(mission => 
-        selectedMissionTypes.includes(mission.type)
-      )
-    })).filter(sdrRow => sdrRow.missions.length > 0); // Supprimer les SDRs sans missions
-  }
-
-  console.log("SDR rows après filtrage:", filteredSdrRows);
+  console.log("Mission rows après filtrage:", missionRows);
 
   return (
     <div className="w-full">
@@ -158,7 +163,7 @@ export const GanttCalendar = () => {
           <div className="border rounded-lg overflow-hidden">
             <GanttHeader />
             <div className="max-h-[600px] overflow-y-auto">
-              {filteredSdrRows.length === 0 ? (
+              {missionRows.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   {selectedSdrIds.length > 0 || selectedMissionTypes.length > 0 
                     ? "Aucune mission trouvée avec les filtres sélectionnés" 
@@ -166,11 +171,11 @@ export const GanttCalendar = () => {
                   }
                 </div>
               ) : (
-                filteredSdrRows.map((sdrRow) => (
+                missionRows.map((row, index) => (
                   <GanttRow
-                    key={sdrRow.sdrId}
-                    sdrName={sdrRow.sdrName}
-                    missions={sdrRow.missions}
+                    key={`${row.mission.id}-${index}`}
+                    sdrName={row.sdrName}
+                    missions={[row.mission]}
                     onMissionClick={handleMissionClick}
                   />
                 ))
