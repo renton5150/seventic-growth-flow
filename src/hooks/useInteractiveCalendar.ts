@@ -31,11 +31,15 @@ export const useInteractiveCalendar = () => {
   const [draggedMission, setDraggedMission] = useState<DraggedMission | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
+  
+  // Filtres pour les admins
+  const [selectedSdrIds, setSelectedSdrIds] = useState<string[]>([]);
+  const [selectedMissionTypes, setSelectedMissionTypes] = useState<string[]>([]);
 
   const isAdmin = user?.role === "admin";
 
   // Récupération des missions
-  const { data: missions = [], isLoading, refetch } = useQuery({
+  const { data: allMissions = [], isLoading, refetch } = useQuery({
     queryKey: ['calendar-missions', user?.id, isAdmin],
     queryFn: async () => {
       if (isAdmin) {
@@ -47,6 +51,27 @@ export const useInteractiveCalendar = () => {
     },
     enabled: !!user
   });
+
+  // Filtrage des missions selon les critères sélectionnés
+  const missions = useMemo(() => {
+    let filteredMissions = allMissions;
+
+    // Filtre par SDR (admin uniquement)
+    if (isAdmin && selectedSdrIds.length > 0) {
+      filteredMissions = filteredMissions.filter(mission => 
+        mission.sdrId && selectedSdrIds.includes(mission.sdrId)
+      );
+    }
+
+    // Filtre par type de mission
+    if (selectedMissionTypes.length > 0) {
+      filteredMissions = filteredMissions.filter(mission => 
+        selectedMissionTypes.includes(mission.type)
+      );
+    }
+
+    return filteredMissions;
+  }, [allMissions, isAdmin, selectedSdrIds, selectedMissionTypes]);
 
   // Construction du calendrier mensuel
   const calendarData = useMemo((): CalendarMonth => {
@@ -173,6 +198,25 @@ export const useInteractiveCalendar = () => {
     return format(currentDate, 'MMMM yyyy', { locale: fr });
   }, [currentDate]);
 
+  // Récupération des SDRs uniques pour les filtres (admin uniquement)
+  const availableSdrs = useMemo(() => {
+    if (!isAdmin) return [];
+    
+    const sdrMap = new Map();
+    allMissions.forEach(mission => {
+      if (mission.sdrId && mission.sdrName) {
+        sdrMap.set(mission.sdrId, mission.sdrName);
+      }
+    });
+    
+    return Array.from(sdrMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [allMissions, isAdmin]);
+
+  // Types de mission disponibles
+  const availableMissionTypes = useMemo(() => {
+    return Array.from(new Set(allMissions.map(mission => mission.type)));
+  }, [allMissions]);
+
   return {
     calendarData,
     currentDate,
@@ -183,6 +227,14 @@ export const useInteractiveCalendar = () => {
     monthLabel,
     draggedMission,
     missions,
+    // Filtres
+    selectedSdrIds,
+    selectedMissionTypes,
+    availableSdrs,
+    availableMissionTypes,
+    setSelectedSdrIds,
+    setSelectedMissionTypes,
+    // Actions
     goToPreviousMonth,
     goToNextMonth,
     goToToday,
@@ -193,6 +245,8 @@ export const useInteractiveCalendar = () => {
     setIsEditDialogOpen,
     setSelectedMission,
     getMissionColor,
-    refetch
+    refetch,
+    // Permissions
+    isAdmin
   };
 };

@@ -48,7 +48,7 @@ export const menuConfig: MenuSection[] = [
         label: "Planning",
         href: "/planning",
         icon: Calendar,
-        description: "Calendrier des missions et événements"
+        description: "Calendrier interactif des missions"
       }
     ]
   },
@@ -136,6 +136,11 @@ export const sdrMenuItems = [
     icon: ClipboardCheck
   },
   {
+    title: "Planning",
+    path: "/planning",
+    icon: Calendar
+  },
+  {
     title: "Missions",
     path: "/missions", 
     icon: FolderOpen
@@ -147,6 +152,11 @@ export const growthMenuItems = [
     title: "Growth Dashboard",
     path: "/growth-dashboard",
     icon: BarChart3
+  },
+  {
+    title: "Planning",
+    path: "/planning",
+    icon: Calendar
   }
 ];
 
@@ -155,6 +165,11 @@ export const adminMenuItems = [
     title: "CRA",
     path: "/cra",
     icon: ClipboardCheck
+  },
+  {
+    title: "Planning",
+    path: "/planning",
+    icon: Calendar
   },
   {
     title: "Utilisateurs",

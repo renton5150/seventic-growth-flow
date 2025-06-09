@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getUserInitials } from "@/utils/permissionUtils";
 import { MenuSection } from "./sidebar/MenuSection";
 import { UserProfile } from "./sidebar/UserProfile";
-import { adminMenuItems, growthMenuItems, sdrMenuItems } from "./sidebar/config";
+import { menuConfig } from "./sidebar/config";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +66,21 @@ export const AppSidebar = () => {
     }
   };
 
+  // Filtrer les sections de menu selon le rôle de l'utilisateur
+  const getFilteredMenuSections = () => {
+    return menuConfig.map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        // Si l'item n'a pas de restriction de rôle, il est accessible à tous
+        if (!item.roles || item.roles.length === 0) {
+          return true;
+        }
+        // Sinon, vérifier si le rôle de l'utilisateur est dans la liste
+        return user?.role && item.roles.includes(user.role);
+      })
+    })).filter(section => section.items.length > 0); // Supprimer les sections vides
+  };
+
   return (
     <div className="h-full min-h-screen w-64 border-r bg-background flex flex-col">
       <div className="p-4 border-b">
@@ -78,20 +93,18 @@ export const AppSidebar = () => {
       </div>
       {isMounted && (
         <div className="flex flex-col flex-1 p-4">
-          <nav className="space-y-1">
-            <div className="mb-4">
-              <Link
-                to="/dashboard"
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              >
-                <LayoutDashboard className="mr-3 h-4 w-4" />
-                Tableau de bord
-              </Link>
-            </div>
-
-            {isSDR && <MenuSection title="SDR" items={sdrMenuItems} />}
-            {isGrowth && <MenuSection title="Growth" items={growthMenuItems} />}
-            {isAdmin && <MenuSection title="Administration" items={adminMenuItems} />}
+          <nav className="space-y-4">
+            {getFilteredMenuSections().map((section) => (
+              <MenuSection 
+                key={section.title} 
+                title={section.title} 
+                items={section.items.map(item => ({
+                  title: item.label,
+                  path: item.href,
+                  icon: item.icon
+                }))} 
+              />
+            ))}
           </nav>
 
           <div className="mt-auto pt-4 border-t">

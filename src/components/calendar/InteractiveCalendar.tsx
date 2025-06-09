@@ -8,6 +8,7 @@ import { useInteractiveCalendar } from "@/hooks/useInteractiveCalendar";
 import { DraggableMission } from "./DraggableMission";
 import { DroppableDay } from "./DroppableDay";
 import { MissionEditDialog } from "./MissionEditDialog";
+import { CalendarFilters } from "./CalendarFilters";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const InteractiveCalendar = () => {
@@ -19,6 +20,14 @@ export const InteractiveCalendar = () => {
     isLoading,
     monthLabel,
     draggedMission,
+    // Filtres
+    selectedSdrIds,
+    selectedMissionTypes,
+    availableSdrs,
+    availableMissionTypes,
+    setSelectedSdrIds,
+    setSelectedMissionTypes,
+    // Actions
     goToPreviousMonth,
     goToNextMonth,
     goToToday,
@@ -29,7 +38,9 @@ export const InteractiveCalendar = () => {
     setIsEditDialogOpen,
     setSelectedMission,
     getMissionColor,
-    refetch
+    refetch,
+    // Permissions
+    isAdmin
   } = useInteractiveCalendar();
 
   const handleDragStartEvent = (event: DragStartEvent) => {
@@ -71,31 +82,45 @@ export const InteractiveCalendar = () => {
               <Calendar className="h-6 w-6" />
               {monthLabel}
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToPreviousMonth}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToToday}
-                className="px-3"
-              >
-                Aujourd'hui
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToNextMonth}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center gap-4">
+              {/* Filtres pour les admins */}
+              <CalendarFilters
+                availableSdrs={availableSdrs}
+                availableMissionTypes={availableMissionTypes}
+                selectedSdrIds={selectedSdrIds}
+                selectedMissionTypes={selectedMissionTypes}
+                onSdrSelectionChange={setSelectedSdrIds}
+                onMissionTypeChange={setSelectedMissionTypes}
+                isAdmin={isAdmin}
+              />
+              
+              {/* Navigation du calendrier */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToPreviousMonth}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToToday}
+                  className="px-3"
+                >
+                  Aujourd'hui
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToNextMonth}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
