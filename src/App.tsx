@@ -26,6 +26,9 @@ import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 import { ErrorBoundary } from 'react-error-boundary';
 import CRA from "@/pages/CRA";
+import EmailCampaignRequest from "@/pages/EmailCampaignRequest";
+import DatabaseCreationRequest from "@/pages/DatabaseCreationRequest";
+import LinkedInScrapingRequest from "@/pages/LinkedInScrapingRequest";
 
 // Créer une instance QueryClient
 const queryClient = new QueryClient();
@@ -59,6 +62,14 @@ function App() {
               <Route path="/email-platforms" element={<ProtectedRoute><EmailPlatforms /></ProtectedRoute>} />
               <Route path="/acelle-campaigns" element={<ProtectedRoute><AcelleEmailCampaigns /></ProtectedRoute>} />
               <Route path="/ai-dashboard" element={<ProtectedRoute><AIDashboard /></ProtectedRoute>} />
+              
+              {/* Routes pour la création/édition de demandes */}
+              <Route path="/requests/email/new" element={<ProtectedRoute><EmailCampaignRequest /></ProtectedRoute>} />
+              <Route path="/requests/email/:requestId" element={<ProtectedRoute><EmailCampaignRequest /></ProtectedRoute>} />
+              <Route path="/requests/database/new" element={<ProtectedRoute><DatabaseCreationRequest /></ProtectedRoute>} />
+              <Route path="/requests/database/:requestId" element={<ProtectedRoute><DatabaseCreationRequest /></ProtectedRoute>} />
+              <Route path="/requests/linkedin/new" element={<ProtectedRoute><LinkedInScrapingRequest /></ProtectedRoute>} />
+              <Route path="/requests/linkedin/:requestId" element={<ProtectedRoute><LinkedInScrapingRequest /></ProtectedRoute>} />
               
               {/* Growth Dashboard routes - AJOUT DE LA ROUTE /growth pour la rétrocompatibilité */}
               <Route path="/growth-dashboard" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
