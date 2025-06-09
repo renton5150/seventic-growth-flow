@@ -24,15 +24,11 @@ interface WorkScheduleRequestDialogProps {
 }
 
 const requestTypeLabels = {
-  telework: 'Télétravail',
-  paid_leave: 'Congé payé',
-  unpaid_leave: 'Congé sans solde'
+  telework: 'Télétravail'
 };
 
 const statusLabels = {
-  pending: 'En attente',
-  approved: 'Approuvé',
-  rejected: 'Refusé'
+  approved: 'Approuvé'
 };
 
 export const WorkScheduleRequestDialog: React.FC<WorkScheduleRequestDialogProps> = ({
@@ -52,7 +48,7 @@ export const WorkScheduleRequestDialog: React.FC<WorkScheduleRequestDialogProps>
     reason: '',
     is_exceptional: false,
     admin_comment: '',
-    status: 'pending' as WorkScheduleStatus
+    status: 'approved' as WorkScheduleStatus
   });
 
   const [errors, setErrors] = useState<string[]>([]);
@@ -106,7 +102,7 @@ export const WorkScheduleRequestDialog: React.FC<WorkScheduleRequestDialogProps>
     onOpenChange(false);
   };
 
-  const canModify = !request || request.status === 'pending' || isAdmin;
+  const canModify = !request || request.status === 'approved' || isAdmin;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
