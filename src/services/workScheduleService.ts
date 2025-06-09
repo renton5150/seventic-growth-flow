@@ -5,41 +5,46 @@ import { WorkScheduleRequest, WorkScheduleNotification } from "@/types/workSched
 export const workScheduleService = {
   // Récupérer toutes les demandes (admin) ou les demandes de l'utilisateur
   async getRequests(userId?: string): Promise<WorkScheduleRequest[]> {
-    let query = `
-      SELECT 
-        wsr.*,
-        p.name as user_name,
-        p.email as user_email,
-        p.role as user_role
-      FROM work_schedule_requests wsr
-      LEFT JOIN profiles p ON wsr.user_id = p.id
-    `;
-    
-    if (userId) {
-      query += ` WHERE wsr.user_id = '${userId}'`;
-    }
-    
-    query += ` ORDER BY wsr.start_date ASC`;
-
-    const { data, error } = await supabase.rpc('execute_sql', { query });
-    
-    if (error) {
-      // Fallback: essayer une requête directe
-      const fallbackQuery = supabase
-        .from('work_schedule_requests' as any)
-        .select('*')
-        .order('start_date', { ascending: true });
-
+    try {
+      // Utiliser une requête simple sans join pour éviter les erreurs de type
+      let query = supabase.from('work_schedule_requests' as any).select('*');
+      
       if (userId) {
-        fallbackQuery.eq('user_id', userId);
+        query = query.eq('user_id', userId);
+      }
+      
+      query = query.order('start_date', { ascending: true });
+
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('Erreur lors du chargement des demandes:', error);
+        return [];
       }
 
-      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-      if (fallbackError) throw fallbackError;
-      return fallbackData || [];
-    }
+      // Enrichir avec les données utilisateur si nécessaire
+      const enrichedData = await Promise.all(
+        (data || []).map(async (request: any) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, email, role')
+            .eq('id', request.user_id)
+            .single();
 
-    return data || [];
+          return {
+            ...request,
+            user_name: profile?.name,
+            user_email: profile?.email,
+            user_role: profile?.role
+          };
+        })
+      );
+
+      return enrichedData as WorkScheduleRequest[];
+    } catch (error) {
+      console.error('Erreur lors du chargement des demandes:', error);
+      return [];
+    }
   },
 
   // Créer une nouvelle demande
@@ -51,7 +56,7 @@ export const workScheduleService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as WorkScheduleRequest;
   },
 
   // Mettre à jour une demande
@@ -64,7 +69,7 @@ export const workScheduleService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as WorkScheduleRequest;
   },
 
   // Supprimer une demande
@@ -86,7 +91,7 @@ export const workScheduleService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as WorkScheduleNotification[];
   },
 
   // Marquer une notification comme lue
