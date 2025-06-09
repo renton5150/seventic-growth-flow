@@ -29,6 +29,12 @@ const requestTypeLabels = {
   unpaid_leave: 'Congé sans solde'
 };
 
+const statusLabels = {
+  pending: 'En attente',
+  approved: 'Approuvé',
+  rejected: 'Refusé'
+};
+
 export const WorkScheduleRequestDialog: React.FC<WorkScheduleRequestDialogProps> = ({
   open,
   onOpenChange,
@@ -205,9 +211,11 @@ export const WorkScheduleRequestDialog: React.FC<WorkScheduleRequestDialogProps>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="approved">Approuvé</SelectItem>
-                    <SelectItem value="rejected">Refusé</SelectItem>
+                    {Object.entries(statusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
