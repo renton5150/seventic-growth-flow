@@ -58,27 +58,40 @@ export const WorkScheduleView = () => {
     setIsDialogOpen(true);
   };
 
-  const handleQuickTeleworkSelect = (dates: Date[]) => {
+  const handleQuickTeleworkSelect = async (dates: Date[]) => {
     if (dates.length === 0) return;
 
-    // Créer une demande approuvée directement pour chaque jour sélectionné
-    dates.forEach(date => {
-      const requestData = {
-        user_id: user!.id,
-        request_type: 'telework' as const,
-        start_date: format(date, 'yyyy-MM-dd'),
-        end_date: format(date, 'yyyy-MM-dd'),
-        status: 'approved' as const, // Directement approuvé
-        is_exceptional: false,
-        reason: `Télétravail sélectionné via planning`,
-        approved_by: user!.id, // Auto-approuvé
-        approved_at: new Date().toISOString()
-      };
+    console.log("[WorkScheduleView] Création de demandes de télétravail pour:", dates);
+    console.log("[WorkScheduleView] User ID:", user?.id);
 
-      createRequest(requestData);
-    });
+    try {
+      // Créer une demande approuvée directement pour chaque jour sélectionné
+      for (const date of dates) {
+        const requestData = {
+          user_id: user!.id,
+          request_type: 'telework' as const,
+          start_date: format(date, 'yyyy-MM-dd'),
+          end_date: format(date, 'yyyy-MM-dd'),
+          status: 'approved' as const,
+          is_exceptional: false,
+          reason: `Télétravail sélectionné via planning rapide`,
+          approved_by: user!.id,
+          approved_at: new Date().toISOString()
+        };
 
-    toast.success(`${dates.length} jour${dates.length > 1 ? 's' : ''} de télétravail ajouté${dates.length > 1 ? 's' : ''} au planning`);
+        console.log("[WorkScheduleView] Création de la demande:", requestData);
+        
+        await new Promise((resolve) => {
+          createRequest(requestData);
+          setTimeout(resolve, 100); // Petit délai entre les créations
+        });
+      }
+
+      toast.success(`${dates.length} jour${dates.length > 1 ? 's' : ''} de télétravail ajouté${dates.length > 1 ? 's' : ''} au planning`);
+    } catch (error) {
+      console.error("[WorkScheduleView] Erreur lors de la création des demandes:", error);
+      toast.error("Erreur lors de la création des demandes de télétravail");
+    }
   };
 
   const handleSubmitRequest = (requestData: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>) => {

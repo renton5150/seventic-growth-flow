@@ -52,6 +52,11 @@ function App() {
               <Route path="/planning" element={<Planning />} />
               <Route path="/work-schedule" element={<WorkSchedule />} />
               <Route path="/missions" element={<Missions />} />
+              {/* Routes corrigées pour les nouvelles demandes */}
+              <Route path="/requests/email/new" element={<EmailCampaignRequest />} />
+              <Route path="/requests/database/new" element={<DatabaseCreationRequest />} />
+              <Route path="/requests/linkedin/new" element={<LinkedInScrapingRequest />} />
+              {/* Routes pour l'édition existantes */}
               <Route path="/email-campaign" element={<EmailCampaignRequest />} />
               <Route path="/email-campaign/edit/:id" element={<EmailCampaignEdit />} />
               <Route path="/database-creation" element={<DatabaseCreationRequest />} />

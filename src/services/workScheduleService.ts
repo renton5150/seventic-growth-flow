@@ -6,6 +6,8 @@ export const workScheduleService = {
   // Récupérer toutes les demandes (admin) ou les demandes de l'utilisateur
   async getRequests(userId?: string): Promise<WorkScheduleRequest[]> {
     try {
+      console.log("[workScheduleService] Récupération des demandes pour userId:", userId);
+      
       // Utiliser une requête simple sans join pour éviter les erreurs de type
       let query = supabase.from('work_schedule_requests').select('*');
       
@@ -21,6 +23,8 @@ export const workScheduleService = {
         console.error('Erreur lors du chargement des demandes:', error);
         return [];
       }
+
+      console.log("[workScheduleService] Demandes récupérées:", data?.length || 0);
 
       // Enrichir avec les données utilisateur si nécessaire
       const enrichedData = await Promise.all(
@@ -49,18 +53,27 @@ export const workScheduleService = {
 
   // Créer une nouvelle demande
   async createRequest(request: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>): Promise<WorkScheduleRequest> {
+    console.log("[workScheduleService] Création d'une nouvelle demande:", request);
+    
     const { data, error } = await supabase
       .from('work_schedule_requests')
       .insert(request)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("[workScheduleService] Erreur lors de la création:", error);
+      throw error;
+    }
+    
+    console.log("[workScheduleService] Demande créée avec succès:", data);
     return data as WorkScheduleRequest;
   },
 
   // Mettre à jour une demande
   async updateRequest(id: string, updates: Partial<WorkScheduleRequest>): Promise<WorkScheduleRequest> {
+    console.log("[workScheduleService] Mise à jour de la demande:", id, updates);
+    
     const { data, error } = await supabase
       .from('work_schedule_requests')
       .update(updates)
@@ -68,18 +81,30 @@ export const workScheduleService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("[workScheduleService] Erreur lors de la mise à jour:", error);
+      throw error;
+    }
+    
+    console.log("[workScheduleService] Demande mise à jour avec succès:", data);
     return data as WorkScheduleRequest;
   },
 
   // Supprimer une demande
   async deleteRequest(id: string): Promise<void> {
+    console.log("[workScheduleService] Suppression de la demande:", id);
+    
     const { error } = await supabase
       .from('work_schedule_requests')
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      console.error("[workScheduleService] Erreur lors de la suppression:", error);
+      throw error;
+    }
+    
+    console.log("[workScheduleService] Demande supprimée avec succès");
   },
 
   // Récupérer les notifications de l'utilisateur
