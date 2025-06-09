@@ -58,24 +58,67 @@ export const useInteractiveCalendar = () => {
     enabled: !!user
   });
 
-  // Pour les admins, on utilise toutes les missions sans filtrage initial
-  // Le filtrage se fait dans le composant selon les filtres sélectionnés
+  // Filtrage des missions par mois actuel ET par les filtres sélectionnés
   const missions = useMemo(() => {
-    console.log("Calcul des missions à afficher...");
+    console.log("Calcul des missions à afficher pour le mois:", format(currentDate, 'MMMM yyyy', { locale: fr }));
     console.log("Toutes les missions:", allMissions);
-    console.log("Is admin:", isAdmin);
-    console.log("Selected SDR IDs:", selectedSdrIds);
-    console.log("Selected mission types:", selectedMissionTypes);
+    
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    
+    console.log("Période du mois:", {
+      start: format(monthStart, 'dd/MM/yyyy'),
+      end: format(monthEnd, 'dd/MM/yyyy')
+    });
 
-    // Pour les non-admins, on retourne simplement leurs missions
+    // Filtrer d'abord par date (missions actives pendant le mois affiché)
+    const missionsInMonth = allMissions.filter(mission => {
+      // Une mission est visible si elle est active pendant le mois affiché
+      if (!mission.startDate) return false;
+      
+      const missionStart = new Date(mission.startDate);
+      const missionEnd = mission.endDate ? new Date(mission.endDate) : missionStart;
+      
+      // La mission est visible si :
+      // - Elle commence avant ou pendant le mois ET
+      // - Elle se termine après ou pendant le mois
+      const isActiveInMonth = missionStart <= monthEnd && missionEnd >= monthStart;
+      
+      if (isActiveInMonth) {
+        console.log(`Mission "${mission.name}" active pendant ${format(currentDate, 'MMMM yyyy', { locale: fr })}`);
+      }
+      
+      return isActiveInMonth;
+    });
+
+    console.log(`${missionsInMonth.length} missions actives pendant ${format(currentDate, 'MMMM yyyy', { locale: fr })}`);
+
+    // Pour les non-admins, on retourne les missions filtrées par mois
     if (!isAdmin) {
-      return allMissions;
+      return missionsInMonth;
     }
 
-    // Pour les admins, on retourne toutes les missions
-    // Le filtrage se fait dans le composant GanttCalendar
-    return allMissions;
-  }, [allMissions, isAdmin]);
+    // Pour les admins, on applique également les filtres SDR et type
+    let filteredMissions = missionsInMonth;
+
+    // Filtre par SDR
+    if (selectedSdrIds.length > 0) {
+      filteredMissions = filteredMissions.filter(mission => 
+        mission.sdrId && selectedSdrIds.includes(mission.sdrId)
+      );
+      console.log(`Après filtre SDR: ${filteredMissions.length} missions`);
+    }
+
+    // Filtre par type de mission
+    if (selectedMissionTypes.length > 0) {
+      filteredMissions = filteredMissions.filter(mission => 
+        selectedMissionTypes.includes(mission.type)
+      );
+      console.log(`Après filtre type: ${filteredMissions.length} missions`);
+    }
+
+    return filteredMissions;
+  }, [allMissions, isAdmin, currentDate, selectedSdrIds, selectedMissionTypes]);
 
   // Construction du calendrier mensuel
   const calendarData = useMemo((): CalendarMonth => {
@@ -202,7 +245,7 @@ export const useInteractiveCalendar = () => {
     return format(currentDate, 'MMMM yyyy', { locale: fr });
   }, [currentDate]);
 
-  // Récupération des SDRs uniques pour les filtres (admin uniquement)
+  // Récupération des SDRs uniques pour les filtres (admin uniquement) - basé sur TOUTES les missions, pas seulement celles du mois
   const availableSdrs = useMemo(() => {
     if (!isAdmin) return [];
     
@@ -220,7 +263,7 @@ export const useInteractiveCalendar = () => {
     return sdrs;
   }, [allMissions, isAdmin]);
 
-  // Types de mission disponibles
+  // Types de mission disponibles - basé sur TOUTES les missions
   const availableMissionTypes = useMemo(() => {
     const types = Array.from(new Set(allMissions.map(mission => mission.type)));
     console.log("Types de mission disponibles:", types);
