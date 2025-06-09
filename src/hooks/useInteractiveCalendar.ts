@@ -38,40 +38,44 @@ export const useInteractiveCalendar = () => {
 
   const isAdmin = user?.role === "admin";
 
-  // Récupération des missions
+  // Récupération des missions (TOUTES les missions sans filtrage initial)
   const { data: allMissions = [], isLoading, refetch } = useQuery({
     queryKey: ['calendar-missions', user?.id, isAdmin],
     queryFn: async () => {
       if (isAdmin) {
-        return await getAllMissions();
+        console.log("Admin: récupération de toutes les missions");
+        const missions = await getAllMissions();
+        console.log("Missions récupérées pour admin:", missions);
+        return missions;
       } else if (user?.id) {
-        return await getMissionsByUserId(user.id);
+        console.log("SDR: récupération des missions pour", user.id);
+        const missions = await getMissionsByUserId(user.id);
+        console.log("Missions récupérées pour SDR:", missions);
+        return missions;
       }
       return [];
     },
     enabled: !!user
   });
 
-  // Filtrage des missions selon les critères sélectionnés
+  // Pour les admins, on utilise toutes les missions sans filtrage initial
+  // Le filtrage se fait dans le composant selon les filtres sélectionnés
   const missions = useMemo(() => {
-    let filteredMissions = allMissions;
+    console.log("Calcul des missions à afficher...");
+    console.log("Toutes les missions:", allMissions);
+    console.log("Is admin:", isAdmin);
+    console.log("Selected SDR IDs:", selectedSdrIds);
+    console.log("Selected mission types:", selectedMissionTypes);
 
-    // Filtre par SDR (admin uniquement)
-    if (isAdmin && selectedSdrIds.length > 0) {
-      filteredMissions = filteredMissions.filter(mission => 
-        mission.sdrId && selectedSdrIds.includes(mission.sdrId)
-      );
+    // Pour les non-admins, on retourne simplement leurs missions
+    if (!isAdmin) {
+      return allMissions;
     }
 
-    // Filtre par type de mission
-    if (selectedMissionTypes.length > 0) {
-      filteredMissions = filteredMissions.filter(mission => 
-        selectedMissionTypes.includes(mission.type)
-      );
-    }
-
-    return filteredMissions;
-  }, [allMissions, isAdmin, selectedSdrIds, selectedMissionTypes]);
+    // Pour les admins, on retourne toutes les missions
+    // Le filtrage se fait dans le composant GanttCalendar
+    return allMissions;
+  }, [allMissions, isAdmin]);
 
   // Construction du calendrier mensuel
   const calendarData = useMemo((): CalendarMonth => {
@@ -202,6 +206,8 @@ export const useInteractiveCalendar = () => {
   const availableSdrs = useMemo(() => {
     if (!isAdmin) return [];
     
+    console.log("Calcul des SDRs disponibles à partir de:", allMissions);
+    
     const sdrMap = new Map();
     allMissions.forEach(mission => {
       if (mission.sdrId && mission.sdrName) {
@@ -209,12 +215,16 @@ export const useInteractiveCalendar = () => {
       }
     });
     
-    return Array.from(sdrMap.entries()).map(([id, name]) => ({ id, name }));
+    const sdrs = Array.from(sdrMap.entries()).map(([id, name]) => ({ id, name }));
+    console.log("SDRs disponibles:", sdrs);
+    return sdrs;
   }, [allMissions, isAdmin]);
 
   // Types de mission disponibles
   const availableMissionTypes = useMemo(() => {
-    return Array.from(new Set(allMissions.map(mission => mission.type)));
+    const types = Array.from(new Set(allMissions.map(mission => mission.type)));
+    console.log("Types de mission disponibles:", types);
+    return types;
   }, [allMissions]);
 
   return {

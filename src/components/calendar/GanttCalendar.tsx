@@ -51,8 +51,12 @@ export const GanttCalendar = () => {
     );
   }
 
-  // Organiser les missions par SDR
-  const missionsBySdr = missions.reduce((acc, mission) => {
+  console.log("Missions disponibles:", missions);
+  console.log("SDRs disponibles:", availableSdrs);
+  console.log("Filtres SDR sélectionnés:", selectedSdrIds);
+
+  // Organiser les missions par SDR - AVANT filtrage
+  const allMissionsBySdr = missions.reduce((acc, mission) => {
     const sdrId = mission.sdrId || 'unassigned';
     const sdrName = mission.sdrName || 'Non assigné';
     
@@ -67,7 +71,27 @@ export const GanttCalendar = () => {
     return acc;
   }, {} as Record<string, { sdrId: string; sdrName: string; missions: any[] }>);
 
-  const sdrRows = Object.values(missionsBySdr);
+  // Appliquer les filtres APRÈS le regroupement
+  let filteredSdrRows = Object.values(allMissionsBySdr);
+
+  // Filtre par SDR (admin uniquement)
+  if (isAdmin && selectedSdrIds.length > 0) {
+    filteredSdrRows = filteredSdrRows.filter(sdrRow => 
+      selectedSdrIds.includes(sdrRow.sdrId)
+    );
+  }
+
+  // Filtre par type de mission
+  if (selectedMissionTypes.length > 0) {
+    filteredSdrRows = filteredSdrRows.map(sdrRow => ({
+      ...sdrRow,
+      missions: sdrRow.missions.filter(mission => 
+        selectedMissionTypes.includes(mission.type)
+      )
+    })).filter(sdrRow => sdrRow.missions.length > 0); // Supprimer les SDRs sans missions
+  }
+
+  console.log("SDR rows après filtrage:", filteredSdrRows);
 
   return (
     <div className="w-full">
@@ -80,15 +104,17 @@ export const GanttCalendar = () => {
             </CardTitle>
             <div className="flex items-center gap-4">
               {/* Filtres pour les admins */}
-              <CalendarFilters
-                availableSdrs={availableSdrs}
-                availableMissionTypes={availableMissionTypes}
-                selectedSdrIds={selectedSdrIds}
-                selectedMissionTypes={selectedMissionTypes}
-                onSdrSelectionChange={setSelectedSdrIds}
-                onMissionTypeChange={setSelectedMissionTypes}
-                isAdmin={isAdmin}
-              />
+              {isAdmin && (
+                <CalendarFilters
+                  availableSdrs={availableSdrs}
+                  availableMissionTypes={availableMissionTypes}
+                  selectedSdrIds={selectedSdrIds}
+                  selectedMissionTypes={selectedMissionTypes}
+                  onSdrSelectionChange={setSelectedSdrIds}
+                  onMissionTypeChange={setSelectedMissionTypes}
+                  isAdmin={isAdmin}
+                />
+              )}
               
               {/* Navigation du calendrier */}
               <div className="flex items-center gap-2">
@@ -132,12 +158,15 @@ export const GanttCalendar = () => {
           <div className="border rounded-lg overflow-hidden">
             <GanttHeader />
             <div className="max-h-[600px] overflow-y-auto">
-              {sdrRows.length === 0 ? (
+              {filteredSdrRows.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  Aucune mission trouvée
+                  {selectedSdrIds.length > 0 || selectedMissionTypes.length > 0 
+                    ? "Aucune mission trouvée avec les filtres sélectionnés" 
+                    : "Aucune mission trouvée"
+                  }
                 </div>
               ) : (
-                sdrRows.map((sdrRow) => (
+                filteredSdrRows.map((sdrRow) => (
                   <GanttRow
                     key={sdrRow.sdrId}
                     sdrName={sdrRow.sdrName}
