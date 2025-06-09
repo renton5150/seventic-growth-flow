@@ -49,8 +49,8 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Filtre par SDR (Admin uniquement) */}
-      {isAdmin && availableSdrs.length > 0 && (
+      {/* Filtre par SDR */}
+      {availableSdrs.length > 0 && (
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="h-8">
