@@ -38,7 +38,8 @@ export const workScheduleNewService = {
       }
       
       console.log("✅ [NewService] Récupéré:", data?.length || 0, "demandes");
-      return data || [];
+      // Assertion de type car nous savons que request_type sera 'telework' grâce à la contrainte DB
+      return (data || []) as TeleworkRequest[];
     } catch (error) {
       console.error("❌ [NewService] Erreur critique:", error);
       throw error;
