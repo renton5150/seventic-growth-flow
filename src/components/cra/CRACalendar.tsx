@@ -28,8 +28,8 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
     
     try {
       const reports = await craService.getCRAsByPeriod(
-        startOfMonth.toISOString().split('T')[0],
-        endOfMonth.toISOString().split('T')[0],
+        format(startOfMonth, 'yyyy-MM-dd'),
+        format(endOfMonth, 'yyyy-MM-dd'),
         sdrId
       );
       console.log("Rapports CRA chargés:", reports);
@@ -52,11 +52,8 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
   };
 
   const getReportForDate = (date: Date) => {
-    // Créer la date string de manière cohérente
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
+    // Formatage cohérent des dates : YYYY-MM-DD
+    const dateStr = format(date, 'yyyy-MM-dd');
     
     console.log(`Recherche rapport pour: ${dateStr}`);
     const report = monthReports.find(report => report.report_date === dateStr);
@@ -94,11 +91,8 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
       return;
     }
     
-    // Créer la date string de manière cohérente
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
+    // Formatage cohérent : YYYY-MM-DD
+    const dateStr = format(date, 'yyyy-MM-dd');
     
     console.log("Date sélectionnée dans le calendrier:", dateStr);
     setSelectedDate(dateStr);
@@ -108,7 +102,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
   const getDateStatus = (date: Date) => {
     const report = getReportForDate(date);
     const today = new Date();
-    const isToday = date.toDateString() === today.toDateString();
+    const isToday = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
     const isPast = date < today && !isToday;
     const isWeekendDay = isWeekend(date);
     
@@ -176,10 +170,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
             
             const dateStatus = getDateStatus(date);
             const report = getReportForDate(date);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`;
+            const dateStr = format(date, 'yyyy-MM-dd');
             const isSelected = selectedDate === dateStr;
             const isWeekendDay = isWeekend(date);
             

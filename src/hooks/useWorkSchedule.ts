@@ -102,15 +102,17 @@ export const useWorkSchedule = () => {
     setCurrentDate(new Date());
   };
 
-  // Mutations avec gestion d'erreur
+  // Mutations avec gestion d'erreur améliorée et invalidation forcée
   const createRequestMutation = useMutation({
     mutationFn: workScheduleService.createRequest,
-    onSuccess: () => {
+    onSuccess: async () => {
       console.log("[useWorkSchedule] Télétravail créé avec succès");
-      queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
+      
+      // Invalidation et refetch forcé
+      await queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
+      await refetch();
+      
       toast.success("Jour de télétravail ajouté");
-      // Force un refresh immédiat
-      refetch();
     },
     onError: (error) => {
       console.error("[useWorkSchedule] Erreur création:", error);
@@ -120,12 +122,14 @@ export const useWorkSchedule = () => {
 
   const deleteRequestMutation = useMutation({
     mutationFn: workScheduleService.deleteRequest,
-    onSuccess: () => {
+    onSuccess: async () => {
       console.log("[useWorkSchedule] Télétravail supprimé avec succès");
-      queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
+      
+      // Invalidation et refetch forcé
+      await queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
+      await refetch();
+      
       toast.success("Jour de télétravail supprimé");
-      // Force un refresh immédiat
-      refetch();
     },
     onError: (error) => {
       console.error("[useWorkSchedule] Erreur suppression:", error);

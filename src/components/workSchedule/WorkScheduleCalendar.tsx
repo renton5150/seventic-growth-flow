@@ -27,7 +27,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 }) => {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-  const handleDayClick = (date: Date, dayRequests: WorkScheduleRequest[]) => {
+  const handleDayClick = async (date: Date, dayRequests: WorkScheduleRequest[]) => {
     console.log("[Calendar] Clic sur date:", format(date, 'yyyy-MM-dd'));
     
     // Si c'est un weekend, ne rien faire
@@ -102,8 +102,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                   day.isToday && "bg-blue-50 border-blue-200",
                   isWeekend(day.date) && "bg-gray-100 cursor-not-allowed",
                   !isWeekend(day.date) && "cursor-pointer hover:bg-gray-50",
-                  !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50",
-                  hasTelework && "bg-blue-100 border-blue-300" // Affichage en bleu pour les jours de télétravail
+                  !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50"
                 )}
                 onClick={() => {
                   console.log("[Calendar] onClick déclenché pour:", format(day.date, 'yyyy-MM-dd'));
@@ -114,16 +113,21 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                 <div className={cn(
                   "text-sm font-medium mb-1",
                   day.isToday && "text-blue-600",
-                  hasTelework && "text-blue-800 font-bold" // Style spécial pour les jours de télétravail
+                  hasTelework && "text-blue-800 font-bold"
                 )}>
                   {format(day.date, 'd')}
                 </div>
 
-                {/* Affichage du statut télétravail */}
+                {/* Affichage du statut télétravail avec style visible */}
                 {hasTelework && (
-                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-500">
+                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-500 font-semibold">
                     Télétravail
                   </div>
+                )}
+
+                {/* Style de fond pour les jours de télétravail */}
+                {hasTelework && (
+                  <div className="absolute inset-0 bg-blue-100 opacity-30 rounded-lg pointer-events-none"></div>
                 )}
 
                 {/* Indicateur si on peut ajouter du télétravail */}
