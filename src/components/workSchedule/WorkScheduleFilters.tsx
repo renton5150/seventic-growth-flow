@@ -54,6 +54,11 @@ export const WorkScheduleFilters: React.FC<WorkScheduleFiltersProps> = ({
     }
   };
 
+  const handleUserSelection = (value: string) => {
+    // Convert "all-users" back to empty string for the parent component
+    onUserChange(value === "all-users" ? "" : value);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -64,12 +69,12 @@ export const WorkScheduleFilters: React.FC<WorkScheduleFiltersProps> = ({
         {isAdmin && (
           <div>
             <Label className="text-sm font-medium">Utilisateur</Label>
-            <Select value={selectedUserId} onValueChange={onUserChange}>
+            <Select value={selectedUserId || "all-users"} onValueChange={handleUserSelection}>
               <SelectTrigger>
                 <SelectValue placeholder="Tous les utilisateurs" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les utilisateurs</SelectItem>
+                <SelectItem value="all-users">Tous les utilisateurs</SelectItem>
                 {availableUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.name} ({user.role.toUpperCase()})
