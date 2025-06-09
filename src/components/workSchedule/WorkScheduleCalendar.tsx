@@ -28,9 +28,11 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   const handleDayClick = (date: Date, dayRequests: WorkScheduleRequest[]) => {
+    console.log("[Calendar] Clic sur date:", format(date, 'yyyy-MM-dd'));
+    
     // Si c'est un weekend, ne rien faire
     if (isWeekend(date)) {
-      console.log("Clic weekend ignoré");
+      console.log("[Calendar] Weekend ignoré");
       return;
     }
 
@@ -39,7 +41,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
     
     if (existingTelework) {
       // Si télétravail existe déjà, on le supprime
-      console.log("Suppression télétravail existant:", existingTelework.id);
+      console.log("[Calendar] Suppression télétravail existant:", existingTelework.id);
       onRequestClick(existingTelework);
     } else {
       // Vérifier la limite de 2 jours par semaine
@@ -52,14 +54,16 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
         ).length;
 
       if (teleworkThisWeek >= 2) {
-        console.log("Maximum 2 jours de télétravail par semaine atteint");
+        console.log("[Calendar] Maximum 2 jours de télétravail par semaine atteint");
         return;
       }
 
       // Ajouter directement le télétravail
       if (onDirectTeleworkAdd) {
-        console.log("Ajout télétravail pour:", format(date, 'yyyy-MM-dd'));
+        console.log("[Calendar] Ajout télétravail pour:", format(date, 'yyyy-MM-dd'));
         onDirectTeleworkAdd(date);
+      } else {
+        console.log("[Calendar] ERREUR: onDirectTeleworkAdd non défini");
       }
     }
   };
@@ -100,7 +104,10 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                   !isWeekend(day.date) && "cursor-pointer hover:bg-gray-50",
                   !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50"
                 )}
-                onClick={() => handleDayClick(day.date, day.requests)}
+                onClick={() => {
+                  console.log("[Calendar] onClick déclenché pour:", format(day.date, 'yyyy-MM-dd'));
+                  handleDayClick(day.date, day.requests);
+                }}
               >
                 {/* Numéro du jour */}
                 <div className={cn(
@@ -118,6 +125,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                       className="text-xs px-2 py-1 rounded text-white cursor-pointer hover:scale-105 transition-transform bg-blue-500"
                       onClick={(e) => {
                         e.stopPropagation();
+                        console.log("[Calendar] Clic sur télétravail pour suppression:", request.id);
                         onRequestClick(request);
                       }}
                       title="Télétravail - Cliquer pour supprimer"

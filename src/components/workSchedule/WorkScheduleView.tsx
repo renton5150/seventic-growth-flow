@@ -4,7 +4,6 @@ import { useWorkSchedule } from "@/hooks/useWorkSchedule";
 import { WorkScheduleHeader } from "./WorkScheduleHeader";
 import { WorkScheduleCalendar } from "./WorkScheduleCalendar";
 import { WorkScheduleFilters } from "./WorkScheduleFilters";
-import { QuickTeleworkSelector } from "./QuickTeleworkSelector";
 import { WorkScheduleRequest } from "@/types/workSchedule";
 import { useAuth } from "@/contexts/AuthContext";
 import { startOfWeek, format } from "date-fns";
@@ -33,8 +32,6 @@ export const WorkScheduleView = () => {
     deleteRequest,
     isAdmin
   } = useWorkSchedule();
-
-  const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   const handleRequestClick = (request: WorkScheduleRequest) => {
     // Simple suppression du télétravail
@@ -69,38 +66,6 @@ export const WorkScheduleView = () => {
     }
   };
 
-  const handleQuickTeleworkSelect = async (dates: Date[]) => {
-    if (dates.length === 0) return;
-
-    try {
-      for (const date of dates) {
-        const requestData = {
-          user_id: user!.id,
-          request_type: 'telework' as const,
-          start_date: format(date, 'yyyy-MM-dd'),
-          end_date: format(date, 'yyyy-MM-dd'),
-          status: 'approved' as const,
-          is_exceptional: false,
-          reason: 'Télétravail sélectionné via planning rapide',
-          approved_by: user!.id,
-          approved_at: new Date().toISOString()
-        };
-
-        await new Promise((resolve) => {
-          createRequest(requestData);
-          setTimeout(resolve, 100);
-        });
-      }
-
-      toast.success(`${dates.length} jour${dates.length > 1 ? 's' : ''} de télétravail ajouté${dates.length > 1 ? 's' : ''}`);
-    } catch (error) {
-      console.error("[WorkScheduleView] Erreur:", error);
-      toast.error("Erreur lors de la création des demandes de télétravail");
-    }
-  };
-
-  const canUseQuickSelector = user?.role === 'sdr' || user?.role === 'growth';
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -119,16 +84,6 @@ export const WorkScheduleView = () => {
         onCreateRequest={() => {}} // Plus de création manuelle
         canCreateRequest={false} // Désactivé
       />
-
-      {/* Sélection rapide */}
-      {canUseQuickSelector && (
-        <QuickTeleworkSelector
-          onSelect={handleQuickTeleworkSelect}
-          existingRequests={allRequests}
-          currentWeek={currentWeek}
-          onWeekChange={setCurrentWeek}
-        />
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Filtres */}
