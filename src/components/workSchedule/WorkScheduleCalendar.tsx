@@ -15,6 +15,7 @@ interface WorkScheduleCalendarProps {
   isAdmin: boolean;
   userId: string;
   onDirectTeleworkAdd?: (date: Date) => void;
+  calendarKey?: number; // Ajout d'une clé pour forcer le rafraîchissement
 }
 
 export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
@@ -23,7 +24,8 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
   onRequestClick,
   isAdmin,
   userId,
-  onDirectTeleworkAdd
+  onDirectTeleworkAdd,
+  calendarKey = 0
 }) => {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
@@ -42,7 +44,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
     
     if (existingTelework) {
       // Si télétravail existe déjà, on le supprime
-      console.log("[Calendar] Suppression télétravail existant:", existingTelework.id, "pour la date:", existingTelework.start_date);
+      console.log("🔥 [Calendar] Suppression télétravail existant:", existingTelework.id, "pour la date:", existingTelework.start_date);
       onRequestClick(existingTelework);
     } else {
       // Vérifier la limite de 2 jours par semaine
@@ -61,16 +63,30 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 
       // Ajouter directement le télétravail
       if (onDirectTeleworkAdd) {
-        console.log("[Calendar] Ajout télétravail pour:", dateString);
+        console.log("✅ [Calendar] Ajout télétravail pour:", dateString);
         onDirectTeleworkAdd(date);
       } else {
-        console.log("[Calendar] ERREUR: onDirectTeleworkAdd non défini");
+        console.log("❌ [Calendar] ERREUR: onDirectTeleworkAdd non défini");
       }
     }
   };
 
+  // Fonction pour vérifier si un jour a du télétravail
+  const isDayInWorkSchedule = (day: WorkScheduleCalendarDay) => {
+    const hasTelework = day.requests.some(r => r.request_type === 'telework' && r.user_id === userId);
+    
+    // Debug détaillé pour diagnostiquer le problème
+    if (hasTelework) {
+      const formattedDate = format(day.date, 'yyyy-MM-dd');
+      const teleworkRequests = day.requests.filter(r => r.request_type === 'telework' && r.user_id === userId);
+      console.log(`[Calendar] Date ${formattedDate} a du télétravail:`, teleworkRequests.map(r => ({ id: r.id, date: r.start_date })));
+    }
+    
+    return hasTelework;
+  };
+
   return (
-    <div className="bg-white rounded-lg border">
+    <div key={calendarKey} className="bg-white rounded-lg border">
       {/* En-tête des jours de la semaine */}
       <div className="grid grid-cols-7 border-b">
         {weekDays.map((day) => (
@@ -92,27 +108,23 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
               ).length;
             
             const canAddTelework = !isWeekend(day.date) && teleworkCount < 2;
-            const hasTelework = day.requests.some(r => r.request_type === 'telework' && r.user_id === userId);
-            
-            // Debug pour vérifier l'état
-            if (hasTelework) {
-              console.log("[Calendar] Date", format(day.date, 'yyyy-MM-dd'), "a du télétravail:", day.requests.filter(r => r.request_type === 'telework' && r.user_id === userId));
-            }
+            const hasTelework = isDayInWorkSchedule(day);
             
             return (
               <div
-                key={`${weekIndex}-${dayIndex}`}
+                key={`${weekIndex}-${dayIndex}-${calendarKey}`}
                 className={cn(
-                  "min-h-[100px] p-2 border-r border-b last:border-r-0 relative transition-colors duration-200",
+                  "min-h-[100px] p-2 border-r border-b last:border-r-0 relative transition-all duration-300",
                   !day.isCurrentMonth && "bg-gray-50 text-gray-400",
                   day.isToday && "bg-blue-50 border-blue-200",
                   isWeekend(day.date) && "bg-gray-100 cursor-not-allowed",
                   !isWeekend(day.date) && "cursor-pointer hover:bg-gray-50",
-                  hasTelework && "bg-blue-100 border-blue-300",
+                  hasTelework && "bg-blue-100 border-blue-300 shadow-sm",
                   !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50"
                 )}
                 onClick={() => {
-                  console.log("[Calendar] onClick déclenché pour:", format(day.date, 'yyyy-MM-dd'), "hasTelework:", hasTelework);
+                  const dateString = format(day.date, 'yyyy-MM-dd');
+                  console.log("[Calendar] onClick déclenché pour:", dateString, "hasTelework:", hasTelework);
                   handleDayClick(day.date, day.requests);
                 }}
               >
@@ -127,7 +139,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 
                 {/* Affichage du statut télétravail avec style visible */}
                 {hasTelework && (
-                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold shadow-sm">
+                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold shadow-sm animate-in fade-in duration-200">
                     Télétravail
                   </div>
                 )}

@@ -26,12 +26,13 @@ export const useWorkSchedule = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [calendarKey, setCalendarKey] = useState(0);
   
   const isAdmin = user?.role === "admin";
 
   // Récupération des demandes avec gestion d'erreur
   const { data: allRequests = [], isLoading, refetch } = useQuery({
-    queryKey: ['work-schedule-requests', user?.id],
+    queryKey: ['work-schedule-requests', user?.id, calendarKey],
     queryFn: async () => {
       try {
         if (user?.id) {
@@ -87,7 +88,7 @@ export const useWorkSchedule = () => {
     }
 
     return { weeks, currentDate };
-  }, [currentDate, allRequests]);
+  }, [currentDate, allRequests, calendarKey]);
 
   // Navigation du calendrier
   const goToPreviousMonth = () => {
@@ -100,6 +101,12 @@ export const useWorkSchedule = () => {
 
   const goToToday = () => {
     setCurrentDate(new Date());
+  };
+
+  // Force refresh du calendrier
+  const forceCalendarRefresh = () => {
+    console.log("[useWorkSchedule] Force refresh calendrier");
+    setCalendarKey(prev => prev + 1);
   };
 
   // Mutations avec gestion d'erreur améliorée et invalidation forcée
@@ -121,10 +128,13 @@ export const useWorkSchedule = () => {
       
       const result = await workScheduleService.createRequest(requestData);
       console.log("[useWorkSchedule] Demande créée avec succès:", result);
-      return result;
+      return { success: true, createdRequest: result, createdDate: requestData.start_date };
     },
-    onSuccess: async (data) => {
-      console.log("[useWorkSchedule] Télétravail créé avec succès:", data);
+    onSuccess: async (result) => {
+      console.log("✅ [useWorkSchedule] Télétravail créé avec succès:", result);
+      
+      // Force refresh immédiat du calendrier
+      forceCalendarRefresh();
       
       // Invalidation et refetch forcé
       await queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
@@ -144,21 +154,24 @@ export const useWorkSchedule = () => {
 
   const deleteRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      console.log("[useWorkSchedule] Début suppression demande:", requestId);
+      console.log("🔥 [useWorkSchedule] Début suppression demande:", requestId);
       
       // Trouver la demande avant suppression pour le debug
       const requestToDelete = allRequests.find(req => req.id === requestId);
       if (requestToDelete) {
-        console.log("[useWorkSchedule] Suppression de la date:", requestToDelete.start_date);
+        console.log("🔥 [useWorkSchedule] Suppression de la date:", requestToDelete.start_date);
       }
       
       await workScheduleService.deleteRequest(requestId);
-      console.log("[useWorkSchedule] Demande supprimée avec succès:", requestId);
+      console.log("✅ [useWorkSchedule] Suppression BDD réussie:", requestId);
       
-      return requestToDelete; // Retourner l'élément supprimé pour le debug
+      return { success: true, deletedRequest: requestToDelete, deletedDate: requestToDelete?.start_date };
     },
-    onSuccess: async (deletedRequest) => {
-      console.log("[useWorkSchedule] Télétravail supprimé avec succès:", deletedRequest);
+    onSuccess: async (result) => {
+      console.log("✅ [useWorkSchedule] Télétravail supprimé avec succès:", result);
+      
+      // CORRECTION CRITIQUE: Force refresh immédiat du calendrier AVANT tout le reste
+      forceCalendarRefresh();
       
       // Invalidation immédiate et forcée de tous les caches
       queryClient.removeQueries({ queryKey: ['work-schedule-requests'] });
@@ -166,12 +179,12 @@ export const useWorkSchedule = () => {
       
       // Forcer un refetch immédiat
       const newData = await refetch();
-      console.log("[useWorkSchedule] Données après suppression:", newData.data?.length);
+      console.log("✅ [useWorkSchedule] Données après suppression:", newData.data?.length);
       
       toast.success("Jour de télétravail supprimé avec succès");
     },
     onError: (error: any) => {
-      console.error("[useWorkSchedule] Erreur suppression:", error);
+      console.error("❌ [useWorkSchedule] Erreur suppression:", error);
       toast.error("Erreur lors de la suppression: " + error.message);
     }
   });
@@ -189,6 +202,7 @@ export const useWorkSchedule = () => {
     allRequests,
     availableUsers: [],
     isLoading,
+    calendarKey,
     
     // Filters (simplifiés)
     selectedUserId: '',
@@ -202,6 +216,9 @@ export const useWorkSchedule = () => {
     goToPreviousMonth,
     goToNextMonth,
     goToToday,
+    
+    // Refresh
+    forceCalendarRefresh,
     
     // Mutations
     createRequest: createRequestMutation.mutate,

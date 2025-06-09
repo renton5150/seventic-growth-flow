@@ -32,15 +32,17 @@ export const WorkScheduleView = () => {
     deleteRequest,
     isAdmin,
     isCreating,
-    isDeleting
+    isDeleting,
+    calendarKey,
+    forceCalendarRefresh
   } = useWorkSchedule();
 
   const handleRequestClick = (request: WorkScheduleRequest) => {
     // Simple suppression du télétravail avec confirmation
-    console.log("[WorkScheduleView] Clic sur demande de suppression:", request.id, "date:", request.start_date);
+    console.log("🔥 [WorkScheduleView] Clic sur demande de suppression:", request.id, "date:", request.start_date);
     
     if (window.confirm("Supprimer ce jour de télétravail ?")) {
-      console.log("[WorkScheduleView] Confirmation de suppression pour:", request.id);
+      console.log("🔥 [WorkScheduleView] Confirmation de suppression pour:", request.id);
       deleteRequest(request.id);
     } else {
       console.log("[WorkScheduleView] Suppression annulée par l'utilisateur");
@@ -61,7 +63,7 @@ export const WorkScheduleView = () => {
 
     try {
       const dateString = format(date, 'yyyy-MM-dd');
-      console.log("[WorkScheduleView] Ajout télétravail pour la date:", dateString);
+      console.log("✅ [WorkScheduleView] Ajout télétravail pour la date:", dateString);
       
       // Vérifier si une demande existe déjà dans l'état local
       const existingRequest = allRequests.find(req => 
@@ -88,11 +90,11 @@ export const WorkScheduleView = () => {
         approved_at: new Date().toISOString()
       };
 
-      console.log("[WorkScheduleView] Création demande télétravail:", requestData);
+      console.log("✅ [WorkScheduleView] Création demande télétravail:", requestData);
       createRequest(requestData);
       
     } catch (error) {
-      console.error("[WorkScheduleView] Erreur critique:", error);
+      console.error("❌ [WorkScheduleView] Erreur critique:", error);
       toast.error("Erreur critique lors de l'ajout du télétravail");
     }
   };
@@ -140,6 +142,7 @@ export const WorkScheduleView = () => {
             isAdmin={isAdmin}
             userId={user?.id || ''}
             onDirectTeleworkAdd={handleDirectTeleworkAdd}
+            calendarKey={calendarKey} // Passage de la clé pour forcer le rafraîchissement
           />
         </div>
       </div>

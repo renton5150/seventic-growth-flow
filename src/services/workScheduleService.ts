@@ -52,7 +52,7 @@ export const workScheduleService = {
 
   // Créer une nouvelle demande
   async createRequest(request: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>): Promise<WorkScheduleRequest> {
-    console.log("[workScheduleService] Création d'une nouvelle demande:", request);
+    console.log("✅ [workScheduleService] Création d'une nouvelle demande:", request);
     
     try {
       // Vérifier d'abord si une demande existe déjà
@@ -64,12 +64,12 @@ export const workScheduleService = {
         .eq('request_type', request.request_type);
 
       if (checkError) {
-        console.error("[workScheduleService] Erreur vérification:", checkError);
+        console.error("❌ [workScheduleService] Erreur vérification:", checkError);
         throw new Error(`Erreur de vérification: ${checkError.message}`);
       }
 
       if (existing && existing.length > 0) {
-        console.log("[workScheduleService] Demande existante trouvée:", existing);
+        console.log("❌ [workScheduleService] Demande existante trouvée:", existing);
         throw new Error("Une demande existe déjà pour cette date");
       }
 
@@ -80,14 +80,14 @@ export const workScheduleService = {
         .single();
 
       if (error) {
-        console.error("[workScheduleService] Erreur lors de la création:", error);
+        console.error("❌ [workScheduleService] Erreur lors de la création:", error);
         throw new Error(`Erreur de création: ${error.message}`);
       }
       
-      console.log("[workScheduleService] Demande créée avec succès:", data);
+      console.log("✅ [workScheduleService] Demande créée avec succès:", data);
       return data as WorkScheduleRequest;
     } catch (error) {
-      console.error("[workScheduleService] Erreur critique:", error);
+      console.error("❌ [workScheduleService] Erreur critique:", error);
       throw error;
     }
   },
@@ -117,24 +117,58 @@ export const workScheduleService = {
     }
   },
 
-  // Supprimer une demande
-  async deleteRequest(id: string): Promise<void> {
-    console.log("[workScheduleService] Suppression de la demande:", id);
+  // Supprimer une demande - VERSION CORRIGÉE
+  async deleteRequest(id: string): Promise<{ success: true; deletedId: string }> {
+    console.log("🔥 [workScheduleService] Suppression de la demande:", id);
     
     try {
-      const { error } = await supabase
+      // Étape 1: Récupérer la demande avant suppression pour debug
+      const { data: requestToDelete, error: fetchError } = await supabase
+        .from('work_schedule_requests')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        console.error("❌ [workScheduleService] Erreur lors de la récupération avant suppression:", fetchError);
+        throw new Error(`Erreur de récupération: ${fetchError.message}`);
+      }
+
+      console.log("🔥 [workScheduleService] Demande à supprimer:", requestToDelete);
+
+      // Étape 2: Supprimer la demande
+      const { error: deleteError } = await supabase
         .from('work_schedule_requests')
         .delete()
         .eq('id', id);
 
-      if (error) {
-        console.error("[workScheduleService] Erreur lors de la suppression:", error);
-        throw new Error(`Erreur de suppression: ${error.message}`);
+      if (deleteError) {
+        console.error("❌ [workScheduleService] Erreur lors de la suppression:", deleteError);
+        throw new Error(`Erreur de suppression: ${deleteError.message}`);
       }
       
-      console.log("[workScheduleService] Demande supprimée avec succès");
+      console.log("✅ [workScheduleService] Demande supprimée avec succès de la BDD");
+
+      // Étape 3: Vérifier que la suppression a bien eu lieu
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('work_schedule_requests')
+        .select('id')
+        .eq('id', id);
+
+      if (verifyError) {
+        console.error("❌ [workScheduleService] Erreur lors de la vérification:", verifyError);
+      } else {
+        console.log("✅ [workScheduleService] Vérification suppression - Résultat:", verifyData?.length === 0 ? "SUCCÈS" : "ÉCHEC");
+      }
+
+      // Retourner un objet explicite avec les informations nécessaires
+      return { 
+        success: true, 
+        deletedId: id 
+      };
+      
     } catch (error) {
-      console.error("[workScheduleService] Erreur critique:", error);
+      console.error("❌ [workScheduleService] Erreur critique:", error);
       throw error;
     }
   },
@@ -168,14 +202,11 @@ export const workScheduleService = {
     const endDate = new Date(request.end_date!);
     const today = new Date();
 
-    // Vérifier que la date de fin est après la date de début
     if (endDate < startDate) {
       errors.push("La date de fin doit être après la date de début");
     }
 
-    // Pour le télétravail, vérifier les règles spécifiques
     if (request.request_type === 'telework') {
-      // Vérifier le délai de 1 semaine (sauf demande exceptionnelle)
       if (!request.is_exceptional) {
         const oneWeekFromNow = new Date();
         oneWeekFromNow.setDate(today.getDate() + 7);
@@ -184,7 +215,6 @@ export const workScheduleService = {
         }
       }
 
-      // Vérifier la limite de 2 jours par semaine
       const requestDays = this.getBusinessDays(startDate, endDate);
       for (const week of this.groupDaysByWeek(requestDays)) {
         if (week.length > 2) {
@@ -192,7 +222,6 @@ export const workScheduleService = {
         }
       }
 
-      // Vérifier les conflits avec les demandes existantes pour cette semaine
       for (const week of this.groupDaysByWeek(requestDays)) {
         const existingTeleworkDays = existingRequests
           .filter(r => r.request_type === 'telework' && r.status === 'approved')
@@ -214,7 +243,7 @@ export const workScheduleService = {
     const current = new Date(startDate);
     
     while (current <= endDate) {
-      if (current.getDay() !== 0 && current.getDay() !== 6) { // Pas weekend
+      if (current.getDay() !== 0 && current.getDay() !== 6) {
         days.push(new Date(current));
       }
       current.setDate(current.getDate() + 1);
@@ -228,7 +257,7 @@ export const workScheduleService = {
     
     for (const day of days) {
       const weekStart = new Date(day);
-      weekStart.setDate(day.getDate() - day.getDay() + 1); // Lundi
+      weekStart.setDate(day.getDate() - day.getDay() + 1);
       
       let week = weeks.find(w => this.isSameWeek(w[0], day));
       if (!week) {
