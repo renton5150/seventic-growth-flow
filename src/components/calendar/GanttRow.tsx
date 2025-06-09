@@ -3,6 +3,7 @@ import React from "react";
 import { Mission } from "@/types/types";
 import { startOfMonth, endOfMonth, differenceInDays, format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { Circle } from "lucide-react";
 
 interface GanttRowProps {
   sdrName: string;
@@ -66,12 +67,25 @@ export const GanttRow: React.FC<GanttRowProps> = ({
 
   const position = getMissionPosition(mission);
 
+  // Composant pour l'indicateur de type de mission
+  const MissionTypeIndicator = ({ type }: { type: string }) => {
+    if (type === "Full") {
+      return <Circle className="h-3 w-3 fill-current" />;
+    } else if (type === "Part") {
+      return <Circle className="h-3 w-3" />;
+    }
+    return null;
+  };
+
   return (
     <div className="flex border-b hover:bg-gray-50">
       {/* Colonne SDR */}
       <div className="w-48 p-3 border-r bg-white">
         <div className="font-medium text-sm">{sdrName}</div>
-        <div className="text-xs text-gray-600 mt-1">{mission.name}</div>
+        <div className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+          <MissionTypeIndicator type={mission.type} />
+          {mission.name}
+        </div>
       </div>
       
       {/* Zone de la mission */}
@@ -90,10 +104,11 @@ export const GanttRow: React.FC<GanttRowProps> = ({
             }}
             onClick={() => onMissionClick(mission)}
             title={`${mission.name} - ${mission.client}
+Type: ${mission.type} ${mission.type === 'Full' ? '(●)' : '(○)'}
 Début: ${mission.startDate ? format(new Date(mission.startDate), 'dd/MM/yyyy', { locale: fr }) : 'Non défini'}
-Fin: ${mission.endDate ? format(new Date(mission.endDate), 'dd/MM/yyyy', { locale: fr }) : 'Non défini'}
-Type: ${mission.type}`}
+Fin: ${mission.endDate ? format(new Date(mission.endDate), 'dd/MM/yyyy', { locale: fr }) : 'Non défini'}`}
           >
+            <MissionTypeIndicator type={mission.type} />
             <span className="truncate px-2">
               {mission.client || mission.name}
             </span>
