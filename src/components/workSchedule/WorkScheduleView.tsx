@@ -4,7 +4,6 @@ import { useWorkSchedule } from "@/hooks/useWorkSchedule";
 import { WorkScheduleHeader } from "./WorkScheduleHeader";
 import { WorkScheduleCalendar } from "./WorkScheduleCalendar";
 import { WorkScheduleFilters } from "./WorkScheduleFilters";
-import { WorkScheduleRequestDialog } from "./WorkScheduleRequestDialog";
 import { QuickTeleworkSelector } from "./QuickTeleworkSelector";
 import { WorkScheduleRequest } from "@/types/workSchedule";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,30 +34,16 @@ export const WorkScheduleView = () => {
     isAdmin
   } = useWorkSchedule();
 
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedRequest, setSelectedRequest] = useState<WorkScheduleRequest | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-  const handleDayClick = (date: Date) => {
-    setSelectedDate(date);
-    setSelectedRequest(null);
-    setIsDialogOpen(true);
-  };
-
   const handleRequestClick = (request: WorkScheduleRequest) => {
-    setSelectedRequest(request);
-    setSelectedDate(null);
-    setIsDialogOpen(true);
+    // Simple suppression du télétravail
+    if (window.confirm("Supprimer ce jour de télétravail ?")) {
+      deleteRequest(request.id);
+    }
   };
 
-  const handleCreateRequest = () => {
-    setSelectedDate(new Date());
-    setSelectedRequest(null);
-    setIsDialogOpen(true);
-  };
-
-  // Nouvelle fonction pour ajout direct de télétravail
+  // Ajout direct de télétravail
   const handleDirectTeleworkAdd = async (date: Date) => {
     if (!user?.id) return;
 
@@ -70,16 +55,16 @@ export const WorkScheduleView = () => {
         end_date: format(date, 'yyyy-MM-dd'),
         status: 'approved' as const,
         is_exceptional: false,
-        reason: 'Télétravail ajouté directement via planning',
+        reason: 'Télétravail sélectionné',
         approved_by: user.id,
         approved_at: new Date().toISOString()
       };
 
-      console.log("[WorkScheduleView] Ajout direct télétravail:", requestData);
+      console.log("[WorkScheduleView] Ajout télétravail:", requestData);
       createRequest(requestData);
-      toast.success("Jour de télétravail ajouté au planning");
+      toast.success("Jour de télétravail ajouté");
     } catch (error) {
-      console.error("[WorkScheduleView] Erreur ajout télétravail:", error);
+      console.error("[WorkScheduleView] Erreur:", error);
       toast.error("Erreur lors de l'ajout du télétravail");
     }
   };
@@ -87,11 +72,7 @@ export const WorkScheduleView = () => {
   const handleQuickTeleworkSelect = async (dates: Date[]) => {
     if (dates.length === 0) return;
 
-    console.log("[WorkScheduleView] Création de demandes de télétravail pour:", dates);
-    console.log("[WorkScheduleView] User ID:", user?.id);
-
     try {
-      // Créer une demande approuvée directement pour chaque jour sélectionné
       for (const date of dates) {
         const requestData = {
           user_id: user!.id,
@@ -100,38 +81,24 @@ export const WorkScheduleView = () => {
           end_date: format(date, 'yyyy-MM-dd'),
           status: 'approved' as const,
           is_exceptional: false,
-          reason: `Télétravail sélectionné via planning rapide`,
+          reason: 'Télétravail sélectionné via planning rapide',
           approved_by: user!.id,
           approved_at: new Date().toISOString()
         };
 
-        console.log("[WorkScheduleView] Création de la demande:", requestData);
-        
         await new Promise((resolve) => {
           createRequest(requestData);
-          setTimeout(resolve, 100); // Petit délai entre les créations
+          setTimeout(resolve, 100);
         });
       }
 
-      toast.success(`${dates.length} jour${dates.length > 1 ? 's' : ''} de télétravail ajouté${dates.length > 1 ? 's' : ''} au planning`);
+      toast.success(`${dates.length} jour${dates.length > 1 ? 's' : ''} de télétravail ajouté${dates.length > 1 ? 's' : ''}`);
     } catch (error) {
-      console.error("[WorkScheduleView] Erreur lors de la création des demandes:", error);
+      console.error("[WorkScheduleView] Erreur:", error);
       toast.error("Erreur lors de la création des demandes de télétravail");
     }
   };
 
-  const handleSubmitRequest = (requestData: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>) => {
-    if (selectedRequest) {
-      updateRequest({ 
-        id: selectedRequest.id, 
-        updates: requestData 
-      });
-    } else {
-      createRequest(requestData);
-    }
-  };
-
-  const canCreateRequest = user?.role === 'sdr' || user?.role === 'growth' || isAdmin;
   const canUseQuickSelector = user?.role === 'sdr' || user?.role === 'growth';
 
   if (isLoading) {
@@ -149,11 +116,11 @@ export const WorkScheduleView = () => {
         onPreviousMonth={goToPreviousMonth}
         onNextMonth={goToNextMonth}
         onToday={goToToday}
-        onCreateRequest={handleCreateRequest}
-        canCreateRequest={canCreateRequest}
+        onCreateRequest={() => {}} // Plus de création manuelle
+        canCreateRequest={false} // Désactivé
       />
 
-      {/* Sélection rapide pour SDR et Growth */}
+      {/* Sélection rapide */}
       {canUseQuickSelector && (
         <QuickTeleworkSelector
           onSelect={handleQuickTeleworkSelect}
@@ -182,7 +149,7 @@ export const WorkScheduleView = () => {
         <div className="lg:col-span-3">
           <WorkScheduleCalendar
             calendarData={calendarData}
-            onDayClick={handleDayClick}
+            onDayClick={() => {}} // Plus utilisé
             onRequestClick={handleRequestClick}
             isAdmin={isAdmin}
             userId={user?.id || ''}
@@ -191,7 +158,7 @@ export const WorkScheduleView = () => {
         </div>
       </div>
 
-      {/* Légende */}
+      {/* Légende simplifiée */}
       <div className="bg-white rounded-lg border p-4">
         <h3 className="font-medium mb-3">Légende</h3>
         <div className="flex flex-wrap gap-4">
@@ -199,43 +166,11 @@ export const WorkScheduleView = () => {
             <div className="w-4 h-4 bg-blue-500 rounded"></div>
             <span className="text-sm">Télétravail (TT)</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-500 rounded"></div>
-            <span className="text-sm">Congé payé (CP)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-orange-500 rounded"></div>
-            <span className="text-sm">Congé sans solde (CSS)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-500 opacity-50 rounded border-2 border-dashed border-gray-400"></div>
-            <span className="text-sm">En attente de validation</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-500 opacity-30 rounded"></div>
-            <span className="text-sm">Refusé</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">*</span>
-            <span className="text-sm">Demande exceptionnelle</span>
-          </div>
         </div>
         <div className="mt-2 text-sm text-gray-600">
-          💡 <strong>Astuce :</strong> Cliquez directement sur une date pour ajouter du télétravail
+          💡 <strong>Règle :</strong> Maximum 2 jours de télétravail par semaine. Cliquez sur une date pour sélectionner/désélectionner.
         </div>
       </div>
-
-      {/* Dialog de création/modification */}
-      <WorkScheduleRequestDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        request={selectedRequest}
-        defaultDate={selectedDate}
-        onSubmit={handleSubmitRequest}
-        isAdmin={isAdmin}
-        userId={user?.id || ''}
-        existingRequests={allRequests}
-      />
     </div>
   );
 };

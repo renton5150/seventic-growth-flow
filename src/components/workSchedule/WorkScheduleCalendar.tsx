@@ -1,7 +1,7 @@
 
 import React from "react";
 import { WorkScheduleCalendarDay, WorkScheduleRequest } from "@/types/workSchedule";
-import { format, isWeekend } from "date-fns";
+import { format, isWeekend, startOfWeek, isSameWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -18,38 +18,12 @@ interface WorkScheduleCalendarProps {
 }
 
 const getRequestColor = (request: WorkScheduleRequest) => {
-  const baseColors = {
-    telework: 'bg-blue-500',
-    paid_leave: 'bg-green-500',
-    unpaid_leave: 'bg-orange-500'
-  };
-
-  const statusModifiers = {
-    pending: 'opacity-50 border-2 border-dashed',
-    approved: 'opacity-100',
-    rejected: 'opacity-30 bg-red-500'
-  };
-
-  const baseColor = baseColors[request.request_type] || 'bg-gray-500';
-  const statusModifier = statusModifiers[request.status] || '';
-
-  return `${baseColor} ${statusModifier}`;
+  // Seulement télétravail maintenant
+  return 'bg-blue-500 opacity-100';
 };
 
 const getRequestLabel = (request: WorkScheduleRequest) => {
-  const labels = {
-    telework: 'TT',
-    paid_leave: 'CP',
-    unpaid_leave: 'CSS'
-  };
-  
-  let label = labels[request.request_type] || '?';
-  
-  if (request.is_exceptional) {
-    label += '*';
-  }
-  
-  return label;
+  return 'TT';
 };
 
 export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
@@ -70,10 +44,24 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
     const existingTelework = dayRequests.find(r => r.request_type === 'telework');
     
     if (existingTelework) {
-      // S'il y a déjà du télétravail, ouvrir le dialog pour modification
+      // Si télétravail existe déjà, on peut le supprimer ou modifier
       onRequestClick(existingTelework);
     } else {
-      // Sinon, ajouter directement le télétravail SANS ouvrir de dialog
+      // Vérifier la limite de 2 jours par semaine
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+      const teleworkThisWeek = calendarData.weeks
+        .flatMap(week => week.days)
+        .filter(day => 
+          isSameWeek(day.date, date, { weekStartsOn: 1 }) &&
+          day.requests.some(r => r.request_type === 'telework' && r.user_id === userId)
+        ).length;
+
+      if (teleworkThisWeek >= 2) {
+        console.log("Maximum 2 jours de télétravail par semaine atteint");
+        return;
+      }
+
+      // Ajouter directement le télétravail
       if (onDirectTeleworkAdd) {
         onDirectTeleworkAdd(date);
       }
@@ -94,51 +82,72 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
       {/* Grille du calendrier */}
       <div className="grid grid-cols-7">
         {calendarData.weeks.map((week, weekIndex) =>
-          week.days.map((day, dayIndex) => (
-            <div
-              key={`${weekIndex}-${dayIndex}`}
-              className={cn(
-                "min-h-[100px] p-2 border-r border-b last:border-r-0 cursor-pointer hover:bg-gray-50",
-                !day.isCurrentMonth && "bg-gray-50 text-gray-400",
-                day.isToday && "bg-blue-50 border-blue-200",
-                isWeekend(day.date) && "bg-gray-100 cursor-not-allowed"
-              )}
-              onClick={() => handleDayClick(day.date, day.requests)}
-            >
-              {/* Numéro du jour */}
-              <div className={cn(
-                "text-sm font-medium mb-1",
-                day.isToday && "text-blue-600"
-              )}>
-                {format(day.date, 'd')}
-              </div>
+          week.days.map((day, dayIndex) => {
+            const teleworkCount = calendarData.weeks
+              .flatMap(w => w.days)
+              .filter(d => 
+                isSameWeek(d.date, day.date, { weekStartsOn: 1 }) &&
+                d.requests.some(r => r.request_type === 'telework' && r.user_id === userId)
+              ).length;
+            
+            const canAddTelework = !isWeekend(day.date) && teleworkCount < 2;
+            const hasTelework = day.requests.some(r => r.request_type === 'telework');
+            
+            return (
+              <div
+                key={`${weekIndex}-${dayIndex}`}
+                className={cn(
+                  "min-h-[100px] p-2 border-r border-b last:border-r-0",
+                  !day.isCurrentMonth && "bg-gray-50 text-gray-400",
+                  day.isToday && "bg-blue-50 border-blue-200",
+                  isWeekend(day.date) && "bg-gray-100 cursor-not-allowed",
+                  !isWeekend(day.date) && "cursor-pointer hover:bg-gray-50",
+                  !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50"
+                )}
+                onClick={() => handleDayClick(day.date, day.requests)}
+              >
+                {/* Numéro du jour */}
+                <div className={cn(
+                  "text-sm font-medium mb-1",
+                  day.isToday && "text-blue-600"
+                )}>
+                  {format(day.date, 'd')}
+                </div>
 
-              {/* Demandes du jour */}
-              <div className="space-y-1">
-                {day.requests.map((request) => (
-                  <div
-                    key={request.id}
-                    className={cn(
-                      "text-xs px-2 py-1 rounded text-white cursor-pointer hover:scale-105 transition-transform",
-                      getRequestColor(request)
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRequestClick(request);
-                    }}
-                    title={`${request.user_name || 'Utilisateur'} - ${request.request_type} - ${request.status}`}
-                  >
-                    {getRequestLabel(request)}
-                    {request.user_name && (
-                      <div className="text-xs opacity-90 truncate">
-                        {request.user_name.split(' ')[0]}
-                      </div>
-                    )}
+                {/* Demandes du jour - seulement télétravail */}
+                <div className="space-y-1">
+                  {day.requests.filter(r => r.request_type === 'telework').map((request) => (
+                    <div
+                      key={request.id}
+                      className={cn(
+                        "text-xs px-2 py-1 rounded text-white cursor-pointer hover:scale-105 transition-transform",
+                        getRequestColor(request)
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestClick(request);
+                      }}
+                      title={`${request.user_name || 'Utilisateur'} - Télétravail`}
+                    >
+                      {getRequestLabel(request)}
+                      {request.user_name && (
+                        <div className="text-xs opacity-90 truncate">
+                          {request.user_name.split(' ')[0]}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Indicateur si on peut ajouter du télétravail */}
+                {!isWeekend(day.date) && !hasTelework && canAddTelework && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    + TT
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

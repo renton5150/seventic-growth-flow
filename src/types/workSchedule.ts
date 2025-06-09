@@ -1,6 +1,6 @@
 
-export type WorkScheduleRequestType = 'telework' | 'paid_leave' | 'unpaid_leave';
-export type WorkScheduleStatus = 'pending' | 'approved' | 'rejected';
+export type WorkScheduleRequestType = 'telework';
+export type WorkScheduleStatus = 'approved';
 
 export interface WorkScheduleRequest {
   id: string;

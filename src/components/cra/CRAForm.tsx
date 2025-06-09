@@ -28,9 +28,9 @@ interface Mission {
 interface CRAEntry {
   mission_id: string;
   time_percentage: number;
-  opportunities_20: number;
-  opportunities_10: number;
-  opportunities_5: number;
+  opportunities_5: string;
+  opportunities_10: string;
+  opportunities_20: string;
   comment: string;
 }
 
@@ -86,9 +86,9 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
         return {
           mission_id: mt.mission_id,
           time_percentage: mt.time_percentage,
-          opportunities_20: opportunities.filter(opp => opp.opportunity_value === 20).length,
-          opportunities_10: opportunities.filter(opp => opp.opportunity_value === 10).length,
-          opportunities_5: opportunities.filter(opp => opp.opportunity_value === 5).length,
+          opportunities_5: opportunities.filter(opp => opp.opportunity_value === 5).map(opp => opp.opportunity_name).join(', '),
+          opportunities_10: opportunities.filter(opp => opp.opportunity_value === 10).map(opp => opp.opportunity_name).join(', '),
+          opportunities_20: opportunities.filter(opp => opp.opportunity_value === 20).map(opp => opp.opportunity_name).join(', '),
           comment: mt.mission_comment || ""
         };
       });
@@ -117,9 +117,9 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
       setCraEntries([...craEntries, {
         mission_id: missions[0].id,
         time_percentage: 0,
-        opportunities_20: 0,
-        opportunities_10: 0,
-        opportunities_5: 0,
+        opportunities_5: "",
+        opportunities_10: "",
+        opportunities_20: "",
         comment: ""
       }]);
     }
@@ -160,27 +160,46 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
 
     const opportunities = craEntries.flatMap(entry => {
       const opps = [];
-      for (let i = 0; i < entry.opportunities_20; i++) {
-        opps.push({
-          mission_id: entry.mission_id,
-          opportunity_name: `Opportunité 20K€ ${i + 1}`,
-          opportunity_value: 20 as const
+      
+      // Projets 5%
+      if (entry.opportunities_5.trim()) {
+        entry.opportunities_5.split(',').forEach((proj, i) => {
+          if (proj.trim()) {
+            opps.push({
+              mission_id: entry.mission_id,
+              opportunity_name: proj.trim(),
+              opportunity_value: 5 as const
+            });
+          }
         });
       }
-      for (let i = 0; i < entry.opportunities_10; i++) {
-        opps.push({
-          mission_id: entry.mission_id,
-          opportunity_name: `Opportunité 10K€ ${i + 1}`,
-          opportunity_value: 10 as const
+      
+      // Projets 10%
+      if (entry.opportunities_10.trim()) {
+        entry.opportunities_10.split(',').forEach((proj, i) => {
+          if (proj.trim()) {
+            opps.push({
+              mission_id: entry.mission_id,
+              opportunity_name: proj.trim(),
+              opportunity_value: 10 as const
+            });
+          }
         });
       }
-      for (let i = 0; i < entry.opportunities_5; i++) {
-        opps.push({
-          mission_id: entry.mission_id,
-          opportunity_name: `Opportunité 5K€ ${i + 1}`,
-          opportunity_value: 5 as const
+      
+      // Projets 20%
+      if (entry.opportunities_20.trim()) {
+        entry.opportunities_20.split(',').forEach((proj, i) => {
+          if (proj.trim()) {
+            opps.push({
+              mission_id: entry.mission_id,
+              opportunity_name: proj.trim(),
+              opportunity_value: 20 as const
+            });
+          }
         });
       }
+      
       return opps;
     });
 
@@ -223,10 +242,10 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
         />
       </div>
 
-      {/* Activités par mission - Interface simplifiée */}
+      {/* Tableau CRA */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg">Activités par mission</CardTitle>
+          <CardTitle className="text-lg">Compte Rendu d'Activité</CardTitle>
           <Button
             type="button"
             variant="outline"
@@ -238,11 +257,23 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
             Ajouter
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
+          {/* En-têtes du tableau */}
+          <div className="grid grid-cols-12 gap-2 mb-2 p-2 bg-blue-600 text-white font-medium text-sm rounded">
+            <div className="col-span-2">Mission</div>
+            <div className="col-span-1 text-center">Temps %</div>
+            <div className="col-span-2 text-center">5%</div>
+            <div className="col-span-2 text-center">10%</div>
+            <div className="col-span-2 text-center">20%</div>
+            <div className="col-span-2 text-center">Activité</div>
+            <div className="col-span-1"></div>
+          </div>
+
+          {/* Lignes du tableau */}
           {craEntries.map((entry, index) => (
-            <div key={index} className="grid grid-cols-12 gap-2 items-center p-3 border rounded-lg">
+            <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded mb-2">
               {/* Mission */}
-              <div className="col-span-3">
+              <div className="col-span-2">
                 <Select
                   value={entry.mission_id}
                   onValueChange={(value) => handleUpdateEntry(index, 'mission_id', value)}
@@ -269,52 +300,46 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
                   value={entry.time_percentage || ""}
                   onChange={(e) => handleUpdateEntry(index, 'time_percentage', parseInt(e.target.value) || 0)}
                   placeholder="%"
-                  className="h-8"
+                  className="h-8 text-center"
                 />
               </div>
               
-              {/* Opportunités 20K€ */}
-              <div className="col-span-1">
+              {/* Projets 5% */}
+              <div className="col-span-2">
                 <Input
-                  type="number"
-                  min="0"
-                  value={entry.opportunities_20 || ""}
-                  onChange={(e) => handleUpdateEntry(index, 'opportunities_20', parseInt(e.target.value) || 0)}
-                  placeholder="20K"
+                  value={entry.opportunities_5}
+                  onChange={(e) => handleUpdateEntry(index, 'opportunities_5', e.target.value)}
+                  placeholder="Noms des projets"
                   className="h-8"
                 />
               </div>
               
-              {/* Opportunités 10K€ */}
-              <div className="col-span-1">
+              {/* Projets 10% */}
+              <div className="col-span-2">
                 <Input
-                  type="number"
-                  min="0"
-                  value={entry.opportunities_10 || ""}
-                  onChange={(e) => handleUpdateEntry(index, 'opportunities_10', parseInt(e.target.value) || 0)}
-                  placeholder="10K"
+                  value={entry.opportunities_10}
+                  onChange={(e) => handleUpdateEntry(index, 'opportunities_10', e.target.value)}
+                  placeholder="Noms des projets"
                   className="h-8"
                 />
               </div>
               
-              {/* Opportunités 5K€ */}
-              <div className="col-span-1">
+              {/* Projets 20% */}
+              <div className="col-span-2">
                 <Input
-                  type="number"
-                  min="0"
-                  value={entry.opportunities_5 || ""}
-                  onChange={(e) => handleUpdateEntry(index, 'opportunities_5', parseInt(e.target.value) || 0)}
-                  placeholder="5K"
+                  value={entry.opportunities_20}
+                  onChange={(e) => handleUpdateEntry(index, 'opportunities_20', e.target.value)}
+                  placeholder="Noms des projets"
                   className="h-8"
                 />
               </div>
               
-              {/* Commentaire */}
-              <div className="col-span-4">
+              {/* Activité/Commentaire */}
+              <div className="col-span-2">
                 <Input
                   value={entry.comment}
                   onChange={(e) => handleUpdateEntry(index, 'comment', e.target.value)}
-                  placeholder="Commentaire..."
+                  placeholder="Activité..."
                   className="h-8"
                 />
               </div>
@@ -334,21 +359,8 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
             </div>
           ))}
           
-          {/* En-têtes */}
-          {craEntries.length > 0 && (
-            <div className="grid grid-cols-12 gap-2 text-xs text-gray-500 font-medium">
-              <div className="col-span-3">Mission</div>
-              <div className="col-span-1">Temps %</div>
-              <div className="col-span-1">Opp 20K€</div>
-              <div className="col-span-1">Opp 10K€</div>
-              <div className="col-span-1">Opp 5K€</div>
-              <div className="col-span-4">Commentaire</div>
-              <div className="col-span-1"></div>
-            </div>
-          )}
-          
-          <div className="text-right">
-            <span className={`text-sm ${totalPercentage > 100 ? 'text-red-600' : totalPercentage === 100 ? 'text-green-600' : 'text-gray-600'}`}>
+          <div className="text-right mt-4">
+            <span className={`text-sm font-medium ${totalPercentage > 100 ? 'text-red-600' : totalPercentage === 100 ? 'text-green-600' : 'text-gray-600'}`}>
               Total : {totalPercentage}%
             </span>
           </div>
