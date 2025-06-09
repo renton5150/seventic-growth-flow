@@ -43,7 +43,6 @@ export const CRADashboard = () => {
             </CardHeader>
             <CardContent>
               <CRACalendar 
-                selectedDate={selectedDate}
                 onDateSelect={handleDateSelect}
               />
             </CardContent>
