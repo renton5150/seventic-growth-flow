@@ -42,7 +42,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
     
     if (existingTelework) {
       // Si télétravail existe déjà, on le supprime
-      console.log("[Calendar] Suppression télétravail existant:", existingTelework.id);
+      console.log("[Calendar] Suppression télétravail existant:", existingTelework.id, "pour la date:", existingTelework.start_date);
       onRequestClick(existingTelework);
     } else {
       // Vérifier la limite de 2 jours par semaine
@@ -94,11 +94,16 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
             const canAddTelework = !isWeekend(day.date) && teleworkCount < 2;
             const hasTelework = day.requests.some(r => r.request_type === 'telework' && r.user_id === userId);
             
+            // Debug pour vérifier l'état
+            if (hasTelework) {
+              console.log("[Calendar] Date", format(day.date, 'yyyy-MM-dd'), "a du télétravail:", day.requests.filter(r => r.request_type === 'telework' && r.user_id === userId));
+            }
+            
             return (
               <div
                 key={`${weekIndex}-${dayIndex}`}
                 className={cn(
-                  "min-h-[100px] p-2 border-r border-b last:border-r-0 relative",
+                  "min-h-[100px] p-2 border-r border-b last:border-r-0 relative transition-colors duration-200",
                   !day.isCurrentMonth && "bg-gray-50 text-gray-400",
                   day.isToday && "bg-blue-50 border-blue-200",
                   isWeekend(day.date) && "bg-gray-100 cursor-not-allowed",
@@ -107,7 +112,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                   !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50"
                 )}
                 onClick={() => {
-                  console.log("[Calendar] onClick déclenché pour:", format(day.date, 'yyyy-MM-dd'));
+                  console.log("[Calendar] onClick déclenché pour:", format(day.date, 'yyyy-MM-dd'), "hasTelework:", hasTelework);
                   handleDayClick(day.date, day.requests);
                 }}
               >

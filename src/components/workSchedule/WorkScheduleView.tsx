@@ -36,10 +36,14 @@ export const WorkScheduleView = () => {
   } = useWorkSchedule();
 
   const handleRequestClick = (request: WorkScheduleRequest) => {
-    // Simple suppression du télétravail
+    // Simple suppression du télétravail avec confirmation
+    console.log("[WorkScheduleView] Clic sur demande de suppression:", request.id, "date:", request.start_date);
+    
     if (window.confirm("Supprimer ce jour de télétravail ?")) {
-      console.log("[WorkScheduleView] Suppression demande:", request.id);
+      console.log("[WorkScheduleView] Confirmation de suppression pour:", request.id);
       deleteRequest(request.id);
+    } else {
+      console.log("[WorkScheduleView] Suppression annulée par l'utilisateur");
     }
   };
 
@@ -57,8 +61,9 @@ export const WorkScheduleView = () => {
 
     try {
       const dateString = format(date, 'yyyy-MM-dd');
+      console.log("[WorkScheduleView] Ajout télétravail pour la date:", dateString);
       
-      // Vérifier si une demande existe déjà
+      // Vérifier si une demande existe déjà dans l'état local
       const existingRequest = allRequests.find(req => 
         req.start_date === dateString && 
         req.user_id === user.id &&
@@ -66,7 +71,7 @@ export const WorkScheduleView = () => {
       );
       
       if (existingRequest) {
-        console.log("[WorkScheduleView] Demande existante trouvée:", existingRequest.id);
+        console.log("[WorkScheduleView] Demande existante trouvée dans l'état local:", existingRequest.id);
         toast.error("Une demande de télétravail existe déjà pour cette date");
         return;
       }

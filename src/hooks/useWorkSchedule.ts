@@ -145,15 +145,28 @@ export const useWorkSchedule = () => {
   const deleteRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
       console.log("[useWorkSchedule] Début suppression demande:", requestId);
+      
+      // Trouver la demande avant suppression pour le debug
+      const requestToDelete = allRequests.find(req => req.id === requestId);
+      if (requestToDelete) {
+        console.log("[useWorkSchedule] Suppression de la date:", requestToDelete.start_date);
+      }
+      
       await workScheduleService.deleteRequest(requestId);
       console.log("[useWorkSchedule] Demande supprimée avec succès:", requestId);
-    },
-    onSuccess: async () => {
-      console.log("[useWorkSchedule] Télétravail supprimé avec succès");
       
-      // Invalidation et refetch forcé
+      return requestToDelete; // Retourner l'élément supprimé pour le debug
+    },
+    onSuccess: async (deletedRequest) => {
+      console.log("[useWorkSchedule] Télétravail supprimé avec succès:", deletedRequest);
+      
+      // Invalidation immédiate et forcée de tous les caches
+      queryClient.removeQueries({ queryKey: ['work-schedule-requests'] });
       await queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
-      await refetch();
+      
+      // Forcer un refetch immédiat
+      const newData = await refetch();
+      console.log("[useWorkSchedule] Données après suppression:", newData.data?.length);
       
       toast.success("Jour de télétravail supprimé avec succès");
     },
