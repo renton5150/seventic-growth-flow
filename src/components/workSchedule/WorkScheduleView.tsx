@@ -61,21 +61,24 @@ export const WorkScheduleView = () => {
   const handleQuickTeleworkSelect = (dates: Date[]) => {
     if (dates.length === 0) return;
 
-    const startDate = dates[0];
-    const endDate = dates[dates.length - 1];
+    // Créer une demande approuvée directement pour chaque jour sélectionné
+    dates.forEach(date => {
+      const requestData = {
+        user_id: user!.id,
+        request_type: 'telework' as const,
+        start_date: format(date, 'yyyy-MM-dd'),
+        end_date: format(date, 'yyyy-MM-dd'),
+        status: 'approved' as const, // Directement approuvé
+        is_exceptional: false,
+        reason: `Télétravail sélectionné via planning`,
+        approved_by: user!.id, // Auto-approuvé
+        approved_at: new Date().toISOString()
+      };
 
-    const requestData = {
-      user_id: user!.id,
-      request_type: 'telework' as const,
-      start_date: format(startDate, 'yyyy-MM-dd'),
-      end_date: format(endDate, 'yyyy-MM-dd'),
-      status: 'pending' as const,
-      is_exceptional: false,
-      reason: `Demande de télétravail pour ${dates.length} jour${dates.length > 1 ? 's' : ''}`
-    };
+      createRequest(requestData);
+    });
 
-    createRequest(requestData);
-    toast.success(`Demande de télétravail créée pour ${dates.length} jour${dates.length > 1 ? 's' : ''}`);
+    toast.success(`${dates.length} jour${dates.length > 1 ? 's' : ''} de télétravail ajouté${dates.length > 1 ? 's' : ''} au planning`);
   };
 
   const handleSubmitRequest = (requestData: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>) => {

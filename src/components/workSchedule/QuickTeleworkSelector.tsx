@@ -89,7 +89,7 @@ export const QuickTeleworkSelector: React.FC<QuickTeleworkSelectorProps> = ({
     <Card className="mb-6">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Sélection rapide télétravail</span>
+          <span>Sélection télétravail</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
               ←
@@ -139,6 +139,7 @@ export const QuickTeleworkSelector: React.FC<QuickTeleworkSelectorProps> = ({
         <div className="text-xs text-gray-600 mb-3">
           • Maximum 2 jours de télétravail par semaine
           • {selectedDates.length}/2 jours sélectionnés cette semaine
+          • Les jours sélectionnés seront directement inscrits dans le planning
         </div>
 
         <div className="flex gap-2">
@@ -147,7 +148,7 @@ export const QuickTeleworkSelector: React.FC<QuickTeleworkSelectorProps> = ({
             disabled={selectedDates.length === 0}
             className="flex-1"
           >
-            Confirmer ({selectedDates.length} jour{selectedDates.length > 1 ? 's' : ''})
+            Valider ({selectedDates.length} jour{selectedDates.length > 1 ? 's' : ''})
           </Button>
           <Button 
             variant="outline" 
