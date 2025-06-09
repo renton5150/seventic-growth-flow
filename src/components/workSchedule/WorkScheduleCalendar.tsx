@@ -73,11 +73,9 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
       // S'il y a déjà du télétravail, ouvrir le dialog pour modification
       onRequestClick(existingTelework);
     } else {
-      // Sinon, ajouter directement le télétravail
+      // Sinon, ajouter directement le télétravail SANS ouvrir de dialog
       if (onDirectTeleworkAdd) {
         onDirectTeleworkAdd(date);
-      } else {
-        onDayClick(date);
       }
     }
   };
