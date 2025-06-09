@@ -5,8 +5,12 @@ import { WorkScheduleHeader } from "./WorkScheduleHeader";
 import { WorkScheduleCalendar } from "./WorkScheduleCalendar";
 import { WorkScheduleFilters } from "./WorkScheduleFilters";
 import { WorkScheduleRequestDialog } from "./WorkScheduleRequestDialog";
+import { QuickTeleworkSelector } from "./QuickTeleworkSelector";
 import { WorkScheduleRequest } from "@/types/workSchedule";
 import { useAuth } from "@/contexts/AuthContext";
+import { startOfWeek, format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { toast } from "sonner";
 
 export const WorkScheduleView = () => {
   const { user } = useAuth();
@@ -34,6 +38,7 @@ export const WorkScheduleView = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<WorkScheduleRequest | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
@@ -53,6 +58,26 @@ export const WorkScheduleView = () => {
     setIsDialogOpen(true);
   };
 
+  const handleQuickTeleworkSelect = (dates: Date[]) => {
+    if (dates.length === 0) return;
+
+    const startDate = dates[0];
+    const endDate = dates[dates.length - 1];
+
+    const requestData = {
+      user_id: user!.id,
+      request_type: 'telework' as const,
+      start_date: format(startDate, 'yyyy-MM-dd'),
+      end_date: format(endDate, 'yyyy-MM-dd'),
+      status: 'pending' as const,
+      is_exceptional: false,
+      reason: `Demande de télétravail pour ${dates.length} jour${dates.length > 1 ? 's' : ''}`
+    };
+
+    createRequest(requestData);
+    toast.success(`Demande de télétravail créée pour ${dates.length} jour${dates.length > 1 ? 's' : ''}`);
+  };
+
   const handleSubmitRequest = (requestData: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>) => {
     if (selectedRequest) {
       updateRequest({ 
@@ -65,6 +90,7 @@ export const WorkScheduleView = () => {
   };
 
   const canCreateRequest = user?.role === 'sdr' || user?.role === 'growth' || isAdmin;
+  const canUseQuickSelector = user?.role === 'sdr' || user?.role === 'growth';
 
   if (isLoading) {
     return (
@@ -84,6 +110,16 @@ export const WorkScheduleView = () => {
         onCreateRequest={handleCreateRequest}
         canCreateRequest={canCreateRequest}
       />
+
+      {/* Sélection rapide pour SDR et Growth */}
+      {canUseQuickSelector && (
+        <QuickTeleworkSelector
+          onSelect={handleQuickTeleworkSelect}
+          existingRequests={allRequests}
+          currentWeek={currentWeek}
+          onWeekChange={setCurrentWeek}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Filtres */}
