@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { DailyActivityReport, DailyMissionTime, DailyOpportunity, CreateCRARequest, CRAStatistics } from "@/types/cra.types";
 
@@ -10,17 +11,23 @@ export const craService = {
     // Calculer le pourcentage total
     const totalPercentage = data.mission_times.reduce((sum, mt) => sum + mt.time_percentage, 0);
     
+    console.log("Service CRA - Calcul du total:", {
+      mission_times: data.mission_times,
+      totalPercentage,
+      date: data.report_date
+    });
+    
     if (totalPercentage > 100) {
       throw new Error("Le total des pourcentages ne peut pas dépasser 100%");
     }
 
-    // Créer ou mettre à jour le rapport principal
+    // Créer ou mettre à jour le rapport principal avec le total calculé
     const { data: report, error: reportError } = await supabase
       .from('daily_activity_reports')
       .upsert({
         sdr_id: user.id,
         report_date: data.report_date,
-        total_percentage: totalPercentage,
+        total_percentage: totalPercentage, // S'assurer que le total est bien sauvegardé
         comments: data.comments,
         is_completed: totalPercentage === 100
       }, {
@@ -29,7 +36,16 @@ export const craService = {
       .select()
       .single();
 
-    if (reportError) throw reportError;
+    if (reportError) {
+      console.error("Erreur lors de la sauvegarde du rapport:", reportError);
+      throw reportError;
+    }
+
+    console.log("Rapport sauvegardé avec succès:", {
+      id: report.id,
+      total_percentage: report.total_percentage,
+      is_completed: report.is_completed
+    });
 
     // Supprimer les anciens temps de mission
     await supabase
@@ -144,6 +160,8 @@ export const craService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Non authentifié");
 
+    console.log("Récupération des CRA pour la période:", { startDate, endDate, sdrId });
+
     let query = supabase
       .from('cra_reports_with_details')
       .select('*')
@@ -153,10 +171,21 @@ export const craService = {
 
     if (sdrId) {
       query = query.eq('sdr_id', sdrId);
+    } else {
+      query = query.eq('sdr_id', user.id);
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error("Erreur lors de la récupération des CRA:", error);
+      throw error;
+    }
+
+    console.log("CRA récupérés:", data?.map(r => ({
+      date: r.report_date,
+      total: r.total_percentage,
+      completed: r.is_completed
+    })));
 
     return data || [];
   },

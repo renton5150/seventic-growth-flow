@@ -208,7 +208,14 @@ export const CRATableForm = ({ selectedDate, onSave, sdrId }: CRATableFormProps)
         comments
       };
 
+      console.log("Sauvegarde CRA avec total calculé:", totalPercentage, "%");
+      console.log("Données à sauvegarder:", data);
+
       await craService.createOrUpdateCRA(data);
+      
+      // Déclencher le rafraîchissement du calendrier
+      window.dispatchEvent(new CustomEvent('cra-calendar-refresh'));
+      
       toast.success("CRA sauvegardé avec succès");
       onSave();
     } catch (error) {

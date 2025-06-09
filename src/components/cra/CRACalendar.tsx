@@ -32,7 +32,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
         format(endOfMonth, 'yyyy-MM-dd'),
         sdrId
       );
-      console.log("Rapports CRA chargés:", reports);
+      console.log("Rapports CRA chargés pour le calendrier:", reports);
       setMonthReports(reports);
     } catch (error) {
       console.error("Erreur lors du chargement des rapports:", error);
@@ -52,12 +52,24 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
   };
 
   const getReportForDate = (date: Date) => {
-    // Formatage cohérent des dates : YYYY-MM-DD
     const dateStr = format(date, 'yyyy-MM-dd');
-    
     console.log(`Recherche rapport pour: ${dateStr}`);
-    const report = monthReports.find(report => report.report_date === dateStr);
-    console.log(`Rapport trouvé:`, report);
+    
+    const report = monthReports.find(report => {
+      console.log(`Comparaison: ${report.report_date} === ${dateStr}`);
+      return report.report_date === dateStr;
+    });
+    
+    if (report) {
+      console.log(`Rapport trouvé pour ${dateStr}:`, {
+        id: report.id,
+        total_percentage: report.total_percentage,
+        is_completed: report.is_completed
+      });
+    } else {
+      console.log(`Aucun rapport trouvé pour ${dateStr}`);
+    }
+    
     return report;
   };
 
@@ -85,15 +97,12 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
   };
 
   const handleDateClick = (date: Date) => {
-    // Empêcher la sélection des weekends
     if (isWeekend(date)) {
       console.log("Weekend sélectionné, ignoré:", format(date, 'yyyy-MM-dd'));
       return;
     }
     
-    // Formatage cohérent : YYYY-MM-DD
     const dateStr = format(date, 'yyyy-MM-dd');
-    
     console.log("Date sélectionnée dans le calendrier:", dateStr);
     setSelectedDate(dateStr);
     onDateSelect(dateStr);
@@ -124,6 +133,19 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
     }
     return { status: 'future', color: 'bg-gray-50 border-gray-200 text-gray-500 cursor-pointer hover:bg-gray-100' };
   };
+
+  // Fonction exposée pour permettre le rafraîchissement depuis l'extérieur
+  const refreshCalendar = () => {
+    console.log("Rafraîchissement du calendrier CRA demandé");
+    loadMonthReports();
+  };
+
+  // Exposer la fonction de rafraîchissement via un effet
+  useEffect(() => {
+    const handleRefresh = () => refreshCalendar();
+    window.addEventListener('cra-calendar-refresh', handleRefresh);
+    return () => window.removeEventListener('cra-calendar-refresh', handleRefresh);
+  }, []);
 
   const days = getDaysInMonth();
   const monthNames = [
@@ -174,6 +196,9 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
             const isSelected = selectedDate === dateStr;
             const isWeekendDay = isWeekend(date);
             
+            // Affichage du pourcentage avec débogage
+            const displayPercentage = report?.total_percentage || 0;
+            
             return (
               <div
                 key={index}
@@ -189,8 +214,13 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
                   {date.getDate()}
                 </div>
                 {report && (
-                  <div className="text-xs">
-                    {report.total_percentage}%
+                  <div className="text-xs font-medium">
+                    {displayPercentage}%
+                  </div>
+                )}
+                {!isWeekendDay && !report && (
+                  <div className="text-xs text-gray-400">
+                    0%
                   </div>
                 )}
               </div>
