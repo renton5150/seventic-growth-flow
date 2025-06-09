@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { format, addMonths, subMonths } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Calendar, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { TeleworkCalendar } from "./TeleworkCalendar";
 import { useTelework } from "@/hooks/useTelework";
 
@@ -15,13 +15,11 @@ export const TeleworkView = () => {
     isLoading,
     addTeleworkDay,
     removeTeleworkDay,
-    resetTelework,
     isAdding,
-    isRemoving,
-    isResetting
+    isRemoving
   } = useTelework();
 
-  const isProcessing = isAdding || isRemoving || isResetting;
+  const isProcessing = isAdding || isRemoving;
 
   // Navigation
   const goToPreviousMonth = () => setCurrentDate(prev => subMonths(prev, 1));
@@ -37,13 +35,6 @@ export const TeleworkView = () => {
       removeTeleworkDay(date);
     } else {
       addTeleworkDay(date);
-    }
-  };
-
-  // Gérer la réinitialisation
-  const handleReset = () => {
-    if (window.confirm("Réinitialiser complètement votre planning de télétravail ?")) {
-      resetTelework();
     }
   };
 
@@ -79,16 +70,6 @@ export const TeleworkView = () => {
             Aujourd'hui
           </Button>
         </div>
-
-        <Button
-          variant="outline"
-          onClick={handleReset}
-          disabled={isProcessing}
-          className="flex items-center gap-2"
-        >
-          <RotateCcw className="h-4 w-4" />
-          {isResetting ? "Réinitialisation..." : "Réinitialiser"}
-        </Button>
       </div>
 
       {/* Calendrier */}
@@ -115,7 +96,7 @@ export const TeleworkView = () => {
             <h4 className="font-medium text-sm text-gray-700 mb-2">Instructions</h4>
             <div className="space-y-1 text-sm">
               <div>• Cliquez sur un jour libre pour ajouter du télétravail</div>
-              <div>• Cliquez sur le bouton ✕ pour supprimer</div>
+              <div>• Cliquez sur un jour en télétravail pour le supprimer</div>
               <div>• Maximum 2 jours par semaine</div>
             </div>
             <div className="flex items-center gap-2 mt-2">
