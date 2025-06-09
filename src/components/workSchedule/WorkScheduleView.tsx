@@ -9,9 +9,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { startOfWeek, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
+import { workScheduleService } from "@/services/workScheduleService";
 
 export const WorkScheduleView = () => {
   const { user } = useAuth();
+  const [isResetting, setIsResetting] = useState(false);
+  
   const {
     calendarData,
     monthLabel,
@@ -34,7 +39,8 @@ export const WorkScheduleView = () => {
     isCreating,
     isDeleting,
     calendarKey,
-    forceCalendarRefresh
+    forceCalendarRefresh,
+    refetch
   } = useWorkSchedule();
 
   const handleRequestClick = (request: WorkScheduleRequest) => {
@@ -46,6 +52,40 @@ export const WorkScheduleView = () => {
       deleteRequest(request.id);
     } else {
       console.log("[WorkScheduleView] Suppression annulée par l'utilisateur");
+    }
+  };
+
+  // Fonction de réinitialisation du calendrier pour éliminer les données fantômes
+  const handleResetCalendar = async () => {
+    if (!user?.id) {
+      toast.error("Utilisateur non connecté");
+      return;
+    }
+
+    if (!window.confirm("Êtes-vous sûr de vouloir réinitialiser le calendrier de télétravail ? Cette action nettoiera toutes les données incohérentes.")) {
+      return;
+    }
+
+    try {
+      setIsResetting(true);
+      console.log("🧹 [WorkScheduleView] Début de la réinitialisation du calendrier");
+      
+      // Appel au service de nettoyage
+      const cleanDates = await workScheduleService.cleanupWorkScheduleData(user.id);
+      console.log("🧹 [WorkScheduleView] Données nettoyées:", cleanDates);
+      
+      // Force refresh complet du calendrier
+      forceCalendarRefresh();
+      
+      // Invalidation et refetch forcé
+      await refetch();
+      
+      toast.success("Calendrier de télétravail réinitialisé avec succès");
+    } catch (error) {
+      console.error("❌ [WorkScheduleView] Erreur lors de la réinitialisation:", error);
+      toast.error("Erreur lors de la réinitialisation du calendrier: " + (error as Error).message);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -109,14 +149,27 @@ export const WorkScheduleView = () => {
 
   return (
     <div className="space-y-6">
-      <WorkScheduleHeader
-        monthLabel={monthLabel}
-        onPreviousMonth={goToPreviousMonth}
-        onNextMonth={goToNextMonth}
-        onToday={goToToday}
-        onCreateRequest={() => {}} // Plus de création manuelle
-        canCreateRequest={false} // Désactivé
-      />
+      <div className="flex justify-between items-center">
+        <WorkScheduleHeader
+          monthLabel={monthLabel}
+          onPreviousMonth={goToPreviousMonth}
+          onNextMonth={goToNextMonth}
+          onToday={goToToday}
+          onCreateRequest={() => {}} // Plus de création manuelle
+          canCreateRequest={false} // Désactivé
+        />
+        
+        {/* Bouton de réinitialisation pour éliminer les données fantômes */}
+        <Button
+          variant="outline"
+          onClick={handleResetCalendar}
+          disabled={isResetting}
+          className="flex items-center gap-2"
+        >
+          <RotateCcw className="h-4 w-4" />
+          {isResetting ? "Réinitialisation..." : "Réinitialiser calendrier"}
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Filtres */}
@@ -162,6 +215,9 @@ export const WorkScheduleView = () => {
         </div>
         <div className="mt-2 text-sm text-gray-600">
           💡 <strong>Règle :</strong> Maximum 2 jours de télétravail par semaine. Cliquez sur une date pour sélectionner/désélectionner.
+        </div>
+        <div className="mt-2 text-sm text-orange-600">
+          🔧 <strong>Problème de données fantômes ?</strong> Utilisez le bouton "Réinitialiser calendrier" pour nettoyer les données incohérentes.
         </div>
       </div>
     </div>
