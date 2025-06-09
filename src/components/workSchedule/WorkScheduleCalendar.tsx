@@ -28,7 +28,8 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   const handleDayClick = async (date: Date, dayRequests: WorkScheduleRequest[]) => {
-    console.log("[Calendar] Clic sur date:", format(date, 'yyyy-MM-dd'));
+    const dateString = format(date, 'yyyy-MM-dd');
+    console.log("[Calendar] Clic sur date:", dateString);
     
     // Si c'est un weekend, ne rien faire
     if (isWeekend(date)) {
@@ -60,7 +61,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 
       // Ajouter directement le télétravail
       if (onDirectTeleworkAdd) {
-        console.log("[Calendar] Ajout télétravail pour:", format(date, 'yyyy-MM-dd'));
+        console.log("[Calendar] Ajout télétravail pour:", dateString);
         onDirectTeleworkAdd(date);
       } else {
         console.log("[Calendar] ERREUR: onDirectTeleworkAdd non défini");
@@ -97,11 +98,12 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
               <div
                 key={`${weekIndex}-${dayIndex}`}
                 className={cn(
-                  "min-h-[100px] p-2 border-r border-b last:border-r-0",
+                  "min-h-[100px] p-2 border-r border-b last:border-r-0 relative",
                   !day.isCurrentMonth && "bg-gray-50 text-gray-400",
                   day.isToday && "bg-blue-50 border-blue-200",
                   isWeekend(day.date) && "bg-gray-100 cursor-not-allowed",
                   !isWeekend(day.date) && "cursor-pointer hover:bg-gray-50",
+                  hasTelework && "bg-blue-100 border-blue-300",
                   !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50"
                 )}
                 onClick={() => {
@@ -120,27 +122,22 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
 
                 {/* Affichage du statut télétravail avec style visible */}
                 {hasTelework && (
-                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-500 font-semibold">
+                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold shadow-sm">
                     Télétravail
                   </div>
                 )}
 
-                {/* Style de fond pour les jours de télétravail */}
-                {hasTelework && (
-                  <div className="absolute inset-0 bg-blue-100 opacity-30 rounded-lg pointer-events-none"></div>
-                )}
-
                 {/* Indicateur si on peut ajouter du télétravail */}
                 {!isWeekend(day.date) && !hasTelework && canAddTelework && (
-                  <div className="text-xs text-gray-400 mt-1 opacity-60">
-                    Cliquer pour télétravail
+                  <div className="text-xs text-gray-500 mt-1">
+                    + Télétravail
                   </div>
                 )}
                 
                 {/* Message si limite atteinte */}
                 {!isWeekend(day.date) && !hasTelework && !canAddTelework && (
-                  <div className="text-xs text-red-400 mt-1">
-                    Limite 2j/semaine
+                  <div className="text-xs text-red-500 mt-1">
+                    Limite 2j/sem
                   </div>
                 )}
               </div>

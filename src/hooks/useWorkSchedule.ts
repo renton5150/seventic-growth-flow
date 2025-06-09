@@ -37,12 +37,13 @@ export const useWorkSchedule = () => {
         if (user?.id) {
           console.log("[useWorkSchedule] Chargement des demandes pour:", user.id);
           const requests = await workScheduleService.getRequests(user.id);
-          console.log("[useWorkSchedule] Demandes chargées:", requests);
+          console.log("[useWorkSchedule] Demandes chargées:", requests.length, "demandes");
           return requests;
         }
         return [];
       } catch (error) {
         console.error('Erreur lors du chargement des demandes:', error);
+        toast.error("Erreur lors du chargement des demandes de télétravail");
         return [];
       }
     },
@@ -68,10 +69,9 @@ export const useWorkSchedule = () => {
     const weeks: WorkScheduleCalendarWeek[] = [];
     for (let i = 0; i < allDays.length; i += 7) {
       const weekDays = allDays.slice(i, i + 7).map((date): WorkScheduleCalendarDay => {
+        const formattedDate = format(date, 'yyyy-MM-dd');
         const dayRequests = allRequests.filter(request => {
-          const startDate = new Date(request.start_date);
-          const endDate = new Date(request.end_date);
-          return date >= startDate && date <= endDate && request.request_type === 'telework';
+          return request.start_date === formattedDate && request.request_type === 'telework';
         });
 
         return {
@@ -104,24 +104,50 @@ export const useWorkSchedule = () => {
 
   // Mutations avec gestion d'erreur améliorée et invalidation forcée
   const createRequestMutation = useMutation({
-    mutationFn: workScheduleService.createRequest,
-    onSuccess: async () => {
-      console.log("[useWorkSchedule] Télétravail créé avec succès");
+    mutationFn: async (requestData: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>) => {
+      console.log("[useWorkSchedule] Début création demande:", requestData);
+      
+      // Vérifier d'abord si une demande existe déjà pour cette date
+      const existingRequest = allRequests.find(req => 
+        req.start_date === requestData.start_date && 
+        req.user_id === requestData.user_id &&
+        req.request_type === 'telework'
+      );
+      
+      if (existingRequest) {
+        console.log("[useWorkSchedule] Demande existante trouvée, annulation");
+        throw new Error("Une demande existe déjà pour cette date");
+      }
+      
+      const result = await workScheduleService.createRequest(requestData);
+      console.log("[useWorkSchedule] Demande créée avec succès:", result);
+      return result;
+    },
+    onSuccess: async (data) => {
+      console.log("[useWorkSchedule] Télétravail créé avec succès:", data);
       
       // Invalidation et refetch forcé
       await queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
       await refetch();
       
-      toast.success("Jour de télétravail ajouté");
+      toast.success("Jour de télétravail ajouté avec succès");
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("[useWorkSchedule] Erreur création:", error);
-      toast.error("Erreur lors de l'ajout du télétravail");
+      if (error.message === "Une demande existe déjà pour cette date") {
+        toast.error("Une demande de télétravail existe déjà pour cette date");
+      } else {
+        toast.error("Erreur lors de l'ajout du télétravail: " + error.message);
+      }
     }
   });
 
   const deleteRequestMutation = useMutation({
-    mutationFn: workScheduleService.deleteRequest,
+    mutationFn: async (requestId: string) => {
+      console.log("[useWorkSchedule] Début suppression demande:", requestId);
+      await workScheduleService.deleteRequest(requestId);
+      console.log("[useWorkSchedule] Demande supprimée avec succès:", requestId);
+    },
     onSuccess: async () => {
       console.log("[useWorkSchedule] Télétravail supprimé avec succès");
       
@@ -129,11 +155,11 @@ export const useWorkSchedule = () => {
       await queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
       await refetch();
       
-      toast.success("Jour de télétravail supprimé");
+      toast.success("Jour de télétravail supprimé avec succès");
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("[useWorkSchedule] Erreur suppression:", error);
-      toast.error("Erreur lors de la suppression");
+      toast.error("Erreur lors de la suppression: " + error.message);
     }
   });
 

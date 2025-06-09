@@ -30,26 +30,52 @@ export const WorkScheduleView = () => {
     createRequest,
     updateRequest,
     deleteRequest,
-    isAdmin
+    isAdmin,
+    isCreating,
+    isDeleting
   } = useWorkSchedule();
 
   const handleRequestClick = (request: WorkScheduleRequest) => {
     // Simple suppression du télétravail
     if (window.confirm("Supprimer ce jour de télétravail ?")) {
+      console.log("[WorkScheduleView] Suppression demande:", request.id);
       deleteRequest(request.id);
     }
   };
 
-  // Ajout direct de télétravail
+  // Ajout direct de télétravail avec vérification renforcée
   const handleDirectTeleworkAdd = async (date: Date) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      toast.error("Utilisateur non connecté");
+      return;
+    }
+
+    if (isCreating || isDeleting) {
+      console.log("[WorkScheduleView] Opération en cours, ignorer");
+      return;
+    }
 
     try {
+      const dateString = format(date, 'yyyy-MM-dd');
+      
+      // Vérifier si une demande existe déjà
+      const existingRequest = allRequests.find(req => 
+        req.start_date === dateString && 
+        req.user_id === user.id &&
+        req.request_type === 'telework'
+      );
+      
+      if (existingRequest) {
+        console.log("[WorkScheduleView] Demande existante trouvée:", existingRequest.id);
+        toast.error("Une demande de télétravail existe déjà pour cette date");
+        return;
+      }
+
       const requestData = {
         user_id: user.id,
         request_type: 'telework' as const,
-        start_date: format(date, 'yyyy-MM-dd'),
-        end_date: format(date, 'yyyy-MM-dd'),
+        start_date: dateString,
+        end_date: dateString,
         status: 'approved' as const,
         is_exceptional: false,
         reason: 'Télétravail sélectionné',
@@ -57,12 +83,12 @@ export const WorkScheduleView = () => {
         approved_at: new Date().toISOString()
       };
 
-      console.log("[WorkScheduleView] Ajout télétravail:", requestData);
+      console.log("[WorkScheduleView] Création demande télétravail:", requestData);
       createRequest(requestData);
-      toast.success("Jour de télétravail ajouté");
+      
     } catch (error) {
-      console.error("[WorkScheduleView] Erreur:", error);
-      toast.error("Erreur lors de l'ajout du télétravail");
+      console.error("[WorkScheduleView] Erreur critique:", error);
+      toast.error("Erreur critique lors de l'ajout du télétravail");
     }
   };
 
@@ -118,8 +144,12 @@ export const WorkScheduleView = () => {
         <h3 className="font-medium mb-3">Légende</h3>
         <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-500 rounded"></div>
-            <span className="text-sm">Télétravail (TT)</span>
+            <div className="w-4 h-4 bg-blue-600 rounded"></div>
+            <span className="text-sm">Télétravail</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gray-200 rounded"></div>
+            <span className="text-sm">Weekend</span>
           </div>
         </div>
         <div className="mt-2 text-sm text-gray-600">

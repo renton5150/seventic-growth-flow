@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { WorkScheduleRequest, WorkScheduleNotification } from "@/types/workSchedule";
 
@@ -21,7 +20,7 @@ export const workScheduleService = {
       
       if (error) {
         console.error('Erreur lors du chargement des demandes:', error);
-        return [];
+        throw new Error(`Erreur de chargement: ${error.message}`);
       }
 
       console.log("[workScheduleService] Demandes récupérées:", data?.length || 0);
@@ -47,7 +46,7 @@ export const workScheduleService = {
       return enrichedData as WorkScheduleRequest[];
     } catch (error) {
       console.error('Erreur lors du chargement des demandes:', error);
-      return [];
+      throw error;
     }
   },
 
@@ -55,56 +54,89 @@ export const workScheduleService = {
   async createRequest(request: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>): Promise<WorkScheduleRequest> {
     console.log("[workScheduleService] Création d'une nouvelle demande:", request);
     
-    const { data, error } = await supabase
-      .from('work_schedule_requests')
-      .insert(request)
-      .select()
-      .single();
+    try {
+      // Vérifier d'abord si une demande existe déjà
+      const { data: existing, error: checkError } = await supabase
+        .from('work_schedule_requests')
+        .select('id')
+        .eq('user_id', request.user_id)
+        .eq('start_date', request.start_date)
+        .eq('request_type', request.request_type);
 
-    if (error) {
-      console.error("[workScheduleService] Erreur lors de la création:", error);
+      if (checkError) {
+        console.error("[workScheduleService] Erreur vérification:", checkError);
+        throw new Error(`Erreur de vérification: ${checkError.message}`);
+      }
+
+      if (existing && existing.length > 0) {
+        console.log("[workScheduleService] Demande existante trouvée:", existing);
+        throw new Error("Une demande existe déjà pour cette date");
+      }
+
+      const { data, error } = await supabase
+        .from('work_schedule_requests')
+        .insert(request)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("[workScheduleService] Erreur lors de la création:", error);
+        throw new Error(`Erreur de création: ${error.message}`);
+      }
+      
+      console.log("[workScheduleService] Demande créée avec succès:", data);
+      return data as WorkScheduleRequest;
+    } catch (error) {
+      console.error("[workScheduleService] Erreur critique:", error);
       throw error;
     }
-    
-    console.log("[workScheduleService] Demande créée avec succès:", data);
-    return data as WorkScheduleRequest;
   },
 
   // Mettre à jour une demande
   async updateRequest(id: string, updates: Partial<WorkScheduleRequest>): Promise<WorkScheduleRequest> {
     console.log("[workScheduleService] Mise à jour de la demande:", id, updates);
     
-    const { data, error } = await supabase
-      .from('work_schedule_requests')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('work_schedule_requests')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) {
-      console.error("[workScheduleService] Erreur lors de la mise à jour:", error);
+      if (error) {
+        console.error("[workScheduleService] Erreur lors de la mise à jour:", error);
+        throw new Error(`Erreur de mise à jour: ${error.message}`);
+      }
+      
+      console.log("[workScheduleService] Demande mise à jour avec succès:", data);
+      return data as WorkScheduleRequest;
+    } catch (error) {
+      console.error("[workScheduleService] Erreur critique:", error);
       throw error;
     }
-    
-    console.log("[workScheduleService] Demande mise à jour avec succès:", data);
-    return data as WorkScheduleRequest;
   },
 
   // Supprimer une demande
   async deleteRequest(id: string): Promise<void> {
     console.log("[workScheduleService] Suppression de la demande:", id);
     
-    const { error } = await supabase
-      .from('work_schedule_requests')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('work_schedule_requests')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      console.error("[workScheduleService] Erreur lors de la suppression:", error);
+      if (error) {
+        console.error("[workScheduleService] Erreur lors de la suppression:", error);
+        throw new Error(`Erreur de suppression: ${error.message}`);
+      }
+      
+      console.log("[workScheduleService] Demande supprimée avec succès");
+    } catch (error) {
+      console.error("[workScheduleService] Erreur critique:", error);
       throw error;
     }
-    
-    console.log("[workScheduleService] Demande supprimée avec succès");
   },
 
   // Récupérer les notifications de l'utilisateur
