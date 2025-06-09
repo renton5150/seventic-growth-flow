@@ -55,7 +55,9 @@ export function MissionSelect() {
         const missionsData = data || [];
         console.log(`MissionSelect - ${missionsData.length} missions récupérées:`, missionsData);
         
-        setMissions(missionsData);
+        // Filtrer les missions qui ont un ID valide (non vide)
+        const validMissions = missionsData.filter(mission => mission.id && mission.id.trim() !== '');
+        setMissions(validMissions);
       } catch (error) {
         console.error("MissionSelect - Exception:", error);
         setMissions([]);
@@ -111,7 +113,7 @@ export function MissionSelect() {
         <SelectContent>
           <SelectGroup>
             {loading ? (
-              <SelectItem value="loading" disabled>
+              <SelectItem value="loading-placeholder" disabled>
                 Chargement...
               </SelectItem>
             ) : missions.length > 0 ? (
@@ -121,7 +123,7 @@ export function MissionSelect() {
                 </SelectItem>
               ))
             ) : (
-              <SelectItem value="empty" disabled>
+              <SelectItem value="no-missions-placeholder" disabled>
                 {getEmptyStateText()}
               </SelectItem>
             )}
