@@ -1,13 +1,13 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 
 interface WorkScheduleFiltersProps {
   isAdmin: boolean;
-  availableUsers: Array<{ id: string; name: string; role: string }>;
+  availableUsers: Array<{ id: string; name: string; email: string; role: string; }>;
   selectedUserId: string;
   selectedRequestTypes: string[];
   selectedStatuses: string[];
@@ -15,18 +15,6 @@ interface WorkScheduleFiltersProps {
   onRequestTypesChange: (types: string[]) => void;
   onStatusesChange: (statuses: string[]) => void;
 }
-
-const requestTypeLabels = {
-  telework: 'Télétravail',
-  paid_leave: 'Congé payé',
-  unpaid_leave: 'Congé sans solde'
-};
-
-const statusLabels = {
-  pending: 'En attente',
-  approved: 'Approuvé',
-  rejected: 'Refusé'
-};
 
 export const WorkScheduleFilters: React.FC<WorkScheduleFiltersProps> = ({
   isAdmin,
@@ -38,25 +26,18 @@ export const WorkScheduleFilters: React.FC<WorkScheduleFiltersProps> = ({
   onRequestTypesChange,
   onStatusesChange
 }) => {
-  const handleRequestTypeChange = (type: string, checked: boolean) => {
-    if (checked) {
-      onRequestTypesChange([...selectedRequestTypes, type]);
-    } else {
-      onRequestTypesChange(selectedRequestTypes.filter(t => t !== type));
-    }
+  const handleRequestTypeToggle = (type: string) => {
+    const newTypes = selectedRequestTypes.includes(type)
+      ? selectedRequestTypes.filter(t => t !== type)
+      : [...selectedRequestTypes, type];
+    onRequestTypesChange(newTypes);
   };
 
-  const handleStatusChange = (status: string, checked: boolean) => {
-    if (checked) {
-      onStatusesChange([...selectedStatuses, status]);
-    } else {
-      onStatusesChange(selectedStatuses.filter(s => s !== status));
-    }
-  };
-
-  const handleUserSelection = (value: string) => {
-    // Convert "all-users" back to empty string for the parent component
-    onUserChange(value === "all-users" ? "" : value);
+  const handleStatusToggle = (status: string) => {
+    const newStatuses = selectedStatuses.includes(status)
+      ? selectedStatuses.filter(s => s !== status)
+      : [...selectedStatuses, status];
+    onStatusesChange(newStatuses);
   };
 
   return (
@@ -65,19 +46,19 @@ export const WorkScheduleFilters: React.FC<WorkScheduleFiltersProps> = ({
         <CardTitle>Filtres</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Filtre par utilisateur (admin uniquement) */}
+        {/* Filtre utilisateur pour admin */}
         {isAdmin && (
           <div>
-            <Label className="text-sm font-medium">Utilisateur</Label>
-            <Select value={selectedUserId || "all-users"} onValueChange={handleUserSelection}>
+            <Label htmlFor="user-filter">Utilisateur</Label>
+            <Select value={selectedUserId} onValueChange={onUserChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Tous les utilisateurs" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-users">Tous les utilisateurs</SelectItem>
+                <SelectItem value="">Tous les utilisateurs</SelectItem>
                 {availableUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
-                    {user.name} ({user.role.toUpperCase()})
+                    {user.name || user.email}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -85,41 +66,33 @@ export const WorkScheduleFilters: React.FC<WorkScheduleFiltersProps> = ({
           </div>
         )}
 
-        {/* Filtre par type de demande */}
+        {/* Type de demande - Seulement télétravail */}
         <div>
-          <Label className="text-sm font-medium mb-2 block">Type de demande</Label>
-          <div className="space-y-2">
-            {Object.entries(requestTypeLabels).map(([type, label]) => (
-              <div key={type} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`type-${type}`}
-                  checked={selectedRequestTypes.includes(type)}
-                  onCheckedChange={(checked) => handleRequestTypeChange(type, checked as boolean)}
-                />
-                <Label htmlFor={`type-${type}`} className="text-sm">
-                  {label}
-                </Label>
-              </div>
-            ))}
+          <Label>Type de demande</Label>
+          <div className="space-y-2 mt-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="telework"
+                checked={selectedRequestTypes.includes('telework')}
+                onCheckedChange={() => handleRequestTypeToggle('telework')}
+              />
+              <Label htmlFor="telework">Télétravail</Label>
+            </div>
           </div>
         </div>
 
-        {/* Filtre par statut */}
+        {/* Statut - Seulement approuvé */}
         <div>
-          <Label className="text-sm font-medium mb-2 block">Statut</Label>
-          <div className="space-y-2">
-            {Object.entries(statusLabels).map(([status, label]) => (
-              <div key={status} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`status-${status}`}
-                  checked={selectedStatuses.includes(status)}
-                  onCheckedChange={(checked) => handleStatusChange(status, checked as boolean)}
-                />
-                <Label htmlFor={`status-${status}`} className="text-sm">
-                  {label}
-                </Label>
-              </div>
-            ))}
+          <Label>Statut</Label>
+          <div className="space-y-2 mt-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="approved"
+                checked={selectedStatuses.includes('approved')}
+                onCheckedChange={() => handleStatusToggle('approved')}
+              />
+              <Label htmlFor="approved">Approuvé</Label>
+            </div>
           </div>
         </div>
       </CardContent>

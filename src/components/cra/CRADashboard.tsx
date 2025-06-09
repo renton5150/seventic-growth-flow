@@ -6,16 +6,39 @@ import { CRAStatistics } from "./CRAStatistics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format } from "date-fns";
+import { format, isWeekend } from "date-fns";
 import { fr } from "date-fns/locale";
 
+// Fonction pour obtenir le prochain jour ouvré
+const getNextWorkingDay = () => {
+  const today = new Date();
+  
+  // Si c'est un jour ouvré (lundi à vendredi), retourner aujourd'hui
+  if (!isWeekend(today)) {
+    return today;
+  }
+  
+  // Sinon, trouver le prochain lundi
+  const nextMonday = new Date(today);
+  const daysUntilMonday = (8 - today.getDay()) % 7;
+  nextMonday.setDate(today.getDate() + (daysUntilMonday === 0 ? 7 : daysUntilMonday));
+  
+  return nextMonday;
+};
+
 export const CRADashboard = () => {
-  // Utiliser la date d'aujourd'hui par défaut
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Utiliser un jour ouvré par défaut
+  const [selectedDate, setSelectedDate] = useState(getNextWorkingDay());
   const [activeTab, setActiveTab] = useState("form");
 
   const handleDateSelect = (dateString: string) => {
     const date = new Date(dateString);
+    
+    // Vérifier si c'est un weekend
+    if (isWeekend(date)) {
+      return; // Ne pas permettre la sélection des weekends
+    }
+    
     setSelectedDate(date);
     setActiveTab("form");
   };
@@ -26,6 +49,9 @@ export const CRADashboard = () => {
         <h1 className="text-2xl font-bold">CRA - Compte Rendu d'Activité</h1>
         <div className="text-sm text-gray-600">
           Date sélectionnée : {format(selectedDate, 'EEEE dd MMMM yyyy', { locale: fr })}
+          {isWeekend(selectedDate) && (
+            <span className="text-red-600 ml-2">(Weekend - CRA non disponible)</span>
+          )}
         </div>
       </div>
 

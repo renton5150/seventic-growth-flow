@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, isWeekend, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,12 +34,37 @@ interface CRAEntry {
   comment: string;
 }
 
+// Fonction pour obtenir le prochain jour ouvré
+const getNextWorkingDay = () => {
+  const today = new Date();
+  
+  // Si c'est un jour ouvré (lundi à vendredi), retourner aujourd'hui
+  if (!isWeekend(today)) {
+    return today;
+  }
+  
+  // Sinon, trouver le prochain lundi
+  const nextMonday = new Date(today);
+  const daysUntilMonday = (8 - today.getDay()) % 7;
+  nextMonday.setDate(today.getDate() + (daysUntilMonday === 0 ? 7 : daysUntilMonday));
+  
+  return nextMonday;
+};
+
 export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
   const [craEntries, setCraEntries] = useState<CRAEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Initialiser avec un jour ouvré
+  useEffect(() => {
+    if (isWeekend(selectedDate)) {
+      const nextWorkingDay = getNextWorkingDay();
+      onDateChange(nextWorkingDay);
+    }
+  }, []);
 
   const dateString = format(selectedDate, 'yyyy-MM-dd');
 
@@ -220,6 +245,18 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
     return mission ? (mission.client || mission.name) : "Mission inconnue";
   };
 
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = new Date(e.target.value);
+    
+    // Vérifier si c'est un weekend
+    if (isWeekend(newDate)) {
+      toast.error("Le CRA ne peut être saisi que durant les jours ouvrés (lundi à vendredi)");
+      return;
+    }
+    
+    onDateChange(newDate);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -237,12 +274,17 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
           id="date"
           type="date"
           value={dateString}
-          onChange={(e) => onDateChange(new Date(e.target.value))}
+          onChange={handleDateChange}
           className="max-w-xs"
         />
+        {isWeekend(selectedDate) && (
+          <p className="text-sm text-red-600 mt-1">
+            Le CRA ne peut être saisi que durant les jours ouvrés
+          </p>
+        )}
       </div>
 
-      {/* Tableau CRA */}
+      {/* Tableau CRA simplifié */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg">Compte Rendu d'Activité</CardTitle>
@@ -271,7 +313,7 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
 
           {/* Lignes du tableau */}
           {craEntries.map((entry, index) => (
-            <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded mb-2">
+            <div key={index} className="grid grid-cols-12 gap-2 items-start p-2 border rounded mb-2">
               {/* Mission */}
               <div className="col-span-2">
                 <Select
@@ -304,43 +346,47 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
                 />
               </div>
               
-              {/* Projets 5% */}
+              {/* Projets 5% - Zone de texte plus grande */}
               <div className="col-span-2">
-                <Input
+                <Textarea
                   value={entry.opportunities_5}
                   onChange={(e) => handleUpdateEntry(index, 'opportunities_5', e.target.value)}
-                  placeholder="Noms des projets"
-                  className="h-8"
+                  placeholder="Noms des projets (un par ligne)"
+                  className="min-h-[60px] text-xs resize-none"
+                  rows={3}
                 />
               </div>
               
-              {/* Projets 10% */}
+              {/* Projets 10% - Zone de texte plus grande */}
               <div className="col-span-2">
-                <Input
+                <Textarea
                   value={entry.opportunities_10}
                   onChange={(e) => handleUpdateEntry(index, 'opportunities_10', e.target.value)}
-                  placeholder="Noms des projets"
-                  className="h-8"
+                  placeholder="Noms des projets (un par ligne)"
+                  className="min-h-[60px] text-xs resize-none"
+                  rows={3}
                 />
               </div>
               
-              {/* Projets 20% */}
+              {/* Projets 20% - Zone de texte plus grande */}
               <div className="col-span-2">
-                <Input
+                <Textarea
                   value={entry.opportunities_20}
                   onChange={(e) => handleUpdateEntry(index, 'opportunities_20', e.target.value)}
-                  placeholder="Noms des projets"
-                  className="h-8"
+                  placeholder="Noms des projets (un par ligne)"
+                  className="min-h-[60px] text-xs resize-none"
+                  rows={3}
                 />
               </div>
               
               {/* Activité/Commentaire */}
               <div className="col-span-2">
-                <Input
+                <Textarea
                   value={entry.comment}
                   onChange={(e) => handleUpdateEntry(index, 'comment', e.target.value)}
                   placeholder="Activité..."
-                  className="h-8"
+                  className="min-h-[60px] text-xs resize-none"
+                  rows={3}
                 />
               </div>
               
@@ -371,7 +417,7 @@ export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) 
       <div className="flex justify-end gap-4">
         <Button
           type="submit"
-          disabled={isSubmitting || totalPercentage > 100}
+          disabled={isSubmitting || totalPercentage > 100 || isWeekend(selectedDate)}
           className="bg-seventic-500 hover:bg-seventic-600"
         >
           {isSubmitting ? "Sauvegarde..." : "Sauvegarder le CRA"}

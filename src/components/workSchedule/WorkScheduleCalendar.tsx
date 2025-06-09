@@ -18,7 +18,6 @@ interface WorkScheduleCalendarProps {
 }
 
 const getRequestColor = (request: WorkScheduleRequest) => {
-  // Seulement télétravail maintenant
   return 'bg-blue-500 opacity-100';
 };
 
@@ -44,7 +43,7 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
     const existingTelework = dayRequests.find(r => r.request_type === 'telework');
     
     if (existingTelework) {
-      // Si télétravail existe déjà, on peut le supprimer ou modifier
+      // Si télétravail existe déjà, on peut le supprimer
       onRequestClick(existingTelework);
     } else {
       // Vérifier la limite de 2 jours par semaine
@@ -139,10 +138,10 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                   ))}
                 </div>
 
-                {/* Indicateur si on peut ajouter du télétravail */}
+                {/* Indicateur si on peut ajouter du télétravail - SUPPRIMÉ LE +TT */}
                 {!isWeekend(day.date) && !hasTelework && canAddTelework && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    + TT
+                  <div className="text-xs text-gray-400 mt-1 opacity-60">
+                    Cliquer pour télétravail
                   </div>
                 )}
               </div>
