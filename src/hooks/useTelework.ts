@@ -5,20 +5,28 @@ import { teleworkService } from "@/services/teleworkService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-export const useTelework = () => {
+export const useTelework = (targetUserId?: string) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Utiliser l'ID cible ou l'ID de l'utilisateur actuel
+  const userId = targetUserId || user?.id || '';
+
   // Récupération des jours de télétravail
   const { data: teleworkDays = [], isLoading, refetch } = useQuery({
-    queryKey: ['telework', user?.id],
-    queryFn: () => teleworkService.getTeleworkDays(user?.id || ''),
-    enabled: !!user?.id
+    queryKey: ['telework', userId],
+    queryFn: () => teleworkService.getTeleworkDays(userId),
+    enabled: !!userId
   });
 
-  // Mutation pour ajouter
+  // Mutation pour ajouter (seulement pour son propre planning)
   const addMutation = useMutation({
-    mutationFn: (date: Date) => teleworkService.addTeleworkDay(user?.id || '', date),
+    mutationFn: (date: Date) => {
+      if (targetUserId && targetUserId !== user?.id) {
+        throw new Error("Vous ne pouvez pas modifier le planning d'un autre utilisateur");
+      }
+      return teleworkService.addTeleworkDay(user?.id || '', date);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telework'] });
       toast.success("Jour de télétravail ajouté");
@@ -28,9 +36,14 @@ export const useTelework = () => {
     }
   });
 
-  // Mutation pour supprimer
+  // Mutation pour supprimer (seulement pour son propre planning)
   const removeMutation = useMutation({
-    mutationFn: (date: Date) => teleworkService.removeTeleworkDay(user?.id || '', date),
+    mutationFn: (date: Date) => {
+      if (targetUserId && targetUserId !== user?.id) {
+        throw new Error("Vous ne pouvez pas modifier le planning d'un autre utilisateur");
+      }
+      return teleworkService.removeTeleworkDay(user?.id || '', date);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telework'] });
       toast.success("Jour de télétravail supprimé");
@@ -40,9 +53,14 @@ export const useTelework = () => {
     }
   });
 
-  // Mutation pour réinitialiser
+  // Mutation pour réinitialiser (seulement pour son propre planning)
   const resetMutation = useMutation({
-    mutationFn: () => teleworkService.resetAllTelework(user?.id || ''),
+    mutationFn: () => {
+      if (targetUserId && targetUserId !== user?.id) {
+        throw new Error("Vous ne pouvez pas modifier le planning d'un autre utilisateur");
+      }
+      return teleworkService.resetAllTelework(user?.id || '');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telework'] });
       toast.success("Planning réinitialisé");

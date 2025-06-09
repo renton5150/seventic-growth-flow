@@ -9,13 +9,15 @@ interface TeleworkCalendarProps {
   teleworkDays: string[];
   onDayClick: (date: Date) => void;
   isProcessing: boolean;
+  isReadOnly?: boolean;
 }
 
 export const TeleworkCalendar: React.FC<TeleworkCalendarProps> = ({
   currentDate,
   teleworkDays,
   onDayClick,
-  isProcessing
+  isProcessing,
+  isReadOnly = false
 }) => {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
@@ -42,15 +44,14 @@ export const TeleworkCalendar: React.FC<TeleworkCalendarProps> = ({
 
   // Vérifier si on peut ajouter du télétravail
   const canAddTelework = (date: Date) => {
-    if (isWeekend(date) || isDayTelework(date)) return false;
+    if (isWeekend(date) || isDayTelework(date) || isReadOnly) return false;
     return getTeleworkCountForWeek(date) < 2;
   };
 
   // Gérer le clic sur un jour
   const handleDayClick = (date: Date) => {
-    if (isProcessing || isWeekend(date)) return;
+    if (isProcessing || isWeekend(date) || isReadOnly) return;
     
-    const dateString = format(date, 'yyyy-MM-dd');
     const hasTelework = isDayTelework(date);
     
     if (hasTelework) {
@@ -90,7 +91,8 @@ export const TeleworkCalendar: React.FC<TeleworkCalendarProps> = ({
                 !isCurrentMonth && "bg-gray-50 text-gray-400",
                 isTodayDate && "bg-blue-50 border-blue-200",
                 isWeekendDate && "bg-gray-100 cursor-not-allowed",
-                !isWeekendDate && !isProcessing && "cursor-pointer hover:bg-gray-50",
+                !isWeekendDate && !isProcessing && !isReadOnly && "cursor-pointer hover:bg-gray-50",
+                isReadOnly && !isWeekendDate && "cursor-default",
                 hasTelework && "bg-blue-100 border-blue-300",
                 !canAdd && !hasTelework && !isWeekendDate && "opacity-50",
                 isProcessing && "pointer-events-none opacity-70"
@@ -106,23 +108,34 @@ export const TeleworkCalendar: React.FC<TeleworkCalendarProps> = ({
                 {format(day, 'd')}
               </div>
 
-              {/* Badge télétravail - Sans bouton de suppression */}
+              {/* Badge télétravail */}
               {hasTelework && (
                 <div className="text-xs px-2 py-1 rounded text-white bg-blue-600 font-semibold">
                   Télétravail
                 </div>
               )}
 
-              {/* Indicateurs */}
-              {!isWeekendDate && !hasTelework && canAdd && (
-                <div className="text-xs text-gray-500 mt-1">
-                  + Télétravail
-                </div>
+              {/* Indicateurs pour les jours modifiables */}
+              {!isReadOnly && (
+                <>
+                  {!isWeekendDate && !hasTelework && canAdd && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      + Télétravail
+                    </div>
+                  )}
+                  
+                  {!isWeekendDate && !hasTelework && !canAdd && (
+                    <div className="text-xs text-red-500 mt-1">
+                      Limite 2j/sem
+                    </div>
+                  )}
+                </>
               )}
               
-              {!isWeekendDate && !hasTelework && !canAdd && (
-                <div className="text-xs text-red-500 mt-1">
-                  Limite 2j/sem
+              {/* Indicateur lecture seule */}
+              {isReadOnly && hasTelework && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Consultation
                 </div>
               )}
             </div>
