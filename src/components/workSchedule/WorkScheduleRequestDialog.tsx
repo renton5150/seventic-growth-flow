@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { WorkScheduleRequest, WorkScheduleRequestType } from "@/types/workSchedule";
+import { WorkScheduleRequest, WorkScheduleRequestType, WorkScheduleStatus } from "@/types/workSchedule";
 import { format } from "date-fns";
 import { workScheduleService } from "@/services/workScheduleService";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ export const WorkScheduleRequestDialog: React.FC<WorkScheduleRequestDialogProps>
     reason: '',
     is_exceptional: false,
     admin_comment: '',
-    status: 'pending' as const
+    status: 'pending' as WorkScheduleStatus
   });
 
   const [errors, setErrors] = useState<string[]>([]);
@@ -197,8 +197,8 @@ export const WorkScheduleRequestDialog: React.FC<WorkScheduleRequestDialogProps>
                 <Label htmlFor="status">Statut</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => 
-                    setFormData(prev => ({ ...prev, status: value as any }))
+                  onValueChange={(value: WorkScheduleStatus) => 
+                    setFormData(prev => ({ ...prev, status: value }))
                   }
                 >
                   <SelectTrigger>

@@ -31,16 +31,21 @@ export const useWorkSchedule = () => {
   
   const isAdmin = user?.role === "admin";
 
-  // Récupération des demandes
+  // Récupération des demandes avec gestion d'erreur
   const { data: allRequests = [], isLoading, refetch } = useQuery({
     queryKey: ['work-schedule-requests', user?.id, isAdmin],
     queryFn: async () => {
-      if (isAdmin) {
-        return await workScheduleService.getRequests();
-      } else if (user?.id) {
-        return await workScheduleService.getRequests(user.id);
+      try {
+        if (isAdmin) {
+          return await workScheduleService.getRequests();
+        } else if (user?.id) {
+          return await workScheduleService.getRequests(user.id);
+        }
+        return [];
+      } catch (error) {
+        console.error('Erreur lors du chargement des demandes:', error);
+        return [];
       }
-      return [];
     },
     enabled: !!user
   });
@@ -113,7 +118,7 @@ export const useWorkSchedule = () => {
     setCurrentDate(new Date());
   };
 
-  // Mutations
+  // Mutations avec gestion d'erreur
   const createRequestMutation = useMutation({
     mutationFn: workScheduleService.createRequest,
     onSuccess: () => {

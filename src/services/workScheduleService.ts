@@ -5,33 +5,47 @@ import { WorkScheduleRequest, WorkScheduleNotification } from "@/types/workSched
 export const workScheduleService = {
   // Récupérer toutes les demandes (admin) ou les demandes de l'utilisateur
   async getRequests(userId?: string): Promise<WorkScheduleRequest[]> {
-    let query = supabase
-      .from('work_schedule_requests')
-      .select(`
-        *,
-        profiles!work_schedule_requests_user_id_fkey(name, email, role)
-      `)
-      .order('start_date', { ascending: true });
-
+    let query = `
+      SELECT 
+        wsr.*,
+        p.name as user_name,
+        p.email as user_email,
+        p.role as user_role
+      FROM work_schedule_requests wsr
+      LEFT JOIN profiles p ON wsr.user_id = p.id
+    `;
+    
     if (userId) {
-      query = query.eq('user_id', userId);
+      query += ` WHERE wsr.user_id = '${userId}'`;
+    }
+    
+    query += ` ORDER BY wsr.start_date ASC`;
+
+    const { data, error } = await supabase.rpc('execute_sql', { query });
+    
+    if (error) {
+      // Fallback: essayer une requête directe
+      const fallbackQuery = supabase
+        .from('work_schedule_requests' as any)
+        .select('*')
+        .order('start_date', { ascending: true });
+
+      if (userId) {
+        fallbackQuery.eq('user_id', userId);
+      }
+
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+      if (fallbackError) throw fallbackError;
+      return fallbackData || [];
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return data.map(request => ({
-      ...request,
-      user_name: request.profiles?.name,
-      user_email: request.profiles?.email,
-      user_role: request.profiles?.role
-    }));
+    return data || [];
   },
 
   // Créer une nouvelle demande
   async createRequest(request: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>): Promise<WorkScheduleRequest> {
     const { data, error } = await supabase
-      .from('work_schedule_requests')
+      .from('work_schedule_requests' as any)
       .insert(request)
       .select()
       .single();
@@ -43,7 +57,7 @@ export const workScheduleService = {
   // Mettre à jour une demande
   async updateRequest(id: string, updates: Partial<WorkScheduleRequest>): Promise<WorkScheduleRequest> {
     const { data, error } = await supabase
-      .from('work_schedule_requests')
+      .from('work_schedule_requests' as any)
       .update(updates)
       .eq('id', id)
       .select()
@@ -56,7 +70,7 @@ export const workScheduleService = {
   // Supprimer une demande
   async deleteRequest(id: string): Promise<void> {
     const { error } = await supabase
-      .from('work_schedule_requests')
+      .from('work_schedule_requests' as any)
       .delete()
       .eq('id', id);
 
@@ -66,19 +80,19 @@ export const workScheduleService = {
   // Récupérer les notifications de l'utilisateur
   async getNotifications(userId: string): Promise<WorkScheduleNotification[]> {
     const { data, error } = await supabase
-      .from('work_schedule_notifications')
+      .from('work_schedule_notifications' as any)
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
   // Marquer une notification comme lue
   async markNotificationAsRead(id: string): Promise<void> {
     const { error } = await supabase
-      .from('work_schedule_notifications')
+      .from('work_schedule_notifications' as any)
       .update({ is_read: true })
       .eq('id', id);
 
