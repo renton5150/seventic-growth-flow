@@ -14,7 +14,8 @@ export const CRADashboard = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState("form");
 
-  const handleDateSelect = (date: Date) => {
+  const handleDateSelect = (dateString: string) => {
+    const date = new Date(dateString);
     setSelectedDate(date);
     setActiveTab("form");
   };
