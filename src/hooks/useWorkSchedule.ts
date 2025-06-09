@@ -5,6 +5,7 @@ import { WorkScheduleRequest, WorkScheduleCalendarMonth, WorkScheduleCalendarWee
 import { workScheduleService } from "@/services/workScheduleService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   startOfMonth, 
   endOfMonth, 
@@ -48,6 +49,34 @@ export const useWorkSchedule = () => {
       }
     },
     enabled: !!user
+  });
+
+  // Récupération de tous les utilisateurs SDR et Growth pour les admins
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['work-schedule-users'],
+    queryFn: async () => {
+      if (!isAdmin) return [];
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, email, role')
+          .in('role', ['sdr', 'growth'])
+          .order('name');
+
+        if (error) {
+          console.error('Erreur lors du chargement des utilisateurs:', error);
+          return [];
+        }
+
+        console.log('Utilisateurs récupérés pour admin:', data);
+        return data || [];
+      } catch (error) {
+        console.error('Erreur lors du chargement des utilisateurs:', error);
+        return [];
+      }
+    },
+    enabled: isAdmin
   });
 
   // Filtrage des demandes
@@ -159,20 +188,8 @@ export const useWorkSchedule = () => {
   // Utilisateurs disponibles pour les filtres (admin uniquement)
   const availableUsers = useMemo(() => {
     if (!isAdmin) return [];
-    
-    const userMap = new Map();
-    allRequests.forEach(request => {
-      if (request.user_id && request.user_name && (request.user_role === 'sdr' || request.user_role === 'growth')) {
-        userMap.set(request.user_id, {
-          id: request.user_id,
-          name: request.user_name,
-          role: request.user_role
-        });
-      }
-    });
-    
-    return Array.from(userMap.values());
-  }, [allRequests, isAdmin]);
+    return allUsers;
+  }, [allUsers, isAdmin]);
 
   // Format d'affichage du mois
   const monthLabel = useMemo(() => {

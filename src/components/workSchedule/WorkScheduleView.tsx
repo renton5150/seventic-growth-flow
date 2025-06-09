@@ -58,6 +58,32 @@ export const WorkScheduleView = () => {
     setIsDialogOpen(true);
   };
 
+  // Nouvelle fonction pour ajout direct de télétravail
+  const handleDirectTeleworkAdd = async (date: Date) => {
+    if (!user?.id) return;
+
+    try {
+      const requestData = {
+        user_id: user.id,
+        request_type: 'telework' as const,
+        start_date: format(date, 'yyyy-MM-dd'),
+        end_date: format(date, 'yyyy-MM-dd'),
+        status: 'approved' as const,
+        is_exceptional: false,
+        reason: 'Télétravail ajouté directement via planning',
+        approved_by: user.id,
+        approved_at: new Date().toISOString()
+      };
+
+      console.log("[WorkScheduleView] Ajout direct télétravail:", requestData);
+      createRequest(requestData);
+      toast.success("Jour de télétravail ajouté au planning");
+    } catch (error) {
+      console.error("[WorkScheduleView] Erreur ajout télétravail:", error);
+      toast.error("Erreur lors de l'ajout du télétravail");
+    }
+  };
+
   const handleQuickTeleworkSelect = async (dates: Date[]) => {
     if (dates.length === 0) return;
 
@@ -158,6 +184,9 @@ export const WorkScheduleView = () => {
             calendarData={calendarData}
             onDayClick={handleDayClick}
             onRequestClick={handleRequestClick}
+            isAdmin={isAdmin}
+            userId={user?.id || ''}
+            onDirectTeleworkAdd={handleDirectTeleworkAdd}
           />
         </div>
       </div>
@@ -190,6 +219,9 @@ export const WorkScheduleView = () => {
             <span className="text-sm font-medium">*</span>
             <span className="text-sm">Demande exceptionnelle</span>
           </div>
+        </div>
+        <div className="mt-2 text-sm text-gray-600">
+          💡 <strong>Astuce :</strong> Cliquez directement sur une date pour ajouter du télétravail
         </div>
       </div>
 

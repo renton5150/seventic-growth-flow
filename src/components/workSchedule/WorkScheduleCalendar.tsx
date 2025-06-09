@@ -12,6 +12,9 @@ interface WorkScheduleCalendarProps {
   };
   onDayClick: (date: Date) => void;
   onRequestClick: (request: WorkScheduleRequest) => void;
+  isAdmin: boolean;
+  userId: string;
+  onDirectTeleworkAdd?: (date: Date) => void;
 }
 
 const getRequestColor = (request: WorkScheduleRequest) => {
@@ -52,9 +55,32 @@ const getRequestLabel = (request: WorkScheduleRequest) => {
 export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
   calendarData,
   onDayClick,
-  onRequestClick
+  onRequestClick,
+  isAdmin,
+  userId,
+  onDirectTeleworkAdd
 }) => {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  const handleDayClick = (date: Date, dayRequests: WorkScheduleRequest[]) => {
+    // Si c'est un weekend, ne rien faire
+    if (isWeekend(date)) return;
+
+    // Vérifier s'il y a déjà une demande de télétravail pour ce jour
+    const existingTelework = dayRequests.find(r => r.request_type === 'telework');
+    
+    if (existingTelework) {
+      // S'il y a déjà du télétravail, ouvrir le dialog pour modification
+      onRequestClick(existingTelework);
+    } else {
+      // Sinon, ajouter directement le télétravail
+      if (onDirectTeleworkAdd) {
+        onDirectTeleworkAdd(date);
+      } else {
+        onDayClick(date);
+      }
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg border">
@@ -77,9 +103,9 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                 "min-h-[100px] p-2 border-r border-b last:border-r-0 cursor-pointer hover:bg-gray-50",
                 !day.isCurrentMonth && "bg-gray-50 text-gray-400",
                 day.isToday && "bg-blue-50 border-blue-200",
-                isWeekend(day.date) && "bg-gray-100"
+                isWeekend(day.date) && "bg-gray-100 cursor-not-allowed"
               )}
-              onClick={() => onDayClick(day.date)}
+              onClick={() => handleDayClick(day.date, day.requests)}
             >
               {/* Numéro du jour */}
               <div className={cn(
