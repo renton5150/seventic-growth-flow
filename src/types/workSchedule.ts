@@ -36,6 +36,7 @@ export interface WorkScheduleCalendarDay {
   isWeekend: boolean;
   isToday: boolean;
   requests: WorkScheduleRequest[];
+  hasTelework?: boolean;
 }
 
 export interface WorkScheduleCalendarWeek {
@@ -44,5 +45,23 @@ export interface WorkScheduleCalendarWeek {
 
 export interface WorkScheduleCalendarMonth {
   weeks: WorkScheduleCalendarWeek[];
+  currentDate: Date;
+}
+
+// Nouveaux types pour le système refactorisé
+export interface TeleworkCalendarDay {
+  date: Date;
+  isCurrentMonth: boolean;
+  isWeekend: boolean;
+  isToday: boolean;
+  hasTelework: boolean;
+}
+
+export interface TeleworkCalendarWeek {
+  days: TeleworkCalendarDay[];
+}
+
+export interface TeleworkCalendarData {
+  weeks: TeleworkCalendarWeek[];
   currentDate: Date;
 }

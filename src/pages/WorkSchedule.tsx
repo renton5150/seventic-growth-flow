@@ -1,7 +1,7 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { WorkScheduleView } from "@/components/workSchedule/WorkScheduleView";
+import { WorkScheduleTransition } from "@/components/workSchedule/WorkScheduleTransition";
 
 const WorkSchedule = () => {
   const { user } = useAuth();
@@ -9,7 +9,7 @@ const WorkSchedule = () => {
   return (
     <AppLayout>
       <div className="container mx-auto p-6">
-        <WorkScheduleView />
+        <WorkScheduleTransition />
       </div>
     </AppLayout>
   );

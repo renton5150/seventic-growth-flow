@@ -1102,12 +1102,57 @@ export type Database = {
             foreignKeyName: "work_schedule_notifications_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
-            referencedRelation: "work_schedule_requests"
+            referencedRelation: "work_schedule_requests_old"
             referencedColumns: ["id"]
           },
         ]
       }
       work_schedule_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          end_date: string
+          id: string
+          is_exceptional: boolean
+          reason: string | null
+          request_type: string
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          end_date: string
+          id?: string
+          is_exceptional?: boolean
+          reason?: string | null
+          request_type: string
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_exceptional?: boolean
+          reason?: string | null
+          request_type?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      work_schedule_requests_old: {
         Row: {
           admin_comment: string | null
           approved_at: string | null

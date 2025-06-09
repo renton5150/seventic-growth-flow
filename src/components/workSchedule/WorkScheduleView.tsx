@@ -1,148 +1,74 @@
 
-import React, { useState } from "react";
-import { useWorkSchedule } from "@/hooks/useWorkSchedule";
+import React from "react";
+import { useWorkScheduleNew } from "@/hooks/useWorkScheduleNew";
 import { WorkScheduleHeader } from "./WorkScheduleHeader";
-import { WorkScheduleCalendar } from "./WorkScheduleCalendar";
+import { WorkScheduleCalendarNew } from "./WorkScheduleCalendarNew";
 import { WorkScheduleFilters } from "./WorkScheduleFilters";
-import { WorkScheduleRequest } from "@/types/workSchedule";
 import { useAuth } from "@/contexts/AuthContext";
-import { startOfWeek, format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
-import { workScheduleService } from "@/services/workScheduleService";
+import { RotateCcw, Trash2 } from "lucide-react";
 
 export const WorkScheduleView = () => {
   const { user } = useAuth();
-  const [isResetting, setIsResetting] = useState(false);
   
   const {
     calendarData,
     monthLabel,
-    allRequests,
-    availableUsers,
+    teleworkDates,
     isLoading,
-    selectedUserId,
-    selectedRequestTypes,
-    selectedStatuses,
-    setSelectedUserId,
-    setSelectedRequestTypes,
-    setSelectedStatuses,
     goToPreviousMonth,
     goToNextMonth,
     goToToday,
-    createRequest,
-    updateRequest,
-    deleteRequest,
+    addTelework,
+    removeTelework,
+    resetTelework,
+    canAddTelework,
+    isAdding,
+    isRemoving,
+    isResetting,
     isAdmin,
-    isCreating,
-    isDeleting,
-    calendarKey,
-    forceCalendarRefresh,
-    refetch
-  } = useWorkSchedule();
+    userId
+  } = useWorkScheduleNew();
 
-  const handleRequestClick = (request: WorkScheduleRequest) => {
-    // Simple suppression du télétravail avec confirmation
-    console.log("🔥 [WorkScheduleView] Clic sur demande de suppression:", request.id, "date:", request.start_date);
+  const handleDayClick = (date: Date) => {
+    const dateString = date.toISOString().split('T')[0];
+    const hasTelework = teleworkDates.includes(dateString);
     
-    if (window.confirm("Supprimer ce jour de télétravail ?")) {
-      console.log("🔥 [WorkScheduleView] Confirmation de suppression pour:", request.id);
-      deleteRequest(request.id);
+    console.log("🎯 [WorkScheduleView] Clic sur:", dateString, "hasTelework:", hasTelework);
+    
+    if (hasTelework) {
+      // Confirmer la suppression
+      if (window.confirm("Supprimer ce jour de télétravail ?")) {
+        console.log("🗑️ [WorkScheduleView] Suppression confirmée");
+        removeTelework(date);
+      }
     } else {
-      console.log("[WorkScheduleView] Suppression annulée par l'utilisateur");
-    }
-  };
-
-  // Fonction de réinitialisation du calendrier pour éliminer les données fantômes
-  const handleResetCalendar = async () => {
-    if (!user?.id) {
-      toast.error("Utilisateur non connecté");
-      return;
-    }
-
-    if (!window.confirm("Êtes-vous sûr de vouloir réinitialiser le calendrier de télétravail ? Cette action nettoiera toutes les données incohérentes.")) {
-      return;
-    }
-
-    try {
-      setIsResetting(true);
-      console.log("🧹 [WorkScheduleView] Début de la réinitialisation du calendrier");
-      
-      // Appel au service de nettoyage
-      const cleanDates = await workScheduleService.cleanupWorkScheduleData(user.id);
-      console.log("🧹 [WorkScheduleView] Données nettoyées:", cleanDates);
-      
-      // Force refresh complet du calendrier
-      forceCalendarRefresh();
-      
-      // Invalidation et refetch forcé
-      await refetch();
-      
-      toast.success("Calendrier de télétravail réinitialisé avec succès");
-    } catch (error) {
-      console.error("❌ [WorkScheduleView] Erreur lors de la réinitialisation:", error);
-      toast.error("Erreur lors de la réinitialisation du calendrier: " + (error as Error).message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  // Ajout direct de télétravail avec vérification renforcée
-  const handleDirectTeleworkAdd = async (date: Date) => {
-    if (!user?.id) {
-      toast.error("Utilisateur non connecté");
-      return;
-    }
-
-    if (isCreating || isDeleting) {
-      console.log("[WorkScheduleView] Opération en cours, ignorer");
-      return;
-    }
-
-    try {
-      const dateString = format(date, 'yyyy-MM-dd');
-      console.log("✅ [WorkScheduleView] Ajout télétravail pour la date:", dateString);
-      
-      // Vérifier si une demande existe déjà dans l'état local
-      const existingRequest = allRequests.find(req => 
-        req.start_date === dateString && 
-        req.user_id === user.id &&
-        req.request_type === 'telework'
-      );
-      
-      if (existingRequest) {
-        console.log("[WorkScheduleView] Demande existante trouvée dans l'état local:", existingRequest.id);
-        toast.error("Une demande de télétravail existe déjà pour cette date");
+      // Vérifier la limite avant d'ajouter
+      if (!canAddTelework(date)) {
+        console.log("⚠️ [WorkScheduleView] Limite de 2 jours par semaine atteinte");
         return;
       }
-
-      const requestData = {
-        user_id: user.id,
-        request_type: 'telework' as const,
-        start_date: dateString,
-        end_date: dateString,
-        status: 'approved' as const,
-        is_exceptional: false,
-        reason: 'Télétravail sélectionné',
-        approved_by: user.id,
-        approved_at: new Date().toISOString()
-      };
-
-      console.log("✅ [WorkScheduleView] Création demande télétravail:", requestData);
-      createRequest(requestData);
       
-    } catch (error) {
-      console.error("❌ [WorkScheduleView] Erreur critique:", error);
-      toast.error("Erreur critique lors de l'ajout du télétravail");
+      console.log("➕ [WorkScheduleView] Ajout télétravail");
+      addTelework(date);
     }
   };
+
+  const handleReset = () => {
+    if (!window.confirm("Êtes-vous sûr de vouloir réinitialiser complètement votre calendrier de télétravail ? Cette action supprimera tous vos jours de télétravail.")) {
+      return;
+    }
+    
+    console.log("🔄 [WorkScheduleView] Réinitialisation du calendrier");
+    resetTelework();
+  };
+
+  const isProcessing = isAdding || isRemoving || isResetting;
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Chargement du planning...</div>
+        <div className="text-lg">Chargement du planning de télétravail...</div>
       </div>
     );
   }
@@ -155,20 +81,22 @@ export const WorkScheduleView = () => {
           onPreviousMonth={goToPreviousMonth}
           onNextMonth={goToNextMonth}
           onToday={goToToday}
-          onCreateRequest={() => {}} // Plus de création manuelle
+          onCreateRequest={() => {}} // Plus utilisé
           canCreateRequest={false} // Désactivé
         />
         
-        {/* Bouton de réinitialisation pour éliminer les données fantômes */}
-        <Button
-          variant="outline"
-          onClick={handleResetCalendar}
-          disabled={isResetting}
-          className="flex items-center gap-2"
-        >
-          <RotateCcw className="h-4 w-4" />
-          {isResetting ? "Réinitialisation..." : "Réinitialiser calendrier"}
-        </Button>
+        {/* Boutons d'action */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            disabled={isProcessing}
+            className="flex items-center gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            {isResetting ? "Réinitialisation..." : "Réinitialiser"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -176,49 +104,66 @@ export const WorkScheduleView = () => {
         <div className="lg:col-span-1">
           <WorkScheduleFilters
             isAdmin={isAdmin}
-            availableUsers={availableUsers}
-            selectedUserId={selectedUserId}
-            selectedRequestTypes={selectedRequestTypes}
-            selectedStatuses={selectedStatuses}
-            onUserChange={setSelectedUserId}
-            onRequestTypesChange={setSelectedRequestTypes}
-            onStatusesChange={setSelectedStatuses}
+            availableUsers={[]}
+            selectedUserId={userId}
+            selectedRequestTypes={['telework']}
+            selectedStatuses={['approved']}
+            onUserChange={() => {}}
+            onRequestTypesChange={() => {}}
+            onStatusesChange={() => {}}
           />
         </div>
 
         {/* Calendrier */}
         <div className="lg:col-span-3">
-          <WorkScheduleCalendar
+          <WorkScheduleCalendarNew
             calendarData={calendarData}
-            onDayClick={() => {}} // Plus utilisé
-            onRequestClick={handleRequestClick}
-            isAdmin={isAdmin}
-            userId={user?.id || ''}
-            onDirectTeleworkAdd={handleDirectTeleworkAdd}
-            calendarKey={calendarKey} // Passage de la clé pour forcer le rafraîchissement
+            onDayClick={handleDayClick}
+            canAddTelework={canAddTelework}
+            isProcessing={isProcessing}
           />
         </div>
       </div>
 
-      {/* Légende simplifiée */}
+      {/* Informations et légende */}
       <div className="bg-white rounded-lg border p-4">
-        <h3 className="font-medium mb-3">Légende</h3>
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-600 rounded"></div>
-            <span className="text-sm">Télétravail</span>
+        <h3 className="font-medium mb-3">Planning Télétravail - Nouveau Système</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Statistiques */}
+          <div>
+            <h4 className="font-medium text-sm text-gray-700 mb-2">Statistiques</h4>
+            <div className="space-y-1 text-sm">
+              <div>Jours de télétravail programmés: <span className="font-medium">{teleworkDates.length}</span></div>
+              <div className="text-green-600">✅ Nouveau système avec contraintes strictes</div>
+              <div className="text-blue-600">🔒 Protection contre les doublons</div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-200 rounded"></div>
-            <span className="text-sm">Weekend</span>
+          
+          {/* Légende */}
+          <div>
+            <h4 className="font-medium text-sm text-gray-700 mb-2">Légende</h4>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-600 rounded"></div>
+                <span className="text-sm">Télétravail</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                <span className="text-sm">Weekend</span>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              💡 <strong>Règle :</strong> Maximum 2 jours de télétravail par semaine
+            </div>
           </div>
         </div>
-        <div className="mt-2 text-sm text-gray-600">
-          💡 <strong>Règle :</strong> Maximum 2 jours de télétravail par semaine. Cliquez sur une date pour sélectionner/désélectionner.
-        </div>
-        <div className="mt-2 text-sm text-orange-600">
-          🔧 <strong>Problème de données fantômes ?</strong> Utilisez le bouton "Réinitialiser calendrier" pour nettoyer les données incohérentes.
-        </div>
+        
+        {/* Actions de débogage */}
+        {isProcessing && (
+          <div className="mt-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
+            ⏳ Traitement en cours... Veuillez patienter.
+          </div>
+        )}
       </div>
     </div>
   );
