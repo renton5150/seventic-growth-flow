@@ -35,7 +35,10 @@ export const useWorkSchedule = () => {
     queryFn: async () => {
       try {
         if (user?.id) {
-          return await workScheduleService.getRequests(user.id);
+          console.log("[useWorkSchedule] Chargement des demandes pour:", user.id);
+          const requests = await workScheduleService.getRequests(user.id);
+          console.log("[useWorkSchedule] Demandes chargées:", requests);
+          return requests;
         }
         return [];
       } catch (error) {
@@ -103,24 +106,30 @@ export const useWorkSchedule = () => {
   const createRequestMutation = useMutation({
     mutationFn: workScheduleService.createRequest,
     onSuccess: () => {
+      console.log("[useWorkSchedule] Télétravail créé avec succès");
       queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
       toast.success("Jour de télétravail ajouté");
+      // Force un refresh immédiat
+      refetch();
     },
     onError: (error) => {
+      console.error("[useWorkSchedule] Erreur création:", error);
       toast.error("Erreur lors de l'ajout du télétravail");
-      console.error(error);
     }
   });
 
   const deleteRequestMutation = useMutation({
     mutationFn: workScheduleService.deleteRequest,
     onSuccess: () => {
+      console.log("[useWorkSchedule] Télétravail supprimé avec succès");
       queryClient.invalidateQueries({ queryKey: ['work-schedule-requests'] });
       toast.success("Jour de télétravail supprimé");
+      // Force un refresh immédiat
+      refetch();
     },
     onError: (error) => {
+      console.error("[useWorkSchedule] Erreur suppression:", error);
       toast.error("Erreur lors de la suppression");
-      console.error(error);
     }
   });
 

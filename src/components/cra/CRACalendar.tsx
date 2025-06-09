@@ -32,6 +32,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
         endOfMonth.toISOString().split('T')[0],
         sdrId
       );
+      console.log("Rapports CRA chargés:", reports);
       setMonthReports(reports);
     } catch (error) {
       console.error("Erreur lors du chargement des rapports:", error);
@@ -51,8 +52,16 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
   };
 
   const getReportForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return monthReports.find(report => report.report_date === dateStr);
+    // Créer la date string de manière cohérente
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    console.log(`Recherche rapport pour: ${dateStr}`);
+    const report = monthReports.find(report => report.report_date === dateStr);
+    console.log(`Rapport trouvé:`, report);
+    return report;
   };
 
   const getDaysInMonth = () => {
@@ -85,7 +94,7 @@ export const CRACalendar = ({ sdrId, onDateSelect }: CRACalendarProps) => {
       return;
     }
     
-    // Créer la date string au format YYYY-MM-DD sans problème de fuseau horaire
+    // Créer la date string de manière cohérente
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');

@@ -102,7 +102,8 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                   day.isToday && "bg-blue-50 border-blue-200",
                   isWeekend(day.date) && "bg-gray-100 cursor-not-allowed",
                   !isWeekend(day.date) && "cursor-pointer hover:bg-gray-50",
-                  !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50"
+                  !canAddTelework && !hasTelework && !isWeekend(day.date) && "opacity-50",
+                  hasTelework && "bg-blue-100 border-blue-300" // Affichage en bleu pour les jours de télétravail
                 )}
                 onClick={() => {
                   console.log("[Calendar] onClick déclenché pour:", format(day.date, 'yyyy-MM-dd'));
@@ -112,28 +113,18 @@ export const WorkScheduleCalendar: React.FC<WorkScheduleCalendarProps> = ({
                 {/* Numéro du jour */}
                 <div className={cn(
                   "text-sm font-medium mb-1",
-                  day.isToday && "text-blue-600"
+                  day.isToday && "text-blue-600",
+                  hasTelework && "text-blue-800 font-bold" // Style spécial pour les jours de télétravail
                 )}>
                   {format(day.date, 'd')}
                 </div>
 
-                {/* Demandes du jour - seulement télétravail */}
-                <div className="space-y-1">
-                  {day.requests.filter(r => r.request_type === 'telework' && r.user_id === userId).map((request) => (
-                    <div
-                      key={request.id}
-                      className="text-xs px-2 py-1 rounded text-white cursor-pointer hover:scale-105 transition-transform bg-blue-500"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log("[Calendar] Clic sur télétravail pour suppression:", request.id);
-                        onRequestClick(request);
-                      }}
-                      title="Télétravail - Cliquer pour supprimer"
-                    >
-                      Télétravail
-                    </div>
-                  ))}
-                </div>
+                {/* Affichage du statut télétravail */}
+                {hasTelework && (
+                  <div className="text-xs px-2 py-1 rounded text-white bg-blue-500">
+                    Télétravail
+                  </div>
+                )}
 
                 {/* Indicateur si on peut ajouter du télétravail */}
                 {!isWeekend(day.date) && !hasTelework && canAddTelework && (
