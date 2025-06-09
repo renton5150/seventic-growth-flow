@@ -1072,6 +1072,89 @@ export type Database = {
         }
         Relationships: []
       }
+      work_schedule_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          request_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          request_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          request_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_schedule_notifications_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "work_schedule_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_schedule_requests: {
+        Row: {
+          admin_comment: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          end_date: string
+          id: string
+          is_exceptional: boolean
+          reason: string | null
+          request_type: string
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_comment?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          end_date: string
+          id?: string
+          is_exceptional?: boolean
+          reason?: string | null
+          request_type: string
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_comment?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_exceptional?: boolean
+          reason?: string | null
+          request_type?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       cra_reports_with_details: {

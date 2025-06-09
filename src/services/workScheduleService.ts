@@ -7,7 +7,7 @@ export const workScheduleService = {
   async getRequests(userId?: string): Promise<WorkScheduleRequest[]> {
     try {
       // Utiliser une requête simple sans join pour éviter les erreurs de type
-      let query = supabase.from('work_schedule_requests' as any).select('*');
+      let query = supabase.from('work_schedule_requests').select('*');
       
       if (userId) {
         query = query.eq('user_id', userId);
@@ -50,7 +50,7 @@ export const workScheduleService = {
   // Créer une nouvelle demande
   async createRequest(request: Omit<WorkScheduleRequest, 'id' | 'created_at' | 'updated_at'>): Promise<WorkScheduleRequest> {
     const { data, error } = await supabase
-      .from('work_schedule_requests' as any)
+      .from('work_schedule_requests')
       .insert(request)
       .select()
       .single();
@@ -62,7 +62,7 @@ export const workScheduleService = {
   // Mettre à jour une demande
   async updateRequest(id: string, updates: Partial<WorkScheduleRequest>): Promise<WorkScheduleRequest> {
     const { data, error } = await supabase
-      .from('work_schedule_requests' as any)
+      .from('work_schedule_requests')
       .update(updates)
       .eq('id', id)
       .select()
@@ -75,7 +75,7 @@ export const workScheduleService = {
   // Supprimer une demande
   async deleteRequest(id: string): Promise<void> {
     const { error } = await supabase
-      .from('work_schedule_requests' as any)
+      .from('work_schedule_requests')
       .delete()
       .eq('id', id);
 
@@ -85,7 +85,7 @@ export const workScheduleService = {
   // Récupérer les notifications de l'utilisateur
   async getNotifications(userId: string): Promise<WorkScheduleNotification[]> {
     const { data, error } = await supabase
-      .from('work_schedule_notifications' as any)
+      .from('work_schedule_notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -97,7 +97,7 @@ export const workScheduleService = {
   // Marquer une notification comme lue
   async markNotificationAsRead(id: string): Promise<void> {
     const { error } = await supabase
-      .from('work_schedule_notifications' as any)
+      .from('work_schedule_notifications')
       .update({ is_read: true })
       .eq('id', id);
 
