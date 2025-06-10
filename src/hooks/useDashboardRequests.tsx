@@ -47,7 +47,7 @@ export const useDashboardRequests = () => {
 
         // Appliquer les filtres selon les paramètres de navigation
         if (filterParams.showUnassigned) {
-          // Filtrer les demandes NON assignées
+          // CORRECTION : Filtrer les demandes NON assignées (assigned_to doit être null)
           console.log("[useDashboardRequests] 📋 Filtrage des demandes NON ASSIGNÉES");
           query = query
             .is('assigned_to', null)
@@ -88,6 +88,18 @@ export const useDashboardRequests = () => {
                     filterParams.assignedTo ? `pour le Growth ${filterParams.userName}` :
                     isSDR ? "pour le SDR" : "pour Admin/Growth");
         
+        // CORRECTION : Log détaillé pour les demandes non assignées
+        if (filterParams.showUnassigned) {
+          console.log("[useDashboardRequests] 🔍 Détail des demandes non assignées:", 
+            data.map(req => ({
+              id: req.id,
+              title: req.title,
+              assigned_to: req.assigned_to,
+              workflow_status: req.workflow_status
+            }))
+          );
+        }
+        
         // Traiter les données avec formatRequestFromDb - et attendre les résultats des promesses
         const formattedRequests = await Promise.all(data.map((req: any) => formatRequestFromDb(req)));
         return formattedRequests;
@@ -120,9 +132,13 @@ export const useDashboardRequests = () => {
       return;
     }
 
-    // Si on a des paramètres de navigation, utiliser directement allRequests
+    // CORRECTION : Si on a des paramètres de navigation, utiliser directement allRequests
+    // car le filtrage a déjà été fait dans la requête
     if (filterParams.showUnassigned || filterParams.createdBy || filterParams.assignedTo) {
       console.log("[useDashboardRequests] 📋 Utilisation des requêtes filtrées:", allRequests.length);
+      console.log("[useDashboardRequests] 📋 Vérification du filtrage non assigné:", 
+        filterParams.showUnassigned ? allRequests.filter(req => !req.assigned_to).length : "N/A"
+      );
       setRequests(allRequests);
     } else if (isSDR && userMissions.length) {
       // Pour les SDR sans filtres, ne montrer que les requêtes qu'ils ont créées
