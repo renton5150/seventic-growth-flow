@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,14 +40,21 @@ function EmailPlatformsContent() {
   };
 
   const handleDeleteAccount = (accountId: string) => {
+    console.log('Delete account requested for ID:', accountId);
     setAccountToDelete(accountId);
   };
 
   const confirmDelete = () => {
     if (accountToDelete) {
+      console.log('Confirming delete for account ID:', accountToDelete);
       deleteMutation.mutate(accountToDelete, {
         onSuccess: () => {
+          console.log('Account deleted successfully');
           setAccountToDelete(undefined);
+        },
+        onError: (error) => {
+          console.error('Error deleting account:', error);
+          // Keep the dialog open so user can see the error and try again
         }
       });
     }
@@ -155,12 +161,15 @@ function EmailPlatformsContent() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Annuler
+            </AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
-              Supprimer
+              {deleteMutation.isPending ? "Suppression..." : "Supprimer"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
