@@ -63,8 +63,11 @@ function App() {
               <Route path="/database-creation/edit/:id" element={<DatabaseCreationEdit />} />
               <Route path="/linkedin-scraping" element={<LinkedInScrapingRequest />} />
               <Route path="/linkedin-scraping/edit/:id" element={<LinkedInScrapingEdit />} />
-              {/* Route corrigée pour les détails de demande - doit matcher le paramètre utilisé dans useRequestDetails */}
+              {/* Routes pour les détails de demande - avec les deux formats possibles */}
               <Route path="/request/:requestId" element={<RequestDetails />} />
+              <Route path="/requests/email/:requestId" element={<RequestDetails />} />
+              <Route path="/requests/database/:requestId" element={<RequestDetails />} />
+              <Route path="/requests/linkedin/:requestId" element={<RequestDetails />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/missions" element={<AdminMissions />} />
