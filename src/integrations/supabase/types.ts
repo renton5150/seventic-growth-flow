@@ -474,6 +474,10 @@ export type Database = {
           credit_card_name: string | null
           dedicated_ip: boolean
           dedicated_ip_address: unknown | null
+          domain_hosting_provider: string | null
+          domain_login: string | null
+          domain_name: string | null
+          domain_password: string | null
           id: string
           login: string
           mission_id: string
@@ -493,6 +497,10 @@ export type Database = {
           credit_card_name?: string | null
           dedicated_ip?: boolean
           dedicated_ip_address?: unknown | null
+          domain_hosting_provider?: string | null
+          domain_login?: string | null
+          domain_name?: string | null
+          domain_password?: string | null
           id?: string
           login: string
           mission_id: string
@@ -512,6 +520,10 @@ export type Database = {
           credit_card_name?: string | null
           dedicated_ip?: boolean
           dedicated_ip_address?: unknown | null
+          domain_hosting_provider?: string | null
+          domain_login?: string | null
+          domain_name?: string | null
+          domain_password?: string | null
           id?: string
           login?: string
           mission_id?: string

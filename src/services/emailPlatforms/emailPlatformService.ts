@@ -1,238 +1,200 @@
-import { supabase } from "@/integrations/supabase/client";
-import { EmailPlatform, FrontOffice, EmailPlatformAccount, EmailPlatformAccountFormData, EmailPlatformAccountFilters } from "@/types/emailPlatforms.types";
 
-// Service pour chiffrer/déchiffrer les mots de passe (implémentation basique)
-const encryptPassword = (password: string): string => {
-  // Pour la démo, on utilise btoa (base64). En production, utiliser une vraie encryption
-  return btoa(password);
+import { supabase } from "@/integrations/supabase/client";
+import { EmailPlatformAccount, EmailPlatformAccountFormData, EmailPlatformAccountFilters } from "@/types/emailPlatforms.types";
+
+// Fonction simple de chiffrement (pour démonstration - en production, utiliser une méthode plus robuste)
+export const encryptPassword = (password: string): string => {
+  return btoa(password); // Simple base64 encoding
 };
 
-const decryptPassword = (encryptedPassword: string): string => {
+// Fonction de déchiffrement
+export const getDecryptedPassword = (encryptedPassword: string): string => {
   try {
     return atob(encryptedPassword);
   } catch {
-    return '***';
+    return encryptedPassword; // Si le déchiffrement échoue, retourner tel quel
   }
 };
 
-// Récupérer toutes les plateformes d'emailing
-export const getEmailPlatforms = async (): Promise<EmailPlatform[]> => {
+export const getEmailPlatforms = async () => {
   const { data, error } = await supabase
     .from('email_platforms')
     .select('*')
     .order('name');
-
-  if (error) {
-    console.error('Erreur lors de la récupération des plateformes:', error);
-    throw error;
-  }
-
-  return data || [];
+  
+  if (error) throw error;
+  return data;
 };
 
-// Récupérer tous les front offices
-export const getFrontOffices = async (): Promise<FrontOffice[]> => {
+export const getFrontOffices = async () => {
   const { data, error } = await supabase
     .from('front_offices')
     .select('*')
     .order('name');
-
-  if (error) {
-    console.error('Erreur lors de la récupération des front offices:', error);
-    throw error;
-  }
-
-  return data || [];
+  
+  if (error) throw error;
+  return data;
 };
 
-// Récupérer tous les comptes avec leurs relations
-export const getEmailPlatformAccounts = async (filters?: EmailPlatformAccountFilters): Promise<EmailPlatformAccount[]> => {
+export const getEmailPlatformAccounts = async (filters?: EmailPlatformAccountFilters) => {
   let query = supabase
     .from('email_platform_accounts')
     .select(`
       *,
       platform:email_platforms(*),
-      mission:missions(id, name, client)
-    `);
+      mission:missions(id, name, client),
+      front_offices:email_platform_account_front_offices(
+        front_office:front_offices(*)
+      )
+    `)
+    .order('created_at', { ascending: false });
 
-  // Appliquer les filtres
-  if (filters?.platform_id) {
-    query = query.eq('platform_id', filters.platform_id);
-  }
-  if (filters?.mission_id) {
-    query = query.eq('mission_id', filters.mission_id);
-  }
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
-  if (filters?.spf_dkim_status) {
-    query = query.eq('spf_dkim_status', filters.spf_dkim_status);
-  }
-  if (filters?.dedicated_ip !== undefined) {
-    query = query.eq('dedicated_ip', filters.dedicated_ip);
-  }
-
-  query = query.order('created_at', { ascending: false });
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Erreur lors de la récupération des comptes:', error);
-    throw error;
-  }
-
-  if (!data) return [];
-
-  // Récupérer les front offices pour chaque compte
-  const accountsWithFrontOffices = await Promise.all(
-    data.map(async (account) => {
-      const { data: frontOfficeData } = await supabase
-        .from('email_platform_account_front_offices')
-        .select('front_office:front_offices(*)')
-        .eq('account_id', account.id);
-
-      return {
-        ...account,
-        front_offices: frontOfficeData?.map(item => item.front_office).filter(Boolean) || []
-      } as EmailPlatformAccount;
-    })
-  );
-
-  return accountsWithFrontOffices;
-};
-
-// Créer un nouveau compte
-export const createEmailPlatformAccount = async (data: EmailPlatformAccountFormData): Promise<EmailPlatformAccount> => {
-  console.log('Creating email platform account with data:', data);
-  
-  const { front_office_ids, password, ...accountData } = data;
-
-  // Validation des données
-  if (!accountData.mission_id) {
-    throw new Error('Mission is required');
-  }
-  if (!accountData.platform_id) {
-    throw new Error('Email platform is required');
-  }
-  if (!accountData.login) {
-    throw new Error('Login is required');
-  }
-  if (!password) {
-    throw new Error('Password is required');
-  }
-
-  // Gérer l'adresse IP dédiée
-  let dedicatedIpAddress = null;
-  if (accountData.dedicated_ip && accountData.dedicated_ip_address) {
-    dedicatedIpAddress = accountData.dedicated_ip_address;
-  }
-
-  // Chiffrer le mot de passe
-  const encryptedPassword = encryptPassword(password);
-
-  // Préparer les données pour l'insertion
-  const insertData = {
-    mission_id: accountData.mission_id,
-    platform_id: accountData.platform_id,
-    login: accountData.login,
-    password_encrypted: encryptedPassword,
-    phone_number: accountData.phone_number || null,
-    credit_card_name: accountData.credit_card_name || null,
-    credit_card_last_four: accountData.credit_card_last_four || null,
-    backup_email: accountData.backup_email || null,
-    status: accountData.status,
-    spf_dkim_status: accountData.spf_dkim_status,
-    dedicated_ip: accountData.dedicated_ip,
-    dedicated_ip_address: dedicatedIpAddress,
-    routing_interfaces: accountData.routing_interfaces,
-    // Nouveaux champs domaine
-    domain_name: accountData.domain_name || null,
-    domain_hosting_provider: accountData.domain_hosting_provider || null,
-    domain_login: accountData.domain_login || null,
-    domain_password: accountData.domain_password || null, // Stocké en clair comme demandé
-  };
-
-  console.log('Insert data:', insertData);
-
-  const { data: newAccount, error } = await supabase
-    .from('email_platform_accounts')
-    .insert(insertData)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Erreur lors de la création du compte:', error);
-    throw new Error(`Erreur lors de la création: ${error.message}`);
-  }
-
-  // Associer les front offices si SMTP est sélectionné
-  if (front_office_ids && front_office_ids.length > 0 && 
-      (data.routing_interfaces.includes('SMTP') || data.routing_interfaces.includes('Les deux'))) {
-    
-    const frontOfficeRelations = front_office_ids.map(frontOfficeId => ({
-      account_id: newAccount.id,
-      front_office_id: frontOfficeId
-    }));
-
-    const { error: relationError } = await supabase
-      .from('email_platform_account_front_offices')
-      .insert(frontOfficeRelations);
-
-    if (relationError) {
-      console.error('Erreur lors de l\'association des front offices:', relationError);
-      // Ne pas faire échouer la création pour ça
+  // Appliquer les filtres si fournis
+  if (filters) {
+    if (filters.platform_id) {
+      query = query.eq('platform_id', filters.platform_id);
+    }
+    if (filters.mission_id) {
+      query = query.eq('mission_id', filters.mission_id);
+    }
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters.spf_dkim_status) {
+      query = query.eq('spf_dkim_status', filters.spf_dkim_status);
+    }
+    if (filters.dedicated_ip !== undefined) {
+      query = query.eq('dedicated_ip', filters.dedicated_ip);
+    }
+    if (filters.search) {
+      query = query.or(`login.ilike.%${filters.search}%,backup_email.ilike.%${filters.search}%`);
     }
   }
 
-  return newAccount as EmailPlatformAccount;
+  const { data, error } = await query;
+  
+  if (error) throw error;
+
+  // Transformer les données pour la structure attendue
+  return data?.map(account => ({
+    ...account,
+    front_offices: account.front_offices?.map(fo => fo.front_office) || []
+  })) || [];
 };
 
-// Mettre à jour un compte
-export const updateEmailPlatformAccount = async (id: string, data: Partial<EmailPlatformAccountFormData>): Promise<EmailPlatformAccount> => {
-  const { front_office_ids, password, ...accountData } = data;
+export const createEmailPlatformAccount = async (formData: EmailPlatformAccountFormData) => {
+  console.log('Creating email platform account with data:', formData);
+  
+  // Chiffrer le mot de passe
+  const encryptedPassword = encryptPassword(formData.password);
+  
+  // Préparer les données pour l'insertion
+  const accountData = {
+    mission_id: formData.mission_id,
+    platform_id: formData.platform_id,
+    login: formData.login,
+    password_encrypted: encryptedPassword,
+    phone_number: formData.phone_number || null,
+    credit_card_name: formData.credit_card_name || null,
+    credit_card_last_four: formData.credit_card_last_four || null,
+    backup_email: formData.backup_email || null,
+    status: formData.status,
+    spf_dkim_status: formData.spf_dkim_status,
+    dedicated_ip: formData.dedicated_ip,
+    dedicated_ip_address: formData.dedicated_ip_address || null,
+    routing_interfaces: formData.routing_interfaces,
+    // Nouveaux champs domaine
+    domain_name: formData.domain_name || null,
+    domain_hosting_provider: formData.domain_hosting_provider || null,
+    domain_login: formData.domain_login || null,
+    domain_password: formData.domain_password || null,
+  };
 
-  let updateData: any = { ...accountData };
+  console.log('Account data to insert:', accountData);
 
-  // Chiffrer le nouveau mot de passe si fourni
-  if (password) {
-    updateData.password_encrypted = encryptPassword(password);
-  }
+  // Insérer le compte
+  const { data: account, error: accountError } = await supabase
+    .from('email_platform_accounts')
+    .insert(accountData)
+    .select()
+    .single();
 
-  // Gérer l'adresse IP dédiée
-  if (updateData.dedicated_ip && updateData.dedicated_ip_address) {
-    // Garder l'adresse IP
-  } else if (!updateData.dedicated_ip) {
-    updateData.dedicated_ip_address = null;
-  }
-
-  // Gérer les champs domaine
-  if (updateData.domain_name !== undefined) {
-    updateData.domain_name = updateData.domain_name || null;
-  }
-  if (updateData.domain_hosting_provider !== undefined) {
-    updateData.domain_hosting_provider = updateData.domain_hosting_provider || null;
-  }
-  if (updateData.domain_login !== undefined) {
-    updateData.domain_login = updateData.domain_login || null;
-  }
-  if (updateData.domain_password !== undefined) {
-    updateData.domain_password = updateData.domain_password || null; // Stocké en clair
+  if (accountError) {
+    console.error('Error creating account:', accountError);
+    throw accountError;
   }
 
-  const { data: updatedAccount, error } = await supabase
+  console.log('Account created successfully:', account);
+
+  // Gérer les associations front offices si nécessaire
+  if (formData.front_office_ids && formData.front_office_ids.length > 0) {
+    const frontOfficeAssociations = formData.front_office_ids.map(frontOfficeId => ({
+      account_id: account.id,
+      front_office_id: frontOfficeId
+    }));
+
+    const { error: foError } = await supabase
+      .from('email_platform_account_front_offices')
+      .insert(frontOfficeAssociations);
+
+    if (foError) {
+      console.error('Error creating front office associations:', foError);
+      // Ne pas faire échouer la création du compte pour ça
+    }
+  }
+
+  return account;
+};
+
+export const updateEmailPlatformAccount = async (
+  id: string, 
+  formData: Partial<EmailPlatformAccountFormData>
+) => {
+  console.log('Updating email platform account:', id, formData);
+  
+  // Préparer les données pour la mise à jour
+  const updateData: any = { ...formData };
+  
+  // Chiffrer le mot de passe si fourni
+  if (formData.password) {
+    updateData.password_encrypted = encryptPassword(formData.password);
+    delete updateData.password;
+  }
+
+  // Gérer les nouveaux champs domaine
+  if (formData.domain_name !== undefined) {
+    updateData.domain_name = formData.domain_name || null;
+  }
+  if (formData.domain_hosting_provider !== undefined) {
+    updateData.domain_hosting_provider = formData.domain_hosting_provider || null;
+  }
+  if (formData.domain_login !== undefined) {
+    updateData.domain_login = formData.domain_login || null;
+  }
+  if (formData.domain_password !== undefined) {
+    updateData.domain_password = formData.domain_password || null;
+  }
+
+  // Nettoyer les champs qui ne vont pas dans la table principale
+  delete updateData.front_office_ids;
+
+  console.log('Update data prepared:', updateData);
+
+  // Mettre à jour le compte
+  const { data: account, error: accountError } = await supabase
     .from('email_platform_accounts')
     .update(updateData)
     .eq('id', id)
     .select()
     .single();
 
-  if (error) {
-    console.error('Erreur lors de la mise à jour du compte:', error);
-    throw new Error(`Erreur lors de la mise à jour: ${error.message}`);
+  if (accountError) {
+    console.error('Error updating account:', accountError);
+    throw accountError;
   }
 
-  // Mettre à jour les associations front offices si nécessaire
-  if (front_office_ids !== undefined) {
+  // Gérer les associations front offices si nécessaire
+  if (formData.front_office_ids !== undefined) {
     // Supprimer les anciennes associations
     await supabase
       .from('email_platform_account_front_offices')
@@ -240,37 +202,43 @@ export const updateEmailPlatformAccount = async (id: string, data: Partial<Email
       .eq('account_id', id);
 
     // Créer les nouvelles associations
-    if (front_office_ids.length > 0 && 
-        (data.routing_interfaces?.includes('SMTP') || data.routing_interfaces?.includes('Les deux'))) {
-      
-      const frontOfficeRelations = front_office_ids.map(frontOfficeId => ({
+    if (formData.front_office_ids.length > 0) {
+      const frontOfficeAssociations = formData.front_office_ids.map(frontOfficeId => ({
         account_id: id,
         front_office_id: frontOfficeId
       }));
 
-      await supabase
+      const { error: foError } = await supabase
         .from('email_platform_account_front_offices')
-        .insert(frontOfficeRelations);
+        .insert(frontOfficeAssociations);
+
+      if (foError) {
+        console.error('Error updating front office associations:', foError);
+        // Ne pas faire échouer la mise à jour du compte pour ça
+      }
     }
   }
 
-  return updatedAccount as EmailPlatformAccount;
+  return account;
 };
 
-// Supprimer un compte
-export const deleteEmailPlatformAccount = async (id: string): Promise<void> => {
+export const deleteEmailPlatformAccount = async (id: string) => {
+  console.log('Deleting email platform account:', id);
+  
+  // Supprimer d'abord les associations front offices
+  await supabase
+    .from('email_platform_account_front_offices')
+    .delete()
+    .eq('account_id', id);
+
+  // Supprimer le compte
   const { error } = await supabase
     .from('email_platform_accounts')
     .delete()
     .eq('id', id);
 
   if (error) {
-    console.error('Erreur lors de la suppression du compte:', error);
+    console.error('Error deleting account:', error);
     throw error;
   }
-};
-
-// Fonction utilitaire pour obtenir le mot de passe déchiffré (pour les rôles autorisés)
-export const getDecryptedPassword = (encryptedPassword: string): string => {
-  return decryptPassword(encryptedPassword);
 };
