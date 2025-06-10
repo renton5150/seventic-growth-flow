@@ -134,6 +134,19 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           return nonCompletedRequests.filter(req => req.workflow_status === "pending_assignment");
         case "inprogress":
           return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
+        case "to_assign":
+          // Filtrer pour ne montrer que les demandes vraiment non assignées
+          return nonCompletedRequests.filter(req => !req.assigned_to);
+        case "my_assignments":
+          // Pour Growth, montrer SEULEMENT ses demandes assignées
+          if (isGrowthOrAdmin) {
+            return nonCompletedRequests.filter(req => req.assigned_to === user?.id);
+          } else if (isSDR) {
+            return nonCompletedRequests.filter(req => req.createdBy === user?.id);
+          }
+          return myAssignmentsRequests.filter(req => 
+            req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
+          );
         case "late":
           return nonCompletedRequests.filter(req => req.isLate);
         default:
@@ -179,7 +192,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   const filteredRequests = getFilteredRequests();
 
-  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress") => {
+  const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => {
     console.log(`Stat card clicked: ${filterType}`);
     
     // Si on clique sur "completed", rediriger vers les archives
@@ -204,6 +217,12 @@ export const useGrowthDashboard = (defaultTab?: string) => {
         case "inprogress":
           setActiveTab("inprogress");
           break;
+        case "to_assign":
+          setActiveTab("to_assign");
+          break;
+        case "my_assignments":
+          setActiveTab("my_assignments");
+          break;
         case "late":
           setActiveTab("late");
           break;
@@ -212,7 +231,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   }, [activeFilter, navigate]);
 
   useEffect(() => {
-    const isStatCardTab = ["all", "pending", "inprogress", "late"].includes(activeTab);
+    const isStatCardTab = ["all", "pending", "inprogress", "late", "to_assign", "my_assignments"].includes(activeTab);
     if (!isStatCardTab) {
       setActiveFilter(null);
     }
