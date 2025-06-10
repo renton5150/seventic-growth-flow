@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -17,21 +18,32 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // State pour gérer les filtres spéciaux depuis l'admin dashboard
+  const [specialFilters, setSpecialFilters] = useState<{
+    showUnassigned?: boolean;
+    sdrFilter?: string;
+    growthFilter?: string;
+  }>({});
+
   // Gérer l'état de navigation depuis l'admin dashboard
   useEffect(() => {
     console.log("[useGrowthDashboard] 🔄 Vérification de l'état de navigation:", location.state);
     
     if (location.state) {
-      const { filterType, createdBy, assignedTo, userName } = location.state as any;
+      const { filterType, createdBy, assignedTo, userName, showUnassigned } = location.state as any;
       
-      if (filterType === 'sdr' && createdBy) {
+      if (showUnassigned) {
+        console.log(`[useGrowthDashboard] 📋 Filtre demandes non assignées activé`);
+        setSpecialFilters({ showUnassigned: true });
+        setActiveTab("all");
+      } else if (filterType === 'sdr' && createdBy) {
         console.log(`[useGrowthDashboard] 📋 Filtrage SDR détecté pour: ${userName} (${createdBy})`);
-        setActiveTab("my_assignments"); // Voir les demandes créées par ce SDR
-        setActiveFilter("sdr_filter");
+        setSpecialFilters({ sdrFilter: createdBy });
+        setActiveTab("all");
       } else if (filterType === 'growth' && assignedTo) {
         console.log(`[useGrowthDashboard] 📋 Filtrage Growth détecté pour: ${userName} (${assignedTo})`);
-        setActiveTab("my_assignments"); // Voir les demandes assignées à ce Growth
-        setActiveFilter("growth_filter");
+        setSpecialFilters({ growthFilter: assignedTo });
+        setActiveTab("all");
       }
       
       // Nettoyer l'état après utilisation
@@ -85,17 +97,23 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
     );
 
-    // Gestion des filtres spéciaux depuis l'admin dashboard
-    if (activeFilter === "sdr_filter" && location.state?.createdBy) {
-      console.log(`[useGrowthDashboard] 🔍 Filtrage par SDR: ${location.state.createdBy}`);
-      return nonCompletedRequests.filter(req => req.createdBy === location.state.createdBy);
+    // CORRECTION: Gestion des filtres spéciaux depuis l'admin dashboard
+    if (specialFilters.showUnassigned) {
+      console.log(`[useGrowthDashboard] 🔍 Application du filtre demandes non assignées`);
+      return nonCompletedRequests.filter(req => !req.assigned_to);
     }
     
-    if (activeFilter === "growth_filter" && location.state?.assignedTo) {
-      console.log(`[useGrowthDashboard] 🔍 Filtrage par Growth: ${location.state.assignedTo}`);
-      return nonCompletedRequests.filter(req => req.assigned_to === location.state.assignedTo);
+    if (specialFilters.sdrFilter) {
+      console.log(`[useGrowthDashboard] 🔍 Filtrage par SDR: ${specialFilters.sdrFilter}`);
+      return nonCompletedRequests.filter(req => req.createdBy === specialFilters.sdrFilter);
+    }
+    
+    if (specialFilters.growthFilter) {
+      console.log(`[useGrowthDashboard] 🔍 Filtrage par Growth: ${specialFilters.growthFilter}`);
+      return nonCompletedRequests.filter(req => req.assigned_to === specialFilters.growthFilter);
     }
 
+    // Logique normale du Growth Dashboard (sans filtres spéciaux)
     if (location.pathname.includes("/my-requests")) {
       if (isSDR) {
         return nonCompletedRequests.filter(req => req.createdBy === user?.id);
@@ -125,6 +143,12 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     
     switch (activeTab) {
       case "all":
+        // CORRECTION: Pour Growth, montrer ses demandes assignées + demandes non assignées
+        if (user?.role === 'growth') {
+          return nonCompletedRequests.filter(req => 
+            req.assigned_to === user?.id || !req.assigned_to
+          );
+        }
         return nonCompletedRequests;
       case "to_assign":
         return toAssignRequests;
@@ -148,7 +172,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       default:
         return nonCompletedRequests;
     }
-  }, [allRequests, toAssignRequests, myAssignmentsRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname, location.state]);
+  }, [allRequests, toAssignRequests, myAssignmentsRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname, specialFilters]);
 
   const filteredRequests = getFilteredRequests();
 
@@ -205,6 +229,12 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     navigate(`/requests/${request.type}/${request.id}`);
   }, [navigate]);
 
+  // Fonction pour supprimer les filtres spéciaux
+  const clearSpecialFilters = useCallback(() => {
+    setSpecialFilters({});
+    setActiveTab("all");
+  }, []);
+
   return {
     filteredRequests,
     allRequests,
@@ -224,6 +254,8 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     updateRequestWorkflowStatus,
     handleStatCardClick,
     activeFilter,
-    setActiveFilter
+    setActiveFilter,
+    specialFilters,
+    clearSpecialFilters
   };
 };

@@ -1,3 +1,4 @@
+
 import {
   Home,
   Calendar,
@@ -78,6 +79,13 @@ export const menuConfig: MenuSection[] = [
         href: "/archives",
         icon: FileText,
         description: "Demandes terminées et archivées"
+      },
+      {
+        label: "Plateformes Email",
+        href: "/email-platforms",
+        icon: Mail,
+        roles: ["admin", "growth"],
+        description: "Configuration des plateformes email"
       }
     ]
   },
@@ -104,13 +112,6 @@ export const menuConfig: MenuSection[] = [
         icon: Settings,
         roles: ["admin"],
         description: "Administration des missions"
-      },
-      {
-        label: "Plateformes Email",
-        href: "/email-platforms",
-        icon: Mail,
-        roles: ["admin"],
-        description: "Configuration des plateformes email"
       },
       {
         label: "Campagnes Acelle",
@@ -173,6 +174,11 @@ export const growthMenuItems = [
     title: "Télétravail",
     path: "/work-schedule",
     icon: Calendar
+  },
+  {
+    title: "Plateformes Email",
+    path: "/email-platforms",
+    icon: Mail
   }
 ];
 
