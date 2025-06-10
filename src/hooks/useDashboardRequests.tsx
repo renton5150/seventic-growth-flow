@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Request } from "@/types/types";
@@ -132,31 +131,37 @@ export const useDashboardRequests = () => {
       return;
     }
 
-    // CORRECTION ULTRA FINALE : Toujours utiliser allRequests tel quel car le filtrage SQL est déjà correct
-    console.log("[useDashboardRequests] 📋 CORRECTION ULTRA FINALE - Utilisation directe des allRequests filtrées");
+    // CORRECTION FINALE : Appliquer le bon filtrage selon les paramètres
+    console.log("[useDashboardRequests] 📋 Application du filtrage avec les paramètres:", filterParams);
     console.log("[useDashboardRequests] 📊 Nombre de requêtes reçues:", allRequests.length);
     
     // Vérification supplémentaire pour les demandes non assignées
     if (filterParams.showUnassigned) {
       const actuallyUnassigned = allRequests.filter(request => !request.assigned_to);
-      console.log("[useDashboardRequests] ✅ Vérification: demandes effectivement non assignées:", actuallyUnassigned.length);
-      if (actuallyUnassigned.length !== allRequests.length) {
-        console.warn("[useDashboardRequests] ⚠️ ATTENTION: Certaines demandes assignées se sont glissées dans le filtre!");
-        setRequests(actuallyUnassigned); // Force le filtrage côté client si nécessaire
-      } else {
-        setRequests(allRequests);
-      }
+      console.log("[useDashboardRequests] ✅ CORRECTION: Filtrage strict des demandes non assignées");
+      console.log("[useDashboardRequests] ✅ Demandes effectivement non assignées:", actuallyUnassigned.length, "sur", allRequests.length, "total");
+      setRequests(actuallyUnassigned);
     } else {
       setRequests(allRequests);
     }
   }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id, filterParams]);
 
-  // Fonction pour filtrer les requêtes en fonction de l'onglet actif
+  // CORRECTION : Fonction pour filtrer les requêtes en fonction de l'onglet actif ET du filtre showUnassigned
   const getFilteredRequests = useCallback(() => {
     console.log(`[DEBUG] useDashboardRequests - Filtrage des requêtes avec activeTab: ${activeTab}`);
+    console.log(`[DEBUG] useDashboardRequests - ShowUnassigned actif: ${filterParams.showUnassigned}`);
     console.log(`[DEBUG] useDashboardRequests - Nombre total de requêtes à filtrer: ${requests.length}`);
     
-    const filtered = requests.filter((request) => {
+    let baseRequests = requests;
+    
+    // CORRECTION CRUCIALE : Si on est dans le mode "showUnassigned", forcer le filtrage des non assignées
+    if (filterParams.showUnassigned) {
+      console.log("[DEBUG] useDashboardRequests - FORCE le filtrage des non assignées dans les onglets");
+      baseRequests = requests.filter(request => !request.assigned_to);
+      console.log(`[DEBUG] useDashboardRequests - Après filtrage non assignées: ${baseRequests.length}`);
+    }
+    
+    const filtered = baseRequests.filter((request) => {
       if (activeTab === "all") return true;
       if (activeTab === "email") return request.type === "email";
       if (activeTab === "database") return request.type === "database";
@@ -180,7 +185,7 @@ export const useDashboardRequests = () => {
     
     console.log(`[DEBUG] useDashboardRequests - Requêtes filtrées pour ${activeTab}: ${filtered.length}`);
     return filtered;
-  }, [activeTab, requests]);
+  }, [activeTab, requests, filterParams.showUnassigned]);
 
   // Calcul des requêtes filtrées en fonction de l'onglet actif
   const filteredRequests = getFilteredRequests();
