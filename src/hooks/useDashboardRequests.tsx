@@ -132,13 +132,15 @@ export const useDashboardRequests = () => {
       return;
     }
 
-    // CORRECTION : Si on a des paramètres de navigation, utiliser directement allRequests
-    // car le filtrage a déjà été fait dans la requête
-    if (filterParams.showUnassigned || filterParams.createdBy || filterParams.assignedTo) {
+    // CORRECTION FINALE : Si on filtre les demandes non assignées, s'assurer qu'elles le sont vraiment
+    if (filterParams.showUnassigned) {
+      console.log("[useDashboardRequests] 📋 CORRECTION FINALE - Filtrage strict des demandes non assignées");
+      const unassignedRequests = allRequests.filter(request => !request.assigned_to);
+      console.log(`[useDashboardRequests] ✅ ${unassignedRequests.length} demandes réellement non assignées trouvées sur ${allRequests.length} total`);
+      setRequests(unassignedRequests);
+    } else if (filterParams.createdBy || filterParams.assignedTo) {
+      // Pour les autres filtres, utiliser directement allRequests car le filtrage SQL est correct
       console.log("[useDashboardRequests] 📋 Utilisation des requêtes filtrées:", allRequests.length);
-      console.log("[useDashboardRequests] 📋 Vérification du filtrage non assigné:", 
-        filterParams.showUnassigned ? allRequests.filter(req => !req.assigned_to).length : "N/A"
-      );
       setRequests(allRequests);
     } else if (isSDR && userMissions.length) {
       // Pour les SDR sans filtres, ne montrer que les requêtes qu'ils ont créées
