@@ -42,13 +42,17 @@ export const cloneRequest = async (requestId: string): Promise<Request | undefin
       return undefined;
     }
     
+    // Calculer la date d'échéance (7 jours à partir d'aujourd'hui)
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    
     const newRequestData = {
       title: `Copie de: ${originalRequest.title}`,
       type: originalRequest.type,
       mission_id: originalRequest.mission_id,
       created_by: currentUser.id, // Utiliser l'utilisateur actuel comme créateur
       details: originalRequest.details, // Conserver tous les détails (template, database, blacklist, etc.)
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Échéance à une semaine
+      due_date: dueDate.toISOString(), // Échéance à une semaine
       status: "pending", // Statut initial
       workflow_status: "pending_assignment", // En attente d'affectation
       target_role: originalRequest.target_role,
