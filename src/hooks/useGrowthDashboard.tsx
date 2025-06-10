@@ -143,20 +143,23 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     
     switch (activeTab) {
       case "all":
-        // CORRECTION: Pour Growth, montrer ses demandes assignées + demandes non assignées
+        // CORRECTION MAJEURE : Pour Growth, séparer les demandes non assignées et les demandes assignées
         if (user?.role === 'growth') {
+          // Retourner SEULEMENT les demandes non assignées ET les demandes assignées à cet utilisateur
           return nonCompletedRequests.filter(req => 
-            req.assigned_to === user?.id || !req.assigned_to
+            !req.assigned_to || req.assigned_to === user?.id
           );
         }
         return nonCompletedRequests;
       case "to_assign":
-        return toAssignRequests;
+        // CORRECTION : Filtrer pour ne montrer que les demandes vraiment non assignées
+        return nonCompletedRequests.filter(req => !req.assigned_to);
       case "my_assignments":
         if (isSDR) {
           return nonCompletedRequests.filter(req => req.createdBy === user?.id);
         } else if (isGrowthOrAdmin) {
-          return nonCompletedRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
+          // CORRECTION : Pour Growth, montrer SEULEMENT ses demandes assignées
+          return nonCompletedRequests.filter(req => req.assigned_to === user?.id);
         }
         return myAssignmentsRequests.filter(req => 
           req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
