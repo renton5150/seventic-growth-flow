@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,7 +23,6 @@ export const useRequestDetails = () => {
   const fetchRequestDetails = async () => {
     console.log(`[useRequestDetails] 🔄 Début fetchRequestDetails pour requestId: ${requestId}`);
     
-    // CORRECTION: Ne pas essayer de récupérer les détails si l'ID est "new" ou undefined - c'est pour la création
     if (!requestId || requestId === "new" || !user) {
       console.log(`[useRequestDetails] ⏭️ Skipping fetch - Mode création détecté (requestId: ${requestId}), user: ${!!user}`);
       setLoading(false);
@@ -43,10 +43,15 @@ export const useRequestDetails = () => {
       setError(null);
       console.log(`[useRequestDetails] 🔍 Récupération des détails pour: ${requestId}`);
       
+      // Pour les demandes archivées, ne pas filtrer par SDR même si l'utilisateur est SDR
+      // Car les archives doivent être accessibles à tous pour consultation
       const isSDR = user.role === 'sdr';
-      const details = await getRequestDetails(requestId, user.id, isSDR);
+      const shouldFilterBySdr = isSDR; // Garder le filtrage seulement pour les SDR sur leurs propres demandes actives
+      
+      const details = await getRequestDetails(requestId, user.id, shouldFilterBySdr);
       
       if (details) {
+        console.log(`[useRequestDetails] ✅ Détails récupérés:`, details);
         setRequest(details);
         setWorkflowStatus(details.workflow_status);
         
@@ -71,7 +76,7 @@ export const useRequestDetails = () => {
               endDate: missionData.end_date ? new Date(missionData.end_date) : null,
               type: missionData.type as MissionType,
               status: missionData.status as "En cours" | "Fin",
-              requests: [], // Sera rempli si nécessaire
+              requests: [],
               client: missionData.client
             };
             
@@ -79,12 +84,17 @@ export const useRequestDetails = () => {
           }
         }
         
-        // Si c'est une demande email, récupérer la plateforme
-        if (details.type === "email" && details.details?.platform) {
-          setEmailPlatform(details.details.platform);
+        // Si c'est une demande email, récupérer la plateforme depuis les détails
+        if (details.type === "email") {
+          // Vérifier plusieurs emplacements possibles pour la plateforme
+          const platform = details.details?.platform || 
+                           (details as any).platform || 
+                           "";
+          setEmailPlatform(platform);
+          console.log(`[useRequestDetails] 📧 Plateforme email trouvée: ${platform}`);
         }
         
-        console.log(`[useRequestDetails] ✅ Détails récupérés:`, details.title);
+        console.log(`[useRequestDetails] ✅ Chargement terminé avec succès`);
       } else {
         setError("Demande non trouvée");
         console.warn(`[useRequestDetails] ⚠️ Aucun détail trouvé pour: ${requestId}`);

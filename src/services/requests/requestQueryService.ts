@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Request } from "@/types/types";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
@@ -70,21 +71,74 @@ export const getRequestDetails = async (
       return null;
     }
 
+    // Construire la requête avec tous les détails nécessaires
     let query = supabase
       .from('requests_with_missions')
-      .select('*')
+      .select(`
+        *,
+        missions(id, name, client, sdr_id, description, created_at, start_date, end_date, type, status),
+        profiles!requests_created_by_fkey(id, name, email),
+        assigned_to_profile:profiles!requests_assigned_to_fkey(id, name, email)
+      `)
       .eq('id', requestId);
 
-    // Si c'est un SDR, filtrer pour ne montrer que ses propres demandes
+    // Pour les demandes archivées (workflow_status = completed ou canceled), 
+    // permettre l'accès à tous les utilisateurs pour consultation
+    // Sinon, filtrer par SDR si nécessaire
     if (isSDR) {
-      console.log(`[getRequestDetails] 🔒 Filtre SDR appliqué pour: ${userId}`);
-      query = query.eq('created_by', userId);
+      // Vérifier d'abord si c'est une demande archivée
+      const { data: requestCheck } = await supabase
+        .from('requests')
+        .select('workflow_status, created_by')
+        .eq('id', requestId)
+        .single();
+        
+      if (requestCheck) {
+        const isArchived = requestCheck.workflow_status === 'completed' || requestCheck.workflow_status === 'canceled';
+        
+        // Si ce n'est pas archivé et que c'est un SDR, filtrer par créateur
+        if (!isArchived) {
+          console.log(`[getRequestDetails] 🔒 Filtre SDR appliqué pour demande active: ${userId}`);
+          query = query.eq('created_by', userId);
+        } else {
+          console.log(`[getRequestDetails] 📚 Demande archivée - accès libre pour consultation`);
+        }
+      }
     }
 
     const { data, error } = await query.single();
 
     if (error) {
       console.error(`[getRequestDetails] ❌ Erreur DB:`, error);
+      // Si pas trouvé avec le filtre SDR, essayer sans filtre pour les archives
+      if (isSDR && error.code === 'PGRST116') {
+        console.log(`[getRequestDetails] 🔄 Retry sans filtre SDR pour archives`);
+        const { data: retryData, error: retryError } = await supabase
+          .from('requests_with_missions')
+          .select(`
+            *,
+            missions(id, name, client, sdr_id, description, created_at, start_date, end_date, type, status),
+            profiles!requests_created_by_fkey(id, name, email),
+            assigned_to_profile:profiles!requests_assigned_to_fkey(id, name, email)
+          `)
+          .eq('id', requestId)
+          .single();
+          
+        if (retryError) {
+          console.error(`[getRequestDetails] ❌ Erreur retry:`, retryError);
+          return null;
+        }
+        
+        // Vérifier que c'est bien une demande archivée avant de retourner
+        if (retryData && (retryData.workflow_status === 'completed' || retryData.workflow_status === 'canceled')) {
+          console.log(`[getRequestDetails] ✅ Demande archivée récupérée via retry`);
+          const formattedRequest = await formatRequestFromDb(retryData);
+          return formattedRequest;
+        } else {
+          console.log(`[getRequestDetails] ❌ Demande non archivée - accès refusé pour SDR`);
+          return null;
+        }
+      }
       return null;
     }
 
@@ -94,7 +148,21 @@ export const getRequestDetails = async (
     }
 
     console.log(`[getRequestDetails] ✅ Demande récupérée:`, data.title);
+    console.log(`[getRequestDetails] 📋 Détails complets:`, data);
+    
     const formattedRequest = await formatRequestFromDb(data);
+    
+    // Log des détails formatés pour debug
+    console.log(`[getRequestDetails] 🔍 Demande formatée:`, {
+      id: formattedRequest.id,
+      title: formattedRequest.title,
+      type: formattedRequest.type,
+      details: formattedRequest.details,
+      hasTemplate: formattedRequest.type === 'email' && !!(formattedRequest as any).template,
+      hasDatabase: formattedRequest.type === 'email' && !!(formattedRequest as any).database,
+      hasBlacklist: formattedRequest.type === 'email' && !!(formattedRequest as any).blacklist
+    });
+    
     return formattedRequest;
     
   } catch (error) {
