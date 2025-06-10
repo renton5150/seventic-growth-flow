@@ -132,22 +132,21 @@ export const useDashboardRequests = () => {
       return;
     }
 
-    // CORRECTION FINALE : Si on filtre les demandes non assignées, s'assurer qu'elles le sont vraiment
+    // CORRECTION ULTRA FINALE : Toujours utiliser allRequests tel quel car le filtrage SQL est déjà correct
+    console.log("[useDashboardRequests] 📋 CORRECTION ULTRA FINALE - Utilisation directe des allRequests filtrées");
+    console.log("[useDashboardRequests] 📊 Nombre de requêtes reçues:", allRequests.length);
+    
+    // Vérification supplémentaire pour les demandes non assignées
     if (filterParams.showUnassigned) {
-      console.log("[useDashboardRequests] 📋 CORRECTION FINALE - Filtrage strict des demandes non assignées");
-      const unassignedRequests = allRequests.filter(request => !request.assigned_to);
-      console.log(`[useDashboardRequests] ✅ ${unassignedRequests.length} demandes réellement non assignées trouvées sur ${allRequests.length} total`);
-      setRequests(unassignedRequests);
-    } else if (filterParams.createdBy || filterParams.assignedTo) {
-      // Pour les autres filtres, utiliser directement allRequests car le filtrage SQL est correct
-      console.log("[useDashboardRequests] 📋 Utilisation des requêtes filtrées:", allRequests.length);
-      setRequests(allRequests);
-    } else if (isSDR && userMissions.length) {
-      // Pour les SDR sans filtres, ne montrer que les requêtes qu'ils ont créées
-      const filteredRequests = allRequests.filter(request => request.createdBy === user?.id);
-      setRequests(filteredRequests);
+      const actuallyUnassigned = allRequests.filter(request => !request.assigned_to);
+      console.log("[useDashboardRequests] ✅ Vérification: demandes effectivement non assignées:", actuallyUnassigned.length);
+      if (actuallyUnassigned.length !== allRequests.length) {
+        console.warn("[useDashboardRequests] ⚠️ ATTENTION: Certaines demandes assignées se sont glissées dans le filtre!");
+        setRequests(actuallyUnassigned); // Force le filtrage côté client si nécessaire
+      } else {
+        setRequests(allRequests);
+      }
     } else {
-      // Admin et Growth voient toutes les requêtes
       setRequests(allRequests);
     }
   }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id, filterParams]);
@@ -155,8 +154,9 @@ export const useDashboardRequests = () => {
   // Fonction pour filtrer les requêtes en fonction de l'onglet actif
   const getFilteredRequests = useCallback(() => {
     console.log(`[DEBUG] useDashboardRequests - Filtrage des requêtes avec activeTab: ${activeTab}`);
+    console.log(`[DEBUG] useDashboardRequests - Nombre total de requêtes à filtrer: ${requests.length}`);
     
-    return requests.filter((request) => {
+    const filtered = requests.filter((request) => {
       if (activeTab === "all") return true;
       if (activeTab === "email") return request.type === "email";
       if (activeTab === "database") return request.type === "database";
@@ -177,6 +177,9 @@ export const useDashboardRequests = () => {
       }
       return false;
     });
+    
+    console.log(`[DEBUG] useDashboardRequests - Requêtes filtrées pour ${activeTab}: ${filtered.length}`);
+    return filtered;
   }, [activeTab, requests]);
 
   // Calcul des requêtes filtrées en fonction de l'onglet actif
