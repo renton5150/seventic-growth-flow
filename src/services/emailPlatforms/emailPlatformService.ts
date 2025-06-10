@@ -223,71 +223,37 @@ export const updateEmailPlatformAccount = async (
 };
 
 export const deleteEmailPlatformAccount = async (id: string) => {
-  console.log('deleteEmailPlatformAccount - Starting deletion for ID:', id);
+  console.log('Starting deletion for account ID:', id);
   
   try {
-    // Vérifier d'abord que le compte existe et récupérer ses informations
-    const { data: existingAccount, error: fetchError } = await supabase
-      .from('email_platform_accounts')
-      .select('id, login, platform_id')
-      .eq('id', id)
-      .single();
-
-    console.log('deleteEmailPlatformAccount - Fetch result:', { existingAccount, fetchError });
-
-    if (fetchError) {
-      console.error('deleteEmailPlatformAccount - Error fetching account:', fetchError);
-      if (fetchError.code === 'PGRST116') {
-        throw new Error('Le compte à supprimer n\'existe pas ou n\'est plus accessible');
-      }
-      throw new Error(`Impossible de trouver le compte à supprimer: ${fetchError.message}`);
-    }
-
-    if (!existingAccount) {
-      console.error('deleteEmailPlatformAccount - Account not found');
-      throw new Error('Le compte à supprimer n\'existe pas');
-    }
-
-    console.log('deleteEmailPlatformAccount - Account found:', existingAccount);
-
     // Supprimer d'abord les associations front offices
-    console.log('deleteEmailPlatformAccount - Deleting front office associations');
+    console.log('Deleting front office associations...');
     const { error: frontOfficeError } = await supabase
       .from('email_platform_account_front_offices')
       .delete()
       .eq('account_id', id);
 
     if (frontOfficeError) {
-      console.error('deleteEmailPlatformAccount - Error deleting front office associations:', frontOfficeError);
-      // Ne pas faire échouer la suppression pour ça, continuer
-    } else {
-      console.log('deleteEmailPlatformAccount - Front office associations deleted successfully');
+      console.warn('Warning deleting front office associations:', frontOfficeError);
+      // Continuer même si cette étape échoue
     }
 
     // Supprimer le compte principal
-    console.log('deleteEmailPlatformAccount - Deleting main account');
-    const { error: deleteError, data: deletedData } = await supabase
+    console.log('Deleting main account...');
+    const { error: deleteError } = await supabase
       .from('email_platform_accounts')
       .delete()
-      .eq('id', id)
-      .select();
-
-    console.log('deleteEmailPlatformAccount - Main deletion result:', { deleteError, deletedData });
+      .eq('id', id);
 
     if (deleteError) {
-      console.error('deleteEmailPlatformAccount - Error deleting account:', deleteError);
-      throw new Error(`Erreur lors de la suppression: ${deleteError.message} (Code: ${deleteError.code})`);
+      console.error('Error deleting account:', deleteError);
+      throw new Error(`Erreur lors de la suppression: ${deleteError.message}`);
     }
 
-    if (!deletedData || deletedData.length === 0) {
-      console.error('deleteEmailPlatformAccount - No rows were deleted');
-      throw new Error('Aucune ligne n\'a été supprimée. Le compte pourrait avoir déjà été supprimé.');
-    }
-
-    console.log('deleteEmailPlatformAccount - Account deleted successfully:', deletedData);
-    return { success: true, deletedAccount: deletedData[0] };
+    console.log('Account deleted successfully');
+    return { success: true };
   } catch (error) {
-    console.error('deleteEmailPlatformAccount - Caught error:', error);
+    console.error('Deletion failed:', error);
     throw error;
   }
 };

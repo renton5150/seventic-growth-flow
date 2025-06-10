@@ -47,23 +47,15 @@ export const useDeleteEmailPlatformAccount = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (accountId: string) => {
-      console.log('useDeleteEmailPlatformAccount - Starting deletion for:', accountId);
-      const result = await deleteEmailPlatformAccount(accountId);
-      console.log('useDeleteEmailPlatformAccount - Deletion result:', result);
-      return result;
-    },
-    onSuccess: (data) => {
-      console.log('useDeleteEmailPlatformAccount - onSuccess called with:', data);
-      // Invalider toutes les requêtes liées aux comptes email
+    mutationFn: deleteEmailPlatformAccount,
+    onSuccess: () => {
+      // Invalider et refetch immédiatement
       queryClient.invalidateQueries({ queryKey: ['email-platform-accounts'] });
-      // Forcer un refetch immédiat
       queryClient.refetchQueries({ queryKey: ['email-platform-accounts'] });
-      console.log('useDeleteEmailPlatformAccount - Queries invalidated and refetched');
       toast.success('Compte supprimé avec succès');
     },
     onError: (error: any) => {
-      console.error('useDeleteEmailPlatformAccount - onError called with:', error);
+      console.error('Erreur lors de la suppression:', error);
       const errorMessage = error?.message || 'Erreur lors de la suppression du compte';
       toast.error(errorMessage);
     },
