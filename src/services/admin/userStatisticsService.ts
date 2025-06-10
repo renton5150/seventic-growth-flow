@@ -1,240 +1,171 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { getAllUsers } from "@/services/user/userQueries";
-import { fetchRequests } from "@/services/requests/requestQueryService";
-
-// Interface pour les statistiques utilisateur
-export interface UserStatistics {
-  total: number;
-  pending: number;
-  completed: number;
-  late: number;
-  unassigned?: number; // Pour les Growth - demandes non assignées
-}
 
 export interface UserWithStats {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: 'sdr' | 'growth' | 'admin';
   avatar?: string;
-  stats: UserStatistics;
+  stats: {
+    total: number;
+    pending: number;
+    completed: number;
+    late: number;
+    unassigned?: number; // Pour Growth uniquement
+  };
 }
 
-// Fonction principale pour récupérer les statistiques utilisateur - LOGIQUE FINALE CORRIGÉE
-export async function fetchUserStatistics(): Promise<UserWithStats[]> {
+/**
+ * Service pour récupérer les statistiques des utilisateurs - VERSION FINALE CORRIGÉE
+ */
+export const fetchUserStatistics = async (): Promise<UserWithStats[]> => {
   try {
-    console.log("🔍 DÉBUT RÉCUPÉRATION STATISTIQUES UTILISATEUR - LOGIQUE FINALE CORRIGÉE V2 🔍");
+    console.log("[UserStatisticsService] 🚀 DÉMARRAGE FINAL CORRIGÉ - Récupération des statistiques utilisateur");
     
-    // Récupère tous les utilisateurs
-    const users = await getAllUsers();
-    console.log("✅ Utilisateurs récupérés:", users.length, users);
+    // 1. Récupérer tous les utilisateurs SDR et Growth
+    const { data: users, error: usersError } = await supabase
+      .from('profiles')
+      .select('id, name, email, role, avatar')
+      .in('role', ['sdr', 'growth']);
+
+    if (usersError) {
+      console.error("[UserStatisticsService] ❌ Erreur users:", usersError);
+      throw new Error(`Erreur récupération utilisateurs: ${usersError.message}`);
+    }
+
+    if (!users || users.length === 0) {
+      console.warn("[UserStatisticsService] ⚠️ Aucun utilisateur trouvé");
+      return [];
+    }
+
+    console.log(`[UserStatisticsService] 👥 ${users.length} utilisateurs récupérés:`, users.map(u => ({ name: u.name, role: u.role })));
+
+    // 2. Récupérer TOUTES les demandes avec les détails
+    const { data: allRequests, error: requestsError } = await supabase
+      .from('requests_with_missions')
+      .select('*');
+
+    if (requestsError) {
+      console.error("[UserStatisticsService] ❌ Erreur requests:", requestsError);
+      throw new Error(`Erreur récupération demandes: ${requestsError.message}`);
+    }
+
+    console.log(`[UserStatisticsService] 📋 ${allRequests?.length || 0} demandes récupérées au total`);
+
+    // 3. CORRECTION CRITIQUE : Filtrer correctement les demandes non assignées
+    const unassignedRequests = allRequests?.filter(req => 
+      !req.assigned_to && 
+      req.workflow_status !== 'completed' && 
+      req.workflow_status !== 'canceled'
+    ) || [];
     
-    // Récupère toutes les demandes depuis la vue requests_with_missions
-    const requests = await fetchRequests();
-    console.log("✅ Demandes récupérées:", requests.length, requests);
-    
-    // Pour Growth : calculer les demandes non assignées une seule fois
-    const unassignedRequests = requests.filter(req => !req.assigned_to || req.assigned_to === null);
-    console.log(`📋 Demandes non assignées globales: ${unassignedRequests.length}`);
-    
-    // Calcule les statistiques pour chaque utilisateur avec la LOGIQUE FINALE CORRIGÉE
-    const usersWithStats = users.map(user => {
-      console.log(`\n📊 CALCUL STATS FINAL CORRIGÉ V2 POUR ${user.name} (${user.role}) - ID: ${user.id.slice(0, 8)}`);
-      
+    console.log(`[UserStatisticsService] 🔍 CORRECTION FINALE - Demandes non assignées: ${unassignedRequests.length}`);
+    console.log("[UserStatisticsService] 📊 Détail des demandes non assignées:", 
+      unassignedRequests.map(req => ({
+        id: req.id,
+        title: req.title,
+        workflow_status: req.workflow_status,
+        assigned_to: req.assigned_to
+      }))
+    );
+
+    // 4. Calculer les stats pour chaque utilisateur
+    const usersWithStats: UserWithStats[] = users.map(user => {
       let userRequests;
-      
-      // LOGIQUE FINALE CORRIGÉE : Filtrage strict selon le rôle de l'utilisateur
-      if (user.role === "sdr") {
-        // Pour les SDR, compter UNIQUEMENT les demandes qu'ils ont créées
-        userRequests = requests.filter(req => req.createdBy === user.id);
-        console.log(`✅ SDR ${user.name}: ${userRequests.length} demandes créées par lui`);
-      } else if (user.role === "growth" || user.role === "admin") {
-        // Pour les Growth et Admin, compter UNIQUEMENT les demandes qui leur sont assignées
-        userRequests = requests.filter(req => req.assigned_to === user.id);
-        console.log(`✅ ${user.role.toUpperCase()} ${user.name}: ${userRequests.length} demandes assignées à lui`);
-      } else {
-        userRequests = [];
-        console.log(`⚠️ Rôle non reconnu pour ${user.name}: ${user.role}`);
-      }
-      
-      // Log des demandes filtrées pour vérification
-      userRequests.forEach((req, idx) => {
-        console.log(`  📋 Demande ${idx + 1}: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
-      });
-      
-      // LOGIQUE FINALE CORRIGÉE : Calcule les statistiques avec les VRAIES règles
-      const now = new Date();
-      
-      // Completed: demandes avec workflow_status "completed" UNIQUEMENT
-      const completedRequests = userRequests.filter(req => {
-        const isCompleted = req.workflow_status === "completed";
-        if (isCompleted) {
-          console.log(`  ✅ Completed: ${req.title} (workflow: ${req.workflow_status})`);
-        }
-        return isCompleted;
-      });
-      
-      // Pending: demandes avec workflow_status "pending_assignment" OU "in_progress" 
-      const pendingRequests = userRequests.filter(req => {
-        const isPending = req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress";
-        if (isPending) {
-          console.log(`  📋 Pending: ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
-        }
-        return isPending;
-      });
-      
-      // Late: demandes actives (pas completed) avec due_date dépassée
-      const lateRequests = userRequests.filter(req => {
-        const isNotCompleted = req.workflow_status !== 'completed' && req.workflow_status !== 'canceled';
-        const isLate = req.isLate || (req.dueDate && new Date(req.dueDate) < now);
-        const isActuallyLate = isNotCompleted && isLate;
+      let stats;
+
+      if (user.role === 'sdr') {
+        // Pour SDR : demandes créées par eux
+        userRequests = allRequests?.filter(req => req.created_by === user.id) || [];
         
-        if (isActuallyLate) {
-          console.log(`  ⚠️ Late: ${req.title} (due: ${req.dueDate}, workflow: ${req.workflow_status})`);
-        }
-        return isActuallyLate;
-      });
-      
-      const stats: UserStatistics = {
-        total: userRequests.length,
-        pending: pendingRequests.length,
-        completed: completedRequests.length,
-        late: lateRequests.length,
-      };
-
-      // Pour TOUS les Growth (pas seulement le premier), ajouter les demandes non assignées
-      if (user.role === "growth") {
-        stats.unassigned = unassignedRequests.length;
-        console.log(`📋 Growth ${user.name}: ${unassignedRequests.length} demandes non assignées ajoutées`);
+        stats = {
+          total: userRequests.length,
+          pending: userRequests.filter(req => 
+            req.workflow_status === 'pending_assignment' || 
+            req.workflow_status === 'in_progress'
+          ).length,
+          completed: userRequests.filter(req => req.workflow_status === 'completed').length,
+          late: userRequests.filter(req => 
+            req.workflow_status !== 'completed' && 
+            req.workflow_status !== 'canceled' &&
+            req.due_date && 
+            new Date(req.due_date) < new Date()
+          ).length
+        };
+      } else {
+        // Pour Growth : demandes assignées à eux
+        userRequests = allRequests?.filter(req => req.assigned_to === user.id) || [];
+        
+        stats = {
+          total: userRequests.length,
+          pending: userRequests.filter(req => 
+            req.workflow_status === 'pending_assignment' || 
+            req.workflow_status === 'in_progress'
+          ).length,
+          completed: userRequests.filter(req => req.workflow_status === 'completed').length,
+          late: userRequests.filter(req => 
+            req.workflow_status !== 'completed' && 
+            req.workflow_status !== 'canceled' &&
+            req.due_date && 
+            new Date(req.due_date) < new Date()
+          ).length,
+          unassigned: unassignedRequests.length // MÊME NOMBRE pour tous les Growth
+        };
       }
 
-      console.log(`📊 STATISTIQUES FINALES CORRIGÉES V2 pour ${user.name}:`, stats);
-      console.log(`📊 VÉRIFICATION: Total=${stats.total}, Pending=${stats.pending}, Completed=${stats.completed}, Late=${stats.late}${stats.unassigned !== undefined ? `, Unassigned=${stats.unassigned}` : ''}`);
+      console.log(`[UserStatisticsService] 📊 Stats pour ${user.name} (${user.role}):`, stats);
       
       return {
-        ...user,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role as 'sdr' | 'growth' | 'admin',
+        avatar: user.avatar,
         stats
       };
     });
+
+    console.log("[UserStatisticsService] ✅ FINAL CORRIGÉ - Statistiques calculées pour tous les utilisateurs");
     
-    console.log("🎯 STATISTIQUES FINALES CORRIGÉES V2:", usersWithStats);
     return usersWithStats;
-    
   } catch (error) {
-    console.error("❌ Erreur lors de la récupération des statistiques:", error);
+    console.error("[UserStatisticsService] 💥 Erreur finale:", error);
     throw error;
   }
-}
+};
 
-// Fonction pour récupérer les statistiques globales CORRIGÉES
-export async function fetchGlobalStatistics() {
+/**
+ * Fonction de debug pour analyser les données - VERSION FINALE CORRIGÉE
+ */
+export const debugUserStatistics = async (): Promise<void> => {
   try {
-    console.log("🌍 CALCUL STATISTIQUES GLOBALES CORRIGÉES V2");
+    console.log("🔧 === DEBUG STATISTIQUES UTILISATEUR - VERSION FINALE CORRIGÉE ===");
     
-    const users = await getAllUsers();
-    const requests = await fetchRequests();
+    // Debug des demandes non assignées
+    const { data: allRequests } = await supabase
+      .from('requests_with_missions')
+      .select('id, title, workflow_status, assigned_to, created_by, target_role');
     
-    // Compter uniquement les utilisateurs actifs (pas les admins purs)
-    const activeUsers = users.filter(user => user.role === 'sdr' || user.role === 'growth');
+    const unassignedRequests = allRequests?.filter(req => 
+      !req.assigned_to && 
+      req.workflow_status !== 'completed' && 
+      req.workflow_status !== 'canceled'
+    ) || [];
     
-    // Compter les demandes selon les VRAIES règles
-    const pendingRequests = requests.filter(req => 
-      req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress"
-    );
+    console.log(`🔍 FINAL CORRIGÉ - Total demandes: ${allRequests?.length}`);
+    console.log(`🔍 FINAL CORRIGÉ - Demandes non assignées (actives): ${unassignedRequests.length}`);
     
-    const completedRequests = requests.filter(req => 
-      req.workflow_status === "completed"
-    );
+    console.log("📋 Détail des demandes non assignées:", unassignedRequests.map(req => ({
+      id: req.id,
+      title: req.title,
+      workflow_status: req.workflow_status,
+      assigned_to: req.assigned_to,
+      target_role: req.target_role
+    })));
     
-    const now = new Date();
-    const lateRequests = requests.filter(req => {
-      const isNotCompleted = req.workflow_status !== 'completed' && req.workflow_status !== 'canceled';
-      const isLate = req.isLate || (req.dueDate && new Date(req.dueDate) < now);
-      return isNotCompleted && isLate;
-    });
-    
-    const stats = {
-      totalUsers: activeUsers.length,
-      totalPending: pendingRequests.length,
-      totalCompleted: completedRequests.length,
-      totalLate: lateRequests.length,
-    };
-    
-    console.log("🌍 STATISTIQUES GLOBALES CORRIGÉES V2:", stats);
-    return stats;
-    
+    console.log("🔧 === FIN DEBUG FINAL CORRIGÉ ===");
   } catch (error) {
-    console.error("❌ Erreur stats globales:", error);
-    throw error;
+    console.error("💥 Erreur debug:", error);
   }
-}
-
-// Fonction de debug pour vérifier les données brutes
-export async function debugUserStatistics() {
-  console.log("🔧 DÉBUT DEBUG MANUEL DES STATISTIQUES CORRIGÉES V2 🔧");
-  
-  try {
-    const users = await getAllUsers();
-    const requests = await fetchRequests();
-    
-    console.log("=== DONNÉES BRUTES ===");
-    console.log("Utilisateurs:", users);
-    console.log("Demandes:", requests);
-    
-    // Analyse des demandes non assignées
-    const unassignedRequests = requests.filter(req => !req.assigned_to || req.assigned_to === null);
-    console.log(`\n=== DEMANDES NON ASSIGNÉES: ${unassignedRequests.length} ===`);
-    unassignedRequests.forEach(req => {
-      console.log(`- ${req.title} (workflow: ${req.workflow_status}, assigned_to: ${req.assigned_to})`);
-    });
-    
-    console.log("=== ANALYSE DÉTAILLÉE PAR UTILISATEUR ===");
-    users.forEach(user => {
-      console.log(`\n--- ${user.name} (${user.role}) ---`);
-      
-      if (user.role === "sdr") {
-        // Demandes créées par l'utilisateur SDR
-        const createdRequests = requests.filter(req => req.createdBy === user.id);
-        console.log(`Demandes créées: ${createdRequests.length}`);
-        
-        // Analyse par statut
-        const pendingCreated = createdRequests.filter(req => req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress");
-        const completedCreated = createdRequests.filter(req => req.workflow_status === "completed");
-        const lateCreated = createdRequests.filter(req => req.workflow_status !== 'completed' && req.workflow_status !== 'canceled' && (req.isLate || (req.dueDate && new Date(req.dueDate) < new Date())));
-        
-        console.log(`  - Pending: ${pendingCreated.length}`);
-        console.log(`  - Completed: ${completedCreated.length}`);
-        console.log(`  - Late: ${lateCreated.length}`);
-        
-        createdRequests.forEach(req => {
-          console.log(`  - ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
-        });
-      } else if (user.role === "growth" || user.role === "admin") {
-        // Demandes assignées à l'utilisateur Growth/Admin
-        const assignedRequests = requests.filter(req => req.assigned_to === user.id);
-        console.log(`Demandes assignées: ${assignedRequests.length}`);
-        
-        // Analyse par statut
-        const pendingAssigned = assignedRequests.filter(req => req.workflow_status === "pending_assignment" || req.workflow_status === "in_progress");
-        const completedAssigned = assignedRequests.filter(req => req.workflow_status === "completed");
-        const lateAssigned = assignedRequests.filter(req => req.workflow_status !== 'completed' && req.workflow_status !== 'canceled' && (req.isLate || (req.dueDate && new Date(req.dueDate) < new Date())));
-        
-        console.log(`  - Pending: ${pendingAssigned.length}`);
-        console.log(`  - Completed: ${completedAssigned.length}`);
-        console.log(`  - Late: ${lateAssigned.length}`);
-        
-        if (user.role === "growth") {
-          console.log(`  - Non assignées (pour tous Growth): ${unassignedRequests.length}`);
-        }
-        
-        assignedRequests.forEach(req => {
-          console.log(`  - ${req.title} (workflow: ${req.workflow_status}, status: ${req.status})`);
-        });
-      }
-    });
-    
-  } catch (error) {
-    console.error("Erreur debug:", error);
-  }
-}
+};

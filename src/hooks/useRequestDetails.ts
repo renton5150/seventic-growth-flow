@@ -189,25 +189,27 @@ export const useRequestDetails = () => {
       return;
     }
     
+    // Utiliser un ID unique pour le toast
+    const toastId = toast.loading("Clonage de la demande en cours...");
+    
     try {
       console.log(`[useRequestDetails] 📋 Début du clonage de la demande: ${request.id}`);
-      toast.loading("Clonage de la demande en cours...");
       
       const clonedRequest = await cloneRequest(request.id);
       
       if (clonedRequest) {
         console.log(`[useRequestDetails] ✅ Demande clonée avec succès: ${clonedRequest.id}`);
-        toast.success("Demande clonée avec succès !");
+        toast.success("Demande clonée avec succès !", { id: toastId });
         
         // Rediriger vers la nouvelle demande clonée
         navigate(`/request/${clonedRequest.id}`);
       } else {
         console.error(`[useRequestDetails] ❌ Échec du clonage`);
-        toast.error("Erreur lors du clonage de la demande");
+        toast.error("Erreur lors du clonage de la demande", { id: toastId });
       }
     } catch (error) {
       console.error(`[useRequestDetails] 💥 Erreur lors du clonage:`, error);
-      toast.error("Erreur lors du clonage de la demande");
+      toast.error("Erreur lors du clonage de la demande", { id: toastId });
     }
   };
 
