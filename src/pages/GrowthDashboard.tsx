@@ -36,9 +36,16 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     if (location.state) {
       console.log("[GrowthDashboard] 🔄 État de navigation reçu:", location.state);
       
-      const { createdBy, assignedTo, userName, filterType, userId } = location.state;
+      const { createdBy, assignedTo, userName, filterType, userId, showUnassigned } = location.state;
       
-      if (createdBy && filterType === 'sdr') {
+      if (showUnassigned) {
+        // CORRECTION: Gérer le filtre des demandes non assignées
+        console.log(`[GrowthDashboard] 📋 Application filtre demandes NON ASSIGNÉES`);
+        setAppliedFilters({
+          showUnassigned: true
+        });
+        setActiveTab("all");
+      } else if (createdBy && filterType === 'sdr') {
         // Filtre pour SDR (par créateur)
         console.log(`[GrowthDashboard] 📋 Application filtre SDR pour ${userName} (${userId})`);
         setAppliedFilters({
@@ -58,11 +65,23 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     }
   }, [location.state, setActiveTab]);
 
-  // Filtrer les demandes selon les filtres appliqués
+  // CORRECTION: Filtrer les demandes selon les filtres appliqués
   const getFilteredRequestsWithAppliedFilters = () => {
     let requests = filteredRequests;
     
-    if (appliedFilters.createdBy) {
+    console.log(`[GrowthDashboard] 🔍 Filtrage avec appliedFilters:`, appliedFilters);
+    console.log(`[GrowthDashboard] 📊 Demandes avant filtrage:`, requests.length);
+    
+    if (appliedFilters.showUnassigned) {
+      // CORRECTION CRUCIALE: Filtrer pour les demandes NON ASSIGNÉES uniquement
+      console.log(`[GrowthDashboard] 🚫 FILTRAGE DEMANDES NON ASSIGNÉES`);
+      requests = requests.filter(req => {
+        const isUnassigned = !req.assigned_to;
+        console.log(`[GrowthDashboard] 🔍 Request ${req.id}: assigned_to = ${req.assigned_to}, isUnassigned = ${isUnassigned}`);
+        return isUnassigned;
+      });
+      console.log(`[GrowthDashboard] ✅ ${requests.length} demandes NON ASSIGNÉES après filtrage`);
+    } else if (appliedFilters.createdBy) {
       // Filtrer par créateur (pour SDR)
       console.log(`[GrowthDashboard] 🔍 Filtrage par createdBy: ${appliedFilters.createdBy}`);
       requests = requests.filter(req => req.createdBy === appliedFilters.createdBy);
@@ -81,6 +100,29 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
 
   // Afficher un en-tête de filtrage si des filtres sont appliqués
   const renderFilterHeader = () => {
+    if (appliedFilters.showUnassigned) {
+      return (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-orange-900">
+                Demandes non assignées
+              </h3>
+              <p className="text-sm text-orange-700">
+                Affichage uniquement des demandes qui ne sont pas encore assignées
+              </p>
+            </div>
+            <button 
+              onClick={() => setAppliedFilters({})}
+              className="text-orange-600 hover:text-orange-800 underline"
+            >
+              Supprimer le filtre
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
     if (appliedFilters.sdrName) {
       return (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
