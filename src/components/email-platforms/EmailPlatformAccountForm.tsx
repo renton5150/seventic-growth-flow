@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -72,6 +73,15 @@ export const EmailPlatformAccountForm = ({
   const { data: frontOffices } = useFrontOffices();
   const { data: missions } = useMissionsQuery();
 
+  // Helper function to safely convert dedicated_ip_address to string
+  const getDedicatedIpAddressString = (address: unknown): string => {
+    if (typeof address === 'string') return address;
+    if (address && typeof address === 'object' && 'toString' in address) {
+      return address.toString();
+    }
+    return String(address || '');
+  };
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -86,7 +96,7 @@ export const EmailPlatformAccountForm = ({
       status: (account?.status as 'Actif' | 'Suspendu') || 'Actif',
       spf_dkim_status: (account?.spf_dkim_status as 'Oui' | 'Non' | 'En cours') || 'Non',
       dedicated_ip: account?.dedicated_ip || false,
-      dedicated_ip_address: account?.dedicated_ip_address || "",
+      dedicated_ip_address: getDedicatedIpAddressString(account?.dedicated_ip_address),
       routing_interfaces: account?.routing_interfaces || [],
       front_office_ids: account?.front_offices?.map(fo => fo.id) || [],
       // Valeurs par défaut pour les nouveaux champs domaine

@@ -83,6 +83,15 @@ export const EmailPlatformAccountsTable = ({
     return <Badge variant={variant}>{status}</Badge>;
   };
 
+  // Helper function to safely convert dedicated_ip_address to string
+  const getDedicatedIpAddressString = (address: unknown): string => {
+    if (typeof address === 'string') return address;
+    if (address && typeof address === 'object' && 'toString' in address) {
+      return address.toString();
+    }
+    return String(address || '');
+  };
+
   // Get unique values for filter options
   const uniqueMissions = [...new Set(accounts.map(a => a.mission?.name).filter(Boolean))];
   const uniquePlatforms = [...new Set(accounts.map(a => a.platform?.name).filter(Boolean))];
@@ -297,7 +306,7 @@ export const EmailPlatformAccountsTable = ({
                           <Badge variant="default">Oui</Badge>
                           {account.dedicated_ip_address && (
                             <div className="text-xs text-muted-foreground mt-1 font-mono">
-                              {account.dedicated_ip_address}
+                              {getDedicatedIpAddressString(account.dedicated_ip_address)}
                             </div>
                           )}
                         </div>

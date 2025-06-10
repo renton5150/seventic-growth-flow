@@ -46,6 +46,15 @@ export const EmailPlatformAccountCard = ({
     }
   };
 
+  // Helper function to safely convert dedicated_ip_address to string
+  const getDedicatedIpAddressString = (address: unknown): string => {
+    if (typeof address === 'string') return address;
+    if (address && typeof address === 'object' && 'toString' in address) {
+      return address.toString();
+    }
+    return String(address || '');
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -173,7 +182,7 @@ export const EmailPlatformAccountCard = ({
                 </Badge>
                 {account.dedicated_ip && account.dedicated_ip_address && (
                   <span className="text-sm font-mono bg-gray-50 px-2 py-1 rounded">
-                    {account.dedicated_ip_address}
+                    {getDedicatedIpAddressString(account.dedicated_ip_address)}
                   </span>
                 )}
               </div>
