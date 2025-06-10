@@ -11,27 +11,43 @@ import { toast } from "sonner";
  */
 export const cloneRequest = async (requestId: string): Promise<Request | undefined> => {
   try {
-    console.log(`[cloneRequest] Début du clonage de la requête ${requestId}`);
+    console.log(`[cloneRequest] 🚀 Début du clonage de la requête ${requestId}`);
     
-    // 1. Récupérer les données de la requête originale
+    // 1. Récupérer les données de la requête originale avec tous les détails
     const { data: originalRequest, error: fetchError } = await supabase
-      .from('requests')
+      .from('requests_with_missions')
       .select('*')
       .eq('id', requestId)
       .single();
     
     if (fetchError) {
-      console.error("[cloneRequest] Erreur lors de la récupération de la requête originale:", fetchError);
+      console.error("[cloneRequest] ❌ Erreur lors de la récupération de la requête originale:", fetchError);
+      toast.error("Erreur lors de la récupération de la demande à cloner");
       return undefined;
     }
     
+    if (!originalRequest) {
+      console.error("[cloneRequest] ❌ Requête originale non trouvée");
+      toast.error("Demande à cloner non trouvée");
+      return undefined;
+    }
+    
+    console.log("[cloneRequest] 📋 Requête originale récupérée:", originalRequest);
+    
     // 2. Préparer les données pour la nouvelle requête
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!currentUser) {
+      console.error("[cloneRequest] ❌ Utilisateur non connecté");
+      toast.error("Vous devez être connecté pour cloner une demande");
+      return undefined;
+    }
+    
     const newRequestData = {
       title: `Copie de: ${originalRequest.title}`,
       type: originalRequest.type,
       mission_id: originalRequest.mission_id,
-      created_by: originalRequest.created_by, // Conserver le même créateur
-      details: originalRequest.details,
+      created_by: currentUser.id, // Utiliser l'utilisateur actuel comme créateur
+      details: originalRequest.details, // Conserver tous les détails (template, database, blacklist, etc.)
       due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Échéance à une semaine
       status: "pending", // Statut initial
       workflow_status: "pending_assignment", // En attente d'affectation
@@ -40,7 +56,7 @@ export const cloneRequest = async (requestId: string): Promise<Request | undefin
       last_updated: new Date().toISOString(),
     };
     
-    console.log("[cloneRequest] Données préparées pour la nouvelle requête:", newRequestData);
+    console.log("[cloneRequest] 📋 Données préparées pour la nouvelle requête:", newRequestData);
     
     // 3. Insérer la nouvelle requête
     const { data: newRequest, error: insertError } = await supabase
@@ -50,17 +66,21 @@ export const cloneRequest = async (requestId: string): Promise<Request | undefin
       .single();
     
     if (insertError) {
-      console.error("[cloneRequest] Erreur lors de l'insertion de la nouvelle requête:", insertError);
+      console.error("[cloneRequest] ❌ Erreur lors de l'insertion de la nouvelle requête:", insertError);
+      toast.error("Erreur lors de la création de la nouvelle demande");
       return undefined;
     }
     
+    console.log("[cloneRequest] ✅ Nouvelle requête insérée:", newRequest);
+    
     // 4. Formater la requête pour l'interface utilisateur
     const formattedRequest = await formatRequestFromDb(newRequest);
-    console.log("[cloneRequest] Nouvelle requête créée et formatée:", formattedRequest);
+    console.log("[cloneRequest] 🎯 Nouvelle requête formatée:", formattedRequest);
     
     return formattedRequest;
   } catch (error) {
-    console.error("[cloneRequest] Erreur inattendue lors du clonage de la requête:", error);
+    console.error("[cloneRequest] 💥 Erreur inattendue lors du clonage de la requête:", error);
+    toast.error("Erreur inattendue lors du clonage");
     return undefined;
   }
 };

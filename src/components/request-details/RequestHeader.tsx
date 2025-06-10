@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, PenSquare, Trash2, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +29,7 @@ interface RequestHeaderProps {
 export const RequestHeader = ({ request, onBack, onEdit, onClone, canEdit }: RequestHeaderProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -102,6 +102,19 @@ export const RequestHeader = ({ request, onBack, onEdit, onClone, canEdit }: Req
     }
   };
 
+  const handleClone = async () => {
+    setIsCloning(true);
+    try {
+      console.log(`[RequestHeader] 📋 Début du clonage depuis le header`);
+      await onClone();
+    } catch (error) {
+      console.error("[RequestHeader] ❌ Erreur lors du clonage:", error);
+      toast.error("Erreur lors du clonage de la demande");
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -113,15 +126,16 @@ export const RequestHeader = ({ request, onBack, onEdit, onClone, canEdit }: Req
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Nouveau bouton pour cloner la demande */}
+          {/* Bouton pour cloner la demande */}
           {canClone && (
             <Button 
               variant="outline"
-              onClick={onClone}
+              onClick={handleClone}
+              disabled={isCloning}
               className="flex items-center gap-2"
             >
               <Copy className="h-4 w-4" />
-              Cloner
+              {isCloning ? "Clonage..." : "Cloner"}
             </Button>
           )}
           
@@ -195,3 +209,5 @@ export const RequestHeader = ({ request, onBack, onEdit, onClone, canEdit }: Req
     </div>
   );
 };
+
+export default RequestHeader;

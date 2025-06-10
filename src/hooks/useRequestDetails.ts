@@ -1,15 +1,16 @@
-
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRequestDetails } from "@/services/requests/requestQueryService";
 import { Request, Mission, WorkflowStatus, MissionType } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { cloneRequest } from "@/services/requests/cloneRequestService";
 
 export const useRequestDetails = () => {
   const { requestId } = useParams<{ requestId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [request, setRequest] = useState<Request | null>(null);
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,11 +183,32 @@ export const useRequestDetails = () => {
     }
   };
 
-  const handleCloneRequest = () => {
-    if (!request) return;
+  const handleCloneRequest = async () => {
+    if (!request || !user) {
+      toast.error("Impossible de cloner la demande");
+      return;
+    }
     
-    console.log(`[useRequestDetails] 📋 Clonage de la demande: ${request.id}`);
-    toast.success("Fonctionnalité de clonage à implémenter");
+    try {
+      console.log(`[useRequestDetails] 📋 Début du clonage de la demande: ${request.id}`);
+      toast.loading("Clonage de la demande en cours...");
+      
+      const clonedRequest = await cloneRequest(request.id);
+      
+      if (clonedRequest) {
+        console.log(`[useRequestDetails] ✅ Demande clonée avec succès: ${clonedRequest.id}`);
+        toast.success("Demande clonée avec succès !");
+        
+        // Rediriger vers la nouvelle demande clonée
+        navigate(`/request/${clonedRequest.id}`);
+      } else {
+        console.error(`[useRequestDetails] ❌ Échec du clonage`);
+        toast.error("Erreur lors du clonage de la demande");
+      }
+    } catch (error) {
+      console.error(`[useRequestDetails] 💥 Erreur lors du clonage:`, error);
+      toast.error("Erreur lors du clonage de la demande");
+    }
   };
 
   useEffect(() => {
