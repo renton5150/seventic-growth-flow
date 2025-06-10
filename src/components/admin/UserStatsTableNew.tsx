@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -95,6 +96,19 @@ export const UserStatsTableNew = () => {
         } 
       });
     }
+  };
+
+  // NOUVELLE FONCTION : Gestion du clic sur "Non assigné" - CORRIGÉE
+  const handleUnassignedClick = () => {
+    console.log(`[UserStatsTableNew] 🖱️ Clic sur demandes NON ASSIGNÉES`);
+    // Naviguer vers le dashboard Growth avec un filtre pour les demandes non assignées
+    navigate("/growth-dashboard", { 
+      state: { 
+        showUnassigned: true,
+        userName: "Demandes non assignées",
+        filterType: 'unassigned'
+      } 
+    });
   };
 
   // Filtrer et trier les utilisateurs
@@ -242,9 +256,17 @@ export const UserStatsTableNew = () => {
                   <TableCell className="font-medium">{user.stats.pending}</TableCell>
                   <TableCell className="font-medium">{user.stats.completed}</TableCell>
                   <TableCell className="font-medium">{user.stats.late}</TableCell>
-                  {/* Cellule "Non assigné" uniquement pour Growth */}
+                  {/* Cellule "Non assigné" uniquement pour Growth avec gestion du clic CORRIGÉE */}
                   {activeTab === "growth" && (
-                    <TableCell className="font-medium">{user.stats.unassigned || 0}</TableCell>
+                    <TableCell 
+                      className="font-medium cursor-pointer hover:text-blue-600"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Empêcher le clic sur la ligne
+                        handleUnassignedClick(); // Naviguer vers les demandes non assignées
+                      }}
+                    >
+                      {user.stats.unassigned || 0}
+                    </TableCell>
                   )}
                 </TableRow>
               ))

@@ -7,9 +7,11 @@ import { getMissionsByUserId } from "@/services/missionService";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "@/utils/requestFormatters";
 import { toast } from "sonner";
+import { useLocation } from "react-router-dom";
 
 export const useDashboardRequests = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("all");
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -19,23 +21,58 @@ export const useDashboardRequests = () => {
   const isGrowth = user?.role === "growth";
   const isAdmin = user?.role === "admin";
 
+  // Extraire les paramètres de navigation depuis location.state
+  const navigationState = location.state as any;
+  const filterParams = {
+    createdBy: navigationState?.createdBy,
+    assignedTo: navigationState?.assignedTo,
+    showUnassigned: navigationState?.showUnassigned,
+    filterType: navigationState?.filterType,
+    userName: navigationState?.userName
+  };
+
+  console.log("[useDashboardRequests] 🔍 Paramètres de navigation:", filterParams);
+
   // Récupérer toutes les requêtes avec les relations
   const { data: allRequests = [], isLoading: isLoadingRequests, refetch: refetchRequests } = useQuery({
-    queryKey: ['dashboard-requests-with-missions', user?.id, isSDR],
+    queryKey: ['dashboard-requests-with-missions', user?.id, isSDR, filterParams],
     queryFn: async () => {
       if (!user) return [];
       
-      console.log("Récupération des requêtes pour le tableau de bord");
+      console.log("Récupération des requêtes pour le tableau de bord avec filtres:", filterParams);
       try {
         // Utilisation de la vue requests_with_missions
         let query = supabase.from('requests_with_missions')
-          .select('*')
-          .not('workflow_status', 'in', '(completed,canceled)'); // Exclure les demandes terminées ET annulées
-        
-        // Si c'est un SDR, filtrer pour ne montrer que ses propres requêtes
-        if (isSDR) {
-          console.log("SDR détecté - Filtrage des requêtes pour l'utilisateur:", user.id);
-          query = query.eq('created_by', user.id);
+          .select('*');
+
+        // Appliquer les filtres selon les paramètres de navigation
+        if (filterParams.showUnassigned) {
+          // Filtrer les demandes NON assignées
+          console.log("[useDashboardRequests] 📋 Filtrage des demandes NON ASSIGNÉES");
+          query = query
+            .is('assigned_to', null)
+            .not('workflow_status', 'in', '(completed,canceled)');
+        } else if (filterParams.createdBy) {
+          // Filtrer par créateur (SDR)
+          console.log("[useDashboardRequests] 📋 Filtrage par createdBy:", filterParams.createdBy);
+          query = query
+            .eq('created_by', filterParams.createdBy)
+            .not('workflow_status', 'in', '(completed,canceled)');
+        } else if (filterParams.assignedTo) {
+          // Filtrer par assigné (Growth)
+          console.log("[useDashboardRequests] 📋 Filtrage par assignedTo:", filterParams.assignedTo);
+          query = query
+            .eq('assigned_to', filterParams.assignedTo)
+            .not('workflow_status', 'in', '(completed,canceled)');
+        } else {
+          // Logique par défaut
+          query = query.not('workflow_status', 'in', '(completed,canceled)');
+          
+          // Si c'est un SDR, filtrer pour ne montrer que ses propres requêtes
+          if (isSDR) {
+            console.log("SDR détecté - Filtrage des requêtes pour l'utilisateur:", user.id);
+            query = query.eq('created_by', user.id);
+          }
         }
         
         const { data, error } = await query;
@@ -46,6 +83,9 @@ export const useDashboardRequests = () => {
         }
         
         console.log(`Requêtes récupérées pour le tableau de bord: ${data.length}`, 
+                    filterParams.showUnassigned ? "demandes non assignées" :
+                    filterParams.createdBy ? `pour le SDR ${filterParams.userName}` :
+                    filterParams.assignedTo ? `pour le Growth ${filterParams.userName}` :
                     isSDR ? "pour le SDR" : "pour Admin/Growth");
         
         // Traiter les données avec formatRequestFromDb - et attendre les résultats des promesses
@@ -64,7 +104,7 @@ export const useDashboardRequests = () => {
   const { data: userMissions = [], isLoading: isLoadingMissions } = useQuery({
     queryKey: ['missions', user?.id],
     queryFn: async () => user?.id ? await getMissionsByUserId(user.id) : [],
-    enabled: !!user && isSDR
+    enabled: !!user && isSDR && !filterParams.showUnassigned && !filterParams.createdBy && !filterParams.assignedTo
   });
 
   useEffect(() => {
@@ -80,16 +120,19 @@ export const useDashboardRequests = () => {
       return;
     }
 
-    if (isSDR && userMissions.length) {
-      // Pour les SDR, ne montrer que les requêtes qu'ils ont créées
-      // allRequests est maintenant correctement typé comme Request[] et non Promise<Request>[]
+    // Si on a des paramètres de navigation, utiliser directement allRequests
+    if (filterParams.showUnassigned || filterParams.createdBy || filterParams.assignedTo) {
+      console.log("[useDashboardRequests] 📋 Utilisation des requêtes filtrées:", allRequests.length);
+      setRequests(allRequests);
+    } else if (isSDR && userMissions.length) {
+      // Pour les SDR sans filtres, ne montrer que les requêtes qu'ils ont créées
       const filteredRequests = allRequests.filter(request => request.createdBy === user?.id);
       setRequests(filteredRequests);
     } else {
       // Admin et Growth voient toutes les requêtes
       setRequests(allRequests);
     }
-  }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id]);
+  }, [allRequests, userMissions, isSDR, isLoadingRequests, isLoadingMissions, user?.id, filterParams]);
 
   // Fonction pour filtrer les requêtes en fonction de l'onglet actif
   const getFilteredRequests = useCallback(() => {
@@ -157,5 +200,6 @@ export const useDashboardRequests = () => {
     loading,
     refetch: refetchRequests,
     handleStatCardClick,
+    filterParams, // Exposer les paramètres de filtrage
   };
 };
