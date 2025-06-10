@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface UserWithStats {
@@ -15,6 +14,76 @@ export interface UserWithStats {
     unassigned?: number; // Pour Growth uniquement
   };
 }
+
+export interface GlobalStatistics {
+  totalUsers: number;
+  totalPending: number;
+  totalCompleted: number;
+  totalLate: number;
+}
+
+/**
+ * Service pour récupérer les statistiques globales
+ */
+export const fetchGlobalStatistics = async (): Promise<GlobalStatistics> => {
+  try {
+    console.log("[GlobalStatistics] 🚀 Récupération des statistiques globales");
+    
+    // 1. Récupérer tous les utilisateurs actifs
+    const { data: users, error: usersError } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .in('role', ['sdr', 'growth', 'admin']);
+
+    if (usersError) {
+      console.error("[GlobalStatistics] ❌ Erreur users:", usersError);
+      throw new Error(`Erreur récupération utilisateurs: ${usersError.message}`);
+    }
+
+    // 2. Récupérer toutes les demandes
+    const { data: allRequests, error: requestsError } = await supabase
+      .from('requests_with_missions')
+      .select('workflow_status, due_date');
+
+    if (requestsError) {
+      console.error("[GlobalStatistics] ❌ Erreur requests:", requestsError);
+      throw new Error(`Erreur récupération demandes: ${requestsError.message}`);
+    }
+
+    // 3. Calculer les statistiques globales
+    const totalUsers = users?.length || 0;
+    
+    const totalPending = allRequests?.filter(req => 
+      req.workflow_status === 'pending_assignment' || 
+      req.workflow_status === 'in_progress'
+    ).length || 0;
+    
+    const totalCompleted = allRequests?.filter(req => 
+      req.workflow_status === 'completed'
+    ).length || 0;
+    
+    const totalLate = allRequests?.filter(req => 
+      req.workflow_status !== 'completed' && 
+      req.workflow_status !== 'canceled' &&
+      req.due_date && 
+      new Date(req.due_date) < new Date()
+    ).length || 0;
+
+    const globalStats: GlobalStatistics = {
+      totalUsers,
+      totalPending,
+      totalCompleted,
+      totalLate
+    };
+
+    console.log("[GlobalStatistics] ✅ Statistiques globales calculées:", globalStats);
+    
+    return globalStats;
+  } catch (error) {
+    console.error("[GlobalStatistics] 💥 Erreur:", error);
+    throw error;
+  }
+};
 
 /**
  * Service pour récupérer les statistiques des utilisateurs - VERSION FINALE CORRIGÉE
