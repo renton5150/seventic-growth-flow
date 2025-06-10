@@ -26,7 +26,7 @@ export interface EmailPlatformAccount {
   status: string; // Changed from strict union to allow Supabase string
   spf_dkim_status: string; // Changed from strict union to allow Supabase string
   dedicated_ip: boolean;
-  dedicated_ip_address?: string | null;
+  dedicated_ip_address?: unknown | null; // Changed to match Supabase type
   routing_interfaces: string[];
   created_by?: string | null;
   created_at: string;
