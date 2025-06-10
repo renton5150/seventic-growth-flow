@@ -22,7 +22,7 @@ function EmailPlatformsContent() {
   const [editingAccount, setEditingAccount] = useState<EmailPlatformAccount | undefined>();
   const [accountToDelete, setAccountToDelete] = useState<string | undefined>();
 
-  const { data: accounts, isLoading } = useEmailPlatformAccounts();
+  const { data: accounts, isLoading, refetch } = useEmailPlatformAccounts();
   const createMutation = useCreateEmailPlatformAccount();
   const updateMutation = useUpdateEmailPlatformAccount();
   const deleteMutation = useDeleteEmailPlatformAccount();
@@ -40,23 +40,26 @@ function EmailPlatformsContent() {
   };
 
   const handleDeleteAccount = (accountId: string) => {
-    console.log('Delete account requested for ID:', accountId);
+    console.log('EmailPlatformsContent - Delete account requested for ID:', accountId);
+    const accountToDelete = accounts?.find(acc => acc.id === accountId);
+    console.log('EmailPlatformsContent - Account to delete found:', accountToDelete);
     setAccountToDelete(accountId);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (accountToDelete) {
-      console.log('Confirming delete for account ID:', accountToDelete);
-      deleteMutation.mutate(accountToDelete, {
-        onSuccess: () => {
-          console.log('Account deleted successfully');
-          setAccountToDelete(undefined);
-        },
-        onError: (error) => {
-          console.error('Error deleting account:', error);
-          // Keep the dialog open so user can see the error and try again
-        }
-      });
+      console.log('EmailPlatformsContent - Confirming delete for account ID:', accountToDelete);
+      try {
+        await deleteMutation.mutateAsync(accountToDelete);
+        console.log('EmailPlatformsContent - Delete mutation completed successfully');
+        setAccountToDelete(undefined);
+        // Force un refetch manuel pour s'assurer que les données sont à jour
+        await refetch();
+        console.log('EmailPlatformsContent - Manual refetch completed');
+      } catch (error) {
+        console.error('EmailPlatformsContent - Error during deletion:', error);
+        // Le dialog reste ouvert pour que l'utilisateur puisse voir l'erreur et réessayer
+      }
     }
   };
 
@@ -158,6 +161,11 @@ function EmailPlatformsContent() {
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
               Êtes-vous sûr de vouloir supprimer ce compte ? Cette action est irréversible.
+              {accountToDelete && (
+                <div className="mt-2 text-sm text-gray-600">
+                  Compte ID: {accountToDelete}
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
