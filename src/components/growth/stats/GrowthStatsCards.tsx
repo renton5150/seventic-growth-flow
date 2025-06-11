@@ -12,10 +12,16 @@ interface GrowthStatsCardsProps {
 
 export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: GrowthStatsCardsProps) => {
   const { user } = useAuth();
+  
+  console.log("[GrowthStatsCards] 🎯 DÉBOGAGE COMPLET - user:", user);
+  console.log("[GrowthStatsCards] 🎯 user?.role:", user?.role);
+  console.log("[GrowthStatsCards] 🎯 typeof user?.role:", typeof user?.role);
+  console.log("[GrowthStatsCards] 🎯 user?.role === 'growth':", user?.role === 'growth');
+  
+  // CORRECTION: Utiliser une vérification plus robuste
   const isGrowth = user?.role === 'growth';
   
-  console.log("[GrowthStatsCards] 🎯 COMPOSANT RENDU - Rôle utilisateur:", user?.role);
-  console.log("[GrowthStatsCards] 🎯 isGrowth:", isGrowth);
+  console.log("[GrowthStatsCards] 🎯 isGrowth final:", isGrowth);
   
   // LOGS DE DÉBOGAGE - Utilisateur connecté
   console.log("[GrowthStatsCards] Utilisateur connecté:", {
@@ -83,7 +89,6 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
       
       {isGrowth ? (
         <>
-          {console.log("[GrowthStatsCards] 🎯 RENDU - Cartes Growth affichées")}
           <StatCard
             title="En attente d'assignation"
             value={toAssignRequests.length}
@@ -101,9 +106,8 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
         </>
       ) : (
         <>
-          {console.log("[GrowthStatsCards] 🎯 RENDU - Cartes standard affichées")}
           <StatCard
-            title="En attente d'assignation"
+            title="En attente"
             value={pendingRequests.length}
             icon={<Clock className="h-6 w-6 text-orange-600" />}
             onClick={() => onStatClick("pending")}
