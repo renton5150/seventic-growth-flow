@@ -274,6 +274,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     } else {
       setActiveFilter(filterType);
       
+      // CORRECTION: Mapper correctement les nouveaux types de filtres
       switch (filterType) {
         case "all":
           setActiveTab("all");
