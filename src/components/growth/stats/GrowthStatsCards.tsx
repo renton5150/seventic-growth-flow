@@ -14,11 +14,39 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
   const { user } = useAuth();
   const isGrowth = user?.role === 'growth';
   
+  // LOGS DE DÉBOGAGE - Utilisateur connecté
+  console.log("Utilisateur connecté:", {
+    id: user?.id,
+    email: user?.email,
+    role: user?.role,
+    name: user?.name
+  });
+  
+  // LOGS DE DÉBOGAGE - Structure des demandes
+  console.log("Total des demandes reçues:", allRequests.length);
+  allRequests.forEach((req, index) => {
+    if (index < 5) { // Limiter le nombre pour éviter d'encombrer la console
+      console.log(`Demande #${index}:`, {
+        id: req.id,
+        title: req.title,
+        assigned_to: req.assigned_to,
+        assignedTo: req.assignedTo,
+        workflow_status: req.workflow_status,
+        createdBy: req.createdBy,
+        status: req.status,
+        isNotAssigned: !req.assigned_to,
+        isMyRequest: req.assigned_to === user?.id
+      });
+    }
+  });
+  
   // Pour Growth : demandes non assignées
   const toAssignRequests = allRequests.filter(req => !req.assigned_to);
+  console.log("Demandes non assignées (to_assign):", toAssignRequests.length);
   
   // Pour Growth : demandes assignées à lui
   const myAssignmentsRequests = allRequests.filter(req => req.assigned_to === user?.id);
+  console.log("Mes demandes assignées:", myAssignmentsRequests.length);
   
   // Pour les autres rôles : logique classique
   const pendingRequests = allRequests.filter(req => req.workflow_status === "pending_assignment");

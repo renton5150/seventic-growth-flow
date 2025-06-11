@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -92,10 +91,20 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     const isSDR = user?.role === 'sdr';
     const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
 
+    console.log("[useGrowthDashboard] 🔍 FILTRAGE - Début du filtrage avec:", {
+      activeFilter,
+      activeTab,
+      userRole: user?.role,
+      userId: user?.id,
+      totalRequests: allRequests.length
+    });
+
     // Filtrer d'abord pour exclure les demandes terminées ET annulées qui ne devraient pas apparaître ici
     const nonCompletedRequests = allRequests.filter(req => 
       req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
     );
+
+    console.log("[useGrowthDashboard] 🔍 Après exclusion completed/canceled:", nonCompletedRequests.length);
 
     // CORRECTION: Gestion des filtres spéciaux depuis l'admin dashboard
     if (specialFilters.showUnassigned) {
@@ -127,22 +136,31 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     }
 
     if (activeFilter) {
+      console.log("[useGrowthDashboard] 🔍 Application du filtre activeFilter:", activeFilter);
+      
       switch (activeFilter) {
         case "all":
+          console.log("[useGrowthDashboard] 🔍 Filtre 'all' - toutes les demandes");
           return nonCompletedRequests;
         case "pending":
+          console.log("[useGrowthDashboard] 🔍 Filtre 'pending'");
           return nonCompletedRequests.filter(req => req.workflow_status === "pending_assignment");
         case "inprogress":
+          console.log("[useGrowthDashboard] 🔍 Filtre 'inprogress'");
           return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
         case "to_assign":
           // CORRECTION: Filtrer pour ne montrer que les demandes vraiment non assignées
           console.log(`[useGrowthDashboard] 🔍 Filtre "En attente d'assignation" - demandes non assignées`);
-          return nonCompletedRequests.filter(req => !req.assigned_to);
+          const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
+          console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
+          return unassignedRequests;
         case "my_assignments":
           // CORRECTION: Pour Growth, montrer SEULEMENT ses demandes assignées
           console.log(`[useGrowthDashboard] 🔍 Filtre "Mes demandes à traiter" - demandes assignées à ${user?.id}`);
           if (isGrowthOrAdmin) {
-            return nonCompletedRequests.filter(req => req.assigned_to === user?.id);
+            const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
+            console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
+            return myAssignedRequests;
           } else if (isSDR) {
             return nonCompletedRequests.filter(req => req.createdBy === user?.id);
           }
@@ -150,52 +168,75 @@ export const useGrowthDashboard = (defaultTab?: string) => {
             req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
           );
         case "late":
+          console.log("[useGrowthDashboard] 🔍 Filtre 'late'");
           return nonCompletedRequests.filter(req => req.isLate);
         default:
+          console.log("[useGrowthDashboard] 🔍 Filtre par défaut - toutes les demandes");
           return nonCompletedRequests;
       }
     }
     
     switch (activeTab) {
       case "all":
+        console.log("[useGrowthDashboard] 🔍 Tab 'all'");
         // CORRECTION MAJEURE : Pour Growth, séparer les demandes non assignées et les demandes assignées
         if (user?.role === 'growth') {
           // Retourner SEULEMENT les demandes non assignées ET les demandes assignées à cet utilisateur
-          return nonCompletedRequests.filter(req => 
+          const growthRequests = nonCompletedRequests.filter(req => 
             !req.assigned_to || req.assigned_to === user?.id
           );
+          console.log(`[useGrowthDashboard] 🔍 Tab all pour Growth: ${growthRequests.length} demandes`);
+          return growthRequests;
         }
         return nonCompletedRequests;
       case "to_assign":
+        console.log("[useGrowthDashboard] 🔍 Tab 'to_assign'");
         // CORRECTION : Filtrer pour ne montrer que les demandes vraiment non assignées
-        return nonCompletedRequests.filter(req => !req.assigned_to);
+        const toAssignTabRequests = nonCompletedRequests.filter(req => !req.assigned_to);
+        console.log(`[useGrowthDashboard] 🔍 Tab to_assign: ${toAssignTabRequests.length} demandes`);
+        return toAssignTabRequests;
       case "my_assignments":
+        console.log("[useGrowthDashboard] 🔍 Tab 'my_assignments'");
         if (isSDR) {
           return nonCompletedRequests.filter(req => req.createdBy === user?.id);
         } else if (isGrowthOrAdmin) {
           // CORRECTION : Pour Growth, montrer SEULEMENT ses demandes assignées
-          return nonCompletedRequests.filter(req => req.assigned_to === user?.id);
+          const myTabRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
+          console.log(`[useGrowthDashboard] 🔍 Tab my_assignments pour Growth: ${myTabRequests.length} demandes`);
+          return myTabRequests;
         }
         return myAssignmentsRequests.filter(req => 
           req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
         );
       case "inprogress":
+        console.log("[useGrowthDashboard] 🔍 Tab 'inprogress'");
         return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
       case "email":
+        console.log("[useGrowthDashboard] 🔍 Tab 'email'");
         return nonCompletedRequests.filter(req => req.type === "email");
       case "database":
+        console.log("[useGrowthDashboard] 🔍 Tab 'database'");
         return nonCompletedRequests.filter(req => req.type === "database");
       case "linkedin":
+        console.log("[useGrowthDashboard] 🔍 Tab 'linkedin'");
         return nonCompletedRequests.filter(req => req.type === "linkedin");
       default:
+        console.log("[useGrowthDashboard] 🔍 Tab par défaut");
         return nonCompletedRequests;
     }
   }, [allRequests, toAssignRequests, myAssignmentsRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname, specialFilters]);
 
   const filteredRequests = getFilteredRequests();
+  
+  console.log("[useGrowthDashboard] 🔍 RÉSULTAT FINAL du filtrage:", {
+    activeFilter,
+    activeTab,
+    totalInput: allRequests.length,
+    finalOutput: filteredRequests.length
+  });
 
   const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => {
-    console.log(`Stat card clicked: ${filterType}`);
+    console.log(`[useGrowthDashboard] 📊 Stat card clicked: ${filterType}`);
     
     // Si on clique sur "completed", rediriger vers les archives
     if (filterType === "completed") {
