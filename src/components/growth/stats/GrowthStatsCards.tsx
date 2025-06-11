@@ -14,6 +14,9 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
   const { user } = useAuth();
   const isGrowth = user?.role === 'growth';
   
+  console.log("[GrowthStatsCards] 🎯 COMPOSANT RENDU - Rôle utilisateur:", user?.role);
+  console.log("[GrowthStatsCards] 🎯 isGrowth:", isGrowth);
+  
   // LOGS DE DÉBOGAGE - Utilisateur connecté
   console.log("[GrowthStatsCards] Utilisateur connecté:", {
     id: user?.id,
@@ -65,6 +68,9 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
     late: lateRequests.length
   });
 
+  console.log("[GrowthStatsCards] 🎯 RENDU DES CARTES - isGrowth:", isGrowth);
+  console.log("[GrowthStatsCards] 🎯 CARTES QUI VONT ÊTRE AFFICHÉES:", isGrowth ? "Growth Cards" : "Standard Cards");
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
       <StatCard
@@ -77,6 +83,7 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
       
       {isGrowth ? (
         <>
+          {console.log("[GrowthStatsCards] 🎯 RENDU - Cartes Growth affichées")}
           <StatCard
             title="En attente d'assignation"
             value={toAssignRequests.length}
@@ -94,6 +101,7 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
         </>
       ) : (
         <>
+          {console.log("[GrowthStatsCards] 🎯 RENDU - Cartes standard affichées")}
           <StatCard
             title="En attente d'assignation"
             value={pendingRequests.length}

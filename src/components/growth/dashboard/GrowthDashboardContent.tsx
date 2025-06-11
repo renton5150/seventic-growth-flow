@@ -20,7 +20,7 @@ interface GrowthDashboardContentProps {
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeFilter: string | null;
   setActiveFilter: (filter: string | null) => void;
-  handleStatCardClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => void;
+  handleStatCardClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => void;
 }
 
 export const GrowthDashboardContent = ({
@@ -42,6 +42,13 @@ export const GrowthDashboardContent = ({
   const location = useLocation();
   const { user } = useAuth();
   
+  console.log("[GrowthDashboardContent] 🔍 DÉBOGAGE - Composant rendu avec:", {
+    userRole: user?.role,
+    activeFilter,
+    totalRequests: allRequests.length,
+    handleStatCardClick: typeof handleStatCardClick
+  });
+  
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   const isSDR = user?.role === 'sdr';
   
@@ -53,6 +60,13 @@ export const GrowthDashboardContent = ({
     : isMyRequestsPage 
       ? allRequests.filter(req => isMyRequestsPage)
       : allRequests;
+  
+  console.log("[GrowthDashboardContent] 📊 Stats des demandes passées à GrowthStatsCards:", {
+    total: statsRequests.length,
+    userRole: user?.role,
+    isSDR,
+    isMyRequestsPage
+  });
   
   return (
     <>
