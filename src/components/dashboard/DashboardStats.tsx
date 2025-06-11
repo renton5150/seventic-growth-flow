@@ -1,22 +1,32 @@
 
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Mail, Clock, CheckCircle, AlertCircle, ArrowRightLeft } from "lucide-react";
+import { Mail, Clock, CheckCircle, AlertCircle, ArrowRightLeft, ClipboardList, UserCheck } from "lucide-react";
 import { Request } from "@/types/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardStatsProps {
   requests: Request[];
-  onStatClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress") => void;
+  onStatClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => void;
   activeFilter: string | null;
 }
 
 export const DashboardStats = ({ requests, onStatClick, activeFilter }: DashboardStatsProps) => {
+  const { user } = useAuth();
+  const isGrowth = user?.role === 'growth';
+  
   const totalRequests = requests.length;
   const pendingRequests = requests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
   const inProgressRequests = requests.filter((r) => r.workflow_status === "in_progress").length;
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
+  
+  // Pour Growth : demandes non assignées et assignées à lui
+  const toAssignRequests = requests.filter(req => !req.assigned_to).length;
+  const myAssignmentsRequests = requests.filter(req => req.assigned_to === user?.id).length;
 
   console.log("[DEBUG] DashboardStats - Active filter:", activeFilter);
+  console.log("[DEBUG] DashboardStats - User role:", user?.role);
+  console.log("[DEBUG] DashboardStats - isGrowth:", isGrowth);
 
   return (
     <div className="grid gap-4 grid-cols-1 md:grid-cols-5 lg:grid-cols-5">
@@ -27,20 +37,43 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
         onClick={() => onStatClick("all")}
         isActive={activeFilter === "all"}
       />
-      <StatCard
-        title="En attente"
-        value={pendingRequests}
-        icon={<Clock size={24} className="text-status-pending" />}
-        onClick={() => onStatClick("pending")}
-        isActive={activeFilter === "pending"}
-      />
-      <StatCard
-        title="En cours"
-        value={inProgressRequests}
-        icon={<ArrowRightLeft size={24} className="text-blue-500" />}
-        onClick={() => onStatClick("inprogress")}
-        isActive={activeFilter === "inprogress"}
-      />
+      
+      {isGrowth ? (
+        <>
+          <StatCard
+            title="En attente d'assignation"
+            value={toAssignRequests}
+            icon={<ClipboardList size={24} className="text-status-pending" />}
+            onClick={() => onStatClick("to_assign")}
+            isActive={activeFilter === "to_assign"}
+          />
+          <StatCard
+            title="Mes demandes à traiter"
+            value={myAssignmentsRequests}
+            icon={<UserCheck size={24} className="text-blue-500" />}
+            onClick={() => onStatClick("my_assignments")}
+            isActive={activeFilter === "my_assignments"}
+          />
+        </>
+      ) : (
+        <>
+          <StatCard
+            title="En attente"
+            value={pendingRequests}
+            icon={<Clock size={24} className="text-status-pending" />}
+            onClick={() => onStatClick("pending")}
+            isActive={activeFilter === "pending"}
+          />
+          <StatCard
+            title="En cours"
+            value={inProgressRequests}
+            icon={<ArrowRightLeft size={24} className="text-blue-500" />}
+            onClick={() => onStatClick("inprogress")}
+            isActive={activeFilter === "inprogress"}
+          />
+        </>
+      )}
+      
       <StatCard
         title="Terminées"
         value={completedRequests}
