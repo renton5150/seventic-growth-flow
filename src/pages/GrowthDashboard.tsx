@@ -1,7 +1,12 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthDashboardContent } from "@/components/growth/dashboard/GrowthDashboardContent";
+import { GrowthStatsCardsFixed } from "@/components/growth/stats/GrowthStatsCardsFixed";
+import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
+import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
+import { useForceFiltering } from "@/hooks/useForceFiltering";
+import { useEffect } from "react";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
@@ -9,10 +14,7 @@ interface GrowthDashboardProps {
 
 const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   const {
-    filteredRequests,
     allRequests: allGrowthRequests,
-    activeTab,
-    setActiveTab,
     handleOpenEditDialog: onEditRequest,
     handleOpenCompletionDialog: onCompleteRequest,
     handleViewDetails: onViewDetails,
@@ -20,12 +22,27 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     handleRequestDeleted: onRequestDeleted,
     assignRequestToMe,
     updateRequestWorkflowStatus,
-    activeFilter,
-    setActiveFilter,
-    handleStatCardClick,
     specialFilters,
     clearSpecialFilters
   } = useGrowthDashboard(defaultTab);
+
+  const {
+    forceFilter,
+    applyForceFilter,
+    getForceFilteredRequests,
+    clearForceFilter
+  } = useForceFiltering(allGrowthRequests);
+
+  // Utiliser les demandes filtrées par le système de force filtering
+  const filteredRequests = getForceFilteredRequests();
+
+  // Log de diagnostic
+  useEffect(() => {
+    console.log(`[GrowthDashboard] 🔍 RENDER - Force filter: ${forceFilter}`);
+    console.log(`[GrowthDashboard] 📊 Total requests: ${allGrowthRequests.length}`);
+    console.log(`[GrowthDashboard] 📊 Filtered requests: ${filteredRequests.length}`);
+    console.log(`[GrowthDashboard] 📋 First 2 filtered:`, filteredRequests.slice(0, 2));
+  }, [forceFilter, allGrowthRequests, filteredRequests]);
 
   // Afficher un en-tête de filtrage si des filtres spéciaux sont appliqués
   const renderFilterHeader = () => {
@@ -106,15 +123,32 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Tableau de bord</h1>
+          {forceFilter && (
+            <button 
+              onClick={clearForceFilter}
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Effacer le filtre
+            </button>
+          )}
         </div>
         
         {renderFilterHeader()}
         
-        <GrowthDashboardContent
-          allRequests={allGrowthRequests}
-          filteredRequests={filteredRequests}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
+        <GrowthStatsCardsFixed 
+          allRequests={allGrowthRequests} 
+          onStatClick={applyForceFilter}
+          activeFilter={forceFilter}
+        />
+        
+        <GrowthActionsHeader
+          activeTab={forceFilter || "all"}
+          setActiveTab={() => {}} // Désactivé car on utilise le force filtering
+          totalRequests={filteredRequests.length}
+        />
+        
+        <GrowthRequestsTable
+          requests={filteredRequests}
           onEditRequest={onEditRequest}
           onCompleteRequest={onCompleteRequest}
           onViewDetails={onViewDetails}
@@ -122,9 +156,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           onRequestDeleted={onRequestDeleted}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
-          activeFilter={activeFilter}
-          setActiveFilter={setActiveFilter}
-          handleStatCardClick={handleStatCardClick}
+          activeTab={forceFilter || "all"}
         />
       </div>
     </AppLayout>
