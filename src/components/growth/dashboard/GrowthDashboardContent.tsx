@@ -5,6 +5,7 @@ import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHe
 import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 
 interface GrowthDashboardContentProps {
   allRequests: Request[];
@@ -48,6 +49,13 @@ export const GrowthDashboardContent = ({
     totalRequests: allRequests.length,
     handleStatCardClick: typeof handleStatCardClick
   });
+
+  // Ajout des logs de diagnostic comme demandé
+  useEffect(() => {
+    console.log(`[RENDER] Current filter: ${activeTab}`);
+    console.log(`[RENDER] Filtered requests count: ${filteredRequests.length}`);
+    console.log(`[RENDER] First 2 requests:`, filteredRequests.slice(0, 2));
+  }, [activeTab, filteredRequests]);
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   const isSDR = user?.role === 'sdr';

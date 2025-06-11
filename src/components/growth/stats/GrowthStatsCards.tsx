@@ -65,20 +65,20 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
             value={toAssignRequests}
             icon={<ClipboardList className="h-6 w-6 text-orange-600" />}
             onClick={() => {
-              console.log("🔍 CLIC - En attente d'assignation");
-              onStatClick("to_assign");
+              console.log("[CLICK] En attente d'assignation clicked -> to_assign filter");
+              onStatClick("to_assign"); // DOIT ÊTRE EXACTEMENT 'to_assign'
             }}
-            isActive={activeFilter === "to_assign"}
+            isActive={activeFilter === "to_assign"} // DOIT CORRESPONDRE
           />
           <StatCard
             title="Mes demandes à traiter"
             value={myAssignmentsRequests}
             icon={<UserCheck className="h-6 w-6 text-blue-600" />}
             onClick={() => {
-              console.log("🔍 CLIC - Mes demandes à traiter");
-              onStatClick("my_assignments");
+              console.log("[CLICK] Mes demandes à traiter clicked -> my_assignments filter");
+              onStatClick("my_assignments"); // DOIT ÊTRE EXACTEMENT 'my_assignments'
             }}
-            isActive={activeFilter === "my_assignments"}
+            isActive={activeFilter === "my_assignments"} // DOIT CORRESPONDRE
           />
         </>
       ) : (

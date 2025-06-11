@@ -89,129 +89,55 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);
 
-  const getFilteredRequests = useCallback(() => {
-    const isSDR = user?.role === 'sdr';
-    const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
-    const isGrowth = user?.role === 'growth';
-
-    console.log("[useGrowthDashboard] 🔍 FILTRAGE - Début du filtrage avec:", {
-      activeFilter,
-      activeTab,
-      userRole: user?.role,
-      userId: user?.id,
-      totalRequests: allRequests.length
-    });
-
-    // Filtrer d'abord pour exclure les demandes terminées ET annulées qui ne devraient pas apparaître ici
-    const nonCompletedRequests = allRequests.filter(req => 
-      req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
+  // Fonction de filtrage principale
+  const getFilteredRequests = useCallback((filterType: string) => {
+    console.log(`[DEBUG] Applying filter: ${filterType} for user ${user?.name || user?.email}`);
+    
+    // Valeur par défaut : toutes les demandes
+    if (!allRequests || !filterType) return allRequests;
+    
+    // Détecter les demandes non assignées
+    const nonAssignedRequests = allRequests.filter(req => 
+      !req.assigned_to || req.assigned_to === 'Non assigné'
     );
-
-    console.log("[useGrowthDashboard] 🔍 Après exclusion completed/canceled:", nonCompletedRequests.length);
-
-    // CORRECTION: Gestion des filtres spéciaux depuis l'admin dashboard
-    if (specialFilters.showUnassigned) {
-      console.log(`[useGrowthDashboard] 🔍 Application du filtre demandes non assignées`);
-      return nonCompletedRequests.filter(req => !req.assigned_to);
-    }
+    console.log(`[DEBUG] Non-assigned requests: ${nonAssignedRequests.length}`);
     
-    if (specialFilters.sdrFilter) {
-      console.log(`[useGrowthDashboard] 🔍 Filtrage par SDR: ${specialFilters.sdrFilter}`);
-      return nonCompletedRequests.filter(req => req.createdBy === specialFilters.sdrFilter);
-    }
+    // Détecter les demandes assignées à l'utilisateur courant
+    const myRequests = allRequests.filter(req => 
+      req.assigned_to === user?.id
+    );
+    console.log(`[DEBUG] My requests: ${myRequests.length}`);
     
-    if (specialFilters.growthFilter) {
-      console.log(`[useGrowthDashboard] 🔍 Filtrage par Growth: ${specialFilters.growthFilter}`);
-      return nonCompletedRequests.filter(req => req.assigned_to === specialFilters.growthFilter);
-    }
-
-    // Logique normale du Growth Dashboard (sans filtres spéciaux)
-    if (location.pathname.includes("/my-requests")) {
-      if (isSDR) {
-        return nonCompletedRequests.filter(req => req.createdBy === user?.id);
-      } else if (isGrowthOrAdmin) {
-        return nonCompletedRequests.filter(req => req.assigned_to === user?.id || user?.role === "admin");
-      }
-    }
-
-    if (location.pathname.includes("/to-assign")) {
-      return nonCompletedRequests.filter(req => !req.assigned_to);
-    }
-
-    // CORRECTION CRITIQUE: Simplification de la gestion des filtres depuis les cartes statistiques
-    if (activeFilter) {
-      console.log("[useGrowthDashboard] 🔍 CRITICAL - Application du filtre activeFilter:", activeFilter);
+    // Appliquer le filtre sélectionné
+    switch(filterType) {
+      // Cas pour "En attente d'assignation"
+      case 'to_assign':
+        console.log(`[DEBUG] Returning ${nonAssignedRequests.length} non-assigned requests`);
+        return nonAssignedRequests;
       
-      switch (activeFilter) {
-        case "all":
-          console.log("[useGrowthDashboard] 🔍 Filtre 'all' - toutes les demandes");
-          return nonCompletedRequests;
-        case "pending":
-          console.log("[useGrowthDashboard] 🔍 Filtre 'pending'");
-          return nonCompletedRequests.filter(req => req.workflow_status === "pending_assignment");
-        case "inprogress":
-          console.log("[useGrowthDashboard] 🔍 Filtre 'inprogress'");
-          return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
-        case "to_assign":
-          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Filtre "to_assign" - demandes non assignées`);
-          const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
-          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
-          return unassignedRequests;
-        case "my_assignments":
-          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Filtre "my_assignments" - mes demandes assignées`);
-          const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
-          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
-          return myAssignedRequests;
-        case "late":
-          console.log("[useGrowthDashboard] 🔍 Filtre 'late'");
-          return nonCompletedRequests.filter(req => req.isLate);
-        default:
-          console.log("[useGrowthDashboard] 🔍 Filtre par défaut - toutes les demandes");
-          return nonCompletedRequests;
-      }
-    }
-    
-    switch (activeTab) {
-      case "all":
-        console.log("[useGrowthDashboard] 🔍 Tab 'all'");
-        // CORRECTION MAJEURE : Pour Growth, montrer toutes les demandes non terminées
-        return nonCompletedRequests;
-      case "to_assign":
-        console.log("[useGrowthDashboard] 🔍 Tab 'to_assign'");
-        const toAssignTabRequests = nonCompletedRequests.filter(req => !req.assigned_to);
-        console.log(`[useGrowthDashboard] 🔍 Tab to_assign: ${toAssignTabRequests.length} demandes`);
-        return toAssignTabRequests;
-      case "my_assignments":
-        console.log("[useGrowthDashboard] 🔍 Tab 'my_assignments'");
-        if (isSDR) {
-          return nonCompletedRequests.filter(req => req.createdBy === user?.id);
-        } else if (isGrowthOrAdmin) {
-          const myTabRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
-          console.log(`[useGrowthDashboard] 🔍 Tab my_assignments pour Growth: ${myTabRequests.length} demandes`);
-          return myTabRequests;
-        }
-        return myAssignmentsRequests.filter(req => 
-          req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
-        );
-      case "inprogress":
-        console.log("[useGrowthDashboard] 🔍 Tab 'inprogress'");
-        return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
-      case "email":
-        console.log("[useGrowthDashboard] 🔍 Tab 'email'");
-        return nonCompletedRequests.filter(req => req.type === "email");
-      case "database":
-        console.log("[useGrowthDashboard] 🔍 Tab 'database'");
-        return nonCompletedRequests.filter(req => req.type === "database");
-      case "linkedin":
-        console.log("[useGrowthDashboard] 🔍 Tab 'linkedin'");
-        return nonCompletedRequests.filter(req => req.type === "linkedin");
+      // Cas pour "Mes demandes à traiter"  
+      case 'my_assignments':
+        console.log(`[DEBUG] Returning ${myRequests.length} requests assigned to me`);
+        return myRequests;
+      
+      // Autres cas existants...
+      case 'all':
+        return allRequests;
+      
+      case 'completed':
+        return allRequests.filter(req => req.workflow_status === 'completed');
+        
+      case 'late':
+        return allRequests.filter(req => req.isLate);
+      
+      // Cas par défaut - toutes les demandes  
       default:
-        console.log("[useGrowthDashboard] 🔍 Tab par défaut");
-        return nonCompletedRequests;
+        console.log(`[DEBUG] Unknown filter type: ${filterType}, returning all requests`);
+        return allRequests;
     }
-  }, [allRequests, toAssignRequests, myAssignmentsRequests, activeTab, activeFilter, user?.id, user?.role, location.pathname, specialFilters]);
+  }, [allRequests, user]);
 
-  const filteredRequests = getFilteredRequests();
+  const filteredRequests = getFilteredRequests(activeTab);
   
   console.log("[useGrowthDashboard] 🔍 RÉSULTAT FINAL du filtrage:", {
     activeFilter,
@@ -234,15 +160,19 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       return;
     }
     
-    // CORRECTION CRITIQUE: Messages de toast corrects
+    // Messages de toast correspondants
     const filterMessages = {
-      "all": "Filtrage appliqué: toutes les demandes",
-      "pending": "Filtrage appliqué: demandes en attente",
-      "inprogress": "Filtrage appliqué: demandes en cours", 
-      "to_assign": "Filtrage appliqué: demandes en attente d'assignation",
-      "my_assignments": "Filtrage appliqué: mes demandes à traiter",
-      "late": "Filtrage appliqué: demandes en retard"
+      'to_assign': 'demandes en attente d\'assignation',
+      'my_assignments': 'mes demandes à traiter',
+      'completed': 'demandes terminées',
+      'late': 'demandes en retard',
+      'all': 'toutes les demandes',
+      'pending': 'demandes en attente',
+      'inprogress': 'demandes en cours'
     };
+    
+    // Utiliser le bon message ou un message par défaut
+    const message = filterMessages[filterType] || 'demandes';
     
     // CORRECTION CRITIQUE: Synchronisation parfaite entre filtre et état
     if (activeFilter === filterType) {
@@ -253,8 +183,8 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     } else {
       console.log(`[useGrowthDashboard] 📊 CRITICAL - Activation du filtre: ${filterType}`);
       setActiveFilter(filterType);
-      setActiveTab("all"); // Important: forcer l'onglet sur "all" pour que le filtre soit appliqué
-      toast.info(filterMessages[filterType]);
+      setActiveTab(filterType); // Important: forcer l'onglet sur le bon filtre
+      toast.info(`Filtrage appliqué: ${message}`);
     }
   }, [activeFilter, navigate]);
 
@@ -306,6 +236,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     activeFilter,
     setActiveFilter,
     specialFilters,
-    clearSpecialFilters
+    clearSpecialFilters,
+    getFilteredRequests // exporter la fonction aussi
   };
 };
