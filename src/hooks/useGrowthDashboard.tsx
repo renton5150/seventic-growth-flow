@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -151,30 +150,17 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           console.log("[useGrowthDashboard] 🔍 Filtre 'inprogress'");
           return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
         case "to_assign":
-          // CORRECTION MAJEURE: Synchroniser avec DashboardStats
+          // SYNCHRONISATION PARFAITE avec GrowthStatsCards
           console.log(`[useGrowthDashboard] 🔍 Filtre "to_assign" - demandes non assignées`);
-          if (isGrowth) {
-            const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
-            console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign pour Growth: ${unassignedRequests.length} demandes`);
-            return unassignedRequests;
-          } else {
-            // Pour les autres rôles, utiliser la logique standard
-            return nonCompletedRequests.filter(req => req.workflow_status === "pending_assignment");
-          }
+          const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
+          console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
+          return unassignedRequests;
         case "my_assignments":
-          // CORRECTION MAJEURE: Synchroniser avec DashboardStats
+          // SYNCHRONISATION PARFAITE avec GrowthStatsCards
           console.log(`[useGrowthDashboard] 🔍 Filtre "my_assignments" - mes demandes assignées`);
-          if (isGrowth) {
-            const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
-            console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments pour Growth: ${myAssignedRequests.length} demandes`);
-            return myAssignedRequests;
-          } else if (isSDR) {
-            return nonCompletedRequests.filter(req => req.createdBy === user?.id);
-          } else {
-            return myAssignmentsRequests.filter(req => 
-              req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
-            );
-          }
+          const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
+          console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
+          return myAssignedRequests;
         case "late":
           console.log("[useGrowthDashboard] 🔍 Filtre 'late'");
           return nonCompletedRequests.filter(req => req.isLate);
