@@ -32,6 +32,18 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     clearForceFilter
   } = useForceFiltering(allGrowthRequests);
 
+  // Gestionnaire de clic pour les statistiques avec trace complète
+  const handleStatClick = (filterType: string) => {
+    console.log(`🔥🔥🔥 [GrowthDashboard] STAT CLICK REÇU: "${filterType}"`);
+    console.log(`🔥🔥🔥 [GrowthDashboard] TYPE: ${typeof filterType}, JSON: ${JSON.stringify(filterType)}`);
+    console.log(`🔥🔥🔥 [GrowthDashboard] About to call applyForceFilter with: "${filterType}"`);
+    
+    const result = applyForceFilter(filterType);
+    
+    console.log(`🔥🔥🔥 [GrowthDashboard] applyForceFilter returned: ${result}`);
+    console.log(`🔥🔥🔥 [GrowthDashboard] STAT CLICK TERMINÉ pour: "${filterType}"`);
+  };
+
   // Utiliser EXCLUSIVEMENT les demandes filtrées par le système useForceFiltering
   const finalFilteredRequests = getForceFilteredRequests();
 
@@ -147,7 +159,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         
         <GrowthStatsCardsFixed 
           allRequests={allGrowthRequests} 
-          onStatClick={applyForceFilter}
+          onStatClick={handleStatClick}
           activeFilter={forceFilter}
         />
         
