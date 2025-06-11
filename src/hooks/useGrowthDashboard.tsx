@@ -137,9 +137,9 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       return nonCompletedRequests.filter(req => !req.assigned_to);
     }
 
-    // CORRECTION MAJEURE: Gestion spécifique des filtres depuis les cartes statistiques
+    // CORRECTION CRITIQUE: Gestion spécifique des filtres depuis les cartes statistiques
     if (activeFilter) {
-      console.log("[useGrowthDashboard] 🔍 Application du filtre activeFilter:", activeFilter);
+      console.log("[useGrowthDashboard] 🔍 CRITICAL - Application du filtre activeFilter:", activeFilter);
       
       switch (activeFilter) {
         case "all":
@@ -152,16 +152,26 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           console.log("[useGrowthDashboard] 🔍 Filtre 'inprogress'");
           return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
         case "to_assign":
-          console.log(`[useGrowthDashboard] 🔍 Filtre "to_assign" - demandes non assignées`);
+          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Filtre "to_assign" - demandes non assignées`);
           const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
-          console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
-          console.log(`[useGrowthDashboard] 🔍 Détail des demandes non assignées:`, unassignedRequests.map(r => ({ id: r.id, title: r.title, assigned_to: r.assigned_to })));
+          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
+          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Détail des demandes non assignées:`, unassignedRequests.map(r => ({ 
+            id: r.id, 
+            title: r.title, 
+            assigned_to: r.assigned_to,
+            workflow_status: r.workflow_status 
+          })));
           return unassignedRequests;
         case "my_assignments":
-          console.log(`[useGrowthDashboard] 🔍 Filtre "my_assignments" - mes demandes assignées`);
+          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Filtre "my_assignments" - mes demandes assignées`);
           const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
-          console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
-          console.log(`[useGrowthDashboard] 🔍 Détail de mes demandes assignées:`, myAssignedRequests.map(r => ({ id: r.id, title: r.title, assigned_to: r.assigned_to })));
+          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
+          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Détail de mes demandes assignées:`, myAssignedRequests.map(r => ({ 
+            id: r.id, 
+            title: r.title, 
+            assigned_to: r.assigned_to,
+            workflow_status: r.workflow_status 
+          })));
           return myAssignedRequests;
         case "late":
           console.log("[useGrowthDashboard] 🔍 Filtre 'late'");
@@ -237,7 +247,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   });
 
   const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => {
-    console.log(`[useGrowthDashboard] 📊 Stat card clicked: ${filterType}`);
+    console.log(`[useGrowthDashboard] 📊 CRITICAL - Stat card clicked: ${filterType}`);
     
     // Si on clique sur "completed", rediriger vers les archives
     if (filterType === "completed") {
@@ -245,10 +255,13 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       return;
     }
     
+    // CORRECTION CRITIQUE: Forcer la mise à jour du state et assurer la cohérence
     if (activeFilter === filterType) {
+      console.log(`[useGrowthDashboard] 📊 CRITICAL - Désactivation du filtre: ${filterType}`);
       setActiveFilter(null);
       setActiveTab("all");
     } else {
+      console.log(`[useGrowthDashboard] 📊 CRITICAL - Activation du filtre: ${filterType}`);
       setActiveFilter(filterType);
       setActiveTab("all"); // Assurer que l'onglet est sur "all" pour les filtres des stats
     }
