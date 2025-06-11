@@ -32,49 +32,34 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     clearForceFilter
   } = useForceFiltering(allGrowthRequests);
 
-  // Utiliser les demandes filtrées par le système de force filtering
-  const filteredRequests = getForceFilteredRequests();
+  // Utiliser EXCLUSIVEMENT les demandes filtrées par le système useForceFiltering
+  const finalFilteredRequests = getForceFilteredRequests();
 
-  // Log de diagnostic avec plus de détails
+  // Log de diagnostic détaillé
   useEffect(() => {
-    console.log(`[GrowthDashboard] 🔍 RENDER - Force filter: ${forceFilter}`);
-    console.log(`[GrowthDashboard] 📊 Total requests: ${allGrowthRequests.length}`);
-    console.log(`[GrowthDashboard] 📊 Filtered requests: ${filteredRequests.length}`);
+    console.log(`[GrowthDashboard] 🔍 RENDER STATE:`);
+    console.log(`  - Force filter: ${forceFilter}`);
+    console.log(`  - Total requests: ${allGrowthRequests.length}`);
+    console.log(`  - Final filtered requests: ${finalFilteredRequests.length}`);
     
-    // Log détaillé des demandes filtrées
-    if (forceFilter === 'to_assign') {
-      const nonAssigned = allGrowthRequests.filter(req => 
-        !req.assigned_to || req.assigned_to === 'Non assigné' || req.assigned_to === ''
-      );
-      console.log(`[GrowthDashboard] 🎯 Demandes non assignées:`, nonAssigned.length);
-      console.log(`[GrowthDashboard] 🎯 Détail des premières:`, nonAssigned.slice(0, 3).map(r => ({
+    if (forceFilter) {
+      console.log(`[GrowthDashboard] 🎯 ACTIVE FILTER DETAILS:`);
+      console.log(`  - Filter type: ${forceFilter}`);
+      console.log(`  - Sample filtered:`, finalFilteredRequests.slice(0, 2).map(r => ({
         id: r.id,
         title: r.title,
-        assigned_to: r.assigned_to
+        assigned_to: r.assigned_to,
+        workflow_status: r.workflow_status
       })));
     }
-    
-    if (forceFilter === 'my_assignments') {
-      const myRequests = allGrowthRequests.filter(req => 
-        req.assigned_to === 'Corentin Boussard' || req.assigned_to === 'growth'
-      );
-      console.log(`[GrowthDashboard] 🎯 Mes demandes:`, myRequests.length);
-      console.log(`[GrowthDashboard] 🎯 Détail des premières:`, myRequests.slice(0, 3).map(r => ({
-        id: r.id,
-        title: r.title,
-        assigned_to: r.assigned_to
-      })));
-    }
-  }, [forceFilter, allGrowthRequests, filteredRequests]);
+  }, [forceFilter, allGrowthRequests, finalFilteredRequests]);
 
-  // CORRECTION CRITIQUE: Connecter directement applyForceFilter
+  // Gestionnaire de clic pour les cartes de statistiques
   const handleStatClick = (filterType: string) => {
-    console.log(`[GrowthDashboard] 🎯 CRITICAL: handleStatClick called with: ${filterType}`);
+    console.log(`[GrowthDashboard] 🎯 STAT CLICK: ${filterType}`);
     
-    // Appeler directement applyForceFilter du hook useForceFiltering
-    const result = applyForceFilter(filterType);
-    
-    console.log(`[GrowthDashboard] 🎯 RESULT: applyForceFilter returned:`, result);
+    // Appliquer directement le filtre via useForceFiltering
+    applyForceFilter(filterType);
   };
 
   // Afficher un en-tête de filtrage si des filtres spéciaux sont appliqués
@@ -177,11 +162,11 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         <GrowthActionsHeader
           activeTab={forceFilter || "all"}
           setActiveTab={() => {}} // Désactivé car on utilise le force filtering
-          totalRequests={filteredRequests.length}
+          totalRequests={finalFilteredRequests.length}
         />
         
         <GrowthRequestsTable
-          requests={filteredRequests}
+          requests={finalFilteredRequests}
           onEditRequest={onEditRequest}
           onCompleteRequest={onCompleteRequest}
           onViewDetails={onViewDetails}

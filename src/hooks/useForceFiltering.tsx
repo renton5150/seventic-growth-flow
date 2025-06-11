@@ -41,35 +41,49 @@ export const useForceFiltering = (allRequests: Request[]) => {
   }, [forceFilter]);
 
   const getForceFilteredRequests = useCallback(() => {
+    console.log(`🔍 FORCE FILTERING START:`);
+    console.log(`  - Current filter: ${forceFilter}`);
+    console.log(`  - Total requests: ${allRequests?.length || 0}`);
+    console.log(`  - User info:`, { id: user?.id, email: user?.email, name: user?.name });
+
     if (!forceFilter || !allRequests) {
-      console.log(`🔍 FORCE FILTERING: Aucun filtre ou pas de demandes`);
-      return allRequests;
+      console.log(`🔍 NO FILTER: Returning all requests (${allRequests?.length || 0})`);
+      return allRequests || [];
     }
 
-    console.log(`🔍 FORCE FILTERING: ${forceFilter} on ${allRequests.length} requests`);
+    console.log(`🔍 APPLYING FILTER: ${forceFilter}`);
 
     switch (forceFilter) {
       case 'to_assign':
-        const nonAssigned = allRequests.filter(req => 
-          !req.assigned_to || req.assigned_to === 'Non assigné' || req.assigned_to === '' || req.assigned_to === null
-        );
+        const nonAssigned = allRequests.filter(req => {
+          const isNotAssigned = !req.assigned_to || req.assigned_to === 'Non assigné' || req.assigned_to === '' || req.assigned_to === null;
+          console.log(`  - Request ${req.id}: assigned_to="${req.assigned_to}" -> isNotAssigned=${isNotAssigned}`);
+          return isNotAssigned;
+        });
         console.log(`🎯 FILTRE TO_ASSIGN: ${nonAssigned.length} demandes non assignées trouvées`);
-        console.log(`🎯 Exemples:`, nonAssigned.slice(0, 3).map(r => ({ id: r.id, title: r.title, assigned_to: r.assigned_to })));
+        console.log(`🎯 Sample results:`, nonAssigned.slice(0, 3).map(r => ({ 
+          id: r.id, 
+          title: r.title, 
+          assigned_to: r.assigned_to 
+        })));
         return nonAssigned;
 
       case 'my_assignments':
-        // Chercher les demandes assignées à l'utilisateur courant
         const myRequests = allRequests.filter(req => {
           const isAssignedToMe = req.assigned_to === user?.id || 
                                 req.assigned_to === user?.email || 
                                 req.assigned_to === user?.name ||
                                 req.assigned_to === 'Corentin Boussard' ||
                                 req.assigned_to === 'growth';
+          console.log(`  - Request ${req.id}: assigned_to="${req.assigned_to}" -> isAssignedToMe=${isAssignedToMe}`);
           return isAssignedToMe;
         });
         console.log(`🎯 FILTRE MY_ASSIGNMENTS: ${myRequests.length} demandes assignées à moi trouvées`);
-        console.log(`🎯 User info:`, { id: user?.id, email: user?.email, name: user?.name });
-        console.log(`🎯 Exemples:`, myRequests.slice(0, 3).map(r => ({ id: r.id, title: r.title, assigned_to: r.assigned_to })));
+        console.log(`🎯 Sample results:`, myRequests.slice(0, 3).map(r => ({ 
+          id: r.id, 
+          title: r.title, 
+          assigned_to: r.assigned_to 
+        })));
         return myRequests;
 
       case 'completed':
