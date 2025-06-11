@@ -138,7 +138,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       return nonCompletedRequests.filter(req => !req.assigned_to);
     }
 
-    // CORRECTION CRITIQUE: Gestion spécifique des filtres depuis les cartes statistiques
+    // CORRECTION CRITIQUE: Simplification de la gestion des filtres depuis les cartes statistiques
     if (activeFilter) {
       console.log("[useGrowthDashboard] 🔍 CRITICAL - Application du filtre activeFilter:", activeFilter);
       
@@ -174,19 +174,10 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     switch (activeTab) {
       case "all":
         console.log("[useGrowthDashboard] 🔍 Tab 'all'");
-        // CORRECTION MAJEURE : Pour Growth, séparer les demandes non assignées et les demandes assignées
-        if (user?.role === 'growth') {
-          // Retourner SEULEMENT les demandes non assignées ET les demandes assignées à cet utilisateur
-          const growthRequests = nonCompletedRequests.filter(req => 
-            !req.assigned_to || req.assigned_to === user?.id
-          );
-          console.log(`[useGrowthDashboard] 🔍 Tab all pour Growth: ${growthRequests.length} demandes`);
-          return growthRequests;
-        }
+        // CORRECTION MAJEURE : Pour Growth, montrer toutes les demandes non terminées
         return nonCompletedRequests;
       case "to_assign":
         console.log("[useGrowthDashboard] 🔍 Tab 'to_assign'");
-        // CORRECTION : Filtrer pour ne montrer que les demandes vraiment non assignées
         const toAssignTabRequests = nonCompletedRequests.filter(req => !req.assigned_to);
         console.log(`[useGrowthDashboard] 🔍 Tab to_assign: ${toAssignTabRequests.length} demandes`);
         return toAssignTabRequests;
@@ -195,7 +186,6 @@ export const useGrowthDashboard = (defaultTab?: string) => {
         if (isSDR) {
           return nonCompletedRequests.filter(req => req.createdBy === user?.id);
         } else if (isGrowthOrAdmin) {
-          // CORRECTION : Pour Growth, montrer SEULEMENT ses demandes assignées
           const myTabRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
           console.log(`[useGrowthDashboard] 🔍 Tab my_assignments pour Growth: ${myTabRequests.length} demandes`);
           return myTabRequests;
@@ -244,7 +234,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       return;
     }
     
-    // CORRECTION CRITIQUE: Gestion des messages de toast
+    // CORRECTION CRITIQUE: Messages de toast corrects
     const filterMessages = {
       "all": "Filtrage appliqué: toutes les demandes",
       "pending": "Filtrage appliqué: demandes en attente",
@@ -254,7 +244,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       "late": "Filtrage appliqué: demandes en retard"
     };
     
-    // CORRECTION CRITIQUE: Forcer la mise à jour du state et assurer la cohérence
+    // CORRECTION CRITIQUE: Synchronisation parfaite entre filtre et état
     if (activeFilter === filterType) {
       console.log(`[useGrowthDashboard] 📊 CRITICAL - Désactivation du filtre: ${filterType}`);
       setActiveFilter(null);
@@ -263,7 +253,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     } else {
       console.log(`[useGrowthDashboard] 📊 CRITICAL - Activation du filtre: ${filterType}`);
       setActiveFilter(filterType);
-      setActiveTab("all"); // Assurer que l'onglet est sur "all" pour les filtres des stats
+      setActiveTab("all"); // Important: forcer l'onglet sur "all" pour que le filtre soit appliqué
       toast.info(filterMessages[filterType]);
     }
   }, [activeFilter, navigate]);
