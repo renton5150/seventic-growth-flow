@@ -1,13 +1,12 @@
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthStatsCardsFixed } from "@/components/growth/stats/GrowthStatsCardsFixed";
 import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
 import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
-import { ConsistencyChecker } from "@/components/debug/ConsistencyChecker";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
-import { useState, useCallback } from "react";
-import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { GrowthFilterService } from "@/services/filtering/growthFilterService";
 
 interface GrowthDashboardProps {
   defaultTab?: string;
@@ -15,10 +14,12 @@ interface GrowthDashboardProps {
 
 const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   const { user } = useAuth();
-  const [currentFilter, setCurrentFilter] = useState<string>("all");
-
+  
   const {
     allRequests,
+    filteredRequests,
+    currentFilter,
+    handleStatClick,
     handleOpenEditDialog: onEditRequest,
     handleOpenCompletionDialog: onCompleteRequest,
     handleViewDetails: onViewDetails,
@@ -27,7 +28,8 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     assignRequestToMe,
     updateRequestWorkflowStatus,
     specialFilters,
-    clearSpecialFilters
+    clearSpecialFilters,
+    debugInfo,
   } = useGrowthDashboard(defaultTab);
 
   // Messages français pour chaque filtre
@@ -41,91 +43,23 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     'inprogress': 'Affichage des demandes en cours'
   };
 
-  // CORRECTION CRITIQUE : Appliquer d'abord le même filtrage de base que dans GrowthStatsCardsFixed
-  const getActiveRequests = useCallback((requests: Request[]): Request[] => {
-    return requests.filter(req => 
-      req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
-    );
-  }, []);
+  // Service pour calculer les stats (même logique que le filtrage)
+  const filterService = new GrowthFilterService(user?.id);
+  const statsCounts = filterService.calculateCounts(allRequests);
 
-  // Fonction de filtrage UNIFIÉE - CORRIGÉE pour être cohérente avec les stats
-  const getFilteredRequests = useCallback((filterType: string, requests: Request[]): Request[] => {
-    console.log(`[GrowthDashboard] 🔍 FILTRAGE "${filterType}" sur ${requests.length} demandes`);
-    
-    let filtered: Request[] = [];
-    
-    // CORRECTION : Pour tous les filtres sauf "completed", utiliser les demandes actives comme base
-    const baseRequests = filterType === 'completed' ? requests : getActiveRequests(requests);
-    
-    switch (filterType) {
-      case 'all':
-        filtered = baseRequests;
-        break;
-        
-      case 'to_assign':
-        // EXACTEMENT la même logique que dans GrowthStatsCardsFixed
-        filtered = baseRequests.filter(req => 
-          !req.assigned_to || 
-          req.assigned_to === '' || 
-          req.assigned_to === null || 
-          req.assigned_to === 'Non assigné'
-        );
-        break;
-        
-      case 'my_assignments':
-        filtered = baseRequests.filter(req => 
-          req.assigned_to === user?.id || 
-          req.assigned_to === user?.email || 
-          req.assigned_to === user?.name
-        );
-        break;
-        
-      case 'completed':
-        // CORRECTION : Pour completed, utiliser toutes les demandes mais filtrer par workflow_status
-        filtered = requests.filter(req => req.workflow_status === 'completed');
-        break;
-        
-      case 'late':
-        filtered = baseRequests.filter(req => req.isLate);
-        break;
-        
-      case 'pending':
-        filtered = baseRequests.filter(req => 
-          req.status === "pending" || req.workflow_status === "pending_assignment"
-        );
-        break;
-        
-      case 'inprogress':
-        filtered = baseRequests.filter(req => req.workflow_status === "in_progress");
-        break;
-        
-      default:
-        filtered = baseRequests;
-    }
-    
-    console.log(`[GrowthDashboard] ✅ RÉSULTAT filtrage "${filterType}": ${filtered.length} demandes`);
-    
-    return filtered;
-  }, [user, getActiveRequests]);
-
-  // Gestionnaire de clic sur les statistiques
-  const handleStatClick = useCallback((filterType: string) => {
-    console.log(`[GrowthDashboard] 🎯 CLIC sur filtre: "${filterType}"`);
-    
-    setCurrentFilter(filterType);
+  // Gestionnaire de clic sur les statistiques avec toast
+  const handleStatClickWithToast = (filterType: string) => {
+    handleStatClick(filterType);
     
     const message = FILTER_MESSAGES[filterType] || `Filtre appliqué: ${filterType}`;
     toast.info(message);
-  }, []);
-
-  // Calculer les demandes filtrées
-  const filteredRequests = getFilteredRequests(currentFilter, allRequests);
+  };
 
   // Fonction pour effacer le filtre
-  const clearFilter = useCallback(() => {
-    setCurrentFilter("all");
+  const clearFilter = () => {
+    handleStatClick("all");
     toast.info("Tous les filtres ont été effacés");
-  }, []);
+  };
 
   // Afficher un en-tête de filtrage si des filtres spéciaux sont appliqués
   function renderFilterHeader() {
@@ -199,7 +133,28 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     }
     
     return null;
-  };
+  }
+
+  // Panneau de debug (uniquement en développement)
+  function renderDebugPanel() {
+    if (process.env.NODE_ENV !== 'development') return null;
+    
+    return (
+      <div className="bg-gray-50 border rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-gray-900 mb-2">🔧 Debug Info</h3>
+        <div className="text-sm space-y-1">
+          <div>Total brut: {debugInfo.totalRawRequests}</div>
+          <div>Actif: {debugInfo.activeRequests}</div>
+          <div>Filtre actuel: {debugInfo.currentFilter}</div>
+          <div>Attendu: {debugInfo.expectedCount}</div>
+          <div>Affiché: {debugInfo.actualDisplayedCount}</div>
+          <div className={debugInfo.isConsistent ? "text-green-600" : "text-red-600"}>
+            {debugInfo.isConsistent ? "✅ Cohérent" : "❌ Incohérent"}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AppLayout>
@@ -217,16 +172,11 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         </div>
         
         {renderFilterHeader()}
-        
-        {/* COMPOSANT DE DIAGNOSTIC - TOUJOURS VISIBLE */}
-        <ConsistencyChecker 
-          allRequests={allRequests}
-          getFilteredRequests={getFilteredRequests}
-        />
+        {renderDebugPanel()}
         
         <GrowthStatsCardsFixed 
           allRequests={allRequests} 
-          onStatClick={handleStatClick}
+          onStatClick={handleStatClickWithToast}
           activeFilter={currentFilter}
         />
         
