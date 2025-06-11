@@ -87,7 +87,7 @@ export const useForceFiltering = (allRequests: Request[]) => {
         return allRequests;
 
       default:
-        console.log(`🎯 FILTRE INCONNU: ${filterType}, retour de toutes les demandes`);
+        console.log(`🎯 FILTRE INCONNU: ${forceFilter}, retour de toutes les demandes`);
         return allRequests;
     }
   }, [forceFilter, allRequests, user]);
