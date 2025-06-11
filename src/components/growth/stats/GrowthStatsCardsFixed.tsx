@@ -14,7 +14,7 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
   const { user } = useAuth();
   const isGrowth = user?.role === 'growth';
   
-  console.log("[GrowthStatsCardsFixed] 📊 STATS - Calcul des statistiques pour:", {
+  console.log("[GrowthStatsCardsFixed] 📊 Calcul des statistiques pour:", {
     userRole: user?.role,
     isGrowth,
     totalRequests: allRequests.length,
@@ -25,8 +25,6 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
   const activeRequests = allRequests.filter(req => 
     req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
   );
-  
-  console.log("[GrowthStatsCardsFixed] 📊 STATS - Demandes actives:", activeRequests.length);
   
   // Calcul des statistiques
   const totalRequests = activeRequests.length;
@@ -41,7 +39,7 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
     req.assigned_to === user?.id || req.assigned_to === user?.email || req.assigned_to === user?.name
   ).length;
 
-  console.log("[GrowthStatsCardsFixed] 📊 STATS - Compteurs finaux:", {
+  console.log("[GrowthStatsCardsFixed] 📊 Compteurs finaux:", {
     total: totalRequests,
     toAssign: toAssignRequests,
     myAssignments: myAssignmentsRequests,
@@ -52,14 +50,8 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
   });
 
   const handleCardClick = (filterType: string) => {
-    console.log(`🚨 [GrowthStatsCardsFixed] CARD CLICK START - Filter demandé: "${filterType}"`);
-    console.log(`🚨 [GrowthStatsCardsFixed] TYPE: ${typeof filterType}, VALUE: ${JSON.stringify(filterType)}`);
-    console.log(`🚨 [GrowthStatsCardsFixed] Calling onStatClick with exact value: "${filterType}"`);
-    
-    // Appel direct sans modification
+    console.log(`🎯 [GrowthStatsCardsFixed] Clic sur filtre: "${filterType}"`);
     onStatClick(filterType);
-    
-    console.log(`🚨 [GrowthStatsCardsFixed] CARD CLICK END - onStatClick called with: "${filterType}"`);
   };
 
   return (
@@ -68,10 +60,7 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
         title="Total des demandes"
         value={totalRequests}
         icon={<Mail className="h-6 w-6 text-purple-600" />}
-        onClick={() => {
-          console.log("🚨 [GrowthStatsCardsFixed] TOTAL CARD CLICKED");
-          handleCardClick("all");
-        }}
+        onClick={() => handleCardClick("all")}
         isActive={activeFilter === "all"}
       />
       
@@ -81,22 +70,14 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
             title="En attente d'assignation"
             value={toAssignRequests}
             icon={<ClipboardList className="h-6 w-6 text-orange-600" />}
-            onClick={() => {
-              console.log("🚨🚨🚨 [GrowthStatsCardsFixed] EN ATTENTE D'ASSIGNATION CLICKED - EXACT MOMENT");
-              console.log("🚨🚨🚨 [GrowthStatsCardsFixed] About to call handleCardClick with 'to_assign'");
-              handleCardClick("to_assign");
-              console.log("🚨🚨🚨 [GrowthStatsCardsFixed] handleCardClick('to_assign') COMPLETED");
-            }}
+            onClick={() => handleCardClick("to_assign")}
             isActive={activeFilter === "to_assign"}
           />
           <StatCard
             title="Mes demandes à traiter"
             value={myAssignmentsRequests}
             icon={<UserCheck className="h-6 w-6 text-blue-600" />}
-            onClick={() => {
-              console.log("🚨 [GrowthStatsCardsFixed] MES DEMANDES CLICKED");
-              handleCardClick("my_assignments");
-            }}
+            onClick={() => handleCardClick("my_assignments")}
             isActive={activeFilter === "my_assignments"}
           />
         </>
@@ -123,22 +104,14 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
         title="Terminées"
         value={completedRequests}
         icon={<CheckCircle className="h-6 w-6 text-green-600" />}
-        onClick={() => {
-          console.log("🚨 [GrowthStatsCardsFixed] TERMINÉES CLICKED");
-          handleCardClick("completed");
-        }}
+        onClick={() => handleCardClick("completed")}
         isActive={activeFilter === "completed"}
       />
       <StatCard
         title="En retard"
         value={lateRequests}
         icon={<AlertCircle className="h-6 w-6 text-red-600" />}
-        onClick={() => {
-          console.log("🚨🚨🚨 [GrowthStatsCardsFixed] EN RETARD CLICKED - EXACT MOMENT");
-          console.log("🚨🚨🚨 [GrowthStatsCardsFixed] About to call handleCardClick with 'late'");
-          handleCardClick("late");
-          console.log("🚨🚨🚨 [GrowthStatsCardsFixed] handleCardClick('late') COMPLETED");
-        }}
+        onClick={() => handleCardClick("late")}
         isActive={activeFilter === "late"}
       />
     </div>
