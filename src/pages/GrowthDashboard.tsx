@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthStatsCardsFixed } from "@/components/growth/stats/GrowthStatsCardsFixed";
 import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
 import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
+import { ConsistencyChecker } from "@/components/debug/ConsistencyChecker";
 import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
 import { useState, useCallback } from "react";
 import { Request } from "@/types/types";
@@ -29,6 +30,17 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     specialFilters,
     clearSpecialFilters
   } = useGrowthDashboard(defaultTab);
+
+  // Messages français pour chaque filtre
+  const FILTER_MESSAGES: Record<string, string> = {
+    'all': 'Affichage de toutes les demandes',
+    'to_assign': 'Affichage des demandes en attente d\'assignation',
+    'my_assignments': 'Affichage de mes demandes à traiter',
+    'completed': 'Affichage des demandes terminées',
+    'late': 'Affichage des demandes en retard',
+    'pending': 'Affichage des demandes en attente',
+    'inprogress': 'Affichage des demandes en cours'
+  };
 
   // Fonction de filtrage UNIFIÉE
   const getFilteredRequests = useCallback((filterType: string, requests: Request[]): Request[] => {
@@ -82,14 +94,6 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     }
     
     console.log(`[GrowthDashboard] ✅ RÉSULTAT filtrage "${filterType}": ${filtered.length} demandes`);
-    console.log(`[GrowthDashboard] 📋 DÉTAIL demandes filtrées:`, 
-      filtered.slice(0, 3).map(r => ({
-        id: r.id,
-        title: r.title,
-        assigned_to: r.assigned_to,
-        workflow_status: r.workflow_status
-      }))
-    );
     
     return filtered;
   }, [user]);
@@ -100,18 +104,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     
     setCurrentFilter(filterType);
     
-    // Messages français pour chaque filtre
-    const messages: Record<string, string> = {
-      'all': 'Affichage de toutes les demandes',
-      'to_assign': 'Affichage des demandes en attente d\'assignation',
-      'my_assignments': 'Affichage de mes demandes à traiter',
-      'completed': 'Affichage des demandes terminées',
-      'late': 'Affichage des demandes en retard',
-      'pending': 'Affichage des demandes en attente',
-      'inprogress': 'Affichage des demandes en cours'
-    };
-    
-    const message = messages[filterType] || `Filtre appliqué: ${filterType}`;
+    const message = FILTER_MESSAGES[filterType] || `Filtre appliqué: ${filterType}`;
     toast.info(message);
   }, []);
 
@@ -214,6 +207,12 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         </div>
         
         {renderFilterHeader()}
+        
+        {/* COMPOSANT DE DIAGNOSTIC - TOUJOURS VISIBLE */}
+        <ConsistencyChecker 
+          allRequests={allRequests}
+          getFilteredRequests={getFilteredRequests}
+        />
         
         <GrowthStatsCardsFixed 
           allRequests={allRequests} 
