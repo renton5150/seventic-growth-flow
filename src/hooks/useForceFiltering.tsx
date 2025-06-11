@@ -11,13 +11,15 @@ export const useForceFiltering = (allRequests: Request[]) => {
   const applyForceFilter = useCallback((filterType: string) => {
     console.log(`🎯 FORCE FILTER: Applying ${filterType} (current: ${forceFilter})`);
     
-    // Messages de toast correspondants
-    const filterMessages = {
+    // Messages de toast correspondants - CORRECTION DES CLÉS
+    const filterMessages: { [key: string]: string } = {
       'to_assign': 'demandes en attente d\'assignation',
       'my_assignments': 'mes demandes à traiter', 
       'completed': 'demandes terminées',
       'late': 'demandes en retard',
-      'all': 'toutes les demandes'
+      'all': 'toutes les demandes',
+      'pending': 'demandes en attente',
+      'inprogress': 'demandes en cours'
     };
 
     // Si on clique sur le même filtre, le désactiver
@@ -32,10 +34,16 @@ export const useForceFiltering = (allRequests: Request[]) => {
     console.log(`🎯 ACTIVATION du filtre: ${filterType}`);
     setForceFilter(filterType);
     
-    // Obtenir le bon message
-    const message = filterMessages[filterType] || filterType;
-    console.log(`🎯 TOAST MESSAGE: ${message} pour le filtre ${filterType}`);
-    toast.info(`Filtrage appliqué: ${message}`);
+    // Obtenir le bon message avec une vérification stricte
+    const message = filterMessages[filterType];
+    if (!message) {
+      console.error(`🚨 ERREUR: Aucun message trouvé pour le filtre: ${filterType}`);
+      console.error(`🚨 Filtres disponibles:`, Object.keys(filterMessages));
+      toast.info(`Filtrage appliqué: ${filterType}`);
+    } else {
+      console.log(`🎯 TOAST MESSAGE CORRECT: "${message}" pour le filtre "${filterType}"`);
+      toast.info(`Filtrage appliqué: ${message}`);
+    }
     
     return filterType;
   }, [forceFilter]);
