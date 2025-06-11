@@ -15,7 +15,7 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
   const isGrowth = user?.role === 'growth';
   
   // LOGS DE DÉBOGAGE - Utilisateur connecté
-  console.log("Utilisateur connecté:", {
+  console.log("[GrowthStatsCards] Utilisateur connecté:", {
     id: user?.id,
     email: user?.email,
     role: user?.role,
@@ -23,10 +23,10 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
   });
   
   // LOGS DE DÉBOGAGE - Structure des demandes
-  console.log("Total des demandes reçues:", allRequests.length);
+  console.log("[GrowthStatsCards] Total des demandes reçues:", allRequests.length);
   allRequests.forEach((req, index) => {
     if (index < 5) { // Limiter le nombre pour éviter d'encombrer la console
-      console.log(`Demande #${index}:`, {
+      console.log(`[GrowthStatsCards] Demande #${index}:`, {
         id: req.id,
         title: req.title,
         assigned_to: req.assigned_to,
@@ -39,13 +39,13 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
     }
   });
   
-  // Pour Growth : demandes non assignées
+  // Pour Growth : demandes non assignées (utiliser assigned_to au lieu de assignedTo)
   const toAssignRequests = allRequests.filter(req => !req.assigned_to);
-  console.log("Demandes non assignées (to_assign):", toAssignRequests.length);
+  console.log("[GrowthStatsCards] Demandes non assignées (to_assign):", toAssignRequests.length);
   
   // Pour Growth : demandes assignées à lui
   const myAssignmentsRequests = allRequests.filter(req => req.assigned_to === user?.id);
-  console.log("Mes demandes assignées:", myAssignmentsRequests.length);
+  console.log("[GrowthStatsCards] Mes demandes assignées:", myAssignmentsRequests.length);
   
   // Pour les autres rôles : logique classique
   const pendingRequests = allRequests.filter(req => req.workflow_status === "pending_assignment");
@@ -54,6 +54,16 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
   const completedRequests = allRequests.filter(req => req.workflow_status === "completed");
   const lateRequests = allRequests.filter(req => req.isLate);
   const totalRequests = allRequests.length;
+
+  console.log("[GrowthStatsCards] COMPTEURS FINAUX:", {
+    total: totalRequests,
+    toAssign: toAssignRequests.length,
+    myAssignments: myAssignmentsRequests.length,
+    pending: pendingRequests.length,
+    inProgress: inProgressRequests.length,
+    completed: completedRequests.length,
+    late: lateRequests.length
+  });
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

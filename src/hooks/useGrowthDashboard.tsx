@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -153,6 +154,15 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           console.log(`[useGrowthDashboard] 🔍 Filtre "En attente d'assignation" - demandes non assignées`);
           const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
           console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
+          unassignedRequests.forEach((req, index) => {
+            if (index < 3) {
+              console.log(`[useGrowthDashboard] 🔍 Demande non assignée #${index}:`, {
+                id: req.id,
+                title: req.title,
+                assigned_to: req.assigned_to
+              });
+            }
+          });
           return unassignedRequests;
         case "my_assignments":
           // CORRECTION: Pour Growth, montrer SEULEMENT ses demandes assignées
@@ -160,6 +170,15 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           if (isGrowthOrAdmin) {
             const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
             console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
+            myAssignedRequests.forEach((req, index) => {
+              if (index < 3) {
+                console.log(`[useGrowthDashboard] 🔍 Ma demande assignée #${index}:`, {
+                  id: req.id,
+                  title: req.title,
+                  assigned_to: req.assigned_to
+                });
+              }
+            });
             return myAssignedRequests;
           } else if (isSDR) {
             return nonCompletedRequests.filter(req => req.createdBy === user?.id);
@@ -232,7 +251,12 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     activeFilter,
     activeTab,
     totalInput: allRequests.length,
-    finalOutput: filteredRequests.length
+    finalOutput: filteredRequests.length,
+    finalRequests: filteredRequests.slice(0, 3).map(req => ({
+      id: req.id,
+      title: req.title,
+      assigned_to: req.assigned_to
+    }))
   });
 
   const handleStatCardClick = useCallback((filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => {
