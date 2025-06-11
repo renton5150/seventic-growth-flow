@@ -6,6 +6,7 @@ import { useRequestAssignment } from "@/hooks/useRequestAssignment";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export const useGrowthDashboard = (defaultTab?: string) => {
   const [activeTab, setActiveTab] = useState<string>(defaultTab || "all");
@@ -155,23 +156,11 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           console.log(`[useGrowthDashboard] 🔍 CRITICAL - Filtre "to_assign" - demandes non assignées`);
           const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
           console.log(`[useGrowthDashboard] 🔍 CRITICAL - Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
-          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Détail des demandes non assignées:`, unassignedRequests.map(r => ({ 
-            id: r.id, 
-            title: r.title, 
-            assigned_to: r.assigned_to,
-            workflow_status: r.workflow_status 
-          })));
           return unassignedRequests;
         case "my_assignments":
           console.log(`[useGrowthDashboard] 🔍 CRITICAL - Filtre "my_assignments" - mes demandes assignées`);
           const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
           console.log(`[useGrowthDashboard] 🔍 CRITICAL - Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
-          console.log(`[useGrowthDashboard] 🔍 CRITICAL - Détail de mes demandes assignées:`, myAssignedRequests.map(r => ({ 
-            id: r.id, 
-            title: r.title, 
-            assigned_to: r.assigned_to,
-            workflow_status: r.workflow_status 
-          })));
           return myAssignedRequests;
         case "late":
           console.log("[useGrowthDashboard] 🔍 Filtre 'late'");
@@ -255,15 +244,27 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       return;
     }
     
+    // CORRECTION CRITIQUE: Gestion des messages de toast
+    const filterMessages = {
+      "all": "Filtrage appliqué: toutes les demandes",
+      "pending": "Filtrage appliqué: demandes en attente",
+      "inprogress": "Filtrage appliqué: demandes en cours", 
+      "to_assign": "Filtrage appliqué: demandes en attente d'assignation",
+      "my_assignments": "Filtrage appliqué: mes demandes à traiter",
+      "late": "Filtrage appliqué: demandes en retard"
+    };
+    
     // CORRECTION CRITIQUE: Forcer la mise à jour du state et assurer la cohérence
     if (activeFilter === filterType) {
       console.log(`[useGrowthDashboard] 📊 CRITICAL - Désactivation du filtre: ${filterType}`);
       setActiveFilter(null);
       setActiveTab("all");
+      toast.info("Filtre désactivé");
     } else {
       console.log(`[useGrowthDashboard] 📊 CRITICAL - Activation du filtre: ${filterType}`);
       setActiveFilter(filterType);
       setActiveTab("all"); // Assurer que l'onglet est sur "all" pour les filtres des stats
+      toast.info(filterMessages[filterType]);
     }
   }, [activeFilter, navigate]);
 
