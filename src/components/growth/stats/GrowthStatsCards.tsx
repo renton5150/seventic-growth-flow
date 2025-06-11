@@ -30,7 +30,6 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
         id: req.id,
         title: req.title,
         assigned_to: req.assigned_to,
-        assignedTo: req.assignedTo,
         workflow_status: req.workflow_status,
         createdBy: req.createdBy,
         status: req.status,
