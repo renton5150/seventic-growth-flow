@@ -136,11 +136,11 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
         case "to_assign":
           // CORRECTION: Filtrer pour ne montrer que les demandes vraiment non assignées
-          console.log(`[useGrowthDashboard] 🔍 Filtre "À assigner" - demandes non assignées`);
+          console.log(`[useGrowthDashboard] 🔍 Filtre "En attente d'assignation" - demandes non assignées`);
           return nonCompletedRequests.filter(req => !req.assigned_to);
         case "my_assignments":
           // CORRECTION: Pour Growth, montrer SEULEMENT ses demandes assignées
-          console.log(`[useGrowthDashboard] 🔍 Filtre "Mes demandes" - demandes assignées à ${user?.id}`);
+          console.log(`[useGrowthDashboard] 🔍 Filtre "Mes demandes à traiter" - demandes assignées à ${user?.id}`);
           if (isGrowthOrAdmin) {
             return nonCompletedRequests.filter(req => req.assigned_to === user?.id);
           } else if (isSDR) {

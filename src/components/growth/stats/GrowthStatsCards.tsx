@@ -41,14 +41,14 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
       {isGrowth ? (
         <>
           <StatCard
-            title="À assigner"
+            title="En attente d'assignation"
             value={toAssignRequests.length}
             icon={<ClipboardList className="h-6 w-6 text-orange-600" />}
             onClick={() => onStatClick("to_assign")}
             isActive={activeFilter === "to_assign"}
           />
           <StatCard
-            title="Mes demandes"
+            title="Mes demandes à traiter"
             value={myAssignmentsRequests.length}
             icon={<UserCheck className="h-6 w-6 text-blue-600" />}
             onClick={() => onStatClick("my_assignments")}
@@ -58,7 +58,7 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
       ) : (
         <>
           <StatCard
-            title="En attente"
+            title="En attente d'assignation"
             value={pendingRequests.length}
             icon={<Clock className="h-6 w-6 text-orange-600" />}
             onClick={() => onStatClick("pending")}
