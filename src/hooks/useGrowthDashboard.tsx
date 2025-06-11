@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Request } from "@/types/types";
 import { useRequestQueries } from "@/hooks/useRequestQueries";
@@ -133,9 +134,10 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     }
 
     if (location.pathname.includes("/to-assign")) {
-      return toAssignRequests;
+      return nonCompletedRequests.filter(req => !req.assigned_to);
     }
 
+    // CORRECTION MAJEURE: Gestion spécifique des filtres depuis les cartes statistiques
     if (activeFilter) {
       console.log("[useGrowthDashboard] 🔍 Application du filtre activeFilter:", activeFilter);
       
@@ -150,16 +152,16 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           console.log("[useGrowthDashboard] 🔍 Filtre 'inprogress'");
           return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
         case "to_assign":
-          // SYNCHRONISATION PARFAITE avec GrowthStatsCards
           console.log(`[useGrowthDashboard] 🔍 Filtre "to_assign" - demandes non assignées`);
           const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
           console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
+          console.log(`[useGrowthDashboard] 🔍 Détail des demandes non assignées:`, unassignedRequests.map(r => ({ id: r.id, title: r.title, assigned_to: r.assigned_to })));
           return unassignedRequests;
         case "my_assignments":
-          // SYNCHRONISATION PARFAITE avec GrowthStatsCards
           console.log(`[useGrowthDashboard] 🔍 Filtre "my_assignments" - mes demandes assignées`);
           const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
           console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
+          console.log(`[useGrowthDashboard] 🔍 Détail de mes demandes assignées:`, myAssignedRequests.map(r => ({ id: r.id, title: r.title, assigned_to: r.assigned_to })));
           return myAssignedRequests;
         case "late":
           console.log("[useGrowthDashboard] 🔍 Filtre 'late'");

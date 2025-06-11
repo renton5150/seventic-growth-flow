@@ -16,6 +16,7 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
   
   console.log("[GrowthStatsCards] 🎯 DÉBOGAGE - user role:", user?.role);
   console.log("[GrowthStatsCards] 🎯 isGrowth:", isGrowth);
+  console.log("[GrowthStatsCards] 🎯 allRequests reçues:", allRequests.length);
   
   // Filtrer d'abord pour exclure les demandes terminées ET annulées
   const activeRequests = allRequests.filter(req => 
@@ -45,6 +46,24 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
     late: lateRequests,
     isGrowth
   });
+
+  // DEBUG: Log des demandes non assignées
+  const unassignedRequests = activeRequests.filter(req => !req.assigned_to);
+  console.log("[GrowthStatsCards] 🔍 DÉTAIL demandes non assignées:", unassignedRequests.map(r => ({ 
+    id: r.id, 
+    title: r.title, 
+    assigned_to: r.assigned_to,
+    workflow_status: r.workflow_status 
+  })));
+
+  // DEBUG: Log des demandes assignées à l'utilisateur
+  const myAssignedRequests = activeRequests.filter(req => req.assigned_to === user?.id);
+  console.log("[GrowthStatsCards] 🔍 DÉTAIL mes demandes assignées:", myAssignedRequests.map(r => ({ 
+    id: r.id, 
+    title: r.title, 
+    assigned_to: r.assigned_to,
+    workflow_status: r.workflow_status 
+  })));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
