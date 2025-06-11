@@ -33,13 +33,19 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
   const completedRequests = allRequests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = activeRequests.filter((r) => r.isLate).length;
   
-  // Pour Growth : demandes non assignées et assignées à lui
-  const toAssignRequests = activeRequests.filter(req => !req.assigned_to || req.assigned_to === 'Non assigné' || req.assigned_to === '').length;
+  // CORRECTION CRITIQUE : Utiliser EXACTEMENT la même logique que dans GrowthDashboard
+  const toAssignRequests = activeRequests.filter(req => 
+    !req.assigned_to || 
+    req.assigned_to === '' || 
+    req.assigned_to === null || 
+    req.assigned_to === 'Non assigné'
+  ).length;
+  
   const myAssignmentsRequests = activeRequests.filter(req => 
     req.assigned_to === user?.id || req.assigned_to === user?.email || req.assigned_to === user?.name
   ).length;
 
-  console.log("[GrowthStatsCardsFixed] 📊 Compteurs finaux:", {
+  console.log("[GrowthStatsCardsFixed] 📊 DIAGNOSTIC FILTRAGE:", {
     total: totalRequests,
     toAssign: toAssignRequests,
     myAssignments: myAssignmentsRequests,
@@ -48,6 +54,23 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
     completed: completedRequests,
     late: lateRequests
   });
+
+  // Log détaillé pour les demandes "à assigner"
+  const toAssignRequestsDetails = activeRequests.filter(req => 
+    !req.assigned_to || 
+    req.assigned_to === '' || 
+    req.assigned_to === null || 
+    req.assigned_to === 'Non assigné'
+  );
+  
+  console.log("[GrowthStatsCardsFixed] 🔍 DÉTAIL demandes à assigner:", 
+    toAssignRequestsDetails.map(r => ({
+      id: r.id,
+      title: r.title,
+      assigned_to: r.assigned_to,
+      workflow_status: r.workflow_status
+    }))
+  );
 
   const handleCardClick = (filterType: string) => {
     console.log(`🎯 [GrowthStatsCardsFixed] Clic sur filtre: "${filterType}"`);

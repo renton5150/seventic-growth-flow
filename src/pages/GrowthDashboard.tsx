@@ -15,7 +15,7 @@ interface GrowthDashboardProps {
 
 const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   const { user } = useAuth();
-  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [currentFilter, setCurrentFilter] = useState<string>("all");
 
   const {
     allRequests,
@@ -30,82 +30,98 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     clearSpecialFilters
   } = useGrowthDashboard(defaultTab);
 
-  // Fonction de filtrage simple
+  // Fonction de filtrage UNIFIÉE
   const getFilteredRequests = useCallback((filterType: string, requests: Request[]): Request[] => {
-    console.log(`[GrowthDashboard] Filtrage "${filterType}" sur ${requests.length} demandes`);
+    console.log(`[GrowthDashboard] 🔍 FILTRAGE "${filterType}" sur ${requests.length} demandes`);
+    
+    let filtered: Request[] = [];
     
     switch (filterType) {
       case 'all':
-        return requests;
+        filtered = requests;
+        break;
         
       case 'to_assign':
-        return requests.filter(req => 
+        // EXACTEMENT la même logique que dans GrowthStatsCardsFixed
+        filtered = requests.filter(req => 
           !req.assigned_to || 
           req.assigned_to === '' || 
           req.assigned_to === null || 
           req.assigned_to === 'Non assigné'
         );
+        break;
         
       case 'my_assignments':
-        return requests.filter(req => 
+        filtered = requests.filter(req => 
           req.assigned_to === user?.id || 
           req.assigned_to === user?.email || 
           req.assigned_to === user?.name
         );
+        break;
         
       case 'completed':
-        return requests.filter(req => req.workflow_status === 'completed');
+        filtered = requests.filter(req => req.workflow_status === 'completed');
+        break;
         
       case 'late':
-        return requests.filter(req => req.isLate);
+        filtered = requests.filter(req => req.isLate);
+        break;
         
       case 'pending':
-        return requests.filter(req => 
+        filtered = requests.filter(req => 
           req.status === "pending" || req.workflow_status === "pending_assignment"
         );
+        break;
         
       case 'inprogress':
-        return requests.filter(req => req.workflow_status === "in_progress");
+        filtered = requests.filter(req => req.workflow_status === "in_progress");
+        break;
         
       default:
-        return requests;
+        filtered = requests;
     }
+    
+    console.log(`[GrowthDashboard] ✅ RÉSULTAT filtrage "${filterType}": ${filtered.length} demandes`);
+    console.log(`[GrowthDashboard] 📋 DÉTAIL demandes filtrées:`, 
+      filtered.slice(0, 3).map(r => ({
+        id: r.id,
+        title: r.title,
+        assigned_to: r.assigned_to,
+        workflow_status: r.workflow_status
+      }))
+    );
+    
+    return filtered;
   }, [user]);
 
   // Gestionnaire de clic sur les statistiques
   const handleStatClick = useCallback((filterType: string) => {
-    console.log(`[GrowthDashboard] Clic sur filtre: "${filterType}"`);
+    console.log(`[GrowthDashboard] 🎯 CLIC sur filtre: "${filterType}"`);
     
-    if (activeFilter === filterType) {
-      setActiveFilter("all");
-      toast.info("Filtre désactivé");
-      return;
-    }
-
-    setActiveFilter(filterType);
+    setCurrentFilter(filterType);
     
-    // Messages français corrects
+    // Messages français pour chaque filtre
     const messages: Record<string, string> = {
-      'all': 'toutes les demandes',
-      'to_assign': 'demandes en attente d\'assignation',
-      'my_assignments': 'mes demandes à traiter',
-      'completed': 'demandes terminées',
-      'late': 'demandes en retard',
-      'pending': 'demandes en attente',
-      'inprogress': 'demandes en cours'
+      'all': 'Affichage de toutes les demandes',
+      'to_assign': 'Affichage des demandes en attente d\'assignation',
+      'my_assignments': 'Affichage de mes demandes à traiter',
+      'completed': 'Affichage des demandes terminées',
+      'late': 'Affichage des demandes en retard',
+      'pending': 'Affichage des demandes en attente',
+      'inprogress': 'Affichage des demandes en cours'
     };
     
-    const message = messages[filterType] || filterType;
-    toast.info(`Filtrage appliqué: ${message}`);
-  }, [activeFilter]);
+    const message = messages[filterType] || `Filtre appliqué: ${filterType}`;
+    toast.info(message);
+  }, []);
 
   // Calculer les demandes filtrées
-  const filteredRequests = getFilteredRequests(activeFilter, allRequests);
+  const filteredRequests = getFilteredRequests(currentFilter, allRequests);
 
   // Fonction pour effacer le filtre
   const clearFilter = useCallback(() => {
-    setActiveFilter("all");
-    toast.info("Filtre effacé");
+    setCurrentFilter("all");
+    toast.info("Tous les filtres ont été effacés");
   }, []);
 
   // Afficher un en-tête de filtrage si des filtres spéciaux sont appliqués
@@ -187,12 +203,12 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Tableau de bord</h1>
-          {activeFilter !== 'all' && (
+          {currentFilter !== 'all' && (
             <button 
               onClick={clearFilter}
               className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
             >
-              Effacer le filtre
+              Effacer le filtre ({currentFilter})
             </button>
           )}
         </div>
@@ -202,11 +218,11 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         <GrowthStatsCardsFixed 
           allRequests={allRequests} 
           onStatClick={handleStatClick}
-          activeFilter={activeFilter}
+          activeFilter={currentFilter}
         />
         
         <GrowthActionsHeader
-          activeTab={activeFilter}
+          activeTab={currentFilter}
           setActiveTab={() => {}} // Désactivé car on utilise le nouveau système
           totalRequests={filteredRequests.length}
         />
@@ -220,7 +236,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           onRequestDeleted={onRequestDeleted}
           assignRequestToMe={assignRequestToMe}
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
-          activeTab={activeFilter}
+          activeTab={currentFilter}
         />
       </div>
     </AppLayout>
