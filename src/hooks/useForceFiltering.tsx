@@ -11,10 +11,10 @@ export const useForceFiltering = (allRequests: Request[]) => {
   const applyForceFilter = useCallback((filterType: string) => {
     console.log(`🎯 FORCE FILTER: Applying ${filterType}`);
     
-    // Messages de toast correspondants
+    // Messages de toast correspondants - CORRECTION IMPORTANTE
     const filterMessages = {
       'to_assign': 'demandes en attente d\'assignation',
-      'my_assignments': 'mes demandes à traiter',
+      'my_assignments': 'mes demandes à traiter', 
       'completed': 'demandes terminées',
       'late': 'demandes en retard',
       'all': 'toutes les demandes'
@@ -29,8 +29,16 @@ export const useForceFiltering = (allRequests: Request[]) => {
 
     // Sinon, appliquer le nouveau filtre
     setForceFilter(filterType);
-    const message = filterMessages[filterType] || 'demandes';
-    toast.info(`Filtrage appliqué: ${message}`);
+    
+    // CORRECTION CRITIQUE: S'assurer que le bon message est affiché
+    const message = filterMessages[filterType];
+    if (message) {
+      console.log(`🎯 TOAST MESSAGE: ${message} pour le filtre ${filterType}`);
+      toast.info(`Filtrage appliqué: ${message}`);
+    } else {
+      console.log(`⚠️ UNKNOWN FILTER: ${filterType}`);
+      toast.info(`Filtrage appliqué: ${filterType}`);
+    }
     
     return filterType;
   }, [forceFilter]);

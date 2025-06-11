@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthDashboardContent } from "@/components/growth/dashboard/GrowthDashboardContent";
 import { GrowthStatsCardsFixed } from "@/components/growth/stats/GrowthStatsCardsFixed";
@@ -36,13 +35,20 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   // Utiliser les demandes filtrées par le système de force filtering
   const filteredRequests = getForceFilteredRequests();
 
-  // Log de diagnostic
+  // Log de diagnostic avec plus de détails
   useEffect(() => {
     console.log(`[GrowthDashboard] 🔍 RENDER - Force filter: ${forceFilter}`);
     console.log(`[GrowthDashboard] 📊 Total requests: ${allGrowthRequests.length}`);
     console.log(`[GrowthDashboard] 📊 Filtered requests: ${filteredRequests.length}`);
     console.log(`[GrowthDashboard] 📋 First 2 filtered:`, filteredRequests.slice(0, 2));
   }, [forceFilter, allGrowthRequests, filteredRequests]);
+
+  // CORRECTION CRITIQUE: S'assurer que applyForceFilter reçoit le bon paramètre
+  const handleStatClick = (filterType: string) => {
+    console.log(`[GrowthDashboard] 🎯 CRITICAL: handleStatClick called with: ${filterType}`);
+    console.log(`[GrowthDashboard] 🎯 CRITICAL: Calling applyForceFilter with: ${filterType}`);
+    applyForceFilter(filterType);
+  };
 
   // Afficher un en-tête de filtrage si des filtres spéciaux sont appliqués
   const renderFilterHeader = () => {
@@ -137,7 +143,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         
         <GrowthStatsCardsFixed 
           allRequests={allGrowthRequests} 
-          onStatClick={applyForceFilter}
+          onStatClick={handleStatClick}
           activeFilter={forceFilter}
         />
         
