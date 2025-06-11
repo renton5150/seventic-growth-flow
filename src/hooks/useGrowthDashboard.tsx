@@ -16,7 +16,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // State pour gérer les filtres spéciaux depuis l'admin dashboard
+  // État pour gérer les filtres spéciaux depuis l'admin dashboard
   const [specialFilters, setSpecialFilters] = useState<{
     showUnassigned?: boolean;
     sdrFilter?: string;
@@ -25,19 +25,19 @@ export const useGrowthDashboard = (defaultTab?: string) => {
 
   // Gérer l'état de navigation depuis l'admin dashboard
   useEffect(() => {
-    console.log("[useGrowthDashboard] 🔄 Vérification de l'état de navigation:", location.state);
+    console.log("[useGrowthDashboard] Vérification de l'état de navigation:", location.state);
     
     if (location.state) {
       const { filterType, createdBy, assignedTo, userName, showUnassigned } = location.state as any;
       
       if (showUnassigned) {
-        console.log(`[useGrowthDashboard] 📋 Filtre demandes non assignées activé`);
+        console.log(`[useGrowthDashboard] Filtre demandes non assignées activé`);
         setSpecialFilters({ showUnassigned: true });
       } else if (filterType === 'sdr' && createdBy) {
-        console.log(`[useGrowthDashboard] 📋 Filtrage SDR détecté pour: ${userName} (${createdBy})`);
+        console.log(`[useGrowthDashboard] Filtrage SDR détecté pour: ${userName} (${createdBy})`);
         setSpecialFilters({ sdrFilter: createdBy });
       } else if (filterType === 'growth' && assignedTo) {
-        console.log(`[useGrowthDashboard] 📋 Filtrage Growth détecté pour: ${userName} (${assignedTo})`);
+        console.log(`[useGrowthDashboard] Filtrage Growth détecté pour: ${userName} (${assignedTo})`);
         setSpecialFilters({ growthFilter: assignedTo });
       }
       
@@ -47,39 +47,26 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   }, [location.state, navigate, location.pathname]);
 
   const { 
-    toAssignRequests,
-    myAssignmentsRequests,
-    allGrowthRequests: allRequests = [], 
-    refetchToAssign,
-    refetchMyAssignments,
+    allGrowthRequests: allRequests = [],
     refetchAllRequests: refetchRequests 
   } = useRequestQueries(user?.id);
 
   const handleRequestUpdated = useCallback(() => {
     refetchRequests();
-    refetchToAssign();
-    refetchMyAssignments();
-  }, [refetchRequests, refetchToAssign, refetchMyAssignments]);
+  }, [refetchRequests]);
 
   const handleRequestDeleted = useCallback(() => {
     console.log("Demande supprimée, rafraîchissement des données...");
     
-    // Forcer un rafraîchissement complet immédiatement
-    queryClient.invalidateQueries({ queryKey: ['growth-requests-to-assign'] });
-    queryClient.invalidateQueries({ queryKey: ['growth-requests-my-assignments'] });
+    // Forcer un rafraîchissement complet
     queryClient.invalidateQueries({ queryKey: ['growth-all-requests'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-requests-with-missions'] });
     
-    // Forcer un rafraîchissement manuel
     setTimeout(() => {
       refetchRequests();
-      refetchToAssign();
-      refetchMyAssignments();
-      
-      // Refetch explicite pour s'assurer que les données sont à jour
       queryClient.refetchQueries({ queryKey: ['growth-all-requests'] });
     }, 300);
-  }, [refetchRequests, refetchToAssign, refetchMyAssignments, queryClient]);
+  }, [refetchRequests, queryClient]);
 
   const { assignRequestToMe, updateRequestWorkflowStatus } = useRequestAssignment(handleRequestUpdated);
 
