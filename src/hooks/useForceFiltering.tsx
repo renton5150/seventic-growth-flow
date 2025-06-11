@@ -56,7 +56,11 @@ export const useForceFiltering = (allRequests: Request[]) => {
     switch (forceFilter) {
       case 'to_assign':
         const nonAssigned = allRequests.filter(req => {
-          const isNotAssigned = !req.assigned_to || req.assigned_to === 'Non assigné' || req.assigned_to === '' || req.assigned_to === null;
+          // Vérifier toutes les conditions pour une demande non assignée
+          const isNotAssigned = !req.assigned_to || 
+                               req.assigned_to === '' || 
+                               req.assigned_to === null || 
+                               req.assigned_to === 'Non assigné';
           console.log(`  - Request ${req.id}: assigned_to="${req.assigned_to}" -> isNotAssigned=${isNotAssigned}`);
           return isNotAssigned;
         });
@@ -70,12 +74,11 @@ export const useForceFiltering = (allRequests: Request[]) => {
 
       case 'my_assignments':
         const myRequests = allRequests.filter(req => {
+          // Vérifier si la demande est assignée à l'utilisateur actuel
           const isAssignedToMe = req.assigned_to === user?.id || 
                                 req.assigned_to === user?.email || 
-                                req.assigned_to === user?.name ||
-                                req.assigned_to === 'Corentin Boussard' ||
-                                req.assigned_to === 'growth';
-          console.log(`  - Request ${req.id}: assigned_to="${req.assigned_to}" -> isAssignedToMe=${isAssignedToMe}`);
+                                req.assigned_to === user?.name;
+          console.log(`  - Request ${req.id}: assigned_to="${req.assigned_to}" vs user="${user?.id}"|"${user?.email}"|"${user?.name}" -> isAssignedToMe=${isAssignedToMe}`);
           return isAssignedToMe;
         });
         console.log(`🎯 FILTRE MY_ASSIGNMENTS: ${myRequests.length} demandes assignées à moi trouvées`);

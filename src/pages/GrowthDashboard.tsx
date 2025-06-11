@@ -54,14 +54,6 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     }
   }, [forceFilter, allGrowthRequests, finalFilteredRequests]);
 
-  // Gestionnaire de clic pour les cartes de statistiques
-  const handleStatClick = (filterType: string) => {
-    console.log(`[GrowthDashboard] 🎯 STAT CLICK: ${filterType}`);
-    
-    // Appliquer directement le filtre via useForceFiltering
-    applyForceFilter(filterType);
-  };
-
   // Afficher un en-tête de filtrage si des filtres spéciaux sont appliqués
   const renderFilterHeader = () => {
     if (specialFilters.showUnassigned) {
@@ -155,7 +147,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         
         <GrowthStatsCardsFixed 
           allRequests={allGrowthRequests} 
-          onStatClick={handleStatClick}
+          onStatClick={applyForceFilter}
           activeFilter={forceFilter}
         />
         
