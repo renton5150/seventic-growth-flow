@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,7 +14,7 @@ export const ConsistencyChecker = ({ allRequests, getFilteredRequests }: Consist
   const { user } = useAuth();
   const [showDetails, setShowDetails] = useState(false);
   
-  // Reproduire EXACTEMENT la même logique que GrowthStatsCardsFixed
+  // CORRECTION : Reproduire EXACTEMENT la même logique que GrowthStatsCardsFixed CORRIGÉE
   const activeRequests = allRequests.filter(req => 
     req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
   );
@@ -63,7 +62,7 @@ export const ConsistencyChecker = ({ allRequests, getFilteredRequests }: Consist
   );
 
   // Détails des demandes pour debug
-  const getDetailedAnalysis = (filterType: string) => {
+  function getDetailedAnalysis(filterType: string) {
     const statsRequests = (() => {
       switch (filterType) {
         case 'all': return activeRequests;
@@ -107,7 +106,7 @@ export const ConsistencyChecker = ({ allRequests, getFilteredRequests }: Consist
         isLate: r.isLate
       }))
     };
-  };
+  }
 
   return (
     <Card className="mb-6 border-orange-200 bg-orange-50">

@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthStatsCardsFixed } from "@/components/growth/stats/GrowthStatsCardsFixed";
 import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
@@ -42,20 +41,30 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     'inprogress': 'Affichage des demandes en cours'
   };
 
-  // Fonction de filtrage UNIFIÉE
+  // CORRECTION CRITIQUE : Appliquer d'abord le même filtrage de base que dans GrowthStatsCardsFixed
+  const getActiveRequests = useCallback((requests: Request[]): Request[] => {
+    return requests.filter(req => 
+      req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
+    );
+  }, []);
+
+  // Fonction de filtrage UNIFIÉE - CORRIGÉE pour être cohérente avec les stats
   const getFilteredRequests = useCallback((filterType: string, requests: Request[]): Request[] => {
     console.log(`[GrowthDashboard] 🔍 FILTRAGE "${filterType}" sur ${requests.length} demandes`);
     
     let filtered: Request[] = [];
     
+    // CORRECTION : Pour tous les filtres sauf "completed", utiliser les demandes actives comme base
+    const baseRequests = filterType === 'completed' ? requests : getActiveRequests(requests);
+    
     switch (filterType) {
       case 'all':
-        filtered = requests;
+        filtered = baseRequests;
         break;
         
       case 'to_assign':
         // EXACTEMENT la même logique que dans GrowthStatsCardsFixed
-        filtered = requests.filter(req => 
+        filtered = baseRequests.filter(req => 
           !req.assigned_to || 
           req.assigned_to === '' || 
           req.assigned_to === null || 
@@ -64,7 +73,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         break;
         
       case 'my_assignments':
-        filtered = requests.filter(req => 
+        filtered = baseRequests.filter(req => 
           req.assigned_to === user?.id || 
           req.assigned_to === user?.email || 
           req.assigned_to === user?.name
@@ -72,31 +81,32 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
         break;
         
       case 'completed':
+        // CORRECTION : Pour completed, utiliser toutes les demandes mais filtrer par workflow_status
         filtered = requests.filter(req => req.workflow_status === 'completed');
         break;
         
       case 'late':
-        filtered = requests.filter(req => req.isLate);
+        filtered = baseRequests.filter(req => req.isLate);
         break;
         
       case 'pending':
-        filtered = requests.filter(req => 
+        filtered = baseRequests.filter(req => 
           req.status === "pending" || req.workflow_status === "pending_assignment"
         );
         break;
         
       case 'inprogress':
-        filtered = requests.filter(req => req.workflow_status === "in_progress");
+        filtered = baseRequests.filter(req => req.workflow_status === "in_progress");
         break;
         
       default:
-        filtered = requests;
+        filtered = baseRequests;
     }
     
     console.log(`[GrowthDashboard] ✅ RÉSULTAT filtrage "${filterType}": ${filtered.length} demandes`);
     
     return filtered;
-  }, [user]);
+  }, [user, getActiveRequests]);
 
   // Gestionnaire de clic sur les statistiques
   const handleStatClick = useCallback((filterType: string) => {
@@ -118,7 +128,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   }, []);
 
   // Afficher un en-tête de filtrage si des filtres spéciaux sont appliqués
-  const renderFilterHeader = () => {
+  function renderFilterHeader() {
     if (specialFilters.showUnassigned) {
       return (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
