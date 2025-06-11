@@ -91,6 +91,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const getFilteredRequests = useCallback(() => {
     const isSDR = user?.role === 'sdr';
     const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
+    const isGrowth = user?.role === 'growth';
 
     console.log("[useGrowthDashboard] 🔍 FILTRAGE - Début du filtrage avec:", {
       activeFilter,
@@ -150,42 +151,30 @@ export const useGrowthDashboard = (defaultTab?: string) => {
           console.log("[useGrowthDashboard] 🔍 Filtre 'inprogress'");
           return nonCompletedRequests.filter(req => req.workflow_status === "in_progress");
         case "to_assign":
-          // CORRECTION: Filtrer pour ne montrer que les demandes vraiment non assignées
-          console.log(`[useGrowthDashboard] 🔍 Filtre "En attente d'assignation" - demandes non assignées`);
-          const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
-          console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign: ${unassignedRequests.length} demandes`);
-          unassignedRequests.forEach((req, index) => {
-            if (index < 3) {
-              console.log(`[useGrowthDashboard] 🔍 Demande non assignée #${index}:`, {
-                id: req.id,
-                title: req.title,
-                assigned_to: req.assigned_to
-              });
-            }
-          });
-          return unassignedRequests;
+          // CORRECTION MAJEURE: Synchroniser avec DashboardStats
+          console.log(`[useGrowthDashboard] 🔍 Filtre "to_assign" - demandes non assignées`);
+          if (isGrowth) {
+            const unassignedRequests = nonCompletedRequests.filter(req => !req.assigned_to);
+            console.log(`[useGrowthDashboard] 🔍 Résultat filtre to_assign pour Growth: ${unassignedRequests.length} demandes`);
+            return unassignedRequests;
+          } else {
+            // Pour les autres rôles, utiliser la logique standard
+            return nonCompletedRequests.filter(req => req.workflow_status === "pending_assignment");
+          }
         case "my_assignments":
-          // CORRECTION: Pour Growth, montrer SEULEMENT ses demandes assignées
-          console.log(`[useGrowthDashboard] 🔍 Filtre "Mes demandes à traiter" - demandes assignées à ${user?.id}`);
-          if (isGrowthOrAdmin) {
+          // CORRECTION MAJEURE: Synchroniser avec DashboardStats
+          console.log(`[useGrowthDashboard] 🔍 Filtre "my_assignments" - mes demandes assignées`);
+          if (isGrowth) {
             const myAssignedRequests = nonCompletedRequests.filter(req => req.assigned_to === user?.id);
-            console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments: ${myAssignedRequests.length} demandes`);
-            myAssignedRequests.forEach((req, index) => {
-              if (index < 3) {
-                console.log(`[useGrowthDashboard] 🔍 Ma demande assignée #${index}:`, {
-                  id: req.id,
-                  title: req.title,
-                  assigned_to: req.assigned_to
-                });
-              }
-            });
+            console.log(`[useGrowthDashboard] 🔍 Résultat filtre my_assignments pour Growth: ${myAssignedRequests.length} demandes`);
             return myAssignedRequests;
           } else if (isSDR) {
             return nonCompletedRequests.filter(req => req.createdBy === user?.id);
+          } else {
+            return myAssignmentsRequests.filter(req => 
+              req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
+            );
           }
-          return myAssignmentsRequests.filter(req => 
-            req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
-          );
         case "late":
           console.log("[useGrowthDashboard] 🔍 Filtre 'late'");
           return nonCompletedRequests.filter(req => req.isLate);
@@ -273,28 +262,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
       setActiveTab("all");
     } else {
       setActiveFilter(filterType);
-      
-      // CORRECTION: Mapper correctement les nouveaux types de filtres
-      switch (filterType) {
-        case "all":
-          setActiveTab("all");
-          break;
-        case "pending":
-          setActiveTab("pending");
-          break;
-        case "inprogress":
-          setActiveTab("inprogress");
-          break;
-        case "to_assign":
-          setActiveTab("to_assign");
-          break;
-        case "my_assignments":
-          setActiveTab("my_assignments");
-          break;
-        case "late":
-          setActiveTab("late");
-          break;
-      }
+      setActiveTab("all"); // Assurer que l'onglet est sur "all" pour les filtres des stats
     }
   }, [activeFilter, navigate]);
 
