@@ -111,7 +111,6 @@ export const SimpleRequestsTable = ({
                   onEditRequest={onEditRequest}
                   onCompleteRequest={onCompleteRequest}
                   onViewDetails={onViewDetails}
-                  onRequestUpdated={onRequestUpdated}
                   onRequestDeleted={onRequestDeleted}
                   assignRequestToMe={assignRequestToMe}
                   updateRequestWorkflowStatus={updateRequestWorkflowStatus}
