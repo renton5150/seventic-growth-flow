@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthStatsCardsFixed } from "@/components/growth/stats/GrowthStatsCardsFixed";
 import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
@@ -47,8 +46,27 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
   const filterService = new GrowthFilterService(user?.id);
   const statsCounts = filterService.calculateCounts(allRequests);
 
+  // DIAGNOSTIC PRINCIPAL DE COHÉRENCE
+  const expectedCount = filterService.filterRequests(currentFilter, allRequests).length;
+  const actualCount = filteredRequests.length;
+  const isConsistent = expectedCount === actualCount;
+
+  console.log("[GrowthDashboard] 🔍 DIAGNOSTIC PRINCIPAL:");
+  console.log(`  - Filtre actuel: ${currentFilter}`);
+  console.log(`  - Demandes totales: ${allRequests.length}`);
+  console.log(`  - Attendu (stats): ${expectedCount}`);
+  console.log(`  - Reçu (tableau): ${actualCount}`);
+  console.log(`  - Cohérent: ${isConsistent ? 'OUI' : 'NON'}`);
+
+  if (!isConsistent) {
+    console.error("[GrowthDashboard] ❌ INCOHÉRENCE DÉTECTÉE!");
+    console.error("  - IDs attendus:", filterService.filterRequests(currentFilter, allRequests).map(r => r.id));
+    console.error("  - IDs reçus:", filteredRequests.map(r => r.id));
+  }
+
   // Gestionnaire de clic sur les statistiques avec toast
   const handleStatClickWithToast = (filterType: string) => {
+    console.log(`[GrowthDashboard] 🎯 CLIC sur filtre: "${filterType}"`);
     handleStatClick(filterType);
     
     const message = FILTER_MESSAGES[filterType] || `Filtre appliqué: ${filterType}`;
@@ -135,23 +153,39 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     return null;
   }
 
-  // Panneau de debug (uniquement en développement)
-  function renderDebugPanel() {
-    if (process.env.NODE_ENV !== 'development') return null;
-    
+  // Panneau de diagnostic VISIBLE
+  function renderLiveDiagnostic() {
     return (
-      <div className="bg-gray-50 border rounded-lg p-4 mb-4">
-        <h3 className="font-semibold text-gray-900 mb-2">🔧 Debug Info</h3>
-        <div className="text-sm space-y-1">
-          <div>Total brut: {debugInfo.totalRawRequests}</div>
-          <div>Actif: {debugInfo.activeRequests}</div>
-          <div>Filtre actuel: {debugInfo.currentFilter}</div>
-          <div>Attendu: {debugInfo.expectedCount}</div>
-          <div>Affiché: {debugInfo.actualDisplayedCount}</div>
-          <div className={debugInfo.isConsistent ? "text-green-600" : "text-red-600"}>
-            {debugInfo.isConsistent ? "✅ Cohérent" : "❌ Incohérent"}
+      <div className={`mb-4 p-4 rounded-lg border-2 ${isConsistent ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className={`font-bold ${isConsistent ? 'text-green-900' : 'text-red-900'}`}>
+            {isConsistent ? '✅ Cohérence Stats ↔ Tableau' : '❌ INCOHÉRENCE DÉTECTÉE!'}
+          </h3>
+          <span className="text-sm font-mono">
+            Filtre: {currentFilter}
+          </span>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div className="text-center p-2 bg-white rounded border">
+            <div className="font-semibold">Total brut</div>
+            <div className="text-lg">{allRequests.length}</div>
+          </div>
+          <div className="text-center p-2 bg-white rounded border">
+            <div className="font-semibold">Attendu (stats)</div>
+            <div className="text-lg">{expectedCount}</div>
+          </div>
+          <div className={`text-center p-2 rounded border ${isConsistent ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
+            <div className="font-semibold">Affiché (tableau)</div>
+            <div className="text-lg">{actualCount}</div>
           </div>
         </div>
+        
+        {!isConsistent && (
+          <div className="mt-3 p-2 bg-red-100 rounded text-sm text-red-800">
+            <strong>Différence détectée :</strong> {Math.abs(expectedCount - actualCount)} demande(s)
+          </div>
+        )}
       </div>
     );
   }
@@ -171,8 +205,8 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           )}
         </div>
         
-        {renderFilterHeader()}
-        {renderDebugPanel()}
+        {/* DIAGNOSTIC EN TEMPS RÉEL VISIBLE */}
+        {renderLiveDiagnostic()}
         
         <GrowthStatsCardsFixed 
           allRequests={allRequests} 

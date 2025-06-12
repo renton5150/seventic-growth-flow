@@ -3,6 +3,7 @@ import { Mail, Clock, CheckCircle, AlertCircle, UserCheck, ClipboardList } from 
 import { Request } from "@/types/types";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { GrowthFilterService } from "@/services/filtering/growthFilterService";
 
 interface GrowthStatsCardsFixedProps {
   allRequests: Request[];
@@ -21,59 +22,15 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
     activeFilter
   });
   
-  // Filtrer d'abord pour exclure les demandes terminées ET annulées
-  const activeRequests = allRequests.filter(req => 
-    req.workflow_status !== 'completed' && req.workflow_status !== 'canceled'
-  );
+  // UTILISATION DU SERVICE CENTRALISÉ POUR LA COHÉRENCE
+  const filterService = new GrowthFilterService(user?.id);
+  const counts = filterService.calculateCounts(allRequests);
   
-  // Calcul des statistiques
-  const totalRequests = activeRequests.length;
-  const pendingRequests = activeRequests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
-  const inProgressRequests = activeRequests.filter((r) => r.workflow_status === "in_progress").length;
-  const completedRequests = allRequests.filter((r) => r.workflow_status === "completed").length;
-  const lateRequests = activeRequests.filter((r) => r.isLate).length;
-  
-  // CORRECTION CRITIQUE : Utiliser EXACTEMENT la même logique que dans GrowthDashboard
-  const toAssignRequests = activeRequests.filter(req => 
-    !req.assigned_to || 
-    req.assigned_to === '' || 
-    req.assigned_to === null || 
-    req.assigned_to === 'Non assigné'
-  ).length;
-  
-  const myAssignmentsRequests = activeRequests.filter(req => 
-    req.assigned_to === user?.id || req.assigned_to === user?.email || req.assigned_to === user?.name
-  ).length;
-
-  console.log("[GrowthStatsCardsFixed] 📊 DIAGNOSTIC FILTRAGE:", {
-    total: totalRequests,
-    toAssign: toAssignRequests,
-    myAssignments: myAssignmentsRequests,
-    pending: pendingRequests,
-    inProgress: inProgressRequests,
-    completed: completedRequests,
-    late: lateRequests
-  });
-
-  // Log détaillé pour les demandes "à assigner"
-  const toAssignRequestsDetails = activeRequests.filter(req => 
-    !req.assigned_to || 
-    req.assigned_to === '' || 
-    req.assigned_to === null || 
-    req.assigned_to === 'Non assigné'
-  );
-  
-  console.log("[GrowthStatsCardsFixed] 🔍 DÉTAIL demandes à assigner:", 
-    toAssignRequestsDetails.map(r => ({
-      id: r.id,
-      title: r.title,
-      assigned_to: r.assigned_to,
-      workflow_status: r.workflow_status
-    }))
-  );
+  console.log("[GrowthStatsCardsFixed] 📊 COMPTEURS CALCULÉS:", counts);
 
   const handleCardClick = (filterType: string) => {
     console.log(`🎯 [GrowthStatsCardsFixed] Clic sur filtre: "${filterType}"`);
+    console.log(`🎯 [GrowthStatsCardsFixed] Valeur du compteur: ${counts[filterType as keyof typeof counts]}`);
     onStatClick(filterType);
   };
 
@@ -81,7 +38,7 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
       <StatCard
         title="Total des demandes"
-        value={totalRequests}
+        value={counts.all}
         icon={<Mail className="h-6 w-6 text-purple-600" />}
         onClick={() => handleCardClick("all")}
         isActive={activeFilter === "all"}
@@ -91,14 +48,14 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
         <>
           <StatCard
             title="En attente d'assignation"
-            value={toAssignRequests}
+            value={counts.to_assign}
             icon={<ClipboardList className="h-6 w-6 text-orange-600" />}
             onClick={() => handleCardClick("to_assign")}
             isActive={activeFilter === "to_assign"}
           />
           <StatCard
             title="Mes demandes à traiter"
-            value={myAssignmentsRequests}
+            value={counts.my_assignments}
             icon={<UserCheck className="h-6 w-6 text-blue-600" />}
             onClick={() => handleCardClick("my_assignments")}
             isActive={activeFilter === "my_assignments"}
@@ -108,14 +65,14 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
         <>
           <StatCard
             title="En attente"
-            value={pendingRequests}
+            value={counts.pending}
             icon={<Clock className="h-6 w-6 text-orange-600" />}
             onClick={() => handleCardClick("pending")}
             isActive={activeFilter === "pending"}
           />
           <StatCard
             title="En cours"
-            value={inProgressRequests}
+            value={counts.inprogress}
             icon={<UserCheck className="h-6 w-6 text-blue-600" />}
             onClick={() => handleCardClick("inprogress")}
             isActive={activeFilter === "inprogress"}
@@ -125,14 +82,14 @@ export const GrowthStatsCardsFixed = ({ allRequests, onStatClick, activeFilter }
       
       <StatCard
         title="Terminées"
-        value={completedRequests}
+        value={counts.completed}
         icon={<CheckCircle className="h-6 w-6 text-green-600" />}
         onClick={() => handleCardClick("completed")}
         isActive={activeFilter === "completed"}
       />
       <StatCard
         title="En retard"
-        value={lateRequests}
+        value={counts.late}
         icon={<AlertCircle className="h-6 w-6 text-red-600" />}
         onClick={() => handleCardClick("late")}
         isActive={activeFilter === "late"}
