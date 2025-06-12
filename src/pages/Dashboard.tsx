@@ -56,7 +56,9 @@ const Dashboard = () => {
     let matchesTab = true;
     switch (activeTab) {
       case "all":
-        matchesTab = true;
+        // Total des demandes : exclure les terminées
+        matchesTab = request.workflow_status !== "completed";
+        console.log(`🔍 [DASHBOARD-FILTER] Demande ${request.id} - workflow_status: ${request.workflow_status}, match all: ${matchesTab}`);
         break;
       case "pending":
       case "to_assign":

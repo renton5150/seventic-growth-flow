@@ -21,7 +21,10 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
     activeFilter
   });
   
-  const totalRequests = requests.length;
+  // Total des demandes : exclure les terminées (elles vont en archives)
+  const activeRequests = requests.filter((r) => r.workflow_status !== "completed");
+  const totalRequests = activeRequests.length;
+  
   const pendingRequests = requests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
   const inProgressRequests = requests.filter((r) => r.workflow_status === "in_progress").length;
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
