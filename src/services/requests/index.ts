@@ -7,6 +7,7 @@ export * from './cloneRequestService';
 export * from './utils';
 export * from './requestQueryService';
 export * from './singleRequestService';
+export * from './simpleRequestService'; // NOUVEAU SERVICE ULTRA-SIMPLE
 
 import { Request, RequestStatus, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { updateEmailRequest } from "./emailRequestService";
