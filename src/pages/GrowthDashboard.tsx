@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GrowthStatsCardsFixed } from "@/components/growth/stats/GrowthStatsCardsFixed";
 import { GrowthActionsHeader } from "@/components/growth/actions/GrowthActionsHeader";
@@ -28,7 +29,6 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     updateRequestWorkflowStatus,
     specialFilters,
     clearSpecialFilters,
-    debugInfo,
   } = useGrowthDashboard(defaultTab);
 
   // Messages français pour chaque filtre
@@ -42,27 +42,15 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     'inprogress': 'Affichage des demandes en cours'
   };
 
-  // Service pour calculer les stats (même logique que le filtrage)
+  // Service pour calculer les stats
   const filterService = new GrowthFilterService(user?.id);
   const statsCounts = filterService.calculateCounts(allRequests);
 
-  // DIAGNOSTIC PRINCIPAL DE COHÉRENCE
-  const expectedCount = filterService.filterRequests(currentFilter, allRequests).length;
-  const actualCount = filteredRequests.length;
-  const isConsistent = expectedCount === actualCount;
-
-  console.log("[GrowthDashboard] 🔍 DIAGNOSTIC PRINCIPAL:");
+  console.log("[GrowthDashboard] 🎯 SYSTÈME SIMPLIFIÉ:");
   console.log(`  - Filtre actuel: ${currentFilter}`);
   console.log(`  - Demandes totales: ${allRequests.length}`);
-  console.log(`  - Attendu (stats): ${expectedCount}`);
-  console.log(`  - Reçu (tableau): ${actualCount}`);
-  console.log(`  - Cohérent: ${isConsistent ? 'OUI' : 'NON'}`);
-
-  if (!isConsistent) {
-    console.error("[GrowthDashboard] ❌ INCOHÉRENCE DÉTECTÉE!");
-    console.error("  - IDs attendus:", filterService.filterRequests(currentFilter, allRequests).map(r => r.id));
-    console.error("  - IDs reçus:", filteredRequests.map(r => r.id));
-  }
+  console.log(`  - Demandes filtrées: ${filteredRequests.length}`);
+  console.log(`  - Stats pour ${currentFilter}: ${statsCounts[currentFilter as keyof typeof statsCounts]}`);
 
   // Gestionnaire de clic sur les statistiques avec toast
   const handleStatClickWithToast = (filterType: string) => {
@@ -153,43 +141,6 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     return null;
   }
 
-  // Panneau de diagnostic VISIBLE
-  function renderLiveDiagnostic() {
-    return (
-      <div className={`mb-4 p-4 rounded-lg border-2 ${isConsistent ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className={`font-bold ${isConsistent ? 'text-green-900' : 'text-red-900'}`}>
-            {isConsistent ? '✅ Cohérence Stats ↔ Tableau' : '❌ INCOHÉRENCE DÉTECTÉE!'}
-          </h3>
-          <span className="text-sm font-mono">
-            Filtre: {currentFilter}
-          </span>
-        </div>
-        
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div className="text-center p-2 bg-white rounded border">
-            <div className="font-semibold">Total brut</div>
-            <div className="text-lg">{allRequests.length}</div>
-          </div>
-          <div className="text-center p-2 bg-white rounded border">
-            <div className="font-semibold">Attendu (stats)</div>
-            <div className="text-lg">{expectedCount}</div>
-          </div>
-          <div className={`text-center p-2 rounded border ${isConsistent ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
-            <div className="font-semibold">Affiché (tableau)</div>
-            <div className="text-lg">{actualCount}</div>
-          </div>
-        </div>
-        
-        {!isConsistent && (
-          <div className="mt-3 p-2 bg-red-100 rounded text-sm text-red-800">
-            <strong>Différence détectée :</strong> {Math.abs(expectedCount - actualCount)} demande(s)
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -205,8 +156,17 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           )}
         </div>
         
-        {/* DIAGNOSTIC EN TEMPS RÉEL VISIBLE */}
-        {renderLiveDiagnostic()}
+        {/* DIAGNOSTIC SIMPLIFIÉ */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="text-blue-900 font-semibold">
+            ✅ Système simplifié actif
+          </div>
+          <div className="text-blue-700 text-sm mt-1">
+            Filtre: {currentFilter} | Total: {allRequests.length} | Filtrées: {filteredRequests.length} | Attendu: {statsCounts[currentFilter as keyof typeof statsCounts]}
+          </div>
+        </div>
+        
+        {renderFilterHeader()}
         
         <GrowthStatsCardsFixed 
           allRequests={allRequests} 
