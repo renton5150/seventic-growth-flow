@@ -30,8 +30,10 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
   
-  // Pour Growth : demandes non assignées et assignées à lui (excluant les terminées)
-  const toAssignRequests = requests.filter(req => !req.assigned_to).length;
+  // Pour Growth : demandes non assignées ET non terminées, assignées à lui ET non terminées
+  const toAssignRequests = requests.filter(req => 
+    (!req.assigned_to) && req.workflow_status !== "completed"
+  ).length;
   const myAssignmentsRequests = requests.filter(req => 
     req.assigned_to === user?.id && req.workflow_status !== "completed"
   ).length;
@@ -99,18 +101,18 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
       )}
       
       <StatCard
-        title="Terminées"
-        value={completedRequests}
-        icon={<CheckCircle size={24} className="text-status-completed" />}
-        onClick={() => onStatClick("completed")}
-        isActive={activeFilter === "completed"}
-      />
-      <StatCard
         title="En retard"
         value={lateRequests}
         icon={<AlertCircle size={24} className="text-status-late" />}
         onClick={() => onStatClick("late")}
         isActive={activeFilter === "late"}
+      />
+      <StatCard
+        title="Terminées"
+        value={completedRequests}
+        icon={<CheckCircle size={24} className="text-status-completed" />}
+        onClick={() => onStatClick("completed")}
+        isActive={activeFilter === "completed"}
       />
     </div>
   );

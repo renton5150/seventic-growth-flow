@@ -62,9 +62,9 @@ const Dashboard = () => {
         break;
       case "pending":
       case "to_assign":
-        // En attente d'assignation = pas assigné
-        matchesTab = !request.assigned_to || request.assigned_to === null;
-        console.log(`🔍 [DASHBOARD-FILTER] Demande ${request.id} - assigned_to: ${request.assigned_to}, match to_assign: ${matchesTab}`);
+        // En attente d'assignation = pas assigné ET pas terminé
+        matchesTab = (!request.assigned_to || request.assigned_to === null) && request.workflow_status !== "completed";
+        console.log(`🔍 [DASHBOARD-FILTER] Demande ${request.id} - assigned_to: ${request.assigned_to}, workflow_status: ${request.workflow_status}, match to_assign: ${matchesTab}`);
         break;
       case "my_assignments":
         // Mes demandes à traiter = assignées à moi ET pas terminées
