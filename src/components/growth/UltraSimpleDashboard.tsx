@@ -15,7 +15,7 @@ export const UltraSimpleDashboard = () => {
   // Récupération des données avec le nouveau système SIMPLE
   const { data: allRequests = [], isLoading, error } = useSimpleRequests();
   
-  // Service de filtrage SIMPLE
+  // Service de filtrage SIMPLE - seulement les filtres qui marchent
   const filterService = new SimpleFilterService(user?.id);
   const filteredRequests = filterService.filterRequests(currentFilter, allRequests);
   
@@ -56,7 +56,7 @@ export const UltraSimpleDashboard = () => {
     <AppLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Tableau de bord ULTRA-SIMPLE</h1>
+          <h1 className="text-2xl font-bold">Tableau de bord ULTRA-SIMPLE - SEULEMENT CE QUI MARCHE</h1>
           {currentFilter !== 'all' && (
             <button 
               onClick={clearFilter}
@@ -70,7 +70,7 @@ export const UltraSimpleDashboard = () => {
         {/* DIAGNOSTIC AFFICHAGE DONNÉES */}
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="text-green-900 font-semibold">
-            ✅ SYSTÈME ULTRA-SIMPLE ACTIF
+            ✅ SYSTÈME RADICAL - SEULEMENT LA LOGIQUE QUI FONCTIONNE
           </div>
           <div className="text-green-700 text-sm mt-2 space-y-1">
             <div><strong>Total brut:</strong> {allRequests.length} demandes</div>

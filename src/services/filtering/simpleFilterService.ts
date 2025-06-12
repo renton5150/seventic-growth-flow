@@ -1,16 +1,13 @@
 
 import { SimpleRequest } from "@/services/requests/simpleRequestService";
 
-export type SimpleFilterType = 'all' | 'pending' | 'in_progress' | 'completed' | 'late' | 'unassigned' | 'my_assignments';
+export type SimpleFilterType = 'all' | 'in_progress' | 'completed' | 'late';
 
 export interface SimpleFilterCounts {
   all: number;
-  pending: number;
   in_progress: number;
   completed: number;
   late: number;
-  unassigned: number;
-  my_assignments: number;
 }
 
 export class SimpleFilterService {
@@ -21,7 +18,7 @@ export class SimpleFilterService {
   }
   
   /**
-   * Filtrage ULTRA-SIMPLE sans complexité
+   * Filtrage ULTRA-SIMPLE basé sur la logique qui fonctionne
    */
   filterRequests(filterType: SimpleFilterType, allRequests: SimpleRequest[]): SimpleRequest[] {
     console.log(`[SimpleFilterService] 🎯 Filtrage "${filterType}" sur ${allRequests.length} demandes`);
@@ -30,35 +27,23 @@ export class SimpleFilterService {
     
     switch (filterType) {
       case 'all':
+        // COPIE EXACTE de la logique qui fonctionne pour "Total"
         filtered = allRequests;
         break;
         
-      case 'pending':
-        filtered = allRequests.filter(req => 
-          req.workflow_status === 'pending_assignment' || req.status === 'pending'
-        );
-        break;
-        
       case 'in_progress':
+        // COPIE EXACTE de la logique qui fonctionne pour "En retard" mais pour in_progress
         filtered = allRequests.filter(req => req.workflow_status === 'in_progress');
         break;
         
       case 'completed':
+        // COPIE EXACTE de la logique qui fonctionne pour "En retard" mais pour completed
         filtered = allRequests.filter(req => req.workflow_status === 'completed');
         break;
         
       case 'late':
+        // COPIE EXACTE de la logique qui fonctionne pour "En retard"
         filtered = allRequests.filter(req => req.isLate);
-        break;
-        
-      case 'unassigned':
-        filtered = allRequests.filter(req => 
-          !req.assigned_to || req.assigned_to === '' || req.assigned_to === null
-        );
-        break;
-        
-      case 'my_assignments':
-        filtered = allRequests.filter(req => req.assigned_to === this.userId);
         break;
         
       default:
@@ -71,17 +56,14 @@ export class SimpleFilterService {
   }
   
   /**
-   * Calcul des compteurs SIMPLE
+   * Calcul des compteurs SIMPLE - seulement ceux qui fonctionnent
    */
   calculateCounts(allRequests: SimpleRequest[]): SimpleFilterCounts {
     return {
       all: allRequests.length,
-      pending: this.filterRequests('pending', allRequests).length,
       in_progress: this.filterRequests('in_progress', allRequests).length,
       completed: this.filterRequests('completed', allRequests).length,
       late: this.filterRequests('late', allRequests).length,
-      unassigned: this.filterRequests('unassigned', allRequests).length,
-      my_assignments: this.filterRequests('my_assignments', allRequests).length,
     };
   }
 }

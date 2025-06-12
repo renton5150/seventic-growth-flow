@@ -2,7 +2,7 @@
 import { SimpleRequest } from "@/services/requests/simpleRequestService";
 import { SimpleFilterService, SimpleFilterType } from "@/services/filtering/simpleFilterService";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Mail, Clock, CheckCircle, AlertCircle, UserCheck, ClipboardList } from "lucide-react";
+import { Mail, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface UltraSimpleStatsProps {
@@ -22,7 +22,7 @@ export const UltraSimpleStats = ({ allRequests, onStatClick, activeFilter }: Ult
   console.log("[UltraSimpleStats] 📊 COMPTEURS:", counts);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <StatCard
         title="Total"
         value={counts.all}
@@ -32,17 +32,9 @@ export const UltraSimpleStats = ({ allRequests, onStatClick, activeFilter }: Ult
       />
       
       <StatCard
-        title="En attente"
-        value={counts.pending}
-        icon={<Clock className="h-6 w-6 text-orange-600" />}
-        onClick={() => onStatClick('pending')}
-        isActive={activeFilter === 'pending'}
-      />
-      
-      <StatCard
         title="En cours"
         value={counts.in_progress}
-        icon={<UserCheck className="h-6 w-6 text-blue-600" />}
+        icon={<Clock className="h-6 w-6 text-blue-600" />}
         onClick={() => onStatClick('in_progress')}
         isActive={activeFilter === 'in_progress'}
       />
@@ -61,14 +53,6 @@ export const UltraSimpleStats = ({ allRequests, onStatClick, activeFilter }: Ult
         icon={<AlertCircle className="h-6 w-6 text-red-600" />}
         onClick={() => onStatClick('late')}
         isActive={activeFilter === 'late'}
-      />
-      
-      <StatCard
-        title="Non assignées"
-        value={counts.unassigned}
-        icon={<ClipboardList className="h-6 w-6 text-orange-600" />}
-        onClick={() => onStatClick('unassigned')}
-        isActive={activeFilter === 'unassigned'}
       />
     </div>
   );
