@@ -15,55 +15,83 @@ export class SimpleFilterService {
   
   constructor(userId: string | undefined) {
     this.userId = userId;
+    console.log(`🔍 [DIAGNOSTIC] SimpleFilterService initialisé pour userId: ${userId}`);
   }
   
   /**
-   * Filtrage ULTRA-SIMPLE basé sur la logique qui fonctionne
+   * Filtrage ULTRA-SIMPLE avec logs détaillés
    */
   filterRequests(filterType: SimpleFilterType, allRequests: SimpleRequest[]): SimpleRequest[] {
-    console.log(`[SimpleFilterService] 🎯 Filtrage "${filterType}" sur ${allRequests.length} demandes`);
+    console.log(`🔍 [DIAGNOSTIC] Début filtrage "${filterType}" sur ${allRequests.length} demandes`);
+    console.log("🔍 [DIAGNOSTIC] IDs des demandes à filtrer:", allRequests.map(r => r.id));
+    
+    if (allRequests.length === 0) {
+      console.warn("⚠️ [DIAGNOSTIC] Aucune demande à filtrer - tableau vide en entrée");
+      return [];
+    }
     
     let filtered: SimpleRequest[] = [];
     
-    switch (filterType) {
-      case 'all':
-        // COPIE EXACTE de la logique qui fonctionne pour "Total"
-        filtered = allRequests;
-        break;
-        
-      case 'in_progress':
-        // COPIE EXACTE de la logique qui fonctionne pour "En retard" mais pour in_progress
-        filtered = allRequests.filter(req => req.workflow_status === 'in_progress');
-        break;
-        
-      case 'completed':
-        // COPIE EXACTE de la logique qui fonctionne pour "En retard" mais pour completed
-        filtered = allRequests.filter(req => req.workflow_status === 'completed');
-        break;
-        
-      case 'late':
-        // COPIE EXACTE de la logique qui fonctionne pour "En retard"
-        filtered = allRequests.filter(req => req.isLate);
-        break;
-        
-      default:
-        filtered = allRequests;
+    try {
+      switch (filterType) {
+        case 'all':
+          filtered = allRequests;
+          console.log("🔍 [DIAGNOSTIC] Filtre 'all' - toutes les demandes conservées");
+          break;
+          
+        case 'in_progress':
+          filtered = allRequests.filter(req => {
+            const match = req.workflow_status === 'in_progress';
+            console.log(`🔍 [DIAGNOSTIC] Demande ${req.id} - workflow_status: ${req.workflow_status}, match in_progress: ${match}`);
+            return match;
+          });
+          break;
+          
+        case 'completed':
+          filtered = allRequests.filter(req => {
+            const match = req.workflow_status === 'completed';
+            console.log(`🔍 [DIAGNOSTIC] Demande ${req.id} - workflow_status: ${req.workflow_status}, match completed: ${match}`);
+            return match;
+          });
+          break;
+          
+        case 'late':
+          filtered = allRequests.filter(req => {
+            console.log(`🔍 [DIAGNOSTIC] Demande ${req.id} - isLate: ${req.isLate}`);
+            return req.isLate;
+          });
+          break;
+          
+        default:
+          console.warn(`⚠️ [DIAGNOSTIC] Type de filtre inconnu: ${filterType}`);
+          filtered = allRequests;
+      }
+      
+      console.log(`✅ [DIAGNOSTIC] Filtrage "${filterType}" terminé: ${filtered.length} demandes`);
+      console.log("🔍 [DIAGNOSTIC] IDs des demandes filtrées:", filtered.map(r => r.id));
+      
+    } catch (filterError) {
+      console.error("❌ [DIAGNOSTIC] Erreur lors du filtrage:", filterError);
+      filtered = allRequests; // Retourner toutes les demandes en cas d'erreur
     }
-    
-    console.log(`[SimpleFilterService] ✅ Résultat pour "${filterType}": ${filtered.length} demandes`);
     
     return filtered;
   }
   
   /**
-   * Calcul des compteurs SIMPLE - seulement ceux qui fonctionnent
+   * Calcul des compteurs avec logs
    */
   calculateCounts(allRequests: SimpleRequest[]): SimpleFilterCounts {
-    return {
+    console.log(`🔍 [DIAGNOSTIC] Calcul des compteurs pour ${allRequests.length} demandes`);
+    
+    const counts = {
       all: allRequests.length,
       in_progress: this.filterRequests('in_progress', allRequests).length,
       completed: this.filterRequests('completed', allRequests).length,
       late: this.filterRequests('late', allRequests).length,
     };
+    
+    console.log("🔍 [DIAGNOSTIC] Compteurs calculés:", counts);
+    return counts;
   }
 }

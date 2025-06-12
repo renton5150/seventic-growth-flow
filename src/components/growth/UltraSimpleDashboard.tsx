@@ -12,34 +12,43 @@ export const UltraSimpleDashboard = () => {
   const { user } = useAuth();
   const [currentFilter, setCurrentFilter] = useState<SimpleFilterType>('all');
   
-  // Récupération des données avec le nouveau système SIMPLE
+  console.log("🔍 [DIAGNOSTIC] Rendu UltraSimpleDashboard");
+  console.log("🔍 [DIAGNOSTIC] User:", user?.id, user?.email);
+  console.log("🔍 [DIAGNOSTIC] CurrentFilter:", currentFilter);
+  
+  // Récupération des données avec logs détaillés
   const { data: allRequests = [], isLoading, error } = useSimpleRequests();
   
-  // Service de filtrage SIMPLE - seulement les filtres qui marchent
+  console.log("🔍 [DIAGNOSTIC] Données du hook useSimpleRequests:");
+  console.log("  - allRequests.length:", allRequests.length);
+  console.log("  - isLoading:", isLoading);
+  console.log("  - error:", error);
+  console.log("  - allRequests (sample):", allRequests.slice(0, 3));
+  
+  // Service de filtrage avec logs
   const filterService = new SimpleFilterService(user?.id);
   const filteredRequests = filterService.filterRequests(currentFilter, allRequests);
   
-  console.log("[UltraSimpleDashboard] 🎯 SYSTÈME ULTRA-SIMPLE ACTIF");
-  console.log(`  - Total demandes brutes: ${allRequests.length}`);
-  console.log(`  - Filtre actuel: ${currentFilter}`);
-  console.log(`  - Demandes filtrées: ${filteredRequests.length}`);
-  console.log(`  - Loading: ${isLoading}`);
-  console.log(`  - Error: ${error ? 'OUI' : 'NON'}`);
+  console.log("🔍 [DIAGNOSTIC] Après filtrage:");
+  console.log("  - filteredRequests.length:", filteredRequests.length);
+  console.log("  - filteredRequests IDs:", filteredRequests.map(r => r.id));
   
   // Gestionnaire de clic sur les statistiques
   const handleStatClick = (filterType: SimpleFilterType) => {
-    console.log(`[UltraSimpleDashboard] 🎯 CLIC sur filtre: "${filterType}"`);
+    console.log(`🔍 [DIAGNOSTIC] Clic sur statistique: "${filterType}"`);
     setCurrentFilter(filterType);
     toast.info(`Filtre appliqué: ${filterType}`);
   };
   
   // Fonction pour effacer le filtre
   const clearFilter = () => {
+    console.log("🔍 [DIAGNOSTIC] Effacement du filtre");
     setCurrentFilter('all');
     toast.info("Filtre effacé");
   };
   
   if (error) {
+    console.error("❌ [DIAGNOSTIC] Erreur dans UltraSimpleDashboard:", error);
     return (
       <AppLayout>
         <div className="p-6">
@@ -56,7 +65,7 @@ export const UltraSimpleDashboard = () => {
     <AppLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Tableau de bord ULTRA-SIMPLE - SEULEMENT CE QUI MARCHE</h1>
+          <h1 className="text-2xl font-bold">DIAGNOSTIC - Dashboard Ultra-Simple</h1>
           {currentFilter !== 'all' && (
             <button 
               onClick={clearFilter}
@@ -67,19 +76,24 @@ export const UltraSimpleDashboard = () => {
           )}
         </div>
         
-        {/* DIAGNOSTIC AFFICHAGE DONNÉES */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="text-green-900 font-semibold">
-            ✅ SYSTÈME RADICAL - SEULEMENT LA LOGIQUE QUI FONCTIONNE
+        {/* DIAGNOSTIC ULTRA-DÉTAILLÉ */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="text-yellow-900 font-semibold">
+            🔍 DIAGNOSTIC DÉTAILLÉ
           </div>
-          <div className="text-green-700 text-sm mt-2 space-y-1">
-            <div><strong>Total brut:</strong> {allRequests.length} demandes</div>
+          <div className="text-yellow-700 text-sm mt-2 space-y-1">
+            <div><strong>Hook isLoading:</strong> {isLoading ? 'OUI' : 'NON'}</div>
+            <div><strong>Hook error:</strong> {error ? 'OUI' : 'NON'}</div>
+            <div><strong>Données brutes reçues:</strong> {allRequests.length} demandes</div>
             <div><strong>Filtre actuel:</strong> {currentFilter}</div>
             <div><strong>Après filtrage:</strong> {filteredRequests.length} demandes</div>
-            <div><strong>Statut chargement:</strong> {isLoading ? 'En cours...' : 'Terminé'}</div>
+            <div><strong>User ID:</strong> {user?.id || 'Pas connecté'}</div>
             {allRequests.length > 0 && (
-              <div className="text-xs">
-                <strong>Premiers IDs:</strong> {allRequests.slice(0, 3).map(r => r.id.substring(0, 8)).join(', ')}
+              <div className="text-xs mt-2">
+                <div><strong>Premier ID:</strong> {allRequests[0]?.id}</div>
+                <div><strong>Premier titre:</strong> {allRequests[0]?.title}</div>
+                <div><strong>Premier type:</strong> {allRequests[0]?.type}</div>
+                <div><strong>Premier workflow_status:</strong> {allRequests[0]?.workflow_status}</div>
               </div>
             )}
           </div>
@@ -87,7 +101,7 @@ export const UltraSimpleDashboard = () => {
         
         {isLoading ? (
           <div className="text-center py-8">
-            <p>Chargement des données...</p>
+            <p>🔄 Chargement des données...</p>
           </div>
         ) : (
           <>
@@ -99,7 +113,12 @@ export const UltraSimpleDashboard = () => {
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="text-sm text-blue-800">
-                <strong>Affichage:</strong> {filteredRequests.length} demande(s) pour le filtre "{currentFilter}"
+                <strong>Transmission au tableau:</strong> {filteredRequests.length} demande(s)
+                {filteredRequests.length > 0 && (
+                  <span className="ml-2">
+                    (IDs: {filteredRequests.map(r => r.id.substring(0, 8)).join(', ')})
+                  </span>
+                )}
               </div>
             </div>
             
