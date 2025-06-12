@@ -88,8 +88,7 @@ export const SimpleRequestsTable = ({
               </TableCell>
               <TableCell>
                 <GrowthRequestStatusBadge 
-                  status={request.status}
-                  workflowStatus={request.workflow_status}
+                  status={request.workflow_status}
                   isLate={request.isLate}
                 />
               </TableCell>
@@ -109,8 +108,8 @@ export const SimpleRequestsTable = ({
               <TableCell>
                 <GrowthRequestActions
                   request={request}
-                  onEdit={onEditRequest}
-                  onComplete={onCompleteRequest}
+                  onEditRequest={onEditRequest}
+                  onCompleteRequest={onCompleteRequest}
                   onViewDetails={onViewDetails}
                   onRequestUpdated={onRequestUpdated}
                   onRequestDeleted={onRequestDeleted}
