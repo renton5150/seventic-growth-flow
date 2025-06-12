@@ -14,6 +14,13 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
   const { user } = useAuth();
   const isGrowth = user?.role === 'growth';
   
+  console.log("📊 [DASHBOARD-STATS] Calcul des statistiques:", {
+    totalRequests: requests.length,
+    userRole: user?.role,
+    isGrowth,
+    activeFilter
+  });
+  
   const totalRequests = requests.length;
   const pendingRequests = requests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
   const inProgressRequests = requests.filter((r) => r.workflow_status === "in_progress").length;
@@ -24,9 +31,15 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
   const toAssignRequests = requests.filter(req => !req.assigned_to).length;
   const myAssignmentsRequests = requests.filter(req => req.assigned_to === user?.id).length;
 
-  console.log("[DEBUG] DashboardStats - Active filter:", activeFilter);
-  console.log("[DEBUG] DashboardStats - User role:", user?.role);
-  console.log("[DEBUG] DashboardStats - isGrowth:", isGrowth);
+  console.log("📊 [DASHBOARD-STATS] Compteurs calculés:", {
+    total: totalRequests,
+    pending: pendingRequests,
+    inProgress: inProgressRequests,
+    completed: completedRequests,
+    late: lateRequests,
+    toAssign: toAssignRequests,
+    myAssignments: myAssignmentsRequests
+  });
 
   return (
     <div className="grid gap-4 grid-cols-1 md:grid-cols-5 lg:grid-cols-5">
@@ -44,14 +57,20 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
             title="En attente d'assignation"
             value={toAssignRequests}
             icon={<ClipboardList size={24} className="text-status-pending" />}
-            onClick={() => onStatClick("to_assign")}
-            isActive={activeFilter === "to_assign"}
+            onClick={() => {
+              console.log("📊 [CLICK] En attente d'assignation cliqué");
+              onStatClick("to_assign");
+            }}
+            isActive={activeFilter === "to_assign" || activeFilter === "pending"}
           />
           <StatCard
             title="Mes demandes à traiter"
             value={myAssignmentsRequests}
             icon={<UserCheck size={24} className="text-blue-500" />}
-            onClick={() => onStatClick("my_assignments")}
+            onClick={() => {
+              console.log("📊 [CLICK] Mes demandes à traiter cliqué");
+              onStatClick("my_assignments");
+            }}
             isActive={activeFilter === "my_assignments"}
           />
         </>
