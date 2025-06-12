@@ -11,30 +11,46 @@ interface DashboardStatsProps {
 }
 
 export const DashboardStats = ({ requests, onStatClick, activeFilter }: DashboardStatsProps) => {
-  const { user } = useAuth();
-  const isGrowth = user?.role === 'growth';
+  const { user, isSDR, isGrowth, isAdmin } = useAuth();
   
   console.log("📊 [DASHBOARD-STATS] Calcul des statistiques:", {
     totalRequests: requests.length,
     userRole: user?.role,
+    isSDR,
     isGrowth,
+    isAdmin,
     activeFilter
   });
   
+  // Filtrer les demandes selon le rôle de l'utilisateur
+  const roleFilteredRequests = requests.filter((request) => {
+    if (isSDR) {
+      // Les SDR ne voient que leurs demandes
+      return request.createdBy === user?.id;
+    } else if (isGrowth && !isAdmin) {
+      // Les Growth voient toutes les demandes sauf celles pour SDR
+      return request.target_role !== "sdr";
+    }
+    // Les Admin voient tout
+    return true;
+  });
+  
+  console.log("📊 [DASHBOARD-STATS] Demandes après filtre de rôle:", roleFilteredRequests.length);
+  
   // Total des demandes : exclure les terminées (elles vont en archives)
-  const activeRequests = requests.filter((r) => r.workflow_status !== "completed");
+  const activeRequests = roleFilteredRequests.filter((r) => r.workflow_status !== "completed");
   const totalRequests = activeRequests.length;
   
-  const pendingRequests = requests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
-  const inProgressRequests = requests.filter((r) => r.workflow_status === "in_progress").length;
-  const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
-  const lateRequests = requests.filter((r) => r.isLate).length;
+  const pendingRequests = roleFilteredRequests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
+  const inProgressRequests = roleFilteredRequests.filter((r) => r.workflow_status === "in_progress").length;
+  const completedRequests = roleFilteredRequests.filter((r) => r.workflow_status === "completed").length;
+  const lateRequests = roleFilteredRequests.filter((r) => r.isLate).length;
   
   // Pour Growth : demandes non assignées ET non terminées, assignées à lui ET non terminées
-  const toAssignRequests = requests.filter(req => 
+  const toAssignRequests = roleFilteredRequests.filter(req => 
     (!req.assigned_to) && req.workflow_status !== "completed"
   ).length;
-  const myAssignmentsRequests = requests.filter(req => 
+  const myAssignmentsRequests = roleFilteredRequests.filter(req => 
     req.assigned_to === user?.id && req.workflow_status !== "completed"
   ).length;
 

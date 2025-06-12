@@ -46,11 +46,18 @@ const Dashboard = () => {
   const filteredRequests = allRequests.filter((request) => {
     console.log(`🔍 [DASHBOARD-FILTER] Filtrage demande ${request.id} avec activeTab: ${activeTab}`);
     
-    // Filtres de rôle
+    // Filtres de rôle : les SDR ne voient que leurs demandes
     let matchesRole = true;
-    if (isSDR && request.target_role === "growth") {
-      matchesRole = false;
+    if (isSDR) {
+      // Les SDR ne voient que les demandes qu'ils ont créées
+      matchesRole = request.createdBy === user?.id;
+      console.log(`🔍 [DASHBOARD-FILTER] SDR filter - demande ${request.id} createdBy: ${request.createdBy}, userId: ${user?.id}, match: ${matchesRole}`);
+    } else if (isGrowth && !isAdmin) {
+      // Les Growth voient toutes les demandes sauf celles spécifiquement pour SDR
+      matchesRole = request.target_role !== "sdr";
+      console.log(`🔍 [DASHBOARD-FILTER] Growth filter - demande ${request.id} target_role: ${request.target_role}, match: ${matchesRole}`);
     }
+    // Les Admin voient tout
 
     // Filtres par onglet
     let matchesTab = true;
@@ -130,18 +137,6 @@ const Dashboard = () => {
           isAdmin={isAdmin}
           filterParams={{}}
         />
-
-        {/* DIAGNOSTIC - Système DIRECT intégré */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="text-green-900 font-semibold">
-            ✅ SYSTÈME DIRECT INTÉGRÉ - Interface simple restaurée
-          </div>
-          <div className="text-green-700 text-sm mt-2 space-y-1">
-            <div><strong>Total demandes:</strong> {allRequests.length}</div>
-            <div><strong>Demandes filtrées (onglet "{activeTab}"):</strong> {filteredRequests.length}</div>
-            <div><strong>Utilisateur:</strong> {user?.role} (ID: {user?.id?.substring(0, 8)})</div>
-          </div>
-        </div>
         
         <DashboardStats 
           requests={allRequests}
