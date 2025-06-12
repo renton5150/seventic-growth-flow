@@ -13,18 +13,18 @@ export const useSimpleRequests = () => {
     queryKey: ['simple-requests'],
     queryFn: async () => {
       console.log("🔍 [DIAGNOSTIC] Exécution de queryFn dans useSimpleRequests");
-      const result = await fetchSimpleRequests();
-      console.log("🔍 [DIAGNOSTIC] Résultat du queryFn:", result.length, "demandes");
-      return result;
+      try {
+        const result = await fetchSimpleRequests();
+        console.log("✅ [DIAGNOSTIC] useSimpleRequests queryFn SUCCESS:", result.length, "demandes");
+        console.log("🔍 [DIAGNOSTIC] Première demande récupérée:", result[0]);
+        return result;
+      } catch (error) {
+        console.error("❌ [DIAGNOSTIC] useSimpleRequests queryFn ERROR:", error);
+        throw error;
+      }
     },
     refetchInterval: 10000,
     retry: 2,
-    retryDelay: 1000,
-    onSuccess: (data) => {
-      console.log("✅ [DIAGNOSTIC] useSimpleRequests onSuccess:", data.length, "demandes");
-    },
-    onError: (error) => {
-      console.error("❌ [DIAGNOSTIC] useSimpleRequests onError:", error);
-    }
+    retryDelay: 1000
   });
 };
