@@ -4,7 +4,10 @@ import { z } from "zod";
 export const formSchema = z.object({
   title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
   missionId: z.string().min(1, "Veuillez sélectionner une mission"),
-  dueDate: z.string().min(1, "Veuillez sélectionner une date"),
+  dueDate: z.union([z.string(), z.date()]).transform((val) => {
+    if (typeof val === 'string') return val;
+    return val.toISOString().split('T')[0];
+  }),
   jobTitles: z.string().optional(),
   locations: z.string().optional(),
   industries: z.string().optional(),

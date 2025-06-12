@@ -8,7 +8,10 @@ export const formSchema = z.object({
     required_error: "Veuillez sélectionner un type d'emailing"
   }),
   missionId: z.string().min(1, "Veuillez sélectionner une mission"),
-  dueDate: z.string().min(1, "Veuillez sélectionner une date"),
+  dueDate: z.union([z.string(), z.date()]).transform((val) => {
+    if (typeof val === 'string') return val;
+    return val.toISOString().split('T')[0];
+  }),
   templateContent: z.string().optional(),
   templateFileUrl: z.string().optional(),
   templateWebLink: z.string().optional(),

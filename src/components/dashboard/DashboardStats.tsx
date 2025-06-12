@@ -41,10 +41,21 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
   const activeRequests = roleFilteredRequests.filter((r) => r.workflow_status !== "completed");
   const totalRequests = activeRequests.length;
   
-  const pendingRequests = roleFilteredRequests.filter((r) => r.status === "pending" || r.workflow_status === "pending_assignment").length;
+  // Pour SDR : "En attente" = mes demandes en attente d'assignation
+  // Pour Growth/Admin : "En attente" = demandes non assignées
+  const pendingRequests = isSDR 
+    ? roleFilteredRequests.filter((r) => 
+        r.createdBy === user?.id && 
+        (!r.assigned_to || r.workflow_status === "pending_assignment") && 
+        r.workflow_status !== "completed"
+      ).length
+    : roleFilteredRequests.filter((r) => 
+        r.status === "pending" || r.workflow_status === "pending_assignment"
+      ).length;
+      
   const inProgressRequests = roleFilteredRequests.filter((r) => r.workflow_status === "in_progress").length;
   const completedRequests = roleFilteredRequests.filter((r) => r.workflow_status === "completed").length;
-  const lateRequests = roleFilteredRequests.filter((r) => r.isLate).length;
+  const lateRequests = roleFilteredRequests.filter((r) => r.isLate && r.workflow_status !== "completed").length;
   
   // Pour Growth : demandes non assignées ET non terminées, assignées à lui ET non terminées
   const toAssignRequests = roleFilteredRequests.filter(req => 
@@ -100,7 +111,7 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
       ) : (
         <>
           <StatCard
-            title="En attente"
+            title={isSDR ? "Mes demandes en attente" : "En attente"}
             value={pendingRequests}
             icon={<Clock size={24} className="text-status-pending" />}
             onClick={() => onStatClick("pending")}
