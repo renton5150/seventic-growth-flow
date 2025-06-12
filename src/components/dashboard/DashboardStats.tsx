@@ -27,9 +27,11 @@ export const DashboardStats = ({ requests, onStatClick, activeFilter }: Dashboar
   const completedRequests = requests.filter((r) => r.workflow_status === "completed").length;
   const lateRequests = requests.filter((r) => r.isLate).length;
   
-  // Pour Growth : demandes non assignées et assignées à lui
+  // Pour Growth : demandes non assignées et assignées à lui (excluant les terminées)
   const toAssignRequests = requests.filter(req => !req.assigned_to).length;
-  const myAssignmentsRequests = requests.filter(req => req.assigned_to === user?.id).length;
+  const myAssignmentsRequests = requests.filter(req => 
+    req.assigned_to === user?.id && req.workflow_status !== "completed"
+  ).length;
 
   console.log("📊 [DASHBOARD-STATS] Compteurs calculés:", {
     total: totalRequests,

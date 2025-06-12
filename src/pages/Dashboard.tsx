@@ -65,9 +65,9 @@ const Dashboard = () => {
         console.log(`🔍 [DASHBOARD-FILTER] Demande ${request.id} - assigned_to: ${request.assigned_to}, match to_assign: ${matchesTab}`);
         break;
       case "my_assignments":
-        // Mes demandes à traiter = assignées à moi
-        matchesTab = request.assigned_to === user?.id;
-        console.log(`🔍 [DASHBOARD-FILTER] Demande ${request.id} - assigned_to: ${request.assigned_to}, userId: ${user?.id}, match my_assignments: ${matchesTab}`);
+        // Mes demandes à traiter = assignées à moi ET pas terminées
+        matchesTab = request.assigned_to === user?.id && request.workflow_status !== "completed";
+        console.log(`🔍 [DASHBOARD-FILTER] Demande ${request.id} - assigned_to: ${request.assigned_to}, userId: ${user?.id}, workflow_status: ${request.workflow_status}, match my_assignments: ${matchesTab}`);
         break;
       case "inprogress":
         matchesTab = request.workflow_status === "in_progress";
