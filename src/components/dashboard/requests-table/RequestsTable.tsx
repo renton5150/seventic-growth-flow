@@ -7,9 +7,11 @@ import { EmptyRequestsRow } from "./EmptyRequestsRow";
 interface RequestsTableProps {
   requests: Request[];
   onDeleted?: () => void;
+  onRequestDeleted?: () => void; // Ajout de cette prop
   showSdr?: boolean;
   isSDR?: boolean;
-  isArchived?: boolean; // Nouveau prop pour les archives
+  isArchived?: boolean;
+  missionView?: boolean; // Ajout de cette prop
   // Growth-specific props
   onEditRequest?: (request: Request) => void;
   onCompleteRequest?: (request: Request) => void;
@@ -22,9 +24,11 @@ interface RequestsTableProps {
 export const RequestsTable = ({
   requests,
   onDeleted,
+  onRequestDeleted,
   showSdr = false,
   isSDR = false,
-  isArchived = false, // Nouveau prop avec valeur par défaut
+  isArchived = false,
+  missionView = false,
   onEditRequest,
   onCompleteRequest,
   onViewDetails,
@@ -33,7 +37,7 @@ export const RequestsTable = ({
   activeTab
 }: RequestsTableProps) => {
   if (!requests || requests.length === 0) {
-    return <EmptyRequestsRow />;
+    return <EmptyRequestsRow colSpan={11} missionView={missionView} />;
   }
 
   return (
@@ -59,10 +63,11 @@ export const RequestsTable = ({
             <RequestRow
               key={request.id}
               request={request}
+              missionView={missionView}
               showSdr={showSdr}
               isSDR={isSDR}
-              isArchived={isArchived} // Transmettre le prop
-              onDeleted={onDeleted}
+              isArchived={isArchived}
+              onDeleted={onDeleted || onRequestDeleted}
               onEditRequest={onEditRequest}
               onCompleteRequest={onCompleteRequest}
               onViewDetails={onViewDetails}

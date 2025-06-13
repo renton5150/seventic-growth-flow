@@ -10,7 +10,7 @@ export const EmptyRequestsRow = ({ colSpan, missionView = false }: EmptyRequests
   return (
     <TableRow>
       <TableCell colSpan={colSpan} className="text-center py-10 text-muted-foreground">
-        Aucune demande pour le moment
+        {missionView ? "Aucune demande pour cette mission" : "Aucune demande pour le moment"}
       </TableCell>
     </TableRow>
   );

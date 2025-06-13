@@ -14,7 +14,7 @@ export const MissionRequestsSection = ({ mission, isSdr }: MissionRequestsSectio
       {mission.requests && mission.requests.length > 0 ? (
         <RequestsTable 
           requests={mission.requests as Request[]} 
-          missionView 
+          missionView={true}
           showSdr={!isSdr}
         />
       ) : (
