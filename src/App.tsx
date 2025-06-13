@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ import LinkedInScrapingEdit from "./pages/LinkedInScrapingEdit";
 import RequestDetails from "./pages/RequestDetails";
 import AdminUsers from "./pages/AdminUsers";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboardSimple from "./pages/AdminDashboardSimple";
 import AdminMissions from "./pages/AdminMissions";
 import GrowthDashboard from "./pages/GrowthDashboard";
 import Archives from "./pages/Archives";
@@ -69,6 +71,7 @@ function App() {
               <Route path="/requests/linkedin/:requestId" element={<RequestDetails />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin-dashboard-simple" element={<AdminDashboardSimple />} />
               <Route path="/admin/missions" element={<AdminMissions />} />
               <Route path="/growth" element={<GrowthDashboard />} />
               <Route path="/growth-dashboard" element={<GrowthDashboard />} />

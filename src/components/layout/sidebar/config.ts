@@ -1,226 +1,35 @@
 
-import {
-  Home,
-  Calendar,
-  Users,
-  Database,
-  Mail,
-  BarChart3,
-  FolderOpen,
-  Shield,
-  Settings,
-  Brain,
-  FileText,
-  ClipboardCheck
-} from "lucide-react";
+import { BarChart3, Users, Settings, FileText, Calendar, Briefcase, Archive, Database, Mail, Zap, Brain, ClipboardList, UserCog } from "lucide-react";
+import { UserRole } from "@/types/types";
 
 export interface MenuItem {
-  label: string;
-  href: string;
-  icon: any;
-  roles?: string[];
-  description?: string;
-}
-
-export interface MenuSection {
   title: string;
-  items: MenuItem[];
+  url: string;
+  icon?: any;
+  roles?: UserRole[];
+  section?: string;
 }
 
-export const menuConfig: MenuSection[] = [
-  {
-    title: "Principal",
-    items: [
-      {
-        label: "Tableau de bord",
-        href: "/",
-        icon: Home,
-        description: "Vue d'ensemble de vos demandes et missions"
-      },
-      {
-        label: "CRA",
-        href: "/cra",
-        icon: ClipboardCheck,
-        roles: ["sdr", "admin"],
-        description: "Compte rendu d'activité quotidien"
-      },
-      {
-        label: "Planning",
-        href: "/planning",
-        icon: Calendar,
-        description: "Calendrier interactif des missions"
-      },
-      {
-        label: "Télétravail",
-        href: "/work-schedule",
-        icon: Calendar,
-        roles: ["sdr", "growth", "admin"],
-        description: "Planning télétravail et congés"
-      }
-    ]
-  },
-  {
-    title: "Gestion",
-    items: [
-      {
-        label: "Missions",
-        href: "/missions",
-        icon: FolderOpen,
-        description: "Gérer les missions et projets"
-      },
-      {
-        label: "Base de données",
-        href: "/databases",
-        icon: Database,
-        description: "Fichiers et bases de données"
-      },
-      {
-        label: "Archives",
-        href: "/archives",
-        icon: FileText,
-        description: "Demandes terminées et archivées"
-      },
-      {
-        label: "Plateformes Email",
-        href: "/email-platforms",
-        icon: Mail,
-        roles: ["admin", "growth"],
-        description: "Configuration des plateformes email"
-      }
-    ]
-  },
-  {
-    title: "Administration",
-    items: [
-      {
-        label: "Utilisateurs",
-        href: "/admin/users",
-        icon: Users,
-        roles: ["admin"],
-        description: "Gestion des utilisateurs et permissions"
-      },
-      {
-        label: "Statistiques",
-        href: "/admin/dashboard",
-        icon: BarChart3,
-        roles: ["admin"],
-        description: "Tableaux de bord et analyses"
-      },
-      {
-        label: "Missions Admin",
-        href: "/admin/missions",
-        icon: Settings,
-        roles: ["admin"],
-        description: "Administration des missions"
-      },
-      {
-        label: "Campagnes Acelle",
-        href: "/acelle-campaigns",
-        icon: Mail,
-        roles: ["admin"],
-        description: "Gestion des campagnes Acelle"
-      }
-    ]
-  },
-  {
-    title: "Outils",
-    items: [
-      {
-        label: "IA Dashboard",
-        href: "/ai-dashboard",
-        icon: Brain,
-        description: "Assistant IA et analyses avancées"
-      }
-    ]
-  }
-];
+export const menuItems: MenuItem[] = [
+  // Section principale
+  { title: "Tableau de bord", url: "/dashboard", icon: BarChart3, section: "PRINCIPAL" },
+  { title: "CRA", url: "/cra", icon: ClipboardList, section: "PRINCIPAL" },
+  { title: "Planning", url: "/planning", icon: Calendar, section: "PRINCIPAL" },
+  { title: "Télétravail", url: "/work-schedule", icon: Settings, section: "PRINCIPAL" },
 
-// Exports pour compatibilité avec AppSidebar
-export const sdrMenuItems = [
-  {
-    title: "CRA",
-    path: "/cra",
-    icon: ClipboardCheck
-  },
-  {
-    title: "Planning",
-    path: "/planning",
-    icon: Calendar
-  },
-  {
-    title: "Télétravail",
-    path: "/work-schedule",
-    icon: Calendar
-  },
-  {
-    title: "Missions",
-    path: "/missions", 
-    icon: FolderOpen
-  }
-];
+  // Section gestion
+  { title: "Missions", url: "/missions", icon: Briefcase, section: "GESTION" },
+  { title: "Base de données", url: "/databases", icon: Database, section: "GESTION" },
+  { title: "Archives", url: "/archives", icon: Archive, section: "GESTION" },
+  { title: "Plateformes Email", url: "/email-platforms", icon: Mail, section: "GESTION" },
 
-export const growthMenuItems = [
-  {
-    title: "Growth Dashboard",
-    path: "/growth-dashboard",
-    icon: BarChart3
-  },
-  {
-    title: "Planning",
-    path: "/planning",
-    icon: Calendar
-  },
-  {
-    title: "Télétravail",
-    path: "/work-schedule",
-    icon: Calendar
-  },
-  {
-    title: "Plateformes Email",
-    path: "/email-platforms",
-    icon: Mail
-  }
-];
+  // Section administration
+  { title: "Utilisateurs", url: "/admin/users", icon: Users, roles: ["admin"], section: "ADMINISTRATION" },
+  { title: "Statistiques", url: "/admin/dashboard", icon: BarChart3, roles: ["admin"], section: "ADMINISTRATION" },
+  { title: "Dashboard Simple", url: "/admin-dashboard-simple", icon: UserCog, roles: ["admin"], section: "ADMINISTRATION" },
+  { title: "Missions Admin", url: "/admin/missions", icon: Settings, roles: ["admin"], section: "ADMINISTRATION" },
+  { title: "Campagnes Acelle", url: "/acelle-campaigns", icon: Zap, roles: ["admin"], section: "ADMINISTRATION" },
 
-export const adminMenuItems = [
-  {
-    title: "CRA",
-    path: "/cra",
-    icon: ClipboardCheck
-  },
-  {
-    title: "Planning",
-    path: "/planning",
-    icon: Calendar
-  },
-  {
-    title: "Télétravail",
-    path: "/work-schedule",
-    icon: Calendar
-  },
-  {
-    title: "Utilisateurs",
-    path: "/admin/users",
-    icon: Users
-  },
-  {
-    title: "Dashboard Admin",
-    path: "/admin/dashboard",
-    icon: BarChart3
-  },
-  {
-    title: "Missions Admin",
-    path: "/admin/missions",
-    icon: Settings
-  },
-  {
-    title: "Email Platforms",
-    path: "/email-platforms",
-    icon: Mail
-  },
-  {
-    title: "Campagnes Acelle",
-    path: "/acelle-campaigns",
-    icon: Mail
-  }
+  // Section outils
+  { title: "IA Dashboard", url: "/ai-dashboard", icon: Brain, section: "OUTILS" },
 ];
