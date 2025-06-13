@@ -3,11 +3,12 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
-import { useDirectRequests } from "@/hooks/useDirectRequests";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
-import { DirectRequest } from "@/services/requests/directRequestService";
 import { useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Request } from "@/types/types";
 
 const Dashboard = () => {
   const { user, isSDR, isGrowth, isAdmin } = useAuth();
@@ -22,92 +23,135 @@ const Dashboard = () => {
   
   const hasAdminFilters = !!(createdByParam || assignedToParam || showUnassignedParam);
   
-  console.log("🎯 [DASHBOARD-REFONTE] Paramètres URL admin:", {
+  console.log("🎯 [DASHBOARD-FIXED] Paramètres URL admin:", {
     isAdmin,
     hasAdminFilters,
     createdBy: createdByParam,
     assignedTo: assignedToParam,
     showUnassigned: showUnassignedParam,
-    userName: userNameParam
+    userName: userNameParam,
+    userRole: user?.role
   });
 
-  const { data: directRequests = [], isLoading: loading, error, refetch } = useDirectRequests();
+  // Hook simplifié pour récupérer les demandes
+  const { data: allRequests = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['dashboard-requests-fixed', user?.id, hasAdminFilters, createdByParam, assignedToParam, showUnassignedParam],
+    queryFn: async () => {
+      if (!user?.id) {
+        console.log("🎯 [DASHBOARD-FIXED] Pas d'utilisateur connecté");
+        return [];
+      }
+      
+      console.log("🎯 [DASHBOARD-FIXED] Récupération des demandes pour:", user.role);
+      
+      try {
+        let query = supabase
+          .from('requests')
+          .select(`
+            id,
+            title,
+            type,
+            status,
+            created_by,
+            mission_id,
+            assigned_to,
+            due_date,
+            details,
+            workflow_status,
+            created_at,
+            updated_at,
+            target_role,
+            missions!inner(name, client),
+            created_by_profile:profiles!requests_created_by_fkey(first_name, last_name),
+            assigned_to_profile:profiles!requests_assigned_to_fkey(first_name, last_name)
+          `)
+          .order('created_at', { ascending: false });
+
+        // Appliquer les filtres admin si nécessaire
+        if (isAdmin && hasAdminFilters) {
+          console.log("🎯 [DASHBOARD-FIXED] Application des filtres admin");
+          
+          if (createdByParam) {
+            query = query.eq('created_by', createdByParam);
+            console.log("🎯 [DASHBOARD-FIXED] Filtre par createdBy:", createdByParam);
+          }
+          
+          if (assignedToParam) {
+            query = query.eq('assigned_to', assignedToParam);
+            console.log("🎯 [DASHBOARD-FIXED] Filtre par assignedTo:", assignedToParam);
+          }
+          
+          if (showUnassignedParam) {
+            query = query.is('assigned_to', null);
+            console.log("🎯 [DASHBOARD-FIXED] Filtre demandes non assignées");
+          }
+        } else if (!isAdmin) {
+          // Filtres normaux par rôle
+          if (isSDR) {
+            query = query.eq('created_by', user.id);
+            console.log("🎯 [DASHBOARD-FIXED] Filtre SDR - mes demandes");
+          } else if (isGrowth) {
+            query = query.neq('target_role', 'sdr');
+            console.log("🎯 [DASHBOARD-FIXED] Filtre Growth - pas de demandes SDR");
+          }
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("🎯 [DASHBOARD-FIXED] Erreur Supabase:", error);
+          throw error;
+        }
+
+        console.log("🎯 [DASHBOARD-FIXED] Demandes récupérées:", data?.length || 0);
+
+        // Formatter les données
+        const formattedRequests: Request[] = (data || []).map((req: any) => {
+          const now = new Date();
+          const dueDate = new Date(req.due_date);
+          const isLate = dueDate < now && req.workflow_status !== 'completed';
+
+          return {
+            id: req.id,
+            title: req.title,
+            type: req.type,
+            status: req.status,
+            createdBy: req.created_by,
+            missionId: req.mission_id,
+            missionName: req.missions?.name || 'Sans mission',
+            missionClient: req.missions?.client || '',
+            sdrName: req.created_by_profile ? `${req.created_by_profile.first_name} ${req.created_by_profile.last_name}` : 'Inconnu',
+            assignedToName: req.assigned_to_profile ? `${req.assigned_to_profile.first_name} ${req.assigned_to_profile.last_name}` : null,
+            dueDate: req.due_date,
+            details: req.details,
+            workflow_status: req.workflow_status,
+            assigned_to: req.assigned_to,
+            isLate,
+            createdAt: new Date(req.created_at),
+            lastUpdated: new Date(req.updated_at),
+            target_role: req.target_role || 'growth'
+          };
+        });
+
+        console.log("🎯 [DASHBOARD-FIXED] Demandes formatées:", formattedRequests.length);
+        return formattedRequests;
+        
+      } catch (error) {
+        console.error("🎯 [DASHBOARD-FIXED] Erreur lors de la récupération:", error);
+        return [];
+      }
+    },
+    enabled: !!user?.id,
+    refetchInterval: 10000
+  });
   
   // État local pour les onglets
   const [activeTab, setActiveTab] = useState<string>("all");
   
-  // Conversion des DirectRequest vers le format Request
-  const allRequests = directRequests.map((req: DirectRequest) => ({
-    id: req.id,
-    title: req.title,
-    type: req.type,
-    status: req.status as any,
-    createdBy: req.created_by,
-    missionId: req.mission_id,
-    missionName: req.mission_name,
-    missionClient: req.mission_client,
-    sdrName: req.sdr_name,
-    assignedToName: req.assigned_to_name,
-    dueDate: req.due_date,
-    details: req.details,
-    workflow_status: req.workflow_status as any,
-    assigned_to: req.assigned_to,
-    isLate: req.isLate,
-    createdAt: new Date(req.created_at),
-    lastUpdated: new Date(req.last_updated),
-    target_role: 'growth'
-  }));
+  console.log("🎯 [DASHBOARD-FIXED] Total demandes récupérées:", allRequests.length);
 
-  console.log("🎯 [DASHBOARD-REFONTE] Total demandes:", allRequests.length);
-
-  // ÉTAPE 1: Appliquer les filtres admin spéciaux si on a des paramètres URL
-  let adminFilteredRequests = allRequests;
-  if (isAdmin && hasAdminFilters) {
-    console.log("🎯 [DASHBOARD-REFONTE] Application des filtres admin spéciaux");
-    
-    adminFilteredRequests = allRequests.filter((request) => {
-      let matches = true;
-      
-      if (createdByParam) {
-        matches = matches && request.createdBy === createdByParam;
-        console.log(`🔍 Admin filter createdBy - request ${request.id}: ${request.createdBy} === ${createdByParam} = ${matches}`);
-      }
-      
-      if (assignedToParam) {
-        matches = matches && request.assigned_to === assignedToParam;
-        console.log(`🔍 Admin filter assignedTo - request ${request.id}: ${request.assigned_to} === ${assignedToParam} = ${matches}`);
-      }
-      
-      if (showUnassignedParam) {
-        matches = matches && (!request.assigned_to || request.assigned_to === null);
-        console.log(`🔍 Admin filter unassigned - request ${request.id}: ${!request.assigned_to} = ${matches}`);
-      }
-      
-      return matches;
-    });
-    
-    console.log("🎯 [DASHBOARD-REFONTE] Après filtres admin:", adminFilteredRequests.length);
-  }
-
-  // ÉTAPE 2: Appliquer les filtres de rôle normaux si pas de filtres admin
-  let roleFilteredRequests = adminFilteredRequests;
-  if (!hasAdminFilters) {
-    console.log("🎯 [DASHBOARD-REFONTE] Application des filtres de rôle normaux");
-    
-    roleFilteredRequests = adminFilteredRequests.filter((request) => {
-      if (isSDR) {
-        return request.createdBy === user?.id;
-      } else if (isGrowth && !isAdmin) {
-        return request.target_role !== "sdr";
-      }
-      // Admin voit tout par défaut
-      return true;
-    });
-    console.log("🎯 [DASHBOARD-REFONTE] Après filtre de rôle:", roleFilteredRequests.length);
-  }
-
-  // ÉTAPE 3: Appliquer les filtres par onglet
-  const finalFilteredRequests = roleFilteredRequests.filter((request) => {
+  // Appliquer les filtres par onglet
+  const finalFilteredRequests = allRequests.filter((request) => {
     switch (activeTab) {
       case "all":
         return request.workflow_status !== "completed";
@@ -127,10 +171,10 @@ const Dashboard = () => {
     }
   });
 
-  console.log("🎯 [DASHBOARD-REFONTE] Demandes finales après tous les filtres:", finalFilteredRequests.length);
+  console.log("🎯 [DASHBOARD-FIXED] Demandes finales après filtre onglet:", finalFilteredRequests.length);
 
   const handleStatCardClick = (tab: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => {
-    console.log(`🎯 [DASHBOARD-REFONTE] Click sur card: ${tab}`);
+    console.log(`🎯 [DASHBOARD-FIXED] Click sur card: ${tab}`);
     setActiveTab(tab);
   };
 
@@ -167,7 +211,7 @@ const Dashboard = () => {
         />
         
         <DashboardStats 
-          requests={roleFilteredRequests}
+          requests={allRequests}
           onStatClick={handleStatCardClick}
           activeFilter={activeTab}
         />
