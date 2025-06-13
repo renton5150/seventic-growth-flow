@@ -1,5 +1,5 @@
 
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { Eye, Edit, Trash2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteRequest } from "@/services/requests/deleteRequestService";
+import { cloneRequest } from "@/services/requests/cloneRequestService";
 import { toast } from "sonner";
 import { Request } from "@/types/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +31,7 @@ interface RequestRowActionsProps {
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
   isSDR?: boolean;
+  isArchived?: boolean; // Nouveau prop pour savoir si on est dans les archives
 }
 
 export const RequestRowActions = ({
@@ -41,11 +43,13 @@ export const RequestRowActions = ({
   assignRequestToMe,
   updateRequestWorkflowStatus,
   activeTab,
-  isSDR = false
+  isSDR = false,
+  isArchived = false
 }: RequestRowActionsProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
   
   const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
   const showDeleteButton = user?.role === "admin" || user?.role === "growth" || 
@@ -69,6 +73,30 @@ export const RequestRowActions = ({
     }
   };
 
+  const handleClone = async () => {
+    setIsCloning(true);
+    try {
+      console.log(`[RequestRowActions] 🚀 Début du clonage de la demande ${request.id}`);
+      const clonedRequest = await cloneRequest(request.id);
+      
+      if (clonedRequest) {
+        console.log(`[RequestRowActions] ✅ Demande clonée avec succès:`, clonedRequest);
+        toast.success("Demande clonée avec succès");
+        
+        // Rediriger vers la nouvelle demande
+        navigate(`/requests/${clonedRequest.type}/${clonedRequest.id}`);
+      } else {
+        console.error(`[RequestRowActions] ❌ Échec du clonage`);
+        toast.error("Erreur lors du clonage de la demande");
+      }
+    } catch (error) {
+      console.error(`[RequestRowActions] 💥 Erreur lors du clonage:`, error);
+      toast.error("Erreur lors du clonage de la demande");
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
   const handleView = () => {
     if (onViewDetails) {
       onViewDetails(request);
@@ -85,8 +113,8 @@ export const RequestRowActions = ({
     }
   };
 
-  // TOUJOURS utiliser GrowthRequestActions pour Growth et Admin
-  if (isGrowthOrAdmin) {
+  // TOUJOURS utiliser GrowthRequestActions pour Growth et Admin (sauf en archives)
+  if (isGrowthOrAdmin && !isArchived) {
     return (
       <GrowthRequestActions
         request={request}
@@ -102,7 +130,7 @@ export const RequestRowActions = ({
     );
   }
 
-  // Actions pour SDR et autres
+  // Actions pour SDR, archives et autres cas
   return (
     <div className="flex justify-end gap-2">
       <Button
@@ -110,28 +138,45 @@ export const RequestRowActions = ({
         size="icon"
         onClick={handleView}
         className="h-8 w-8"
+        title="Voir les détails"
       >
         <Eye className="h-4 w-4" />
       </Button>
       
-      {!isSDR && (
+      {/* Bouton Clone - TOUJOURS visible */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleClone}
+        disabled={isCloning}
+        className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        title="Cloner la demande"
+      >
+        <Copy className="h-4 w-4" />
+      </Button>
+      
+      {/* Bouton Edit - seulement si pas SDR et pas archivé */}
+      {!isSDR && !isArchived && (
         <Button
           variant="ghost"
           size="icon"
           onClick={handleEdit}
           className="h-8 w-8"
+          title="Modifier"
         >
           <Edit className="h-4 w-4" />
         </Button>
       )}
       
-      {showDeleteButton && (
+      {/* Bouton Delete - selon permissions et pas archivé */}
+      {showDeleteButton && !isArchived && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Supprimer"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

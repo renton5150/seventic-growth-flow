@@ -35,8 +35,10 @@ export const CreateRequestMenu = () => {
     }
   };
 
-  // CORRECTION MAJEURE: Autoriser TOUS les rôles (SDR, Growth, Admin) à créer des demandes
-  const canCreateRequests = ['sdr', 'growth', 'admin'].includes(user?.role || '');
+  // CORRECTION: Autoriser explicitement TOUS les rôles (SDR, Growth, Admin) à créer des demandes
+  const canCreateRequests = user?.role === 'sdr' || user?.role === 'growth' || user?.role === 'admin';
+  
+  console.log(`[CreateRequestMenu] ✅ canCreateRequests: ${canCreateRequests} pour role: ${user?.role}`);
   
   if (!canCreateRequests) {
     console.log(`[CreateRequestMenu] ❌ Pas de permissions pour créer des demandes (rôle: ${user?.role})`);

@@ -1,158 +1,77 @@
 
-import { useState, useEffect } from "react";
 import { Request } from "@/types/types";
-import { Table } from "@/components/ui/table";
-import { RequestsTableHeader } from "./RequestsTableHeader";
-import { RequestsTableBody } from "./RequestsTableBody";
-import { sortRequests } from "@/utils/requestSorting";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RequestRow } from "./RequestRow";
+import { EmptyRequestsRow } from "./EmptyRequestsRow";
 
 interface RequestsTableProps {
   requests: Request[];
-  missionView?: boolean;
+  onDeleted?: () => void;
   showSdr?: boolean;
   isSDR?: boolean;
-  onRequestDeleted?: () => void;
+  isArchived?: boolean; // Nouveau prop pour les archives
+  // Growth-specific props
+  onEditRequest?: (request: Request) => void;
+  onCompleteRequest?: (request: Request) => void;
+  onViewDetails?: (request: Request) => void;
+  assignRequestToMe?: (requestId: string) => Promise<boolean>;
+  updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
+  activeTab?: string;
 }
 
-export const RequestsTable = ({ 
-  requests, 
-  missionView = false, 
+export const RequestsTable = ({
+  requests,
+  onDeleted,
   showSdr = false,
   isSDR = false,
-  onRequestDeleted
+  isArchived = false, // Nouveau prop avec valeur par défaut
+  onEditRequest,
+  onCompleteRequest,
+  onViewDetails,
+  assignRequestToMe,
+  updateRequestWorkflowStatus,
+  activeTab
 }: RequestsTableProps) => {
-  const [sortColumn, setSortColumn] = useState<string>("dueDate");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [filters, setFilters] = useState<{[key: string]: string[]}>({});
-  const [dateFilters, setDateFilters] = useState<{[key: string]: any}>({});
-  const [uniqueValues, setUniqueValues] = useState<{[key: string]: string[]}>({
-    type: [],
-    title: [],
-    mission: [],
-    sdr: [],
-    status: [],
-    assignedTo: [],
-    requestType: [],
-    emailPlatform: []
-  });
-
-  // DIAGNOSTIC - Log des requests reçues
-  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Requests prop:", requests);
-  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Mission names dans requests:", requests.map(r => ({ id: r.id, missionName: r.missionName, missionClient: r.missionClient })));
-
-  // Extraire les valeurs uniques des propriétés pour les filtres
-  useEffect(() => {
-    if (!requests || requests.length === 0) return;
-    
-    // Extract unique values for filters
-    const types = [...new Set(requests.map(r => r.type))];
-    
-    // Use proper "Sans mission" for null or empty mission names
-    const missions = [...new Set(requests.map(r => r.missionName || "Sans mission"))];
-    
-    console.log("[RequestsTable] 🔍 DIAGNOSTIC - Missions extraites pour filtres:", missions);
-    
-    // Use "Non assigné" for null or empty SDR names
-    const sdrs = [...new Set(requests.map(r => r.sdrName || "Non assigné"))];
-    
-    // Get unique statuses - include all possible workflow statuses
-    const statuses = [...new Set(requests.map(r => {
-      return r.workflow_status || r.status || "pending";
-    }))];
-    
-    // Get unique titles
-    const titles = [...new Set(requests.map(r => r.title))];
-    
-    // Extract email platforms from request details
-    const emailPlatforms = [...new Set(requests.map(r => {
-      if (r.details && r.details.emailPlatform) {
-        return r.details.emailPlatform;
-      }
-      return "Non spécifié";
-    }))];
-    
-    // Extraire les types de demande formatés avec les labels français
-    const requestTypes = [...new Set(requests.map(r => {
-      switch(r.type) {
-        case "email": return "Campagne Email";
-        case "database": return "Base de données";
-        case "linkedin": return "Scraping LinkedIn";
-        default: return r.type;
-      }
-    }))];
-    
-    // Extraire les valeurs uniques pour assignedTo
-    const assignedToNames = [...new Set(requests.map(r => r.assignedToName || "Non assigné"))];
-    
-    console.log("RequestsTable - Valeurs extraites pour les filtres:", {
-      requestTypes,
-      assignedToNames
-    });
-    
-    setUniqueValues({
-      type: types,
-      mission: missions,
-      sdr: sdrs,
-      status: statuses,
-      title: titles,
-      emailPlatform: emailPlatforms,
-      requestType: requestTypes,
-      assignedTo: assignedToNames
-    });
-  }, [requests]);
-
-  const filteredAndSortedRequests = sortRequests(requests, sortColumn, sortDirection, filters, dateFilters);
-
-  console.log("[RequestsTable] 🔍 DIAGNOSTIC - Requests après tri/filtre:", filteredAndSortedRequests.map(r => ({ id: r.id, missionName: r.missionName, missionClient: r.missionClient })));
-
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortColumn(column);
-      setSortDirection("asc");
-    }
-  };
-
-  const handleFilterChange = (column: string, values: string[]) => {
-    console.log(`Applying filter on ${column}:`, values);
-    setFilters(prev => ({
-      ...prev,
-      [column]: values
-    }));
-  };
-
-  const handleDateFilterChange = (field: string, type: string, values: any) => {
-    console.log(`Applying date filter on ${field}:`, { type, values });
-    setDateFilters(prev => ({
-      ...prev,
-      [field]: type ? { type, values } : undefined
-    }));
-  };
+  if (!requests || requests.length === 0) {
+    return <EmptyRequestsRow />;
+  }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <Table>
-        <RequestsTableHeader 
-          missionView={missionView} 
-          handleSort={handleSort}
-          showSdr={showSdr}
-          isSDR={isSDR}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          filters={filters}
-          dateFilters={dateFilters}
-          onFilterChange={handleFilterChange}
-          onDateFilterChange={handleDateFilterChange}
-          uniqueValues={uniqueValues}
-        />
-        <RequestsTableBody 
-          sortedRequests={filteredAndSortedRequests} 
-          missionView={missionView}
-          showSdr={showSdr}
-          isSDR={isSDR}
-          onRequestDeleted={onRequestDeleted}
-        />
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[50px]">Type</TableHead>
+            <TableHead>Mission</TableHead>
+            <TableHead>Type de demande</TableHead>
+            <TableHead>Titre</TableHead>
+            {showSdr && <TableHead>SDR</TableHead>}
+            <TableHead>Assigné à</TableHead>
+            <TableHead>Plateforme</TableHead>
+            <TableHead>Créée le</TableHead>
+            <TableHead>Date prévue</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {requests.map((request) => (
+            <RequestRow
+              key={request.id}
+              request={request}
+              showSdr={showSdr}
+              isSDR={isSDR}
+              isArchived={isArchived} // Transmettre le prop
+              onDeleted={onDeleted}
+              onEditRequest={onEditRequest}
+              onCompleteRequest={onCompleteRequest}
+              onViewDetails={onViewDetails}
+              assignRequestToMe={assignRequestToMe}
+              updateRequestWorkflowStatus={updateRequestWorkflowStatus}
+              activeTab={activeTab}
+            />
+          ))}
+        </TableBody>
       </Table>
     </div>
   );

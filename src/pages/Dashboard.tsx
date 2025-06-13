@@ -14,17 +14,17 @@ const Dashboard = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   
-  // Détecter si on est dans une vue admin avec filtres
+  // Paramètres de filtrage admin depuis l'URL
   const createdByParam = searchParams.get('createdBy');
   const assignedToParam = searchParams.get('assignedTo');
   const showUnassignedParam = searchParams.get('showUnassigned') === 'true';
   const userNameParam = searchParams.get('userName');
+  
   const hasAdminFilters = !!(createdByParam || assignedToParam || showUnassignedParam);
   
-  console.log("🎯 [DASHBOARD] Vue détectée:", {
+  console.log("🎯 [DASHBOARD-REFONTE] Paramètres URL admin:", {
     isAdmin,
     hasAdminFilters,
-    userRole: user?.role,
     createdBy: createdByParam,
     assignedTo: assignedToParam,
     showUnassigned: showUnassignedParam,
@@ -58,14 +58,14 @@ const Dashboard = () => {
     target_role: 'growth'
   }));
 
-  console.log("🎯 [DASHBOARD] Total demandes récupérées:", allRequests.length);
+  console.log("🎯 [DASHBOARD-REFONTE] Total demandes:", allRequests.length);
 
-  // Appliquer les filtres spéciaux admin EN PREMIER si on a des paramètres URL
-  let filteredByAdmin = allRequests;
+  // ÉTAPE 1: Appliquer les filtres admin spéciaux si on a des paramètres URL
+  let adminFilteredRequests = allRequests;
   if (isAdmin && hasAdminFilters) {
-    console.log("🎯 [DASHBOARD] Application des filtres admin spéciaux");
+    console.log("🎯 [DASHBOARD-REFONTE] Application des filtres admin spéciaux");
     
-    filteredByAdmin = allRequests.filter((request) => {
+    adminFilteredRequests = allRequests.filter((request) => {
       let matches = true;
       
       if (createdByParam) {
@@ -86,13 +86,15 @@ const Dashboard = () => {
       return matches;
     });
     
-    console.log("🎯 [DASHBOARD] Après filtres admin:", filteredByAdmin.length);
+    console.log("🎯 [DASHBOARD-REFONTE] Après filtres admin:", adminFilteredRequests.length);
   }
 
-  // Puis appliquer les filtres de rôle normaux si pas de filtres admin
-  let roleFilteredRequests = filteredByAdmin;
+  // ÉTAPE 2: Appliquer les filtres de rôle normaux si pas de filtres admin
+  let roleFilteredRequests = adminFilteredRequests;
   if (!hasAdminFilters) {
-    roleFilteredRequests = filteredByAdmin.filter((request) => {
+    console.log("🎯 [DASHBOARD-REFONTE] Application des filtres de rôle normaux");
+    
+    roleFilteredRequests = adminFilteredRequests.filter((request) => {
       if (isSDR) {
         return request.createdBy === user?.id;
       } else if (isGrowth && !isAdmin) {
@@ -101,10 +103,10 @@ const Dashboard = () => {
       // Admin voit tout par défaut
       return true;
     });
-    console.log("🎯 [DASHBOARD] Après filtre de rôle:", roleFilteredRequests.length);
+    console.log("🎯 [DASHBOARD-REFONTE] Après filtre de rôle:", roleFilteredRequests.length);
   }
 
-  // Enfin, appliquer les filtres par onglet
+  // ÉTAPE 3: Appliquer les filtres par onglet
   const finalFilteredRequests = roleFilteredRequests.filter((request) => {
     switch (activeTab) {
       case "all":
@@ -125,10 +127,10 @@ const Dashboard = () => {
     }
   });
 
-  console.log("🎯 [DASHBOARD] Demandes finales après tous les filtres:", finalFilteredRequests.length);
+  console.log("🎯 [DASHBOARD-REFONTE] Demandes finales après tous les filtres:", finalFilteredRequests.length);
 
   const handleStatCardClick = (tab: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => {
-    console.log(`🎯 [DASHBOARD] Click sur card: ${tab}`);
+    console.log(`🎯 [DASHBOARD-REFONTE] Click sur card: ${tab}`);
     setActiveTab(tab);
   };
 

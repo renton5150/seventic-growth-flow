@@ -14,6 +14,7 @@ interface RequestRowProps {
   missionView?: boolean;
   showSdr?: boolean;
   isSDR?: boolean;
+  isArchived?: boolean; // Nouveau prop pour indiquer si on est dans les archives
   onDeleted?: () => void;
   // Growth-specific props
   onEditRequest?: (request: Request) => void;
@@ -29,6 +30,7 @@ export const RequestRow = ({
   missionView = false, 
   showSdr = false, 
   isSDR = false,
+  isArchived = false, // Nouveau prop
   onDeleted,
   onEditRequest,
   onCompleteRequest,
@@ -37,11 +39,9 @@ export const RequestRow = ({
   updateRequestWorkflowStatus,
   activeTab
 }: RequestRowProps) => {
-  console.log(`[RequestRow] 🚀 DIAGNOSTIC COMPLET pour request ${request.id}:`);
-  console.log(`[RequestRow] - missionName: "${request.missionName}"`);
-  console.log(`[RequestRow] - missionClient: "${request.missionClient}"`);
-  console.log(`[RequestRow] - missionId: "${request.missionId}"`);
-  console.log(`[RequestRow] - title: "${request.title}"`);
+  console.log(`[RequestRow] 🚀 DIAGNOSTIC pour request ${request.id}:`);
+  console.log(`[RequestRow] - isArchived: ${isArchived}`);
+  console.log(`[RequestRow] - workflow_status: ${request.workflow_status}`);
 
   const formatDate = (date: Date | string) => {
     const dateObj = date instanceof Date ? date : new Date(date);
@@ -140,6 +140,7 @@ export const RequestRow = ({
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeTab={activeTab}
           isSDR={isSDR}
+          isArchived={isArchived} // Transmettre le prop
         />
       </TableCell>
     </TableRow>

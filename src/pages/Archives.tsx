@@ -61,6 +61,7 @@ const Archives = () => {
                   requests={archivedRequests} 
                   showSdr={!isSDR}
                   isSDR={isSDR}
+                  isArchived={true}
                 />
               </TabsContent>
             </Tabs>
