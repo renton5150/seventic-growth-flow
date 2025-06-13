@@ -33,6 +33,7 @@ import Calendar from "./pages/Calendar";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import { AdminDataTest } from "./components/admin/AdminDataTest";
+import { SupabaseDirectTest } from "./components/admin/SupabaseDirectTest";
 
 const queryClient = new QueryClient();
 
