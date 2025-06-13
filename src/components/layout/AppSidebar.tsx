@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getUserInitials } from "@/utils/permissionUtils";
 import { MenuSection } from "./sidebar/MenuSection";
 import { UserProfile } from "./sidebar/UserProfile";
-import { menuConfig } from "./sidebar/config";
+import { menuItems } from "./sidebar/config";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,19 +66,34 @@ export const AppSidebar = () => {
     }
   };
 
-  // Filtrer les sections de menu selon le rôle de l'utilisateur
-  const getFilteredMenuSections = () => {
-    return menuConfig.map(section => ({
-      ...section,
-      items: section.items.filter(item => {
-        // Si l'item n'a pas de restriction de rôle, il est accessible à tous
-        if (!item.roles || item.roles.length === 0) {
-          return true;
+  // Organiser les items du menu par section
+  const getMenuSections = () => {
+    const sections: { [key: string]: any[] } = {};
+    
+    menuItems.forEach(item => {
+      // Filtrer par rôle si nécessaire
+      if (item.roles && item.roles.length > 0) {
+        if (!user?.role || !item.roles.includes(user.role)) {
+          return;
         }
-        // Sinon, vérifier si le rôle de l'utilisateur est dans la liste
-        return user?.role && item.roles.includes(user.role);
-      })
-    })).filter(section => section.items.length > 0); // Supprimer les sections vides
+      }
+      
+      const sectionName = item.section || 'GÉNÉRAL';
+      if (!sections[sectionName]) {
+        sections[sectionName] = [];
+      }
+      
+      sections[sectionName].push({
+        title: item.title,
+        path: item.url,
+        icon: item.icon
+      });
+    });
+    
+    return Object.entries(sections).map(([title, items]) => ({
+      title,
+      items
+    }));
   };
 
   return (
@@ -94,15 +109,11 @@ export const AppSidebar = () => {
       {isMounted && (
         <div className="flex flex-col flex-1 p-4">
           <nav className="space-y-4">
-            {getFilteredMenuSections().map((section) => (
+            {getMenuSections().map((section) => (
               <MenuSection 
                 key={section.title} 
                 title={section.title} 
-                items={section.items.map(item => ({
-                  title: item.label,
-                  path: item.href,
-                  icon: item.icon
-                }))} 
+                items={section.items} 
               />
             ))}
           </nav>
