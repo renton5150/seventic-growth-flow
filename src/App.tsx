@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -33,6 +32,7 @@ import CRA from "./pages/CRA";
 import Calendar from "./pages/Calendar";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
+import { AdminDataTest } from "./components/admin/AdminDataTest";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +72,7 @@ function App() {
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin-dashboard-simple" element={<AdminDashboardSimple />} />
+              <Route path="/admin-data-test" element={<AdminDataTest />} />
               <Route path="/admin/missions" element={<AdminMissions />} />
               <Route path="/growth" element={<GrowthDashboard />} />
               <Route path="/growth-dashboard" element={<GrowthDashboard />} />

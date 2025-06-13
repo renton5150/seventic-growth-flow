@@ -1,5 +1,5 @@
 
-import { BarChart3, Users, Settings, FileText, Calendar, Briefcase, Archive, Database, Mail, Zap, Brain, ClipboardList, UserCog } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, Calendar, Briefcase, Archive, Database, Mail, Zap, Brain, ClipboardList, UserCog, Bug } from "lucide-react";
 import { UserRole } from "@/types/types";
 
 export interface MenuItem {
@@ -27,6 +27,7 @@ export const menuItems: MenuItem[] = [
   { title: "Utilisateurs", url: "/admin/users", icon: Users, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "Statistiques", url: "/admin/dashboard", icon: BarChart3, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "Dashboard Simple", url: "/admin-dashboard-simple", icon: UserCog, roles: ["admin"], section: "ADMINISTRATION" },
+  { title: "TEST DONNÉES ADMIN", url: "/admin-data-test", icon: Bug, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "Missions Admin", url: "/admin/missions", icon: Settings, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "Campagnes Acelle", url: "/acelle-campaigns", icon: Zap, roles: ["admin"], section: "ADMINISTRATION" },
 
