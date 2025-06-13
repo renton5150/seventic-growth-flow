@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import RequestDetails from "./pages/RequestDetails";
 import AdminUsers from "./pages/AdminUsers";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminDashboardSimple from "./pages/AdminDashboardSimple";
+import AdminDashboardNew from "./pages/AdminDashboardNew";
 import AdminMissions from "./pages/AdminMissions";
 import GrowthDashboard from "./pages/GrowthDashboard";
 import Archives from "./pages/Archives";
