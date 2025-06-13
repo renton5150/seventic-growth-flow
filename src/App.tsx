@@ -54,18 +54,15 @@ function App() {
               <Route path="/planning" element={<Planning />} />
               <Route path="/work-schedule" element={<WorkSchedule />} />
               <Route path="/missions" element={<Missions />} />
-              {/* Routes corrigées pour les nouvelles demandes */}
               <Route path="/requests/email/new" element={<EmailCampaignRequest />} />
               <Route path="/requests/database/new" element={<DatabaseCreationRequest />} />
               <Route path="/requests/linkedin/new" element={<LinkedInScrapingRequest />} />
-              {/* Routes pour l'édition existantes */}
               <Route path="/email-campaign" element={<EmailCampaignRequest />} />
               <Route path="/email-campaign/edit/:id" element={<EmailCampaignEdit />} />
               <Route path="/database-creation" element={<DatabaseCreationRequest />} />
               <Route path="/database-creation/edit/:id" element={<DatabaseCreationEdit />} />
               <Route path="/linkedin-scraping" element={<LinkedInScrapingRequest />} />
               <Route path="/linkedin-scraping/edit/:id" element={<LinkedInScrapingEdit />} />
-              {/* Routes pour les détails de demande - avec les deux formats possibles */}
               <Route path="/request/:requestId" element={<RequestDetails />} />
               <Route path="/requests/email/:requestId" element={<RequestDetails />} />
               <Route path="/requests/database/:requestId" element={<RequestDetails />} />
@@ -73,6 +70,7 @@ function App() {
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin-dashboard-simple" element={<AdminDashboardSimple />} />
+              <Route path="/admin-dashboard-new" element={<AdminDashboardNew />} />
               <Route path="/admin-data-test" element={<AdminDataTest />} />
               <Route path="/supabase-direct-test" element={<SupabaseDirectTest />} />
               <Route path="/admin/missions" element={<AdminMissions />} />

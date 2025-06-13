@@ -27,6 +27,7 @@ export const menuItems: MenuItem[] = [
   { title: "Utilisateurs", url: "/admin/users", icon: Users, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "Statistiques", url: "/admin/dashboard", icon: BarChart3, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "Dashboard Simple", url: "/admin-dashboard-simple", icon: UserCog, roles: ["admin"], section: "ADMINISTRATION" },
+  { title: "Dashboard Nouveau", url: "/admin-dashboard-new", icon: BarChart3, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "TEST DONNÉES ADMIN", url: "/admin-data-test", icon: Bug, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "TEST SUPABASE DIRECT", url: "/supabase-direct-test", icon: TestTube, roles: ["admin"], section: "ADMINISTRATION" },
   { title: "Missions Admin", url: "/admin/missions", icon: Settings, roles: ["admin"], section: "ADMINISTRATION" },
