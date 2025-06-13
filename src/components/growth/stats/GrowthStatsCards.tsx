@@ -66,9 +66,9 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
             icon={<ClipboardList className="h-6 w-6 text-orange-600" />}
             onClick={() => {
               console.log("[CLICK] En attente d'assignation clicked -> to_assign filter");
-              onStatClick("to_assign"); // DOIT ÊTRE EXACTEMENT 'to_assign'
+              onStatClick("to_assign");
             }}
-            isActive={activeFilter === "to_assign"} // DOIT CORRESPONDRE
+            isActive={activeFilter === "to_assign" || activeFilter === "pending"}
           />
           <StatCard
             title="Mes demandes à traiter"
@@ -76,9 +76,9 @@ export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: Gro
             icon={<UserCheck className="h-6 w-6 text-blue-600" />}
             onClick={() => {
               console.log("[CLICK] Mes demandes à traiter clicked -> my_assignments filter");
-              onStatClick("my_assignments"); // DOIT ÊTRE EXACTEMENT 'my_assignments'
+              onStatClick("my_assignments");
             }}
-            isActive={activeFilter === "my_assignments"} // DOIT CORRESPONDRE
+            isActive={activeFilter === "my_assignments"}
           />
         </>
       ) : (

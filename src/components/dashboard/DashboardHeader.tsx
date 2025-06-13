@@ -1,13 +1,11 @@
 
-import { Button } from "@/components/ui/button";
-import { Plus, BarChart3, ArrowLeft } from "lucide-react";
 import { CreateRequestMenu } from "./CreateRequestMenu";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardHeaderProps {
-  isSDR?: boolean;
-  isGrowth?: boolean;
-  isAdmin?: boolean;
+  isSDR: boolean;
+  isGrowth: boolean;
+  isAdmin: boolean;
   filterParams?: {
     createdBy?: string;
     assignedTo?: string;
@@ -17,81 +15,62 @@ interface DashboardHeaderProps {
   };
 }
 
-export const DashboardHeader = ({ 
-  isSDR = false, 
-  isGrowth = false, 
-  isAdmin = false,
-  filterParams 
-}: DashboardHeaderProps) => {
-  const navigate = useNavigate();
+export const DashboardHeader = ({ isSDR, isGrowth, isAdmin, filterParams }: DashboardHeaderProps) => {
+  const { user } = useAuth();
+  
+  // Tous les rôles peuvent créer des demandes
+  const canCreateRequests = ['sdr', 'growth', 'admin'].includes(user?.role || '');
 
-  const getTitle = () => {
-    if (filterParams?.showUnassigned) {
-      return "Demandes non assignées";
-    }
+  const getHeaderTitle = () => {
     if (filterParams?.userName) {
-      return `Demandes de ${filterParams.userName}`;
+      return `Dashboard - ${filterParams.userName}`;
     }
-    if (isSDR) return "Mes demandes";
-    if (isGrowth) return "Demandes Growth";
-    if (isAdmin) return "Toutes les demandes";
-    return "Tableau de bord";
+    
+    if (isAdmin && !filterParams?.createdBy && !filterParams?.assignedTo) {
+      return "Dashboard Administrateur";
+    }
+    
+    if (isGrowth) {
+      return "Dashboard Growth";
+    }
+    
+    if (isSDR) {
+      return "Mes demandes";
+    }
+    
+    return "Dashboard";
   };
 
-  const getSubtitle = () => {
-    if (filterParams?.showUnassigned) {
-      return "Toutes les demandes en attente d'assignation";
+  const getHeaderDescription = () => {
+    if (filterParams?.userName) {
+      return `Vue des demandes pour ${filterParams.userName}`;
     }
-    if (filterParams?.filterType === 'sdr') {
-      return `Demandes créées par ${filterParams.userName}`;
+    
+    if (isAdmin && !filterParams?.createdBy && !filterParams?.assignedTo) {
+      return "Vue d'ensemble de toutes les demandes";
     }
-    if (filterParams?.filterType === 'growth') {
-      return `Demandes assignées à ${filterParams.userName}`;
+    
+    if (isGrowth) {
+      return "Gérez et assignez les demandes de l'équipe";
     }
-    if (isSDR) return "Suivi de vos demandes en cours";
-    if (isGrowth) return "Gérer les demandes assignées";
-    if (isAdmin) return "Vue d'ensemble administrative";
-    return "Gestion des demandes";
+    
+    if (isSDR) {
+      return "Suivez l'état de vos demandes";
+    }
+    
+    return "Vue d'ensemble de vos demandes";
   };
-
-  const showBackButton = filterParams?.createdBy || filterParams?.assignedTo || filterParams?.showUnassigned;
 
   return (
     <div className="flex justify-between items-center">
-      <div className="flex items-center gap-4">
-        {showBackButton && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/admin/dashboard")}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour Admin
-          </Button>
-        )}
-        <div>
-          <h1 className="text-2xl font-bold">{getTitle()}</h1>
-          <p className="text-muted-foreground">{getSubtitle()}</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold">{getHeaderTitle()}</h1>
+        <p className="mt-2 text-gray-500">
+          {getHeaderDescription()}
+        </p>
       </div>
       
-      <div className="flex items-center gap-3">
-        {isAdmin && (
-          <Button
-            variant="outline"
-            onClick={() => navigate("/admin/dashboard")}
-            className="flex items-center gap-2"
-          >
-            <BarChart3 className="h-4 w-4" />
-            Statistiques
-          </Button>
-        )}
-        
-        {(isSDR || isAdmin) && !filterParams?.showUnassigned && (
-          <CreateRequestMenu />
-        )}
-      </div>
+      {canCreateRequests && <CreateRequestMenu />}
     </div>
   );
 };

@@ -23,10 +23,13 @@ export const formSchema = z.object({
 
 export type FormData = z.infer<typeof formSchema>;
 
+// Permettre de sélectionner le jour même
+const today = new Date().toISOString().split('T')[0];
+
 export const defaultValues = {
   title: "",
   missionId: "",
-  dueDate: "",
+  dueDate: today, // Utiliser la date du jour par défaut
   jobTitles: "",
   locations: "",
   industries: "",

@@ -4,7 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDirectRequests } from "@/hooks/useDirectRequests";
-import { useAdminDashboard } from "@/hooks/useAdminDashboard";
+import { useSimpleAdminDashboard } from "@/hooks/useSimpleAdminDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { DirectRequest } from "@/services/requests/directRequestService";
@@ -24,25 +24,29 @@ const Dashboard = () => {
     userRole: user?.role
   });
 
-  // Utiliser le hook approprié selon le contexte
-  const adminDashboard = useAdminDashboard();
+  // Choisir le hook approprié
+  const adminDashboard = useSimpleAdminDashboard();
   const { data: directRequests = [], isLoading: directLoading, error: directError, refetch: directRefetch } = useDirectRequests();
 
-  // Choisir les données selon le contexte
+  // Utiliser les données du hook admin si on a des filtres, sinon le système normal
   const loading = hasAdminFilters ? adminDashboard.loading : directLoading;
   const refetch = hasAdminFilters ? adminDashboard.refetch : directRefetch;
-  const activeTab = hasAdminFilters ? adminDashboard.activeTab : useState<string>("all")[0];
-  const setActiveTab = hasAdminFilters ? adminDashboard.setActiveTab : useState<string>("all")[1];
+  
+  // État local pour le mode normal
+  const [normalActiveTab, setNormalActiveTab] = useState<string>("all");
+  
+  const activeTab = hasAdminFilters ? adminDashboard.activeTab : normalActiveTab;
+  const setActiveTab = hasAdminFilters ? adminDashboard.setActiveTab : setNormalActiveTab;
   
   let allRequests, filteredRequests;
   
-  if (hasAdminFilters) {
-    // Mode admin avec filtres
+  if (hasAdminFilters && isAdmin) {
+    // Mode admin avec filtres - utiliser le hook spécialisé
     allRequests = adminDashboard.allRequests;
     filteredRequests = adminDashboard.filteredRequests;
     console.log("🎯 [DASHBOARD] Mode ADMIN avec filtres - Total demandes:", allRequests.length);
   } else {
-    // Mode normal - conversion des DirectRequest
+    // Mode normal - conversion des DirectRequest et filtrage manuel
     allRequests = directRequests.map((req: DirectRequest) => ({
       id: req.id,
       title: req.title,
@@ -66,51 +70,45 @@ const Dashboard = () => {
 
     console.log("🎯 [DASHBOARD] Mode NORMAL - Total demandes:", allRequests.length);
 
-    // Filtrage normal
-    filteredRequests = allRequests.filter((request) => {
-      console.log(`🔍 [DASHBOARD-FILTER] Filtrage demande ${request.id} avec activeTab: ${activeTab}`);
-      
-      // Filtres de rôle : les SDR ne voient que leurs demandes
-      let matchesRole = true;
+    // Filtrage normal par rôle d'abord
+    const roleFilteredRequests = allRequests.filter((request) => {
       if (isSDR) {
-        matchesRole = request.createdBy === user?.id;
-        console.log(`🔍 [DASHBOARD-FILTER] SDR filter - demande ${request.id} createdBy: ${request.createdBy}, userId: ${user?.id}, match: ${matchesRole}`);
+        return request.createdBy === user?.id;
       } else if (isGrowth && !isAdmin) {
-        matchesRole = request.target_role !== "sdr";
-        console.log(`🔍 [DASHBOARD-FILTER] Growth filter - demande ${request.id} target_role: ${request.target_role}, match: ${matchesRole}`);
+        return request.target_role !== "sdr";
       }
+      // Admin voit tout
+      return true;
+    });
 
-      // Filtres par onglet
-      let matchesTab = true;
+    // Puis par onglet
+    filteredRequests = roleFilteredRequests.filter((request) => {
       switch (activeTab) {
         case "all":
-          matchesTab = request.workflow_status !== "completed";
-          break;
+          return request.workflow_status !== "completed";
         case "pending":
         case "to_assign":
-          matchesTab = (!request.assigned_to || request.assigned_to === null) && request.workflow_status !== "completed";
-          break;
+          return (!request.assigned_to || request.assigned_to === null) && request.workflow_status !== "completed";
         case "my_assignments":
-          matchesTab = request.assigned_to === user?.id && request.workflow_status !== "completed";
-          break;
+          return request.assigned_to === user?.id && request.workflow_status !== "completed";
         case "inprogress":
-          matchesTab = request.workflow_status === "in_progress";
-          break;
+          return request.workflow_status === "in_progress";
         case "completed":
-          matchesTab = request.workflow_status === "completed";
-          break;
+          return request.workflow_status === "completed";
         case "late":
-          matchesTab = request.isLate;
-          break;
+          return request.isLate && request.workflow_status !== "completed";
+        default:
+          return true;
       }
-
-      return matchesTab && matchesRole;
     });
+
+    // Pour les stats, utiliser les demandes filtrées par rôle
+    allRequests = roleFilteredRequests;
   }
 
   console.log("🎯 [DASHBOARD] Demandes filtrées final:", filteredRequests.length);
 
-  const handleStatCardClick = hasAdminFilters 
+  const handleStatCardClick = hasAdminFilters && isAdmin
     ? adminDashboard.handleStatCardClick 
     : (tab: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => {
         console.log(`🎯 [DASHBOARD] Click sur card: ${tab}`);
