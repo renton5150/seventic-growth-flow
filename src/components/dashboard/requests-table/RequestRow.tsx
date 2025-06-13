@@ -4,28 +4,10 @@ import { Request } from "@/types/types";
 import { RequestTypeIcon } from "./RequestTypeIcon";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { Badge } from "@/components/ui/badge";
-import { Users, Eye, Edit, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Users } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
-import { deleteRequest } from "@/services/requests/deleteRequestService";
-import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { useState } from "react";
-import { GrowthRequestActions } from "../../growth/table/GrowthRequestActions";
-import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "react-router-dom";
+import { RequestRowActions } from "./RequestRowActions";
 
 interface RequestRowProps {
   request: Request;
@@ -55,16 +37,6 @@ export const RequestRow = ({
   updateRequestWorkflowStatus,
   activeTab
 }: RequestRowProps) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
-  const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Détecter si on est sur la page Growth
-  const isGrowthPage = location.pathname.includes('/growth');
-  const isGrowthOrAdmin = user?.role === 'growth' || user?.role === 'admin';
-
-  // DIAGNOSTIC COMPLET - Log toutes les données de la request
   console.log(`[RequestRow] 🚀 DIAGNOSTIC COMPLET pour request ${request.id}:`);
   console.log(`[RequestRow] - missionName: "${request.missionName}"`);
   console.log(`[RequestRow] - missionClient: "${request.missionClient}"`);
@@ -84,43 +56,6 @@ export const RequestRow = ({
       default: return type;
     }
   };
-
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const success = await deleteRequest(request.id);
-      if (success) {
-        toast.success("Demande supprimée avec succès");
-        onDeleted?.();
-      } else {
-        toast.error("Erreur lors de la suppression");
-      }
-    } catch (error) {
-      console.error("Erreur lors de la suppression:", error);
-      toast.error("Erreur lors de la suppression");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleView = () => {
-    if (onViewDetails) {
-      onViewDetails(request);
-    } else {
-      navigate(`/requests/${request.type}/${request.id}`);
-    }
-  };
-
-  const handleEdit = () => {
-    if (onEditRequest) {
-      onEditRequest(request);
-    } else {
-      navigate(`/requests/${request.type}/${request.id}/edit`);
-    }
-  };
-
-  const showDeleteButton = user?.role === "admin" || user?.role === "growth" || 
-                           (user?.role === "sdr" && user?.id === request.createdBy);
 
   return (
     <TableRow>
@@ -195,74 +130,17 @@ export const RequestRow = ({
       
       {/* Actions */}
       <TableCell className="text-right">
-        {/* TOUJOURS utiliser GrowthRequestActions pour Growth et Admin */}
-        {isGrowthOrAdmin ? (
-          <GrowthRequestActions
-            request={request}
-            onEditRequest={onEditRequest || handleEdit}
-            onCompleteRequest={onCompleteRequest || (() => {})}
-            onViewDetails={onViewDetails || handleView}
-            onRequestDeleted={onDeleted}
-            assignRequestToMe={assignRequestToMe}
-            updateRequestWorkflowStatus={updateRequestWorkflowStatus}
-            activeTab={activeTab}
-            showDeleteButton={showDeleteButton}
-          />
-        ) : (
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleView}
-              className="h-8 w-8"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            
-            {!isSDR && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleEdit}
-                className="h-8 w-8"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
-            
-            {showDeleteButton && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      {isDeleting ? "Suppression..." : "Supprimer"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        )}
+        <RequestRowActions
+          request={request}
+          onDeleted={onDeleted}
+          onEditRequest={onEditRequest}
+          onCompleteRequest={onCompleteRequest}
+          onViewDetails={onViewDetails}
+          assignRequestToMe={assignRequestToMe}
+          updateRequestWorkflowStatus={updateRequestWorkflowStatus}
+          activeTab={activeTab}
+          isSDR={isSDR}
+        />
       </TableCell>
     </TableRow>
   );

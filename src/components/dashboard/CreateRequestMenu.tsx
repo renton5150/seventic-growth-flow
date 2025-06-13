@@ -35,7 +35,7 @@ export const CreateRequestMenu = () => {
     }
   };
 
-  // CORRECTION: Autoriser TOUS les types de demandes pour SDR, Growth ET Admin
+  // CORRECTION MAJEURE: Autoriser TOUS les rôles (SDR, Growth, Admin) à créer des demandes
   const canCreateRequests = ['sdr', 'growth', 'admin'].includes(user?.role || '');
   
   if (!canCreateRequests) {
