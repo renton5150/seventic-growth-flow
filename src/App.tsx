@@ -74,6 +74,7 @@ function App() {
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin-dashboard-simple" element={<AdminDashboardSimple />} />
               <Route path="/admin-data-test" element={<AdminDataTest />} />
+              <Route path="/supabase-direct-test" element={<SupabaseDirectTest />} />
               <Route path="/admin/missions" element={<AdminMissions />} />
               <Route path="/growth" element={<GrowthDashboard />} />
               <Route path="/growth-dashboard" element={<GrowthDashboard />} />
