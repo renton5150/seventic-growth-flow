@@ -101,65 +101,70 @@ export const useAuthOperations = (
 
   const logout = async () => {
     try {
-      console.log("Début de la procédure de déconnexion");
+      console.log("Début de la procédure de déconnexion améliorée");
       setLoading(true);
 
-      // Vérifier d'abord si une session existe
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        console.log("Pas de session active à déconnecter");
-        // Réinitialiser l'état utilisateur même sans session
-        setUser(null);
-        setLoading(false);
-        return true;
-      }
+      // Forcer immédiatement la déconnexion côté client
+      setUser(null);
 
-      console.log("Session active trouvée, tentative de déconnexion");
-
-      // Gestion du timeout pour la déconnexion
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        controller.abort();
-        console.warn("Déconnexion interrompue après 5 secondes d'attente");
-      }, 5000);
-      
+      // Nettoyer le localStorage en premier
       try {
-        const { error } = await supabase.auth.signOut();
-        
-        clearTimeout(timeoutId);
-
-        if (error) {
-          console.error("Erreur de déconnexion:", error.message);
-          toast.error("Échec de la déconnexion", { description: error.message });
-          
-          // Réinitialiser l'état utilisateur même en cas d'erreur pour garantir la déconnexion côté client
-          setUser(null);
-          setLoading(false);
-          return false;
-        }
-
-        console.log("Déconnexion réussie");
-        
-        // Réinitialiser l'état immédiatement pour une meilleure expérience utilisateur
-        setUser(null);
-        setLoading(false);
-        return true;
+        console.log("Nettoyage du localStorage...");
+        localStorage.removeItem('supabase.auth.token');
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+            localStorage.removeItem(key);
+          }
+        });
+        console.log("localStorage nettoyé");
       } catch (err) {
-        clearTimeout(timeoutId);
-        throw err;
+        console.warn("Erreur lors du nettoyage du localStorage:", err);
       }
+
+      // Tenter la déconnexion Supabase avec gestion d'erreur robuste
+      try {
+        console.log("Tentative de déconnexion Supabase...");
+        
+        // Vérifier d'abord si une session existe
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (sessionData.session) {
+          console.log("Session trouvée, tentative de déconnexion globale");
+          const { error } = await supabase.auth.signOut({ scope: 'global' });
+          
+          if (error) {
+            console.warn("Erreur de déconnexion Supabase (ignorée):", error.message);
+          } else {
+            console.log("Déconnexion Supabase réussie");
+          }
+        } else {
+          console.log("Aucune session active à déconnecter");
+        }
+      } catch (error) {
+        console.warn("Exception lors de la déconnexion Supabase (ignorée):", error);
+      }
+
+      console.log("Déconnexion terminée avec succès");
+      toast.success("Déconnexion réussie");
+      setLoading(false);
+      return true;
+
     } catch (error) {
       console.error("Exception lors de la déconnexion:", error);
       
       // Forcer la déconnexion locale même en cas d'erreur
       setUser(null);
       
-      // Nettoyer le localStorage pour s'assurer que l'ancienne session est supprimée
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('sb-dupguifqyjchlmzbadav-auth-token');
+      // Nettoyer le localStorage de force
+      try {
+        localStorage.clear();
+      } catch (err) {
+        console.warn("Impossible de vider le localStorage:", err);
+      }
       
+      toast.success("Déconnexion locale effectuée");
       setLoading(false);
-      return true; // Retourner true pour indiquer que la déconnexion locale a été effectuée
+      return true; // Retourner true car la déconnexion locale a été effectuée
     }
   };
 

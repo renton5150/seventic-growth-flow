@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +9,6 @@ import { UserProfile } from "./sidebar/UserProfile";
 import { menuItems } from "./sidebar/config";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 
 export const AppSidebar = () => {
   const { user, logout } = useAuth();
@@ -27,47 +25,35 @@ export const AppSidebar = () => {
   const isSDR = user?.role === "sdr";
 
   const handleLogout = async () => {
+    if (isLoggingOut) return; // Empêcher les clics multiples
+    
     try {
       setIsLoggingOut(true);
-      console.log("Tentative de déconnexion directe depuis la sidebar");
+      console.log("Déconnexion initiée depuis la sidebar");
       
-      // Vérifier d'abord si une session est active
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        console.log("Aucune session active trouvée, redirection vers la page de connexion");
-        toast.info("Aucune session active, redirection vers la page de connexion");
-        navigate("/login");
-        return;
-      }
-      
-      // Tenter la déconnexion
+      // Appeler la fonction de déconnexion améliorée
       const logoutSuccess = await logout();
       
       if (logoutSuccess) {
-        toast.success("Déconnexion réussie");
-        navigate("/login");
+        console.log("Déconnexion réussie, redirection vers /login");
+        // Utiliser window.location.href pour une redirection complète
+        window.location.href = "/login";
       } else {
-        // Si logout échoue, forcer une déconnexion manuelle
-        console.log("Échec de la déconnexion normale, tentative de déconnexion forcée");
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          console.error("Erreur lors de la déconnexion forcée:", error);
-          toast.error("Problème lors de la déconnexion");
-        } else {
-          toast.success("Déconnexion réussie");
-          navigate("/login");
-        }
+        console.warn("Échec de la déconnexion, redirection forcée");
+        window.location.href = "/login";
       }
     } catch (error) {
       console.error("Exception lors de la déconnexion:", error);
-      toast.error("Erreur lors de la déconnexion");
+      toast.error("Erreur lors de la déconnexion, redirection forcée");
+      // Redirection forcée même en cas d'erreur
+      window.location.href = "/login";
     } finally {
       setIsLoggingOut(false);
     }
   };
 
   // Organiser les items du menu par section
-  const getMenuSections = () => {
+  function getMenuSections() {
     const sections: { [key: string]: any[] } = {};
     
     menuItems.forEach(item => {
@@ -127,7 +113,7 @@ export const AppSidebar = () => {
               disabled={isLoggingOut}
             >
               <LogOut className="mr-3 h-4 w-4" />
-              {isLoggingOut ? 'Déconnexion en cours...' : 'Déconnexion'}
+              {isLoggingOut ? 'Déconnexion...' : 'Déconnexion'}
             </Button>
           </div>
         </div>
