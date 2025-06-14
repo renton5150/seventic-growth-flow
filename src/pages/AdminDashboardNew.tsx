@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -30,6 +29,8 @@ interface SimpleUser {
   email: string;
 }
 
+type FilterType = "all" | "pending" | "inprogress" | "overdue" | "completed";
+
 const AdminDashboardNew = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ const AdminDashboardNew = () => {
   const [loading, setLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [filteredRequests, setFilteredRequests] = useState<SimpleRequest[]>([]);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
   // Redirection si pas admin
   if (!isAdmin) {
@@ -102,20 +104,45 @@ const AdminDashboardNew = () => {
     fetchData();
   }, []);
 
-  // Filtrage par utilisateur
+  // Filtrage par utilisateur ET par type
   useEffect(() => {
-    if (!selectedUserId) {
-      setFilteredRequests(requests);
-      return;
+    let filtered = requests;
+
+    // Filtrage par utilisateur d'abord
+    if (selectedUserId) {
+      filtered = filtered.filter(request => 
+        request.created_by === selectedUserId || request.assigned_to === selectedUserId
+      );
     }
 
-    const filtered = requests.filter(request => 
-      request.created_by === selectedUserId || request.assigned_to === selectedUserId
-    );
+    // Puis filtrage par type de statut
+    switch (activeFilter) {
+      case "pending":
+        filtered = filtered.filter(r => r.workflow_status === 'pending_assignment' || r.status === 'pending');
+        break;
+      case "inprogress":
+        filtered = filtered.filter(r => r.workflow_status === 'in_progress');
+        break;
+      case "overdue":
+        filtered = filtered.filter(r => {
+          const dueDate = new Date(r.due_date);
+          const now = new Date();
+          return dueDate < now && r.workflow_status !== 'completed';
+        });
+        break;
+      case "completed":
+        // Les demandes terminées sont exclues de la requête, donc array vide
+        filtered = [];
+        break;
+      case "all":
+      default:
+        // Garde toutes les demandes actives
+        break;
+    }
     
-    console.log(`🔍 Filtrage par utilisateur ${selectedUserId}:`, filtered.length, "demandes");
+    console.log(`🔍 Filtrage: utilisateur=${selectedUserId}, type=${activeFilter}, résultat=${filtered.length} demandes`);
     setFilteredRequests(filtered);
-  }, [selectedUserId, requests]);
+  }, [selectedUserId, requests, activeFilter]);
 
   // Calcul des statistiques (les demandes terminées sont déjà exclues)
   const totalRequests = filteredRequests.length;
@@ -134,6 +161,11 @@ const AdminDashboardNew = () => {
 
   const handleViewRequest = (requestId: string) => {
     navigate(`/request/${requestId}`);
+  };
+
+  const handleFilterClick = (filterType: FilterType) => {
+    console.log(`📊 Card cliquée: ${filterType}`);
+    setActiveFilter(filterType);
   };
 
   const getStatusBadge = (status: string, workflowStatus: string) => {
@@ -186,6 +218,13 @@ const AdminDashboardNew = () => {
             <p className="text-sm text-blue-600 mt-1">
               📋 Les demandes terminées sont consultables dans les Archives
             </p>
+            {activeFilter !== "all" && (
+              <p className="text-sm text-orange-600 mt-1">
+                🔍 Filtre actif: {activeFilter === "pending" ? "En attente" : 
+                                 activeFilter === "inprogress" ? "En cours" :
+                                 activeFilter === "overdue" ? "En retard" : "Terminées"}
+              </p>
+            )}
           </div>
           
           <Button onClick={handleCreateRequest} className="bg-seventic-500 hover:bg-seventic-600">
@@ -222,9 +261,14 @@ const AdminDashboardNew = () => {
           </div>
         </div>
 
-        {/* Statistiques */}
+        {/* Statistiques cliquables */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeFilter === "all" ? "ring-2 ring-blue-500 bg-blue-50" : "hover:bg-gray-50"
+            }`}
+            onClick={() => handleFilterClick("all")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total (actives)</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -234,7 +278,12 @@ const AdminDashboardNew = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeFilter === "pending" ? "ring-2 ring-yellow-500 bg-yellow-50" : "hover:bg-gray-50"
+            }`}
+            onClick={() => handleFilterClick("pending")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">En attente</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -244,7 +293,12 @@ const AdminDashboardNew = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeFilter === "inprogress" ? "ring-2 ring-blue-500 bg-blue-50" : "hover:bg-gray-50"
+            }`}
+            onClick={() => handleFilterClick("inprogress")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">En cours</CardTitle>
               <Clock className="h-4 w-4 text-blue-600" />
@@ -254,7 +308,12 @@ const AdminDashboardNew = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeFilter === "completed" ? "ring-2 ring-green-500 bg-green-50" : "hover:bg-gray-50"
+            }`}
+            onClick={() => handleFilterClick("completed")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Terminées</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
@@ -265,7 +324,12 @@ const AdminDashboardNew = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeFilter === "overdue" ? "ring-2 ring-red-500 bg-red-50" : "hover:bg-gray-50"
+            }`}
+            onClick={() => handleFilterClick("overdue")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">En retard</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -334,11 +398,18 @@ const AdminDashboardNew = () => {
           
           {filteredRequests.length === 0 && (
             <div className="p-8 text-center text-gray-500">
-              {selectedUser 
-                ? `Aucune demande active trouvée pour ${selectedUser.name}`
-                : "Aucune demande active trouvée"
+              {activeFilter === "completed" 
+                ? "Aucune demande terminée affichée ici"
+                : selectedUser 
+                  ? `Aucune demande ${activeFilter !== "all" ? `(${activeFilter})` : "active"} trouvée pour ${selectedUser.name}`
+                  : `Aucune demande ${activeFilter !== "all" ? `(${activeFilter})` : "active"} trouvée`
               }
-              <p className="text-sm mt-2">Les demandes terminées sont dans les Archives</p>
+              <p className="text-sm mt-2">
+                {activeFilter === "completed" 
+                  ? "Les demandes terminées sont consultables dans les Archives"
+                  : "Les demandes terminées sont dans les Archives"
+                }
+              </p>
             </div>
           )}
         </div>
