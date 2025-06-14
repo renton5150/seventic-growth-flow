@@ -352,6 +352,7 @@ const AdminDashboardNew = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Type</TableHead>
+                <TableHead>Mission</TableHead>
                 <TableHead>Titre</TableHead>
                 <TableHead>Créé par</TableHead>
                 <TableHead>Assigné à</TableHead>
@@ -366,6 +367,11 @@ const AdminDashboardNew = () => {
                 <TableRow key={request.id}>
                   <TableCell>
                     {getTypeBadge(request.type)}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <div className="max-w-[150px] truncate" title={`Mission ID: ${request.mission_id || 'Non assignée'}`}>
+                      {request.mission_id ? `Mission ${request.mission_id.slice(0, 8)}...` : 'Non assignée'}
+                    </div>
                   </TableCell>
                   <TableCell className="font-medium">{request.title}</TableCell>
                   <TableCell>
