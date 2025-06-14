@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { CRACalendar } from "./CRACalendar";
 import { CRAForm } from "./CRAForm";
 import { CRAStatistics } from "./CRAStatistics";
+import { CRAUserSelector } from "./CRAUserSelector";
+import { useCRAAdmin } from "@/hooks/useCRAAdmin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,6 +32,9 @@ export const CRADashboard = () => {
   // Utiliser un jour ouvré par défaut
   const [selectedDate, setSelectedDate] = useState(getNextWorkingDay());
   const [activeTab, setActiveTab] = useState("form");
+  
+  // Hook pour la gestion admin
+  const { allUsers, isLoadingUsers, selectedUserId, setSelectedUserId, isAdmin } = useCRAAdmin();
 
   const handleDateSelect = (dateString: string) => {
     console.log("handleDateSelect appelé avec:", dateString);
@@ -46,6 +51,8 @@ export const CRADashboard = () => {
     setActiveTab("form");
   };
 
+  const selectedUser = allUsers.find(u => u.id === selectedUserId);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -58,6 +65,17 @@ export const CRADashboard = () => {
         </div>
       </div>
 
+      {/* Sélecteur d'utilisateur pour les admins */}
+      {isAdmin && (
+        <CRAUserSelector
+          allUsers={allUsers}
+          selectedUserId={selectedUserId}
+          setSelectedUserId={setSelectedUserId}
+          isAdmin={isAdmin}
+          isLoading={isLoadingUsers}
+        />
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="calendar">Calendrier</TabsTrigger>
@@ -68,10 +86,18 @@ export const CRADashboard = () => {
         <TabsContent value="calendar" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Calendrier des CRA</CardTitle>
+              <CardTitle>
+                Calendrier des CRA
+                {isAdmin && selectedUser && (
+                  <span className="text-sm font-normal text-gray-600 ml-2">
+                    - {selectedUser.name}
+                  </span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <CRACalendar 
+                sdrId={isAdmin ? selectedUserId : undefined}
                 onDateSelect={handleDateSelect}
               />
             </CardContent>
@@ -83,12 +109,19 @@ export const CRADashboard = () => {
             <CardHeader>
               <CardTitle>
                 CRA du {format(selectedDate, 'EEEE dd MMMM yyyy', { locale: fr })}
+                {isAdmin && selectedUser && (
+                  <span className="text-sm font-normal text-gray-600 ml-2">
+                    - {selectedUser.name}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <CRAForm 
                 selectedDate={selectedDate}
                 onDateChange={setSelectedDate}
+                sdrId={isAdmin ? selectedUserId : undefined}
+                readOnly={isAdmin} // Les admins consultent en lecture seule
               />
             </CardContent>
           </Card>
@@ -97,7 +130,14 @@ export const CRADashboard = () => {
         <TabsContent value="statistics" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Statistiques CRA</CardTitle>
+              <CardTitle>
+                Statistiques CRA
+                {isAdmin && selectedUser && (
+                  <span className="text-sm font-normal text-gray-600 ml-2">
+                    - {selectedUser.name}
+                  </span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -110,7 +150,7 @@ export const CRADashboard = () => {
                     <li><strong>Projets par catégorie :</strong> Nombre de projets dans chaque catégorie (5%, 10%, 20%)</li>
                   </ul>
                 </div>
-                <CRAStatistics />
+                <CRAStatistics sdrId={isAdmin ? selectedUserId : undefined} />
               </div>
             </CardContent>
           </Card>

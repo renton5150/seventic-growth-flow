@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, isWeekend, isSameDay } from "date-fns";
-import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Calendar, Save, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
+import { format, isWeekend } from "date-fns";
+import { fr } from "date-fns/locale";
 import { craService } from "@/services/cra/craService";
-import { supabase } from "@/integrations/supabase/client";
+import { DailyActivityReport, DailyMissionTime, DailyOpportunity } from "@/types/cra.types";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CRAFormProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
+  sdrId?: string; // ID du SDR pour les admins
+  readOnly?: boolean; // Mode lecture seule pour les admins
 }
 
 interface Mission {
@@ -25,404 +27,394 @@ interface Mission {
   client: string;
 }
 
-interface CRAEntry {
-  mission_id: string;
-  time_percentage: number;
-  opportunities_5: string;
-  opportunities_10: string;
-  opportunities_20: string;
-  comment: string;
-}
-
-// Fonction pour obtenir le prochain jour ouvré
-const getNextWorkingDay = () => {
-  const today = new Date();
-  
-  // Si c'est un jour ouvré (lundi à vendredi), retourner aujourd'hui
-  if (!isWeekend(today)) {
-    return today;
-  }
-  
-  // Sinon, trouver le prochain lundi
-  const nextMonday = new Date(today);
-  const daysUntilMonday = (8 - today.getDay()) % 7;
-  nextMonday.setDate(today.getDate() + (daysUntilMonday === 0 ? 7 : daysUntilMonday));
-  
-  return nextMonday;
-};
-
-export const CRAForm: React.FC<CRAFormProps> = ({ selectedDate, onDateChange }) => {
+export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }: CRAFormProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
-  const [craEntries, setCraEntries] = useState<CRAEntry[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [missionTimes, setMissionTimes] = useState<DailyMissionTime[]>([]);
+  const [opportunities, setOpportunities] = useState<DailyOpportunity[]>([]);
+  const [comments, setComments] = useState<string>("");
 
-  // Initialiser avec un jour ouvré
-  useEffect(() => {
-    if (isWeekend(selectedDate)) {
-      const nextWorkingDay = getNextWorkingDay();
-      onDateChange(nextWorkingDay);
-    }
-  }, []);
+  const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+  const isWeekendDay = isWeekend(selectedDate);
+  const targetSdrId = sdrId || user?.id; // Utiliser sdrId si fourni, sinon l'utilisateur actuel
 
-  const dateString = format(selectedDate, 'yyyy-MM-dd');
-
-  // Récupérer les missions disponibles
-  const { data: missions = [] } = useQuery({
-    queryKey: ['missions-for-cra'],
-    queryFn: async (): Promise<Mission[]> => {
-      if (!user?.id) return [];
-
-      let query = supabase
+  // Requête pour récupérer les missions
+  const { data: missions, isLoading: isLoadingMissions } = useQuery({
+    queryKey: ['missions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('missions')
-        .select('id, name, client, sdr_id')
+        .select('id, name, client')
         .order('name');
 
-      if (user.role === 'sdr') {
-        query = query.eq('sdr_id', user.id);
-      }
-
-      const { data, error } = await query;
       if (error) {
-        console.error('Erreur lors du chargement des missions:', error);
-        return [];
+        console.error("Erreur lors de la récupération des missions:", error);
+        throw error;
       }
 
-      return data?.filter(mission => mission.id && mission.id.trim() !== '') || [];
-    },
-    enabled: !!user
-  });
-
-  // Récupérer le CRA existant pour la date sélectionnée
-  const { data: existingCRA, isLoading } = useQuery({
-    queryKey: ['cra', dateString, user?.id],
-    queryFn: () => craService.getCRAByDate(dateString),
-    enabled: !!user && !!dateString,
-    refetchOnWindowFocus: false
-  });
-
-  // Charger les données existantes
-  useEffect(() => {
-    if (existingCRA && existingCRA.missionTimes) {
-      const entries = existingCRA.missionTimes.map(mt => {
-        const opportunities = existingCRA.opportunities?.filter(opp => opp.mission_id === mt.mission_id) || [];
-        
-        return {
-          mission_id: mt.mission_id,
-          time_percentage: mt.time_percentage,
-          opportunities_5: opportunities.filter(opp => opp.opportunity_value === 5).map(opp => opp.opportunity_name).join(', '),
-          opportunities_10: opportunities.filter(opp => opp.opportunity_value === 10).map(opp => opp.opportunity_name).join(', '),
-          opportunities_20: opportunities.filter(opp => opp.opportunity_value === 20).map(opp => opp.opportunity_name).join(', '),
-          comment: mt.mission_comment || ""
-        };
-      });
-      setCraEntries(entries);
-    } else {
-      setCraEntries([]);
+      return data as Mission[];
     }
-  }, [existingCRA]);
+  });
 
-  const mutation = useMutation({
-    mutationFn: craService.createOrUpdateCRA,
+  // Requête pour récupérer le CRA existant
+  const { data: craData, isLoading: isLoadingCRA, refetch: refetchCRA } = useQuery({
+    queryKey: ['cra', formattedDate, targetSdrId],
+    queryFn: () => craService.getCRAByDate(formattedDate, targetSdrId),
+    enabled: !!targetSdrId && !isWeekendDay
+  });
+
+  useEffect(() => {
+    if (craData?.report) {
+      setComments(craData.report.comments || "");
+    } else {
+      setComments("");
+    }
+    
+    if (craData?.missionTimes) {
+      setMissionTimes(craData.missionTimes);
+    } else {
+      setMissionTimes([]);
+    }
+    
+    if (craData?.opportunities) {
+      setOpportunities(craData.opportunities);
+    } else {
+      setOpportunities([]);
+    }
+  }, [craData, selectedDate, sdrId]);
+
+  const totalPercentage = missionTimes.reduce((sum, mt) => sum + mt.time_percentage, 0);
+
+  const saveMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (readOnly) {
+        throw new Error("Modification non autorisée en mode consultation");
+      }
+      return craService.createOrUpdateCRA(data);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cra'] });
       toast.success("CRA sauvegardé avec succès");
-      setIsSubmitting(false);
+      refetchCRA();
+      queryClient.invalidateQueries({ queryKey: ['cra', formattedDate, targetSdrId] });
     },
     onError: (error: any) => {
       console.error("Erreur lors de la sauvegarde:", error);
-      toast.error(error.message || "Erreur lors de la sauvegarde du CRA");
-      setIsSubmitting(false);
+      toast.error(`Erreur: ${error.message}`);
     }
   });
 
-  const handleAddEntry = () => {
-    if (missions.length > 0) {
-      setCraEntries([...craEntries, {
-        mission_id: missions[0].id,
-        time_percentage: 0,
-        opportunities_5: "",
-        opportunities_10: "",
-        opportunities_20: "",
-        comment: ""
-      }]);
-    }
+  const handleMissionTimeChange = (index: number, field: string, value: any) => {
+    if (readOnly) return;
+    const newMissionTimes = [...missionTimes];
+    newMissionTimes[index][field] = value;
+    setMissionTimes(newMissionTimes);
   };
 
-  const handleRemoveEntry = (index: number) => {
-    setCraEntries(craEntries.filter((_, i) => i !== index));
+  const handleOpportunityChange = (index: number, field: string, value: any) => {
+    if (readOnly) return;
+    const newOpportunities = [...opportunities];
+    newOpportunities[index][field] = value;
+    setOpportunities(newOpportunities);
   };
 
-  const handleUpdateEntry = (index: number, field: keyof CRAEntry, value: any) => {
-    const newEntries = [...craEntries];
-    newEntries[index] = { ...newEntries[index], [field]: value };
-    setCraEntries(newEntries);
+  const handleAddMissionTime = () => {
+    if (readOnly) return;
+    setMissionTimes([...missionTimes, {
+      id: new Date().getTime().toString(),
+      report_id: '',
+      mission_id: missions?.[0]?.id || '',
+      time_percentage: 0,
+      mission_comment: ''
+    }]);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user?.id) return;
+  const handleRemoveMissionTime = (index: number) => {
+    if (readOnly) return;
+    const newMissionTimes = [...missionTimes];
+    newMissionTimes.splice(index, 1);
+    setMissionTimes(newMissionTimes);
+  };
 
-    setIsSubmitting(true);
+  const handleAddOpportunity = () => {
+    if (readOnly) return;
+    setOpportunities([...opportunities, {
+      id: new Date().getTime().toString(),
+      report_id: '',
+      mission_id: missions?.[0]?.id || '',
+      opportunity_name: '',
+      opportunity_value: 5
+    }]);
+  };
 
-    const totalPercentage = craEntries.reduce((sum, entry) => sum + (entry.time_percentage || 0), 0);
+  const handleRemoveOpportunity = (index: number) => {
+    if (readOnly) return;
+    const newOpportunities = [...opportunities];
+    newOpportunities.splice(index, 1);
+    setOpportunities(newOpportunities);
+  };
 
-    if (totalPercentage > 100) {
-      toast.error("Le total des pourcentages ne peut pas dépasser 100%");
-      setIsSubmitting(false);
+  const handleSave = () => {
+    if (readOnly) {
+      toast.error("Modification non autorisée en mode consultation");
       return;
     }
 
-    // Convertir les données pour l'API
-    const missionTimes = craEntries
-      .filter(entry => entry.mission_id && entry.time_percentage > 0)
-      .map(entry => ({
-        mission_id: entry.mission_id,
-        time_percentage: entry.time_percentage,
-        mission_comment: entry.comment
-      }));
-
-    const opportunities = craEntries.flatMap(entry => {
-      const opps = [];
-      
-      // Projets 5%
-      if (entry.opportunities_5.trim()) {
-        entry.opportunities_5.split(',').forEach((proj, i) => {
-          if (proj.trim()) {
-            opps.push({
-              mission_id: entry.mission_id,
-              opportunity_name: proj.trim(),
-              opportunity_value: 5 as const
-            });
-          }
-        });
-      }
-      
-      // Projets 10%
-      if (entry.opportunities_10.trim()) {
-        entry.opportunities_10.split(',').forEach((proj, i) => {
-          if (proj.trim()) {
-            opps.push({
-              mission_id: entry.mission_id,
-              opportunity_name: proj.trim(),
-              opportunity_value: 10 as const
-            });
-          }
-        });
-      }
-      
-      // Projets 20%
-      if (entry.opportunities_20.trim()) {
-        entry.opportunities_20.split(',').forEach((proj, i) => {
-          if (proj.trim()) {
-            opps.push({
-              mission_id: entry.mission_id,
-              opportunity_name: proj.trim(),
-              opportunity_value: 20 as const
-            });
-          }
-        });
-      }
-      
-      return opps;
-    });
-
-    const requestData = {
-      report_date: dateString,
-      mission_times: missionTimes,
-      opportunities,
-      comments: ""
+    const craData = {
+      report_date: formattedDate,
+      mission_times: missionTimes.map(mt => ({
+        mission_id: mt.mission_id,
+        time_percentage: mt.time_percentage,
+        mission_comment: mt.mission_comment
+      })),
+      opportunities: opportunities.map(opp => ({
+        mission_id: opp.mission_id,
+        opportunity_name: opp.opportunity_name,
+        opportunity_value: opp.opportunity_value as 5 | 10 | 20
+      })),
+      comments: comments
     };
 
-    console.log("Données à sauvegarder:", requestData);
-    mutation.mutate(requestData);
+    saveMutation.mutate(craData);
   };
 
-  const totalPercentage = craEntries.reduce((sum, entry) => sum + (entry.time_percentage || 0), 0);
-  const getMissionName = (missionId: string) => {
-    const mission = missions.find(m => m.id === missionId);
-    return mission ? (mission.client || mission.name) : "Mission inconnue";
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = new Date(e.target.value);
-    
-    // Vérifier si c'est un weekend
-    if (isWeekend(newDate)) {
-      toast.error("Le CRA ne peut être saisi que durant les jours ouvrés (lundi à vendredi)");
-      return;
-    }
-    
-    onDateChange(newDate);
-  };
-
-  if (isLoading) {
+  if (isWeekendDay) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div>Chargement du CRA...</div>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center text-gray-500">
+            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-semibold mb-2">Weekend</h3>
+            <p>Le CRA n'est pas disponible pour les weekends.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoadingCRA || isLoadingMissions) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center">Chargement du CRA...</div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Sélection de date */}
-      <div>
-        <Label htmlFor="date">Date du CRA</Label>
-        <Input
-          id="date"
-          type="date"
-          value={dateString}
-          onChange={handleDateChange}
-          className="max-w-xs"
-        />
-        {isWeekend(selectedDate) && (
-          <p className="text-sm text-red-600 mt-1">
-            Le CRA ne peut être saisi que durant les jours ouvrés
+    <div className="space-y-6">
+      {readOnly && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-blue-600" />
+            <span className="text-blue-800 font-medium">Mode consultation</span>
+          </div>
+          <p className="text-blue-700 text-sm mt-1">
+            Vous consultez le CRA en lecture seule.
           </p>
-        )}
-      </div>
-
-      {/* Tableau CRA simplifié */}
+        </div>
+      )}
+      
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg">Compte Rendu d'Activité</CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleAddEntry}
-            disabled={missions.length === 0}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter
-          </Button>
+        <CardHeader>
+          <CardTitle>Répartition du temps par mission</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Total: {totalPercentage}% / 100%
+            </div>
+            <Badge variant={totalPercentage === 100 ? "default" : totalPercentage > 100 ? "destructive" : "secondary"}>
+              {totalPercentage === 100 ? "Complet" : totalPercentage > 100 ? "Dépassement" : "Incomplet"}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
-          {/* En-têtes du tableau */}
-          <div className="grid grid-cols-12 gap-2 mb-2 p-2 bg-blue-600 text-white font-medium text-sm rounded">
-            <div className="col-span-2">Mission</div>
-            <div className="col-span-1 text-center">Temps %</div>
-            <div className="col-span-2 text-center">5%</div>
-            <div className="col-span-2 text-center">10%</div>
-            <div className="col-span-2 text-center">20%</div>
-            <div className="col-span-2 text-center">Activité</div>
-            <div className="col-span-1"></div>
-          </div>
-
-          {/* Lignes du tableau */}
-          {craEntries.map((entry, index) => (
-            <div key={index} className="grid grid-cols-12 gap-2 items-start p-2 border rounded mb-2">
-              {/* Mission */}
-              <div className="col-span-2">
-                <Select
-                  value={entry.mission_id}
-                  onValueChange={(value) => handleUpdateEntry(index, 'mission_id', value)}
-                >
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Mission" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {missions.map((mission) => (
-                      <SelectItem key={mission.id} value={mission.id}>
-                        {mission.client || mission.name}
-                      </SelectItem>
+          <div className="space-y-4">
+            {missionTimes.map((missionTime, index) => (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
+                <div>
+                  <Label>Mission</Label>
+                  <select
+                    value={missionTime.mission_id}
+                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_id', e.target.value)}
+                    className="w-full p-2 border rounded"
+                    disabled={readOnly}
+                  >
+                    {missions?.map(mission => (
+                      <option key={mission.id} value={mission.id}>
+                        {mission.name} ({mission.client})
+                      </option>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </select>
+                </div>
+                
+                <div>
+                  <Label>Pourcentage (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={missionTime.time_percentage}
+                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'time_percentage', parseInt(e.target.value) || 0)}
+                    readOnly={readOnly}
+                    disabled={readOnly}
+                  />
+                </div>
+                
+                <div className="md:col-span-2">
+                  <Label>Commentaire (optionnel)</Label>
+                  <Input
+                    value={missionTime.mission_comment || ''}
+                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_comment', e.target.value)}
+                    placeholder="Détails sur le travail effectué..."
+                    readOnly={readOnly}
+                    disabled={readOnly}
+                  />
+                </div>
+                
+                <div className="flex items-end">
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleRemoveMissionTime(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
-              
-              {/* Temps (%) */}
-              <div className="col-span-1">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={entry.time_percentage || ""}
-                  onChange={(e) => handleUpdateEntry(index, 'time_percentage', parseInt(e.target.value) || 0)}
-                  placeholder="%"
-                  className="h-8 text-center"
-                />
-              </div>
-              
-              {/* Projets 5% - Zone de texte plus grande */}
-              <div className="col-span-2">
-                <Textarea
-                  value={entry.opportunities_5}
-                  onChange={(e) => handleUpdateEntry(index, 'opportunities_5', e.target.value)}
-                  placeholder="Noms des projets (un par ligne)"
-                  className="min-h-[60px] text-xs resize-none"
-                  rows={3}
-                />
-              </div>
-              
-              {/* Projets 10% - Zone de texte plus grande */}
-              <div className="col-span-2">
-                <Textarea
-                  value={entry.opportunities_10}
-                  onChange={(e) => handleUpdateEntry(index, 'opportunities_10', e.target.value)}
-                  placeholder="Noms des projets (un par ligne)"
-                  className="min-h-[60px] text-xs resize-none"
-                  rows={3}
-                />
-              </div>
-              
-              {/* Projets 20% - Zone de texte plus grande */}
-              <div className="col-span-2">
-                <Textarea
-                  value={entry.opportunities_20}
-                  onChange={(e) => handleUpdateEntry(index, 'opportunities_20', e.target.value)}
-                  placeholder="Noms des projets (un par ligne)"
-                  className="min-h-[60px] text-xs resize-none"
-                  rows={3}
-                />
-              </div>
-              
-              {/* Activité/Commentaire */}
-              <div className="col-span-2">
-                <Textarea
-                  value={entry.comment}
-                  onChange={(e) => handleUpdateEntry(index, 'comment', e.target.value)}
-                  placeholder="Activité..."
-                  className="min-h-[60px] text-xs resize-none"
-                  rows={3}
-                />
-              </div>
-              
-              {/* Supprimer */}
-              <div className="col-span-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRemoveEntry(index)}
-                  className="h-8 w-8 p-0"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-          
-          <div className="text-right mt-4">
-            <span className={`text-sm font-medium ${totalPercentage > 100 ? 'text-red-600' : totalPercentage === 100 ? 'text-green-600' : 'text-gray-600'}`}>
-              Total : {totalPercentage}%
-            </span>
+            ))}
+            
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddMissionTime}
+                className="w-full"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter une mission
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-4">
-        <Button
-          type="submit"
-          disabled={isSubmitting || totalPercentage > 100 || isWeekend(selectedDate)}
-          className="bg-seventic-500 hover:bg-seventic-600"
-        >
-          {isSubmitting ? "Sauvegarde..." : "Sauvegarder le CRA"}
-        </Button>
-      </div>
-    </form>
+      <Card>
+        <CardHeader>
+          <CardTitle>Opportunités</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {opportunities.map((opportunity, index) => (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg">
+                <div>
+                  <Label>Mission</Label>
+                  <select
+                    value={opportunity.mission_id}
+                    onChange={(e) => !readOnly && handleOpportunityChange(index, 'mission_id', e.target.value)}
+                    className="w-full p-2 border rounded"
+                    disabled={readOnly}
+                  >
+                    {missions?.map(mission => (
+                      <option key={mission.id} value={mission.id}>
+                        {mission.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <Label>Nom de l'opportunité</Label>
+                  <Input
+                    type="text"
+                    value={opportunity.opportunity_name}
+                    onChange={(e) => !readOnly && handleOpportunityChange(index, 'opportunity_name', e.target.value)}
+                    readOnly={readOnly}
+                    disabled={readOnly}
+                  />
+                </div>
+                
+                <div>
+                  <Label>Valeur</Label>
+                  <select
+                    value={opportunity.opportunity_value}
+                    onChange={(e) => !readOnly && handleOpportunityChange(index, 'opportunity_value', e.target.value)}
+                    className="w-full p-2 border rounded"
+                    disabled={readOnly}
+                  >
+                    <option value={5}>5%</option>
+                    <option value={10}>10%</option>
+                    <option value={20}>20%</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-end">
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleRemoveOpportunity(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddOpportunity}
+                className="w-full"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter une opportunité
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Commentaires généraux</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={comments}
+            onChange={(e) => !readOnly && setComments(e.target.value)}
+            placeholder="Commentaires sur la journée, difficultés rencontrées, points positifs..."
+            rows={4}
+            readOnly={readOnly}
+            disabled={readOnly}
+          />
+        </CardContent>
+      </Card>
+
+      {!readOnly && (
+        <div className="flex justify-end space-x-4">
+          <Button
+            onClick={handleSave}
+            disabled={saveMutation.isPending || totalPercentage > 100}
+            className="min-w-32"
+          >
+            {saveMutation.isPending ? (
+              "Sauvegarde..."
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Sauvegarder
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 };
