@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -118,7 +119,8 @@ const AdminDashboardNew = () => {
     // Puis filtrage par type de statut
     switch (activeFilter) {
       case "pending":
-        filtered = filtered.filter(r => r.workflow_status === 'pending_assignment' || r.status === 'pending');
+        // CORRECTION: Uniquement les demandes avec workflow_status 'pending_assignment'
+        filtered = filtered.filter(r => r.workflow_status === 'pending_assignment');
         break;
       case "inprogress":
         filtered = filtered.filter(r => r.workflow_status === 'in_progress');
@@ -144,9 +146,10 @@ const AdminDashboardNew = () => {
     setFilteredRequests(filtered);
   }, [selectedUserId, requests, activeFilter]);
 
-  // Calcul des statistiques (les demandes terminées sont déjà exclues)
+  // Calcul des statistiques CORRIGÉES (les demandes terminées sont déjà exclues)
   const totalRequests = filteredRequests.length;
-  const pendingRequests = filteredRequests.filter(r => r.workflow_status === 'pending_assignment' || r.status === 'pending').length;
+  // CORRECTION: Uniquement workflow_status === 'pending_assignment'
+  const pendingRequests = filteredRequests.filter(r => r.workflow_status === 'pending_assignment').length;
   const inProgressRequests = filteredRequests.filter(r => r.workflow_status === 'in_progress').length;
   const completedRequests = 0; // Les demandes terminées sont exclues, donc toujours 0
   const overdueRequests = filteredRequests.filter(r => {
@@ -290,6 +293,7 @@ const AdminDashboardNew = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{pendingRequests}</div>
+              <p className="text-xs text-gray-500 mt-1">En attente d'assignation</p>
             </CardContent>
           </Card>
 
