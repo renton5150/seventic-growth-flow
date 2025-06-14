@@ -62,8 +62,8 @@ const Dashboard = () => {
             updated_at,
             target_role,
             missions!inner(name, client),
-            created_by_profile:profiles!requests_created_by_fkey(first_name, last_name),
-            assigned_to_profile:profiles!requests_assigned_to_fkey(first_name, last_name)
+            created_by_profile:profiles!requests_created_by_fkey(name),
+            assigned_to_profile:profiles!requests_assigned_to_fkey(name)
           `)
           .order('created_at', { ascending: false });
 
@@ -120,8 +120,8 @@ const Dashboard = () => {
             missionId: req.mission_id,
             missionName: req.missions?.name || 'Sans mission',
             missionClient: req.missions?.client || '',
-            sdrName: req.created_by_profile ? `${req.created_by_profile.first_name} ${req.created_by_profile.last_name}` : 'Inconnu',
-            assignedToName: req.assigned_to_profile ? `${req.assigned_to_profile.first_name} ${req.assigned_to_profile.last_name}` : null,
+            sdrName: req.created_by_profile?.name || 'Inconnu',
+            assignedToName: req.assigned_to_profile?.name || null,
             dueDate: req.due_date,
             details: req.details,
             workflow_status: req.workflow_status,
