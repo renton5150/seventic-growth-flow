@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Plus, Eye, Users, Clock, CheckCircle, AlertTriangle } from "lucide-reac
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreateRequestMenu } from "@/components/dashboard/CreateRequestMenu";
 
 interface SimpleRequest {
   id: string;
@@ -230,10 +230,7 @@ const AdminDashboardNew = () => {
             )}
           </div>
           
-          <Button onClick={handleCreateRequest} className="bg-seventic-500 hover:bg-seventic-600">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvelle demande
-          </Button>
+          <CreateRequestMenu />
         </div>
 
         {/* Sélecteur d'utilisateurs */}
