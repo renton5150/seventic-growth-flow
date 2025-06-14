@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -44,11 +45,6 @@ const AdminDashboardNew = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [filteredRequests, setFilteredRequests] = useState<SimpleRequest[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-
-  // Redirection si pas admin
-  if (!isAdmin) {
-    return <Navigate to="/unauthorized" replace />;
-  }
 
   // Récupération des données
   useEffect(() => {
@@ -168,6 +164,11 @@ const AdminDashboardNew = () => {
     console.log(`🔍 Filtrage: utilisateur=${selectedUserId}, type=${activeFilter}, résultat=${filtered.length} demandes`);
     setFilteredRequests(filtered);
   }, [selectedUserId, requests, activeFilter]);
+
+  // Redirection si pas admin - DÉPLACÉ APRÈS LES HOOKS
+  if (!isAdmin) {
+    return <Navigate to="/unauthorized" replace />;
+  }
 
   // Calcul des statistiques CORRIGÉES (les demandes terminées sont déjà exclues)
   const totalRequests = filteredRequests.length;
