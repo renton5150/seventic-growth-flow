@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateRequestMenu } from "@/components/dashboard/CreateRequestMenu";
+import { getMissionName, preloadMissionNames } from "@/services/missionNameService";
 
 interface SimpleRequest {
   id: string;
@@ -38,6 +39,7 @@ const AdminDashboardNew = () => {
   const [requests, setRequests] = useState<SimpleRequest[]>([]);
   const [users, setUsers] = useState<SimpleUser[]>([]);
   const [userProfiles, setUserProfiles] = useState<{[key: string]: string}>({});
+  const [missionNames, setMissionNames] = useState<{[key: string]: string}>({});
   const [loading, setLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [filteredRequests, setFilteredRequests] = useState<SimpleRequest[]>([]);
@@ -92,6 +94,27 @@ const AdminDashboardNew = () => {
           profilesMap[user.id] = user.name || user.email || 'Utilisateur inconnu';
         });
         setUserProfiles(profilesMap);
+
+        // Précharger les noms de missions
+        if (requestsData && requestsData.length > 0) {
+          const missionIds = requestsData
+            .map(r => r.mission_id)
+            .filter((id): id is string => !!id);
+          
+          if (missionIds.length > 0) {
+            console.log("🔍 Préchargement des noms de missions...");
+            await preloadMissionNames(missionIds);
+            
+            // Récupérer les noms de missions
+            const missionsMap: {[key: string]: string} = {};
+            for (const missionId of missionIds) {
+              const missionName = await getMissionName(missionId);
+              missionsMap[missionId] = missionName;
+            }
+            setMissionNames(missionsMap);
+            console.log("✅ Noms de missions chargés:", Object.keys(missionsMap).length);
+          }
+        }
 
         setFilteredRequests(requestsData || []);
 
@@ -369,8 +392,8 @@ const AdminDashboardNew = () => {
                     {getTypeBadge(request.type)}
                   </TableCell>
                   <TableCell className="font-medium">
-                    <div className="max-w-[150px] truncate" title={`Mission ID: ${request.mission_id || 'Non assignée'}`}>
-                      {request.mission_id ? `Mission ${request.mission_id.slice(0, 8)}...` : 'Non assignée'}
+                    <div className="max-w-[150px] truncate" title={request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}>
+                      {request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{request.title}</TableCell>
