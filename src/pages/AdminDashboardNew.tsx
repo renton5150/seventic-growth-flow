@@ -52,10 +52,12 @@ const AdminDashboardNew = () => {
         console.log("🚀 AdminDashboardNew: Récupération des données");
 
         // Test 1: Récupérer les demandes directement depuis la table requests
-        console.log("📊 Récupération des demandes...");
+        // EXCLUSION DES DEMANDES TERMINÉES
+        console.log("📊 Récupération des demandes (hors terminées)...");
         const { data: requestsData, error: requestsError } = await supabase
           .from('requests')
           .select('*')
+          .neq('workflow_status', 'completed') // Exclure les demandes terminées
           .order('created_at', { ascending: false });
 
         if (requestsError) {
@@ -63,7 +65,7 @@ const AdminDashboardNew = () => {
           throw requestsError;
         }
 
-        console.log("✅ Demandes récupérées:", requestsData?.length || 0);
+        console.log("✅ Demandes récupérées (hors terminées):", requestsData?.length || 0);
         setRequests(requestsData || []);
 
         // Test 2: Récupérer les utilisateurs depuis la table profiles
@@ -115,11 +117,11 @@ const AdminDashboardNew = () => {
     setFilteredRequests(filtered);
   }, [selectedUserId, requests]);
 
-  // Calcul des statistiques
+  // Calcul des statistiques (les demandes terminées sont déjà exclues)
   const totalRequests = filteredRequests.length;
   const pendingRequests = filteredRequests.filter(r => r.workflow_status === 'pending_assignment' || r.status === 'pending').length;
   const inProgressRequests = filteredRequests.filter(r => r.workflow_status === 'in_progress').length;
-  const completedRequests = filteredRequests.filter(r => r.workflow_status === 'completed').length;
+  const completedRequests = 0; // Les demandes terminées sont exclues, donc toujours 0
   const overdueRequests = filteredRequests.filter(r => {
     const dueDate = new Date(r.due_date);
     const now = new Date();
@@ -177,9 +179,12 @@ const AdminDashboardNew = () => {
             </h1>
             <p className="mt-2 text-gray-500">
               {selectedUser 
-                ? `Vue des demandes pour ${selectedUser.name} (${selectedUser.role})`
-                : "Gestion simplifiée des demandes - Version reconstruite"
+                ? `Vue des demandes actives pour ${selectedUser.name} (${selectedUser.role})`
+                : "Gestion simplifiée des demandes actives - Version reconstruite"
               }
+            </p>
+            <p className="text-sm text-blue-600 mt-1">
+              📋 Les demandes terminées sont consultables dans les Archives
             </p>
           </div>
           
@@ -221,7 +226,7 @@ const AdminDashboardNew = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total</CardTitle>
+              <CardTitle className="text-sm font-medium">Total (actives)</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -255,7 +260,8 @@ const AdminDashboardNew = () => {
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{completedRequests}</div>
+              <div className="text-2xl font-bold text-gray-400">-</div>
+              <p className="text-xs text-gray-500 mt-1">Voir Archives</p>
             </CardContent>
           </Card>
 
@@ -273,7 +279,8 @@ const AdminDashboardNew = () => {
         {/* Tableau des demandes */}
         <div className="bg-white rounded-lg border">
           <div className="p-4 border-b">
-            <h3 className="text-lg font-semibold">Liste des demandes</h3>
+            <h3 className="text-lg font-semibold">Liste des demandes actives</h3>
+            <p className="text-sm text-gray-600">Les demandes terminées sont consultables dans les Archives</p>
           </div>
           
           <Table>
@@ -328,9 +335,10 @@ const AdminDashboardNew = () => {
           {filteredRequests.length === 0 && (
             <div className="p-8 text-center text-gray-500">
               {selectedUser 
-                ? `Aucune demande trouvée pour ${selectedUser.name}`
-                : "Aucune demande trouvée"
+                ? `Aucune demande active trouvée pour ${selectedUser.name}`
+                : "Aucune demande active trouvée"
               }
+              <p className="text-sm mt-2">Les demandes terminées sont dans les Archives</p>
             </div>
           )}
         </div>
