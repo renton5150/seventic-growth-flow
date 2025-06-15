@@ -34,6 +34,7 @@ interface MissionTimeWithOpportunities extends DailyMissionTime {
   opportunities_5?: string;
   opportunities_10?: string;
   opportunities_20?: string;
+  activity?: string;
 }
 
 export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }: CRAFormProps) => {
@@ -85,23 +86,24 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
         const opportunities5 = craData.opportunities
           .filter(opp => opp.mission_id === mt.mission_id && opp.opportunity_value === 5)
           .map(opp => opp.opportunity_name)
-          .join(', ');
+          .join('\n');
         
         const opportunities10 = craData.opportunities
           .filter(opp => opp.mission_id === mt.mission_id && opp.opportunity_value === 10)
           .map(opp => opp.opportunity_name)
-          .join(', ');
+          .join('\n');
         
         const opportunities20 = craData.opportunities
           .filter(opp => opp.mission_id === mt.mission_id && opp.opportunity_value === 20)
           .map(opp => opp.opportunity_name)
-          .join(', ');
+          .join('\n');
 
         return {
           ...mt,
           opportunities_5: opportunities5,
           opportunities_10: opportunities10,
-          opportunities_20: opportunities20
+          opportunities_20: opportunities20,
+          activity: mt.mission_comment || ''
         };
       });
       setMissionTimes(mergedData);
@@ -110,7 +112,8 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
         ...mt, 
         opportunities_5: '',
         opportunities_10: '',
-        opportunities_20: ''
+        opportunities_20: '',
+        activity: mt.mission_comment || ''
       })));
     } else {
       setMissionTimes([]);
@@ -156,6 +159,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
       opportunities_5: '',
       opportunities_10: '',
       opportunities_20: '',
+      activity: '',
       created_at: now.toISOString(),
       updated_at: now.toISOString()
     }]);
@@ -180,7 +184,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
     missionTimes.forEach(mt => {
       // Opportunités 5%
       if (mt.opportunities_5 && mt.opportunities_5.trim()) {
-        const opportunities5 = mt.opportunities_5.split(',').map(name => name.trim()).filter(name => name);
+        const opportunities5 = mt.opportunities_5.split('\n').map(name => name.trim()).filter(name => name);
         opportunities5.forEach(name => {
           allOpportunities.push({
             mission_id: mt.mission_id,
@@ -192,7 +196,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
       
       // Opportunités 10%
       if (mt.opportunities_10 && mt.opportunities_10.trim()) {
-        const opportunities10 = mt.opportunities_10.split(',').map(name => name.trim()).filter(name => name);
+        const opportunities10 = mt.opportunities_10.split('\n').map(name => name.trim()).filter(name => name);
         opportunities10.forEach(name => {
           allOpportunities.push({
             mission_id: mt.mission_id,
@@ -204,7 +208,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
       
       // Opportunités 20%
       if (mt.opportunities_20 && mt.opportunities_20.trim()) {
-        const opportunities20 = mt.opportunities_20.split(',').map(name => name.trim()).filter(name => name);
+        const opportunities20 = mt.opportunities_20.split('\n').map(name => name.trim()).filter(name => name);
         opportunities20.forEach(name => {
           allOpportunities.push({
             mission_id: mt.mission_id,
@@ -220,7 +224,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
       mission_times: missionTimes.map(mt => ({
         mission_id: mt.mission_id,
         time_percentage: mt.time_percentage,
-        mission_comment: mt.mission_comment
+        mission_comment: mt.activity
       })),
       opportunities: allOpportunities,
       comments: comments
@@ -269,7 +273,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
       
       <Card>
         <CardHeader>
-          <CardTitle>Répartition du temps par mission et opportunités</CardTitle>
+          <CardTitle>Compte Rendu d'Activité</CardTitle>
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600">
               Total: {totalPercentage}% / 100%
@@ -283,96 +287,110 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Mission</TableHead>
-                <TableHead className="text-center">Temps passé (%)</TableHead>
-                <TableHead className="text-center">5%</TableHead>
-                <TableHead className="text-center">10%</TableHead>
-                <TableHead className="text-center">20%</TableHead>
-                {!readOnly && <TableHead className="text-center">Actions</TableHead>}
+                <TableHead className="bg-blue-500 text-white">Mission</TableHead>
+                <TableHead className="text-center bg-blue-500 text-white">Temps %</TableHead>
+                <TableHead className="text-center bg-blue-500 text-white">5%</TableHead>
+                <TableHead className="text-center bg-blue-500 text-white">10%</TableHead>
+                <TableHead className="text-center bg-blue-500 text-white">20%</TableHead>
+                <TableHead className="text-center bg-blue-500 text-white">Activité</TableHead>
+                {!readOnly && <TableHead className="text-center bg-blue-500 text-white"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {missionTimes.map((missionTime, index) => {
-                const mission = missions?.find(m => m.id === missionTime.mission_id);
                 return (
-                  <React.Fragment key={index}>
-                    <TableRow>
-                      <TableCell>
-                        <select
-                          value={missionTime.mission_id}
-                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_id', e.target.value)}
-                          className="w-full p-2 border rounded text-sm"
-                          disabled={readOnly}
+                  <TableRow key={index}>
+                    <TableCell>
+                      <select
+                        value={missionTime.mission_id}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_id', e.target.value)}
+                        className="w-full p-2 border rounded text-sm"
+                        disabled={readOnly}
+                      >
+                        {missions?.map(mission => (
+                          <option key={mission.id} value={mission.id}>
+                            {mission.name}
+                          </option>
+                        ))}
+                      </select>
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={missionTime.time_percentage}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'time_percentage', parseInt(e.target.value) || 0)}
+                        className="w-16 text-center"
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        placeholder="%"
+                      />
+                    </TableCell>
+                    
+                    <TableCell>
+                      <Textarea
+                        value={missionTime.opportunities_5 || ''}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_5', e.target.value)}
+                        placeholder="Noms des projets (un par ligne)"
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        className="text-sm min-h-[60px] resize-none"
+                        rows={3}
+                      />
+                    </TableCell>
+                    
+                    <TableCell>
+                      <Textarea
+                        value={missionTime.opportunities_10 || ''}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_10', e.target.value)}
+                        placeholder="Noms des projets (un par ligne)"
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        className="text-sm min-h-[60px] resize-none"
+                        rows={3}
+                      />
+                    </TableCell>
+                    
+                    <TableCell>
+                      <Textarea
+                        value={missionTime.opportunities_20 || ''}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_20', e.target.value)}
+                        placeholder="Noms des projets (un par ligne)"
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        className="text-sm min-h-[60px] resize-none"
+                        rows={3}
+                      />
+                    </TableCell>
+                    
+                    <TableCell>
+                      <Textarea
+                        value={missionTime.activity || ''}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'activity', e.target.value)}
+                        placeholder="Activité..."
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        className="text-sm min-h-[60px] resize-none"
+                        rows={3}
+                      />
+                    </TableCell>
+                    
+                    {!readOnly && (
+                      <TableCell className="text-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleRemoveMissionTime(index)}
+                          className="h-8 w-8"
                         >
-                          {missions?.map(mission => (
-                            <option key={mission.id} value={mission.id}>
-                              {mission.name} ({mission.client})
-                            </option>
-                          ))}
-                        </select>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </TableCell>
-                      
-                      <TableCell className="text-center">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={missionTime.time_percentage}
-                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'time_percentage', parseInt(e.target.value) || 0)}
-                          className="w-20 text-center"
-                          readOnly={readOnly}
-                          disabled={readOnly}
-                        />
-                      </TableCell>
-                      
-                      <TableCell className="text-center">
-                        <Input
-                          value={missionTime.opportunities_5 || ''}
-                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_5', e.target.value)}
-                          placeholder="Opportunités 5% (séparées par des virgules)"
-                          readOnly={readOnly}
-                          disabled={readOnly}
-                          className="text-sm"
-                        />
-                      </TableCell>
-                      
-                      <TableCell className="text-center">
-                        <Input
-                          value={missionTime.opportunities_10 || ''}
-                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_10', e.target.value)}
-                          placeholder="Opportunités 10% (séparées par des virgules)"
-                          readOnly={readOnly}
-                          disabled={readOnly}
-                          className="text-sm"
-                        />
-                      </TableCell>
-                      
-                      <TableCell className="text-center">
-                        <Input
-                          value={missionTime.opportunities_20 || ''}
-                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_20', e.target.value)}
-                          placeholder="Opportunités 20% (séparées par des virgules)"
-                          readOnly={readOnly}
-                          disabled={readOnly}
-                          className="text-sm"
-                        />
-                      </TableCell>
-                      
-                      {!readOnly && (
-                        <TableCell className="text-center">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleRemoveMissionTime(index)}
-                            className="h-8 w-8"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  </React.Fragment>
+                    )}
+                  </TableRow>
                 );
               })}
             </TableBody>
@@ -386,7 +404,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
               className="mt-4 w-full"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Ajouter une mission
+              Ajouter
             </Button>
           )}
         </CardContent>
@@ -413,14 +431,14 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
           <Button
             onClick={handleSave}
             disabled={saveMutation.isPending || totalPercentage > 100}
-            className="min-w-32"
+            className="min-w-32 bg-purple-600 hover:bg-purple-700"
           >
             {saveMutation.isPending ? (
               "Sauvegarde..."
             ) : (
               <>
                 <Save className="h-4 w-4 mr-2" />
-                Sauvegarder
+                Sauvegarder le CRA
               </>
             )}
           </Button>
