@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,14 +7,23 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { PageHeader } from "@/components/ui/page-header";
 import { EmailPlatformAccountForm } from "@/components/email-platforms/EmailPlatformAccountForm";
 import { EmailPlatformAccountsTable } from "@/components/email-platforms/EmailPlatformAccountsTable";
+import { DomainsTable } from "@/components/domains/DomainsTable";
+import { DomainForm } from "@/components/domains/DomainForm";
 import { useEmailPlatformAccounts } from "@/hooks/emailPlatforms/useEmailPlatforms";
+import { useDomains } from "@/hooks/domains/useDomains";
 import { 
   useCreateEmailPlatformAccount, 
   useUpdateEmailPlatformAccount, 
   useDeleteEmailPlatformAccount 
 } from "@/hooks/emailPlatforms/useEmailPlatformMutations";
+import {
+  useCreateDomain,
+  useUpdateDomain,
+  useDeleteDomain
+} from "@/hooks/domains/useDomainMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmailPlatformAccount, EmailPlatformAccountFormData } from "@/types/emailPlatforms.types";
+import { Domain, DomainFormData } from "@/types/domains.types";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 function EmailPlatformsContent() {
@@ -21,14 +31,26 @@ function EmailPlatformsContent() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<EmailPlatformAccount | undefined>();
   const [accountToDelete, setAccountToDelete] = useState<string | undefined>();
+  
+  // Domain state
+  const [isDomainFormOpen, setIsDomainFormOpen] = useState(false);
+  const [editingDomain, setEditingDomain] = useState<Domain | undefined>();
+  const [domainToDelete, setDomainToDelete] = useState<string | undefined>();
 
   const { data: accounts, isLoading, refetch } = useEmailPlatformAccounts();
+  const { data: domains, isLoading: domainsLoading, refetch: refetchDomains } = useDomains();
+  
   const createMutation = useCreateEmailPlatformAccount();
   const updateMutation = useUpdateEmailPlatformAccount();
   const deleteMutation = useDeleteEmailPlatformAccount();
+  
+  const createDomainMutation = useCreateDomain();
+  const updateDomainMutation = useUpdateDomain();
+  const deleteDomainMutation = useDeleteDomain();
 
   const canCreateAccount = user?.role === 'admin' || user?.role === 'growth';
 
+  // Email Platform Account handlers
   const handleCreateAccount = () => {
     setEditingAccount(undefined);
     setIsFormOpen(true);
@@ -40,36 +62,24 @@ function EmailPlatformsContent() {
   };
 
   const handleDeleteAccount = (accountId: string) => {
-    console.log('EmailPlatformsContent - Delete account requested for ID:', accountId);
-    const accountToDelete = accounts?.find(acc => acc.id === accountId);
-    console.log('EmailPlatformsContent - Account to delete found:', accountToDelete);
     setAccountToDelete(accountId);
   };
 
-  const confirmDelete = async () => {
+  const confirmDeleteAccount = async () => {
     if (accountToDelete) {
-      console.log('EmailPlatformsContent - Confirming delete for account ID:', accountToDelete);
       try {
         await deleteMutation.mutateAsync(accountToDelete);
-        console.log('EmailPlatformsContent - Delete mutation completed successfully');
         setAccountToDelete(undefined);
-        // Force un refetch manuel pour s'assurer que les données sont à jour
         await refetch();
-        console.log('EmailPlatformsContent - Manual refetch completed');
       } catch (error) {
-        console.error('EmailPlatformsContent - Error during deletion:', error);
-        // Le dialog reste ouvert pour que l'utilisateur puisse voir l'erreur et réessayer
+        console.error('Error during deletion:', error);
       }
     }
   };
 
   const handleFormSubmit = (data: EmailPlatformAccountFormData) => {
-    console.log('Form submission data:', data);
-    
     if (editingAccount) {
-      // Mise à jour
       const updateData = { ...data };
-      // Si le mot de passe est vide, on ne le met pas à jour
       if (!data.password) {
         delete updateData.password;
       }
@@ -84,7 +94,6 @@ function EmailPlatformsContent() {
         }
       );
     } else {
-      // Création
       createMutation.mutate(data, {
         onSuccess: () => {
           setIsFormOpen(false);
@@ -96,6 +105,63 @@ function EmailPlatformsContent() {
   const handleFormCancel = () => {
     setIsFormOpen(false);
     setEditingAccount(undefined);
+  };
+
+  // Domain handlers
+  const handleCreateDomain = () => {
+    setEditingDomain(undefined);
+    setIsDomainFormOpen(true);
+  };
+
+  const handleEditDomain = (domain: Domain) => {
+    setEditingDomain(domain);
+    setIsDomainFormOpen(true);
+  };
+
+  const handleDeleteDomain = (domainId: string) => {
+    setDomainToDelete(domainId);
+  };
+
+  const confirmDeleteDomain = async () => {
+    if (domainToDelete) {
+      try {
+        await deleteDomainMutation.mutateAsync(domainToDelete);
+        setDomainToDelete(undefined);
+        await refetchDomains();
+      } catch (error) {
+        console.error('Error during domain deletion:', error);
+      }
+    }
+  };
+
+  const handleDomainFormSubmit = (data: DomainFormData) => {
+    if (editingDomain) {
+      const updateData = { ...data };
+      if (!data.password) {
+        delete updateData.password;
+      }
+      
+      updateDomainMutation.mutate(
+        { id: editingDomain.id, data: updateData },
+        {
+          onSuccess: () => {
+            setIsDomainFormOpen(false);
+            setEditingDomain(undefined);
+          }
+        }
+      );
+    } else {
+      createDomainMutation.mutate(data, {
+        onSuccess: () => {
+          setIsDomainFormOpen(false);
+        }
+      });
+    }
+  };
+
+  const handleDomainFormCancel = () => {
+    setIsDomainFormOpen(false);
+    setEditingDomain(undefined);
   };
 
   return (
@@ -135,9 +201,49 @@ function EmailPlatformsContent() {
             )}
           </div>
         )}
+
+        {/* Section Domaines */}
+        <div className="mt-12">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold">Noms de domaines disponibles</h2>
+              <p className="text-gray-600 mt-1">
+                Gérez les domaines utilisés pour vos campagnes d'emailing
+              </p>
+            </div>
+            {canCreateAccount && (
+              <Button onClick={handleCreateDomain}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nouveau domaine
+              </Button>
+            )}
+          </div>
+
+          {domainsLoading ? (
+            <div className="text-center py-12">
+              <p>Chargement des domaines...</p>
+            </div>
+          ) : domains && domains.length > 0 ? (
+            <DomainsTable
+              domains={domains}
+              onEdit={handleEditDomain}
+              onDelete={handleDeleteDomain}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Aucun domaine créé pour le moment</p>
+              {canCreateAccount && (
+                <Button onClick={handleCreateDomain} className="mt-4">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Créer le premier domaine
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Dialog de création/édition */}
+      {/* Dialog de création/édition des comptes */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -154,18 +260,30 @@ function EmailPlatformsContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de confirmation de suppression */}
+      {/* Dialog de création/édition des domaines */}
+      <Dialog open={isDomainFormOpen} onOpenChange={setIsDomainFormOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingDomain ? "Modifier le domaine" : "Nouveau domaine"}
+            </DialogTitle>
+          </DialogHeader>
+          <DomainForm
+            domain={editingDomain}
+            onSubmit={handleDomainFormSubmit}
+            onCancel={handleDomainFormCancel}
+            isLoading={createDomainMutation.isPending || updateDomainMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmation de suppression des comptes */}
       <AlertDialog open={!!accountToDelete} onOpenChange={() => setAccountToDelete(undefined)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
               Êtes-vous sûr de vouloir supprimer ce compte ? Cette action est irréversible.
-              {accountToDelete && (
-                <div className="mt-2 text-sm text-gray-600">
-                  Compte ID: {accountToDelete}
-                </div>
-              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -173,11 +291,35 @@ function EmailPlatformsContent() {
               Annuler
             </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={confirmDelete}
+              onClick={confirmDeleteAccount}
               disabled={deleteMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
               {deleteMutation.isPending ? "Suppression..." : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmation de suppression des domaines */}
+      <AlertDialog open={!!domainToDelete} onOpenChange={() => setDomainToDelete(undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer ce domaine ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteDomainMutation.isPending}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteDomain}
+              disabled={deleteDomainMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteDomainMutation.isPending ? "Suppression..." : "Supprimer"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

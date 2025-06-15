@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/select";
 import { useEmailPlatforms, useFrontOffices } from "@/hooks/emailPlatforms/useEmailPlatforms";
 import { useMissionsQuery } from "@/hooks/useRequestQueries";
+import { useDomains } from "@/hooks/domains/useDomains";
 import { EmailPlatformAccount, ROUTING_INTERFACES } from "@/types/emailPlatforms.types";
+import { useState } from "react";
 
 const formSchema = z.object({
   mission_id: z.string().min(1, "Sélectionnez une mission"),
@@ -39,7 +41,7 @@ const formSchema = z.object({
   dedicated_ip_address: z.string().optional(),
   routing_interfaces: z.array(z.string()).min(1, "Sélectionnez au moins une interface"),
   front_office_ids: z.array(z.string()).optional(),
-  // Nouveaux champs pour le domaine
+  // Champ domaine modifié
   domain_name: z.string().optional(),
   domain_hosting_provider: z.enum(['OVH', 'Gandhi', 'Ionos']).optional(),
   domain_login: z.string().optional(),
@@ -72,6 +74,9 @@ export const EmailPlatformAccountForm = ({
   const { data: platforms } = useEmailPlatforms();
   const { data: frontOffices } = useFrontOffices();
   const { data: missions } = useMissionsQuery();
+  const { data: domains } = useDomains();
+  
+  const [isManualDomain, setIsManualDomain] = useState(false);
 
   // Helper function to safely convert dedicated_ip_address to string
   const getDedicatedIpAddressString = (address: unknown): string => {
@@ -99,7 +104,7 @@ export const EmailPlatformAccountForm = ({
       dedicated_ip_address: getDedicatedIpAddressString(account?.dedicated_ip_address),
       routing_interfaces: account?.routing_interfaces || [],
       front_office_ids: account?.front_offices?.map(fo => fo.id) || [],
-      // Valeurs par défaut pour les nouveaux champs domaine
+      // Valeurs par défaut pour les champs domaine
       domain_name: (account as any)?.domain_name || "",
       domain_hosting_provider: (account as any)?.domain_hosting_provider || undefined,
       domain_login: (account as any)?.domain_login || "",
@@ -109,7 +114,28 @@ export const EmailPlatformAccountForm = ({
 
   const watchDedicatedIp = form.watch("dedicated_ip");
   const watchRoutingInterfaces = form.watch("routing_interfaces");
+  const watchDomainName = form.watch("domain_name");
+  
   const showFrontOffices = watchRoutingInterfaces.includes("SMTP") || watchRoutingInterfaces.includes("Les deux");
+
+  // Auto-fill domain fields when selecting an existing domain
+  const handleDomainSelect = (domainName: string) => {
+    if (domainName === "manual") {
+      setIsManualDomain(true);
+      form.setValue("domain_name", "");
+      form.setValue("domain_hosting_provider", undefined);
+      form.setValue("domain_login", "");
+      return;
+    }
+    
+    setIsManualDomain(false);
+    const selectedDomain = domains?.find(d => d.domain_name === domainName);
+    if (selectedDomain) {
+      form.setValue("domain_name", selectedDomain.domain_name);
+      form.setValue("domain_hosting_provider", selectedDomain.hosting_provider as 'OVH' | 'Gandhi' | 'Ionos');
+      form.setValue("domain_login", selectedDomain.login);
+    }
+  };
 
   const handleSubmit = (data: FormData) => {
     console.log("Form data before submission:", data);
@@ -472,25 +498,54 @@ export const EmailPlatformAccountForm = ({
           />
         )}
 
-        {/* Nouvelle section Nom de domaine */}
+        {/* Section Nom de domaine modifiée */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Nom de domaine</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="domain_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom de domaine</FormLabel>
+          <FormField
+            control={form.control}
+            name="domain_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nom de domaine</FormLabel>
+                <Select 
+                  onValueChange={(value) => {
+                    if (value === "manual") {
+                      handleDomainSelect(value);
+                    } else {
+                      handleDomainSelect(value);
+                      field.onChange(value);
+                    }
+                  }} 
+                  value={isManualDomain ? "manual" : field.value}
+                >
                   <FormControl>
-                    <Input {...field} placeholder="exemple.com" />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un domaine existant" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <SelectContent>
+                    <SelectItem value="manual">Saisir manuellement</SelectItem>
+                    {domains?.map((domain) => (
+                      <SelectItem key={domain.id} value={domain.domain_name}>
+                        {domain.domain_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isManualDomain && (
+                  <Input 
+                    {...field}
+                    placeholder="exemple.com"
+                    className="mt-2"
+                  />
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="domain_hosting_provider"
@@ -513,9 +568,7 @@ export const EmailPlatformAccountForm = ({
                 </FormItem>
               )}
             />
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="domain_login"
@@ -529,21 +582,21 @@ export const EmailPlatformAccountForm = ({
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="domain_password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input {...field} type="text" placeholder="Mot de passe en clair" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
+
+          <FormField
+            control={form.control}
+            name="domain_password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input {...field} type="text" placeholder="Mot de passe en clair" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         {/* Actions */}

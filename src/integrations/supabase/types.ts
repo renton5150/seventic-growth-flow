@@ -334,6 +334,56 @@ export type Database = {
           },
         ]
       }
+      domains: {
+        Row: {
+          created_at: string
+          creation_date: string
+          domain_name: string
+          expiration_date: string
+          hosting_provider: string | null
+          id: string
+          login: string
+          mission_id: string | null
+          password_encrypted: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creation_date: string
+          domain_name: string
+          expiration_date: string
+          hosting_provider?: string | null
+          id?: string
+          login: string
+          mission_id?: string | null
+          password_encrypted: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creation_date?: string
+          domain_name?: string
+          expiration_date?: string
+          hosting_provider?: string | null
+          id?: string
+          login?: string
+          mission_id?: string | null
+          password_encrypted?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domains_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_campaigns_cache: {
         Row: {
           account_id: string
