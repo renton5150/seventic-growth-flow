@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Calendar, Save, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format, isWeekend } from "date-fns";
@@ -19,8 +19,8 @@ import { useAuth } from "@/contexts/AuthContext";
 interface CRAFormProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
-  sdrId?: string; // ID du SDR pour les admins
-  readOnly?: boolean; // Mode lecture seule pour les admins
+  sdrId?: string;
+  readOnly?: boolean;
 }
 
 interface Mission {
@@ -43,7 +43,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
   const isWeekendDay = isWeekend(selectedDate);
-  const targetSdrId = sdrId || user?.id; // Utiliser sdrId si fourni, sinon l'utilisateur actuel
+  const targetSdrId = sdrId || user?.id;
 
   // Requête pour récupérer les missions
   const { data: missions, isLoading: isLoadingMissions } = useQuery({
@@ -119,6 +119,26 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
     if (readOnly) return;
     const newMissionTimes = [...missionTimes];
     newMissionTimes[index] = { ...newMissionTimes[index], [field]: value };
+    setMissionTimes(newMissionTimes);
+  };
+
+  const handleOpportunityValueChange = (index: number, value: 5 | 10 | 20, checked: boolean) => {
+    if (readOnly) return;
+    const newMissionTimes = [...missionTimes];
+    if (checked) {
+      newMissionTimes[index] = { 
+        ...newMissionTimes[index], 
+        opportunity_value: value,
+        opportunity_name: newMissionTimes[index].opportunity_name || ''
+      };
+    } else {
+      // Si on décoche, on remet à 5 par défaut
+      newMissionTimes[index] = { 
+        ...newMissionTimes[index], 
+        opportunity_value: 5,
+        opportunity_name: ''
+      };
+    }
     setMissionTimes(newMissionTimes);
   };
 
@@ -222,101 +242,122 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {missionTimes.map((missionTime, index) => (
-              <div key={index} className="grid grid-cols-1 md:grid-cols-7 gap-4 p-4 border rounded-lg">
-                <div>
-                  <Label>Mission</Label>
-                  <select
-                    value={missionTime.mission_id}
-                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_id', e.target.value)}
-                    className="w-full p-2 border rounded"
-                    disabled={readOnly}
-                  >
-                    {missions?.map(mission => (
-                      <option key={mission.id} value={mission.id}>
-                        {mission.name} ({mission.client})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <Label>Temps (%)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={missionTime.time_percentage}
-                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'time_percentage', parseInt(e.target.value) || 0)}
-                    readOnly={readOnly}
-                    disabled={readOnly}
-                  />
-                </div>
-                
-                <div>
-                  <Label>Commentaire mission</Label>
-                  <Input
-                    value={missionTime.mission_comment || ''}
-                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_comment', e.target.value)}
-                    placeholder="Détails..."
-                    readOnly={readOnly}
-                    disabled={readOnly}
-                  />
-                </div>
-                
-                <div>
-                  <Label>Opportunité</Label>
-                  <Input
-                    value={missionTime.opportunity_name || ''}
-                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunity_name', e.target.value)}
-                    placeholder="Nom de l'opportunité"
-                    readOnly={readOnly}
-                    disabled={readOnly}
-                  />
-                </div>
-                
-                <div>
-                  <Label>Valeur</Label>
-                  <select
-                    value={missionTime.opportunity_value || 5}
-                    onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunity_value', parseInt(e.target.value) as 5 | 10 | 20)}
-                    className="w-full p-2 border rounded"
-                    disabled={readOnly}
-                  >
-                    <option value={5}>5%</option>
-                    <option value={10}>10%</option>
-                    <option value={20}>20%</option>
-                  </select>
-                </div>
-                
-                <div className="flex items-end">
-                  {!readOnly && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleRemoveMissionTime(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {!readOnly && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleAddMissionTime}
-                className="w-full"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter une mission
-              </Button>
-            )}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mission</TableHead>
+                <TableHead className="text-center">Temps passé (%)</TableHead>
+                <TableHead className="text-center">5%</TableHead>
+                <TableHead className="text-center">10%</TableHead>
+                <TableHead className="text-center">20%</TableHead>
+                <TableHead>Activités</TableHead>
+                {!readOnly && <TableHead className="text-center">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {missionTimes.map((missionTime, index) => {
+                const mission = missions?.find(m => m.id === missionTime.mission_id);
+                return (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <select
+                        value={missionTime.mission_id}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_id', e.target.value)}
+                        className="w-full p-2 border rounded text-sm"
+                        disabled={readOnly}
+                      >
+                        {missions?.map(mission => (
+                          <option key={mission.id} value={mission.id}>
+                            {mission.name} ({mission.client})
+                          </option>
+                        ))}
+                      </select>
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={missionTime.time_percentage}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'time_percentage', parseInt(e.target.value) || 0)}
+                        className="w-20 text-center"
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                      />
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={missionTime.opportunity_value === 5 && missionTime.opportunity_name !== ''}
+                        onChange={(e) => !readOnly && handleOpportunityValueChange(index, 5, e.target.checked)}
+                        disabled={readOnly}
+                        className="w-4 h-4"
+                      />
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={missionTime.opportunity_value === 10}
+                        onChange={(e) => !readOnly && handleOpportunityValueChange(index, 10, e.target.checked)}
+                        disabled={readOnly}
+                        className="w-4 h-4"
+                      />
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={missionTime.opportunity_value === 20}
+                        onChange={(e) => !readOnly && handleOpportunityValueChange(index, 20, e.target.checked)}
+                        disabled={readOnly}
+                        className="w-4 h-4"
+                      />
+                    </TableCell>
+                    
+                    <TableCell>
+                      <Input
+                        value={missionTime.opportunity_name || ''}
+                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunity_name', e.target.value)}
+                        placeholder="Nom de l'activité/opportunité"
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        className="text-sm"
+                      />
+                    </TableCell>
+                    
+                    {!readOnly && (
+                      <TableCell className="text-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleRemoveMissionTime(index)}
+                          className="h-8 w-8"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAddMissionTime}
+              className="mt-4 w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Ajouter une mission
+            </Button>
+          )}
         </CardContent>
       </Card>
 
