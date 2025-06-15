@@ -2,7 +2,7 @@
 import { Request } from "@/types/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { GrowthRequestTypeIcon } from "./GrowthRequestTypeIcon";
 import { GrowthRequestStatusBadge } from "./GrowthRequestStatusBadge";
@@ -31,6 +31,12 @@ export const SimpleRequestsTable = ({
 }: SimpleRequestsTableProps) => {
   console.log("[SimpleRequestsTable] 🎯 Affichage de", requests.length, "demandes");
   
+  // Fonction pour formater la date avec l'heure exacte
+  const formatDateWithTime = (date: Date | string) => {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return format(dateObj, "d MMM yyyy à HH:mm", { locale: fr });
+  };
+  
   // Diagnostic simple
   if (requests.length === 0) {
     return (
@@ -51,7 +57,8 @@ export const SimpleRequestsTable = ({
             <TableHead>SDR</TableHead>
             <TableHead>Assigné à</TableHead>
             <TableHead>Statut</TableHead>
-            <TableHead>Échéance</TableHead>
+            <TableHead className="min-w-[140px]">Créée le</TableHead>
+            <TableHead className="min-w-[140px]">Échéance</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -94,10 +101,12 @@ export const SimpleRequestsTable = ({
               </TableCell>
               <TableCell>
                 <div className="text-sm">
-                  {formatDistanceToNow(new Date(request.dueDate), {
-                    addSuffix: true,
-                    locale: fr
-                  })}
+                  {formatDateWithTime(request.createdAt)}
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="text-sm">
+                  {formatDateWithTime(request.dueDate)}
                   {request.isLate && (
                     <Badge variant="destructive" className="ml-2">
                       En retard

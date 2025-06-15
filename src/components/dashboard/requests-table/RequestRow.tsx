@@ -14,7 +14,7 @@ interface RequestRowProps {
   missionView?: boolean;
   showSdr?: boolean;
   isSDR?: boolean;
-  isArchived?: boolean; // Nouveau prop pour indiquer si on est dans les archives
+  isArchived?: boolean;
   onDeleted?: () => void;
   // Growth-specific props
   onEditRequest?: (request: Request) => void;
@@ -30,7 +30,7 @@ export const RequestRow = ({
   missionView = false, 
   showSdr = false, 
   isSDR = false,
-  isArchived = false, // Nouveau prop
+  isArchived = false,
   onDeleted,
   onEditRequest,
   onCompleteRequest,
@@ -45,7 +45,7 @@ export const RequestRow = ({
 
   const formatDate = (date: Date | string) => {
     const dateObj = date instanceof Date ? date : new Date(date);
-    return format(dateObj, "d MMM yyyy", { locale: fr });
+    return format(dateObj, "d MMM yyyy à HH:mm", { locale: fr });
   };
 
   const getRequestTypeLabel = (type: string): string => {
@@ -114,8 +114,8 @@ export const RequestRow = ({
         )}
       </TableCell>
       
-      {/* Créée le */}
-      <TableCell>{formatDate(request.createdAt)}</TableCell>
+      {/* Créée le - avec heure */}
+      <TableCell className="min-w-[140px]">{formatDate(request.createdAt)}</TableCell>
       
       {/* Date prévue */}
       <TableCell>{formatDate(request.dueDate)}</TableCell>
@@ -140,7 +140,7 @@ export const RequestRow = ({
           updateRequestWorkflowStatus={updateRequestWorkflowStatus}
           activeTab={activeTab}
           isSDR={isSDR}
-          isArchived={isArchived} // Transmettre le prop
+          isArchived={isArchived}
         />
       </TableCell>
     </TableRow>

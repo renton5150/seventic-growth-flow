@@ -19,7 +19,7 @@ export interface ColumnDefinition {
 const formatDate = (date: Date | string) => {
   // Ensure we have a Date object
   const dateObj = date instanceof Date ? date : new Date(date);
-  return format(dateObj, "d MMM yyyy", { locale: fr });
+  return format(dateObj, "d MMM yyyy à HH:mm", { locale: fr });
 };
 
 const getRequestTypeLabel = (type: string): string => {
@@ -106,16 +106,18 @@ export const columns: ColumnDefinition[] = [
           <span className="text-muted-foreground">–</span>
         ),
   },
-  // Créée le
+  // Créée le - avec heure exacte
   {
     header: "Créée le",
     key: "createdAt",
+    width: "w-[140px]",
     render: (request) => formatDate(request.createdAt)
   },
-  // Date prévue
+  // Date prévue - avec heure exacte
   {
     header: "Date prévue",
     key: "dueDate",
+    width: "w-[140px]",
     render: (request) => formatDate(request.dueDate)
   },
   // Statut

@@ -5,6 +5,8 @@ import { Calendar, Clock, Users, Check, AlertCircle } from "lucide-react";
 import { Request } from '@/types/types';
 import { Mission } from '@/types/types';
 import { getMissionName } from '@/services/missionNameService';
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 interface RequestInfoProps {
   request: Request;
@@ -33,6 +35,12 @@ export const RequestInfo = ({ request, mission }: RequestInfoProps) => {
     resolveMissionName();
   }, [mission, request.missionId]);
 
+  // Fonction pour formater la date avec l'heure
+  const formatDateWithTime = (date: Date | string) => {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return format(dateObj, "d MMMM yyyy à HH:mm", { locale: fr });
+  };
+
   // Déterminer le nom de mission à afficher
   const displayMissionName = mission?.name || resolvedMissionName || request.missionName || 'Mission sans nom';
   
@@ -47,7 +55,7 @@ export const RequestInfo = ({ request, mission }: RequestInfoProps) => {
             <Calendar className="h-4 w-4 text-gray-500" />
             <div>
               <div className="text-sm text-gray-500">Créée le</div>
-              <div>{new Date(request.createdAt).toLocaleDateString()}</div>
+              <div>{formatDateWithTime(request.createdAt)}</div>
             </div>
           </div>
           
@@ -55,7 +63,7 @@ export const RequestInfo = ({ request, mission }: RequestInfoProps) => {
             <Calendar className="h-4 w-4 text-gray-500" />
             <div>
               <div className="text-sm text-gray-500">Date d'échéance</div>
-              <div>{new Date(request.dueDate).toLocaleDateString()}</div>
+              <div>{formatDateWithTime(request.dueDate)}</div>
             </div>
           </div>
           
@@ -63,7 +71,7 @@ export const RequestInfo = ({ request, mission }: RequestInfoProps) => {
             <Clock className="h-4 w-4 text-gray-500" />
             <div>
               <div className="text-sm text-gray-500">Dernière mise à jour</div>
-              <div>{new Date(request.lastUpdated).toLocaleDateString()}</div>
+              <div>{formatDateWithTime(request.lastUpdated)}</div>
             </div>
           </div>
           
