@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
   const queryClient = useQueryClient();
   
   const [missionTimes, setMissionTimes] = useState<MissionTimeWithOpportunities[]>([]);
-  const [comments, setComments] = useState<string>("");
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
   const isWeekendDay = isWeekend(selectedDate);
@@ -74,12 +72,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
   });
 
   useEffect(() => {
-    if (craData?.report) {
-      setComments(craData.report.comments || "");
-    } else {
-      setComments("");
-    }
-    
     if (craData?.missionTimes && craData?.opportunities) {
       // Fusionner les temps de mission avec les opportunités groupées par valeur
       const mergedData = craData.missionTimes.map(mt => {
@@ -227,7 +219,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
         mission_comment: mt.activity
       })),
       opportunities: allOpportunities,
-      comments: comments
+      comments: "" // Commentaires vides puisqu'on n'en a plus besoin
     };
 
     saveMutation.mutate(craData);
@@ -407,22 +399,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
               Ajouter
             </Button>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Commentaires généraux</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={comments}
-            onChange={(e) => !readOnly && setComments(e.target.value)}
-            placeholder="Commentaires sur la journée, difficultés rencontrées, points positifs..."
-            rows={4}
-            readOnly={readOnly}
-            disabled={readOnly}
-          />
         </CardContent>
       </Card>
 
