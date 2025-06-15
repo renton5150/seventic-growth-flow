@@ -159,6 +159,34 @@ serve(async (req) => {
         } else {
           console.log("Aucune requête liée à cet utilisateur");
         }
+
+        // 4. NOUVELLE SECTION - Vérifier et mettre à jour les fichiers de base de données
+        console.log("4. Vérification des fichiers de base de données liés...");
+        const { data: userDatabaseFiles, error: databaseFilesError } = await supabaseClient
+          .from("database_files")
+          .select("id")
+          .eq("uploaded_by", userId);
+        
+        if (databaseFilesError) {
+          console.warn("Erreur lors de la vérification des fichiers de base de données:", databaseFilesError);
+        } else if (userDatabaseFiles && userDatabaseFiles.length > 0) {
+          console.log(`${userDatabaseFiles.length} fichiers de base de données liés à l'utilisateur ${userId}`);
+          
+          // Mettre à NULL la référence uploaded_by
+          const { error: updateDatabaseFilesError } = await supabaseClient
+            .from("database_files")
+            .update({ uploaded_by: null })
+            .in("id", userDatabaseFiles.map(file => file.id));
+          
+          if (updateDatabaseFilesError) {
+            console.error("Erreur lors de la mise à jour des fichiers de base de données:", updateDatabaseFilesError);
+            throw updateDatabaseFilesError;
+          } else {
+            console.log("✓ Références uploaded_by supprimées des fichiers de base de données");
+          }
+        } else {
+          console.log("Aucun fichier de base de données lié à cet utilisateur");
+        }
         
         return true;
       } catch (error) {
@@ -171,8 +199,8 @@ serve(async (req) => {
     console.log("Préparation de la suppression - traitement des contraintes de clé étrangère...");
     await handleForeignKeyConstraints();
     
-    // 4. Suppression du profil utilisateur
-    console.log("4. Suppression du profil utilisateur...");
+    // 5. Suppression du profil utilisateur
+    console.log("5. Suppression du profil utilisateur...");
     const { error: profileDeleteError } = await supabaseClient
       .from("profiles")
       .delete()
@@ -184,8 +212,8 @@ serve(async (req) => {
       console.log(`✓ Profil utilisateur ${userId} supprimé avec succès`);
     }
     
-    // 5. Suppression de l'utilisateur de auth.users
-    console.log("5. Suppression de l'utilisateur de auth.users...");
+    // 6. Suppression de l'utilisateur de auth.users
+    console.log("6. Suppression de l'utilisateur de auth.users...");
     const { error: userDeleteError } = await supabaseClient.auth.admin.deleteUser(userId);
     
     if (userDeleteError) {
