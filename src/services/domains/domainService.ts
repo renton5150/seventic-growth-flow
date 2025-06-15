@@ -47,7 +47,7 @@ export const getDomains = async (filters?: DomainFilters): Promise<Domain[]> => 
     throw new Error(`Erreur lors de la récupération des domaines: ${error.message}`);
   }
 
-  return data || [];
+  return (data || []) as Domain[];
 };
 
 export const createDomain = async (domainData: DomainFormData): Promise<Domain> => {
@@ -73,7 +73,7 @@ export const createDomain = async (domainData: DomainFormData): Promise<Domain> 
     throw new Error(`Erreur lors de la création du domaine: ${error.message}`);
   }
 
-  return data;
+  return data as Domain;
 };
 
 export const updateDomain = async (id: string, updates: Partial<DomainFormData>): Promise<Domain> => {
@@ -100,7 +100,7 @@ export const updateDomain = async (id: string, updates: Partial<DomainFormData>)
     throw new Error(`Erreur lors de la mise à jour du domaine: ${error.message}`);
   }
 
-  return data;
+  return data as Domain;
 };
 
 export const deleteDomain = async (id: string): Promise<void> => {
