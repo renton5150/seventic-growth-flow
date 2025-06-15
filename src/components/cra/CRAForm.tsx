@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -29,16 +30,17 @@ interface Mission {
   client: string;
 }
 
-interface MissionTimeWithOpportunity extends DailyMissionTime {
-  opportunity_name?: string;
-  opportunity_value?: 5 | 10 | 20;
+interface MissionTimeWithOpportunities extends DailyMissionTime {
+  opportunities_5?: string;
+  opportunities_10?: string;
+  opportunities_20?: string;
 }
 
 export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }: CRAFormProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
-  const [missionTimes, setMissionTimes] = useState<MissionTimeWithOpportunity[]>([]);
+  const [missionTimes, setMissionTimes] = useState<MissionTimeWithOpportunities[]>([]);
   const [comments, setComments] = useState<string>("");
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
@@ -78,18 +80,38 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
     }
     
     if (craData?.missionTimes && craData?.opportunities) {
-      // Fusionner les temps de mission avec les opportunités
+      // Fusionner les temps de mission avec les opportunités groupées par valeur
       const mergedData = craData.missionTimes.map(mt => {
-        const opportunity = craData.opportunities.find(opp => opp.mission_id === mt.mission_id);
+        const opportunities5 = craData.opportunities
+          .filter(opp => opp.mission_id === mt.mission_id && opp.opportunity_value === 5)
+          .map(opp => opp.opportunity_name)
+          .join(', ');
+        
+        const opportunities10 = craData.opportunities
+          .filter(opp => opp.mission_id === mt.mission_id && opp.opportunity_value === 10)
+          .map(opp => opp.opportunity_name)
+          .join(', ');
+        
+        const opportunities20 = craData.opportunities
+          .filter(opp => opp.mission_id === mt.mission_id && opp.opportunity_value === 20)
+          .map(opp => opp.opportunity_name)
+          .join(', ');
+
         return {
           ...mt,
-          opportunity_name: opportunity?.opportunity_name || '',
-          opportunity_value: opportunity?.opportunity_value || 5
+          opportunities_5: opportunities5,
+          opportunities_10: opportunities10,
+          opportunities_20: opportunities20
         };
       });
       setMissionTimes(mergedData);
     } else if (craData?.missionTimes) {
-      setMissionTimes(craData.missionTimes.map(mt => ({ ...mt, opportunity_name: '', opportunity_value: 5 as 5 | 10 | 20 })));
+      setMissionTimes(craData.missionTimes.map(mt => ({ 
+        ...mt, 
+        opportunities_5: '',
+        opportunities_10: '',
+        opportunities_20: ''
+      })));
     } else {
       setMissionTimes([]);
     }
@@ -122,26 +144,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
     setMissionTimes(newMissionTimes);
   };
 
-  const handleOpportunityValueChange = (index: number, value: 5 | 10 | 20, checked: boolean) => {
-    if (readOnly) return;
-    const newMissionTimes = [...missionTimes];
-    if (checked) {
-      newMissionTimes[index] = { 
-        ...newMissionTimes[index], 
-        opportunity_value: value,
-        opportunity_name: newMissionTimes[index].opportunity_name || ''
-      };
-    } else {
-      // Si on décoche, on remet à 5 par défaut
-      newMissionTimes[index] = { 
-        ...newMissionTimes[index], 
-        opportunity_value: 5,
-        opportunity_name: ''
-      };
-    }
-    setMissionTimes(newMissionTimes);
-  };
-
   const handleAddMissionTime = () => {
     if (readOnly) return;
     const now = new Date();
@@ -151,8 +153,9 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
       mission_id: missions?.[0]?.id || '',
       time_percentage: 0,
       mission_comment: '',
-      opportunity_name: '',
-      opportunity_value: 5,
+      opportunities_5: '',
+      opportunities_10: '',
+      opportunities_20: '',
       created_at: now.toISOString(),
       updated_at: now.toISOString()
     }]);
@@ -171,6 +174,47 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
       return;
     }
 
+    // Préparer les opportunités à partir des champs texte
+    const allOpportunities: any[] = [];
+    
+    missionTimes.forEach(mt => {
+      // Opportunités 5%
+      if (mt.opportunities_5 && mt.opportunities_5.trim()) {
+        const opportunities5 = mt.opportunities_5.split(',').map(name => name.trim()).filter(name => name);
+        opportunities5.forEach(name => {
+          allOpportunities.push({
+            mission_id: mt.mission_id,
+            opportunity_name: name,
+            opportunity_value: 5
+          });
+        });
+      }
+      
+      // Opportunités 10%
+      if (mt.opportunities_10 && mt.opportunities_10.trim()) {
+        const opportunities10 = mt.opportunities_10.split(',').map(name => name.trim()).filter(name => name);
+        opportunities10.forEach(name => {
+          allOpportunities.push({
+            mission_id: mt.mission_id,
+            opportunity_name: name,
+            opportunity_value: 10
+          });
+        });
+      }
+      
+      // Opportunités 20%
+      if (mt.opportunities_20 && mt.opportunities_20.trim()) {
+        const opportunities20 = mt.opportunities_20.split(',').map(name => name.trim()).filter(name => name);
+        opportunities20.forEach(name => {
+          allOpportunities.push({
+            mission_id: mt.mission_id,
+            opportunity_name: name,
+            opportunity_value: 20
+          });
+        });
+      }
+    });
+
     const craData = {
       report_date: formattedDate,
       mission_times: missionTimes.map(mt => ({
@@ -178,13 +222,7 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
         time_percentage: mt.time_percentage,
         mission_comment: mt.mission_comment
       })),
-      opportunities: missionTimes
-        .filter(mt => mt.opportunity_name && mt.opportunity_name.trim() !== '')
-        .map(mt => ({
-          mission_id: mt.mission_id,
-          opportunity_name: mt.opportunity_name!,
-          opportunity_value: mt.opportunity_value!
-        })),
+      opportunities: allOpportunities,
       comments: comments
     };
 
@@ -250,7 +288,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
                 <TableHead className="text-center">5%</TableHead>
                 <TableHead className="text-center">10%</TableHead>
                 <TableHead className="text-center">20%</TableHead>
-                <TableHead>Activités</TableHead>
                 {!readOnly && <TableHead className="text-center">Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -258,90 +295,84 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
               {missionTimes.map((missionTime, index) => {
                 const mission = missions?.find(m => m.id === missionTime.mission_id);
                 return (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <select
-                        value={missionTime.mission_id}
-                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_id', e.target.value)}
-                        className="w-full p-2 border rounded text-sm"
-                        disabled={readOnly}
-                      >
-                        {missions?.map(mission => (
-                          <option key={mission.id} value={mission.id}>
-                            {mission.name} ({mission.client})
-                          </option>
-                        ))}
-                      </select>
-                    </TableCell>
-                    
-                    <TableCell className="text-center">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={missionTime.time_percentage}
-                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'time_percentage', parseInt(e.target.value) || 0)}
-                        className="w-20 text-center"
-                        readOnly={readOnly}
-                        disabled={readOnly}
-                      />
-                    </TableCell>
-                    
-                    <TableCell className="text-center">
-                      <input
-                        type="checkbox"
-                        checked={missionTime.opportunity_value === 5 && missionTime.opportunity_name !== ''}
-                        onChange={(e) => !readOnly && handleOpportunityValueChange(index, 5, e.target.checked)}
-                        disabled={readOnly}
-                        className="w-4 h-4"
-                      />
-                    </TableCell>
-                    
-                    <TableCell className="text-center">
-                      <input
-                        type="checkbox"
-                        checked={missionTime.opportunity_value === 10}
-                        onChange={(e) => !readOnly && handleOpportunityValueChange(index, 10, e.target.checked)}
-                        disabled={readOnly}
-                        className="w-4 h-4"
-                      />
-                    </TableCell>
-                    
-                    <TableCell className="text-center">
-                      <input
-                        type="checkbox"
-                        checked={missionTime.opportunity_value === 20}
-                        onChange={(e) => !readOnly && handleOpportunityValueChange(index, 20, e.target.checked)}
-                        disabled={readOnly}
-                        className="w-4 h-4"
-                      />
-                    </TableCell>
-                    
-                    <TableCell>
-                      <Input
-                        value={missionTime.opportunity_name || ''}
-                        onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunity_name', e.target.value)}
-                        placeholder="Nom de l'activité/opportunité"
-                        readOnly={readOnly}
-                        disabled={readOnly}
-                        className="text-sm"
-                      />
-                    </TableCell>
-                    
-                    {!readOnly && (
-                      <TableCell className="text-center">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleRemoveMissionTime(index)}
-                          className="h-8 w-8"
+                  <React.Fragment key={index}>
+                    <TableRow>
+                      <TableCell>
+                        <select
+                          value={missionTime.mission_id}
+                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'mission_id', e.target.value)}
+                          className="w-full p-2 border rounded text-sm"
+                          disabled={readOnly}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          {missions?.map(mission => (
+                            <option key={mission.id} value={mission.id}>
+                              {mission.name} ({mission.client})
+                            </option>
+                          ))}
+                        </select>
                       </TableCell>
-                    )}
-                  </TableRow>
+                      
+                      <TableCell className="text-center">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={missionTime.time_percentage}
+                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'time_percentage', parseInt(e.target.value) || 0)}
+                          className="w-20 text-center"
+                          readOnly={readOnly}
+                          disabled={readOnly}
+                        />
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <Input
+                          value={missionTime.opportunities_5 || ''}
+                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_5', e.target.value)}
+                          placeholder="Opportunités 5% (séparées par des virgules)"
+                          readOnly={readOnly}
+                          disabled={readOnly}
+                          className="text-sm"
+                        />
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <Input
+                          value={missionTime.opportunities_10 || ''}
+                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_10', e.target.value)}
+                          placeholder="Opportunités 10% (séparées par des virgules)"
+                          readOnly={readOnly}
+                          disabled={readOnly}
+                          className="text-sm"
+                        />
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <Input
+                          value={missionTime.opportunities_20 || ''}
+                          onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_20', e.target.value)}
+                          placeholder="Opportunités 20% (séparées par des virgules)"
+                          readOnly={readOnly}
+                          disabled={readOnly}
+                          className="text-sm"
+                        />
+                      </TableCell>
+                      
+                      {!readOnly && (
+                        <TableCell className="text-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleRemoveMissionTime(index)}
+                            className="h-8 w-8"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  </React.Fragment>
                 );
               })}
             </TableBody>
