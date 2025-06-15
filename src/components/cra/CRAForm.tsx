@@ -10,6 +10,7 @@ import { Plus, Trash2, Calendar, Save, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format, isWeekend } from "date-fns";
 import { fr } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
 import { craService } from "@/services/cra/craService";
 import { DailyActivityReport, DailyMissionTime, DailyOpportunity } from "@/types/cra.types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -120,12 +121,15 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
 
   const handleAddMissionTime = () => {
     if (readOnly) return;
+    const now = new Date();
     setMissionTimes([...missionTimes, {
       id: new Date().getTime().toString(),
       report_id: '',
       mission_id: missions?.[0]?.id || '',
       time_percentage: 0,
-      mission_comment: ''
+      mission_comment: '',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
     }]);
   };
 
@@ -138,12 +142,15 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
 
   const handleAddOpportunity = () => {
     if (readOnly) return;
+    const now = new Date();
     setOpportunities([...opportunities, {
       id: new Date().getTime().toString(),
       report_id: '',
       mission_id: missions?.[0]?.id || '',
       opportunity_name: '',
-      opportunity_value: 5
+      opportunity_value: 5,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
     }]);
   };
 
