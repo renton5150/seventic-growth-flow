@@ -23,14 +23,10 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
     if (!url) return "database.xlsx";
     
     try {
-      // Essayer d'extraire le nom du fichier de l'URL
       const segments = url.split('/');
       const fileName = segments[segments.length - 1];
-      
-      // Décoder le nom s'il contient des caractères encodés
       const decodedFileName = decodeURIComponent(fileName);
       
-      // Si le nom commence par un timestamp, essayer d'extraire le vrai nom
       if (/^\d+_/.test(decodedFileName)) {
         const namePart = decodedFileName.split('_').slice(1).join('_');
         if (namePart) {
@@ -45,8 +41,27 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
     }
   };
 
+  // Récupérer tous les fichiers (nouveau format et ancien pour rétrocompatibilité)
+  const getAllFiles = (): string[] => {
+    const files: string[] = [];
+    
+    // Nouveau format avec fileUrls
+    if (safeDatabase.fileUrls && safeDatabase.fileUrls.length > 0) {
+      files.push(...safeDatabase.fileUrls);
+    }
+    
+    // Ancien format avec fileUrl (pour rétrocompatibilité)
+    if (safeDatabase.fileUrl && !files.includes(safeDatabase.fileUrl)) {
+      files.push(safeDatabase.fileUrl);
+    }
+    
+    return files.filter(Boolean);
+  };
+
+  const allFiles = getAllFiles();
+
   // Show nothing if there's no content to display
-  if (!safeDatabase.notes && !safeDatabase.fileUrl && !safeDatabase.webLink && webLinks.length === 0) {
+  if (!safeDatabase.notes && allFiles.length === 0 && !safeDatabase.webLink && webLinks.length === 0) {
     return (
       <Card className="mb-4">
         <CardHeader>
@@ -72,15 +87,22 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
           </div>
         )}
         
-        {safeDatabase.fileUrl && (
+        {allFiles.length > 0 && (
           <div className="mb-4">
-            <h4 className="font-semibold text-sm">Fichier</h4>
-            <DownloadFileButton 
-              fileUrl={safeDatabase.fileUrl} 
-              fileName={getFileName(safeDatabase.fileUrl)}
-              label="Télécharger la base de données"
-              className="mt-1"
-            />
+            <h4 className="font-semibold text-sm">
+              {allFiles.length === 1 ? "Fichier" : "Fichiers"}
+            </h4>
+            <div className="space-y-2 mt-1">
+              {allFiles.map((fileUrl, index) => (
+                <DownloadFileButton 
+                  key={index}
+                  fileUrl={fileUrl} 
+                  fileName={getFileName(fileUrl)}
+                  label={`Télécharger ${getFileName(fileUrl)}`}
+                  className="block"
+                />
+              ))}
+            </div>
           </div>
         )}
         
