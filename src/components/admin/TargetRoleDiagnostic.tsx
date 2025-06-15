@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle, RefreshCw, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { fixTargetRoleService } from "@/services/requests/fixTargetRoleService";
 
@@ -11,12 +11,14 @@ export const TargetRoleDiagnostic = () => {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [fixing, setFixing] = useState(false);
+  const [forceFix, setForceFix] = useState(false);
 
   const checkStatus = async () => {
     setLoading(true);
     try {
       const currentStats = await fixTargetRoleService.checkTargetRoleStatus();
       setStats(currentStats);
+      toast.success("Statut vérifié avec succès");
     } catch (error) {
       console.error("Erreur lors de la vérification:", error);
       toast.error("Erreur lors de la vérification des target_role");
@@ -44,6 +46,25 @@ export const TargetRoleDiagnostic = () => {
     }
   };
 
+  const forceFixAll = async () => {
+    setForceFix(true);
+    try {
+      const result = await fixTargetRoleService.forceFixAllRequests();
+      if (result.success) {
+        toast.success(`🚨 CORRECTION FORCÉE: ${result.updatedCount} demandes mises à jour`);
+        // Rafraîchir les stats
+        await checkStatus();
+      } else {
+        toast.error(`Erreur lors de la correction forcée: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la correction forcée:", error);
+      toast.error("Erreur lors de la correction forcée");
+    } finally {
+      setForceFix(false);
+    }
+  };
+
   const getStatusColor = (withoutTargetRole: number) => {
     return withoutTargetRole > 0 ? "destructive" : "default";
   };
@@ -61,23 +82,35 @@ export const TargetRoleDiagnostic = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <RefreshCw className="h-5 w-5" />
-          Diagnostic Target Role
+          Diagnostic Target Role - Jefferson Lukombo
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={checkStatus} disabled={loading}>
             {loading ? "Vérification..." : "Vérifier Status"}
           </Button>
           
           {stats && (stats.database.withoutTargetRole > 0 || stats.linkedin.withoutTargetRole > 0) && (
-            <Button 
-              onClick={fixTargetRoles} 
-              disabled={fixing}
-              variant="destructive"
-            >
-              {fixing ? "Correction..." : "Corriger Target Roles"}
-            </Button>
+            <>
+              <Button 
+                onClick={fixTargetRoles} 
+                disabled={fixing}
+                variant="destructive"
+              >
+                {fixing ? "Correction..." : "Corriger Target Roles"}
+              </Button>
+              
+              <Button 
+                onClick={forceFixAll} 
+                disabled={forceFix}
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <Zap className="mr-1 h-4 w-4" />
+                {forceFix ? "Correction forcée..." : "CORRECTION FORCÉE"}
+              </Button>
+            </>
           )}
         </div>
 
@@ -125,14 +158,29 @@ export const TargetRoleDiagnostic = () => {
         )}
 
         {stats && (stats.database.withoutTargetRole > 0 || stats.linkedin.withoutTargetRole > 0) && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-yellow-800">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-red-800">
               <AlertTriangle className="h-4 w-4" />
-              <span className="font-medium">Action requise</span>
+              <span className="font-medium">🚨 Problème critique détecté</span>
             </div>
-            <p className="text-yellow-700 text-sm mt-1">
-              Des demandes de type Database ou LinkedIn n'ont pas de target_role défini, 
-              elles ne remontent donc pas vers l'équipe Growth.
+            <p className="text-red-700 text-sm mt-1">
+              Des demandes de type Database ou LinkedIn (comme celles de Jefferson Lukombo) 
+              n'ont pas de target_role défini. Elles ne remontent donc PAS vers l'équipe Growth !
+            </p>
+            <p className="text-red-700 text-sm mt-1 font-medium">
+              ⚡ Utilisez la "CORRECTION FORCÉE" pour résoudre immédiatement le problème.
+            </p>
+          </div>
+        )}
+
+        {stats && stats.database.withoutTargetRole === 0 && stats.linkedin.withoutTargetRole === 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-green-800">
+              <CheckCircle className="h-4 w-4" />
+              <span className="font-medium">✅ Tout fonctionne correctement</span>
+            </div>
+            <p className="text-green-700 text-sm mt-1">
+              Toutes les demandes Database et LinkedIn remontent bien vers l'équipe Growth.
             </p>
           </div>
         )}
