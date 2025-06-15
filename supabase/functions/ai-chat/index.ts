@@ -25,9 +25,8 @@ serve(async (req) => {
       throw new Error("Anthropic API key not configured");
     }
 
-    // Récupérer TOUTES les données nécessaires - VERSION COMPLÈTE
-    let dataContext = "";
-    
+    console.log("[AI Chat] Récupération COMPLÈTE des données avec focus CRA...");
+
     // 1. Récupérer les utilisateurs et leurs profils complets
     const { data: users } = await supabase
       .from('profiles')
@@ -54,12 +53,49 @@ serve(async (req) => {
         growth:profiles!missions_growth_id_fkey(name, email)
       `);
 
-    // 4. Récupérer les statistiques CRA
+    // 4. **NOUVELLE SECTION CRUCIALE** - Récupérer TOUS les détails CRA avec jointures complètes
+    console.log("[AI Chat] Récupération détaillée des données CRA...");
+    
+    // Récupérer tous les rapports CRA avec détails SDR
     const { data: craReports } = await supabase
-      .from('cra_reports_with_details')
-      .select('*')
+      .from('daily_activity_reports')
+      .select(`
+        id, sdr_id, report_date, total_percentage, is_completed, comments,
+        created_at, updated_at,
+        profiles!daily_activity_reports_sdr_id_fkey(name, email)
+      `)
       .order('report_date', { ascending: false })
-      .limit(50);
+      .limit(100);
+
+    // Récupérer TOUS les temps de mission avec détails mission ET SDR
+    const { data: missionTimes } = await supabase
+      .from('daily_mission_time')
+      .select(`
+        id, report_id, mission_id, time_percentage, mission_comment,
+        created_at, updated_at,
+        missions!daily_mission_time_mission_id_fkey(id, name, client, type, status),
+        daily_activity_reports!daily_mission_time_report_id_fkey(
+          sdr_id, report_date, total_percentage,
+          profiles!daily_activity_reports_sdr_id_fkey(name, email)
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    // Récupérer TOUTES les opportunités avec détails complets
+    const { data: opportunities } = await supabase
+      .from('daily_opportunities')
+      .select(`
+        id, report_id, mission_id, opportunity_name, opportunity_value,
+        created_at, updated_at,
+        missions!daily_opportunities_mission_id_fkey(name, client),
+        daily_activity_reports!daily_opportunities_report_id_fkey(
+          sdr_id, report_date,
+          profiles!daily_activity_reports_sdr_id_fkey(name, email)
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(300);
 
     // 5. Récupérer les statistiques des campagnes email (si disponibles)
     const { data: emailCampaigns } = await supabase
@@ -67,7 +103,120 @@ serve(async (req) => {
       .select('*')
       .limit(20);
 
-    // 6. Calculer les statistiques par utilisateur - LOGIQUE COMPLÈTE
+    console.log("[AI Chat] Données CRA récupérées:", {
+      craReports: craReports?.length || 0,
+      missionTimes: missionTimes?.length || 0,
+      opportunities: opportunities?.length || 0
+    });
+
+    // 6. **ANALYSE DÉTAILLÉE DES DONNÉES CRA PAR MISSION ET SDR**
+    const craAnalysis = {};
+    
+    // Analyser les temps passés par SDR et par mission
+    missionTimes?.forEach(mt => {
+      const sdrName = mt.daily_activity_reports?.profiles?.name || 'SDR Inconnu';
+      const missionName = mt.missions?.name || 'Mission Inconnue';
+      const client = mt.missions?.client || 'Client Inconnu';
+      const reportDate = mt.daily_activity_reports?.report_date;
+      
+      if (!craAnalysis[sdrName]) {
+        craAnalysis[sdrName] = {
+          totalReports: 0,
+          missions: {},
+          totalTimePercentage: 0,
+          recentActivity: []
+        };
+      }
+      
+      if (!craAnalysis[sdrName].missions[missionName]) {
+        craAnalysis[sdrName].missions[missionName] = {
+          client: client,
+          totalTime: 0,
+          sessionsCount: 0,
+          averageTime: 0,
+          recentSessions: []
+        };
+      }
+      
+      craAnalysis[sdrName].missions[missionName].totalTime += mt.time_percentage;
+      craAnalysis[sdrName].missions[missionName].sessionsCount += 1;
+      craAnalysis[sdrName].missions[missionName].averageTime = 
+        craAnalysis[sdrName].missions[missionName].totalTime / craAnalysis[sdrName].missions[missionName].sessionsCount;
+      
+      craAnalysis[sdrName].missions[missionName].recentSessions.push({
+        date: reportDate,
+        percentage: mt.time_percentage,
+        comment: mt.mission_comment
+      });
+      
+      craAnalysis[sdrName].totalTimePercentage += mt.time_percentage;
+      craAnalysis[sdrName].recentActivity.push({
+        date: reportDate,
+        mission: missionName,
+        client: client,
+        percentage: mt.time_percentage,
+        comment: mt.mission_comment
+      });
+    });
+
+    // Calculer les moyennes pour chaque SDR
+    Object.keys(craAnalysis).forEach(sdrName => {
+      craAnalysis[sdrName].totalReports = [...new Set(craAnalysis[sdrName].recentActivity.map(a => a.date))].length;
+      craAnalysis[sdrName].recentActivity = craAnalysis[sdrName].recentActivity
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 10); // 10 activités les plus récentes
+    });
+
+    // 7. **ANALYSE DES OPPORTUNITÉS PAR MISSION**
+    const opportunitiesAnalysis = {};
+    opportunities?.forEach(opp => {
+      const missionName = opp.missions?.name || 'Mission Inconnue';
+      const sdrName = opp.daily_activity_reports?.profiles?.name || 'SDR Inconnu';
+      const reportDate = opp.daily_activity_reports?.report_date;
+      
+      if (!opportunitiesAnalysis[missionName]) {
+        opportunitiesAnalysis[missionName] = {
+          client: opp.missions?.client || 'Client Inconnu',
+          opportunities5: [],
+          opportunities10: [],
+          opportunities20: [],
+          totalOpportunities: 0,
+          totalValue: 0,
+          contributors: new Set()
+        };
+      }
+      
+      opportunitiesAnalysis[missionName].contributors.add(sdrName);
+      opportunitiesAnalysis[missionName].totalOpportunities += 1;
+      opportunitiesAnalysis[missionName].totalValue += opp.opportunity_value;
+      
+      if (opp.opportunity_value === 5) {
+        opportunitiesAnalysis[missionName].opportunities5.push({
+          name: opp.opportunity_name,
+          sdr: sdrName,
+          date: reportDate
+        });
+      } else if (opp.opportunity_value === 10) {
+        opportunitiesAnalysis[missionName].opportunities10.push({
+          name: opp.opportunity_name,
+          sdr: sdrName,
+          date: reportDate
+        });
+      } else if (opp.opportunity_value === 20) {
+        opportunitiesAnalysis[missionName].opportunities20.push({
+          name: opp.opportunity_name,
+          sdr: sdrName,
+          date: reportDate
+        });
+      }
+    });
+
+    // Convertir les Sets en Arrays pour la sérialisation
+    Object.keys(opportunitiesAnalysis).forEach(mission => {
+      opportunitiesAnalysis[mission].contributors = Array.from(opportunitiesAnalysis[mission].contributors);
+    });
+
+    // 8. Calculer les statistiques par utilisateur - LOGIQUE COMPLÈTE
     const userStats = users?.map(user => {
       if (user.role === 'sdr') {
         const userRequests = requests?.filter(req => req.created_by === user.id) || [];
@@ -75,6 +224,7 @@ serve(async (req) => {
         const fullMissions = userMissions.filter(mission => mission.type === 'Full');
         const activeMissions = userMissions.filter(mission => mission.status === 'En cours');
         const userCraReports = craReports?.filter(cra => cra.sdr_id === user.id) || [];
+        const userCraAnalysis = craAnalysis[user.name] || {};
         
         return {
           name: user.name,
@@ -118,7 +268,8 @@ serve(async (req) => {
             completedReports: userCraReports.filter(cra => cra.is_completed).length,
             averagePercentage: userCraReports.length > 0 
               ? Math.round(userCraReports.reduce((sum, cra) => sum + (cra.total_percentage || 0), 0) / userCraReports.length)
-              : 0
+              : 0,
+            detailedAnalysis: userCraAnalysis
           }
         };
       } else if (user.role === 'growth' || user.role === 'admin') {
@@ -165,7 +316,7 @@ serve(async (req) => {
       return null;
     }).filter(Boolean);
 
-    // 7. Statistiques globales des missions - COMPLÈTES
+    // 9. Statistiques globales des missions - COMPLÈTES
     const missionStats = {
       total: missions?.length || 0,
       active: missions?.filter(m => m.status === 'En cours').length || 0,
@@ -179,7 +330,7 @@ serve(async (req) => {
       }, {} as Record<string, number>) || {}
     };
 
-    // 8. Statistiques globales des demandes - COMPLÈTES
+    // 10. Statistiques globales des demandes - COMPLÈTES
     const requestStats = {
       total: requests?.length || 0,
       pending: requests?.filter(r => r.workflow_status === 'pending_assignment' || r.workflow_status === 'in_progress').length || 0,
@@ -202,11 +353,12 @@ serve(async (req) => {
       }, {} as Record<string, number>) || {}
     };
 
-    // Construire le contexte de données ULTRA COMPLET
-    dataContext = `
-Données COMPLÈTES de l'application Seventic - Système de gestion des demandes Growth et des MISSIONS :
+    // **CONSTRUIRE LE CONTEXTE ULTRA ENRICHI AVEC FOCUS CRA**
+    let dataContext = `
+=== DONNÉES COMPLÈTES DE L'APPLICATION SEVENTIC ===
+Application de gestion des demandes Growth et des missions client avec système CRA complet.
 
-=== UTILISATEURS ET STATISTIQUES DÉTAILLÉES ===
+=== UTILISATEURS ET LEURS STATISTIQUES DÉTAILLÉES ===
 ${userStats?.map(stat => `
 👤 ${stat.name} (${stat.role.toUpperCase()}) - ${stat.email}
    Membre depuis: ${stat.joinDate ? new Date(stat.joinDate).toLocaleDateString('fr-FR') : 'N/A'}
@@ -227,10 +379,52 @@ ${userStats?.map(stat => `
    ${stat.missions.clientsCount !== undefined ? `• Clients différents: ${stat.missions.clientsCount}` : ''}
    ${stat.missions.clients ? `• Clients: ${stat.missions.clients.join(', ')}` : ''}
    
-   ${stat.cra ? `📊 CRA (Comptes Rendus d'Activité):
+   ${stat.cra ? `📊 CRA (Comptes Rendus d'Activité) - DONNÉES DÉTAILLÉES:
    • Rapports total: ${stat.cra.totalReports}
    • Rapports complétés: ${stat.cra.completedReports}
-   • Pourcentage moyen: ${stat.cra.averagePercentage}%` : ''}
+   • Pourcentage moyen: ${stat.cra.averagePercentage}%
+   
+   ${stat.cra.detailedAnalysis?.missions ? `🔍 TEMPS PASSÉ PAR MISSION (CRA DÉTAILLÉ):
+   ${Object.entries(stat.cra.detailedAnalysis.missions).map(([missionName, missionData]) => `
+     ▶ Mission "${missionName}" (${missionData.client}):
+       - Temps total: ${missionData.totalTime}%
+       - Sessions: ${missionData.sessionsCount}
+       - Temps moyen par session: ${Math.round(missionData.averageTime)}%
+       - Sessions récentes: ${missionData.recentSessions.slice(0, 3).map(s => `${s.date}(${s.percentage}%)`).join(', ')}
+   `).join('')}
+   
+   📈 ACTIVITÉ CRA RÉCENTE:
+   ${stat.cra.detailedAnalysis.recentActivity?.slice(0, 5).map(activity => `
+     • ${activity.date}: ${activity.percentage}% sur "${activity.mission}" (${activity.client})${activity.comment ? ` - ${activity.comment}` : ''}`).join('')}` : ''}` : ''}
+`).join('')}
+
+=== 🎯 ANALYSE DÉTAILLÉE DES MISSIONS ET TEMPS CRA ===
+${Object.entries(craAnalysis).map(([sdrName, analysis]) => `
+📊 SDR: ${sdrName}
+   • Total rapports CRA: ${analysis.totalReports}
+   • Temps total déclaré: ${analysis.totalTimePercentage}%
+   • Missions travaillées: ${Object.keys(analysis.missions).length}
+   
+   🎯 DÉTAIL PAR MISSION:
+   ${Object.entries(analysis.missions).map(([missionName, missionData]) => `
+     ▶ "${missionName}" (${missionData.client}):
+       - Temps total: ${missionData.totalTime}%
+       - Sessions: ${missionData.sessionsCount}
+       - Moyenne: ${Math.round(missionData.averageTime)}%/session
+   `).join('')}
+`).join('')}
+
+=== 💡 ANALYSE DES OPPORTUNITÉS PAR MISSION ===
+${Object.entries(opportunitiesAnalysis).map(([missionName, oppData]) => `
+🎯 Mission: "${missionName}" (${oppData.client})
+   • Total opportunités: ${oppData.totalOpportunities}
+   • Valeur totale: ${oppData.totalValue}%
+   • Contributeurs: ${oppData.contributors.join(', ')}
+   
+   📊 RÉPARTITION PAR VALEUR:
+   • 5%: ${oppData.opportunities5.length} (${oppData.opportunities5.map(o => o.name).slice(0, 3).join(', ')})
+   • 10%: ${oppData.opportunities10.length} (${oppData.opportunities10.map(o => o.name).slice(0, 3).join(', ')})
+   • 20%: ${oppData.opportunities20.length} (${oppData.opportunities20.map(o => o.name).slice(0, 3).join(', ')})
 `).join('')}
 
 === MISSIONS DÉTAILLÉES ===
@@ -279,20 +473,35 @@ Total campagnes: ${emailCampaigns.length}
 Dernières campagnes:
 ${emailCampaigns.slice(0, 5).map(camp => `• ${camp.name} - ${camp.subject} (${camp.status})`).join('\n')}` : ''}
 
-${craReports?.length ? `=== RAPPORTS CRA RÉCENTS ===
-${craReports.slice(0, 10).map(cra => `• ${cra.sdr_name} - ${cra.report_date} (${cra.total_percentage}% - ${cra.is_completed ? 'Complété' : 'En cours'})`).join('\n')}` : ''}
+${craReports?.length ? `=== RAPPORTS CRA RÉCENTS (COMPLETS) ===
+${craReports.slice(0, 15).map(cra => `• ${cra.profiles?.name || 'SDR Inconnu'} - ${cra.report_date} (${cra.total_percentage}% - ${cra.is_completed ? 'Complété' : 'En cours'})`).join('\n')}` : ''}
 
-IMPORTANT : 
-• MISSIONS = Projets clients assignés aux SDR/Growth (ex: "Mission Klee", "Mission Freshworks")
+=== 🔍 GUIDE D'INTERPRÉTATION DES DONNÉES ===
+• MISSIONS = Projets clients assignés aux SDR/Growth (ex: "Mission Datatilt", "Mission Klee", "Mission Freshworks")
 • DEMANDES = Tâches spécifiques dans le cadre des missions (campagnes email, création de bases, scraping LinkedIn)
-• SDR = créent des demandes, Growth = traitent les demandes assignées
+• CRA = Comptes Rendus d'Activité quotidiens des SDR avec temps passé par mission et opportunités
+• TEMPS CRA = Pourcentages de temps passé par mission (doit totaliser 100% par jour)
+• OPPORTUNITÉS CRA = Projets/opportunités identifiés avec valeurs 5%, 10% ou 20%
+• SDR = créent des demandes, remplissent les CRA quotidiens
+• Growth = traitent les demandes assignées, supervisent les missions
 • "En attente" pour SDR = demandes qu'ils ont créées en pending_assignment/in_progress
 • "En attente" pour Growth = demandes qui leur sont assignées en pending_assignment/in_progress
+
+📊 EXEMPLES DE QUESTIONS QUE TU PEUX TRAITER:
+- "Combien de temps le SDR X a-t-il passé sur la mission Datatilt ?"
+- "Quelles sont les opportunités identifiées sur la mission Y ?"
+- "Quel SDR a le plus travaillé sur les missions Full ?"
+- "Quelle est la répartition du temps de travail du SDR Z ?"
+- "Combien d'opportunités 20% ont été identifiées ce mois ?"
 `;
 
-    console.log("[AI Chat] Sending COMPLETE context to Claude");
+    console.log("[AI Chat] Envoi du contexte ULTRA ENRICHI à Claude avec", {
+      totalCharacters: dataContext.length,
+      craAnalysisKeys: Object.keys(craAnalysis),
+      opportunitiesKeys: Object.keys(opportunitiesAnalysis)
+    });
 
-    // Appeler Claude avec le contexte ULTRA COMPLET
+    // Appeler Claude avec le contexte ULTRA ENRICHI
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -303,34 +512,43 @@ IMPORTANT :
       body: JSON.stringify({
         model: "claude-3-haiku-20240307",
         max_tokens: 1500,
-        system: `Tu es Claude, un assistant IA intégré dans Seventic, une application de gestion de demandes Growth/SDR et de missions client. 
-        
-Tu as accès aux données COMPLÈTES et en temps réel de l'application. Réponds de manière conversationnelle et naturelle aux questions sur :
-- Les performances des utilisateurs (SDR et Growth) avec détails précis
-- Les statistiques des demandes ET des missions avec nuances
-- Les tendances et analyses approfondies
-- Les recommandations d'amélioration personnalisées
-- Les rapports CRA et suivis d'activité
-- Les campagnes email et leur performance
+        system: `Tu es Claude, un assistant IA intégré dans Seventic, une application de gestion de demandes Growth/SDR et de missions client avec système CRA complet.
 
-CRUCIAL : Fais ABSOLUMENT la distinction entre :
-- MISSIONS : Projets clients assignés aux SDR/Growth (ex: "Mission Klee", "Mission Freshworks") - utilise les données missions
-- DEMANDES : Tâches spécifiques dans le cadre des missions (campagnes email, création de bases, scraping LinkedIn) - utilise les données requests
+Tu as accès aux données COMPLÈTES et DÉTAILLÉES de l'application, y compris toutes les informations CRA (Comptes Rendus d'Activité). 
 
-Pour les questions sur "qui gère le plus de missions Full", utilise les données missions.missions.full ou missions.details.
-Pour les questions sur les demandes, utilise les données requests.
+🎯 EXPERTISE PARTICULIÈRE SUR LES CRA:
+- Tu comprends parfaitement les temps passés par chaque SDR sur chaque mission
+- Tu peux analyser les pourcentages de temps de travail par mission et par SDR
+- Tu connais toutes les opportunités identifiées (5%, 10%, 20%) par mission
+- Tu peux calculer des statistiques précises sur l'activité des SDR
+- Tu as accès aux commentaires et détails des sessions de travail
 
-Utilise les données fournies pour donner des réponses précises, détaillées et utiles. Sois concis mais informatif, et toujours factuel.`,
+📊 TYPES DE DONNÉES DISPONIBLES:
+- Temps de travail détaillé par SDR et par mission (avec historique)
+- Opportunités identifiées avec leurs valeurs et contributeurs
+- Statistiques complètes des missions et des demandes
+- Historique des activités CRA avec commentaires
+- Relations entre SDR, missions, clients et temps passé
+
+🔍 RÈGLES D'ANALYSE:
+- TOUJOURS utiliser les données CRA détaillées pour répondre aux questions sur le temps de travail
+- Faire la distinction entre MISSIONS (projets clients) et DEMANDES (tâches spécifiques)
+- Être précis sur les pourcentages et les calculs de temps
+- Mentionner les sources de données (CRA, missions, demandes) dans tes réponses
+- Donner des exemples concrets avec les noms des missions/SDR quand pertinent
+
+Réponds de manière conversationnelle et précise aux questions sur tous les aspects de l'application, avec une expertise particulière sur les données CRA et l'activité des SDR.`,
         messages: [
           { 
             role: "user", 
-            content: `Contexte des données COMPLÈTES de l'application :\n${dataContext}\n\nQuestion de l'utilisateur : ${question}` 
+            content: `Contexte des données COMPLÈTES avec focus CRA de l'application :\n${dataContext}\n\nQuestion de l'utilisateur : ${question}` 
           }
         ]
       })
     });
 
     if (!response.ok) {
+      console.error("[AI Chat] Erreur API Claude:", response.status, response.statusText);
       throw new Error(`Claude API call failed with status ${response.status}`);
     }
 
@@ -341,10 +559,24 @@ Utilise les données fournies pour donner des réponses précises, détaillées 
       throw new Error("No response text from Claude");
     }
 
+    console.log("[AI Chat] Réponse reçue de Claude:", aiResponse.substring(0, 200) + "...");
+
     return new Response(
       JSON.stringify({
         response: aiResponse,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        debug: {
+          dataProcessed: {
+            users: users?.length || 0,
+            missions: missions?.length || 0,
+            requests: requests?.length || 0,
+            craReports: craReports?.length || 0,
+            missionTimes: missionTimes?.length || 0,
+            opportunities: opportunities?.length || 0,
+            craAnalysisSDRs: Object.keys(craAnalysis).length,
+            opportunitiesAnalyzed: Object.keys(opportunitiesAnalysis).length
+          }
+        }
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -357,7 +589,11 @@ Utilise les données fournies pour donner des réponses précises, détaillées 
     return new Response(
       JSON.stringify({
         error: error.message || "Une erreur s'est produite",
-        response: "Désolé, je ne peux pas répondre à votre question pour le moment. Veuillez réessayer plus tard."
+        response: "Désolé, je ne peux pas répondre à votre question pour le moment. Veuillez réessayer plus tard.",
+        debug: {
+          errorType: error.name,
+          errorMessage: error.message
+        }
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
