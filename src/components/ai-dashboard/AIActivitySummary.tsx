@@ -76,8 +76,8 @@ export const AIActivitySummary = ({ requests = [] }: AIActivitySummaryProps) => 
           type: req.type || 'unknown',
           status: req.status || 'unknown',
           workflow_status: req.workflow_status || 'unknown',
-          createdAt: req.createdAt instanceof Date ? req.createdAt.toISOString() : (req.createdAt || new Date().toISOString()),
-          dueDate: req.dueDate ? (req.dueDate instanceof Date ? req.dueDate.toISOString() : req.dueDate) : null,
+          createdAt: req.createdAt ? (typeof req.createdAt === 'string' ? req.createdAt : new Date(req.createdAt).toISOString()) : new Date().toISOString(),
+          dueDate: req.dueDate ? (typeof req.dueDate === 'string' ? req.dueDate : new Date(req.dueDate).toISOString()) : null,
           missionName: req.missionName || 'Sans mission',
           sdrName: req.sdrName || 'Inconnu',
           assignedToName: req.assignedToName || 'Non assigné'
