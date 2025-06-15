@@ -8,6 +8,7 @@ export * from './utils';
 export * from './requestQueryService';
 export * from './singleRequestService';
 export * from './simpleRequestService'; // NOUVEAU SERVICE ULTRA-SIMPLE
+export * from './fixTargetRoleService'; // NOUVEAU SERVICE POUR CORRIGER LES TARGET_ROLE
 
 import { Request, RequestStatus, EmailCampaignRequest, DatabaseRequest, LinkedInScrapingRequest } from "@/types/types";
 import { updateEmailRequest } from "./emailRequestService";

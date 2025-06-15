@@ -34,6 +34,7 @@ export const createLinkedInScrapingRequest = async (requestData: any): Promise<L
       status: "pending", // Utilisons "pending" au lieu de "en attente" pour correspondre à la contrainte de la base de données
       due_date: dueDateISO,
       last_updated: new Date().toISOString(),
+      target_role: "growth", // CORRECTION: Définir explicitement target_role à 'growth'
       details: {
         targeting: requestData.targeting
       }
