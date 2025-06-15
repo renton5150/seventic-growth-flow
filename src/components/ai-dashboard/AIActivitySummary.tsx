@@ -68,7 +68,7 @@ export const AIActivitySummary = ({ requests = [] }: AIActivitySummaryProps) => 
         return;
       }
 
-      // Prepare data for AI analysis with proper validation
+      // Prepare data for AI analysis with proper validation and date handling
       const analysisData = {
         requests: filteredRequests.map(req => ({
           id: req.id || 'unknown',
@@ -76,8 +76,8 @@ export const AIActivitySummary = ({ requests = [] }: AIActivitySummaryProps) => 
           type: req.type || 'unknown',
           status: req.status || 'unknown',
           workflow_status: req.workflow_status || 'unknown',
-          createdAt: req.createdAt ? req.createdAt.toISOString() : new Date().toISOString(),
-          dueDate: req.dueDate ? req.dueDate.toISOString() : null,
+          createdAt: req.createdAt instanceof Date ? req.createdAt.toISOString() : (req.createdAt || new Date().toISOString()),
+          dueDate: req.dueDate ? (req.dueDate instanceof Date ? req.dueDate.toISOString() : req.dueDate) : null,
           missionName: req.missionName || 'Sans mission',
           sdrName: req.sdrName || 'Inconnu',
           assignedToName: req.assignedToName || 'Non assigné'
