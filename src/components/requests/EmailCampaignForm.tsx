@@ -45,8 +45,17 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       const database = initialData.database || {
         notes: "",
         fileUrl: "",
+        fileUrls: [],
         webLinks: []
       };
+      
+      // Gérer la migration de fileUrl vers fileUrls pour la rétrocompatibilité
+      let databaseFileUrls: string[] = [];
+      if (database.fileUrls && database.fileUrls.length > 0) {
+        databaseFileUrls = database.fileUrls;
+      } else if (database.fileUrl) {
+        databaseFileUrls = [database.fileUrl];
+      }
       
       const databaseWebLinks = [...(database.webLinks || [])];
       while (databaseWebLinks.length < 5) {
@@ -75,7 +84,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         templateContent: template.content || "",
         templateFileUrl: template.fileUrl || "",
         templateWebLink: template.webLink || "",
-        databaseFileUrl: database.fileUrl || "",
+        databaseFileUrls,
+        databaseFileUrl: database.fileUrl || "", // Maintenu pour compatibilité
         databaseWebLinks,
         databaseNotes: database.notes || "",
         blacklistAccountsFileUrl: blacklistAccounts.fileUrl || "",
@@ -169,7 +179,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       // Déterminer le type d'upload en fonction du champ
       if (field === "templateFileUrl") {
         fileUrl = await uploadTemplateFile(file);
-      } else if (field === "databaseFileUrl") {
+      } else if (field === "databaseFileUrl" || field.startsWith("databaseFile")) {
         if (user) {
           const result = await uploadDatabaseFile(file, user.id);
           if (result.success) {
@@ -211,6 +221,12 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     try {
       console.log("Données soumises:", data);
       
+      // Gérer la migration de fileUrl vers fileUrls
+      let databaseFileUrls = data.databaseFileUrls || [];
+      if (data.databaseFileUrl && !databaseFileUrls.includes(data.databaseFileUrl)) {
+        databaseFileUrls = [data.databaseFileUrl, ...databaseFileUrls];
+      }
+      
       const requestData = {
         title: data.title,
         emailType: data.emailType,
@@ -223,7 +239,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
           subject: data.subject || ""
         },
         database: {
-          fileUrl: data.databaseFileUrl || "",
+          fileUrls: databaseFileUrls,
+          fileUrl: databaseFileUrls.length > 0 ? databaseFileUrls[0] : "", // Pour la rétrocompatibilité
           webLinks: data.databaseWebLinks.filter(link => !!link),
           notes: data.databaseNotes || ""
         },

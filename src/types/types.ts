@@ -69,7 +69,8 @@ export interface EmailTemplate {
 
 export interface DatabaseDetails {
   notes: string;
-  fileUrl?: string;
+  fileUrl?: string; // Maintenu pour la rétrocompatibilité
+  fileUrls?: string[]; // Nouveau champ pour les fichiers multiples
   webLink?: string;
   webLinks?: string[];
 }

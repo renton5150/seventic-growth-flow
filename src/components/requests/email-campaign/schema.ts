@@ -15,7 +15,8 @@ export const formSchema = z.object({
   templateContent: z.string().optional(),
   templateFileUrl: z.string().optional(),
   templateWebLink: z.string().optional(),
-  databaseFileUrl: z.string().optional(),
+  databaseFileUrls: z.array(z.string()).optional().default([]), // Nouveau champ pour fichiers multiples
+  databaseFileUrl: z.string().optional(), // Maintenu pour compatibilité
   databaseWebLinks: z.array(
     z.string().refine(value => {
       // Si le champ est vide, on le considère comme valide
@@ -42,12 +43,13 @@ export const formSchema = z.object({
   path: ["templateContent"],
 }).refine(data => {
   // Au moins un champ database doit être rempli
-  return !!data.databaseFileUrl || 
+  return !!(data.databaseFileUrls && data.databaseFileUrls.length > 0) ||
+         !!data.databaseFileUrl || 
          data.databaseWebLinks.some(link => !!link) || 
          !!data.databaseNotes;
 }, {
   message: "Veuillez fournir une base de données via un fichier, un lien ou des notes explicatives",
-  path: ["databaseFileUrl"],
+  path: ["databaseFileUrls"],
 });
 
 export type FormData = z.infer<typeof formSchema>;
@@ -64,7 +66,8 @@ export const defaultValues = {
   templateContent: "",
   templateFileUrl: "",
   templateWebLink: "",
-  databaseFileUrl: "",
+  databaseFileUrls: [] as string[], // Nouveau champ initialisé comme array vide
+  databaseFileUrl: "", // Maintenu pour compatibilité
   databaseWebLinks: ["", "", "", "", ""],
   databaseNotes: "",
   blacklistAccountsFileUrl: "",

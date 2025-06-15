@@ -1,3 +1,4 @@
+
 import { EmailCampaignRequest } from "@/types/types";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRequestFromDb } from "./utils";
@@ -11,11 +12,27 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
     
     // Assurez-vous que tous les objets imbriqués existent
     const template = requestData.template || { content: "", fileUrl: "", webLink: "", subject: "" };
-    const database = requestData.database || { notes: "", fileUrl: "", webLinks: [] };
+    const database = requestData.database || { notes: "", fileUrl: "", fileUrls: [], webLinks: [] };
     const blacklist = requestData.blacklist || {
       accounts: { notes: "", fileUrl: "" },
       emails: { notes: "", fileUrl: "" }
     };
+    
+    // Gérer la migration et la rétrocompatibilité pour fileUrls
+    let processedDatabase = { ...database };
+    if (database.fileUrls && database.fileUrls.length > 0) {
+      // Si fileUrls est fourni, s'assurer que fileUrl est également défini pour la rétrocompatibilité
+      processedDatabase.fileUrls = database.fileUrls;
+      processedDatabase.fileUrl = database.fileUrls[0]; // Premier fichier pour rétrocompatibilité
+    } else if (database.fileUrl) {
+      // Si seulement fileUrl est fourni, créer fileUrls à partir de ça
+      processedDatabase.fileUrls = [database.fileUrl];
+      processedDatabase.fileUrl = database.fileUrl;
+    } else {
+      // Aucun fichier
+      processedDatabase.fileUrls = [];
+      processedDatabase.fileUrl = "";
+    }
     
     // Assurez-vous que blacklist.accounts et blacklist.emails existent
     if (!blacklist.accounts) blacklist.accounts = { notes: "", fileUrl: "" };
@@ -50,7 +67,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       details: {
         emailType: requestData.emailType || "Mass email",
         template: template,
-        database: database,
+        database: processedDatabase,
         blacklist: blacklist
       }
     };

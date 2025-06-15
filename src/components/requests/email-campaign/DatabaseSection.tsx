@@ -21,16 +21,15 @@ export const DatabaseSection = ({
   handleFileUpload 
 }: DatabaseSectionProps) => {
   const [uploading, setUploading] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<number>>(new Set());
   const { user } = useAuth();
 
-  const handleDatabaseFileUpload = async (files: FileList | null | string) => {
-    if (!files || typeof files === 'string') {
-      handleFileUpload("databaseFileUrl", null);
-      return;
-    }
-
-    if (files.length === 0) {
-      handleFileUpload("databaseFileUrl", null);
+  const handleMultipleDatabaseFileUpload = async (
+    files: FileList | null | string, 
+    currentFiles: string[], 
+    onChange: (files: string[]) => void
+  ) => {
+    if (!files || typeof files === 'string' || files.length === 0) {
       return;
     }
 
@@ -58,6 +57,9 @@ export const DatabaseSection = ({
 
     try {
       setUploading(true);
+      const fileIndex = currentFiles.length;
+      setUploadingFiles(prev => new Set(prev).add(fileIndex));
+      
       toast.loading("Téléchargement en cours...", { id: "file-upload" });
       
       const result = await uploadDatabaseFile(file, user.id);
@@ -65,8 +67,9 @@ export const DatabaseSection = ({
       toast.dismiss("file-upload");
       
       if (result.success && result.fileUrl) {
+        const newFiles = [...currentFiles, result.fileUrl];
+        onChange(newFiles);
         toast.success(`Fichier ${file.name} téléchargé avec succès`);
-        handleFileUpload("databaseFileUrl", result.fileUrl);
         
         // Déclencher l'événement pour actualiser la liste des bases de données
         window.dispatchEvent(new CustomEvent('database-uploaded'));
@@ -79,6 +82,37 @@ export const DatabaseSection = ({
       toast.dismiss("file-upload");
     } finally {
       setUploading(false);
+      setUploadingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(currentFiles.length);
+        return newSet;
+      });
+    }
+  };
+
+  const handleRemoveFile = (index: number, currentFiles: string[], onChange: (files: string[]) => void) => {
+    const newFiles = currentFiles.filter((_, i) => i !== index);
+    onChange(newFiles);
+  };
+
+  const getFileName = (url: string): string => {
+    if (!url) return "";
+    
+    try {
+      const segments = url.split('/');
+      const fileName = segments[segments.length - 1];
+      const decodedFileName = decodeURIComponent(fileName);
+      
+      if (/^\d+_/.test(decodedFileName)) {
+        const namePart = decodedFileName.split('_').slice(1).join('_');
+        if (namePart) {
+          return namePart;
+        }
+      }
+      
+      return decodedFileName;
+    } catch (e) {
+      return "fichier";
     }
   };
 
@@ -89,23 +123,51 @@ export const DatabaseSection = ({
         
         <div className="space-y-6">
           <div>
-            <h4 className="font-medium text-sm mb-2">Fichier</h4>
+            <h4 className="font-medium text-sm mb-2">Fichiers</h4>
             <FormField
               control={control}
-              name="databaseFileUrl"
+              name="databaseFileUrls"
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <FileUploader
-                      icon={<Upload className="h-6 w-6 text-muted-foreground" />}
-                      title={uploading ? "Téléchargement en cours..." : "Importer votre base de données"}
-                      description="Formats acceptés : XLS, XLSX, CSV (Max 50 Mo)"
-                      value={field.value}
-                      onChange={handleDatabaseFileUpload}
-                      accept=".xls,.xlsx,.csv"
-                      maxSize={50}
-                      disabled={uploading}
-                    />
+                    <div className="space-y-4">
+                      {/* Fichiers existants */}
+                      {field.value && field.value.length > 0 && (
+                        <div className="space-y-2">
+                          {field.value.map((fileUrl: string, index: number) => (
+                            <div key={index} className="flex items-center gap-2 p-3 border rounded-lg bg-gray-50">
+                              <div className="flex-1">
+                                <span className="text-sm font-medium">{getFileName(fileUrl)}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFile(index, field.value || [], field.onChange)}
+                                className="text-red-500 hover:text-red-700 p-1"
+                                disabled={uploading}
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Uploader pour nouveau fichier */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                        <FileUploader
+                          icon={<Upload className="h-6 w-6 text-muted-foreground" />}
+                          title={uploading ? "Téléchargement en cours..." : "Ajouter une base de données"}
+                          description="Formats acceptés : XLS, XLSX, CSV (Max 50 Mo)"
+                          value=""
+                          onChange={(files) => handleMultipleDatabaseFileUpload(files, field.value || [], field.onChange)}
+                          accept=".xls,.xlsx,.csv"
+                          maxSize={50}
+                          disabled={uploading}
+                        />
+                      </div>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
