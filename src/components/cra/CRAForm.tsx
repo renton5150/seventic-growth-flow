@@ -325,7 +325,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
                       <Textarea
                         value={missionTime.opportunities_5 || ''}
                         onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_5', e.target.value)}
-                        placeholder="Noms des projets (un par ligne)"
                         readOnly={readOnly}
                         disabled={readOnly}
                         className="text-sm min-h-[60px] resize-none"
@@ -337,7 +336,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
                       <Textarea
                         value={missionTime.opportunities_10 || ''}
                         onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_10', e.target.value)}
-                        placeholder="Noms des projets (un par ligne)"
                         readOnly={readOnly}
                         disabled={readOnly}
                         className="text-sm min-h-[60px] resize-none"
@@ -349,7 +347,6 @@ export const CRAForm = ({ selectedDate, onDateChange, sdrId, readOnly = false }:
                       <Textarea
                         value={missionTime.opportunities_20 || ''}
                         onChange={(e) => !readOnly && handleMissionTimeChange(index, 'opportunities_20', e.target.value)}
-                        placeholder="Noms des projets (un par ligne)"
                         readOnly={readOnly}
                         disabled={readOnly}
                         className="text-sm min-h-[60px] resize-none"
