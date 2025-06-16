@@ -1,75 +1,54 @@
-import { useForm } from "react-hook-form";
+
+import { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
-} from "@/components/ui/form";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Eye, EyeOff } from "lucide-react";
+import { EmailPlatformAccount, EmailPlatformAccountFormData, ROUTING_INTERFACES } from "@/types/emailPlatforms.types";
 import { useEmailPlatforms, useFrontOffices } from "@/hooks/emailPlatforms/useEmailPlatforms";
-import { useMissionsQuery } from "@/hooks/useRequestQueries";
-import { useDomains } from "@/hooks/domains/useDomains";
-import { EmailPlatformAccount, ROUTING_INTERFACES } from "@/types/emailPlatforms.types";
-import { useState } from "react";
+import { useMissions } from "@/hooks/useMissions";
+import { getDecryptedPassword } from "@/services/emailPlatforms/emailPlatformService";
 
 const formSchema = z.object({
-  mission_id: z.string().min(1, "Sélectionnez une mission"),
-  platform_id: z.string().min(1, "Sélectionnez une plateforme"),
-  platform_name: z.string().optional(), // Nouveau champ pour la plateforme manuelle
+  mission_id: z.string().min(1, "La mission est requise"),
+  platform_id: z.string().min(1, "La plateforme est requise"),
+  platform_name: z.string().optional(),
   login: z.string().min(1, "Le login est requis"),
   password: z.string().min(1, "Le mot de passe est requis"),
   phone_number: z.string().optional(),
   credit_card_name: z.string().optional(),
-  credit_card_last_four: z.string().max(4, "4 chiffres maximum").optional(),
+  credit_card_last_four: z.string().optional(),
   backup_email: z.string().email("Email invalide").optional().or(z.literal("")),
   status: z.enum(['Actif', 'Suspendu']),
   spf_dkim_status: z.enum(['Oui', 'Non', 'En cours']),
   dedicated_ip: z.boolean(),
   dedicated_ip_address: z.string().optional(),
-  routing_interfaces: z.array(z.string()).min(1, "Sélectionnez au moins une interface"),
+  routing_interfaces: z.array(z.string()).min(1, "Au moins une interface est requise"),
   front_office_ids: z.array(z.string()).optional(),
-  // Champ domaine modifié
   domain_name: z.string().optional(),
   domain_hosting_provider: z.enum(['OVH', 'Gandhi', 'Ionos']).optional(),
   domain_login: z.string().optional(),
   domain_password: z.string().optional(),
-}).refine((data) => {
-  if (data.dedicated_ip && !data.dedicated_ip_address) {
-    return false;
-  }
-  return true;
-}, {
-  message: "L'adresse IP est requise si IP dédiée est activée",
-  path: ["dedicated_ip_address"]
-}).refine((data) => {
-  // Si "manual" est sélectionné, platform_name est requis
-  if (data.platform_id === "manual" && (!data.platform_name || data.platform_name.trim() === "")) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Le nom de la plateforme est requis",
-  path: ["platform_name"]
 });
-
-type FormData = z.infer<typeof formSchema>;
 
 interface EmailPlatformAccountFormProps {
   account?: EmailPlatformAccount;
-  onSubmit: (data: FormData) => void;
+  onSubmit: (data: EmailPlatformAccountFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
 }
@@ -80,134 +59,94 @@ export const EmailPlatformAccountForm = ({
   onCancel,
   isLoading = false
 }: EmailPlatformAccountFormProps) => {
+  const { data: missions } = useMissions();
   const { data: platforms } = useEmailPlatforms();
   const { data: frontOffices } = useFrontOffices();
-  const { data: missions } = useMissionsQuery();
-  const { data: domains } = useDomains();
-  
-  const [isManualDomain, setIsManualDomain] = useState(false);
-  const [isManualPlatform, setIsManualPlatform] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showDomainPassword, setShowDomainPassword] = useState(false);
 
-  // Helper function to safely convert dedicated_ip_address to string
-  const getDedicatedIpAddressString = (address: unknown): string => {
-    if (typeof address === 'string') return address;
-    if (address && typeof address === 'object' && 'toString' in address) {
-      return address.toString();
-    }
-    return String(address || '');
-  };
-
-  const form = useForm<FormData>({
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    watch,
+    formState: { errors }
+  } = useForm<EmailPlatformAccountFormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      mission_id: account?.mission_id || "",
-      platform_id: account?.platform_id || "",
-      platform_name: "", // Nouveau champ
-      login: account?.login || "",
-      password: "", // Toujours vide pour la sécurité
-      phone_number: account?.phone_number || "",
-      credit_card_name: account?.credit_card_name || "",
-      credit_card_last_four: account?.credit_card_last_four || "",
-      backup_email: account?.backup_email || "",
-      status: (account?.status as 'Actif' | 'Suspendu') || 'Actif',
-      spf_dkim_status: (account?.spf_dkim_status as 'Oui' | 'Non' | 'En cours') || 'Non',
-      dedicated_ip: account?.dedicated_ip || false,
-      dedicated_ip_address: getDedicatedIpAddressString(account?.dedicated_ip_address),
-      routing_interfaces: account?.routing_interfaces || [],
-      front_office_ids: account?.front_offices?.map(fo => fo.id) || [],
-      // Valeurs par défaut pour les champs domaine
-      domain_name: (account as any)?.domain_name || "",
-      domain_hosting_provider: (account as any)?.domain_hosting_provider || undefined,
-      domain_login: (account as any)?.domain_login || "",
-      domain_password: (account as any)?.domain_password || "",
-    },
+    defaultValues: account ? {
+      mission_id: account.mission_id,
+      platform_id: account.platform_id,
+      login: account.login,
+      password: getDecryptedPassword(account.password_encrypted),
+      phone_number: account.phone_number || "",
+      credit_card_name: account.credit_card_name || "",
+      credit_card_last_four: account.credit_card_last_four || "",
+      backup_email: account.backup_email || "",
+      status: account.status as 'Actif' | 'Suspendu',
+      spf_dkim_status: account.spf_dkim_status as 'Oui' | 'Non' | 'En cours',
+      dedicated_ip: account.dedicated_ip,
+      dedicated_ip_address: account.dedicated_ip_address ? String(account.dedicated_ip_address) : "",
+      routing_interfaces: account.routing_interfaces || [],
+      front_office_ids: account.front_offices?.map(fo => fo.id) || [],
+      domain_name: account.domain_name || "",
+      domain_hosting_provider: account.domain_hosting_provider as 'OVH' | 'Gandhi' | 'Ionos' || undefined,
+      domain_login: account.domain_login || "",
+      domain_password: account.domain_password || "",
+    } : {
+      status: 'Actif',
+      spf_dkim_status: 'Non',
+      dedicated_ip: false,
+      routing_interfaces: [],
+      front_office_ids: [],
+    }
   });
 
-  const watchDedicatedIp = form.watch("dedicated_ip");
-  const watchRoutingInterfaces = form.watch("routing_interfaces");
-  const watchDomainName = form.watch("domain_name");
-  const watchPlatformId = form.watch("platform_id");
-  
-  const showFrontOffices = watchRoutingInterfaces.includes("SMTP") || watchRoutingInterfaces.includes("Les deux");
+  const watchedPlatform = watch("platform_id");
+  const watchedDedicatedIp = watch("dedicated_ip");
+  const watchedPassword = watch("password");
+  const watchedDomainPassword = watch("domain_password");
 
-  // Auto-fill domain fields when selecting an existing domain
-  const handleDomainSelect = (domainName: string) => {
-    if (domainName === "manual") {
-      setIsManualDomain(true);
-      form.setValue("domain_name", "");
-      form.setValue("domain_hosting_provider", undefined);
-      form.setValue("domain_login", "");
-      return;
-    }
-    
-    setIsManualDomain(false);
-    const selectedDomain = domains?.find(d => d.domain_name === domainName);
-    if (selectedDomain) {
-      form.setValue("domain_name", selectedDomain.domain_name);
-      form.setValue("domain_hosting_provider", selectedDomain.hosting_provider as 'OVH' | 'Gandhi' | 'Ionos');
-      form.setValue("domain_login", selectedDomain.login);
-    }
+  const handleFormSubmit = (data: EmailPlatformAccountFormData) => {
+    onSubmit(data);
   };
 
-  // Handle platform selection
-  const handlePlatformSelect = (platformId: string) => {
-    if (platformId === "manual") {
-      setIsManualPlatform(true);
-      form.setValue("platform_name", "");
+  const handleRoutingInterfaceChange = (interfaceName: string, checked: boolean) => {
+    const currentInterfaces = watch("routing_interfaces") || [];
+    if (checked) {
+      setValue("routing_interfaces", [...currentInterfaces, interfaceName]);
     } else {
-      setIsManualPlatform(false);
-      form.setValue("platform_name", "");
+      setValue("routing_interfaces", currentInterfaces.filter(i => i !== interfaceName));
     }
-    form.setValue("platform_id", platformId);
   };
 
-  const handleSubmit = (data: FormData) => {
-    console.log("Form data before submission:", data);
-    
-    // Validation supplémentaire
-    if (data.dedicated_ip && !data.dedicated_ip_address?.trim()) {
-      form.setError("dedicated_ip_address", {
-        type: "manual",
-        message: "L'adresse IP est requise si IP dédiée est activée"
-      });
-      return;
+  const handleFrontOfficeChange = (frontOfficeId: string, checked: boolean) => {
+    const currentFrontOffices = watch("front_office_ids") || [];
+    if (checked) {
+      setValue("front_office_ids", [...currentFrontOffices, frontOfficeId]);
+    } else {
+      setValue("front_office_ids", currentFrontOffices.filter(id => id !== frontOfficeId));
     }
-
-    // Nettoyer les données avant envoi
-    const cleanedData = {
-      ...data,
-      phone_number: data.phone_number?.trim() || undefined,
-      credit_card_name: data.credit_card_name?.trim() || undefined,
-      credit_card_last_four: data.credit_card_last_four?.trim() || undefined,
-      backup_email: data.backup_email?.trim() || undefined,
-      dedicated_ip_address: data.dedicated_ip_address?.trim() || undefined,
-      domain_name: data.domain_name?.trim() || undefined,
-      domain_login: data.domain_login?.trim() || undefined,
-      domain_password: data.domain_password?.trim() || undefined,
-      platform_name: data.platform_name?.trim() || undefined,
-    };
-
-    console.log("Cleaned form data:", cleanedData);
-    onSubmit(cleanedData);
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Mission */}
-          <FormField
-            control={form.control}
-            name="mission_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Mission *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez une mission" />
-                    </SelectTrigger>
-                  </FormControl>
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      {/* Informations de base */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Informations de base</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="mission_id">Mission *</Label>
+            <Controller
+              name="mission_id"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une mission" />
+                  </SelectTrigger>
                   <SelectContent>
                     {missions?.map((mission) => (
                       <SelectItem key={mission.id} value={mission.id}>
@@ -216,442 +155,357 @@ export const EmailPlatformAccountForm = ({
                     ))}
                   </SelectContent>
                 </Select>
-                <FormMessage />
-              </FormItem>
+              )}
+            />
+            {errors.mission_id && (
+              <p className="text-sm text-red-500 mt-1">{errors.mission_id.message}</p>
             )}
-          />
+          </div>
 
-          {/* Plateforme modifiée */}
-          <FormField
-            control={form.control}
-            name="platform_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Plateforme d'emailing *</FormLabel>
-                <Select onValueChange={handlePlatformSelect} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez une plateforme" />
-                    </SelectTrigger>
-                  </FormControl>
+          <div>
+            <Label htmlFor="platform_id">Plateforme *</Label>
+            <Controller
+              name="platform_id"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une plateforme" />
+                  </SelectTrigger>
                   <SelectContent>
                     {platforms?.map((platform) => (
                       <SelectItem key={platform.id} value={platform.id}>
                         {platform.name}
                       </SelectItem>
                     ))}
-                    <SelectItem value="manual">Ajouter manuellement</SelectItem>
+                    <SelectItem value="manual">Autre (saisie manuelle)</SelectItem>
                   </SelectContent>
                 </Select>
-                <FormMessage />
-              </FormItem>
+              )}
+            />
+            {errors.platform_id && (
+              <p className="text-sm text-red-500 mt-1">{errors.platform_id.message}</p>
             )}
-          />
-        </div>
+          </div>
 
-        {/* Champ de saisie manuelle de la plateforme */}
-        {isManualPlatform && (
-          <FormField
-            control={form.control}
-            name="platform_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nom de la nouvelle plateforme *</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Ex: SendGrid, Mailgun, etc." />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        {/* Identifiants */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="login"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Login *</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Identifiant de connexion" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Mot de passe *</FormLabel>
-                <FormControl>
-                  <Input 
-                    {...field} 
-                    type="text"
-                    placeholder={account ? "Laisser vide pour conserver" : "Mot de passe"} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Informations sensibles */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormField
-            control={form.control}
-            name="phone_number"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Numéro de téléphone</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="06 12 34 56 78" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="credit_card_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nom sur la carte</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Nom du porteur" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="credit_card_last_four"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>4 derniers chiffres</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="1234" maxLength={4} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="backup_email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email de secours</FormLabel>
-              <FormControl>
-                <Input {...field} type="email" placeholder="email@exemple.com" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+          {watchedPlatform === "manual" && (
+            <div>
+              <Label htmlFor="platform_name">Nom de la nouvelle plateforme *</Label>
+              <Input
+                id="platform_name"
+                {...register("platform_name")}
+                placeholder="Nom de la plateforme"
+              />
+              {errors.platform_name && (
+                <p className="text-sm text-red-500 mt-1">{errors.platform_name.message}</p>
+              )}
+            </div>
           )}
-        />
 
-        {/* Statuts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Statut du compte</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
+          <div>
+            <Label htmlFor="login">Login *</Label>
+            <Input
+              id="login"
+              {...register("login")}
+              placeholder="Login du compte"
+            />
+            {errors.login && (
+              <p className="text-sm text-red-500 mt-1">{errors.login.message}</p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="password">Mot de passe *</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                {...register("password")}
+                value={watchedPassword || ""}
+                placeholder="Mot de passe du compte"
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {errors.password && (
+              <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Informations supplémentaires */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Informations supplémentaires</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="phone_number">Numéro de téléphone</Label>
+            <Input
+              id="phone_number"
+              {...register("phone_number")}
+              placeholder="Numéro de téléphone"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="credit_card_name">Nom sur la carte bancaire</Label>
+              <Input
+                id="credit_card_name"
+                {...register("credit_card_name")}
+                placeholder="Nom sur la carte"
+              />
+            </div>
+            <div>
+              <Label htmlFor="credit_card_last_four">4 derniers chiffres</Label>
+              <Input
+                id="credit_card_last_four"
+                {...register("credit_card_last_four")}
+                placeholder="1234"
+                maxLength={4}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="backup_email">Email de secours</Label>
+            <Input
+              id="backup_email"
+              type="email"
+              {...register("backup_email")}
+              placeholder="email@exemple.com"
+            />
+            {errors.backup_email && (
+              <p className="text-sm text-red-500 mt-1">{errors.backup_email.message}</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Configuration technique */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuration technique</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="status">Statut *</Label>
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Actif">Actif</SelectItem>
-                    <SelectItem value="Suspendu">Suspendu</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                    <SelectContent>
+                      <SelectItem value="Actif">Actif</SelectItem>
+                      <SelectItem value="Suspendu">Suspendu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.status && (
+                <p className="text-sm text-red-500 mt-1">{errors.status.message}</p>
+              )}
+            </div>
 
-          <FormField
-            control={form.control}
-            name="spf_dkim_status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>SPF/DKIM</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
+            <div>
+              <Label htmlFor="spf_dkim_status">SPF/DKIM *</Label>
+              <Controller
+                name="spf_dkim_status"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Oui">Oui</SelectItem>
-                    <SelectItem value="Non">Non</SelectItem>
-                    <SelectItem value="En cours">En cours</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                    <SelectContent>
+                      <SelectItem value="Oui">Oui</SelectItem>
+                      <SelectItem value="Non">Non</SelectItem>
+                      <SelectItem value="En cours">En cours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.spf_dkim_status && (
+                <p className="text-sm text-red-500 mt-1">{errors.spf_dkim_status.message}</p>
+              )}
+            </div>
+          </div>
 
-        {/* IP dédiée */}
-        <div className="space-y-4">
-          <FormField
-            control={form.control}
-            name="dedicated_ip"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                <FormControl>
-                  <Checkbox
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Controller
+                name="dedicated_ip"
+                control={control}
+                render={({ field }) => (
+                  <Switch
                     checked={field.value}
                     onCheckedChange={field.onChange}
                   />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>IP dédiée</FormLabel>
-                </div>
-              </FormItem>
+                )}
+              />
+              <Label htmlFor="dedicated_ip">IP dédiée</Label>
+            </div>
+
+            {watchedDedicatedIp && (
+              <div>
+                <Label htmlFor="dedicated_ip_address">Adresse IP dédiée</Label>
+                <Input
+                  id="dedicated_ip_address"
+                  {...register("dedicated_ip_address")}
+                  placeholder="192.168.1.1"
+                />
+              </div>
             )}
-          />
+          </div>
 
-          {watchDedicatedIp && (
-            <FormField
-              control={form.control}
-              name="dedicated_ip_address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Adresse IP *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="192.168.1.1" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-        </div>
-
-        {/* Interfaces de routage */}
-        <FormField
-          control={form.control}
-          name="routing_interfaces"
-          render={() => (
-            <FormItem>
-              <FormLabel>Interfaces de routage *</FormLabel>
-              <div className="flex flex-wrap gap-4">
-                {ROUTING_INTERFACES.map((interface_name) => (
-                  <FormField
-                    key={interface_name}
-                    control={form.control}
-                    name="routing_interfaces"
-                    render={({ field }) => {
-                      return (
-                        <FormItem
-                          key={interface_name}
-                          className="flex flex-row items-start space-x-3 space-y-0"
-                        >
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value?.includes(interface_name)}
-                              onCheckedChange={(checked) => {
-                                return checked
-                                  ? field.onChange([...field.value, interface_name])
-                                  : field.onChange(
-                                      field.value?.filter(
-                                        (value) => value !== interface_name
-                                      )
-                                    )
-                              }}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            {interface_name}
-                          </FormLabel>
-                        </FormItem>
-                      )
-                    }}
+          <div>
+            <Label>Interfaces de routage *</Label>
+            <div className="space-y-2 mt-2">
+              {ROUTING_INTERFACES.map((interface_name) => (
+                <div key={interface_name} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`interface-${interface_name}`}
+                    checked={watch("routing_interfaces")?.includes(interface_name) || false}
+                    onCheckedChange={(checked) => 
+                      handleRoutingInterfaceChange(interface_name, checked as boolean)
+                    }
                   />
+                  <Label htmlFor={`interface-${interface_name}`}>{interface_name}</Label>
+                </div>
+              ))}
+            </div>
+            {errors.routing_interfaces && (
+              <p className="text-sm text-red-500 mt-1">{errors.routing_interfaces.message}</p>
+            )}
+          </div>
+
+          {frontOffices && frontOffices.length > 0 && (
+            <div>
+              <Label>Front offices</Label>
+              <div className="space-y-2 mt-2">
+                {frontOffices.map((frontOffice) => (
+                  <div key={frontOffice.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`frontoffice-${frontOffice.id}`}
+                      checked={watch("front_office_ids")?.includes(frontOffice.id) || false}
+                      onCheckedChange={(checked) => 
+                        handleFrontOfficeChange(frontOffice.id, checked as boolean)
+                      }
+                    />
+                    <Label htmlFor={`frontoffice-${frontOffice.id}`}>{frontOffice.name}</Label>
+                  </div>
                 ))}
               </div>
-              <FormMessage />
-            </FormItem>
+            </div>
           )}
-        />
+        </CardContent>
+      </Card>
 
-        {/* Front offices (si SMTP sélectionné) */}
-        {showFrontOffices && (
-          <FormField
-            control={form.control}
-            name="front_office_ids"
-            render={() => (
-              <FormItem>
-                <FormLabel>Front offices d'emailing</FormLabel>
-                <div className="flex flex-wrap gap-4">
-                  {frontOffices?.map((frontOffice) => (
-                    <FormField
-                      key={frontOffice.id}
-                      control={form.control}
-                      name="front_office_ids"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={frontOffice.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(frontOffice.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...(field.value || []), frontOffice.id])
-                                    : field.onChange(
-                                        field.value?.filter(
-                                          (value) => value !== frontOffice.id
-                                        )
-                                      )
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {frontOffice.name}
-                            </FormLabel>
-                          </FormItem>
-                        )
-                      }}
-                    />
-                  ))}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+      {/* Informations domaine */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Informations domaine (optionnel)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="domain_name">Nom de domaine</Label>
+            <Input
+              id="domain_name"
+              {...register("domain_name")}
+              placeholder="exemple.com"
+            />
+          </div>
 
-        {/* Section Nom de domaine modifiée */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Nom de domaine</h3>
-          
-          <FormField
-            control={form.control}
-            name="domain_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nom de domaine</FormLabel>
-                <Select 
-                  onValueChange={(value) => {
-                    if (value === "manual") {
-                      handleDomainSelect(value);
-                    } else {
-                      handleDomainSelect(value);
-                      field.onChange(value);
-                    }
-                  }} 
-                  value={isManualDomain ? "manual" : field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez un domaine existant" />
-                    </SelectTrigger>
-                  </FormControl>
+          <div>
+            <Label htmlFor="domain_hosting_provider">Hébergeur du domaine</Label>
+            <Controller
+              name="domain_hosting_provider"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value || ""} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un hébergeur" />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="manual">Saisir manuellement</SelectItem>
-                    {domains?.map((domain) => (
-                      <SelectItem key={domain.id} value={domain.domain_name}>
-                        {domain.domain_name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="">Aucun</SelectItem>
+                    <SelectItem value="OVH">OVH</SelectItem>
+                    <SelectItem value="Gandhi">Gandhi</SelectItem>
+                    <SelectItem value="Ionos">Ionos</SelectItem>
                   </SelectContent>
                 </Select>
-                {isManualDomain && (
-                  <Input 
-                    {...field}
-                    placeholder="exemple.com"
-                    className="mt-2"
-                  />
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="domain_hosting_provider"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Hébergeur</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionnez un hébergeur" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="OVH">OVH</SelectItem>
-                      <SelectItem value="Gandhi">Gandhi</SelectItem>
-                      <SelectItem value="Ionos">Ionos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="domain_login"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Login</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Login hébergeur" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
               )}
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name="domain_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input {...field} type="text" placeholder="Mot de passe en clair" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+          <div>
+            <Label htmlFor="domain_login">Login du domaine</Label>
+            <Input
+              id="domain_login"
+              {...register("domain_login")}
+              placeholder="Login du compte de domaine"
+            />
+          </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Annuler
-          </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Enregistrement..." : account ? "Mettre à jour" : "Créer"}
-          </Button>
-        </div>
-      </form>
-    </Form>
+          <div>
+            <Label htmlFor="domain_password">Mot de passe du domaine</Label>
+            <div className="relative">
+              <Input
+                id="domain_password"
+                type={showDomainPassword ? "text" : "password"}
+                {...register("domain_password")}
+                value={watchedDomainPassword || ""}
+                placeholder="Mot de passe du compte de domaine"
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowDomainPassword(!showDomainPassword)}
+              >
+                {showDomainPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end space-x-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isLoading}
+        >
+          Annuler
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? "Enregistrement..." : account ? "Mettre à jour" : "Créer"}
+        </Button>
+      </div>
+    </form>
   );
 };
