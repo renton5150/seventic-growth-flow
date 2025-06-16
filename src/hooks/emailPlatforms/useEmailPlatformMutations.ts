@@ -14,7 +14,10 @@ export const useCreateEmailPlatformAccount = () => {
   return useMutation({
     mutationFn: createEmailPlatformAccount,
     onSuccess: () => {
+      // Invalider les comptes de plateformes email
       queryClient.invalidateQueries({ queryKey: ['email-platform-accounts'] });
+      // Invalider la liste des plateformes pour qu'elle se mette à jour avec la nouvelle plateforme
+      queryClient.invalidateQueries({ queryKey: ['email-platforms'] });
       toast.success('Compte créé avec succès');
     },
     onError: (error: any) => {
