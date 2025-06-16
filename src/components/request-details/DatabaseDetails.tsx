@@ -2,10 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatabaseRequest } from '@/types/types';
-import { Button } from '@/components/ui/button';
-import { CheckCircle2, Download, AlertTriangle, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { downloadFile, extractFileName, checkFileExists } from "@/services/database";
+import { CheckCircle2 } from 'lucide-react';
+import { DownloadFileButton } from '@/components/common/DownloadFileButton';
 
 interface DatabaseDetailsProps {
   request: DatabaseRequest;
@@ -32,76 +30,6 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
 
   console.log("Propriétés extraites:", { tool, targeting, blacklist, contactsCreated, resultFileUrl });
 
-  const [downloading, setDownloading] = useState<string | null>(null);
-  const [fileStatuses, setFileStatuses] = useState<Record<string, boolean | null>>({});
-  const [isCheckingFiles, setIsCheckingFiles] = useState(false);
-
-  // Fonction pour télécharger un fichier à partir d'une URL
-  const handleFileDownload = async (fileUrl: string | undefined, defaultFilename: string = "document") => {
-    if (!fileUrl) {
-      toast.error("URL du fichier invalide");
-      return;
-    }
-    
-    if (downloading === fileUrl) {
-      return; // Éviter les téléchargements multiples
-    }
-    
-    try {
-      setDownloading(fileUrl);
-      
-      // Extraire le nom de fichier de l'URL ou utiliser le nom par défaut
-      const fileName = extractFileName(fileUrl) || defaultFilename;
-      console.log(`Téléchargement demandé pour: ${fileUrl}, nom: ${fileName}`);
-      
-      const downloadToast = toast.loading("Téléchargement en cours...");
-      
-      const success = await downloadFile(fileUrl, fileName);
-      
-      // Supprimer le toast de chargement
-      toast.dismiss(downloadToast);
-      
-      if (!success) {
-        toast.error("Erreur lors du téléchargement du fichier");
-      } else {
-        toast.success(`Fichier "${fileName}" téléchargé avec succès`);
-      }
-    } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-      toast.error("Erreur lors du téléchargement du fichier");
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-  const renderFileDownloadButton = (fileUrl: string | undefined, fileName: string, label: string) => {
-    if (!fileUrl) return null;
-    
-    return (
-      <>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => handleFileDownload(fileUrl, fileName)}
-          className="flex items-center gap-2 mt-1"
-          disabled={downloading === fileUrl}
-        >
-          {downloading === fileUrl ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Téléchargement...
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4" />
-              {label}
-            </>
-          )}
-        </Button>
-      </>
-    );
-  };
-
   return (
     <>
       <Card className="mb-4">
@@ -125,7 +53,12 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
           {resultFileUrl && (
             <div className="mb-4">
               <h4 className="font-semibold text-sm">Fichier résultat</h4>
-              {renderFileDownloadButton(resultFileUrl, "database-result.xlsx", "Télécharger le fichier résultat")}
+              <DownloadFileButton
+                fileUrl={resultFileUrl}
+                fileName="database-result.xlsx"
+                label="Télécharger le fichier résultat"
+                className="mt-1"
+              />
             </div>
           )}
         </CardContent>
@@ -200,11 +133,13 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
             {blacklist.accounts && (
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Comptes exclus</h4>
-                <p>{blacklist.accounts.notes || "Aucune note"}</p>
-                {blacklist.accounts.fileUrl && renderFileDownloadButton(
-                  blacklist.accounts.fileUrl, 
-                  "blacklist-accounts.xlsx", 
-                  "Télécharger la liste de comptes exclus"
+                <p className="mb-2">{blacklist.accounts.notes || "Aucune note"}</p>
+                {blacklist.accounts.fileUrl && (
+                  <DownloadFileButton
+                    fileUrl={blacklist.accounts.fileUrl}
+                    fileName="blacklist-accounts.xlsx"
+                    label="Télécharger la liste de comptes exclus"
+                  />
                 )}
               </div>
             )}
@@ -212,11 +147,13 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
             {blacklist.contacts && (
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Contacts exclus</h4>
-                <p>{blacklist.contacts.notes || "Aucune note"}</p>
-                {blacklist.contacts.fileUrl && renderFileDownloadButton(
-                  blacklist.contacts.fileUrl, 
-                  "blacklist-contacts.xlsx", 
-                  "Télécharger la liste de contacts exclus"
+                <p className="mb-2">{blacklist.contacts.notes || "Aucune note"}</p>
+                {blacklist.contacts.fileUrl && (
+                  <DownloadFileButton
+                    fileUrl={blacklist.contacts.fileUrl}
+                    fileName="blacklist-contacts.xlsx"
+                    label="Télécharger la liste de contacts exclus"
+                  />
                 )}
               </div>
             )}
@@ -224,11 +161,13 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
             {blacklist.emails && (
               <div>
                 <h4 className="font-semibold text-sm">Emails exclus</h4>
-                <p>{blacklist.emails.notes || "Aucune note"}</p>
-                {blacklist.emails.fileUrl && renderFileDownloadButton(
-                  blacklist.emails.fileUrl, 
-                  "blacklist-emails.xlsx", 
-                  "Télécharger la liste d'emails exclus"
+                <p className="mb-2">{blacklist.emails.notes || "Aucune note"}</p>
+                {blacklist.emails.fileUrl && (
+                  <DownloadFileButton
+                    fileUrl={blacklist.emails.fileUrl}
+                    fileName="blacklist-emails.xlsx"
+                    label="Télécharger la liste d'emails exclus"
+                  />
                 )}
               </div>
             )}

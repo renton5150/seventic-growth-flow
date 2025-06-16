@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { downloadDatabaseFile, extractFileName, checkFileExists } from '@/services/database';
+import { downloadDatabaseFile, extractFileName } from '@/services/database';
 
 export const useFileDownload = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -21,45 +21,6 @@ export const useFileDownload = () => {
       setDownloading(fileUrl);
       const requestId = Math.random().toString(36).substring(7);
       console.log(`[useFileDownload:${requestId}] Début du processus de téléchargement pour: ${fileUrl}`);
-      
-      // Pour les URL complètes, on peut essayer directement le téléchargement sans vérifier l'existence
-      // car certains buckets peuvent avoir des restrictions qui empêchent de vérifier l'existence
-      if (fileUrl.includes('https://') || fileUrl.includes('http://')) {
-        console.log(`[useFileDownload:${requestId}] URL complète détectée, téléchargement direct`);
-        const fileName = extractFileName(fileUrl) || defaultFilename;
-        
-        const downloadToast = toast.loading("Téléchargement en cours...");
-        const success = await downloadDatabaseFile(fileUrl, fileName);
-        toast.dismiss(downloadToast);
-        
-        if (success) {
-          console.log(`[useFileDownload:${requestId}] Téléchargement direct réussi pour ${fileUrl}`);
-          toast.success(`Fichier "${fileName}" téléchargé avec succès`);
-          return true;
-        } else {
-          console.error(`[useFileDownload:${requestId}] Échec du téléchargement direct pour ${fileUrl}`);
-          toast.error("Erreur lors du téléchargement du fichier");
-          return false;
-        }
-      }
-      
-      // Pour les chemins relatifs, vérifier si le fichier existe avant de tenter le téléchargement
-      console.log(`[useFileDownload:${requestId}] Vérification d'existence pour: ${fileUrl}`);
-      
-      try {
-        const exists = await checkFileExists(fileUrl);
-        
-        if (!exists) {
-          console.log(`[useFileDownload:${requestId}] Le fichier ${fileUrl} n'existe pas sur le serveur`);
-          toast.error("Le fichier demandé n'existe plus sur le serveur", {
-            description: "Veuillez contacter l'administrateur"
-          });
-          return false;
-        }
-      } catch (error) {
-        console.error(`[useFileDownload:${requestId}] Erreur lors de la vérification d'existence:`, error);
-        // Continuer avec le téléchargement malgré l'erreur de vérification
-      }
       
       // Extraire le nom de fichier de l'URL ou utiliser le nom par défaut
       const fileName = extractFileName(fileUrl) || defaultFilename;

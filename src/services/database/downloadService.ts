@@ -14,37 +14,52 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
     const requestId = Math.random().toString(36).substring(7);
     console.log(`[downloadFile:${requestId}] Tentative de téléchargement: ${fileUrl} avec le nom ${fileName}`);
     
-    // Pour les URL complètes, essayer d'abord un téléchargement direct via fetch
-    if (fileUrl.includes('http')) {
-      try {
-        console.log(`[downloadFile:${requestId}] Tentative de téléchargement direct via fetch`);
-        const response = await fetch(fileUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const blob = await response.blob();
-        const downloadUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(downloadUrl);
-        console.log(`[downloadFile:${requestId}] Téléchargement direct réussi pour: ${fileUrl}`);
-        return true;
-      } catch (fetchError) {
-        console.error(`[downloadFile:${requestId}] Échec du téléchargement direct:`, fetchError);
-        // Continuer avec la méthode Supabase si fetch échoue
+    // Nettoyer l'URL en supprimant les paramètres de token qui peuvent être expirés
+    let cleanUrl = fileUrl;
+    if (fileUrl.includes('?token=')) {
+      cleanUrl = fileUrl.split('?token=')[0];
+      console.log(`[downloadFile:${requestId}] URL nettoyée: ${cleanUrl}`);
+    }
+    
+    // Essayer d'abord un téléchargement direct via fetch
+    try {
+      console.log(`[downloadFile:${requestId}] Tentative de téléchargement direct via fetch`);
+      const response = await fetch(cleanUrl);
+      
+      if (!response.ok) {
+        console.log(`[downloadFile:${requestId}] Fetch échoué avec status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const blob = await response.blob();
+      
+      // Vérifier que le blob n'est pas vide
+      if (blob.size === 0) {
+        console.log(`[downloadFile:${requestId}] Blob vide reçu`);
+        throw new Error("Fichier vide reçu");
+      }
+      
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      console.log(`[downloadFile:${requestId}] Téléchargement direct réussi pour: ${fileUrl}`);
+      return true;
+    } catch (fetchError) {
+      console.error(`[downloadFile:${requestId}] Échec du téléchargement direct:`, fetchError);
+      // Continuer avec la méthode Supabase si fetch échoue
     }
     
     // Vérifier si c'est une URL Supabase Storage
-    const pathInfo = extractPathFromSupabaseUrl(fileUrl);
+    const pathInfo = extractPathFromSupabaseUrl(cleanUrl);
     
     if (!pathInfo) {
-      console.error(`[downloadFile:${requestId}] Impossible d'extraire les informations de chemin pour l'URL: ${fileUrl}`);
+      console.error(`[downloadFile:${requestId}] Impossible d'extraire les informations de chemin pour l'URL: ${cleanUrl}`);
       toast.error("Format d'URL non reconnu");
       return false;
     }
