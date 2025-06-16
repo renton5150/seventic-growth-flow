@@ -36,6 +36,18 @@ export const getFrontOffices = async () => {
   return data;
 };
 
+// Nouvelle fonction pour créer une plateforme
+export const createEmailPlatform = async (name: string) => {
+  const { data, error } = await supabase
+    .from('email_platforms')
+    .insert({ name: name.trim() })
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+};
+
 export const getEmailPlatformAccounts = async (filters?: EmailPlatformAccountFilters) => {
   let query = supabase
     .from('email_platform_accounts')
@@ -85,13 +97,36 @@ export const getEmailPlatformAccounts = async (filters?: EmailPlatformAccountFil
 export const createEmailPlatformAccount = async (formData: EmailPlatformAccountFormData) => {
   console.log('Creating email platform account with data:', formData);
   
+  let platformId = formData.platform_id;
+  
+  // Si "manual" est sélectionné, créer d'abord la nouvelle plateforme
+  if (formData.platform_id === "manual" && formData.platform_name) {
+    console.log('Creating new platform:', formData.platform_name);
+    
+    // Vérifier si la plateforme existe déjà
+    const { data: existingPlatform } = await supabase
+      .from('email_platforms')
+      .select('id')
+      .eq('name', formData.platform_name.trim())
+      .single();
+    
+    if (existingPlatform) {
+      // La plateforme existe déjà, utiliser son ID
+      platformId = existingPlatform.id;
+    } else {
+      // Créer la nouvelle plateforme
+      const newPlatform = await createEmailPlatform(formData.platform_name);
+      platformId = newPlatform.id;
+    }
+  }
+  
   // Chiffrer le mot de passe
   const encryptedPassword = encryptPassword(formData.password);
   
   // Préparer les données pour l'insertion
   const accountData = {
     mission_id: formData.mission_id,
-    platform_id: formData.platform_id,
+    platform_id: platformId, // Utiliser le nouvel ID si une plateforme a été créée
     login: formData.login,
     password_encrypted: encryptedPassword,
     phone_number: formData.phone_number || null,

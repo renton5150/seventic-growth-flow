@@ -51,6 +51,7 @@ export interface EmailPlatformAccount {
 export interface EmailPlatformAccountFormData {
   mission_id: string;
   platform_id: string;
+  platform_name?: string; // Nouveau champ pour la plateforme manuelle
   login: string;
   password: string;
   phone_number?: string;

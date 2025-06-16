@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +28,7 @@ import { useState } from "react";
 const formSchema = z.object({
   mission_id: z.string().min(1, "Sélectionnez une mission"),
   platform_id: z.string().min(1, "Sélectionnez une plateforme"),
+  platform_name: z.string().optional(), // Nouveau champ pour la plateforme manuelle
   login: z.string().min(1, "Le login est requis"),
   password: z.string().min(1, "Le mot de passe est requis"),
   phone_number: z.string().optional(),
@@ -54,6 +54,15 @@ const formSchema = z.object({
 }, {
   message: "L'adresse IP est requise si IP dédiée est activée",
   path: ["dedicated_ip_address"]
+}).refine((data) => {
+  // Si "manual" est sélectionné, platform_name est requis
+  if (data.platform_id === "manual" && (!data.platform_name || data.platform_name.trim() === "")) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Le nom de la plateforme est requis",
+  path: ["platform_name"]
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -77,6 +86,7 @@ export const EmailPlatformAccountForm = ({
   const { data: domains } = useDomains();
   
   const [isManualDomain, setIsManualDomain] = useState(false);
+  const [isManualPlatform, setIsManualPlatform] = useState(false);
 
   // Helper function to safely convert dedicated_ip_address to string
   const getDedicatedIpAddressString = (address: unknown): string => {
@@ -92,6 +102,7 @@ export const EmailPlatformAccountForm = ({
     defaultValues: {
       mission_id: account?.mission_id || "",
       platform_id: account?.platform_id || "",
+      platform_name: "", // Nouveau champ
       login: account?.login || "",
       password: "", // Toujours vide pour la sécurité
       phone_number: account?.phone_number || "",
@@ -115,6 +126,7 @@ export const EmailPlatformAccountForm = ({
   const watchDedicatedIp = form.watch("dedicated_ip");
   const watchRoutingInterfaces = form.watch("routing_interfaces");
   const watchDomainName = form.watch("domain_name");
+  const watchPlatformId = form.watch("platform_id");
   
   const showFrontOffices = watchRoutingInterfaces.includes("SMTP") || watchRoutingInterfaces.includes("Les deux");
 
@@ -135,6 +147,18 @@ export const EmailPlatformAccountForm = ({
       form.setValue("domain_hosting_provider", selectedDomain.hosting_provider as 'OVH' | 'Gandhi' | 'Ionos');
       form.setValue("domain_login", selectedDomain.login);
     }
+  };
+
+  // Handle platform selection
+  const handlePlatformSelect = (platformId: string) => {
+    if (platformId === "manual") {
+      setIsManualPlatform(true);
+      form.setValue("platform_name", "");
+    } else {
+      setIsManualPlatform(false);
+      form.setValue("platform_name", "");
+    }
+    form.setValue("platform_id", platformId);
   };
 
   const handleSubmit = (data: FormData) => {
@@ -160,6 +184,7 @@ export const EmailPlatformAccountForm = ({
       domain_name: data.domain_name?.trim() || undefined,
       domain_login: data.domain_login?.trim() || undefined,
       domain_password: data.domain_password?.trim() || undefined,
+      platform_name: data.platform_name?.trim() || undefined,
     };
 
     console.log("Cleaned form data:", cleanedData);
@@ -196,14 +221,14 @@ export const EmailPlatformAccountForm = ({
             )}
           />
 
-          {/* Plateforme */}
+          {/* Plateforme modifiée */}
           <FormField
             control={form.control}
             name="platform_id"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Plateforme d'emailing *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select onValueChange={handlePlatformSelect} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionnez une plateforme" />
@@ -215,6 +240,7 @@ export const EmailPlatformAccountForm = ({
                         {platform.name}
                       </SelectItem>
                     ))}
+                    <SelectItem value="manual">Ajouter manuellement</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -222,6 +248,23 @@ export const EmailPlatformAccountForm = ({
             )}
           />
         </div>
+
+        {/* Champ de saisie manuelle de la plateforme */}
+        {isManualPlatform && (
+          <FormField
+            control={form.control}
+            name="platform_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nom de la nouvelle plateforme *</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Ex: SendGrid, Mailgun, etc." />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         {/* Identifiants */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
