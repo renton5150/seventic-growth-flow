@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatabaseRequest } from '@/types/types';
@@ -33,54 +34,7 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
 
   const [downloading, setDownloading] = useState<string | null>(null);
   const [fileStatuses, setFileStatuses] = useState<Record<string, boolean | null>>({});
-  const [isCheckingFiles, setIsCheckingFiles] = useState(true);
-
-  // Vérifier tous les fichiers au chargement du composant
-  useEffect(() => {
-    const checkAllFiles = async () => {
-      setIsCheckingFiles(true);
-      
-      try {
-        // Collecter tous les URLs de fichiers à vérifier
-        const filesToCheck: string[] = [];
-        
-        if (resultFileUrl) filesToCheck.push(resultFileUrl);
-        
-        if (blacklist?.accounts?.fileUrl) filesToCheck.push(blacklist.accounts.fileUrl);
-        if (blacklist?.contacts?.fileUrl) filesToCheck.push(blacklist.contacts.fileUrl);
-        if (blacklist?.emails?.fileUrl) filesToCheck.push(blacklist.emails.fileUrl);
-        
-        if (filesToCheck.length === 0) {
-          setIsCheckingFiles(false);
-          return;
-        }
-        
-        // Vérifier chaque fichier
-        const statusesPromises = filesToCheck.map(async (url) => {
-          if (!url) return [url, false];
-          const exists = await checkFileExists(url);
-          console.log(`Vérification de ${url}: ${exists ? "Existe" : "N'existe pas"}`);
-          return [url, exists];
-        });
-        
-        const statusesArray = await Promise.all(statusesPromises);
-        
-        // Construire l'objet des statuts
-        const newStatuses = statusesArray.reduce((acc, [url, exists]) => {
-          if (url) acc[url as string] = exists as boolean;
-          return acc;
-        }, {} as Record<string, boolean>);
-        
-        setFileStatuses(newStatuses);
-      } catch (error) {
-        console.error("Erreur lors de la vérification des fichiers:", error);
-      } finally {
-        setIsCheckingFiles(false);
-      }
-    };
-    
-    checkAllFiles();
-  }, [resultFileUrl, blacklist]);
+  const [isCheckingFiles, setIsCheckingFiles] = useState(false);
 
   // Fonction pour télécharger un fichier à partir d'une URL
   const handleFileDownload = async (fileUrl: string | undefined, defaultFilename: string = "document") => {
@@ -95,18 +49,6 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
     
     try {
       setDownloading(fileUrl);
-      
-      // Vérifier si le fichier existe avant de tenter le téléchargement
-      const exists = await checkFileExists(fileUrl);
-      if (!exists) {
-        toast.error("Le fichier demandé n'existe plus sur le serveur", {
-          description: "Veuillez contacter l'administrateur"
-        });
-        setFileStatuses(prev => ({ ...prev, [fileUrl]: false }));
-        return;
-      }
-      
-      setFileStatuses(prev => ({ ...prev, [fileUrl]: true }));
       
       // Extraire le nom de fichier de l'URL ou utiliser le nom par défaut
       const fileName = extractFileName(fileUrl) || defaultFilename;
@@ -132,35 +74,32 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
     }
   };
 
-  const renderFileAvailability = (fileUrl: string | undefined) => {
+  const renderFileDownloadButton = (fileUrl: string | undefined, fileName: string, label: string) => {
     if (!fileUrl) return null;
     
-    // Si on est en train de vérifier tous les fichiers
-    if (isCheckingFiles) {
-      return (
-        <span className="text-xs text-blue-600 flex items-center gap-1 mb-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Vérification du fichier...
-        </span>
-      );
-    }
-    
-    // Si le statut est connu
-    if (fileStatuses[fileUrl] !== undefined) {
-      return fileStatuses[fileUrl] ? (
-        <span className="text-xs text-green-600 flex items-center gap-1 mb-1">
-          <CheckCircle2 className="h-3 w-3" />
-          Fichier disponible
-        </span>
-      ) : (
-        <span className="text-xs text-amber-600 flex items-center gap-1 mb-1">
-          <AlertTriangle className="h-3 w-3" />
-          Fichier non disponible
-        </span>
-      );
-    }
-    
-    return null;
+    return (
+      <>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => handleFileDownload(fileUrl, fileName)}
+          className="flex items-center gap-2 mt-1"
+          disabled={downloading === fileUrl}
+        >
+          {downloading === fileUrl ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Téléchargement...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4" />
+              {label}
+            </>
+          )}
+        </Button>
+      </>
+    );
   };
 
   return (
@@ -186,26 +125,7 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
           {resultFileUrl && (
             <div className="mb-4">
               <h4 className="font-semibold text-sm">Fichier résultat</h4>
-              {renderFileAvailability(resultFileUrl)}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleFileDownload(resultFileUrl, "database-result.xlsx")}
-                className="flex items-center gap-2 mt-1"
-                disabled={downloading === resultFileUrl || fileStatuses[resultFileUrl] === false}
-              >
-                {downloading === resultFileUrl ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Téléchargement...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" />
-                    Télécharger le fichier résultat
-                  </>
-                )}
-              </Button>
+              {renderFileDownloadButton(resultFileUrl, "database-result.xlsx", "Télécharger le fichier résultat")}
             </div>
           )}
         </CardContent>
@@ -281,29 +201,10 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Comptes exclus</h4>
                 <p>{blacklist.accounts.notes || "Aucune note"}</p>
-                {blacklist.accounts.fileUrl && (
-                  <>
-                    {renderFileAvailability(blacklist.accounts.fileUrl)}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleFileDownload(blacklist.accounts.fileUrl, "blacklist-accounts.xlsx")}
-                      className="flex items-center gap-2 mt-1"
-                      disabled={downloading === blacklist.accounts.fileUrl || fileStatuses[blacklist.accounts.fileUrl] === false}
-                    >
-                      {downloading === blacklist.accounts.fileUrl ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Téléchargement...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4" />
-                          Télécharger la liste de comptes exclus
-                        </>
-                      )}
-                    </Button>
-                  </>
+                {blacklist.accounts.fileUrl && renderFileDownloadButton(
+                  blacklist.accounts.fileUrl, 
+                  "blacklist-accounts.xlsx", 
+                  "Télécharger la liste de comptes exclus"
                 )}
               </div>
             )}
@@ -312,29 +213,10 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Contacts exclus</h4>
                 <p>{blacklist.contacts.notes || "Aucune note"}</p>
-                {blacklist.contacts.fileUrl && (
-                  <>
-                    {renderFileAvailability(blacklist.contacts.fileUrl)}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleFileDownload(blacklist.contacts.fileUrl, "blacklist-contacts.xlsx")}
-                      className="flex items-center gap-2 mt-1"
-                      disabled={downloading === blacklist.contacts.fileUrl || fileStatuses[blacklist.contacts.fileUrl] === false}
-                    >
-                      {downloading === blacklist.contacts.fileUrl ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Téléchargement...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4" />
-                          Télécharger la liste de contacts exclus
-                        </>
-                      )}
-                    </Button>
-                  </>
+                {blacklist.contacts.fileUrl && renderFileDownloadButton(
+                  blacklist.contacts.fileUrl, 
+                  "blacklist-contacts.xlsx", 
+                  "Télécharger la liste de contacts exclus"
                 )}
               </div>
             )}
@@ -343,29 +225,10 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
               <div>
                 <h4 className="font-semibold text-sm">Emails exclus</h4>
                 <p>{blacklist.emails.notes || "Aucune note"}</p>
-                {blacklist.emails.fileUrl && (
-                  <>
-                    {renderFileAvailability(blacklist.emails.fileUrl)}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleFileDownload(blacklist.emails.fileUrl, "blacklist-emails.xlsx")}
-                      className="flex items-center gap-2 mt-1"
-                      disabled={downloading === blacklist.emails.fileUrl || fileStatuses[blacklist.emails.fileUrl] === false}
-                    >
-                      {downloading === blacklist.emails.fileUrl ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Téléchargement...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4" />
-                          Télécharger la liste d'emails exclus
-                        </>
-                      )}
-                    </Button>
-                  </>
+                {blacklist.emails.fileUrl && renderFileDownloadButton(
+                  blacklist.emails.fileUrl, 
+                  "blacklist-emails.xlsx", 
+                  "Télécharger la liste d'emails exclus"
                 )}
               </div>
             )}
