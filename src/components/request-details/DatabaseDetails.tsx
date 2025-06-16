@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatabaseRequest } from '@/types/types';
@@ -12,13 +11,29 @@ interface DatabaseDetailsProps {
 }
 
 export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
-  // S'assurer que les propriétés existent
-  const { tool, targeting, blacklist, contactsCreated, resultFileUrl } = request;
+  console.log("Rendu DatabaseDetails avec:", request);
+  
+  // Extraire les propriétés directement du request ou des details en fallback
+  const tool = request.tool || request.details?.tool || "Non spécifié";
+  const targeting = request.targeting || request.details?.targeting || {
+    jobTitles: [],
+    industries: [],
+    locations: [],
+    companySize: [],
+    otherCriteria: ""
+  };
+  const blacklist = request.blacklist || request.details?.blacklist || {
+    accounts: { notes: "", fileUrl: "" },
+    emails: { notes: "", fileUrl: "" }
+  };
+  const contactsCreated = request.contactsCreated || request.details?.contactsCreated || 0;
+  const resultFileUrl = request.resultFileUrl || request.details?.resultFileUrl;
+
+  console.log("Propriétés extraites:", { tool, targeting, blacklist, contactsCreated, resultFileUrl });
+
   const [downloading, setDownloading] = useState<string | null>(null);
   const [fileStatuses, setFileStatuses] = useState<Record<string, boolean | null>>({});
   const [isCheckingFiles, setIsCheckingFiles] = useState(true);
-
-  console.log("Rendu DatabaseDetails avec:", request);
 
   // Vérifier tous les fichiers au chargement du composant
   useEffect(() => {
@@ -157,14 +172,14 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
         <CardContent>
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Outil utilisé</h4>
-            <p>{tool || "Non spécifié"}</p>
+            <p>{tool}</p>
           </div>
           
           <div className="mb-4">
             <h4 className="font-semibold text-sm">Contacts créés</h4>
             <div className="flex items-center mt-1">
               <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
-              <span className="text-lg font-medium">{contactsCreated || 0} contacts</span>
+              <span className="text-lg font-medium">{contactsCreated} contacts</span>
             </div>
           </div>
           

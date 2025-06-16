@@ -1,5 +1,5 @@
 
-import { Request, RequestStatus, WorkflowStatus, EmailCampaignRequest } from "@/types/types";
+import { Request, RequestStatus, WorkflowStatus, EmailCampaignRequest, DatabaseRequest } from "@/types/types";
 
 // Format request data from the database - VERSION AMÉLIORÉE
 export const formatRequestFromDb = async (request: any): Promise<Request> => {
@@ -126,6 +126,47 @@ export const formatRequestFromDb = async (request: any): Promise<Request> => {
     
     console.log(`[formatRequestFromDb] ✅ Email request formatée:`, emailRequest.id);
     return emailRequest;
+  }
+  
+  // Pour les demandes database, extraire les propriétés spécifiques
+  if (request.type === "database") {
+    console.log(`[formatRequestFromDb] 🗄️ Traitement demande database avec détails:`, details);
+    
+    const tool = details.tool || "Hubspot";
+    const targeting = details.targeting || {
+      jobTitles: [],
+      industries: [],
+      locations: [],
+      companySize: [],
+      otherCriteria: ""
+    };
+    const blacklist = details.blacklist || {
+      accounts: { notes: "", fileUrl: "" },
+      emails: { notes: "", fileUrl: "" }
+    };
+    const contactsCreated = details.contactsCreated;
+    const resultFileUrl = details.resultFileUrl;
+    
+    console.log(`[formatRequestFromDb] 🗄️ Database props extraites:`, {
+      tool,
+      targeting,
+      blacklist,
+      contactsCreated,
+      resultFileUrl
+    });
+    
+    const databaseRequest: DatabaseRequest = {
+      ...baseRequest,
+      type: "database",
+      tool,
+      targeting,
+      blacklist,
+      contactsCreated,
+      resultFileUrl
+    };
+    
+    console.log(`[formatRequestFromDb] ✅ Database request formatée:`, databaseRequest.id);
+    return databaseRequest;
   }
   
   // Pour les autres types, utiliser le format de base
