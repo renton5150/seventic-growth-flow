@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { EmailPlatformAccount, EmailPlatformAccountFormData, EmailPlatformAccountFilters } from "@/types/emailPlatforms.types";
 
@@ -123,7 +122,7 @@ export const createEmailPlatformAccount = async (formData: EmailPlatformAccountF
   // Chiffrer le mot de passe
   const encryptedPassword = encryptPassword(formData.password);
   
-  // Préparer les données pour l'insertion
+  // Préparer les données pour l'insertion - CORRECTION: gérer dedicated_ip_address correctement
   const accountData = {
     mission_id: formData.mission_id,
     platform_id: platformId, // Utiliser le nouvel ID si une plateforme a été créée
@@ -136,7 +135,8 @@ export const createEmailPlatformAccount = async (formData: EmailPlatformAccountF
     status: formData.status,
     spf_dkim_status: formData.spf_dkim_status,
     dedicated_ip: formData.dedicated_ip,
-    dedicated_ip_address: formData.dedicated_ip_address || null,
+    // CORRECTION: Convertir chaîne vide en null pour dedicated_ip_address
+    dedicated_ip_address: formData.dedicated_ip_address && formData.dedicated_ip_address.trim() !== "" ? formData.dedicated_ip_address.trim() : null,
     routing_interfaces: formData.routing_interfaces,
     // Nouveaux champs domaine
     domain_name: formData.domain_name || null,
@@ -194,6 +194,11 @@ export const updateEmailPlatformAccount = async (
   if (formData.password) {
     updateData.password_encrypted = encryptPassword(formData.password);
     delete updateData.password;
+  }
+
+  // CORRECTION: Gérer dedicated_ip_address correctement pour la mise à jour aussi
+  if (formData.dedicated_ip_address !== undefined) {
+    updateData.dedicated_ip_address = formData.dedicated_ip_address && formData.dedicated_ip_address.trim() !== "" ? formData.dedicated_ip_address.trim() : null;
   }
 
   // Gérer les nouveaux champs domaine
