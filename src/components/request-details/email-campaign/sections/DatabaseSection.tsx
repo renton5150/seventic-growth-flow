@@ -3,20 +3,23 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WebLinkItem } from '@/components/common/WebLinkItem';
 import { DownloadFileButton } from '@/components/common/DownloadFileButton';
-import { DatabaseDetails } from '@/types/types';
+import { Database } from '@/types/types';
 
 interface DatabaseSectionProps {
-  database: DatabaseDetails;
+  database: Database;
 }
 
 export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
   console.log("Rendu du composant DatabaseSection avec:", JSON.stringify(database, null, 2));
   
-  // Ensure we have a valid database object
-  const safeDatabase = database || { notes: "", webLink: "", fileUrl: "" };
-  
-  // Handle webLinks array safely
-  const webLinks = Array.isArray(safeDatabase.webLinks) ? safeDatabase.webLinks : [];
+  // Ensure we have a valid database object with all required properties
+  const safeDatabase: Database = {
+    notes: database?.notes || "",
+    webLink: database?.webLink || "",
+    fileUrl: database?.fileUrl || "",
+    webLinks: database?.webLinks || [],
+    fileUrls: database?.fileUrls || []
+  };
   
   // Fonction pour extraire un nom de fichier significatif à partir de l'URL
   const getFileName = (url: string): string => {
@@ -61,7 +64,7 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
   const allFiles = getAllFiles();
 
   // Show nothing if there's no content to display
-  if (!safeDatabase.notes && allFiles.length === 0 && !safeDatabase.webLink && webLinks.length === 0) {
+  if (!safeDatabase.notes && allFiles.length === 0 && !safeDatabase.webLink && safeDatabase.webLinks.length === 0) {
     return (
       <Card className="mb-4">
         <CardHeader>
@@ -107,11 +110,11 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
         )}
         
         {/* Support pour l'affichage des webLinks (plusieurs liens) */}
-        {webLinks.length > 0 && (
+        {safeDatabase.webLinks.length > 0 && (
           <div>
             <h4 className="font-semibold text-sm">Liens web</h4>
             <div className="space-y-2 mt-2">
-              {webLinks.map((link, index) => (
+              {safeDatabase.webLinks.map((link, index) => (
                 link && <WebLinkItem key={index} url={link} />
               ))}
             </div>
@@ -119,7 +122,7 @@ export const DatabaseSection = ({ database }: DatabaseSectionProps) => {
         )}
         
         {/* Support pour l'affichage du webLink (pour la rétrocompatibilité) */}
-        {!webLinks.length && safeDatabase.webLink && (
+        {!safeDatabase.webLinks.length && safeDatabase.webLink && (
           <div>
             <h4 className="font-semibold text-sm">Lien web</h4>
             <WebLinkItem url={safeDatabase.webLink} />

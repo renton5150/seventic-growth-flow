@@ -44,6 +44,7 @@ export const createMockedMission = (data: {
   const newMission: Mission = {
     id: uuidv4(),
     name: data.name,
+    client: data.name, // Use name as client for mock data
     sdrId: data.sdrId,
     description: data.description || "",
     createdAt: new Date(),
@@ -72,6 +73,7 @@ export const updateMockedMission = async (data: {
   const updatedMission: Mission = {
     id: data.id,
     name: data.name,
+    client: data.name, // Use name as client for mock data
     sdrId: data.sdrId,
     description: data.description || "",
     createdAt: new Date(),

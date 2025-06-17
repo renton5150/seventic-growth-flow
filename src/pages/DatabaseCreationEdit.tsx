@@ -91,7 +91,9 @@ const DatabaseCreationEdit = () => {
               target_role: rawRequest.target_role,
               tool: details.tool || "Hubspot",
               targeting: details.targeting || {},
-              blacklist: details.blacklist || {}
+              blacklist: details.blacklist || {},
+              contactsCreated: details.contactsCreated || 0,
+              resultFileUrl: details.resultFileUrl || ""
             };
             
             console.log("DatabaseCreationEdit - Requête Freshworks préparée:", freshworksRequest);
@@ -119,7 +121,9 @@ const DatabaseCreationEdit = () => {
               missionClient: formattedRequest.missionClient || "Sans client", // Assurer la présence
               tool: details.tool || "Hubspot",
               targeting: details.targeting || {},
-              blacklist: details.blacklist || {}
+              blacklist: details.blacklist || {},
+              contactsCreated: details.contactsCreated || 0,
+              resultFileUrl: details.resultFileUrl || ""
             };
             
             setRequest(databaseRequest);

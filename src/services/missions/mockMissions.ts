@@ -1,4 +1,3 @@
-
 import { Mission } from "@/types/types";
 
 // Flag to control whether mock data is enabled
@@ -9,6 +8,7 @@ const mockMissions: Mission[] = [
   {
     id: "mock-mission-1",
     name: "Mock Mission 1",
+    client: "Mock Client 1",
     sdrId: "mock-user-1",
     sdrName: "Mock SDR 1", // Ensure SDR name is provided
     description: "This is a mock mission for testing",
@@ -22,6 +22,7 @@ const mockMissions: Mission[] = [
   {
     id: "mock-mission-2",
     name: "Mock Mission 2",
+    client: "Mock Client 2",
     sdrId: "mock-user-2",
     sdrName: "Mock SDR 2", // Ensure SDR name is provided
     description: "Another mock mission for testing",
@@ -56,6 +57,7 @@ export const createMockMission = async (data: any): Promise<Mission> => {
   const newMission: Mission = {
     id: "new-mock-" + Math.random().toString(36).substring(7),
     name: data.name,
+    client: data.name, // Use name as client
     sdrId: data.sdrId || "mock-user-1",
     sdrName: "New Mock SDR",
     description: data.description || "",
@@ -73,6 +75,7 @@ export const updateMockMission = async (data: any): Promise<Mission> => {
   return {
     id: data.id,
     name: data.name,
+    client: data.name, // Use name as client
     sdrId: data.sdrId || "mock-user-1",
     sdrName: "Updated Mock SDR",
     description: data.description || "",
