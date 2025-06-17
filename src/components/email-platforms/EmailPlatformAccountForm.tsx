@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -142,7 +143,7 @@ export const EmailPlatformAccountForm = ({
               name="mission_id"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value || undefined} onValueChange={field.onChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une mission" />
                   </SelectTrigger>
@@ -167,7 +168,7 @@ export const EmailPlatformAccountForm = ({
               name="platform_id"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value || undefined} onValueChange={field.onChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une plateforme" />
                   </SelectTrigger>
@@ -308,7 +309,7 @@ export const EmailPlatformAccountForm = ({
                 name="status"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -330,7 +331,7 @@ export const EmailPlatformAccountForm = ({
                 name="spf_dkim_status"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -439,7 +440,7 @@ export const EmailPlatformAccountForm = ({
               name="domain_hosting_provider"
               control={control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(value) => field.onChange(value || undefined)}>
+                <Select value={field.value || undefined} onValueChange={(value) => field.onChange(value || undefined)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un hébergeur" />
                   </SelectTrigger>
