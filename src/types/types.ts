@@ -1,4 +1,5 @@
 
+
 export type RequestStatus = "pending" | "in progress" | "completed" | "canceled";
 export type WorkflowStatus = "pending_assignment" | "pending_approval" | "in_progress" | "in_review" | "ready" | "completed" | "canceled";
 
@@ -58,6 +59,7 @@ export interface Database {
   fileUrl: string;
   fileUrls: string[];
   webLinks: string[];
+  webLink: string; // For backward compatibility
 }
 
 export interface BlacklistItem {
@@ -122,6 +124,7 @@ export interface Mission {
   criteresQualification?: string;
   interlocuteursCibles?: string;
   loginConnexion?: string;
+  client: string; // Add client property
 }
 
 // Additional type aliases for compatibility
@@ -134,3 +137,4 @@ export interface AppData {
   requests: Request[];
   users: User[];
 }
+

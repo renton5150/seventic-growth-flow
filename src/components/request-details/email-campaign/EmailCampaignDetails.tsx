@@ -13,16 +13,27 @@ export const EmailCampaignDetails = ({ request }: EmailCampaignDetailsProps) => 
   console.log("EmailCampaignDetails - Rendering with request:", JSON.stringify(request, null, 2));
   
   // Ensure all required objects exist, even if empty
-  const template = request.template || { content: "", webLink: "", fileUrl: "" };
-  const database = request.database || { notes: "", webLink: "", fileUrl: "", webLinks: [] };
+  const template = request.template || { 
+    content: "", 
+    webLink: "", 
+    fileUrl: "", 
+    subject: "" 
+  };
+  const database = request.database || { 
+    notes: "", 
+    webLink: "", 
+    fileUrl: "", 
+    webLinks: [],
+    fileUrls: [] 
+  };
   const blacklist = request.blacklist || {
-    accounts: { notes: "", fileUrl: "" },
-    emails: { notes: "", fileUrl: "" }
+    accounts: { notes: "", fileUrl: "", fileUrls: [] },
+    emails: { notes: "", fileUrl: "", fileUrls: [] }
   };
   
   // Make sure blacklist.accounts and blacklist.emails exist
-  if (!blacklist.accounts) blacklist.accounts = { notes: "", fileUrl: "" };
-  if (!blacklist.emails) blacklist.emails = { notes: "", fileUrl: "" };
+  if (!blacklist.accounts) blacklist.accounts = { notes: "", fileUrl: "", fileUrls: [] };
+  if (!blacklist.emails) blacklist.emails = { notes: "", fileUrl: "", fileUrls: [] };
   
   // Récupérer le type d'emailing, soit directement de la propriété emailType,
   // soit depuis details.emailType (selon l'endroit où il est stocké)

@@ -12,7 +12,10 @@ export const BlacklistSection = ({ blacklist }: BlacklistSectionProps) => {
   console.log("Rendu du composant BlacklistSection avec:", JSON.stringify(blacklist, null, 2));
   
   // Ensure blacklist and its properties exist to prevent errors
-  const safeBlacklist = blacklist || {};
+  const safeBlacklist = blacklist || {
+    accounts: { notes: "", fileUrl: "", fileUrls: [] },
+    emails: { notes: "", fileUrl: "", fileUrls: [] }
+  };
   const accounts = safeBlacklist.accounts || { notes: "", fileUrl: "", fileUrls: [] };
   const emails = safeBlacklist.emails || { notes: "", fileUrl: "", fileUrls: [] };
   

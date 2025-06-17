@@ -1,3 +1,4 @@
+
 import { Request, EmailCampaignRequest, LinkedInScrapingRequest, DatabaseRequest } from "../types/types";
 
 // Mock requests
@@ -50,7 +51,7 @@ export const requests: Request[] = [
     missionClient: "Client Test",
     createdBy: "user2",
     createdAt: new Date("2025-03-06"),
-    status: "inprogress",
+    status: "in progress",
     dueDate: "2025-03-15",
     lastUpdated: new Date("2025-03-12"),
     sdrName: "John Doe",
