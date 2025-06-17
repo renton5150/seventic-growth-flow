@@ -1,3 +1,4 @@
+
 import { Mission } from "../types/types";
 import { requests, getRequestsByMissionId } from "./requests";
 import { getUserById } from "./users";
@@ -8,7 +9,7 @@ export const missions: Mission[] = [
     id: "mission1",
     name: "Acme Corp",
     client: "Acme Corp",
-    sdr_id: "user2",
+    sdrId: "user2",
     createdAt: new Date("2025-03-01"),
     requests: getRequestsByMissionId("mission1"),
     startDate: new Date("2025-03-01"),
@@ -20,7 +21,7 @@ export const missions: Mission[] = [
     id: "mission2",
     name: "TechStart",
     client: "TechStart",
-    sdr_id: "user2",
+    sdrId: "user2",
     createdAt: new Date("2025-03-15"),
     requests: getRequestsByMissionId("mission2"),
     startDate: new Date("2025-03-15"),
@@ -32,7 +33,7 @@ export const missions: Mission[] = [
     id: "mission3",
     name: "Global Finance",
     client: "Global Finance",
-    sdr_id: "user2",
+    sdrId: "user2",
     createdAt: new Date("2025-03-20"),
     requests: getRequestsByMissionId("mission3"),
     startDate: new Date("2025-03-20"),
@@ -48,7 +49,7 @@ export const getMissionById = (id: string): Mission | undefined => {
   
   if (!mission) return undefined;
   
-  const sdr = getUserById(mission.sdr_id);
+  const sdr = getUserById(mission.sdrId);
   
   return {
     ...mission,
@@ -59,10 +60,10 @@ export const getMissionById = (id: string): Mission | undefined => {
 
 // Helper function to get missions by user ID
 export const getMissionsBySdrId = (sdrId: string): Mission[] => {
-  const filteredMissions = missions.filter((mission) => mission.sdr_id === sdrId);
+  const filteredMissions = missions.filter((mission) => mission.sdrId === sdrId);
   
   return filteredMissions.map(mission => {
-    const sdr = getUserById(mission.sdr_id);
+    const sdr = getUserById(mission.sdrId);
     return {
       ...mission,
       sdrName: sdr?.name || "Inconnu",

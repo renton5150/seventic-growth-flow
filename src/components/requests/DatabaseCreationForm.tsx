@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,12 +18,15 @@ import { databaseCreationSchema } from "./database-creation/schema";
 interface DatabaseCreationFormProps {
   editMode?: boolean;
   initialData?: DatabaseRequest;
+  onSuccess?: () => void;
 }
 
-export const DatabaseCreationForm = ({ editMode = false, initialData }: DatabaseCreationFormProps) => {
+export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess }: DatabaseCreationFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
+  const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
 
   const form = useForm<z.infer<typeof databaseCreationSchema>>({
     resolver: zodResolver(databaseCreationSchema),
@@ -130,7 +134,11 @@ export const DatabaseCreationForm = ({ editMode = false, initialData }: Database
           toast.error("Erreur lors de la mise à jour de la demande");
         } else {
           toast.success("Demande mise à jour avec succès!");
-          navigate("/dashboard");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/dashboard");
+          }
         }
       } else {
         // Create new request
@@ -141,7 +149,11 @@ export const DatabaseCreationForm = ({ editMode = false, initialData }: Database
           toast.error("Erreur lors de la création de la demande");
         } else {
           toast.success("Demande créée avec succès!");
-          navigate("/dashboard");
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/dashboard");
+          }
         }
       }
     } catch (error) {
@@ -154,22 +166,28 @@ export const DatabaseCreationForm = ({ editMode = false, initialData }: Database
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <FormHeader editMode={editMode} />
+      <FormHeader 
+        editMode={editMode} 
+        control={form.control}
+        user={user}
+      />
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <TargetingSection 
-            control={form.control} 
-            handleFileUpload={() => {}} 
+            control={form.control}
           />
           <BlacklistSection 
             control={form.control}
-            handleFileUpload={() => {}}
+            blacklistAccountsTab={blacklistAccountsTab}
+            setBlacklistAccountsTab={setBlacklistAccountsTab}
+            blacklistContactsTab={blacklistContactsTab}
+            setBlacklistContactsTab={setBlacklistContactsTab}
+            handleFileUpload={handleFileUpload}
           />
           <FormFooter 
             submitting={submitting} 
             editMode={editMode}
-            onCancel={() => navigate(-1)}
           />
         </form>
       </Form>
