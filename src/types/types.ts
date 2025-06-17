@@ -1,3 +1,4 @@
+
 export type RequestStatus = "pending" | "in progress" | "completed" | "canceled";
 export type WorkflowStatus = "pending_assignment" | "pending_approval" | "in_progress" | "in_review" | "ready" | "completed" | "canceled";
 
@@ -41,6 +42,8 @@ export interface DatabaseRequest extends Request {
 
 export interface LinkedInScrapingRequest extends Request {
   targeting: Targeting;
+  profilesScraped?: number;
+  resultFileUrl?: string;
 }
 
 export interface Template {
@@ -81,4 +84,53 @@ export interface Statistics {
   opened: number;
   clicked: number;
   bounced: number;
+}
+
+// User and role types
+export type UserRole = "admin" | "growth" | "sdr";
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  createdAt?: Date;
+  lastLogin?: Date;
+}
+
+// Mission types
+export type MissionType = "Full" | "Part";
+export type MissionStatus = "En cours" | "Fin";
+
+export type TypePrestation = "Call" | "Email marketing" | "Cold email" | "Social selling";
+
+export interface Mission {
+  id: string;
+  name: string;
+  type: MissionType;
+  status: MissionStatus;
+  sdrId: string;
+  sdrName?: string;
+  description?: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  createdAt: Date;
+  requests?: Request[];
+  objectifMensuelRdv?: string;
+  typesPrestation?: TypePrestation[];
+  criteresQualification?: string;
+  interlocuteursCibles?: string;
+  loginConnexion?: string;
+}
+
+// Additional type aliases for compatibility
+export type EmailTemplate = Template;
+export type DatabaseDetails = Database;
+
+// App data type
+export interface AppData {
+  missions: Mission[];
+  requests: Request[];
+  users: User[];
 }
