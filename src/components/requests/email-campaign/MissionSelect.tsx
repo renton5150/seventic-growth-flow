@@ -92,11 +92,6 @@ export function MissionSelect() {
     }
     return "Sélectionner une mission";
   };
-
-  const getEmptyStateText = () => {
-    if (user?.role === 'sdr') return "Aucune mission ne vous est assignée";
-    return "Aucune mission disponible";
-  };
   
   return (
     <div className="space-y-2">
@@ -106,27 +101,17 @@ export function MissionSelect() {
         </Label>
       </div>
       
-      <Select onValueChange={handleMissionChange} value={selectedMissionId || ""}>
+      <Select onValueChange={handleMissionChange} value={selectedMissionId || ""} disabled={loading || missions.length === 0}>
         <SelectTrigger className="w-full h-10">
           <SelectValue placeholder={getPlaceholderText()} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {loading ? (
-              <SelectItem value="loading-placeholder" disabled>
-                Chargement...
+            {missions.length > 0 && missions.map((mission) => (
+              <SelectItem key={mission.id} value={mission.id}>
+                {getMissionDisplayName(mission)}
               </SelectItem>
-            ) : missions.length > 0 ? (
-              missions.map((mission) => (
-                <SelectItem key={mission.id} value={mission.id}>
-                  {getMissionDisplayName(mission)}
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="no-missions-placeholder" disabled>
-                {getEmptyStateText()}
-              </SelectItem>
-            )}
+            ))}
           </SelectGroup>
         </SelectContent>
       </Select>
