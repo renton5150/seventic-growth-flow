@@ -63,12 +63,27 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       }
       
       const blacklist = initialData.blacklist || {
-        accounts: { notes: "", fileUrl: "" },
-        emails: { notes: "", fileUrl: "" }
+        accounts: { notes: "", fileUrl: "", fileUrls: [] },
+        emails: { notes: "", fileUrl: "", fileUrls: [] }
       };
       
-      const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "" };
-      const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "" };
+      const blacklistAccounts = blacklist.accounts || { notes: "", fileUrl: "", fileUrls: [] };
+      const blacklistEmails = blacklist.emails || { notes: "", fileUrl: "", fileUrls: [] };
+
+      // Gérer la migration de fileUrl vers fileUrls pour blacklist
+      let blacklistAccountsFileUrls: string[] = [];
+      if (blacklistAccounts.fileUrls && blacklistAccounts.fileUrls.length > 0) {
+        blacklistAccountsFileUrls = blacklistAccounts.fileUrls;
+      } else if (blacklistAccounts.fileUrl) {
+        blacklistAccountsFileUrls = [blacklistAccounts.fileUrl];
+      }
+
+      let blacklistEmailsFileUrls: string[] = [];
+      if (blacklistEmails.fileUrls && blacklistEmails.fileUrls.length > 0) {
+        blacklistEmailsFileUrls = blacklistEmails.fileUrls;
+      } else if (blacklistEmails.fileUrl) {
+        blacklistEmailsFileUrls = [blacklistEmails.fileUrl];
+      }
 
       // Convert string date to string format for input (YYYY-MM-DD)
       const formattedDueDate = initialData.dueDate ? initialData.dueDate.split('T')[0] : "";
@@ -88,13 +103,21 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         databaseFileUrl: database.fileUrl || "", // Maintenu pour compatibilité
         databaseWebLinks,
         databaseNotes: database.notes || "",
-        blacklistAccountsFileUrl: blacklistAccounts.fileUrl || "",
+        blacklistAccountsFileUrls, // Nouveau champ pour multiples fichiers
+        blacklistAccountsFileUrl: blacklistAccounts.fileUrl || "", // Maintenu pour compatibilité
         blacklistAccountsNotes: blacklistAccounts.notes || "",
-        blacklistEmailsFileUrl: blacklistEmails.fileUrl || "",
+        blacklistEmailsFileUrls, // Nouveau champ pour multiples fichiers
+        blacklistEmailsFileUrl: blacklistEmails.fileUrl || "", // Maintenu pour compatibilité
         blacklistEmailsNotes: blacklistEmails.notes || "",
       };
     }
-    return defaultValues;
+    
+    // Valeurs par défaut avec tableaux vides pour les nouveaux champs
+    return {
+      ...defaultValues,
+      blacklistAccountsFileUrls: [], // Nouveau champ initialisé
+      blacklistEmailsFileUrls: [], // Nouveau champ initialisé
+    };
   };
 
   const form = useForm<FormData>({
@@ -186,12 +209,21 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
             fileUrl = result.fileUrl || null;
           }
         }
-      } else if (field === "blacklistAccountsFileUrl" || field === "blacklistEmailsFileUrl") {
+      } else if (field === "blacklistAccountsFileUrl" || field === "blacklistEmailsFileUrl" || field.startsWith("blacklist")) {
         fileUrl = await uploadBlacklistFile(file);
       }
       
       if (fileUrl) {
-        form.setValue(field as any, fileUrl);
+        // Pour les champs de blacklist multiples, ajouter à la liste existante
+        if (field === "blacklistAccountsFileUrls") {
+          const currentFiles = form.getValues("blacklistAccountsFileUrls") || [];
+          form.setValue("blacklistAccountsFileUrls", [...currentFiles, fileUrl]);
+        } else if (field === "blacklistEmailsFileUrls") {
+          const currentFiles = form.getValues("blacklistEmailsFileUrls") || [];
+          form.setValue("blacklistEmailsFileUrls", [...currentFiles, fileUrl]);
+        } else {
+          form.setValue(field as any, fileUrl);
+        }
         console.log(`Fichier téléversé avec succès pour ${field}: ${fileUrl}`);
       } else {
         console.error(`Échec du téléversement pour ${field}`);
@@ -246,14 +278,19 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
         },
         blacklist: {
           accounts: {
-            fileUrl: data.blacklistAccountsFileUrl || "",
+            fileUrls: data.blacklistAccountsFileUrls || [], // Nouveau champ
+            fileUrl: (data.blacklistAccountsFileUrls && data.blacklistAccountsFileUrls.length > 0) ? data.blacklistAccountsFileUrls[0] : "", // Pour la rétrocompatibilité
             notes: data.blacklistAccountsNotes || ""
           },
           emails: {
-            fileUrl: data.blacklistEmailsFileUrl || "",
+            fileUrls: data.blacklistEmailsFileUrls || [], // Nouveau champ
+            fileUrl: (data.blacklistEmailsFileUrls && data.blacklistEmailsFileUrls.length > 0) ? data.blacklistEmailsFileUrls[0] : "", // Pour la rétrocompatibilité
             notes: data.blacklistEmailsNotes || ""
           }
         },
+        // Passer les nouveaux champs pour le service
+        blacklistAccountsFileUrls: data.blacklistAccountsFileUrls || [],
+        blacklistEmailsFileUrls: data.blacklistEmailsFileUrls || [],
         dueDate: data.dueDate // Keep as string
       };
       
