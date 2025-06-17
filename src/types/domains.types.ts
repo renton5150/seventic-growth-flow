@@ -2,7 +2,7 @@
 export interface Domain {
   id: string;
   domain_name: string;
-  mission_id: string;
+  mission_id?: string;
   hosting_provider: 'OVH' | 'Gandhi' | 'Ionos';
   login: string;
   password_encrypted: string;
@@ -22,7 +22,7 @@ export interface Domain {
 
 export interface DomainFormData {
   domain_name: string;
-  mission_id: string;
+  mission_id?: string;
   hosting_provider: 'OVH' | 'Gandhi' | 'Ionos';
   login: string;
   password: string;

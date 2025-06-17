@@ -67,7 +67,7 @@ export const DomainForm = ({
     resolver: zodResolver(domainFormSchema),
     defaultValues: domain ? {
       domain_name: domain.domain_name,
-      mission_id: domain.mission_id || "",
+      mission_id: domain.mission_id || undefined,
       hosting_provider: domain.hosting_provider,
       login: domain.login,
       password: getDecryptedDomainPassword(domain.password_encrypted),
@@ -77,6 +77,7 @@ export const DomainForm = ({
     } : {
       status: 'Actif',
       hosting_provider: 'OVH',
+      mission_id: undefined,
     }
   });
 
@@ -110,14 +111,13 @@ export const DomainForm = ({
           <div>
             <Label htmlFor="mission_id">Mission (optionnel)</Label>
             <Select
-              value={watch("mission_id") || ""}
+              value={watch("mission_id") || undefined}
               onValueChange={(value) => setValue("mission_id", value || undefined)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Sélectionner une mission (optionnel)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Aucune mission</SelectItem>
                 {missions?.map((mission) => (
                   <SelectItem key={mission.id} value={mission.id}>
                     {mission.name} - {mission.client}

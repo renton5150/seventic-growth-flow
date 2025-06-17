@@ -50,7 +50,7 @@ export function AcelleAccountForm({
       api_endpoint: account?.api_endpoint || "",
       api_token: account?.api_token || "",
       status: account?.status as "active" | "inactive" || "inactive",
-      mission_id: account?.mission_id || "",
+      mission_id: account?.mission_id || undefined,
       cache_priority: account?.cache_priority || 0,
     },
   });
@@ -156,8 +156,8 @@ export function AcelleAccountForm({
             <FormItem>
               <FormLabel>Mission associée</FormLabel>
               <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
+                onValueChange={(value) => field.onChange(value || undefined)} 
+                defaultValue={field.value || undefined}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -165,7 +165,6 @@ export function AcelleAccountForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">Aucune</SelectItem>
                   {missions.map((mission) => (
                     <SelectItem key={mission.id} value={mission.id}>
                       {mission.name}
