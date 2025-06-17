@@ -46,10 +46,13 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       const accounts = safeBlacklist.accounts || { notes: "", fileUrl: "", fileUrls: [] };
       const emails = safeBlacklist.emails || { notes: "", fileUrl: "", fileUrls: [] };
       
+      // Conversion stricte du tool avec vérification de type
+      const safeTool: "Hubspot" | "Apollo" = (initialData.tool === "Apollo") ? "Apollo" : "Hubspot";
+      
       const formData: DatabaseCreationFormData = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
-        tool: (initialData.tool === "Hubspot" || initialData.tool === "Apollo") ? initialData.tool : "Hubspot",
+        tool: safeTool,
         jobTitles: initialData.targeting?.jobTitles || [],
         industries: initialData.targeting?.industries || [],
         locations: initialData.targeting?.locations || [],
@@ -77,7 +80,10 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
     console.log("Données du formulaire:", data);
 
-    // Préparer les données pour Supabase avec les types corrects
+    // Préparer les données pour Supabase avec conversion des dates en strings ISO
+    const now = new Date();
+    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
     const requestData = {
       title: data.title,
       type: "database",
@@ -85,9 +91,10 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       workflow_status: "pending_assignment",
       created_by: user?.id,
       mission_id: data.missionId,
-      created_at: new Date().toISOString(),
-      last_updated: new Date().toISOString(),
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 jours plus tard
+      created_at: now.toISOString(),
+      last_updated: now.toISOString(),
+      due_date: dueDate.toISOString(),
+      target_role: "growth",
       details: {
         tool: data.tool,
         targeting: {
