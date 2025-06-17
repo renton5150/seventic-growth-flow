@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -440,12 +439,11 @@ export const EmailPlatformAccountForm = ({
               name="domain_hosting_provider"
               control={control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={field.onChange}>
+                <Select value={field.value || ""} onValueChange={(value) => field.onChange(value || undefined)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un hébergeur" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucun</SelectItem>
                     <SelectItem value="OVH">OVH</SelectItem>
                     <SelectItem value="Gandhi">Gandhi</SelectItem>
                     <SelectItem value="Ionos">Ionos</SelectItem>
