@@ -3,7 +3,7 @@ import { Control } from "react-hook-form";
 import { Upload } from "lucide-react";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { FileUploader } from "@/components/requests/FileUploader";
+import { MultiFileUploader } from "./MultiFileUploader";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Tabs,
@@ -39,23 +39,23 @@ export const BlacklistSection = ({
             <h4 className="text-md font-medium mb-2">Comptes</h4>
             <Tabs value={blacklistAccountsTab} onValueChange={setBlacklistAccountsTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="file">Fichier</TabsTrigger>
+                <TabsTrigger value="file">Fichiers</TabsTrigger>
                 <TabsTrigger value="notes">Notes</TabsTrigger>
               </TabsList>
               
               <TabsContent value="file" className="pt-4">
                 <FormField
                   control={control}
-                  name="blacklistAccountsFileUrl"
+                  name="blacklistAccountsFileUrls"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <FileUploader
+                        <MultiFileUploader
                           icon={<Upload className="h-6 w-6 text-muted-foreground" />}
-                          title="Importer votre liste de comptes à exclure"
+                          title="Importer vos listes de comptes à exclure"
                           description="Formats acceptés : XLS, XLSX, CSV"
-                          value={field.value}
-                          onChange={(files) => handleFileUpload("blacklistAccountsFileUrl", files)}
+                          value={field.value || []}
+                          onChange={(files) => handleFileUpload("blacklistAccountsFileUrls", files)}
                           accept=".xls,.xlsx,.csv"
                           maxSize={10}
                         />
@@ -91,23 +91,23 @@ export const BlacklistSection = ({
             <h4 className="text-md font-medium mb-2">Emails</h4>
             <Tabs value={blacklistEmailsTab} onValueChange={setBlacklistEmailsTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="file">Fichier</TabsTrigger>
+                <TabsTrigger value="file">Fichiers</TabsTrigger>
                 <TabsTrigger value="notes">Notes</TabsTrigger>
               </TabsList>
               
               <TabsContent value="file" className="pt-4">
                 <FormField
                   control={control}
-                  name="blacklistEmailsFileUrl"
+                  name="blacklistEmailsFileUrls"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <FileUploader
+                        <MultiFileUploader
                           icon={<Upload className="h-6 w-6 text-muted-foreground" />}
-                          title="Importer votre liste d'emails à exclure"
+                          title="Importer vos listes d'emails à exclure"
                           description="Formats acceptés : XLS, XLSX, CSV"
-                          value={field.value}
-                          onChange={(files) => handleFileUpload("blacklistEmailsFileUrl", files)}
+                          value={field.value || []}
+                          onChange={(files) => handleFileUpload("blacklistEmailsFileUrls", files)}
                           accept=".xls,.xlsx,.csv"
                           maxSize={10}
                         />

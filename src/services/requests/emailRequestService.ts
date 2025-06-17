@@ -13,41 +13,71 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
     // Assurez-vous que tous les objets imbriqués existent
     const template = requestData.template || { content: "", fileUrl: "", webLink: "", subject: "" };
     const database = requestData.database || { notes: "", fileUrl: "", fileUrls: [], webLinks: [] };
+    
+    // Mise à jour pour supporter les nouvelles structures de blacklist avec plusieurs fichiers
     const blacklist = requestData.blacklist || {
-      accounts: { notes: "", fileUrl: "" },
-      emails: { notes: "", fileUrl: "" }
+      accounts: { notes: "", fileUrl: "", fileUrls: [] },
+      emails: { notes: "", fileUrl: "", fileUrls: [] }
     };
     
-    // Gérer la migration et la rétrocompatibilité pour fileUrls
+    // Gérer la migration et la rétrocompatibilité pour fileUrls dans database
     let processedDatabase = { ...database };
     if (database.fileUrls && database.fileUrls.length > 0) {
-      // Si fileUrls est fourni, s'assurer que fileUrl est également défini pour la rétrocompatibilité
       processedDatabase.fileUrls = database.fileUrls;
-      processedDatabase.fileUrl = database.fileUrls[0]; // Premier fichier pour rétrocompatibilité
+      processedDatabase.fileUrl = database.fileUrls[0];
     } else if (database.fileUrl) {
-      // Si seulement fileUrl est fourni, créer fileUrls à partir de ça
       processedDatabase.fileUrls = [database.fileUrl];
       processedDatabase.fileUrl = database.fileUrl;
     } else {
-      // Aucun fichier
       processedDatabase.fileUrls = [];
       processedDatabase.fileUrl = "";
     }
     
-    // Assurez-vous que blacklist.accounts et blacklist.emails existent
-    if (!blacklist.accounts) blacklist.accounts = { notes: "", fileUrl: "" };
-    if (!blacklist.emails) blacklist.emails = { notes: "", fileUrl: "" };
+    // Gérer la migration et la rétrocompatibilité pour fileUrls dans blacklist
+    let processedBlacklist = { ...blacklist };
+    
+    // Pour les comptes
+    if (blacklist.accounts) {
+      if (requestData.blacklistAccountsFileUrls && requestData.blacklistAccountsFileUrls.length > 0) {
+        processedBlacklist.accounts.fileUrls = requestData.blacklistAccountsFileUrls;
+        processedBlacklist.accounts.fileUrl = requestData.blacklistAccountsFileUrls[0]; // Premier fichier pour rétrocompatibilité
+      } else if (blacklist.accounts.fileUrl) {
+        processedBlacklist.accounts.fileUrls = [blacklist.accounts.fileUrl];
+        processedBlacklist.accounts.fileUrl = blacklist.accounts.fileUrl;
+      } else {
+        processedBlacklist.accounts.fileUrls = [];
+        processedBlacklist.accounts.fileUrl = "";
+      }
+      processedBlacklist.accounts.notes = blacklist.accounts.notes || "";
+    } else {
+      processedBlacklist.accounts = { notes: "", fileUrl: "", fileUrls: [] };
+    }
+    
+    // Pour les emails
+    if (blacklist.emails) {
+      if (requestData.blacklistEmailsFileUrls && requestData.blacklistEmailsFileUrls.length > 0) {
+        processedBlacklist.emails.fileUrls = requestData.blacklistEmailsFileUrls;
+        processedBlacklist.emails.fileUrl = requestData.blacklistEmailsFileUrls[0]; // Premier fichier pour rétrocompatibilité
+      } else if (blacklist.emails.fileUrl) {
+        processedBlacklist.emails.fileUrls = [blacklist.emails.fileUrl];
+        processedBlacklist.emails.fileUrl = blacklist.emails.fileUrl;
+      } else {
+        processedBlacklist.emails.fileUrls = [];
+        processedBlacklist.emails.fileUrl = "";
+      }
+      processedBlacklist.emails.notes = blacklist.emails.notes || "";
+    } else {
+      processedBlacklist.emails = { notes: "", fileUrl: "", fileUrls: [] };
+    }
     
     // Convertir correctement la date - elle arrive comme string au format YYYY-MM-DD
     let dueDateISO: string;
     if (typeof requestData.dueDate === 'string') {
-      // Si c'est une string, la convertir en Date puis en ISO
       const dateObj = new Date(requestData.dueDate);
       dueDateISO = dateObj.toISOString();
     } else if (requestData.dueDate instanceof Date) {
       dueDateISO = requestData.dueDate.toISOString();
     } else {
-      // Fallback: utiliser 7 jours à partir d'aujourd'hui
       const fallbackDate = new Date();
       fallbackDate.setDate(fallbackDate.getDate() + 7);
       dueDateISO = fallbackDate.toISOString();
@@ -59,7 +89,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
       mission_id: requestData.missionId,
       created_by: requestData.createdBy,
       created_at: new Date().toISOString(),
-      status: "pending", // Utilisons "pending" au lieu de "en attente" pour correspondre à la contrainte de la base de données
+      status: "pending",
       workflow_status: "pending_assignment",
       target_role: "growth",
       due_date: dueDateISO,
@@ -68,7 +98,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
         emailType: requestData.emailType || "Mass email",
         template: template,
         database: processedDatabase,
-        blacklist: blacklist
+        blacklist: processedBlacklist
       }
     };
     
@@ -105,7 +135,6 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     
     if (updates.title) dbUpdates.title = updates.title;
     if (updates.dueDate) {
-      // Handle string dates properly
       dbUpdates.due_date = typeof updates.dueDate === 'string' 
         ? updates.dueDate 
         : updates.dueDate;
@@ -127,7 +156,6 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     }
 
     // Initialiser l'objet details à partir des données actuelles
-    // Assurez-vous que currentRequest.details est un objet valide
     let currentDetails = {};
     if (typeof currentRequest.details === 'string') {
       try {
@@ -176,7 +204,6 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     if (updates.blacklist) {
       const blacklist = updates.blacklist;
       
-      // Ensure all objects exist and are structured properly
       dbUpdates.details.blacklist = {
         ...dbUpdates.details.blacklist,
         ...(blacklist || {})
