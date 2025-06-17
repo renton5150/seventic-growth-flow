@@ -18,7 +18,7 @@ interface BlacklistSectionProps {
   setBlacklistAccountsTab: (tab: string) => void;
   blacklistEmailsTab: string;
   setBlacklistEmailsTab: (tab: string) => void;
-  handleFileUpload: (field: string, files: FileList | null | string) => void;
+  handleFileUpload: (field: string, files: FileList | null | string | string[]) => void;
 }
 
 export const BlacklistSection = ({ 
@@ -55,7 +55,7 @@ export const BlacklistSection = ({
                           title="Importer vos listes de comptes à exclure"
                           description="Formats acceptés : XLS, XLSX, CSV"
                           value={field.value || []}
-                          onChange={(files) => handleFileUpload("blacklistAccountsFileUrls", files)}
+                          onChange={field.onChange}
                           accept=".xls,.xlsx,.csv"
                           maxSize={10}
                         />
@@ -107,7 +107,7 @@ export const BlacklistSection = ({
                           title="Importer vos listes d'emails à exclure"
                           description="Formats acceptés : XLS, XLSX, CSV"
                           value={field.value || []}
-                          onChange={(files) => handleFileUpload("blacklistEmailsFileUrls", files)}
+                          onChange={field.onChange}
                           accept=".xls,.xlsx,.csv"
                           maxSize={10}
                         />

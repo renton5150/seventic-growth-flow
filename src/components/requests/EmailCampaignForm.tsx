@@ -177,7 +177,19 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     }
   }, [editMode, form]);
 
-  const handleFileUpload = async (field: string, files: FileList | null | string) => {
+  const handleFileUpload = async (field: string, files: FileList | null | string | string[]) => {
+    // Handle array of strings (from MultiFileUploader)
+    if (Array.isArray(files)) {
+      if (field === "blacklistAccountsFileUrls") {
+        const currentFiles = form.getValues("blacklistAccountsFileUrls") || [];
+        form.setValue("blacklistAccountsFileUrls", [...currentFiles, ...files]);
+      } else if (field === "blacklistEmailsFileUrls") {
+        const currentFiles = form.getValues("blacklistEmailsFileUrls") || [];
+        form.setValue("blacklistEmailsFileUrls", [...currentFiles, ...files]);
+      }
+      return;
+    }
+
     if (typeof files === 'string') {
       console.log("URL directe fournie:", files);
       form.setValue(field as any, files);
