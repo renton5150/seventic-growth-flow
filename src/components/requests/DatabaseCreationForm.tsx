@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Form } from "@/components/ui/form";
 import { FormHeader } from "./database-creation/FormHeader";
 import { TargetingSection } from "./database-creation/TargetingSection";
@@ -13,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { DatabaseRequest } from "@/types/types";
-import { databaseCreationSchema } from "./database-creation/schema";
+import { databaseCreationSchema, DatabaseCreationFormData, defaultValues } from "./database-creation/schema";
 
 interface DatabaseCreationFormProps {
   editMode?: boolean;
@@ -28,22 +27,9 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
 
-  const form = useForm<z.infer<typeof databaseCreationSchema>>({
+  const form = useForm<DatabaseCreationFormData>({
     resolver: zodResolver(databaseCreationSchema),
-    defaultValues: {
-      title: "",
-      missionId: "",
-      tool: "Hubspot",
-      jobTitles: [],
-      industries: [],
-      locations: [],
-      companySize: [],
-      otherCriteria: "",
-      blacklistAccountsNotes: "",
-      blacklistEmailsNotes: "",
-      blacklistAccountsFileUrls: [],
-      blacklistEmailsFileUrls: [],
-    },
+    defaultValues,
   });
 
   useEffect(() => {
@@ -60,10 +46,10 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       const accounts = safeBlacklist.accounts || { notes: "", fileUrl: "", fileUrls: [] };
       const emails = safeBlacklist.emails || { notes: "", fileUrl: "", fileUrls: [] };
       
-      const formData = {
+      const formData: DatabaseCreationFormData = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
-        tool: initialData.tool || "Hubspot",
+        tool: (initialData.tool === "Hubspot" || initialData.tool === "Apollo") ? initialData.tool : "Hubspot",
         jobTitles: initialData.targeting?.jobTitles || [],
         industries: initialData.targeting?.industries || [],
         locations: initialData.targeting?.locations || [],
@@ -87,18 +73,21 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     }
   };
 
-  const onSubmit = async (data: z.infer<typeof databaseCreationSchema>) => {
+  const onSubmit = async (data: DatabaseCreationFormData) => {
     setSubmitting(true);
     console.log("Données du formulaire:", data);
 
+    // Préparer les données pour Supabase avec les types corrects
     const requestData = {
-      ...data,
+      title: data.title,
       type: "database",
       status: "pending",
+      workflow_status: "pending_assignment",
       created_by: user?.id,
-      created_at: new Date(),
-      last_updated: new Date(),
-      due_date: new Date(),
+      mission_id: data.missionId,
+      created_at: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
+      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 jours plus tard
       details: {
         tool: data.tool,
         targeting: {
@@ -126,7 +115,12 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         // Update existing request
         const { error } = await supabase
           .from("requests")
-          .update(requestData)
+          .update({
+            title: requestData.title,
+            details: requestData.details,
+            last_updated: requestData.last_updated,
+            mission_id: requestData.mission_id,
+          })
           .eq("id", initialData.id);
 
         if (error) {
