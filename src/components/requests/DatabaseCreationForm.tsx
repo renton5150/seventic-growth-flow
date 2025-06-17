@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,7 +33,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
 
   useEffect(() => {
     if (editMode && initialData) {
-      console.log("Mode édition - données initiales:", initialData);
+      console.log("DatabaseCreationForm - Mode édition - données initiales:", initialData);
       
       // Gérer le blacklist avec des valeurs par défaut sûres
       const safeBlacklist = initialData.blacklist || {
@@ -48,6 +47,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       
       // Conversion stricte du tool avec vérification de type
       const safeTool: "Hubspot" | "Apollo" = (initialData.tool === "Apollo") ? "Apollo" : "Hubspot";
+      console.log("DatabaseCreationForm - Tool converti:", safeTool);
       
       const formData: DatabaseCreationFormData = {
         title: initialData.title || "",
@@ -64,21 +64,21 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         blacklistEmailsFileUrls: emails.fileUrls || (emails.fileUrl ? [emails.fileUrl] : []),
       };
       
-      console.log("Données du formulaire préparées:", formData);
+      console.log("DatabaseCreationForm - Données du formulaire préparées:", formData);
       form.reset(formData);
     }
   }, [editMode, initialData, form]);
 
   const handleFileUpload = (field: string, files: FileList | null | string) => {
     if (files) {
-      console.log(`Fichiers sélectionnés pour ${field}:`, files);
+      console.log(`DatabaseCreationForm - Fichiers sélectionnés pour ${field}:`, files);
       // Handle file upload logic here
     }
   };
 
   const onSubmit = async (data: DatabaseCreationFormData) => {
     setSubmitting(true);
-    console.log("Données du formulaire:", data);
+    console.log("DatabaseCreationForm - Données du formulaire:", data);
 
     // Préparer les données pour Supabase avec conversion des dates en strings ISO
     const now = new Date();
@@ -131,7 +131,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
           .eq("id", initialData.id);
 
         if (error) {
-          console.error("Erreur lors de la mise à jour de la demande:", error);
+          console.error("DatabaseCreationForm - Erreur lors de la mise à jour de la demande:", error);
           toast.error("Erreur lors de la mise à jour de la demande");
         } else {
           toast.success("Demande mise à jour avec succès!");
@@ -146,7 +146,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         const { error } = await supabase.from("requests").insert([requestData]);
 
         if (error) {
-          console.error("Erreur lors de la création de la demande:", error);
+          console.error("DatabaseCreationForm - Erreur lors de la création de la demande:", error);
           toast.error("Erreur lors de la création de la demande");
         } else {
           toast.success("Demande créée avec succès!");
@@ -158,7 +158,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         }
       }
     } catch (error) {
-      console.error("Erreur inattendue:", error);
+      console.error("DatabaseCreationForm - Erreur inattendue:", error);
       toast.error("Erreur inattendue");
     } finally {
       setSubmitting(false);

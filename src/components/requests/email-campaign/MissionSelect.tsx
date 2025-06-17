@@ -31,7 +31,7 @@ export function MissionSelect() {
     const fetchMissions = async () => {
       setLoading(true);
       try {
-        console.log("MissionSelect - ULTRA SIMPLE - Chargement pour:", user?.role);
+        console.log("MissionSelect - Chargement pour:", user?.role);
         
         let query = supabase
           .from('missions')
@@ -56,7 +56,10 @@ export function MissionSelect() {
         console.log(`MissionSelect - ${missionsData.length} missions récupérées:`, missionsData);
         
         // Filtrer les missions qui ont un ID valide (non vide)
-        const validMissions = missionsData.filter(mission => mission.id && mission.id.trim() !== '');
+        const validMissions = missionsData.filter(mission => 
+          mission.id && mission.id.trim() !== ''
+        );
+        console.log(`MissionSelect - ${validMissions.length} missions valides après filtrage:`, validMissions);
         setMissions(validMissions);
       } catch (error) {
         console.error("MissionSelect - Exception:", error);
@@ -101,17 +104,29 @@ export function MissionSelect() {
         </Label>
       </div>
       
-      <Select onValueChange={handleMissionChange} value={selectedMissionId || ""} disabled={loading || missions.length === 0}>
+      <Select 
+        onValueChange={handleMissionChange} 
+        value={selectedMissionId || undefined} 
+        disabled={loading || missions.length === 0}
+      >
         <SelectTrigger className="w-full h-10">
           <SelectValue placeholder={getPlaceholderText()} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {missions.length > 0 && missions.map((mission) => (
-              <SelectItem key={mission.id} value={mission.id}>
-                {getMissionDisplayName(mission)}
-              </SelectItem>
-            ))}
+            {missions.length > 0 && missions.map((mission) => {
+              console.log(`MissionSelect - Rendu mission: ${mission.id} - ${getMissionDisplayName(mission)}`);
+              // S'assurer que l'ID n'est pas vide avant de créer le SelectItem
+              if (!mission.id || mission.id.trim() === '') {
+                console.warn("MissionSelect - Mission avec ID vide ignorée:", mission);
+                return null;
+              }
+              return (
+                <SelectItem key={mission.id} value={mission.id}>
+                  {getMissionDisplayName(mission)}
+                </SelectItem>
+              );
+            })}
           </SelectGroup>
         </SelectContent>
       </Select>
