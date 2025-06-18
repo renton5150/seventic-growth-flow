@@ -17,33 +17,29 @@ export const ensureAllBucketsExist = async (): Promise<boolean> => {
     
     if (listError) {
       console.error("Erreur lors de la récupération des buckets:", listError);
-      console.error("Message d'erreur:", listError.message);
       toast.error("Erreur lors de la vérification du stockage");
       return false;
     }
     
-    let allBucketsExist = true;
+    console.log("Buckets disponibles:", buckets?.map(b => b.name));
     
     // Vérifier que chaque bucket requis existe
     for (const bucketName of REQUIRED_BUCKETS) {
       const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
       
       if (bucketExists) {
-        console.log(`Le bucket '${bucketName}' existe`);
+        console.log(`✓ Le bucket '${bucketName}' existe`);
       } else {
-        console.error(`Le bucket '${bucketName}' n'existe pas`);
-        toast.error(`Le bucket de stockage '${bucketName}' n'existe pas`);
-        allBucketsExist = false;
+        console.error(`✗ Le bucket '${bucketName}' n'existe pas`);
+        toast.error(`Le bucket de stockage '${bucketName}' n'existe pas. Contactez l'administrateur.`);
+        return false;
       }
     }
     
-    if (allBucketsExist) {
-      console.log("Tous les buckets requis sont disponibles");
-    }
-    
-    return allBucketsExist;
+    console.log("✓ Tous les buckets requis sont disponibles");
+    return true;
   } catch (error) {
-    console.error("Erreur inattendue:", error);
+    console.error("Erreur inattendue lors de la vérification des buckets:", error);
     toast.error("Erreur lors de la vérification du stockage");
     return false;
   }
@@ -57,15 +53,14 @@ export const ensureBucketIsPublic = async (bucketName: string): Promise<boolean>
     
     if (getBucketError) {
       console.error("Erreur lors de la récupération des détails du bucket:", getBucketError);
-      console.error("Message d'erreur:", getBucketError.message);
       return false;
     }
     
     if (bucketDetails.public) {
-      console.log(`Le bucket ${bucketName} est public et accessible`);
+      console.log(`✓ Le bucket ${bucketName} est public et accessible`);
       return true;
     } else {
-      console.warn(`Le bucket ${bucketName} n'est pas public`);
+      console.warn(`⚠ Le bucket ${bucketName} n'est pas public`);
       return false;
     }
   } catch (error) {
