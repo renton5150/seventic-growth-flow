@@ -22,13 +22,57 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
     otherCriteria: ""
   };
   const blacklist = request.blacklist || request.details?.blacklist || {
-    accounts: { notes: "", fileUrl: "" },
-    emails: { notes: "", fileUrl: "" }
+    accounts: { notes: "", fileUrl: "", fileUrls: [] },
+    emails: { notes: "", fileUrl: "", fileUrls: [] }
   };
   const contactsCreated = request.contactsCreated || request.details?.contactsCreated || 0;
   const resultFileUrl = request.resultFileUrl || request.details?.resultFileUrl;
 
   console.log("Propriétés extraites:", { tool, targeting, blacklist, contactsCreated, resultFileUrl });
+
+  // Fonction pour extraire un nom de fichier significatif à partir de l'URL
+  const getFileName = (url: string): string => {
+    if (!url) return "fichier.csv";
+    
+    try {
+      const segments = url.split('/');
+      const fileName = segments[segments.length - 1];
+      const decodedFileName = decodeURIComponent(fileName);
+      
+      if (/^\d+_/.test(decodedFileName)) {
+        const namePart = decodedFileName.split('_').slice(1).join('_');
+        if (namePart) {
+          return namePart;
+        }
+      }
+      
+      return decodedFileName;
+    } catch (e) {
+      console.error("Erreur lors de l'extraction du nom de fichier:", e);
+      return "fichier.csv";
+    }
+  };
+
+  // Fonction pour récupérer tous les fichiers (nouveau format et ancien pour rétrocompatibilité)
+  const getAllFiles = (item: any): string[] => {
+    const files: string[] = [];
+    
+    // Nouveau format avec fileUrls
+    if (item?.fileUrls && Array.isArray(item.fileUrls) && item.fileUrls.length > 0) {
+      files.push(...item.fileUrls);
+    }
+    
+    // Ancien format avec fileUrl (pour rétrocompatibilité)
+    if (item?.fileUrl && !files.includes(item.fileUrl)) {
+      files.push(item.fileUrl);
+    }
+    
+    return files.filter(Boolean);
+  };
+
+  // Récupérer les fichiers de blacklist
+  const accountFiles = getAllFiles(blacklist.accounts);
+  const emailFiles = getAllFiles(blacklist.emails);
 
   return (
     <>
@@ -134,26 +178,17 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
               <div className="mb-4">
                 <h4 className="font-semibold text-sm">Comptes exclus</h4>
                 <p className="mb-2">{blacklist.accounts.notes || "Aucune note"}</p>
-                {blacklist.accounts.fileUrl && (
-                  <DownloadFileButton
-                    fileUrl={blacklist.accounts.fileUrl}
-                    fileName="blacklist-accounts.xlsx"
-                    label="Télécharger la liste de comptes exclus"
-                  />
-                )}
-              </div>
-            )}
-            
-            {blacklist.contacts && (
-              <div className="mb-4">
-                <h4 className="font-semibold text-sm">Contacts exclus</h4>
-                <p className="mb-2">{blacklist.contacts.notes || "Aucune note"}</p>
-                {blacklist.contacts.fileUrl && (
-                  <DownloadFileButton
-                    fileUrl={blacklist.contacts.fileUrl}
-                    fileName="blacklist-contacts.xlsx"
-                    label="Télécharger la liste de contacts exclus"
-                  />
+                {accountFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {accountFiles.map((fileUrl, index) => (
+                      <DownloadFileButton
+                        key={index}
+                        fileUrl={fileUrl}
+                        fileName={getFileName(fileUrl)}
+                        label={`Télécharger ${getFileName(fileUrl)}`}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             )}
@@ -162,12 +197,17 @@ export const DatabaseDetails = ({ request }: DatabaseDetailsProps) => {
               <div>
                 <h4 className="font-semibold text-sm">Emails exclus</h4>
                 <p className="mb-2">{blacklist.emails.notes || "Aucune note"}</p>
-                {blacklist.emails.fileUrl && (
-                  <DownloadFileButton
-                    fileUrl={blacklist.emails.fileUrl}
-                    fileName="blacklist-emails.xlsx"
-                    label="Télécharger la liste d'emails exclus"
-                  />
+                {emailFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {emailFiles.map((fileUrl, index) => (
+                      <DownloadFileButton
+                        key={index}
+                        fileUrl={fileUrl}
+                        fileName={getFileName(fileUrl)}
+                        label={`Télécharger ${getFileName(fileUrl)}`}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             )}
