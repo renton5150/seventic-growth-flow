@@ -24,43 +24,34 @@ export const ensureAllBucketsExist = async (): Promise<boolean> => {
     
     let allBucketsExist = true;
     
-    // Vérifier et créer chaque bucket si nécessaire
+    // Vérifier que chaque bucket requis existe
     for (const bucketName of REQUIRED_BUCKETS) {
       const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
       
       if (bucketExists) {
-        console.log(`Le bucket '${bucketName}' existe déjà`);
-        await ensureBucketIsPublic(bucketName);
+        console.log(`Le bucket '${bucketName}' existe`);
       } else {
-        console.log(`Le bucket '${bucketName}' n'existe pas. Création en cours...`);
-        
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 52428800, // 50 Mo en octets
-        });
-        
-        if (createError) {
-          console.error(`Erreur lors de la création du bucket ${bucketName}:`, createError);
-          console.error("Message d'erreur:", createError.message);
-          toast.error(`Impossible de créer l'espace de stockage ${bucketName}`);
-          allBucketsExist = false;
-        } else {
-          console.log(`Bucket '${bucketName}' créé avec succès`);
-        }
+        console.error(`Le bucket '${bucketName}' n'existe pas`);
+        toast.error(`Le bucket de stockage '${bucketName}' n'existe pas`);
+        allBucketsExist = false;
       }
+    }
+    
+    if (allBucketsExist) {
+      console.log("Tous les buckets requis sont disponibles");
     }
     
     return allBucketsExist;
   } catch (error) {
     console.error("Erreur inattendue:", error);
-    toast.error("Erreur lors de la configuration du stockage");
+    toast.error("Erreur lors de la vérification du stockage");
     return false;
   }
 };
 
 export const ensureBucketIsPublic = async (bucketName: string): Promise<boolean> => {
   try {
-    console.log(`Vérification que le bucket ${bucketName} est public...`);
+    console.log(`Vérification que le bucket ${bucketName} est accessible...`);
     
     const { data: bucketDetails, error: getBucketError } = await supabase.storage.getBucket(bucketName);
     
@@ -70,26 +61,13 @@ export const ensureBucketIsPublic = async (bucketName: string): Promise<boolean>
       return false;
     }
     
-    if (!bucketDetails.public) {
-      console.log(`Le bucket ${bucketName} n'est pas public, tentative de le rendre public...`);
-      
-      const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
-        public: true,
-        fileSizeLimit: 52428800 // 50 Mo
-      });
-      
-      if (updateError) {
-        console.error("Erreur lors de la mise à jour du bucket:", updateError);
-        console.error("Message d'erreur:", updateError.message);
-        return false;
-      }
-      
-      console.log(`Bucket ${bucketName} rendu public avec succès`);
+    if (bucketDetails.public) {
+      console.log(`Le bucket ${bucketName} est public et accessible`);
+      return true;
     } else {
-      console.log(`Le bucket ${bucketName} est déjà public`);
+      console.warn(`Le bucket ${bucketName} n'est pas public`);
+      return false;
     }
-    
-    return true;
   } catch (error) {
     console.error("Erreur inattendue:", error);
     return false;
