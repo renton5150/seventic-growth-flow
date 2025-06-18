@@ -18,8 +18,8 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log("Traitement du callback d'authentification");
-        console.log("URL complète:", window.location.href);
+        console.log("🔄 Traitement du callback d'authentification");
+        console.log("📍 URL complète:", window.location.href);
         
         // Extraire les paramètres de l'URL
         const type = searchParams.get("type");
@@ -29,11 +29,12 @@ const AuthCallback = () => {
         
         if (emailParam) {
           setEmail(emailParam);
+          console.log("📧 Email extrait:", emailParam);
         }
         
         // Vérifier s'il y a une erreur dans l'URL
         if (error) {
-          console.error("Erreur dans l'URL:", error, errorDescription);
+          console.error("❌ Erreur dans l'URL:", error, errorDescription);
           setStatus("error");
           setMessage(errorDescription || error);
           return;
@@ -41,63 +42,80 @@ const AuthCallback = () => {
         
         // Récupérer le hash qui peut contenir les tokens
         const hash = window.location.hash;
-        console.log("Hash détecté:", hash);
+        console.log("🔗 Hash détecté:", hash);
         
+        // Gérer les tokens dans le hash
         if (hash && hash.length > 1) {
-          // Vérifier si le hash contient un access_token
-          if (hash.includes('access_token=')) {
-            const hashParams = new URLSearchParams(hash.substring(1));
-            const accessToken = hashParams.get('access_token');
-            const refreshToken = hashParams.get('refresh_token') || '';
-            
-            if (accessToken) {
-              console.log("Token d'accès trouvé, configuration de la session");
+          const hashParams = new URLSearchParams(hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token') || '';
+          const tokenType = hashParams.get('type');
+          
+          console.log("🔑 Tokens trouvés:", { 
+            hasAccessToken: !!accessToken, 
+            hasRefreshToken: !!refreshToken,
+            tokenType 
+          });
+          
+          if (accessToken) {
+            try {
+              console.log("⚡ Configuration de la session avec les tokens...");
               
-              try {
-                const { data, error: sessionError } = await supabase.auth.setSession({
-                  access_token: accessToken,
-                  refresh_token: refreshToken
-                });
-                
-                if (sessionError) {
-                  console.error("Erreur lors de la configuration de la session:", sessionError);
-                  setStatus("error");
-                  setMessage("Le lien d'authentification est invalide ou a expiré.");
-                  return;
-                }
-                
-                console.log("Session configurée avec succès");
-                setStatus("success");
-                
-                if (type === "invite") {
-                  setMessage("Compte activé avec succès ! Vous allez être redirigé vers la page de définition du mot de passe.");
-                  // Rediriger vers la page de réinitialisation pour définir le mot de passe
-                  setTimeout(() => {
-                    navigate(`/reset-password?type=invite&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
-                  }, 2000);
-                } else {
-                  setMessage("Authentification réussie ! Vous allez être redirigé vers la page de réinitialisation du mot de passe.");
-                  setTimeout(() => {
-                    navigate(`/reset-password?type=recovery&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
-                  }, 2000);
-                }
-                
-                return;
-              } catch (err) {
-                console.error("Exception lors de la configuration de la session:", err);
+              const { data, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+              });
+              
+              if (sessionError) {
+                console.error("❌ Erreur lors de la configuration de la session:", sessionError);
                 setStatus("error");
-                setMessage("Une erreur s'est produite lors de l'authentification.");
+                setMessage("Le lien d'authentification est invalide ou a expiré.");
                 return;
               }
+              
+              console.log("✅ Session configurée avec succès");
+              setStatus("success");
+              
+              // Déterminer la redirection selon le type
+              if (type === "invite" || tokenType === "invite") {
+                console.log("🎉 Invitation acceptée - redirection vers reset password");
+                setMessage("Compte activé avec succès ! Vous allez être redirigé vers la page de définition du mot de passe.");
+                setTimeout(() => {
+                  navigate(`/reset-password?type=invite&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
+                }, 2000);
+              } else {
+                console.log("🔄 Récupération de mot de passe - redirection");
+                setMessage("Authentification réussie ! Vous allez être redirigé vers la page de réinitialisation du mot de passe.");
+                setTimeout(() => {
+                  navigate(`/reset-password?type=recovery&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
+                }, 2000);
+              }
+              
+              return;
+            } catch (err) {
+              console.error("💥 Exception lors de la configuration de la session:", err);
+              setStatus("error");
+              setMessage("Une erreur s'est produite lors de l'authentification.");
+              return;
             }
+          } else {
+            console.warn("⚠️ Hash présent mais pas de token d'accès");
           }
         }
         
-        // Si aucun token trouvé, vérifier s'il y a une session existante
-        const { data: { session } } = await supabase.auth.getSession();
+        // Vérifier s'il y a une session existante
+        console.log("🔍 Vérification de session existante...");
+        const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
+        
+        if (getSessionError) {
+          console.error("❌ Erreur lors de la récupération de session:", getSessionError);
+          setStatus("error");
+          setMessage("Erreur lors de la vérification de votre session.");
+          return;
+        }
         
         if (session) {
-          console.log("Session existante trouvée");
+          console.log("✅ Session existante trouvée");
           setStatus("success");
           setMessage("Session active détectée. Redirection en cours...");
           
@@ -109,19 +127,22 @@ const AuthCallback = () => {
             }
           }, 1500);
         } else {
-          console.warn("Aucun token ni session trouvé");
+          console.warn("⚠️ Aucun token ni session trouvé");
           setStatus("error");
           setMessage("Le lien d'authentification est invalide ou a expiré. Veuillez demander un nouveau lien.");
         }
         
       } catch (error) {
-        console.error("Erreur lors du traitement du callback:", error);
+        console.error("💥 Erreur lors du traitement du callback:", error);
         setStatus("error");
         setMessage("Une erreur inattendue s'est produite lors de l'authentification.");
       }
     };
     
-    handleAuthCallback();
+    // Délai pour laisser le temps à l'URL de se charger complètement
+    const timeoutId = setTimeout(handleAuthCallback, 100);
+    
+    return () => clearTimeout(timeoutId);
   }, [searchParams, navigate]);
 
   const handleRequestNewLink = async () => {

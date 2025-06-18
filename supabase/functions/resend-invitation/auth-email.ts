@@ -12,14 +12,14 @@ export async function sendResetLink(
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
   
   try {
-    // Utiliser une URL de redirection simplifiée pointant vers /reset-password
+    // Utiliser l'URL de redirection avec /auth-callback
     const origin = new URL(redirectUrl).origin;
-    const simpleRedirectUrl = `${origin}/reset-password?type=recovery&email=${encodeURIComponent(email)}`;
+    const callbackRedirectUrl = `${origin}/auth-callback?type=recovery&email=${encodeURIComponent(email)}`;
     
-    console.log("URL de redirection pour reset:", simpleRedirectUrl);
+    console.log("URL de redirection pour reset:", callbackRedirectUrl);
     
     const options: any = {
-      emailRedirectTo: simpleRedirectUrl,
+      emailRedirectTo: callbackRedirectUrl,
       data: {
         role: profile.role,
         name: profile.name
@@ -81,10 +81,10 @@ export async function sendResetLink(
       recommendedSenderEmail: "laura.decoster@7tic.fr",
       expireInDays: options.expireIn / 86400,
       debug: {
-        emailSettings,
+        emailSettings: { email, options },
         responseData: resetResult.data,
         smtpDetails: emailConfig.smtpDetails || "Non disponible",
-        finalRedirectUrl: simpleRedirectUrl
+        finalRedirectUrl: callbackRedirectUrl
       }
     }), {
       status: 200,
@@ -114,14 +114,14 @@ export async function sendInvitationLink(
   console.log("Nouvel utilisateur, envoi d'une invitation");
   
   try {
-    // Utiliser une URL de redirection simplifiée pointant vers /reset-password pour les invitations
+    // Utiliser l'URL de redirection avec /auth-callback
     const origin = new URL(redirectUrl).origin;
-    const simpleRedirectUrl = `${origin}/reset-password?type=invite&email=${encodeURIComponent(email)}`;
+    const callbackRedirectUrl = `${origin}/auth-callback?type=invite&email=${encodeURIComponent(email)}`;
     
-    console.log("URL de redirection pour invitation:", simpleRedirectUrl);
+    console.log("URL de redirection pour invitation:", callbackRedirectUrl);
     
     const options: any = {
-      emailRedirectTo: simpleRedirectUrl,
+      emailRedirectTo: callbackRedirectUrl,
       data: {
         role: profile.role,
         name: profile.name
@@ -209,10 +209,10 @@ export async function sendInvitationLink(
       recommendedSenderEmail: "laura.decoster@7tic.fr",
       expireInDays: options.expireIn / 86400,
       debug: {
-        emailSettings,
+        emailSettings: { email, options },
         responseData: inviteResult?.data,
         smtpDetails: emailConfig.smtpDetails || "Non disponible",
-        finalRedirectUrl: simpleRedirectUrl
+        finalRedirectUrl: callbackRedirectUrl
       }
     }), {
       status: 200,
