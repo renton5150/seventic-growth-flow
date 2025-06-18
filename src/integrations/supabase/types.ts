@@ -763,43 +763,58 @@ export type Database = {
         Row: {
           client: string
           created_at: string
+          criteres_qualification: string | null
           description: string | null
           end_date: string | null
           growth_id: string | null
           id: string
+          interlocuteurs_cibles: string | null
+          login_connexion: string | null
           name: string
+          objectif_mensuel_rdv: string | null
           sdr_id: string | null
           start_date: string | null
           status: string
           type: string | null
+          types_prestation: Json | null
           updated_at: string
         }
         Insert: {
           client: string
           created_at?: string
+          criteres_qualification?: string | null
           description?: string | null
           end_date?: string | null
           growth_id?: string | null
           id?: string
+          interlocuteurs_cibles?: string | null
+          login_connexion?: string | null
           name: string
+          objectif_mensuel_rdv?: string | null
           sdr_id?: string | null
           start_date?: string | null
           status?: string
           type?: string | null
+          types_prestation?: Json | null
           updated_at?: string
         }
         Update: {
           client?: string
           created_at?: string
+          criteres_qualification?: string | null
           description?: string | null
           end_date?: string | null
           growth_id?: string | null
           id?: string
+          interlocuteurs_cibles?: string | null
+          login_connexion?: string | null
           name?: string
+          objectif_mensuel_rdv?: string | null
           sdr_id?: string | null
           start_date?: string | null
           status?: string
           type?: string | null
+          types_prestation?: Json | null
           updated_at?: string
         }
         Relationships: [

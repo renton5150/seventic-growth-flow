@@ -16,6 +16,11 @@ export const updateSupaMission = async (mission: {
   endDate: Date | null;
   type: MissionType | string;
   status?: "En cours" | "Fin";
+  objectifMensuelRdv?: string;
+  typesPrestation?: string[];
+  criteresQualification?: string;
+  interlocuteursCibles?: string;
+  loginConnexion?: string;
 }): Promise<Mission> => {
   console.log("updateSupaMission reçoit:", mission);
   console.log("Status à mettre à jour:", mission.status);
@@ -52,12 +57,24 @@ export const updateSupaMission = async (mission: {
     end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
     type: mission.type || "Full",
     status: mission.status || "En cours",
-    client: mission.name // Utilise le nom comme valeur pour client (requis par le schéma)
+    client: mission.name, // Utilise le nom comme valeur pour client (requis par le schéma)
+    objectif_mensuel_rdv: mission.objectifMensuelRdv || null,
+    types_prestation: mission.typesPrestation ? JSON.stringify(mission.typesPrestation) : '[]',
+    criteres_qualification: mission.criteresQualification || null,
+    interlocuteurs_cibles: mission.interlocuteursCibles || null,
+    login_connexion: mission.loginConnexion || null
   };
   
   console.log("Données formatées pour mise à jour Supabase:", supabaseData);
   console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);
   console.log("Status qui sera mis à jour:", supabaseData.status);
+  console.log("Nouveaux champs qui seront mis à jour:", {
+    objectif_mensuel_rdv: supabaseData.objectif_mensuel_rdv,
+    types_prestation: supabaseData.types_prestation,
+    criteres_qualification: supabaseData.criteres_qualification,
+    interlocuteurs_cibles: supabaseData.interlocuteurs_cibles,
+    login_connexion: supabaseData.login_connexion
+  });
   
   const { data, error } = await supabase
     .from("missions")
@@ -82,6 +99,13 @@ export const updateSupaMission = async (mission: {
   
   console.log("Réponse de Supabase après mise à jour:", data);
   console.log("Status retourné après mise à jour:", data.status);
+  console.log("Nouveaux champs retournés après mise à jour:", {
+    objectif_mensuel_rdv: data.objectif_mensuel_rdv,
+    types_prestation: data.types_prestation,
+    criteres_qualification: data.criteres_qualification,
+    interlocuteurs_cibles: data.interlocuteurs_cibles,
+    login_connexion: data.login_connexion
+  });
   
   // Verify sdr_id was properly saved
   if (!data.sdr_id) {

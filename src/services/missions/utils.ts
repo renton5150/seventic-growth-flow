@@ -119,7 +119,12 @@ export const createSupaMission = async (missionData: any) => {
       end_date: missionData.endDate ? new Date(missionData.endDate).toISOString() : null,
       type: missionData.type || "Full",
       client: missionData.client || missionData.name, // Use name as client if not provided
-      status: missionData.status || "En cours"
+      status: missionData.status || "En cours",
+      objectif_mensuel_rdv: missionData.objectifMensuelRdv || null,
+      types_prestation: missionData.typesPrestation ? JSON.stringify(missionData.typesPrestation) : '[]',
+      criteres_qualification: missionData.criteresQualification || null,
+      interlocuteurs_cibles: missionData.interlocuteursCibles || null,
+      login_connexion: missionData.loginConnexion || null
     };
     
     console.log("Formatted data for Supabase insertion:", supabaseMissionData);
@@ -159,7 +164,12 @@ export const updateSupaMission = async (missionData: any) => {
       start_date: missionData.startDate ? new Date(missionData.startDate).toISOString() : null,
       end_date: missionData.endDate ? new Date(missionData.endDate).toISOString() : null,
       type: missionData.type || "Full",
-      status: missionData.status || "En cours"
+      status: missionData.status || "En cours",
+      objectif_mensuel_rdv: missionData.objectifMensuelRdv || null,
+      types_prestation: missionData.typesPrestation ? JSON.stringify(missionData.typesPrestation) : '[]',
+      criteres_qualification: missionData.criteresQualification || null,
+      interlocuteurs_cibles: missionData.interlocuteursCibles || null,
+      login_connexion: missionData.loginConnexion || null
     };
     
     const { data, error } = await supabase
@@ -227,6 +237,21 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
   
   console.log(`[mapSupaMissionToMission] FINAL name chosen: "${displayName}"`);
 
+  // Parse typesPrestation from jsonb to array
+  let typesPrestation: string[] = [];
+  if (mission.types_prestation) {
+    try {
+      if (typeof mission.types_prestation === 'string') {
+        typesPrestation = JSON.parse(mission.types_prestation);
+      } else if (Array.isArray(mission.types_prestation)) {
+        typesPrestation = mission.types_prestation;
+      }
+    } catch (error) {
+      console.error("Erreur lors du parsing de types_prestation:", error);
+      typesPrestation = [];
+    }
+  }
+
   return {
     id: mission.id,
     name: displayName,
@@ -239,6 +264,11 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
     type: (mission.type as MissionType) || 'Full',
     status: mission.status === "Fin" ? "Fin" : "En cours",
     client: displayName, // Using the same standardized name for client to ensure consistency
-    requests: []
+    requests: [],
+    objectifMensuelRdv: mission.objectif_mensuel_rdv || '',
+    typesPrestation: typesPrestation,
+    criteresQualification: mission.criteres_qualification || '',
+    interlocuteursCibles: mission.interlocuteurs_cibles || '',
+    loginConnexion: mission.login_connexion || ''
   };
 };

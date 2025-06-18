@@ -76,9 +76,15 @@ export function EditMissionDialog({
         startDate: values.startDate,
         endDate: values.endDate,
         type: values.type,
-        status: values.status
+        status: values.status,
+        objectifMensuelRdv: values.objectifMensuelRdv || "",
+        typesPrestation: values.typesPrestation || [],
+        criteresQualification: values.criteresQualification || "",
+        interlocuteursCibles: values.interlocuteursCibles || "",
+        loginConnexion: values.loginConnexion || ""
       };
       
+      console.log("Données complètes à envoyer pour mise à jour:", updatedMissionData);
       console.log("Fermeture de la boîte de dialogue avant la mise à jour API");
       setInternalOpen(false);
       onOpenChange(false);
