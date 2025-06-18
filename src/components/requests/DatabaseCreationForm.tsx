@@ -65,11 +65,19 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
           title: initialData.title || "",
           missionId: initialData.missionId || "",
           tool: safeTool,
-          // Conversion des arrays en strings (un élément par ligne)
-          jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join('\n') : (targeting.jobTitles || ""),
-          industries: Array.isArray(targeting.industries) ? targeting.industries.join('\n') : (targeting.industries || ""),
-          locations: Array.isArray(targeting.locations) ? targeting.locations.join('\n') : (targeting.locations || ""),
-          companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join('\n') : (targeting.companySize || ""),
+          // Conversion sécurisée des propriétés de ciblage
+          jobTitles: Array.isArray(targeting.jobTitles) 
+            ? targeting.jobTitles.join('\n') 
+            : (typeof targeting.jobTitles === 'string' ? targeting.jobTitles : ""),
+          industries: Array.isArray(targeting.industries) 
+            ? targeting.industries.join('\n') 
+            : (typeof targeting.industries === 'string' ? targeting.industries : ""),
+          locations: Array.isArray(targeting.locations) 
+            ? targeting.locations.join('\n') 
+            : (typeof targeting.locations === 'string' ? targeting.locations : ""),
+          companySize: Array.isArray(targeting.companySize) 
+            ? targeting.companySize.join('\n') 
+            : (typeof targeting.companySize === 'string' ? targeting.companySize : ""),
           otherCriteria: targeting.otherCriteria || "",
           blacklistAccountsNotes: accounts.notes || "",
           blacklistEmailsNotes: emails.notes || "",
