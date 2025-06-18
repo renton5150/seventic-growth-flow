@@ -58,15 +58,19 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         const safeTool: "Hubspot" | "Apollo" = (initialData.tool === "Apollo") ? "Apollo" : "Hubspot";
         console.log("DatabaseCreationForm - Tool converti:", safeTool);
         
+        // Convertir les arrays en strings pour l'affichage dans les textareas
+        const targeting = initialData.targeting || {};
+        
         const formData: DatabaseCreationFormData = {
           title: initialData.title || "",
           missionId: initialData.missionId || "",
           tool: safeTool,
-          jobTitles: initialData.targeting?.jobTitles || [],
-          industries: initialData.targeting?.industries || [],
-          locations: initialData.targeting?.locations || [],
-          companySize: initialData.targeting?.companySize || [],
-          otherCriteria: initialData.targeting?.otherCriteria || "",
+          // Conversion des arrays en strings (un élément par ligne)
+          jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join('\n') : (targeting.jobTitles || ""),
+          industries: Array.isArray(targeting.industries) ? targeting.industries.join('\n') : (targeting.industries || ""),
+          locations: Array.isArray(targeting.locations) ? targeting.locations.join('\n') : (targeting.locations || ""),
+          companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join('\n') : (targeting.companySize || ""),
+          otherCriteria: targeting.otherCriteria || "",
           blacklistAccountsNotes: accounts.notes || "",
           blacklistEmailsNotes: emails.notes || "",
           blacklistAccountsFileUrls: accounts.fileUrls || (accounts.fileUrl ? [accounts.fileUrl] : []),
@@ -99,6 +103,12 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     const now = new Date();
     const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+    // Fonction utilitaire pour convertir les strings en arrays
+    const stringToArray = (str: string): string[] => {
+      if (!str || str.trim() === "") return [];
+      return str.split('\n').map(item => item.trim()).filter(item => item.length > 0);
+    };
+
     const requestData = {
       title: data.title,
       type: "database",
@@ -113,10 +123,11 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       details: {
         tool: data.tool,
         targeting: {
-          jobTitles: data.jobTitles,
-          industries: data.industries,
-          locations: data.locations,
-          companySize: data.companySize,
+          // Convertir les strings en arrays pour la base de données
+          jobTitles: stringToArray(data.jobTitles),
+          industries: stringToArray(data.industries),
+          locations: stringToArray(data.locations),
+          companySize: stringToArray(data.companySize),
           otherCriteria: data.otherCriteria,
         },
         blacklist: {

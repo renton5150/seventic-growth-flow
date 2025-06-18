@@ -55,7 +55,7 @@ export const BlacklistSection = ({
               <TabsContent value="file">
                 <FormField
                   control={control}
-                  name="blacklistAccountsFileUrl"
+                  name="blacklistAccountsFileUrls"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
@@ -64,7 +64,7 @@ export const BlacklistSection = ({
                           title={uploading ? "Téléchargement en cours..." : "Importer votre fichier d'exclusions"}
                           description="Formats acceptés : XLS, XLSX, CSV (Max 10 Mo)"
                           value={field.value}
-                          onChange={(files) => handleBlacklistFileUpload("blacklistAccountsFileUrl", files)}
+                          onChange={(files) => handleBlacklistFileUpload("blacklistAccountsFileUrls", files)}
                           accept=".xls,.xlsx,.csv"
                           maxSize={10}
                           disabled={uploading}
@@ -110,7 +110,7 @@ export const BlacklistSection = ({
               <TabsContent value="file">
                 <FormField
                   control={control}
-                  name="blacklistContactsFileUrl"
+                  name="blacklistEmailsFileUrls"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
@@ -119,7 +119,7 @@ export const BlacklistSection = ({
                           title={uploading ? "Téléchargement en cours..." : "Importer votre fichier d'exclusions"}
                           description="Formats acceptés : XLS, XLSX, CSV (Max 10 Mo)"
                           value={field.value}
-                          onChange={(files) => handleBlacklistFileUpload("blacklistContactsFileUrl", files)}
+                          onChange={(files) => handleBlacklistFileUpload("blacklistEmailsFileUrls", files)}
                           accept=".xls,.xlsx,.csv"
                           maxSize={10}
                           disabled={uploading}
@@ -134,7 +134,7 @@ export const BlacklistSection = ({
               <TabsContent value="notes">
                 <FormField
                   control={control}
-                  name="blacklistContactsNotes"
+                  name="blacklistEmailsNotes"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
