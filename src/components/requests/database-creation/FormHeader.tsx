@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Control } from "react-hook-form";
+import { Control, useWatch } from "react-hook-form";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -32,6 +32,12 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
   const [missionName, setMissionName] = useState<string>("");
   const [isLoadingMissionName, setIsLoadingMissionName] = useState<boolean>(false);
   
+  // Utiliser useWatch au lieu d'accéder directement à control._formValues
+  const watchedMissionId = useWatch({
+    control,
+    name: "missionId"
+  });
+  
   // Récupérer les missions de l'utilisateur connecté
   const { data: userMissions = [] } = useQuery({
     queryKey: ['missions', user?.id],
@@ -47,54 +53,47 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
       forceRefreshFreshworks();
       // Synchroniser toutes les missions connues
       await syncKnownMissions();
-      
-      loadCurrentMissionName();
     };
     
     initializeData();
   }, []);
   
-  // Chargement du nom de la mission actuelle quand le formulaire est initialisé
-  const loadCurrentMissionName = async () => {
-    try {
-      // @ts-ignore - Accès aux valeurs actuelles du formulaire
-      const currentValues = control._formValues;
+  // Chargement du nom de la mission actuelle quand le missionId change
+  useEffect(() => {
+    const loadMissionName = async () => {
+      if (!watchedMissionId) {
+        setMissionName("");
+        return;
+      }
       
-      if (currentValues && currentValues.missionId) {
-        const missionId = String(currentValues.missionId);
-        console.log(`FormHeader - Chargement du nom pour la mission: ${missionId}`);
-        
-        setIsLoadingMissionName(true);
-        
+      const missionId = String(watchedMissionId);
+      console.log(`FormHeader - Chargement du nom pour la mission: ${missionId}`);
+      
+      setIsLoadingMissionName(true);
+      
+      try {
         // Vérification spéciale pour Freshworks (les DEUX IDs possibles)
         if (isFreshworksId(missionId)) {
           console.log("FormHeader - ID Freshworks détecté, force nom");
           setMissionName("Freshworks");
         } else {
-          try {
-            // Forcer le rafraîchissement pour garantir l'obtention des données à jour
-            const name = await getMissionName(missionId, { forceRefresh: true });
-            console.log(`FormHeader - Nom de mission chargé: "${name}" pour ID: ${missionId}`);
-            setMissionName(name);
-          } catch (err) {
-            console.error("FormHeader - Erreur lors du chargement du nom de mission:", err);
-            setMissionName("Mission non identifiée");
-          }
+          // Forcer le rafraîchissement pour garantir l'obtention des données à jour
+          const name = await getMissionName(missionId, { forceRefresh: true });
+          console.log(`FormHeader - Nom de mission chargé: "${name}" pour ID: ${missionId}`);
+          setMissionName(name);
         }
+      } catch (err) {
+        console.error("FormHeader - Erreur lors du chargement du nom de mission:", err);
+        setMissionName("Mission non identifiée");
+      } finally {
+        setIsLoadingMissionName(false);
       }
-    } catch (err) {
-      console.error("FormHeader - Erreur lors du chargement des valeurs du formulaire:", err);
-    } finally {
-      setIsLoadingMissionName(false);
+    };
+    
+    if (editMode && watchedMissionId) {
+      loadMissionName();
     }
-  };
-  
-  // Observer les changements de valeur pour missionId pour mettre à jour le nom
-  useEffect(() => {
-    if (editMode) {
-      loadCurrentMissionName();
-    }
-  }, [control._formValues?.missionId, editMode]);
+  }, [watchedMissionId, editMode]);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

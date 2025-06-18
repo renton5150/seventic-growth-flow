@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,6 +26,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   const [submitting, setSubmitting] = useState(false);
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const form = useForm<DatabaseCreationFormData>({
     resolver: zodResolver(databaseCreationSchema),
@@ -32,41 +34,46 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   });
 
   useEffect(() => {
-    if (editMode && initialData) {
-      console.log("DatabaseCreationForm - Mode édition - données initiales:", initialData);
-      
-      // Gérer le blacklist avec des valeurs par défaut sûres
-      const safeBlacklist = initialData.blacklist || {
-        accounts: { notes: "", fileUrl: "", fileUrls: [] },
-        emails: { notes: "", fileUrl: "", fileUrls: [] }
-      };
-      
-      // S'assurer que les sous-objets existent
-      const accounts = safeBlacklist.accounts || { notes: "", fileUrl: "", fileUrls: [] };
-      const emails = safeBlacklist.emails || { notes: "", fileUrl: "", fileUrls: [] };
-      
-      // Conversion stricte du tool avec vérification de type
-      const safeTool: "Hubspot" | "Apollo" = (initialData.tool === "Apollo") ? "Apollo" : "Hubspot";
-      console.log("DatabaseCreationForm - Tool converti:", safeTool);
-      
-      const formData: DatabaseCreationFormData = {
-        title: initialData.title || "",
-        missionId: initialData.missionId || "",
-        tool: safeTool,
-        jobTitles: initialData.targeting?.jobTitles || [],
-        industries: initialData.targeting?.industries || [],
-        locations: initialData.targeting?.locations || [],
-        companySize: initialData.targeting?.companySize || [],
-        otherCriteria: initialData.targeting?.otherCriteria || "",
-        blacklistAccountsNotes: accounts.notes || "",
-        blacklistEmailsNotes: emails.notes || "",
-        blacklistAccountsFileUrls: accounts.fileUrls || (accounts.fileUrl ? [accounts.fileUrl] : []),
-        blacklistEmailsFileUrls: emails.fileUrls || (emails.fileUrl ? [emails.fileUrl] : []),
-      };
-      
-      console.log("DatabaseCreationForm - Données du formulaire préparées:", formData);
-      form.reset(formData);
-    }
+    const initializeForm = async () => {
+      if (editMode && initialData) {
+        console.log("DatabaseCreationForm - Mode édition - données initiales:", initialData);
+        
+        // Gérer le blacklist avec des valeurs par défaut sûres
+        const safeBlacklist = initialData.blacklist || {
+          accounts: { notes: "", fileUrl: "", fileUrls: [] },
+          emails: { notes: "", fileUrl: "", fileUrls: [] }
+        };
+        
+        // S'assurer que les sous-objets existent
+        const accounts = safeBlacklist.accounts || { notes: "", fileUrl: "", fileUrls: [] };
+        const emails = safeBlacklist.emails || { notes: "", fileUrl: "", fileUrls: [] };
+        
+        // Conversion stricte du tool avec vérification de type
+        const safeTool: "Hubspot" | "Apollo" = (initialData.tool === "Apollo") ? "Apollo" : "Hubspot";
+        console.log("DatabaseCreationForm - Tool converti:", safeTool);
+        
+        const formData: DatabaseCreationFormData = {
+          title: initialData.title || "",
+          missionId: initialData.missionId || "",
+          tool: safeTool,
+          jobTitles: initialData.targeting?.jobTitles || [],
+          industries: initialData.targeting?.industries || [],
+          locations: initialData.targeting?.locations || [],
+          companySize: initialData.targeting?.companySize || [],
+          otherCriteria: initialData.targeting?.otherCriteria || "",
+          blacklistAccountsNotes: accounts.notes || "",
+          blacklistEmailsNotes: emails.notes || "",
+          blacklistAccountsFileUrls: accounts.fileUrls || (accounts.fileUrl ? [accounts.fileUrl] : []),
+          blacklistEmailsFileUrls: emails.fileUrls || (emails.fileUrl ? [emails.fileUrl] : []),
+        };
+        
+        console.log("DatabaseCreationForm - Données du formulaire préparées:", formData);
+        form.reset(formData);
+      }
+      setIsInitialized(true);
+    };
+
+    initializeForm();
   }, [editMode, initialData, form]);
 
   const handleFileUpload = (field: string, files: FileList | null | string) => {
@@ -164,6 +171,17 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       setSubmitting(false);
     }
   };
+
+  // Afficher un indicateur de chargement pendant l'initialisation
+  if (!isInitialized) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
