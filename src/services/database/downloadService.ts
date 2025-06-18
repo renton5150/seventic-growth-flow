@@ -15,78 +15,64 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
     console.log(`[downloadFile:${requestId}] Tentative de téléchargement: ${fileUrl} avec le nom ${fileName}`);
     
     // Vérifier si c'est un chemin relatif (ancien format)
-    let cleanUrl = fileUrl;
-    let isRelativePath = false;
-    
     if (!fileUrl.startsWith('http') && !fileUrl.startsWith('https://')) {
-      console.log(`[downloadFile:${requestId}] Détection d'un chemin relatif: ${fileUrl}`);
-      isRelativePath = true;
+      console.log(`[downloadFile:${requestId}] Détection d'un chemin relatif ancien format: ${fileUrl}`);
       
-      // Déterminer le bucket approprié en fonction du chemin
-      let bucketName = 'databases'; // bucket par défaut
       let filePath = fileUrl;
       
       // Nettoyer le chemin s'il commence par "uploads/"
       if (filePath.startsWith('uploads/')) {
         filePath = filePath.substring(8); // Supprimer "uploads/"
+        console.log(`[downloadFile:${requestId}] Chemin nettoyé: ${filePath}`);
       }
       
-      // Si le chemin contient "blacklist", utiliser le bucket blacklists
-      if (filePath.toLowerCase().includes('blacklist') || filePath.toLowerCase().includes('audit')) {
-        bucketName = 'blacklists';
-      }
-      
-      console.log(`[downloadFile:${requestId}] Bucket déterminé: ${bucketName}, chemin: ${filePath}`);
+      // Pour les anciens fichiers, essayer d'abord le bucket blacklists
+      console.log(`[downloadFile:${requestId}] Tentative dans le bucket blacklists pour ancien fichier`);
       
       try {
-        // Téléchargement direct depuis le storage Supabase avec le chemin déterminé
         const { data, error } = await supabase.storage
-          .from(bucketName)
+          .from('blacklists')
+          .download(filePath);
+        
+        if (!error && data) {
+          console.log(`[downloadFile:${requestId}] Fichier trouvé dans blacklists`);
+          const blob = new Blob([data]);
+          const downloadUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(downloadUrl);
+          
+          console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis blacklists`);
+          return true;
+        }
+        
+        console.log(`[downloadFile:${requestId}] Fichier non trouvé dans blacklists, essai avec databases`);
+      } catch (err) {
+        console.log(`[downloadFile:${requestId}] Erreur avec blacklists, essai avec databases:`, err);
+      }
+      
+      // Fallback vers le bucket databases
+      try {
+        const { data, error } = await supabase.storage
+          .from('databases')
           .download(filePath);
         
         if (error) {
-          console.error(`[downloadFile:${requestId}] Erreur lors du téléchargement depuis le bucket ${bucketName}:`, error);
-          
-          // Essayer avec le bucket par défaut si échec
-          if (bucketName !== 'databases') {
-            console.log(`[downloadFile:${requestId}] Tentative avec le bucket databases par défaut`);
-            const { data: fallbackData, error: fallbackError } = await supabase.storage
-              .from('databases')
-              .download(filePath);
-              
-            if (fallbackError) {
-              console.error(`[downloadFile:${requestId}] Échec aussi avec le bucket databases:`, fallbackError);
-              toast.error(`Erreur: ${error.message}`);
-              return false;
-            }
-            
-            // Utiliser les données du fallback
-            console.log(`[downloadFile:${requestId}] Succès avec le bucket databases`);
-            const blob = new Blob([fallbackData]);
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(downloadUrl);
-            
-            console.log(`[downloadFile:${requestId}] Téléchargement depuis Supabase réussi pour: ${fileUrl}`);
-            return true;
-          }
-          
-          toast.error(`Erreur: ${error.message}`);
+          console.error(`[downloadFile:${requestId}] Erreur avec databases:`, error);
+          toast.error(`Fichier non trouvé: ${fileName}`);
           return false;
         }
         
         if (!data) {
-          console.error(`[downloadFile:${requestId}] Aucune donnée reçue de Supabase Storage pour: ${fileUrl}`);
+          console.error(`[downloadFile:${requestId}] Aucune donnée reçue`);
           toast.error("Erreur lors du téléchargement: aucune donnée reçue");
           return false;
         }
         
-        // Création d'un blob et téléchargement
         const blob = new Blob([data]);
         const downloadUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -97,7 +83,7 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
         document.body.removeChild(link);
         window.URL.revokeObjectURL(downloadUrl);
         
-        console.log(`[downloadFile:${requestId}] Téléchargement depuis Supabase réussi pour: ${fileUrl}`);
+        console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis databases`);
         return true;
       } catch (supabaseError) {
         console.error(`[downloadFile:${requestId}] Exception lors du téléchargement depuis Supabase:`, supabaseError);
@@ -105,6 +91,9 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
         return false;
       }
     }
+    
+    // Logique existante pour les URLs complètes (nouveaux fichiers) - ne pas toucher
+    let cleanUrl = fileUrl;
     
     // Nettoyer l'URL en supprimant les paramètres de token qui peuvent être expirés
     if (fileUrl.includes('?token=')) {
