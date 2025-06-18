@@ -17,9 +17,11 @@ export function SdrSelector({ control, disabled = false, initialSdrName }: SdrSe
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isGrowth = user?.role === "growth";
+  const isSdr = user?.role === "sdr";
   
-  // Admin et Growth peuvent voir et changer tous les SDRs
-  const canChangeAssignment = isAdmin || isGrowth;
+  // Admin et Growth peuvent toujours changer les assignations
+  // SDR peuvent s'auto-assigner uniquement lors de la création (pas d'initialSdrName)
+  const canChangeAssignment = isAdmin || isGrowth || (isSdr && !initialSdrName);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users-for-missions'],
@@ -65,10 +67,10 @@ export function SdrSelector({ control, disabled = false, initialSdrName }: SdrSe
             onValueChange={field.onChange}
             value={field.value}
             defaultValue={field.value}
-            disabled={disabled || (!canChangeAssignment && !!initialSdrName)}
+            disabled={disabled || !canChangeAssignment}
           >
             <FormControl>
-              <SelectTrigger className={(!canChangeAssignment && !!initialSdrName) ? "bg-gray-100" : ""}>
+              <SelectTrigger className={!canChangeAssignment ? "bg-gray-100" : ""}>
                 <SelectValue placeholder="Sélectionner un utilisateur" />
               </SelectTrigger>
             </FormControl>

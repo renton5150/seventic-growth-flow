@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
@@ -89,9 +88,12 @@ export function MissionForm({
       }
     } else if (defaultStartDate) {
       // Pour une nouvelle mission avec une date par défaut
+      // Si c'est un SDR, le pré-sélectionner automatiquement
+      const defaultSdrId = user?.role === "sdr" ? user.id : "";
+      
       form.reset({
         name: "",
-        sdrId: "",
+        sdrId: defaultSdrId,
         description: "",
         startDate: defaultStartDate,
         endDate: null,
@@ -105,9 +107,27 @@ export function MissionForm({
       });
       setFormInitialized(true);
     } else {
+      // Pour une nouvelle mission sans date par défaut
+      // Si c'est un SDR, le pré-sélectionner automatiquement
+      const defaultSdrId = user?.role === "sdr" ? user.id : "";
+      
+      form.reset({
+        name: "",
+        sdrId: defaultSdrId,
+        description: "",
+        startDate: null,
+        endDate: null,
+        type: "Full",
+        status: "En cours",
+        objectifMensuelRdv: "",
+        typesPrestation: [],
+        criteresQualification: "",
+        interlocuteursCibles: "",
+        loginConnexion: "",
+      });
       setFormInitialized(true);
     }
-  }, [mission, defaultStartDate, form]);
+  }, [mission, defaultStartDate, form, user]);
 
   const startDate = form.watch("startDate");
   const currentStatus = form.watch("status");
