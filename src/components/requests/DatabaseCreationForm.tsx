@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { DatabaseRequest } from "@/types/types";
+import { TargetingOptional } from "@/types/targeting";
 import { databaseCreationSchema, DatabaseCreationFormData, defaultValues } from "./database-creation/schema";
 
 interface DatabaseCreationFormProps {
@@ -59,13 +60,13 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         console.log("DatabaseCreationForm - Tool converti:", safeTool);
         
         // Convertir les arrays en strings pour l'affichage dans les textareas
-        const targeting = initialData.targeting || {};
+        const targeting: TargetingOptional = initialData.targeting || {};
         
         const formData: DatabaseCreationFormData = {
           title: initialData.title || "",
           missionId: initialData.missionId || "",
           tool: safeTool,
-          // Conversion sécurisée des propriétés de ciblage
+          // Conversion sécurisée des propriétés de ciblage avec optional chaining
           jobTitles: Array.isArray(targeting.jobTitles) 
             ? targeting.jobTitles.join('\n') 
             : (typeof targeting.jobTitles === 'string' ? targeting.jobTitles : ""),
