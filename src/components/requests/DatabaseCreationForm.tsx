@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +12,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { DatabaseRequest } from "@/types/types";
 import { TargetingOptional } from "@/types/targeting";
+import { uploadBlacklistFile } from "@/services/database";
 import { databaseCreationSchema, DatabaseCreationFormData, defaultValues } from "./database-creation/schema";
 
 interface DatabaseCreationFormProps {
@@ -97,10 +97,48 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     initializeForm();
   }, [editMode, initialData, form]);
 
-  const handleFileUpload = (field: string, files: FileList | null | string) => {
-    if (files) {
-      console.log(`DatabaseCreationForm - Fichiers sélectionnés pour ${field}:`, files);
-      // Handle file upload logic here
+  const handleFileUpload = async (field: string, files: FileList | null | string) => {
+    if (!files || !user?.id) {
+      console.log("DatabaseCreationForm - Pas de fichiers ou utilisateur non connecté");
+      return;
+    }
+
+    // Si c'est une string (URL existante), on ne fait rien
+    if (typeof files === 'string') {
+      console.log("DatabaseCreationForm - URL de fichier reçue:", files);
+      return;
+    }
+
+    // Si c'est une FileList, on prend le premier fichier
+    const file = files[0];
+    if (!file) {
+      console.log("DatabaseCreationForm - Aucun fichier dans la FileList");
+      return;
+    }
+
+    console.log(`DatabaseCreationForm - Téléchargement du fichier pour ${field}:`, file.name);
+
+    try {
+      // Télécharger le fichier vers Supabase Storage
+      const fileUrl = await uploadBlacklistFile(file);
+      
+      if (fileUrl) {
+        console.log(`DatabaseCreationForm - Fichier téléchargé avec succès: ${fileUrl}`);
+        
+        // Mettre à jour le champ du formulaire avec l'URL du fichier
+        const currentUrls = form.getValues(field as keyof DatabaseCreationFormData) as string[] || [];
+        const newUrls = [...currentUrls, fileUrl];
+        
+        form.setValue(field as keyof DatabaseCreationFormData, newUrls as any);
+        
+        toast.success(`Fichier "${file.name}" téléchargé avec succès`);
+      } else {
+        console.error("DatabaseCreationForm - Échec du téléchargement");
+        toast.error("Erreur lors du téléchargement du fichier");
+      }
+    } catch (error) {
+      console.error("DatabaseCreationForm - Erreur lors du téléchargement:", error);
+      toast.error("Erreur lors du téléchargement du fichier");
     }
   };
 
