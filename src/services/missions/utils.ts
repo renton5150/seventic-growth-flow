@@ -3,122 +3,170 @@ import { supabase } from "@/integrations/supabase/client";
 import { Mission, MissionType, TypePrestation } from "@/types/types";
 import { getMissionName, clearMissionNameCache, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
-// Simple function to check if a mission exists by ID
-export const checkMissionExists = async (missionId: string): Promise<boolean> => {
+// Simple function to check if a mission exists by ID with retry logic
+export const checkMissionExists = async (missionId: string, retries: number = 3): Promise<boolean> => {
   if (!missionId) return false;
   
-  try {
-    const { data, error } = await supabase
-      .from('missions')
-      .select('id')
-      .eq('id', missionId)
-      .single();
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from('missions')
+        .select('id')
+        .eq('id', missionId)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error(`Error checking mission existence (attempt ${attempt}):`, error);
+        if (attempt === retries) return false;
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
       
-    if (error || !data) {
-      console.error("Error checking mission existence:", error);
-      return false;
+      return !!data;
+    } catch (error) {
+      console.error(`Exception in checkMissionExists (attempt ${attempt}):`, error);
+      if (attempt === retries) return false;
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-    
-    return true;
-  } catch (error) {
-    console.error("Error in checkMissionExists:", error);
-    return false;
   }
+  
+  return false;
 };
 
-// Get all missions from Supabase
-export const getAllSupaMissions = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('missions')
-      .select('*');
+// Get all missions from Supabase with retry logic
+export const getAllSupaMissions = async (retries: number = 3) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`[getAllSupaMissions] Tentative ${attempt}/${retries}`);
       
-    if (error) {
-      console.error("Error fetching all missions:", error);
-      return [];
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error(`Error fetching all missions (attempt ${attempt}):`, error);
+        if (attempt === retries) {
+          throw new Error(`Impossible de charger les missions après ${retries} tentatives: ${error.message}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
+      
+      console.log(`[getAllSupaMissions] ${data?.length || 0} missions récupérées`);
+      return data || [];
+    } catch (error) {
+      console.error(`Exception in getAllSupaMissions (attempt ${attempt}):`, error);
+      if (attempt === retries) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-    
-    return data;
-  } catch (error) {
-    console.error("Error in getAllSupaMissions:", error);
-    return [];
   }
+  
+  return [];
 };
 
-// Get missions by user ID
-export const getSupaMissionsByUserId = async (userId: string) => {
-  try {
-    console.log(`[getSupaMissionsByUserId] Récupération des missions pour l'utilisateur ${userId}`);
-    
-    // Forcer le rafraîchissement de Freshworks pour s'assurer qu'il est bien dans le cache
-    forceRefreshFreshworks();
-    
-    const { data, error } = await supabase
-      .from('missions')
-      .select('*')
-      .eq('sdr_id', userId);
+// Get missions by user ID with retry logic
+export const getSupaMissionsByUserId = async (userId: string, retries: number = 3) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`[getSupaMissionsByUserId] Récupération des missions pour l'utilisateur ${userId} (tentative ${attempt})`);
       
-    if (error) {
-      console.error(`Error fetching missions for user ${userId}:`, error);
-      return [];
+      // Forcer le rafraîchissement de Freshworks pour s'assurer qu'il est bien dans le cache
+      forceRefreshFreshworks();
+      
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('sdr_id', userId)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error(`Error fetching missions for user ${userId} (attempt ${attempt}):`, error);
+        if (attempt === retries) {
+          throw new Error(`Impossible de charger les missions utilisateur après ${retries} tentatives: ${error.message}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
+      
+      // Convertir les données brutes en objets Mission avec noms standardisés
+      const missionsWithNames = await Promise.all(
+        (data || []).map(mission => mapSupaMissionToMission(mission))
+      );
+      
+      console.log(`[getSupaMissionsByUserId] ${missionsWithNames.length} missions récupérées et formatées`);
+      
+      // Log pour vérifier si Freshworks est présent
+      const freshworks = missionsWithNames.find(m => 
+        isFreshworksId(m.id) || 
+        m.name === "Freshworks"
+      );
+      if (freshworks) {
+        console.log("[getSupaMissionsByUserId] Mission Freshworks trouvée:", freshworks);
+      }
+      
+      return missionsWithNames;
+    } catch (error) {
+      console.error(`[getSupaMissionsByUserId] Error retrieving user missions (attempt ${attempt}):`, error);
+      if (attempt === retries) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-    
-    // Convertir les données brutes en objets Mission avec noms standardisés
-    const missionsWithNames = await Promise.all(
-      (data || []).map(mission => mapSupaMissionToMission(mission))
-    );
-    
-    console.log(`[getSupaMissionsByUserId] ${missionsWithNames.length} missions récupérées et formatées`);
-    
-    // Log pour vérifier si Freshworks est présent
-    const freshworks = missionsWithNames.find(m => 
-      isFreshworksId(m.id) || 
-      m.name === "Freshworks"
-    );
-    if (freshworks) {
-      console.log("[getSupaMissionsByUserId] Mission Freshworks trouvée:", freshworks);
-    }
-    
-    return missionsWithNames;
-  } catch (error) {
-    console.error("[getSupaMissionsByUserId] Error retrieving user missions:", error);
-    return [];
   }
+  
+  return [];
 };
 
-// Get a single mission by ID
-export const getSupaMissionById = async (missionId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('missions')
-      .select('*')
-      .eq('id', missionId)
-      .single();
+// Get a single mission by ID with retry logic
+export const getSupaMissionById = async (missionId: string, retries: number = 3) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('id', missionId)
+        .single();
+        
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // Mission not found
+        }
+        console.error(`Error fetching mission ${missionId} (attempt ${attempt}):`, error);
+        if (attempt === retries) {
+          throw new Error(`Impossible de charger la mission après ${retries} tentatives: ${error.message}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
       
-    if (error) {
-      console.error(`Error fetching mission ${missionId}:`, error);
-      return null;
+      return data;
+    } catch (error) {
+      console.error(`Exception in getSupaMissionById (attempt ${attempt}):`, error);
+      if (attempt === retries) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-    
-    return data;
-  } catch (error) {
-    console.error("Error in getSupaMissionById:", error);
-    return null;
   }
+  
+  return null;
 };
 
-// Create a new mission
+// Create a new mission with improved error handling
 export const createSupaMission = async (missionData: any) => {
   try {
     // Convert mission data to match Supabase column names
     const supabaseMissionData = {
       name: missionData.name,
-      sdr_id: missionData.sdrId || null, // Use null if sdrId is empty
+      sdr_id: missionData.sdrId || null,
       description: missionData.description || "",
       start_date: missionData.startDate ? new Date(missionData.startDate).toISOString() : null,
       end_date: missionData.endDate ? new Date(missionData.endDate).toISOString() : null,
       type: missionData.type || "Full",
-      client: missionData.client || missionData.name, // Use name as client if not provided
+      client: missionData.client || missionData.name,
       status: missionData.status || "En cours",
       objectif_mensuel_rdv: missionData.objectifMensuelRdv || null,
       types_prestation: missionData.typesPrestation ? JSON.stringify(missionData.typesPrestation) : '[]',
@@ -137,12 +185,11 @@ export const createSupaMission = async (missionData: any) => {
 
     if (error) {
       console.error("Error creating mission in Supabase:", error);
-      throw error;
+      throw new Error(`Erreur lors de la création de la mission: ${error.message}`);
     }
     
     if (!data) {
-      console.error("No data returned after mission creation");
-      return null;
+      throw new Error("Aucune donnée retournée après la création de la mission");
     }
 
     console.log("Mission created successfully:", data);
@@ -153,9 +200,11 @@ export const createSupaMission = async (missionData: any) => {
   }
 };
 
-// Update an existing mission
+// Update an existing mission with improved error handling
 export const updateSupaMission = async (missionData: any) => {
   try {
+    console.log("[updateSupaMission] Mise à jour de la mission:", missionData.id);
+    
     // Format the data to match Supabase column names
     const supabaseMissionData = {
       name: missionData.name,
@@ -172,6 +221,8 @@ export const updateSupaMission = async (missionData: any) => {
       login_connexion: missionData.loginConnexion || null
     };
     
+    console.log("[updateSupaMission] Données formatées:", supabaseMissionData);
+    
     const { data, error } = await supabase
       .from('missions')
       .update(supabaseMissionData)
@@ -181,12 +232,17 @@ export const updateSupaMission = async (missionData: any) => {
       
     if (error) {
       console.error(`Error updating mission ${missionData.id}:`, error);
-      throw error;
+      throw new Error(`Erreur lors de la mise à jour de la mission: ${error.message}`);
+    }
+    
+    if (!data) {
+      throw new Error("Aucune donnée retournée après la mise à jour de la mission");
     }
     
     // Clear the mission name cache for this mission to ensure updated data is shown
     clearMissionNameCache(missionData.id);
     
+    console.log("[updateSupaMission] Mission mise à jour avec succès:", data);
     return data;
   } catch (error) {
     console.error("Error in updateSupaMission:", error);
@@ -201,8 +257,6 @@ export const updateSupaMission = async (missionData: any) => {
  */
 export const mapSupaMissionToMission = async (mission: any): Promise<Mission> => {
   // Extract SDR profile information - handle both array and object formats
-  // When we join with profiles, Supabase returns it as an object under the relation name
-  // or as an array of objects in newer versions of the API
   let sdrProfile = null;
   
   if (mission.profiles) {
@@ -270,7 +324,7 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
     endDate: mission.end_date ? new Date(mission.end_date) : null,
     type: (mission.type as MissionType) || 'Full',
     status: mission.status === "Fin" ? "Fin" : "En cours",
-    client: displayName, // Using the same standardized name for client to ensure consistency
+    client: displayName,
     requests: [],
     objectifMensuelRdv: mission.objectif_mensuel_rdv || '',
     typesPrestation: typesPrestation,

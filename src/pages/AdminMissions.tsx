@@ -8,11 +8,13 @@ import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog
 import { DeleteMissionDialog } from "@/components/missions/DeleteMissionDialog";
 import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
+import { MissionErrorBoundary } from "@/components/missions/ErrorBoundary";
+import { MissionLoadingState } from "@/components/missions/MissionLoadingState";
+import { MissionErrorState } from "@/components/missions/MissionErrorState";
 import { useAdminMissions } from "./admin-missions/useAdminMissions";
 import { AdminMissionsHeader } from "./admin-missions/AdminMissionsHeader";
-import { AdminMissionsLoading } from "./admin-missions/AdminMissionsLoading";
-import { AdminMissionsError } from "./admin-missions/AdminMissionsError";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 const AdminMissions = () => {
   const { isAdmin } = useAuth();
@@ -20,6 +22,7 @@ const AdminMissions = () => {
     missions,
     isLoading,
     isError,
+    error,
     selectedMission,
     setSelectedMission,
     isCreateModalOpen,
@@ -42,11 +45,14 @@ const AdminMissions = () => {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        console.log("Chargement initial des missions...");
+        console.log("Chargement initial des missions admin...");
         await refetch();
         console.log("Chargement initial terminé");
       } catch (error) {
         console.error("Erreur de chargement initial:", error);
+        toast.error("Erreur de chargement", {
+          description: "Impossible de charger les missions."
+        });
       }
     };
     
@@ -59,72 +65,85 @@ const AdminMissions = () => {
   }
 
   if (isLoading) {
-    return <AdminMissionsLoading />;
+    return (
+      <AppLayout>
+        <MissionLoadingState />
+      </AppLayout>
+    );
   }
 
   if (isError) {
-    return <AdminMissionsError onRetry={refetch} />;
+    return (
+      <AppLayout>
+        <MissionErrorState 
+          onRetry={refetch}
+          error={error instanceof Error ? error.message : "Erreur lors du chargement des missions"}
+        />
+      </AppLayout>
+    );
   }
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <AdminMissionsHeader onCreateMission={handleCreateMissionClick} />
+    <MissionErrorBoundary>
+      <AppLayout>
+        <div className="space-y-6">
+          <AdminMissionsHeader onCreateMission={handleCreateMissionClick} />
 
-        {missions.length === 0 ? (
-          <EmptyMissionState isSdr={false} onCreateMission={handleCreateMissionClick} />
-        ) : (
-          <MissionsTable
-            missions={missions}
-            isAdmin={true}
-            onViewMission={handleViewMission}
-            onDeleteMission={handleDeleteMission}
-            onEditMission={handleEditMission}
-            onMissionUpdated={handleMissionUpdated}
-          />
-        )}
+          {missions.length === 0 ? (
+            <EmptyMissionState isSdr={false} onCreateMission={handleCreateMissionClick} />
+          ) : (
+            <MissionsTable
+              missions={missions}
+              isAdmin={true}
+              onViewMission={handleViewMission}
+              onDeleteMission={handleDeleteMission}
+              onEditMission={handleEditMission}
+              onMissionUpdated={handleMissionUpdated}
+            />
+          )}
 
-        {isCreateModalOpen && (
-          <CreateMissionDialog 
-            open={isCreateModalOpen} 
-            onOpenChange={setIsCreateModalOpen} 
-            onSuccess={handleMissionUpdated} 
-          />
-        )}
+          {isCreateModalOpen && (
+            <CreateMissionDialog 
+              open={isCreateModalOpen} 
+              onOpenChange={setIsCreateModalOpen} 
+              onSuccess={handleMissionUpdated} 
+            />
+          )}
 
-        {selectedMission && (
-          <MissionDetailsDialog
-            mission={selectedMission}
-            open={!!selectedMission}
-            onOpenChange={(open) => !open && setSelectedMission(null)}
-            isSdr={false}
-          />
-        )}
+          {selectedMission && (
+            <MissionDetailsDialog
+              mission={selectedMission}
+              open={!!selectedMission}
+              onOpenChange={(open) => !open && setSelectedMission(null)}
+              isSdr={false}
+            />
+          )}
 
-        {missionToDelete && (
-          <DeleteMissionDialog
-            missionId={missionToDelete.id}
-            missionName={missionToDelete.name}
-            isOpen={!!missionToDelete}
-            onOpenChange={(open) => {
-              if (!open) {
-                setMissionToDelete(null);
-              }
-            }}
-            onDeleted={handleDeleteSuccess}
-          />
-        )}
+          {missionToDelete && (
+            <DeleteMissionDialog
+              missionId={missionToDelete.id}
+              missionName={missionToDelete.name}
+              isOpen={!!missionToDelete}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setMissionToDelete(null);
+                }
+              }}
+              onDeleted={handleDeleteSuccess}
+            />
+          )}
 
-        {missionToEdit && (
-          <EditMissionDialog
-            mission={missionToEdit}
-            open={isEditModalOpen}
-            onOpenChange={handleEditDialogChange}
-            onMissionUpdated={handleMissionUpdated}
-          />
-        )}
-      </div>
-    </AppLayout>
+          {missionToEdit && (
+            <EditMissionDialog
+              mission={missionToEdit}
+              open={isEditModalOpen}
+              onOpenChange={handleEditDialogChange}
+              onMissionUpdated={handleMissionUpdated}
+            />
+          )}
+        </div>
+      </AppLayout>
+    </MissionErrorBoundary>
   );
 };
 

@@ -12,6 +12,9 @@ import { EmptyMissionState } from "@/components/missions/EmptyMissionState";
 import { CreateMissionDialog } from "@/components/missions/CreateMissionDialog";
 import { MissionDetailsDialog } from "@/components/missions/MissionDetailsDialog";
 import { EditMissionDialog } from "@/components/missions/EditMissionDialog";
+import { MissionErrorBoundary } from "@/components/missions/ErrorBoundary";
+import { MissionLoadingState } from "@/components/missions/MissionLoadingState";
+import { MissionErrorState } from "@/components/missions/MissionErrorState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -43,7 +46,7 @@ const Missions = () => {
     setRefreshKey(prev => prev + 1);
   }, [queryClient, user?.id, canViewAllMissions]);
 
-  const { data: missions = [], isLoading } = useQuery({
+  const { data: missions = [], isLoading, error, refetch } = useQuery({
     queryKey: ['missions', user?.id, canViewAllMissions, refreshKey],
     queryFn: async () => {
       try {
@@ -56,12 +59,19 @@ const Missions = () => {
         return [];
       } catch (error) {
         console.error("Erreur lors du chargement des missions:", error);
-        toast.error("Erreur lors du chargement des missions");
-        return [];
+        throw error; // Re-throw pour que React Query puisse gérer l'erreur
       }
     },
-    enabled: !!user
+    enabled: !!user,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 30000, // Cache pendant 30 secondes
+    refetchOnWindowFocus: false
   });
+
+  const handleRetry = useCallback(() => {
+    refetch();
+  }, [refetch]);
     
   const handleViewMission = (mission: Mission) => {
     console.log("Affichage de la mission:", mission);
@@ -81,17 +91,35 @@ const Missions = () => {
 
   const handleMissionUpdated = () => {
     console.log("Mission mise à jour, rafraîchissement programmé");
+    toast.success("Mission mise à jour avec succès");
     setTimeout(() => {
       handleRefreshMissions();
     }, 500);
   };
+
+  if (!user) {
+    return (
+      <AppLayout>
+        <MissionLoadingState />
+      </AppLayout>
+    );
+  }
   
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <p>Chargement des missions...</p>
-        </div>
+        <MissionLoadingState />
+      </AppLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppLayout>
+        <MissionErrorState 
+          onRetry={handleRetry}
+          error={error instanceof Error ? error.message : "Erreur inconnue"}
+        />
       </AppLayout>
     );
   }
@@ -99,52 +127,54 @@ const Missions = () => {
   console.log("Missions chargées:", missions);
   
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Missions</h1>
-          {canCreateMission && (
-            <Button onClick={handleCreateMissionClick}>
-              <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
-            </Button>
+    <MissionErrorBoundary>
+      <AppLayout>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Missions</h1>
+            {canCreateMission && (
+              <Button onClick={handleCreateMissionClick}>
+                <Plus className="mr-2 h-4 w-4" /> Nouvelle mission
+              </Button>
+            )}
+          </div>
+          
+          {missions.length === 0 ? (
+            <EmptyMissionState 
+              isSdr={canCreateMission} 
+              onCreateMission={handleCreateMissionClick} 
+            />
+          ) : (
+            <MissionsTable 
+              missions={missions} 
+              isAdmin={canViewAllMissions} 
+              onViewMission={handleViewMission}
+              onEditMission={canCreateMission ? handleEditMission : undefined}
+            />
           )}
-        </div>
-        
-        {missions.length === 0 ? (
-          <EmptyMissionState 
+          
+          <CreateMissionDialog 
+            open={isCreateModalOpen} 
+            onOpenChange={setIsCreateModalOpen} 
+            onSuccess={handleRefreshMissions} 
+          />
+          
+          <MissionDetailsDialog 
+            mission={selectedMission} 
+            open={!!selectedMission && !isEditModalOpen} 
+            onOpenChange={(open) => !open && setSelectedMission(null)} 
             isSdr={canCreateMission} 
-            onCreateMission={handleCreateMissionClick} 
           />
-        ) : (
-          <MissionsTable 
-            missions={missions} 
-            isAdmin={canViewAllMissions} 
-            onViewMission={handleViewMission}
-            onEditMission={canCreateMission ? handleEditMission : undefined}
-          />
-        )}
-        
-        <CreateMissionDialog 
-          open={isCreateModalOpen} 
-          onOpenChange={setIsCreateModalOpen} 
-          onSuccess={handleRefreshMissions} 
-        />
-        
-        <MissionDetailsDialog 
-          mission={selectedMission} 
-          open={!!selectedMission && !isEditModalOpen} 
-          onOpenChange={(open) => !open && setSelectedMission(null)} 
-          isSdr={canCreateMission} 
-        />
 
-        <EditMissionDialog
-          mission={selectedMission}
-          open={isEditModalOpen}
-          onOpenChange={setIsEditModalOpen}
-          onMissionUpdated={handleMissionUpdated}
-        />
-      </div>
-    </AppLayout>
+          <EditMissionDialog
+            mission={selectedMission}
+            open={isEditModalOpen}
+            onOpenChange={setIsEditModalOpen}
+            onMissionUpdated={handleMissionUpdated}
+          />
+        </div>
+      </AppLayout>
+    </MissionErrorBoundary>
   );
 };
 

@@ -1,5 +1,5 @@
 
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,27 +17,30 @@ export function useAdminMissions() {
   // Référence pour éviter les opérations simultanées
   const isRefreshing = useRef(false);
   
-  // Requête pour obtenir les missions avec un temps de cache plus long
+  // Requête pour obtenir les missions avec gestion d'erreur améliorée
   const { 
     data: missions = [], 
     isLoading,
     isError,
+    error,
     refetch
   } = useQuery({
     queryKey: ['missions', 'admin'],
-    queryFn: getAllMissions,
-    staleTime: 5 * 60 * 1000, // 5 minutes pour éviter les rechargements fréquents
-    refetchOnWindowFocus: false,
-    retry: 0, // Pas de tentatives répétées
-    refetchInterval: false, // Pas de rechargement automatique périodique
-    meta: {
-      onSettled: (_, error) => {
-        if (error) {
-          console.error("Erreur de requête:", error);
-          toast.error("Erreur lors du chargement des missions");
-        }
+    queryFn: async () => {
+      try {
+        console.log("[useAdminMissions] Chargement des missions admin");
+        const result = await getAllMissions();
+        console.log(`[useAdminMissions] ${result.length} missions chargées`);
+        return result;
+      } catch (error) {
+        console.error("[useAdminMissions] Erreur lors du chargement:", error);
+        throw error;
       }
-    }
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes pour éviter les rechargements fréquents
+    refetchOnWindowFocus: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Fonction pour rafraîchir les données avec protection contre les appels multiples
@@ -48,7 +51,7 @@ export function useAdminMissions() {
       return;
     }
     
-    console.log("Demande de rafraîchissement des missions");
+    console.log("Demande de rafraîchissement des missions admin");
     isRefreshing.current = true;
     
     try {
@@ -61,6 +64,9 @@ export function useAdminMissions() {
       console.log("Rafraîchissement terminé");
     } catch (error) {
       console.error("Erreur lors du rafraîchissement:", error);
+      toast.error("Erreur de rafraîchissement", {
+        description: "Impossible de rafraîchir les missions."
+      });
     } finally {
       // Attendre un moment avant de permettre un nouveau rafraîchissement
       setTimeout(() => {
@@ -72,6 +78,7 @@ export function useAdminMissions() {
   // Gestionnaire pour la suppression d'une mission
   const handleDeleteSuccess = useCallback(() => {
     setMissionToDelete(null);
+    toast.success("Mission supprimée avec succès");
     
     // Attendre un court délai avant de rafraîchir les données
     setTimeout(() => {
@@ -98,6 +105,8 @@ export function useAdminMissions() {
   }, []);
 
   const handleMissionUpdated = useCallback(() => {
+    toast.success("Mission mise à jour avec succès");
+    
     // Attendre un court délai avant de rafraîchir les données
     setTimeout(() => {
       refreshMissionsData();
@@ -119,6 +128,7 @@ export function useAdminMissions() {
     missions,
     isLoading,
     isError,
+    error,
     selectedMission,
     setSelectedMission,
     isCreateModalOpen,
