@@ -313,6 +313,13 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
     }
   }
 
+  console.log(`[mapSupaMissionToMission] Mapping des champs texte pour mission ${mission.id}:`, {
+    objectif_mensuel_rdv: mission.objectif_mensuel_rdv,
+    criteres_qualification: mission.criteres_qualification,
+    interlocuteurs_cibles: mission.interlocuteurs_cibles,
+    login_connexion: mission.login_connexion
+  });
+
   return {
     id: mission.id,
     name: displayName,
@@ -326,10 +333,11 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
     status: mission.status === "Fin" ? "Fin" : "En cours",
     client: displayName,
     requests: [],
-    objectifMensuelRdv: mission.objectif_mensuel_rdv || '',
+    // Preserve empty strings instead of converting to null/undefined
+    objectifMensuelRdv: mission.objectif_mensuel_rdv ?? '',
     typesPrestation: typesPrestation,
-    criteresQualification: mission.criteres_qualification || '',
-    interlocuteursCibles: mission.interlocuteurs_cibles || '',
-    loginConnexion: mission.login_connexion || ''
+    criteresQualification: mission.criteres_qualification ?? '',
+    interlocuteursCibles: mission.interlocuteurs_cibles ?? '',
+    loginConnexion: mission.login_connexion ?? ''
   };
 };

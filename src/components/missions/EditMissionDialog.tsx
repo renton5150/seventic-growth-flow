@@ -68,6 +68,7 @@ export function EditMissionDialog({
     setIsSubmitting(true);
     
     try {
+      // Prepare complete mission data with detailed logging
       const updatedMissionData = {
         id: mission.id,
         name: values.name,
@@ -77,6 +78,7 @@ export function EditMissionDialog({
         endDate: values.endDate,
         type: values.type,
         status: values.status,
+        // Ensure these fields are preserved as strings, not converted to null
         objectifMensuelRdv: values.objectifMensuelRdv || "",
         typesPrestation: values.typesPrestation || [],
         criteresQualification: values.criteresQualification || "",
@@ -84,7 +86,31 @@ export function EditMissionDialog({
         loginConnexion: values.loginConnexion || ""
       };
       
-      console.log("Données complètes à envoyer pour mise à jour:", updatedMissionData);
+      console.log("[EditMissionDialog] Données du formulaire:", JSON.stringify(values, null, 2));
+      console.log("[EditMissionDialog] Données préparées pour l'API:", JSON.stringify(updatedMissionData, null, 2));
+      console.log("[EditMissionDialog] Vérification des champs critiques:", {
+        objectifMensuelRdv: {
+          fromForm: values.objectifMensuelRdv,
+          prepared: updatedMissionData.objectifMensuelRdv,
+          type: typeof updatedMissionData.objectifMensuelRdv
+        },
+        criteresQualification: {
+          fromForm: values.criteresQualification,
+          prepared: updatedMissionData.criteresQualification,
+          type: typeof updatedMissionData.criteresQualification
+        },
+        interlocuteursCibles: {
+          fromForm: values.interlocuteursCibles,
+          prepared: updatedMissionData.interlocuteursCibles,
+          type: typeof updatedMissionData.interlocuteursCibles
+        },
+        loginConnexion: {
+          fromForm: values.loginConnexion,
+          prepared: updatedMissionData.loginConnexion,
+          type: typeof updatedMissionData.loginConnexion
+        }
+      });
+      
       console.log("Fermeture de la boîte de dialogue avant la mise à jour API");
       setInternalOpen(false);
       onOpenChange(false);
@@ -92,7 +118,9 @@ export function EditMissionDialog({
       // API call with a small delay to ensure UI update completes first
       setTimeout(async () => {
         try {
-          await updateMission(updatedMissionData);
+          console.log("[EditMissionDialog] Appel API updateMission avec:", updatedMissionData);
+          const result = await updateMission(updatedMissionData);
+          console.log("[EditMissionDialog] Résultat de l'API:", result);
           
           console.log("Mission mise à jour avec succès, notification");
           toast.success("Mission mise à jour", {

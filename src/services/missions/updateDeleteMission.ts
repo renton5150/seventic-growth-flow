@@ -22,8 +22,7 @@ export const updateSupaMission = async (mission: {
   interlocuteursCibles?: string;
   loginConnexion?: string;
 }): Promise<Mission> => {
-  console.log("updateSupaMission reçoit:", mission);
-  console.log("Status à mettre à jour:", mission.status);
+  console.log("[updateSupaMission] updateDeleteMission - Données reçues:", JSON.stringify(mission, null, 2));
   
   // Check if mission exists
   const { data: existingMission, error: checkError } = await supabase
@@ -48,32 +47,46 @@ export const updateSupaMission = async (mission: {
     throw new Error("Le SDR est requis pour mettre à jour une mission");
   }
   
-  // Prepare data for Supabase
+  // Prepare data for Supabase - preserve empty strings instead of converting to null
   const supabaseData = {
     name: mission.name,
     sdr_id: mission.sdrId,
-    description: mission.description || "",
+    description: mission.description !== undefined ? mission.description : "",
     start_date: mission.startDate ? new Date(mission.startDate).toISOString() : null,
     end_date: mission.endDate ? new Date(mission.endDate).toISOString() : null,
     type: mission.type || "Full",
     status: mission.status || "En cours",
     client: mission.name, // Utilise le nom comme valeur pour client (requis par le schéma)
-    objectif_mensuel_rdv: mission.objectifMensuelRdv || null,
+    // Preserve empty strings - these are the problematic fields
+    objectif_mensuel_rdv: mission.objectifMensuelRdv !== undefined ? mission.objectifMensuelRdv : "",
     types_prestation: mission.typesPrestation ? JSON.stringify(mission.typesPrestation) : '[]',
-    criteres_qualification: mission.criteresQualification || null,
-    interlocuteurs_cibles: mission.interlocuteursCibles || null,
-    login_connexion: mission.loginConnexion || null
+    criteres_qualification: mission.criteresQualification !== undefined ? mission.criteresQualification : "",
+    interlocuteurs_cibles: mission.interlocuteursCibles !== undefined ? mission.interlocuteursCibles : "",
+    login_connexion: mission.loginConnexion !== undefined ? mission.loginConnexion : ""
   };
   
-  console.log("Données formatées pour mise à jour Supabase:", supabaseData);
-  console.log("SDR ID qui sera mis à jour:", supabaseData.sdr_id);
-  console.log("Status qui sera mis à jour:", supabaseData.status);
-  console.log("Nouveaux champs qui seront mis à jour:", {
-    objectif_mensuel_rdv: supabaseData.objectif_mensuel_rdv,
-    types_prestation: supabaseData.types_prestation,
-    criteres_qualification: supabaseData.criteres_qualification,
-    interlocuteurs_cibles: supabaseData.interlocuteurs_cibles,
-    login_connexion: supabaseData.login_connexion
+  console.log("[updateSupaMission] updateDeleteMission - Données formatées:", JSON.stringify(supabaseData, null, 2));
+  console.log("[updateSupaMission] updateDeleteMission - Vérification des champs critiques:", {
+    objectif_mensuel_rdv: {
+      original: mission.objectifMensuelRdv,
+      formatted: supabaseData.objectif_mensuel_rdv,
+      type: typeof supabaseData.objectif_mensuel_rdv
+    },
+    criteres_qualification: {
+      original: mission.criteresQualification,
+      formatted: supabaseData.criteres_qualification,
+      type: typeof supabaseData.criteres_qualification
+    },
+    interlocuteurs_cibles: {
+      original: mission.interlocuteursCibles,
+      formatted: supabaseData.interlocuteurs_cibles,
+      type: typeof supabaseData.interlocuteurs_cibles
+    },
+    login_connexion: {
+      original: mission.loginConnexion,
+      formatted: supabaseData.login_connexion,
+      type: typeof supabaseData.login_connexion
+    }
   });
   
   const { data, error } = await supabase
@@ -97,14 +110,13 @@ export const updateSupaMission = async (mission: {
     }
   }
   
-  console.log("Réponse de Supabase après mise à jour:", data);
-  console.log("Status retourné après mise à jour:", data.status);
-  console.log("Nouveaux champs retournés après mise à jour:", {
+  console.log("[updateSupaMission] updateDeleteMission - Réponse Supabase:", JSON.stringify(data, null, 2));
+  console.log("[updateSupaMission] updateDeleteMission - Champs sauvegardés:", {
     objectif_mensuel_rdv: data.objectif_mensuel_rdv,
-    types_prestation: data.types_prestation,
     criteres_qualification: data.criteres_qualification,
     interlocuteurs_cibles: data.interlocuteurs_cibles,
-    login_connexion: data.login_connexion
+    login_connexion: data.login_connexion,
+    types_prestation: data.types_prestation
   });
   
   // Verify sdr_id was properly saved
