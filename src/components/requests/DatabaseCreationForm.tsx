@@ -97,30 +97,35 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     initializeForm();
   }, [editMode, initialData, form]);
 
-  const handleFileUpload = async (field: string, files: FileList | null | string) => {
-    if (!files || !user?.id) {
-      console.log("DatabaseCreationForm - Pas de fichiers ou utilisateur non connecté");
+  const handleFileUpload = async (field: string, files: FileList | null) => {
+    console.log(`DatabaseCreationForm - Tentative de téléchargement pour le champ: ${field}`, files);
+    
+    if (!files || files.length === 0 || !user?.id) {
+      console.log("DatabaseCreationForm - Pas de fichiers valides ou utilisateur non connecté");
       return;
     }
 
-    // Si c'est une string (URL existante), on ne fait rien
-    if (typeof files === 'string') {
-      console.log("DatabaseCreationForm - URL de fichier reçue:", files);
-      return;
-    }
-
-    // Si c'est une FileList, on prend le premier fichier
     const file = files[0];
     if (!file) {
       console.log("DatabaseCreationForm - Aucun fichier dans la FileList");
       return;
     }
 
-    console.log(`DatabaseCreationForm - Téléchargement du fichier pour ${field}:`, file.name);
+    console.log(`DatabaseCreationForm - Téléchargement du fichier pour ${field}:`, {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
 
     try {
+      // Afficher un toast de chargement
+      const loadingToast = toast.loading(`Téléchargement de "${file.name}" en cours...`);
+      
       // Télécharger le fichier vers Supabase Storage
       const fileUrl = await uploadBlacklistFile(file);
+      
+      // Supprimer le toast de chargement
+      toast.dismiss(loadingToast);
       
       if (fileUrl) {
         console.log(`DatabaseCreationForm - Fichier téléchargé avec succès: ${fileUrl}`);
@@ -129,16 +134,20 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         const currentUrls = form.getValues(field as keyof DatabaseCreationFormData) as string[] || [];
         const newUrls = [...currentUrls, fileUrl];
         
+        console.log(`DatabaseCreationForm - Mise à jour du champ ${field} avec les URLs:`, newUrls);
         form.setValue(field as keyof DatabaseCreationFormData, newUrls as any);
+        
+        // Forcer la re-validation du formulaire
+        form.trigger(field as keyof DatabaseCreationFormData);
         
         toast.success(`Fichier "${file.name}" téléchargé avec succès`);
       } else {
-        console.error("DatabaseCreationForm - Échec du téléchargement");
+        console.error("DatabaseCreationForm - uploadBlacklistFile a retourné null");
         toast.error("Erreur lors du téléchargement du fichier");
       }
     } catch (error) {
       console.error("DatabaseCreationForm - Erreur lors du téléchargement:", error);
-      toast.error("Erreur lors du téléchargement du fichier");
+      toast.error(`Erreur lors du téléchargement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
   };
 
