@@ -160,7 +160,7 @@ export const DatabaseSection = ({
                           icon={<Upload className="h-6 w-6 text-muted-foreground" />}
                           title={uploading ? "Téléchargement en cours..." : "Ajouter une base de données"}
                           description="Formats acceptés : XLS, XLSX, CSV (Max 50 Mo)"
-                          value=""
+                          value={undefined}
                           onChange={(files) => handleMultipleDatabaseFileUpload(files, field.value || [], field.onChange)}
                           accept=".xls,.xlsx,.csv"
                           maxSize={50}

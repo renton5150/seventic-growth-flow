@@ -109,7 +109,7 @@ export const MultiFileUploader = ({
           icon={icon}
           title={uploading !== null ? "Téléchargement en cours..." : title}
           description={description}
-          value=""
+          value={undefined}
           onChange={(fileList) => {
             if (fileList && typeof fileList !== 'string' && fileList.length > 0) {
               handleAddFile(fileList, value.length);
