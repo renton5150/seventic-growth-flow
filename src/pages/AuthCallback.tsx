@@ -18,14 +18,18 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log("🔄 Traitement du callback d'authentification");
+        console.log("🔄 Traitement du callback d'authentification - NOUVELLE VERSION");
         console.log("📍 URL complète:", window.location.href);
+        console.log("🔗 Hash détecté:", window.location.hash);
+        console.log("🔍 Search params:", window.location.search);
         
         // Extraire les paramètres de l'URL
         const type = searchParams.get("type");
         const emailParam = searchParams.get("email");
         const error = searchParams.get("error");
         const errorDescription = searchParams.get("error_description");
+        
+        console.log("📧 Paramètres extraits:", { type, emailParam, error, errorDescription });
         
         if (emailParam) {
           setEmail(emailParam);
@@ -42,24 +46,25 @@ const AuthCallback = () => {
         
         // Récupérer le hash qui peut contenir les tokens
         const hash = window.location.hash;
-        console.log("🔗 Hash détecté:", hash);
+        console.log("🔗 Hash analysé:", hash);
         
-        // Gérer les tokens dans le hash
+        // Gérer les tokens dans le hash - CORRECTION DE LA LOGIQUE
         if (hash && hash.length > 1) {
           const hashParams = new URLSearchParams(hash.substring(1));
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token') || '';
           const tokenType = hashParams.get('type');
           
-          console.log("🔑 Tokens trouvés:", { 
+          console.log("🔑 Tokens trouvés dans le hash:", { 
             hasAccessToken: !!accessToken, 
             hasRefreshToken: !!refreshToken,
-            tokenType 
+            tokenType,
+            allHashParams: Object.fromEntries(hashParams.entries())
           });
           
           if (accessToken) {
             try {
-              console.log("⚡ Configuration de la session avec les tokens...");
+              console.log("⚡ Configuration de la session avec les tokens du hash...");
               
               const { data, error: sessionError } = await supabase.auth.setSession({
                 access_token: accessToken,
@@ -73,7 +78,7 @@ const AuthCallback = () => {
                 return;
               }
               
-              console.log("✅ Session configurée avec succès");
+              console.log("✅ Session configurée avec succès depuis le hash");
               setStatus("success");
               
               // Déterminer la redirection selon le type
@@ -84,7 +89,7 @@ const AuthCallback = () => {
                   navigate(`/reset-password?type=invite&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
                 }, 2000);
               } else {
-                console.log("🔄 Récupération de mot de passe - redirection");
+                console.log("🔄 Récupération de mot de passe - redirection vers reset password");
                 setMessage("Authentification réussie ! Vous allez être redirigé vers la page de réinitialisation du mot de passe.");
                 setTimeout(() => {
                   navigate(`/reset-password?type=recovery&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
@@ -103,8 +108,8 @@ const AuthCallback = () => {
           }
         }
         
-        // Vérifier s'il y a une session existante
-        console.log("🔍 Vérification de session existante...");
+        // Fallback : vérifier s'il y a une session existante
+        console.log("🔍 Aucun token dans le hash, vérification de session existante...");
         const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
         
         if (getSessionError) {
@@ -127,7 +132,14 @@ const AuthCallback = () => {
             }
           }, 1500);
         } else {
-          console.warn("⚠️ Aucun token ni session trouvé");
+          console.warn("⚠️ Aucun token ni session trouvé - PROBLÈME POTENTIEL");
+          console.log("🔍 Détails de debug:", {
+            fullUrl: window.location.href,
+            hash: window.location.hash,
+            search: window.location.search,
+            pathname: window.location.pathname
+          });
+          
           setStatus("error");
           setMessage("Le lien d'authentification est invalide ou a expiré. Veuillez demander un nouveau lien.");
         }
@@ -139,8 +151,8 @@ const AuthCallback = () => {
       }
     };
     
-    // Délai pour laisser le temps à l'URL de se charger complètement
-    const timeoutId = setTimeout(handleAuthCallback, 100);
+    // Délai plus court pour traiter rapidement
+    const timeoutId = setTimeout(handleAuthCallback, 50);
     
     return () => clearTimeout(timeoutId);
   }, [searchParams, navigate]);

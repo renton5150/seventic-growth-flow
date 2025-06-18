@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "./cors.ts";
 import { validateRequest } from "./validation.ts";
@@ -36,7 +37,7 @@ serve(async (req) => {
     } = requestBody;
     
     console.log(`Attempting to send invitation to: ${email}`);
-    console.log(`Redirect URL: ${redirectUrl}`);
+    console.log(`Redirect URL received: ${redirectUrl}`);
     console.log(`Debug mode: ${debug ? "enabled" : "disabled"}`);
     console.log("Invitation options:", JSON.stringify(inviteOptions));
     
@@ -98,12 +99,10 @@ serve(async (req) => {
       console.log("Setting default expireIn to 180 days (15552000 seconds)");
     }
     
-    // Utiliser la nouvelle URL de callback simplifiée
-    const callbackUrl = redirectUrl.includes('/auth-callback') 
-      ? redirectUrl 
-      : redirectUrl.replace('/reset-password', '/auth-callback');
+    // Utiliser l'URL de production Lovable fixe
+    const callbackUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback`;
     
-    console.log("Using callback URL:", callbackUrl);
+    console.log("Using fixed callback URL:", callbackUrl);
     
     // Send appropriate email based on whether user exists
     if (userExists) {

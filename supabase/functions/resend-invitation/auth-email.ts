@@ -12,9 +12,8 @@ export async function sendResetLink(
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
   
   try {
-    // Utiliser l'URL de redirection avec /auth-callback
-    const origin = new URL(redirectUrl).origin;
-    const callbackRedirectUrl = `${origin}/auth-callback?type=recovery&email=${encodeURIComponent(email)}`;
+    // Utiliser l'URL de production Lovable pour les redirections
+    const callbackRedirectUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery&email=${encodeURIComponent(email)}`;
     
     console.log("URL de redirection pour reset:", callbackRedirectUrl);
     
@@ -114,9 +113,8 @@ export async function sendInvitationLink(
   console.log("Nouvel utilisateur, envoi d'une invitation");
   
   try {
-    // Utiliser l'URL de redirection avec /auth-callback
-    const origin = new URL(redirectUrl).origin;
-    const callbackRedirectUrl = `${origin}/auth-callback?type=invite&email=${encodeURIComponent(email)}`;
+    // Utiliser l'URL de production Lovable pour les redirections
+    const callbackRedirectUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite&email=${encodeURIComponent(email)}`;
     
     console.log("URL de redirection pour invitation:", callbackRedirectUrl);
     
@@ -124,7 +122,18 @@ export async function sendInvitationLink(
       emailRedirectTo: callbackRedirectUrl,
       data: {
         role: profile.role,
-        name: profile.name
+        name: profile.name,
+        // Template personnalisé pour l'email
+        email_subject: "Inscription application Lovable Seventic",
+        email_body: `Bonjour,
+
+Nous vous invitons à vous connecter et créer votre mot de passe pour accéder à l'application Lovable Seventic.
+
+Merci de mettre un mot de passe complexe.
+
+Cdt,
+
+The Seventic Team`
       }
     };
     
