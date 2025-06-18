@@ -32,10 +32,11 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
   const [missionName, setMissionName] = useState<string>("");
   const [isLoadingMissionName, setIsLoadingMissionName] = useState<boolean>(false);
   
-  // Utiliser useWatch au lieu d'accéder directement à control._formValues
+  // Utiliser useWatch de manière sécurisée
   const watchedMissionId = useWatch({
     control,
-    name: "missionId"
+    name: "missionId",
+    defaultValue: ""
   });
   
   // Récupérer les missions de l'utilisateur connecté
@@ -49,10 +50,14 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
   useEffect(() => {
     const initializeData = async () => {
       console.log("FormHeader - Initialisation du cache de missions et Freshworks");
-      // Forcer Freshworks en cache dès le démarrage
-      forceRefreshFreshworks();
-      // Synchroniser toutes les missions connues
-      await syncKnownMissions();
+      try {
+        // Forcer Freshworks en cache dès le démarrage
+        forceRefreshFreshworks();
+        // Synchroniser toutes les missions connues
+        await syncKnownMissions();
+      } catch (error) {
+        console.error("FormHeader - Erreur lors de l'initialisation:", error);
+      }
     };
     
     initializeData();
@@ -255,7 +260,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
             <FormLabel>Outil</FormLabel>
             <FormControl>
               <Select 
-                value={field.value} 
+                value={field.value || ""} 
                 onValueChange={field.onChange}
                 disabled={field.disabled}
               >

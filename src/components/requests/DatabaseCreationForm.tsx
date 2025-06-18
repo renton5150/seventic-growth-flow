@@ -26,15 +26,21 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   const [submitting, setSubmitting] = useState(false);
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isFormReady, setIsFormReady] = useState(false);
 
   const form = useForm<DatabaseCreationFormData>({
     resolver: zodResolver(databaseCreationSchema),
     defaultValues,
+    mode: "onChange"
   });
 
   useEffect(() => {
     const initializeForm = async () => {
+      console.log("DatabaseCreationForm - Initialisation du formulaire");
+      
+      // Attendre un court délai pour s'assurer que tous les contextes sont prêts
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       if (editMode && initialData) {
         console.log("DatabaseCreationForm - Mode édition - données initiales:", initialData);
         
@@ -70,7 +76,9 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         console.log("DatabaseCreationForm - Données du formulaire préparées:", formData);
         form.reset(formData);
       }
-      setIsInitialized(true);
+      
+      setIsFormReady(true);
+      console.log("DatabaseCreationForm - Formulaire initialisé et prêt");
     };
 
     initializeForm();
@@ -173,11 +181,12 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   };
 
   // Afficher un indicateur de chargement pendant l'initialisation
-  if (!isInitialized) {
+  if (!isFormReady) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-3 text-gray-600">Initialisation du formulaire...</span>
         </div>
       </div>
     );
@@ -185,17 +194,18 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <FormHeader 
-        editMode={editMode} 
-        control={form.control}
-        user={user}
-      />
-      
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormHeader 
+            editMode={editMode} 
+            control={form.control}
+            user={user}
+          />
+          
           <TargetingSection 
             control={form.control}
           />
+          
           <BlacklistSection 
             control={form.control}
             blacklistAccountsTab={blacklistAccountsTab}
@@ -204,6 +214,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
             setBlacklistContactsTab={setBlacklistContactsTab}
             handleFileUpload={handleFileUpload}
           />
+          
           <FormFooter 
             submitting={submitting} 
             editMode={editMode}
